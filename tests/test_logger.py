@@ -152,7 +152,8 @@ def test_in_memory_logger(dummy_state: State):
     assert in_memory_logger.most_recent_values["epoch"] == "should_be_recorded_and_override"
     assert in_memory_logger.most_recent_timestamps["epoch"].batch == 1
 
-    # test get_timeseries()
+
+def test_in_memory_logger_get_timeseries():
     in_memory_logger = InMemoryLogger(LogLevel.BATCH)
     data = {"accuracy/val": [], "batch": [], "batch_in_epoch": []}
     for i in range(10):

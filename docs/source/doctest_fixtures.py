@@ -114,27 +114,3 @@ Trainer = functools.partial(
 
 # patch composer so that 'from composer import Trainer' calls do not override change above
 composer.Trainer = Trainer
-
-
-def populate_in_memory_logger(logger: InMemoryLogger,
-                              datafxn: Callable = lambda x: x / 3,
-                              datafield: str = "accuracy/val",
-                              n_epochs: int = 5,
-                              batches_per_epoch: int = 6,
-                              samples_per_batch: int = 10,
-                              tokens_per_sample: int = 20,
-                              loglevel: LogLevel = LogLevel.BATCH):
-    for batch in range(n_epochs * batches_per_epoch):
-        datapoint = datafxn(batch)
-        sample_in_epoch = (batch % batches_per_epoch) * samples_per_batch
-        token = tokens_per_sample * samples_per_batch * batch
-        token_in_epoch = (batch % batches_per_epoch) * samples_per_batch * tokens_per_sample
-        timestamp = Timestamp(epoch=Time(batch // batches_per_epoch, "ep"),
-                              batch=Time(batch, "ba"),
-                              batch_in_epoch=Time(batch % batches_per_epoch, "ba"),
-                              sample=Time(batch * samples_per_batch, "sp"),
-                              sample_in_epoch=Time(sample_in_epoch, "sp"),
-                              token=Time(token, "tok"),
-                              token_in_epoch=Time(token_in_epoch, "tok"))
-        logger.log_metric(timestamp=timestamp, log_level=loglevel, data={datafield: datapoint})
-    return logger
