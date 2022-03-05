@@ -22,8 +22,8 @@ def freeze_layers(
     model: Model,
     optimizers: Optimizers,
     current_duration: float,
-    freeze_start: float,
-    freeze_level: float,
+    freeze_start: float = 0.5,
+    freeze_level: float = 1.0,
 ) -> Tuple[int, float]:
     """Progressively freeze the layers of the network in-place during training, starting with the earlier layers.
 
@@ -44,8 +44,10 @@ def freeze_layers(
         model (Model): The model being trained.
         optimizers (Optimizers): The optimizers used during training.
         current_duration (float): The fraction on [0; 1) of the training process complete.
-        freeze_start (float): The fraction of the training process on [0; 1) to run before freezing begins.
-        freeze_level (float): The maximum fraction of layers on [0; 1) to freeze.
+        freeze_start (float, optional): The fraction of the training process on [0; 1) to run
+            before freezing begins. Default: ``0.5``.
+        freeze_level (float, optional): The maximum fraction of layers on [0; 1) to freeze.
+            Default: ``1.0``.
 
     Return:
         (int, float): The number of layers frozen, and the percentage of the total model frozen.
@@ -105,8 +107,8 @@ class LayerFreezing(Algorithm):
             )
 
     Args:
-        freeze_start (float): The fraction of training to run before freezing begins.
-        freeze_level (float): The maximum fraction of layers to freeze.
+        freeze_start (float): The fraction of training to run before freezing begins. Default: ``0.5``.
+        freeze_level (float): The maximum fraction of layers to freeze. Default: ``1.0``.
     """
 
     def __init__(self, freeze_start: float = 0.5, freeze_level: float = 1.0):

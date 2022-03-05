@@ -37,7 +37,7 @@ For a developer install, clone directly:
 .. note::
 
     For performance in image-based operations, we **highly** recommend installing
-    Pillow-SIMD <https://github.com/uploadcare/pillow-simd>`_ To install, vanilla pillow must first be uninstalled.
+    `Pillow-SIMD <https://github.com/uploadcare/pillow-simd>`_\.  To install, vanilla pillow must first be uninstalled.
 
     .. code-block::
 
@@ -46,27 +46,10 @@ For a developer install, clone directly:
     Pillow-SIMD is not supported for Apple M1 Macs.
 
 
-Docker
-~~~~~~
+.. Docker Section H2 
 
-To access our docker, either pull the latest image from our Docker repository with:
-
-.. code-block::
-
-    docker pull mosaicml/composer:latest
-
-or build our ``Dockerfile``:
-
-.. code-block::
-
-    git clone https://github.com/mosaicml/composer.git
-    cd composer/docker && make build
-
-Our dockerfile has Ubuntu 18.04, Python 3.8.0, PyTorch 1.9.0, and CUDA 11.1.1, and has been tested to work with
-GPU-based instances on AWS, GCP, and Azure. ``Pillow-SIMD`` is installed by default in our docker image.
-
-Please see the ``README`` in the docker folder for additional details.
-
+.. include:: ../../../docker/README.md
+   :parser: myst_parser.sphinx_
 
 Verification
 ~~~~~~~~~~~~

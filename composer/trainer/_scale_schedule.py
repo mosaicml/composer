@@ -1,45 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import functools
 from collections import Counter
-from typing import Union
 
 from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, ExponentialLR, MultiStepLR, StepLR
 
-from composer.core.types import Scheduler
-from composer.optim.scheduler import ComposerSchedulerFn
-
-__all__ = ["scale_scheduler"]
+from composer.core.types import PyTorchScheduler
 
 
-def _scale_pytorch_scheduler(scheduler: Scheduler, ssr: float):
-    if isinstance(scheduler, StepLR):
-        scheduler.step_size = int(scheduler.step_size * ssr)  # type: ignore  -- unknown attribute
-    elif isinstance(scheduler, MultiStepLR):
-        milestones = scheduler.milestones  # type: ignore  -- unknown attribute
-        milestones = Counter([int(ms * ssr) for ms in milestones])
-        scheduler.milestones = milestones  # type: ignore  -- unknown attribute
-    elif isinstance(scheduler, CosineAnnealingLR):
-        scheduler.T_max = int(scheduler.T_max * ssr)  # type: ignore  -- unknown attribute
-    elif isinstance(scheduler, CosineAnnealingWarmRestarts):
-        # TODO: account for warmups
-        scheduler.T_0 = int(scheduler.T_0 * ssr)  # type: ignore  -- unknown attribute
-    elif isinstance(scheduler, ExponentialLR):
-        factor = 1 / ssr
-        scheduler.gamma = scheduler.gamma**factor  # type: ignore  -- unknown attribute
-    else:
-        raise ValueError(f'Scale schedule being applied to unrecognized Scheduler {scheduler}. '
-                         'Please implement your scheduler as a function instead.')
-
-    return scheduler
-
-
-def _scale_composer_scheduler(scheduler: ComposerSchedulerFn, ssr: float):
-    return functools.partial(scheduler, ssr=ssr)
-
-
-def scale_scheduler(scheduler: Union[Scheduler, ComposerSchedulerFn],
-                    ssr: float) -> Union[Scheduler, ComposerSchedulerFn]:
+def scale_pytorch_scheduler(scheduler: PyTorchScheduler, ssr: float):
     """Makes a learning rate schedule take a different number of epochs.
 
     Training for less time is a strong baseline approach to speeding up
@@ -82,10 +50,24 @@ def scale_scheduler(scheduler: Union[Scheduler, ComposerSchedulerFn],
     """
     if ssr <= 0:
         raise ValueError("Scale schedule ratio must be a positive value.")
-
-    if isinstance(scheduler, Scheduler):
-        return _scale_pytorch_scheduler(scheduler, ssr=ssr)
-    elif callable(scheduler):
-        return _scale_composer_scheduler(scheduler, ssr=ssr)
+    if ssr == 1.0:
+        # If it's 1.0, then scaling is a no-op
+        return
+    # Applies SSR on a pytorch scheduler in place.
+    if isinstance(scheduler, StepLR):
+        scheduler.step_size = int(scheduler.step_size * ssr)  # type: ignore  -- unknown attribute
+    elif isinstance(scheduler, MultiStepLR):
+        milestones = scheduler.milestones  # type: ignore  -- unknown attribute
+        milestones = Counter([int(ms * ssr) for ms in milestones])
+        scheduler.milestones = milestones  # type: ignore  -- unknown attribute
+    elif isinstance(scheduler, CosineAnnealingLR):
+        scheduler.T_max = int(scheduler.T_max * ssr)  # type: ignore  -- unknown attribute
+    elif isinstance(scheduler, CosineAnnealingWarmRestarts):
+        # TODO: account for warmups
+        scheduler.T_0 = int(scheduler.T_0 * ssr)  # type: ignore  -- unknown attribute
+    elif isinstance(scheduler, ExponentialLR):
+        factor = 1 / ssr
+        scheduler.gamma = scheduler.gamma**factor  # type: ignore  -- unknown attribute
     else:
-        raise ValueError(f'Received unknown scheduler {scheduler.__name__} of type {type(scheduler)}.')
+        raise ValueError(f'Scale schedule being applied to unrecognized Scheduler {scheduler}. '
+                         'Please implement your scheduler as a function instead.')

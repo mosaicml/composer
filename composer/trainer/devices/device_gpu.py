@@ -10,6 +10,7 @@ from typing import Generator, TypeVar, Union
 import torch
 import torch.cuda.amp
 import torch.utils.data
+from packaging import version
 
 from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
@@ -42,14 +43,20 @@ class DeviceGPU(Device):
     @contextmanager
     def precision_context(self, precision: Union[str, Precision]) -> Generator[None, None, None]:
         precision = Precision(precision)
+        enabled = False
         if precision == Precision.FP32:
             enabled = False
         elif precision == Precision.AMP:
             enabled = True
-        else:
-            raise ValueError(f"Precision {precision} not supported for a GPU")
-        with torch.cuda.amp.autocast(enabled):  #type: ignore
-            yield
+        elif precision == Precision.BF16:
+            if version.parse(torch.__version__) < version.parse("1.10"):
+                raise ValueError(f"BF16 precision requires torch > 1.10, got version {torch.__version__}")
+            with torch.cuda.amp.autocast(True, torch.bfloat16):  # type: ignore
+                yield
+        # Retain compatibility with PyTorch < 1.10
+        if precision != Precision.BF16:
+            with torch.cuda.amp.autocast(enabled):  # type: ignore
+                yield
 
     def state_dict(self) -> StateDict:
         return {

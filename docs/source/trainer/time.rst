@@ -18,7 +18,7 @@ can be provided as a string:
    "Tokens", ``"tok"``, ``"93874tok"``, :attr:`.TimeUnit.TOKEN`
    "Duration", ``"dur"``, ``"0.7dur"``, :attr:`.TimeUnit.DURATION`
 
-Duration is defined as multipler of the ``max_duration``.
+Duration is defined as multiplier of the ``max_duration``.
 
 These above string inputs are valid when an argument accepts the |Time|
 type. There are some exceptions -- for example ``dur`` is not valid when setting
@@ -43,9 +43,9 @@ Tracking Time
 The trainer has a :class:`.Timer` object stored in :attr:`.State.timer` that
 measures progress in all the time formats above. :attr:`.State.timer` can be
 read by algorithms and callbacks to trigger behavior at different times
-during training. Especially useful is allowing you to use whicheer format
-is most relevant for your algorithm -- e.g. once-every-n batches, or during the
-last 20% of training.
+during training. This feature allows algorithms to specify time in whatever unit
+is most useful -- e.g. an algorithm could activate once every *n* batches, or
+during the last 20% of training.
 
 The trainer's timer increments time as data is consumed. As each batch of data is read,
 the timer accumulates the total number of samples and/or tokens consumed.
@@ -87,7 +87,7 @@ Samples Per Epoch
 
 To convert between samples and epochs, we infer the samples per epoch
 from ``len(dataloader.dataset)`` if the property is available. If not, we assume
-the dataset is unsized.
+the dataset is un-sized.
 
 ``num_samples`` can also be provided directly to the :class:`.DataSpec` to override this
 default behavior.

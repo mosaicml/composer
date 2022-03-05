@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -123,6 +124,7 @@ class CutMixHparams(AlgorithmHparams):
 
     num_classes: int = hp.required('Number of classes in the task labels.')
     alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
+    uniform_sampling: bool = hp.optional('Mix pixels with uniform probability', default=False)
 
     def initialize_object(self) -> CutMix:
         return CutMix(**asdict(self))
@@ -134,6 +136,7 @@ class CutOutHparams(AlgorithmHparams):
 
     n_holes: int = hp.optional('Number of holes to cut out', default=1)
     length: float = hp.optional('Relative or absolute side length of the square hole to cut out', default=0.5)
+    uniform_sampling: bool = hp.optional('Mask pixels with uniform probability', default=False)
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
@@ -317,8 +320,10 @@ class StochasticDepthHparams(AlgorithmHparams):
         default='linear')
     use_same_gpu_seed: bool = hp.optional(
         'Whether or not to drop the same blocks across GPUs. Only used with "block" method.', default=True)
-    drop_warmup: float = hp.optional(
-        'Percentage of training to warmup `drop_rate`. Only use with "block" stochastic method.', default=0.0)
+    drop_warmup: str = hp.optional(textwrap.dedent("""\
+            Time string to represent the amount of training to warmup the `drop_rate`.
+            Only use with "block" stochastic method."""),
+                                   default="0dur")
 
     def initialize_object(self) -> StochasticDepth:
         return StochasticDepth(**asdict(self))

@@ -3,42 +3,98 @@ gitUrl = null
 gitBranch = null
 gitCommit = null
 pTimeout = '1800' // in seconds
-pytorchDockerChanged = null
 dependenciesChanged = null
-runWithChecks = null
-expandDockerMatrix = null
-prChangeset = null
+pytorchDockerBuildMatrix = null
+isPathModified = null
 builds = []
-jenkinsJobBasePath = "scratch"
+jenkinsShellJobName = "scratch/command2"
+numDaysOfBuildsToKeep = '7'
+jenkinsfileRepo = 'https://github.com/mosaicml/testing'
+gitCredentialsId = "9cf9add1-2cdd-414b-8160-94bd4ac4a13d"
+buildOutputFolder = "build/output"
+artifactsGlob = "$buildOutputFolder/*.xml"
+junitGlob = "$buildOutputFolder/*.junit.xml"
+coverageGlob = "$buildOutputFolder/*.coverage.xml"
+condaBuildDockerImage = "continuumio/anaconda-pkg-build:2022.02.09-amd64"
+// must use the kaniko debug image, as Jenkins needs shell access
+// see https://github.com/GoogleContainerTools/kaniko#debug-image
+kanikoDockerImage = "gcr.io/kaniko-project/executor:v1.7.0-debug"
+
+properties(
+    [
+        buildDiscarder(
+            logRotator(daysToKeepStr: numDaysOfBuildsToKeep, artifactDaysToKeepStr: numDaysOfBuildsToKeep)
+        ),
+    ]
+)
 
 def cloneJenkinsfilesRepo() {
     // Clone the remote jenkins file in WORKSPACE_TMP
     dir ("$WORKSPACE_TMP") {
+        def jenkinsfileRepoTargetDir = 'jenkinsfiles'
         checkout([
             $class: 'GitSCM',
-            branches: [[name: 'main']], // TODO RJPP_BRANCH
+            branches: [[name: 'main']],
             doGenerateSubmoduleConfigurations: false,
-            extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'jenkinsfiles']],
+            extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: jenkinsfileRepoTargetDir]],
             submoduleCfg: [],
-            userRemoteConfigs: [[url: 'https://github.com/mosaicml/testing', credentialsId: "9cf9add1-2cdd-414b-8160-94bd4ac4a13d"]]  // TODO RJPP_SCM_URL
+            changelog: false,
+            userRemoteConfigs: [[url: jenkinsfileRepo, credentialsId: gitCredentialsId]]
         ])
-        return "$WORKSPACE_TMP/jenkinsfiles"
+        return "$WORKSPACE_TMP/$jenkinsfileRepoTargetDir"
     }
 }
 
-def runPytest(Map args) {
-    // Run pytest. Parameters
-    // extraDeps (str, optional): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps]. (default: `all`)
-    // pythonVersion (str, optional): The python version (should be 3.7, 3.8, or 3.9).
-    //    Required if `pDockerImage` is left blank
-    // gpu (bool, optional): Whether to run tests on a gpu (default: `false`)
-    // pDockerImage (str, optional): Base docker image to use. Required if `pythonVersion` is left blank
-    def extraDeps = args.extraDeps ?: 'all'
-    def pythonVersion = args.pythonVersion
-    def gpu = args.gpu ?: false
-    def pDockerImage = args.pDockerImage
+def trackBuild(Map buildArgs) {
+    // 1. Run a build() command, but manually echo a link to the spawned job, since it may not show up
+    //    in blue ocean. See https://issues.jenkins.io/browse/JENKINS-60995.
+    // 2. Add the build to the `builds` variable
+    buildArgs['propagate'] = false
+    def builtJob = build(buildArgs)
+    builds << builtJob
+    if (builtJob.result == "SUCCESS") {
+        echo "Job ${builtJob.fullDisplayName} was successful. See ${builtJob.absoluteUrl} for details."
+    }
+    else {
+        error "Job ${builtJob.fullDisplayName} failed. See ${builtJob.absoluteUrl} for details."
+    }
+}
+
+def getDockerImageName(pythonVersion, gpu) {
+    def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
+    def cudaVersion = "cpu"
+    if (gpu) {
+        cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
+
+    }
+    return "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
+}
+
+lintImage = getDockerImageName("3.9", false)
+
+def runLint(pDockerImage) {
+    trackBuild(
+        job: jenkinsShellJobName,
+        parameters: [
+            string(name: 'P_CLOUD', value: pCloud),
+            string(name: 'P_GIT_REPO', value: gitUrl),
+            string(name: 'P_GIT_COMMIT', value: gitCommit),
+            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '7Gi'),
+            string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
+            string(name: 'P_TIMEOUT', value: pTimeout),
+            string(name: 'P_CPU_LIMIT', value: "2"),
+            string(name: 'P_MEM_LIMIT', value: "4Gi"),
+            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
+        ]
+    )
+}
+
+def runPytest(pDockerImage, gpu, extraDeps) {
+    // pDockerImage (str): Base docker image to use.
+    // extraDeps (str): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps].
+    // gpu (bool): Whether to run tests on a gpu
     def nGpus = "0"
-    def memLimit = "7Gi"
+    def memLimit = "4Gi"
     def cpuLimit = "2"
     def markers = "not notebooks and not gpu"
 
@@ -49,58 +105,36 @@ def runPytest(Map args) {
         markers = "not notebooks and gpu"
     }
 
-    def name = null
-    def title = null
-    if (!pDockerImage) {
-        if (!pythonVersion) {
-            error ("pDockerImage or pythonVersion must be specified")
-        }
-        def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
-        name = "pytest/python${pythonVersion}-extraDeps_${extraDeps}-gpu_$gpu"
-        title = "Pytest - Python ${pythonVersion}, composer[${extraDeps}] (GPU $gpu)"
-        def cudaVersion = "cpu"
-        if (gpu) {
-            cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
+    def name = "$pDockerImage: gpu=$gpu; extraDeps=$extraDeps"
 
-        }
-        pDockerImage = "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
-    }
-    def summary = title
-
-    def closure = { ->
-        builds << build(
-            job: "${jenkinsJobBasePath}/command",
-            parameters: [
-                string(name: 'P_CLOUD', value: pCloud),
-                string(name: 'P_GIT_REPO', value: gitUrl),
-                string(name: 'P_GIT_COMMIT', value: gitCommit),
-                string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
-                string(name: 'P_CPU_LIMIT', value: cpuLimit),
-                string(name: 'P_MEM_LIMIT', value: memLimit),
-                string(name: 'P_TIMEOUT', value: pTimeout),
-                string(name: 'P_N_GPUS', value: nGpus),
-                text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
-                string(name: 'P_ARTIFACTS_GLOB', value: "build/output/*.xml"),
-                string(name: 'P_JUNIT_GLOB', value: "build/output/*.junit.xml"),
-                string(name: 'P_COVERAGE_GLOB', value: "build/output/*.coverage.xml"),
-            ]
-        )
-    }
-    if (name != null && title != null && summary != null) {
-        runWithChecks(
-            name: name,
-            title: title,
-            summary: summary,
-        ) {
-            closure()
-        }
-    } else {
-        closure()
-    }
+    trackBuild(
+        job: jenkinsShellJobName,
+        parameters: [
+            string(name: 'P_CLOUD', value: pCloud),
+            string(name: 'P_GIT_REPO', value: gitUrl),
+            string(name: 'P_GIT_COMMIT', value: gitCommit),
+            string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
+            string(name: 'P_CPU_LIMIT', value: cpuLimit),
+            string(name: 'P_MEM_LIMIT', value: memLimit),
+            string(name: 'P_TIMEOUT', value: pTimeout),
+            string(name: 'P_N_GPUS', value: nGpus),
+            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
+            text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
+            string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
+            string(name: 'P_JUNIT_GLOB', value: junitGlob),
+            string(name: 'P_COVERAGE_GLOB', value: coverageGlob),
+        ]
+    )
 }
 
 stage('Prepare') {
     node (pCloud) {
+        // Automatically cancel old builds
+        // From https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
+        def buildNumber = env.BUILD_NUMBER as int
+        if (buildNumber > 1) milestone(buildNumber - 1)
+        milestone(buildNumber)
+
         def loadedSCM = checkout scm
 
         gitUrl = loadedSCM.GIT_URL
@@ -108,8 +142,8 @@ stage('Prepare') {
         gitCommit = loadedSCM.GIT_COMMIT
 
         if (env.CHANGE_ID) {
-            // Use the origin/pr/PR_NUMBER/head to support commits in external repos
-            gitCommit = "origin/pr/${pullRequest.number}/head"
+            // Use the origin/pr/PR_NUMBER/merge to support commits in external repos
+            gitCommit = "origin/pr/${pullRequest.number}/merge"
         }
 
         echo "gitUrl: $gitUrl"
@@ -118,97 +152,123 @@ stage('Prepare') {
 
         def jenkinsfileWorkspace = cloneJenkinsfilesRepo()
 
-        runWithChecks = load "$jenkinsfileWorkspace/utils/runWithChecks.groovy"
-        expandDockerMatrix = load "$jenkinsfileWorkspace/utils/expandDockerMatrix.groovy"
-        prChangeset = load "$jenkinsfileWorkspace/utils/prChangeset.groovy"
+        def getDockerBuildMatrix = load "$jenkinsfileWorkspace/utils/getDockerBuildMatrix.groovy"
 
-        pytorchDockerChanged = prChangeset("docker/pytorch/")
+        isPathModified = load "$jenkinsfileWorkspace/utils/isPathModified.groovy"
+
+        if (isPathModified("docker/pytorch/")) {
+            def shouldPush = gitBranch == "dev" || gitBranch == "main"
+            def dockerfile = 'Dockerfile'
+            def buildContext = './docker/pytorch'
+            def buildMatrix = './docker/pytorch/build_matrix.sh'
+            pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile, shouldPush)
+        }
         // Keep track of whether dependencies changed, in which case a conda build should be tested
-        // Skipping conda build -- stalling in Jenkins
-        // dependenciesChanged = prChangeset("setup.py") || prChangeset("meta.yaml")
+        dependenciesChanged = isPathModified("setup.py") || isPathModified("meta.yaml")
     }
-}
-
-def dockerImagePostBuild(stagingImageTag) {
-    if (gitBranch == "main") {
-        // no need to run tests again
-        return
-    }
-    runPytest(pDockerImage: stagingImageTag)
 }
 
 stage('Build') {
     def jobs = [:]
-    if (pytorchDockerChanged) {
-        jobs << expandDockerMatrix(
-            P_CLOUD: pCloud,
-            P_BUILD_MATRIX: './composer/pytorch_build_matrix.sh',
-            P_BUILD_MATRIX_GIT_REPO: 'https://github.com/mosaicml/testing.git',  // TODO RJPP_SCM_URL
-            P_BUILD_MATRIX_GIT_COMMIT: 'main', // TODO RJPP_BRANCH
-            P_DOCKERFILE: 'Dockerfile',
-            P_BUILD_CONTEXT: './docker/pytorch',
-            P_GIT_REPO: gitUrl,
-            P_GIT_COMMIT: gitCommit,
-            P_CPU_LIMIT: '4',
-            P_MEM_LIMIT: '15Gi',
-            P_TIMEOUT: pTimeout,
-            P_KANIKO_PUSH_FINAL: gitBranch == "dev" || gitBranch == "main", // only push if we're on the main or dev branch
-        ) { stagingImage -> dockerImagePostBuild(stagingImage) }
+    def isMergeCommit = true
+    if (env.CHANGE_ID) {
+        isMergeCommit = false
     }
-    if (dependenciesChanged) {
-        jobs << [
-            'Conda': { ->
-                runWithChecks(
-                    name: 'conda',
-                    title: 'Conda build and test',
-                    summary: 'Conda build and test of composer',
-                ) {
-                    builds << build(
-                        job: "${jenkinsJobBasePath}/command",
-                        parameters: [
-                            string(name: 'P_CLOUD', value: pCloud),
-                            string(name: 'P_GIT_REPO', value: gitUrl),
-                            string(name: 'P_GIT_COMMIT', value: gitCommit),
-                            string(name: 'P_DOCKER_IMAGE', value: "continuumio/anaconda-pkg-build"),
-                            string(name: 'P_TIMEOUT', value: pTimeout),
-                            string(name: 'P_CPU_LIMIT', value: "2"),
-                            string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                            string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
-                        ]
-                    )
+    if (pytorchDockerBuildMatrix) {
+        // If changing docker, build the docker images first
+        // Then, run pytest in the newly-built image
+        pytorchDockerBuildMatrix.each { entry ->
+            def command = entry[0]  // command is the command to run
+            def stagingImage = entry[1]  // stagingImage is where the built docker image is pushed
+            def buildConfigListOfTuples = entry[2]  // buildConfigListOfTuples is a list of (key, value) pairs of the build args from the matrix
+            jobs << [ "$buildConfigListOfTuples": { -> 
+                trackBuild(
+                    job: jenkinsShellJobName,
+                    parameters: [
+                        string(name: 'P_CLOUD', value: pCloud),
+                        string(name: 'P_GIT_REPO', value: gitUrl),
+                        string(name: 'P_GIT_COMMIT', value: gitCommit),
+                        string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
+                        text(name: 'P_COMMAND', value: command),
+                        string(name: 'P_TIMEOUT', value: pTimeout),
+                        string(name: 'P_CPU_LIMIT', value: '4'),
+                        string(name: 'P_MEM_LIMIT', value: '15Gi'),
+                    ]
+                )
+                if (isMergeCommit) {
+                    // no need to run tests again
+                    return
                 }
-            }
+                def gpu = false
+                def isLintImage = false
+                def tag = null
+                buildConfigListOfTuples.each { item ->
+                    def key = item[0]
+                    def val = item[1]
+
+                    if (key == 'CUDA_VERSION') {
+                        gpu = val != 'cpu'
+                    }
+                    if (key == 'TAG') {
+                        tag = val
+                        // there could be multiple tags
+                        isLintImage = isLintImage || tag == lintImage
+                    }
+                
+                }
+                def extraDeps = 'all'
+                def subJobs = [
+                    "Pytest - ${tag}" : { -> runPytest(stagingImage, gpu, extraDeps) }
+                ]
+                if (isLintImage) {
+                    // and run lint and a dev install on this image
+                    subJobs << [
+                        "Pytest - extraDeps=dev": { -> runPytest(stagingImage, false, 'dev') },
+                        "Lint": { -> runLint(stagingImage) },
+                    ]
+                }
+                subJobs.failFast = true
+                parallel(subJobs)
+            }]
+        }
+    }
+    else if (!isMergeCommit) {
+        // if not rebuilding the docker image, but it's not a merge commit,
+        // just run these checks on the latest images. No need to re-run the
+        // tests on merge commits, as the PR must have passed these checks already
+        // to have been merged.
+        jobs << [
+            'Python 3.7 - All': { -> runPytest(getDockerImageName("3.7", false), false, 'all') },
+            'Python 3.8 - All': { -> runPytest(getDockerImageName("3.8", false), false, 'all') },
+            'Python 3.9 - All': { -> runPytest(getDockerImageName("3.9", false), false, 'all') },
+            'Python 3.9 - All (GPU)': { -> runPytest(getDockerImageName("3.9", true), true, 'all') },
+            'Lint': { -> runLint(lintImage) },
+            'Python 3.9 - Dev': { -> runPytest(lintImage, false, "dev") },
         ]
     }
-    if (gitBranch != "main" && gitBranch != "dev") {
-        // if not on main or dev, run the pytest again.
+
+    
+    if (!isMergeCommit && dependenciesChanged) {
+        // regardless of whether the docker image changed, rebuild the conda package
+        // if the dependencies changed
         jobs << [
-            'Lint': { ->
-                runWithChecks(
-                    name: 'lint',
-                    title: 'Lint and Doctests',
-                    summary: 'Static Analysis Checks and Doctests',
-                ) {
-                    builds << build(
-                        job: "${jenkinsJobBasePath}/command",
-                        parameters: [
-                            string(name: 'P_CLOUD', value: pCloud),
-                            string(name: 'P_GIT_REPO', value: gitUrl),
-                            string(name: 'P_GIT_COMMIT', value: gitCommit),
-                            string(name: 'P_DOCKER_IMAGE', value: "mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04"),
-                            string(name: 'P_TIMEOUT', value: pTimeout),
-                            string(name: 'P_CPU_LIMIT', value: "2"),
-                            string(name: 'P_MEM_LIMIT', value: "7Gi"),
-                            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
-                        ]
-                    )
-                }
-            },
-            'Python 3.7 - All': { -> runPytest(pythonVersion: "3.7") },
-            'Python 3.8 - All': { -> runPytest(pythonVersion: "3.8") },
-            'Python 3.9 - All': { -> runPytest(pythonVersion: "3.9") },
-            'Python 3.9 - Dev': { -> runPytest(pythonVersion: "3.9", extraDeps: "dev") },
-            'Python 3.9 - All (GPU)': { -> runPytest(pythonVersion: "3.9", gpu: true) },
+            'Conda': { ->
+                trackBuild(
+                    job: jenkinsShellJobName,
+                    parameters: [
+                        string(name: 'P_CLOUD', value: pCloud),
+                        string(name: 'P_GIT_REPO', value: gitUrl),
+                        string(name: 'P_GIT_COMMIT', value: gitCommit),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
+                        string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
+                        string(name: 'P_TIMEOUT', value: '3600'), // Conda builds take longer
+                        string(name: 'P_CPU_LIMIT', value: "4"),
+                        string(name: 'P_MEM_LIMIT', value: "8Gi"),
+                        string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
+                    ]
+                )
+            }
         ]
     }
     jobs.failFast = true
@@ -228,12 +288,12 @@ stage('Build') {
                     )
                 }
 
-                sh 'mkdir -p build/output/'
+                sh "mkdir -p $buildOutputFolder"
 
-                archiveArtifacts(artifacts: "build/output/*.xml", fingerprint: true, allowEmptyArchive: true)
-                junit(allowEmptyResults: true, testResults: "build/output/*.junit.xml")
+                archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
+                junit(allowEmptyResults: true, testResults: junitGlob)
                 publishCoverage(
-                    adapters: [cobertura(path: "build/output/*.coverage.xml", mergeToOneReport: true)],
+                    adapters: [cobertura(path: coverageGlob, mergeToOneReport: true)],
                     calculateDiffForChangeRequests: true,
                     sourceFileResolver: [level: 'STORE_LAST_BUILD']
                 )

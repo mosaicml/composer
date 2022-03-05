@@ -6,7 +6,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
-RUN rm -f /usr/local/cuda-11.3/cuda-11.3  
+RUN rm -f /usr/local/cuda-11.3/cuda-11.3
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -48,16 +48,6 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 # If using CUDA_VERSION, then use system installed NCCL per update above and point to library
 ENV USE_SYSTEM_NCCL=${CUDA_VERSION:+1}
 ENV LD_PRELOAD=${CUDA_VERSION:+/usr/lib/x86_64-linux-gnu/libnccl.so.2.9.6}
-
-##############################
-# Install NodeJS (for Pyright)
-##############################
-RUN \
-    curl -fsSL https://deb.nodesource.com/setup_17.x | bash - && \
-    apt-get install -y --no-install-recommends nodejs && \
-    apt-get autoclean && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
 
 ################
 # Install Python

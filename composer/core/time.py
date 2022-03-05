@@ -1,16 +1,18 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Track training progress in terms of epochs, batches, samples, and tokens.
+"""Utilities to track training progress in terms of epochs, batches, samples, and tokens.
 
-Callbacks, algorithms, and schedulers can use the current training time to fire at certain points in the training process.
+Callbacks, algorithms, and schedulers can use the current training time to fire at certain points in the training
+process.
 
-The :class:`~composer.core.Timer` class tracks the total number of epochs, batches, samples, and tokens.
-The trainer is responsible for updating the :class:`~composer.core.Timer` at the end of every epoch and batch.
-There is only one instance of the :class:`~composer.core.Timer`, which is attached to the :class:`~composer.core.State`.
+The :class:`~.time.Timer` class tracks the total number of epochs, batches, samples, and tokens. The trainer is
+responsible for updating it at the end of every epoch and batch.  There is only one instance of the
+:class:`~.time.Timer`, which is attached to the :class:`~.state.State`.
 
-The :class:`~composer.core.Time` class represents static durations of training time or points in the
-training process in terms of a specific :class:`~composer.core.TimeUnit` enum. The :class:`~composer.core.Time` class
-supports comparisons, arithmetic, and conversions.
+The :class:`~.time.Time` class represents static durations of training time or points in the training process in terms
+of a specific :class:`~.time.TimeUnit` enum. This class supports comparisons, arithmetic, and conversions.
+
+See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
 """
 from __future__ import annotations
 
@@ -25,13 +27,15 @@ from composer.utils.string_enum import StringEnum
 if TYPE_CHECKING:
     from composer.core.types import StateDict
 
+__all__ = ["TimeUnit", "Time", "Timer", "Timestamp"]
+
 
 class TimeUnit(StringEnum):
-    """Units of time for the training process.
+    """Enum class to represent units of time for the training process.
 
     Attributes:
         EPOCH (str): Epochs.
-        BATCH (str): Batchs (i.e. number of optimization steps)
+        BATCH (str): Batches (i.e. number of optimization steps)
         SAMPLE (str): Samples.
         TOKEN (str): Tokens. Applicable for natural language processing (NLP) models.
         DURATION (str): Fraction of the training process complete, on ``[0.0, 1.0)``
@@ -43,7 +47,8 @@ class TimeUnit(StringEnum):
     DURATION = "dur"
 
 
-_NUM_REGEX = r'-?[\d.]+(?:e-?\d+)?'  # regex for parsing integers / decimals / scientific notation
+# regex for parsing integers / decimals / scientific notation
+_NUM_REGEX = r'-?[\d.]+(?:e-?\d+)?'
 
 # regex for parsing a time string.
 _TIME_STR_REGEX = re.compile(r'^(?:' + r'|'.join(fr"(?:({_NUM_REGEX})({time_unit.value}))" for time_unit in TimeUnit) +
@@ -57,25 +62,27 @@ class Time(Generic[TValue]):
     """Time represents static durations of training time or points in the training process in terms of a
     :class:`TimeUnit` enum (epochs, batches, samples, tokens, or duration).
 
+    See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
+
     To construct an instance of :class:`Time`, you can either:
 
-        #. Use a value followed by a :class:`TimeUnit` enum or string. For example,
+    #. Use a value followed by a :class:`TimeUnit` enum or string. For example,
 
-            >>> Time(5, TimeUnit.EPOCH)  # describes 5 epochs.
-            Time(5, TimeUnit.EPOCH)
-            >>> Time(30_000, "tok")  # describes 30,000 tokens.
-            Time(30000, TimeUnit.TOKEN)
-            >>> Time(0.5, "dur")  # describes 50% of the training process.
-            Time(0.5, TimeUnit.DURATION)
+    >>> Time(5, TimeUnit.EPOCH)  # describes 5 epochs.
+    Time(5, TimeUnit.EPOCH)
+    >>> Time(30_000, "tok")  # describes 30,000 tokens.
+    Time(30000, TimeUnit.TOKEN)
+    >>> Time(0.5, "dur")  # describes 50% of the training process.
+    Time(0.5, TimeUnit.DURATION)
 
-        #. Use one of the helper methods. See:
+    #. Use one of the helper methods. See:
 
-            - :meth:`Time.from_epoch`
-            - :meth:`Time.from_batch`
-            - :meth:`Time.from_sample`
-            - :meth:`Time.from_token`
-            - :meth:`Time.from_duration`
-            - :meth:`Time.from_timestring`.
+    - :meth:`Time.from_epoch`
+    - :meth:`Time.from_batch`
+    - :meth:`Time.from_sample`
+    - :meth:`Time.from_token`
+    - :meth:`Time.from_duration`
+    - :meth:`Time.from_timestring`.
 
     :class:`Time` supports addition and subtraction with other :class:`Time` instances that share the same
     :class:`TimeUnit`. For example:
@@ -199,6 +206,22 @@ class Time(Generic[TValue]):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.value}, {self.unit})"
+
+    def __str__(self) -> str:
+        return f"{self.value}{self.unit.value}"
+
+    def to_timestring(self):
+        """Get the time-string representation.
+
+        For example:
+
+        >>> Time(5, TimeUnit.EPOCH).to_timestring()
+        '5ep'
+
+        Returns:
+            str: The time-string representation.
+        """
+        return str(self)
 
     def _parse(self, other: object) -> Time:
         # parse ``other`` into a Time object
@@ -335,7 +358,15 @@ class Time(Generic[TValue]):
 
 
 class Timer(Serializable):
-    """Timer tracks the current training progress, in terms of epochs, batches, samples, and tokens."""
+    """Timer tracks the current training progress, in terms of epochs, batches, samples, and tokens.
+
+    See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
+
+    .. note::
+
+        An instance of this class is automatically constructed by the :class:`~composer.core.state.State` constructor.
+        A user need not instantiate this class.
+    """
 
     def __init__(self):
         self._epoch = Time(0, TimeUnit.EPOCH)
@@ -368,37 +399,37 @@ class Timer(Serializable):
 
     @property
     def epoch(self) -> Time[int]:
-        """The current epoch."""
+        """The total epoch count."""
         return self._epoch
 
     @property
     def batch(self) -> Time[int]:
-        """The current batch."""
+        """The total batch count."""
         return self._batch
 
     @property
     def sample(self) -> Time[int]:
-        """The current sample."""
+        """The total sample count."""
         return self._sample
 
     @property
     def token(self) -> Time[int]:
-        """The current token."""
+        """The total token count."""
         return self._token
 
     @property
     def batch_in_epoch(self) -> Time[int]:
-        """The number of batches seen in the current epoch (resets at 0 at the beginning of every epoch)."""
+        """The batch count in the current epoch (resets at 0 at the beginning of every epoch)."""
         return self._batch_in_epoch
 
     @property
     def sample_in_epoch(self) -> Time[int]:
-        """The number of samples seen in the current epoch (resets at 0 at the beginning of every epoch)."""
+        """The sample count in the current epoch (resets at 0 at the beginning of every epoch)."""
         return self._sample_in_epoch
 
     @property
     def token_in_epoch(self) -> Time[int]:
-        """The number of tokens seen in the current epoch (resets at 0 at the beginning of every epoch)."""
+        """The token count in the current epoch (resets at 0 at the beginning of every epoch)."""
         return self._token_in_epoch
 
     def get(self, unit: Union[str, TimeUnit]) -> Time[int]:
@@ -525,12 +556,23 @@ class Timestamp(NamedTuple):
 
     It is returned from a call to :meth:`Timer.get_timestamp`.
 
-    Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as
-    training progresses.
+    Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as training
+    progresses.
+
+    See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
 
     .. note::
 
         :class:`Timestamp` should not be instantiated directly; instead use :meth:`Timer.get_timestamp`.
+
+    Attributes:
+        epoch (Time[int]): The total epoch count when the :class`Timestamp` was generated.
+        batch (Time[int]): The total batch count when the :class`Timestamp` was generated.
+        batch_in_epoch (Time[int]): The batch count in the epoch when the :class`Timestamp` was generated.
+        sample (Time[int]): The total sample count when the :class`Timestamp` was generated.
+        sample_in_epoch (Time[int]): The sample count in the epoch when the :class`Timestamp` was generated.
+        token (Time[int]): The total token count when the :class`Timestamp` was generated.
+        token_in_epoch (Time[int]): The token count in the epoch when the :class`Timestamp` was generated.
     """
     epoch: Time[int]
     batch: Time[int]

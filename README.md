@@ -7,13 +7,11 @@
 <!--<center><h3><b>Bring state-of-the-art efficiency research to you</h3></center>-->
 
 <p align='center'>
-<a href="https://google.com">[Website]</a>
-- <a href="https://google.com">[Getting Started]</a>
-- <a href="https://google.com">[Examples]</a>
-- <a href="https://google.com">[Docs]</a>
-- <a href="https://google.com">[Methods]</a>
-- <a href="https://google.com">[Explorer]</a>
-- <a href="https://google.com">[We're Hiring!]</a>
+<a href="https://www.mosaicml.com">[Website]</a>
+- <a href="https://docs.mosaicml.com/en/stable/getting_started/installation.html">[Getting Started]</a>
+- <a href="https://docs.mosaicml.com/">[Docs]</a>
+- <a href="https://docs.mosaicml.com/en/stable/method_cards/methods_overview.html">[Methods]</a>
+- <a href="https://www.mosaicml.com/team">[We're Hiring!]</a>
 </p>
 
 <p align="center">
@@ -32,7 +30,7 @@
     <a href="https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg">
         <img alt="Chat @ Slack" src="https://img.shields.io/badge/slack-chat-2eb67d.svg?logo=slack">
     </a>
-    <a href="https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg">
+    <a href="https://github.com/mosaicml/composer/blob/dev/LICENSE">
         <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-green.svg?logo=slack">
     </a>
 </p>
@@ -41,7 +39,10 @@
 
 <p align="center">Composer provides well-engineered implementations of efficient training methods to give the tools that help you train <b>a better model for cheaper</b>.</p>
 
-<p align="center"><img src="docs/images/cost_graph.svg" width="80%"/></p>
+<p align="center">
+<img src="docs/images/cost_graph_light.svg#gh-light-mode-only" width="100%"/>
+<img src="docs/images/cost_graph_dark.svg#gh-dark-mode-only" width="100%"/>
+</p>
 
 Using Composer, you can:
 
@@ -55,7 +56,7 @@ Everyone has their own priorities: best accuracy, cheapest cost, and somewhere i
 
 Composer features:
 - 20+ efficient training methods for training a better language and vision models! Don't waste hours trying to reproduce research papers when Composer has done the work for you.
-- Easy-to-use (optional) Trainer interface written to be as performant as possible, and [integrated best practices](https://www.mosaicml.com/blog/best-practices-dec-2021).
+- Easy-to-use (optional) Trainer interface written to be as performant as possible, and [integrated best practices](https://www.mosaicml.com/blog/5-best-practices-for-efficient-model-training).
 - Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
 - Strong, _reproducible_ baselines to get you started as 💨 fast 💨 as possible
 
@@ -77,7 +78,7 @@ conda install mosaicml
 
 Composer provides both a **Functional API** (similar to `torch.nn.functional`) and a **Trainer** (that abstracts away the training loop) to provide flexibility to users.
 
-#### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1HIxLs61pyf0ln7MlnrGYvkNHq1uVbNWu?usp=sharing)
+#### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb)
 
 For users who choose to use their own training loop, we provide state-less functional implementations of our algorithms for a end-user to integrate.
 
@@ -103,61 +104,49 @@ for epoch in range(NUM_EPOCHS):
         optimizer.step()
 ```
 
-See the official [Composer Functional API Colab notebook](https://colab.research.google.com/drive/1HIxLs61pyf0ln7MlnrGYvkNHq1uVbNWu?usp=sharing) for more.
+See the official [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) for more.
 
-#### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://drive.google.com/file/d/12Dl0NVDaj4tf4gfpfg-rkIAoO_H7edo3/edit)
+#### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb)
 
 For maximal speedups, we recommend using our Trainer, which manages handling user state, performant algorithm implementations, and provides useful engineering abstractions to permit rapid experimentation.
 
 ```python
+import torch
+from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim import Adam
+from torchvision import datasets, transforms
 
-import composer
+from composer import Trainer, models
+from composer.algorithms import LabelSmoothing
 
-# Normalization constants
-mean = (0.507, 0.487, 0.441)
-std = (0.267, 0.256, 0.276)
+transform = transforms.ToTensor()
 
-batch_size = 1024
-
-# setup data
-data_directory = "data"
-cifar10_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean, std)]
-train_dataset = datasets.CIFAR10(data_directory, train=True, download=True, transform=cifar10_transforms)
-test_dataset = datasets.CIFAR10(data_directory, train=False, download=True, transform=cifar10_transforms)
-
-# setup model & optimization
-model = composer.models.CIFAR10_ResNet56()
-
-optimizer = composer.optim.DecoupledSGDW(
-    model.parameters(), # Model parameters to update
-    lr=0.05, # Peak learning rate
-    momentum=0.9,
-    weight_decay=2.0e-3 # If this looks large, it's because its not scaled by the LR as in non-decoupled weight decay
+train_dataloader = DataLoader(
+    datasets.MNIST('.data/', transform=transform, download=True, train=True),
+    batch_size=64,
 )
 
-warmup = composer.optim.WarmUpLR(
-    optimizer, # Optimizer
-    warmup_iters=25, # Number of iterations to warmup over. 50k samples * 1 batch/2048 samples
-    warmup_method="linear", # Linear warmup
-    warmup_factor=1e-4, # Initial LR = LR * warmup_factor
-    interval="step", # Update LR with stepwise granularity for superior results
+eval_dataloader = DataLoader(
+    datasets.MNIST('.data/', transform=transform, download=True, train=False),
+    batch_size=64,
 )
 
-# setup algorithm in one line
-blurpool = composer.algorithms.BlurPool()  # credit:  (Zhang, 2019)
+model = models.MNIST_Classifier(num_classes=10)
+optimizer = Adam(model.parameters())
 
-# for brevity, we hardcode some argument values
-trainer = composer.trainer.Trainer(model=model,
-                                   train_dataloader=train_dataloader,
-                                   eval_dataloader=test_dataloader,
-                                   max_duration="3ep", # Train for 3 epochs because we're assuming Colab environment and hardware
-                                   optimizers=optimizer,
-                                   schedulers=[warmup],
-                                   algorithms=[blurpool] # Adding BlurPool via model surgery, can just add more algorithms here!
-                                   device="gpu" # Train on the GPU,
-                                   seed=42) # the meaning to life, the universe, and everything
+trainer = Trainer(
+    model=model,
+    # add algorithms below
+    algorithms=[LabelSmoothing(alpha=0.1)],
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+    optimizers=optimizer,
+    schedulers=CosineAnnealingLR(optimizer, T_max=2),
+    max_duration="2ep",
+)
 
-# start training!
+# Starting training!
 trainer.fit()
 ```
 Using the Composer Trainer allows you to **add multiple efficient training methods in a single line of code!**  Trying out new methods or combinations of methods is as easy as adding another line! As Composer gets better and we implement more methods and quality of life improvements, the savings are directly passed to you.
@@ -310,16 +299,20 @@ Here's some resources actively maintained by the Composer community to help you 
     <td>A blog post by our founders highlighting why MosaicML exists</td>
   </tr>
   <tr>
-    <td><a href="https://drive.google.com/file/d/12Dl0NVDaj4tf4gfpfg-rkIAoO_H7edo3/edit" target="_blank" rel="noopener noreferrer">Getting started with our Trainer</a></td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Trainer</a></td>
     <td>An interactive Colab Notebook aimed at teaching users about our Trainer</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/drive/1HIxLs61pyf0ln7MlnrGYvkNHq1uVbNWu?usp=sharing" target="_blank" rel="noopener noreferrer">Getting started with our Functional API</a></td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Functional API</a></td>
     <td>An interactive Colab Notebook aimed at teaching users about our Functional API</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/" target="_blank" rel="noopener noreferrer">PyTorch Lightning Migration Guide</a></td>
-    <td>An interactive Colab Notebook aimed at helping users migrate from PTL to Composer</td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/custom_method_tutorial.ipynb" target="_blank" rel="noopener noreferrer">Building Speedup Methods</a></td>
+    <td>An interactive Colab Notebook aimed at teaching users about building speedup methods on top of Composer</td>
+  </tr>
+  <tr>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/nlp_notebook_tutorial.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer</a></td>
+    <td>An interactive Colab Notebook aimed at helping users learn how to train BERT models with Composer!</td>
   </tr>
   <tr>
     <td><a href="https://mosaicml.com/jobs" target="_blank" rel="noopener noreferrer">We're Hiring!</a></td>
