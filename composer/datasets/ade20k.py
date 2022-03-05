@@ -429,9 +429,9 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
             return x, y
 
         preprocess = lambda dataset: dataset.decode('pil').to_tuple('scene.jpg', 'annotation.png').map(map_fn)
-        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir, self.webdataset_cache_verbose,
-                                  self.shuffle, self.shuffle_buffer, preprocess, dist.get_world_size(),
-                                  dataloader_hparams.num_workers, batch_size, self.drop_last)
+        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir,
+                                  self.webdataset_cache_verbose, self.shuffle, self.shuffle_buffer, preprocess,
+                                  dist.get_world_size(), dataloader_hparams.num_workers, batch_size, self.drop_last)
 
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,

@@ -132,9 +132,9 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
                 transforms.Normalize(self.channel_means, self.channel_stds),
             ])
         preprocess = lambda dataset: dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir, self.webdataset_cache_verbose,
-                                  self.shuffle, self.shuffle_buffer, preprocess, dist.get_world_size(),
-                                  dataloader_hparams.num_workers, batch_size, self.drop_last)
+        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir,
+                                  self.webdataset_cache_verbose, self.shuffle, self.shuffle_buffer, preprocess,
+                                  dist.get_world_size(), dataloader_hparams.num_workers, batch_size, self.drop_last)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
@@ -178,9 +178,9 @@ class Imagenet1kWebDatasetHparams(WebDatasetHparams):
             ])
         split = 'train' if self.is_train else 'val'
         preprocess = lambda dataset: dataset.decode('pil').map_dict(jpg=transform).to_tuple('jpg', 'cls')
-        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir, self.webdataset_cache_verbose,
-                                  self.shuffle, self.shuffle_buffer, preprocess, dist.get_world_size(),
-                                  dataloader_hparams.num_workers, batch_size, self.drop_last)
+        dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir,
+                                  self.webdataset_cache_verbose, self.shuffle, self.shuffle_buffer, preprocess,
+                                  dist.get_world_size(), dataloader_hparams.num_workers, batch_size, self.drop_last)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(

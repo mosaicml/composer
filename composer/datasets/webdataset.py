@@ -7,6 +7,7 @@ import textwrap
 from typing import Any, Dict, Iterable, Optional, Tuple
 
 from tqdm import tqdm
+
 try:
     from webdataset import ShardWriter, WebDataset
     from wurlitzer import pipes
@@ -159,17 +160,8 @@ def size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, 
     return dataset.with_length(samples_per_device)
 
 
-def load_webdataset(remote: str,
-                    name: str,
-                    split: str,
-                    cache_dir: Optional[str],
-                    cache_verbose: bool,
-                    shuffle: bool,
-                    shuffle_buffer: int,
-                    preprocess,
-                    n_devices: int,
-                    workers_per_device: int,
-                    batch_size: int,
+def load_webdataset(remote: str, name: str, split: str, cache_dir: Optional[str], cache_verbose: bool, shuffle: bool,
+                    shuffle_buffer: int, preprocess, n_devices: int, workers_per_device: int, batch_size: int,
                     drop_last: bool):
     '''Load WebDataset from remote, optionally caching, with the given preprocessing and batching.
 
