@@ -105,6 +105,7 @@ class InMemoryLogger(LoggerCallback):
 
                 in_mem_logger = InMemoryLogger(LogLevel.BATCH)
 
+                # Populate the logger with data
                 for b in range(0,3):
                     datapoint = b * 3
                     timestamp = Timestamp(epoch=Time(0, "ep"),
