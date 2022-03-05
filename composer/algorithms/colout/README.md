@@ -36,6 +36,7 @@ def colout_batch(image: Union[PillowImage, torch.Tensor]):
 
 Create a callable for ColOut which can be composed with other image augmentations
 
+```python
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
@@ -44,6 +45,7 @@ from composer.algorithms.colout import ColOutTransform
 colout_transform = ColOutTransform(p_row=0.15, p_col=0.15)
 composed = transforms.Compose([colout_transform, transforms.ToTensor()])
 dataset = VisionDataset("data_path", transform=composed)
+```
 
 ### Composer Trainer
 

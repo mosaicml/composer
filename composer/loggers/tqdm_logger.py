@@ -210,5 +210,5 @@ class TQDMLogger(LoggerCallback):
         }
 
     def load_state_dict(self, state: StateDict) -> None:
-        self.pbars = {k: _TQDMLoggerInstance(**v) for (k, v) in state["pbars"].items()}
+        self.pbars = {k: _TQDMLoggerInstance(_TQDMLoggerInstanceState(**v)) for (k, v) in state["pbars"].items()}
         self.is_train = state["is_train"]

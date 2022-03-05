@@ -21,7 +21,9 @@ A :class:`DatasetHparams` is responsible for returning a :class:`torch.utils.dat
 """
 from composer.datasets.ade20k import ADE20kDatasetHparams as ADE20kDatasetHparams
 from composer.datasets.brats import BratsDatasetHparams as BratsDatasetHparams
+from composer.datasets.c4 import C4DatasetHparams as C4DatasetHparams
 from composer.datasets.cifar10 import CIFAR10DatasetHparams as CIFAR10DatasetHparams
+from composer.datasets.coco import COCODatasetHparams as COCODatasetHparams
 from composer.datasets.dataloader import DataloaderHparams as DataloaderHparams
 from composer.datasets.dataloader import WrappedDataLoader as WrappedDataLoader
 from composer.datasets.dataset_registry import get_dataset_registry as get_dataset_registry
