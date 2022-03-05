@@ -9,9 +9,9 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 from tqdm import tqdm
 try:
     from webdataset import ShardWriter, WebDataset
+    from wurlitzer import pipes
 except:
     WebDataset = None
-from wurlitzer import pipes
 
 log = logging.getLogger(__name__)
 

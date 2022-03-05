@@ -122,7 +122,9 @@ extra_deps["nlp"] = [
 ]
 
 extra_deps['webdataset'] = [
-    'awscli>=1.22.60', 'wurlitzer>=3.0.2', 'webdataset @ git+https://github.com/mosaicml/webdataset.git@dev'
+    'awscli>=1.22.60',
+    'webdataset @ git+https://github.com/mosaicml/webdataset.git@dev',
+    'wurlitzer>=3.0.2',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
