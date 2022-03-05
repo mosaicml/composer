@@ -100,10 +100,22 @@ class InMemoryLogger(LoggerCallback):
                 import matplotlib.pyplot as plt
 
                 from composer.core.logging import LogLevel
-                from from composer.loggers import InMemoryLogger
+                from composer.core.time import Time, Timestamp
+                from composer.loggers import InMemoryLogger
 
                 in_mem_logger = InMemoryLogger(LogLevel.BATCH)
-                in_mem_logger = populate_in_memory_logger(in_mem_logger, datafield="accuracy/val")
+
+                for b in range(0,3):
+                    datapoint = b * 3
+                    timestamp = Timestamp(epoch=Time(0, "ep"),
+                                        batch=Time(b, "ba"),
+                                        batch_in_epoch=Time(0, "ba"),
+                                        sample=Time(0, "sp"),
+                                        sample_in_epoch=Time(0, "sp"),
+                                        token=Time(0, "tok"),
+                                        token_in_epoch=Time(0, "tok"))
+                    in_mem_logger.log_metric(timestamp=timestamp, 
+                        log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
                 timeseries = in_mem_logger.get_timeseries("accuracy/val")
                 plt.plot(timeseries["batch"], timeseries["accuracy/val"])
                 plt.xlabel("Batch")
