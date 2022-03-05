@@ -125,7 +125,7 @@ def size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, 
     # Ensure that shards can be split among CPU workers
     n_workers_global = n_devices * workers_per_device
     if n_shards % n_workers_global != 0:
-        raise ValueError(f"{n_shards=} must be divisible by {n_workers_global=}!")
+        raise ValueError(f"n_shards={n_shards} must be divisible by n_workers_global={n_workers_global}!")
 
     # Set IterableDataset epoch boundary and length for DDP, PyTorch Dataloader compatability
     shards_per_worker = n_shards // n_devices // workers_per_device
