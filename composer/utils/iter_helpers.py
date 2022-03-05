@@ -58,7 +58,6 @@ def ensure_tuple(x) -> Tuple[Any, ...]:
         return tuple(x)
     if isinstance(x, dict):
         return tuple(x.values())
-
     return (x,)
 
 
