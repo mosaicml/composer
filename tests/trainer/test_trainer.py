@@ -14,6 +14,7 @@ from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
 from composer.callbacks import LRMonitor, RunDirectoryUploader
 from composer.core.callback import Callback
+from composer.core.precision import Precision
 from composer.core.types import Model
 from composer.loggers import FileLogger, TQDMLogger, WandBLogger
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
@@ -173,11 +174,12 @@ class TestTrainerEquivalence():
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
-    def test_grad_accum(self, config, device, *args):
+    def test_grad_accum(self, config, precision, *args):
         # grad accum requires non-zero tolerance
+        # Precision.AMP requires a even higher tolerance.
         threshold = {
-            'atol': 1e-08,
-            'rtol': 1e-05,
+            'atol': 1e-04 if precision == Precision.AMP else 1e-08,
+            'rtol': 1e-02 if precision == Precision.AMP else 1e-05,
         }
 
         config.update({
