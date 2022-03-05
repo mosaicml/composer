@@ -25,7 +25,8 @@ def cutmix_batch(X: Tensor,
                  alpha: float = 1.,
                  cutmix_lambda: Optional[float] = None,
                  bbox: Optional[Tuple] = None,
-                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+                 indices: Optional[torch.Tensor] = None,
+                 uniform_sampling: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of X, and filling the masked region with a
@@ -55,12 +56,16 @@ def cutmix_batch(X: Tensor,
             are feature dimensions.
         y (Tensor): target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
             are possible target dimensions.
+
         n_classes (int): total number of classes.
         alpha (float, optional): parameter for the beta distribution of the cutmix region size. Default: ``1``.
         cutmix_lambda (float, optional): fixed size of cutmix region. Default: ``None``.
         bbox (tuple, optional): predetermined (rx1, ry1, rx2, ry2) coords of the bounding box. Default: ``None``.
         indices (Tensor, optional): Permutation of the batch indices `1..B`. Used
             for permuting without randomness. Default: ``None``.
+        uniform_sampling (bool, optional): If true, sample the bounding box such that each pixel
+            has an equal probability of being mixed. If false, defaults to the
+            sampling used in the original paper implementation. Default: False
 
     Returns:
         X_cutmix: batch of inputs after cutmix has been applied.
@@ -81,7 +86,7 @@ def cutmix_batch(X: Tensor,
     if bbox:
         rx, ry, rw, rh = bbox[0], bbox[1], bbox[2], bbox[3]
     else:
-        rx, ry, rw, rh = _rand_bbox(X.shape[2], X.shape[3], cutmix_lambda)
+        rx, ry, rw, rh = _rand_bbox(X.shape[2], X.shape[3], cutmix_lambda, uniform_sampling=uniform_sampling)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
@@ -139,9 +144,10 @@ class CutMix(Algorithm):
             one element of the pair. Default: ``1``.
     """
 
-    def __init__(self, num_classes: int, alpha: float = 1.):
+    def __init__(self, num_classes: int, alpha: float = 1., uniform_sampling: bool = False):
         self.num_classes = num_classes
         self.alpha = alpha
+        self.uniform_sampling = uniform_sampling
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox = tuple()
@@ -197,18 +203,19 @@ class CutMix(Algorithm):
 
         self.indices = _gen_indices(input)
         self.cutmix_lambda = _gen_cutmix_lambda(alpha)
-        self.bbox = _rand_bbox(input.shape[2], input.shape[3], self.cutmix_lambda)
+        self.bbox = _rand_bbox(input.shape[2],
+                               input.shape[3],
+                               self.cutmix_lambda,
+                               uniform_sampling=self.uniform_sampling)
         self.cutmix_lambda = _adjust_lambda(self.cutmix_lambda, input, self.bbox)
 
-        new_input, new_target = cutmix_batch(
-            X=input,
-            y=target,
-            n_classes=self.num_classes,
-            alpha=alpha,
-            cutmix_lambda=self.cutmix_lambda,
-            bbox=self.bbox,
-            indices=self.indices,
-        )
+        new_input, new_target = cutmix_batch(X=input,
+                                             y=target,
+                                             n_classes=self.num_classes,
+                                             alpha=alpha,
+                                             cutmix_lambda=self.cutmix_lambda,
+                                             bbox=self.bbox,
+                                             indices=self.indices)
 
         state.batch = (new_input, new_target)
 
@@ -251,7 +258,8 @@ def _rand_bbox(W: int,
                H: int,
                cutmix_lambda: float,
                cx: Optional[int] = None,
-               cy: Optional[int] = None) -> Tuple[int, int, int, int]:
+               cy: Optional[int] = None,
+               uniform_sampling: bool = False) -> Tuple[int, int, int, int]:
     """Randomly samples a bounding box with area determined by cutmix_lambda.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
@@ -262,6 +270,9 @@ def _rand_bbox(W: int,
         cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
         cx: Optional x coordinate of the center of the box.
         cy: Optional y coordinate of the center of the box.
+        uniform_sampling: If true, sample the bounding box such that each pixel
+            has an equal probability of being mixed. If false, defaults to the
+            sampling used in the original paper implementation.
 
     Returns:
         bbx1: Leftmost edge of the bounding box
@@ -275,9 +286,15 @@ def _rand_bbox(W: int,
 
     # uniform
     if cx is None:
-        cx = np.random.randint(W)
+        if uniform_sampling is True:
+            cx = np.random.randint(-cut_w // 2, high=W + cut_w // 2)
+        else:
+            cx = np.random.randint(W)
     if cy is None:
-        cy = np.random.randint(H)
+        if uniform_sampling is True:
+            cy = np.random.randint(-cut_h // 2, high=H + cut_h // 2)
+        else:
+            cy = np.random.randint(H)
 
     bbx1 = np.clip(cx - cut_w // 2, 0, W)
     bby1 = np.clip(cy - cut_h // 2, 0, H)
