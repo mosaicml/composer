@@ -1,9 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Any arguments passed to this script will be passed to the conda-build command
-CONDA_BUILD_ARGS=$("$1":-'')
-
 # This script builds composer as a conda package
 # As part of the build process, the composer tests
 # are executed. See `meta.yaml` for the conda package
@@ -30,4 +27,4 @@ conda install -y conda-build conda-verify anaconda-client
 # Conda-build invokes pytest automatically, and runs all non-gpu tests
 echo "Building composer"
 
-conda-build $(dirname $0)/.. $CONDA_BUILD_ARGS
+conda-build $(dirname $0)/..
