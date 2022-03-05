@@ -46,7 +46,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
             split="train",
         ),
     COCODatasetHparams:
-        lambda: COCODatasetHparams(is_train=False, datadir="hello", download=False, drop_last=False, shuffle=False),
+        lambda: COCODatasetHparams(is_train=False, datadir=["hello"], download=False, drop_last=False, shuffle=False), # type: ignore
     C4DatasetHparams:
         lambda: C4DatasetHparams(
             split="train",
