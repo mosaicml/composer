@@ -124,6 +124,7 @@ class CutMixHparams(AlgorithmHparams):
 
     num_classes: int = hp.required('Number of classes in the task labels.')
     alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
+    uniform_sampling: bool = hp.optional('Mix pixels with uniform probability', default=False)
 
     def initialize_object(self) -> CutMix:
         return CutMix(**asdict(self))
@@ -135,6 +136,7 @@ class CutOutHparams(AlgorithmHparams):
 
     n_holes: int = hp.optional('Number of holes to cut out', default=1)
     length: float = hp.optional('Relative or absolute side length of the square hole to cut out', default=0.5)
+    uniform_sampling: bool = hp.optional('Mask pixels with uniform probability', default=False)
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))

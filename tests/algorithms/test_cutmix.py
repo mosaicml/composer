@@ -46,9 +46,10 @@ def validate_cutmix(x, y, indices, x_cutmix, y_cutmix, cutmix_lambda, bbox, n_cl
 
 
 @pytest.mark.parametrize('alpha', [0.2, 1])
+@pytest.mark.parametrize('uniform_sampling', [True, False])
 class TestCutMix:
 
-    def test_cutmix(self, fake_data, alpha):
+    def test_cutmix(self, fake_data, alpha, uniform_sampling):
         # Generate fake data
         x_fake, y_fake, indices, n_classes = fake_data
 
@@ -61,7 +62,8 @@ class TestCutMix:
                                             H=x_fake.shape[3],
                                             cutmix_lambda=cutmix_lambda,
                                             cx=cx,
-                                            cy=cy)
+                                            cy=cy,
+                                            uniform_sampling=uniform_sampling)
         bbox = (bbx1, bby1, bbx2, bby2)
         # Adjust lambda
         cutmix_lambda = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x_fake.size()[-1] * x_fake.size()[-2]))
@@ -73,7 +75,8 @@ class TestCutMix:
                                           n_classes=n_classes,
                                           cutmix_lambda=cutmix_lambda,
                                           bbox=bbox,
-                                          indices=indices)
+                                          indices=indices,
+                                          uniform_sampling=uniform_sampling)
 
         # Validate results
         validate_cutmix(x=x_fake,
@@ -85,11 +88,11 @@ class TestCutMix:
                         bbox=bbox,
                         n_classes=n_classes)
 
-    def test_cutmix_algorithm(self, fake_data, alpha, minimal_state, empty_logger):
+    def test_cutmix_algorithm(self, fake_data, alpha, uniform_sampling, minimal_state, empty_logger):
         # Generate fake data
         x_fake, y_fake, _, _ = fake_data
 
-        algorithm = CutMix(alpha=alpha, num_classes=x_fake.size(1))
+        algorithm = CutMix(alpha=alpha, num_classes=x_fake.size(1), uniform_sampling=uniform_sampling)
         state = minimal_state
         state.model = ComposerClassifier(torch.nn.Flatten())
         state.batch = (x_fake, y_fake)
