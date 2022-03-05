@@ -60,6 +60,9 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
 
 @pytest.mark.parametrize("dataset_name", dataset_registry.keys())
 def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataloaderHparams) -> None:
+    # Skip WebDatasets.
+    if dataset_name.startswith('wds_'):
+        return
     hparams_cls = dataset_registry[dataset_name]
     hparams = default_required_fields[hparams_cls]()
     if not isinstance(hparams, SyntheticHparamsMixin):
