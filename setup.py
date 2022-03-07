@@ -109,6 +109,10 @@ extra_deps["unet"] = [
     'scikit-learn>=1.0.1',
 ]
 
+extra_deps["vit"] = [
+    'vit_pytorch>=0.27',
+]
+
 extra_deps["timm"] = [
     'timm==0.5.4',
 ]

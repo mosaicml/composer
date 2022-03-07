@@ -10,11 +10,11 @@ class ViTSmallPatch16(ComposerClassifier):
     See this `paper <https://arxiv.org/pdf/2012.12877.pdf>` for details on ViT-S/16.
 
     Args:
-        num_classes (int): number of classes for the model.
-        image_size (int): input image size. If you have rectangular images, make sure your image size is the maximum of the width and height.
-        channels (int): number of  image channels.
-        dropout (float): 0.0 - 1.0 dropout rate.
-        embedding_dropout (float): 0.0 - 1.0 embedding dropout rate.
+        num_classes (int, optional): number of classes for the model. Default: 1000.
+        image_size (int, optional): input image size. If you have rectangular images, make sure your image size is the maximum of the width and height. Default: 224.
+        channels (int, optional): number of  image channels. Default: 3.
+        dropout (float, optional): 0.0 - 1.0 dropout rate. Default: 0.
+        embedding_dropout (float, optional): 0.0 - 1.0 embedding dropout rate. Default: 0.
     """
 
     def __init__(self,
