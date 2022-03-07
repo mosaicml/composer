@@ -4,22 +4,26 @@ import math
 import os
 import subprocess
 import textwrap
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple
 
 from tqdm import tqdm
+
+if TYPE_CHECKING:
+    from webdataset import WebDataset
 
 try:
     from webdataset import ShardWriter, WebDataset
     from wurlitzer import pipes
-except:
-    WebDataset = None
+    webdataset_installed = True
+except ImportError:
+    webdataset_installed = False
 
 log = logging.getLogger(__name__)
 
 
 def require_webdataset():
     """Hard require webdataset."""
-    if WebDataset is None:
+    if not webdataset_installed:
         raise ImportError(
             textwrap.dedent("""
                 Composer was installed without WebDataset support. To use WebDataset with Composer, run `pip install
