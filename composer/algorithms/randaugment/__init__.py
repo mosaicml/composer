@@ -2,7 +2,7 @@
 
 """Randomly applies a sequence of image data augmentations
 (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image. See
-:class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method Card
+:class:`.RandAugment` or the :doc:`Method Card
 </method_cards/randaugment>` for details.
 """
 

@@ -39,14 +39,14 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
         batch (Dict[str, Tensor]): The input batch to the model, must be a dictionary.
         curr_seq_length (int): The desired sequence length to apply.
         truncate (bool, optional): Truncate sequences early, or reshape tensors to create
-            new examples out of the extra tokens. Default = ``True``.
+            new examples out of the extra tokens. Default: ``True``.
 
     Returns:
         Dict[str, Tensor]: a Mapping of input tensors to the model,
             where all tensors have curr_seq_len in the second dimension.
 
     Example:
-    
+
     .. code-block::
 
         import composer.functional as cf

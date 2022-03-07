@@ -46,16 +46,16 @@ def resize_batch(X: torch.Tensor,
             )
 
     Args:
-        X: input tensor of shape (N, C, H, W). Resizing will be done along
+        X (Tensor): input tensor of shape (N, C, H, W). Resizing will be done along
             dimensions H and W using the constant factor ``scale_factor``.
-        y: output tensor of shape (N, H, W) or (N, C, H, W) that will also be resized if
+        y (Tensor): output tensor of shape (N, H, W) or (N, C, H, W) that will also be resized if
             ``resize_targets`` is ``True``,
-        scale_factor: scaling coefficient for the height and width of the
+        scale_factor (float): scaling coefficient for the height and width of the
             input/output tensor. 1.0 keeps the original size.
-        mode: type of scaling to perform. Value must be one of ``'crop'`` or
+        mode (str, optional): type of scaling to perform. Value must be one of ``'crop'`` or
             ``'resize'``. ``'crop'`` performs a random crop, whereas ``'resize'``
-            performs a nearest neighbor interpolation.
-        resize_targets: whether to resize the targets, ``y``, as well
+            performs a nearest neighbor interpolation. Default: ``"resize"``.
+        resize_targets (bool, optional): whether to resize the targets, ``y``. Default: ``False``.
 
     Returns:
         X_sized: resized input tensor of shape ``(N, C, H * scale_factor, W * scale_factor)``.
@@ -141,14 +141,14 @@ class ProgressiveResizing(Algorithm):
             )
 
     Args:
-        mode: Type of scaling to perform. Value must be one of ``'crop'`` or ``'resize'``.
+        mode (str, optional): Type of scaling to perform. Value must be one of ``'crop'`` or ``'resize'``.
             ``'crop'`` performs a random crop, whereas ``'resize'`` performs a bilinear
-            interpolation.
-        initial_scale: Initial scale factor used to shrink the inputs. Must be a
-            value in between 0 and 1.
-        finetune_fraction: Fraction of training to reserve for finetuning on the
-            full-sized inputs. Must be a value in between 0 and 1.
-        resize_targets: If True, resize targets also.
+            interpolation. Default: ``"resize"``.
+        initial_scale (float, optional): Initial scale factor used to shrink the inputs. Must be a
+            value in between 0 and 1. Default: ``0.5``.
+        finetune_fraction (float, optional): Fraction of training to reserve for finetuning on the
+            full-sized inputs. Must be a value in between 0 and 1. Default: ``0.2``.
+        resize_targets (bool, optional): If True, resize targets also. Default: ``False``.
     """
 
     def __init__(self,

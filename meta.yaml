@@ -6,9 +6,8 @@ package:
 
 source:
   git_url: https://github.com/mosaicml/composer.git
-  # TODO change to "v0.4.0"
-  git_rev: "dev"
-  git_depth: 1
+  git_rev: "v0.4.0"
+  git_depth: -1
 
 build:
   number: 0
@@ -28,12 +27,11 @@ requirements:
     - python >=3.7
     - pyyaml >=5.4.1
     - pytorch >=1.9
-    - pycocotools ==2.0.1
     - torch-optimizer ==0.1.0
     - torchmetrics >=0.6.0
     - torchvision >=0.9.0
     - tqdm >=4.62.3
-    - yahp >=0.0.14
+    - yahp >=0.1.0
     - requests >=2.26.0
     - numpy ==1.21.5
     - apache-libcloud >=3.3.1
@@ -45,6 +43,8 @@ requirements:
     # - timm >=0.5.4 # This timm version is not available on conda
     - transformers >=4.11
     - datasets >=1.14
+    - pycocotools >=2.0.4
+    - coolname >=1.1.0
 
 test:
   requires:
@@ -64,6 +64,8 @@ test:
     # - timm >=0.5.4 # This timm version is not available on conda; installing via pip
     - transformers >=4.11
     - datasets >=1.14
+    - pycocotools >=2.0.4
+    - coolname >=1.1.0
   files:
     - "**/composer/**"
     - "**/tests/**"
