@@ -15,7 +15,6 @@ from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 
 # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
@@ -117,6 +116,8 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.229, 0.224, 0.225))
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        from composer.datasets.webdataset import load_webdataset
+
         if self.is_train:
             split = 'train'
             transform = transforms.Compose([
@@ -158,6 +159,8 @@ class Imagenet1kWebDatasetHparams(WebDatasetHparams):
     crop_size: int = hp.optional("crop size", default=224)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
+        from composer.datasets.webdataset import load_webdataset
+
         if self.is_train:
             # include fixed-size resize before RandomResizedCrop in training only
             # if requested (by specifying a size > 0)

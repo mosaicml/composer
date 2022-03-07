@@ -9,7 +9,6 @@ from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 
 
@@ -64,6 +63,8 @@ class MNISTWebDatasetHparams(WebDatasetHparams):
     name: str = hp.optional('WebDataset local cache name', default='mnist')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        from composer.datasets.webdataset import load_webdataset
+
         split = 'train' if self.is_train else 'val'
         transform = transforms.Compose([
             transforms.Grayscale(),

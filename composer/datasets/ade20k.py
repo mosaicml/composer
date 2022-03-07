@@ -18,7 +18,6 @@ from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, Web
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 
 
@@ -387,6 +386,8 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
             raise ValueError("max_resize_scale cannot be less than min_resize_scale")
 
     def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
+        from composer.datasets.webdataset import load_webdataset
+
         self.validate()
         # Define data transformations based on data split
         if self.split == 'train':

@@ -11,7 +11,6 @@ from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.webdataset import load_webdataset
 from composer.utils import dist
 
 
@@ -98,6 +97,8 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0, 0, 0))
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+        from composer.datasets.webdataset import load_webdataset
+
         if self.is_train:
             split = 'train'
             transform = transforms.Compose([
