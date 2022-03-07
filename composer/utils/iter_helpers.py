@@ -56,7 +56,7 @@ def ensure_tuple(x):
         return tuple()
     if isinstance(x, (str, bytes, bytearray)):
         return (x,)
-    if isinstance(x, collections.abs.Sequence):
+    if isinstance(x, collections.abc.Sequence):
         return tuple(x)
     if isinstance(x, dict):
         return tuple(x.values())
