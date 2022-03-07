@@ -86,6 +86,17 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
         channel_stds (list of float): Channel stds for normalization.
     """
 
+    remote: str = hp.required('WebDataset S3 bucket name')
+    name: str = hp.required('WebDataset local cache name')
+
+    n_train_samples: int = hp.required('Number of samples in training split')
+    n_val_samples: int = hp.required('Number of samples in validation split')
+    height: int = hp.optional('Image height', default=32)
+    width: int = hp.optional('Image width', default=32)
+    n_classes: int = hp.required('Number of output classes')
+    channel_means: List[float] = hp.required('Mean per image channel')
+    channel_stds: List[float] = hp.required('Std per image channel')
+
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         if self.is_train:
             split = 'train'
@@ -120,8 +131,6 @@ class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
 
     n_train_samples: int = hp.optional('Number of samples in training split', default=50_000)
     n_val_samples: int = hp.optional('Number of samples in validation split', default=10_000)
-    height: int = hp.optional('Image height', default=32)
-    width: int = hp.optional('Image width', default=32)
     n_classes: int = hp.optional('Number of output classes', default=10)
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0.4914, 0.4822, 0.4465))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.247, 0.243, 0.261))
@@ -136,8 +145,6 @@ class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
 
     n_train_samples: int = hp.optional('Number of samples in training split', default=50_000)
     n_val_samples: int = hp.optional('Number of samples in validation split', default=10_000)
-    height: int = hp.optional('Image height', default=32)
-    width: int = hp.optional('Image width', default=32)
     n_classes: int = hp.optional('Number of output classes', default=20)
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0.5071, 0.4867, 0.4408))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.2675, 0.2565, 0.2761))
@@ -152,8 +159,6 @@ class CIFAR100WebDatasetHparams(CIFARWebDatasetHparams):
 
     n_train_samples: int = hp.optional('Number of samples in training split', default=50_000)
     n_val_samples: int = hp.optional('Number of samples in validation split', default=10_000)
-    height: int = hp.optional('Image height', default=32)
-    width: int = hp.optional('Image width', default=32)
-    n_classes: int = hp.optional('Number of output classes', default=20)
+    n_classes: int = hp.optional('Number of output classes', default=100)
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0.5071, 0.4867, 0.4408))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.2675, 0.2565, 0.2761))
