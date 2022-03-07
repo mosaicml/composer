@@ -26,6 +26,7 @@ def get_dummy_state(model: ComposerModel, train_dataloader: types.DataLoader, va
     evaluators = [types.Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=model.metrics(train=False))]
     state = State(model=model,
                   grad_accum=random.randint(0, 100),
+                  rank_zero_seed=random.randint(0, 100),
                   precision=types.Precision.AMP,
                   max_duration=f"{random.randint(0, 100)}ep",
                   train_dataloader=train_dataloader,

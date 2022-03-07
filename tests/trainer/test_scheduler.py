@@ -23,6 +23,7 @@ STEPS_PER_EPOCH = 1000
 def dummy_schedulers_state(dummy_model: Model, dummy_train_dataloader: DataLoader):
     return State(
         model=dummy_model,
+        rank_zero_seed=0,
         train_dataloader=dummy_train_dataloader,
         max_duration=MAX_DURATION,
         steps_per_epoch=STEPS_PER_EPOCH,

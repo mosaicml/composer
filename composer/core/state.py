@@ -17,7 +17,7 @@ import composer.core.types as types
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timer, TimeUnit
-from composer.utils import ensure_tuple
+from composer.utils import dist, ensure_tuple
 
 if TYPE_CHECKING:
     from composer.core.algorithm import Algorithm
@@ -63,6 +63,8 @@ class State(Serializable):
 
     Args:
         model (:attr:`~.types.Model`): The model, typically as a subclass of :class:`~.ComposerModel`.
+        rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
+            ``rank_zero_seed + dist.get_global_rank()``.
         grad_accum (int): The number of gradient accumulation steps to use. With this argument, micro batch size for
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         train_dataloader (types.DataLoader, DataSpec, or dict):
@@ -129,6 +131,7 @@ class State(Serializable):
 
             # stopping conditions
             max_duration: Union[str, Time[int]],
+            rank_zero_seed: int,
 
             # data configurations
             train_dataloader: types.DataLoader,
@@ -152,6 +155,7 @@ class State(Serializable):
             # steps per epoch
             steps_per_epoch: Optional[int] = None,
     ):
+        self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.grad_accum = grad_accum
         self.train_dataloader = train_dataloader
@@ -188,10 +192,17 @@ class State(Serializable):
             "callbacks",
             "scaler",
             "timer",
+            "rank_zero_seed",
         ]
 
     @property
+    def seed(self):
+        """The seed for the current rank."""
+        return self.rank_zero_seed + dist.get_global_rank()
+
+    @property
     def max_duration(self):
+        """The maximum training duration."""
         return self._max_duration
 
     @max_duration.setter
@@ -254,11 +265,24 @@ class State(Serializable):
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 serialized_value = state_field_value.state_dict()
             else:
-                serialized_value = {
-                    obj.__class__.__qualname__: obj.state_dict()
-                    for obj in ensure_tuple(state_field_value)
-                    if obj is not None
-                }
+                # Duck typing since runtime checkable protocols are not available in Python 3.7
+                is_state_dict_serializable = any(hasattr(x, "state_dict") for x in ensure_tuple(state_field_value))
+                if len(ensure_tuple(state_field_value)) > 0:
+                    # any and all should be the same, except in for an empty collection, since
+                    # any([]) is False, while all([]) is True
+                    if is_state_dict_serializable != all(
+                            hasattr(x, "state_dict") for x in ensure_tuple(state_field_value)):
+                        raise RuntimeError(
+                            f"Every member of {state_field_name} should support `state_dict`, or no members should support it."
+                        )
+
+                if is_state_dict_serializable:
+                    serialized_value = {
+                        obj.__class__.__qualname__: obj.state_dict() for obj in ensure_tuple(state_field_value)
+                    }
+                else:
+                    serialized_value = state_field_value
+
             state_dict[state_field_name] = serialized_value
 
         state_dict["_is_model_ddp_wrapped"] = isinstance(self.model, DistributedDataParallel)
@@ -297,16 +321,28 @@ class State(Serializable):
             if state_field_name == "model":
                 self.load_model_state(state, strict=strict)
             else:
-                for target in ensure_tuple(state_field_value):
-                    if target is None:
-                        continue
-                    if target.__class__.__qualname__ not in serialized_value:
-                        warnings.warn(
-                            f"{target.__class__.__qualname__} was not found in the state_dict. Its state will NOT be restored",
-                            category=UserWarning)
-                        continue
-                    source = serialized_value[target.__class__.__qualname__]
-                    target.load_state_dict(source)
+                # Duck typing since runtime checkable protocols are not available in Python 3.7
+                is_state_dict_serializable = any(hasattr(x, "load_state_dict") for x in ensure_tuple(state_field_value))
+                if len(ensure_tuple(state_field_value)) > 0:
+                    # any and all should be the same, except in for an empty collection, since
+                    # any([]) is False, while all([]) is True
+                    if is_state_dict_serializable != all(
+                            hasattr(x, "load_state_dict") for x in ensure_tuple(state_field_value)):
+                        raise RuntimeError(
+                            f"Every member of {state_field_name} should support `load_state_dict`, or no members should support it."
+                        )
+                if is_state_dict_serializable:
+                    for target in ensure_tuple(state_field_value):
+                        if target.__class__.__qualname__ not in serialized_value:
+                            warnings.warn(
+                                f"{target.__class__.__qualname__} was not found in the state_dict. Its state will NOT be restored",
+                                category=UserWarning)
+                            continue
+                        source = serialized_value[target.__class__.__qualname__]
+                        target.load_state_dict(source)
+                else:
+                    # direct serialization
+                    setattr(self, state_field_name, serialized_value)
 
     @property
     def steps_per_epoch(self):

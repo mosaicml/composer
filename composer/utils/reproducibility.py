@@ -32,6 +32,7 @@
 """
 import os
 import random
+import time
 import warnings
 
 import numpy as np
@@ -86,7 +87,9 @@ def get_random_seed() -> int:
     Returns:
         int: A random seed.
     """
-    seed = int(torch.empty((), dtype=torch.int64).random_(to=2**32).item())
+    rng = random.Random(int(time.time_ns()))  # get a new RNG does not respect the current seed
+    seed = rng.randint(0, 2**32 - 1)
+    assert seed >= 0 and seed < 2**32, "seed should be on this range"
     return seed
 
 
@@ -107,7 +110,8 @@ def seed_all(seed: int):
     Args:
         seed (int): The random seed
     """
-
+    if seed < 0 or seed >= 2**32:
+        raise ValueError(f"Seed {seed} is invalid. It must be on [0; 2^32 - 1]")
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
