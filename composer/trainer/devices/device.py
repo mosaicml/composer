@@ -9,7 +9,7 @@ from typing import Generator, TypeVar, Union, cast
 import torch.nn
 
 from composer.core.serializable import Serializable
-from composer.core.types import Batch, BatchPair, Optimizer, Precision, Tensor
+from composer.core.types import Batch, BatchPair, Optimizer, Precision, Tensor, Tensors
 from composer.utils.iter_helpers import map_collection
 
 __all__ = ["Device", "T_nnModule"]
@@ -42,7 +42,7 @@ class Device(Serializable, ABC):
         pass
 
     @abstractmethod
-    def tensor_to_device(self, tensor: Tensor) -> Tensor:
+    def tensor_to_device(self, tensor: Tensors) -> Tensors:
         """Invoked by the :class:`.Trainer` to move a tensor onto a device.
 
         Args:
