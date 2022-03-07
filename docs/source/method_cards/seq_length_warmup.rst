@@ -1,5 +1,5 @@
-Sequence Length Warmup
-======================
+|:high_brightness:| Sequence Length Warmup
+==========================================
 
 .. figure:: https://storage.googleapis.com/docs.mosaicml.com/images/methods/seq_len_warmup.svg
    :align: center

@@ -2,37 +2,47 @@
 
 """Core RandAugment code."""
 
+import functools
 import textwrap
 import weakref
-from typing import List
+from typing import List, TypeVar
 
 import numpy as np
 import torch
-from PIL.Image import Image as ImageType
+from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils import augmentation_sets
+from composer.algorithms.utils.augmentation_common import map_pillow_function
 from composer.core.types import Algorithm, Event, Logger, State
 from composer.datasets.utils import add_vision_dataset_transform
 
 __all__ = ['RandAugment', "RandAugmentTransform", 'randaugment_image']
 
+ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 
-def randaugment_image(img: ImageType,
+
+def randaugment_image(img: ImgT,
                       severity: int = 9,
                       depth: int = 2,
-                      augmentation_set: List = augmentation_sets["all"]) -> ImageType:
+                      augmentation_set: List = augmentation_sets["all"]) -> ImgT:
     """Randomly applies a sequence of image data augmentations
-    (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image. See
-    :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
-    Card </method_cards/randaugment>` for details.
+    (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image or batch of
+    images. See :class:`.RandAugment` or the
+    :doc:`Method Card </method_cards/randaugment>` for details. This function only acts on
+    a single image (or batch of images) per call and is unlikely to be used in a training
+    loop. Use :class:`.RandAugmentTransform`
+    to use RandAugment as part of a :class:`torchvision.datasets.VisionDataset`\\'s
+    ``transform``.
 
     Example:
         .. testcode::
 
-            from composer.algorithms.randaugment import randaugment_image
+            import composer.functional as cf
+
             from composer.algorithms.utils import augmentation_sets
-            randaugmented_image = randaugment_image(
+
+            randaugmented_image = cf.randaugment_image(
                 img=image,
                 severity=9,
                 depth=2,
@@ -40,28 +50,31 @@ def randaugment_image(img: ImageType,
             )
 
     Args:
-        img (PIL.Image): Image to be RandAugmented.
-        severity (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
-        depth (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+        img (PIL.Image): Image or batch of images to be RandAugmented.
+        severity (int, optional): See :class:`.RandAugment`.
+        depth (int, optional): See :class:`.RandAugment`.
         augmentation_set (str, optional): See
-            :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+            :class:`.RandAugment`.
 
     Returns:
         PIL.Image: RandAugmented image.
     """
 
-    # Iterate over augmentations
-    for _ in range(depth):
-        aug = np.random.choice(augmentation_set)
-        img = aug(img, severity)
-    assert img is not None
-    return img
+    def _randaugment_pil_image(img: PillowImage, severity: int, depth: int, augmentation_set: List) -> PillowImage:
+        # Iterate over augmentations
+        for _ in range(depth):
+            aug = np.random.choice(augmentation_set)
+            img = aug(img, severity)
+        return img
+
+    f_pil = functools.partial(_randaugment_pil_image, severity=severity, depth=depth, augmentation_set=augmentation_set)
+    return map_pillow_function(f_pil, img)
 
 
 class RandAugmentTransform(torch.nn.Module):
-    """Wraps :func:`~composer.algorithms.randaugment.randaugment.randaugment_image` in a
+    """Wraps :func:`.randaugment_image` in a
     ``torchvision``-compatible transform. See
-    :class:`~composer.algorithms.randaugment.randaugment.RandAugment` or the :doc:`Method
+    :class:`.RandAugment` or the :doc:`Method
     Card </method_cards/randaugment>` for more details.
 
     Example:
@@ -69,6 +82,7 @@ class RandAugmentTransform(torch.nn.Module):
 
             import torchvision.transforms as transforms
             from composer.algorithms.randaugment import RandAugmentTransform
+
             randaugment_transform = RandAugmentTransform(
                 severity=9,
                 depth=2,
@@ -78,10 +92,10 @@ class RandAugmentTransform(torch.nn.Module):
             transformed_image = composed(image)
 
     Args:
-        severity (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
-        depth (int, optional): See :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+        severity (int, optional): See :class:`.RandAugment`.
+        depth (int, optional): See :class:`.RandAugment`.
         augmentation_set (str, optional): See
-            :class:`~composer.algorithms.randaugment.randaugment.RandAugment`.
+            :class:`.RandAugment`.
     """
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
@@ -96,8 +110,7 @@ class RandAugmentTransform(torch.nn.Module):
         self.depth = depth
         self.augmentation_set = augmentation_sets[augmentation_set]
 
-    def forward(self, img: ImageType) -> ImageType:
-
+    def forward(self, img: ImgT) -> ImgT:
         return randaugment_image(img=img,
                                  severity=self.severity,
                                  depth=self.depth,
@@ -119,6 +132,7 @@ class RandAugment(Algorithm):
 
             from composer.algorithms import RandAugment
             from composer.trainer import Trainer
+
             randaugment_algorithm = RandAugment(
                 severity=9,
                 depth=2,
@@ -135,9 +149,9 @@ class RandAugment(Algorithm):
 
     Args:
         severity (int, optional): Severity of augmentation operators (between 1 to 10). M
-            in the original paper. Default = ``9``.
+            in the original paper. Default: ``9``.
         depth (int, optional): Depth of augmentation chain. N in the original paper
-            Default = ``2``.
+            Default: ``2``.
         augmentation_set (str, optional): Must be one of the following options:
 
             * ``"augmentations_all"``
@@ -159,7 +173,7 @@ class RandAugment(Algorithm):
                 "sharpness", and "brightness" that account for diverging effects around 0
                 (or 1).
 
-            Default = ``"all"``.
+            Default: ``"all"``.
     """
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):

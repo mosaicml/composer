@@ -18,6 +18,17 @@ def test_time_parse(time_string: str, expected_value: int, expected_unit: TimeUn
     assert time.unit == expected_unit
 
 
+@pytest.mark.parametrize("expected_timestring,time", [
+    ["1ep", Time(1, TimeUnit.EPOCH)],
+    ["2ba", Time(2, TimeUnit.BATCH)],
+    ["3sp", Time(3, TimeUnit.SAMPLE)],
+    ["4tok", Time(4, TimeUnit.TOKEN)],
+    ["0.5dur", Time(0.5, TimeUnit.DURATION)],
+])
+def test_to_timestring(expected_timestring: str, time: Time):
+    assert time.to_timestring() == expected_timestring
+
+
 def test_time_math():
     t1 = Time.from_timestring("1ep")
     t2 = Time.from_timestring("2ep")

@@ -14,29 +14,40 @@ from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_GHOST_BATCH_SIZE = 32
 _TORCH_BATCHNORM_BASE_CLASS = torch.nn.modules.batchnorm._BatchNorm
 
 
 def apply_ghost_batchnorm(model: torch.nn.Module,
-                          ghost_batch_size: int,
+                          ghost_batch_size: int = 32,
                           optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
     """Replace batch normalization modules with ghost batch normalization modules.
 
-    Must be run before the model has been moved to accelerators and before
-    the model's parameters have been passed to an optimizer.
+    Ghost batch normalization modules split their input into chunks of
+    ``ghost_batch_size`` samples and run batch normalization on each chunk
+    separately. Dim 0 is assumed to be the sample axis.
 
     Args:
-        model: model to transform
-        ghost_batch_size: size of sub-batches to normalize over
+        model (torch.nn.Module): the model to modify in-place
+        ghost_batch_size (int, optional): size of sub-batches to normalize over. Default: ``32``.
         optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
-            All optimizers that have already been constructed with,
+            All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.
 
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
             model parameters.
+
+    Returns:
+        The modified model
+
+    Example:
+        .. testcode::
+
+            import composer.functional as cf
+            from torchvision import models
+            model = models.resnet50()
+            cf.apply_ghost_batchnorm(model)
     """
 
     def maybe_replace(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
@@ -58,19 +69,25 @@ class GhostBatchNorm(Algorithm):
     running batch normalization on each chunk separately. Dim 0 is assumed to
     be the sample axis.
 
-    Runs on ``Event.INIT`` and should be applied both before the model has
-    been moved to accelerators and before the model's parameters have
-    been passed to an optimizer.
+    Runs on :attr:`~composer.core.event.Event.INIT`.
 
     Args:
-        ghost_batch_size: size of sub-batches to normalize over
+        ghost_batch_size (int, optional): size of sub-batches to normalize over. Default: ``32``.
     """
 
-    def __init__(self, ghost_batch_size: int = _DEFAULT_GHOST_BATCH_SIZE):
+    def __init__(self, ghost_batch_size: int = 32):
         self.ghost_batch_size = ghost_batch_size
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT."""
+        """Runs on :attr:`~composer.core.event.Event.INIT`.
+
+        Args:
+            event (Event): The current event.
+            state (State): The current state.
+
+        Returns:
+            bool: True if this algorithm should run
+        """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
@@ -122,9 +139,9 @@ class _GhostBatchNorm(torch.nn.Module):
     `torch.nn.BatchNorm3d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm3d.html>`_.
 
     Args:
-        ghost_batch_size: the size of the chunks passed into the underlying
-            batch normalization
         base_batchnorm: A batch normalization module to be applied to each chunk
+        ghost_batch_size (int, optional): the size of the chunks passed into the underlying
+            batch normalization. Default: ``32``.
 
     Raises:
         ValueError: If ``ghost_batch_size`` exceeds the number of samples in
@@ -133,7 +150,7 @@ class _GhostBatchNorm(torch.nn.Module):
             much smaller than the overall batch size.
     """
 
-    def __init__(self, base_batchnorm: _TORCH_BATCHNORM_BASE_CLASS, ghost_batch_size: int = _DEFAULT_GHOST_BATCH_SIZE):
+    def __init__(self, base_batchnorm: _TORCH_BATCHNORM_BASE_CLASS, ghost_batch_size: int = 32):
         super().__init__()
         self.ghost_batch_size = ghost_batch_size
         self.batchnorm = base_batchnorm

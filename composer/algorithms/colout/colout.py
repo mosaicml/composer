@@ -10,75 +10,22 @@ import weakref
 from typing import TypeVar
 
 import torch
-from PIL.Image import Image
+from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
-from torchvision.transforms import functional as TF
 
+from composer.algorithms.utils.augmentation_common import image_as_type
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
 from composer.datasets.utils import add_vision_dataset_transform
 
 log = logging.getLogger(__name__)
 
-TImg = TypeVar("TImg", torch.Tensor, Image)
+ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 
-__all__ = ["ColOut", "ColOutTransform", "colout_image", "colout_batch"]
-
-
-def colout_image(img: TImg, p_row: float = 0.15, p_col: float = 0.15) -> TImg:
-    """Drops random rows and columns from a single image.
-
-    See the :doc:`Method Card </method_cards/colout>` for more details.
-
-    Example:
-         .. testcode::
-
-            from composer.algorithms.colout import colout_image
-            new_image = colout_image(
-                img=image,
-                p_row=0.15,
-                p_col=0.15
-            )
-
-    Args:
-        img (torch.Tensor or PIL Image): An input image as a torch.Tensor or PIL image
-        p_row (float): Fraction of rows to drop (drop along H).
-        p_col (float): Fraction of columns to drop (drop along W).
-
-    Returns:
-        torch.Tensor or PIL Image: A smaller image with rows and columns dropped
-    """
-
-    # Convert image to Tensor if needed
-    if isinstance(img, Image):
-        img_tensor = TF.to_tensor(img)
-    else:
-        img_tensor = img
-
-    # Get the dimensions of the image
-    row_size = img_tensor.shape[1]
-    col_size = img_tensor.shape[2]
-
-    # Determine how many rows and columns to keep
-    kept_row_size = int((1 - p_row) * row_size)
-    kept_col_size = int((1 - p_col) * col_size)
-
-    # Randomly choose indices to keep. Must be sorted for slicing
-    kept_row_idx = sorted(torch.randperm(row_size)[:kept_row_size].numpy())
-    kept_col_idx = sorted(torch.randperm(col_size)[:kept_col_size].numpy())
-
-    # Keep only the selected row and columns
-    img_tensor = img_tensor[:, kept_row_idx, :]
-    img_tensor = img_tensor[:, :, kept_col_idx]
-
-    # Convert back to PIL for the rest of the augmentation pipeline
-    if isinstance(img, Image):
-        return TF.to_pil_image(img_tensor)
-    else:
-        return img_tensor
+__all__ = ["ColOut", "ColOutTransform", "colout_batch"]
 
 
-def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> torch.Tensor:
+def colout_batch(X: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 
@@ -95,17 +42,22 @@ def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> t
             )
 
     Args:
-        X: Batch of images of shape (N, C, H, W).
-        p_row: Fraction of rows to drop (drop along H).
-        p_col: Fraction of columns to drop (drop along W).
+        X: :class:`PIL.Image.Image` or :class:`torch.Tensor` of image data. In
+            the latter case, must be a single image of shape ``CHW`` or a batch
+            of images of shape ``NCHW``.
+        p_row: Fraction of rows to drop (drop along H). Default: ``0.15``.
+        p_col: Fraction of columns to drop (drop along W). Default: ``0.15``.
 
     Returns:
         torch.Tensor: Input batch tensor with randomly dropped columns and rows.
     """
 
+    # Convert image to Tensor if needed
+    X_tensor = image_as_type(X, torch.Tensor)
+
     # Get the dimensions of the image
-    row_size = X.shape[-2]
-    col_size = X.shape[-1]
+    row_size = X_tensor.shape[-2]
+    col_size = X_tensor.shape[-1]
 
     # Determine how many rows and columns to keep
     kept_row_size = int((1 - p_row) * row_size)
@@ -116,8 +68,14 @@ def colout_batch(X: torch.Tensor, p_row: float = 0.15, p_col: float = 0.15) -> t
     kept_col_idx = sorted(torch.randperm(col_size)[:kept_col_size].numpy())
 
     # Keep only the selected row and columns
-    X_colout = X[..., kept_row_idx, :]
+    X_colout = X_tensor[..., kept_row_idx, :]
     X_colout = X_colout[..., :, kept_col_idx]
+
+    # convert back to same type as input, and strip added batch dim if needed;
+    # we can't just reshape to input shape because we've reduced the spatial size
+    if not isinstance(X, torch.Tensor) or (X.ndim < X_colout.ndim):
+        X_colout = X_colout.reshape(X_colout.shape[-3:])
+    X_colout = image_as_type(X_colout, type(X))
     return X_colout
 
 
@@ -136,15 +94,15 @@ class ColOutTransform:
             transforms = transforms.Compose([colout_transform, transforms.ToTensor()])
 
     Args:
-        p_row (float): Fraction of rows to drop (drop along H).
-        p_col (float): Fraction of columns to drop (drop along W).
+        p_row (float): Fraction of rows to drop (drop along H). Default: ``0.15``.
+        p_col (float): Fraction of columns to drop (drop along W). Default: ``0.15``.
     """
 
     def __init__(self, p_row: float = 0.15, p_col: float = 0.15):
         self.p_row = p_row
         self.p_col = p_col
 
-    def __call__(self, img: TImg) -> TImg:
+    def __call__(self, img: ImgT) -> ImgT:
         """Drops random rows and columns from a single image.
 
         Args:
@@ -153,7 +111,7 @@ class ColOutTransform:
         Returns:
             torch.Tensor or PIL Image: A smaller image with rows and columns dropped
         """
-        return colout_image(img, self.p_row, self.p_col)
+        return colout_batch(img, self.p_row, self.p_col)
 
 
 class ColOut(Algorithm):
@@ -184,9 +142,9 @@ class ColOut(Algorithm):
             )
 
     Args:
-        p_row (float): Fraction of rows to drop (drop along H).
-        p_col (float): Fraction of columns to drop (drop along W).
-        batch (bool): Run ColOut at the batch level.
+        p_row (float): Fraction of rows to drop (drop along H). Default: ``0.15``.
+        p_col (float): Fraction of columns to drop (drop along W). Default: ``0.15``.
+        batch (bool): Run ColOut at the batch level. Default: ``True``.
     """
 
     def __init__(self, p_row: float = 0.15, p_col: float = 0.15, batch: bool = True):

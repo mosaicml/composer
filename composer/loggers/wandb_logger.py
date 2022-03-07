@@ -45,7 +45,7 @@ class WandBLogger(LoggerCallback):
     def __init__(self,
                  log_artifacts: bool = False,
                  log_artifacts_every_n_batches: int = 100,
-                 rank_zero_only: bool = False,
+                 rank_zero_only: bool = True,
                  init_params: Optional[Dict[str, Any]] = None) -> None:
         try:
             import wandb
@@ -81,6 +81,8 @@ class WandBLogger(LoggerCallback):
 
         # Storing these fields in the state dict to support run resuming in the future.
         if self._enabled:
+            if wandb.run is None:
+                raise ValueError("wandb must be initialized before serialization.")
             return {
                 "name": wandb.run.name,
                 "project": wandb.run.project,

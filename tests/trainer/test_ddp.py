@@ -91,7 +91,7 @@ class CheckBatch0(Callback):
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event in (Event.BEFORE_FORWARD, Event.EVAL_BEFORE_FORWARD):
             filepath = get_batch_file_path(rank=dist.get_global_rank(),
-                                           epoch=state.epoch,
+                                           epoch=int(state.timer.epoch),
                                            is_train=state.model.training)
             if os.path.exists(filepath):
                 return
@@ -138,6 +138,8 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     We assert that each of these tensors are different to ensure that 1) random seeding works properly,
     and 2) each ddp process is indeed getting different data.
     """
+    if deepspeed:
+        pytest.skip("Deepspeed tests are unstable. See https://github.com/mosaicml/composer/issues/610.")
 
     hparams = composer_trainer_hparams
     model_hparams = hparams.model
