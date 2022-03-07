@@ -6,7 +6,6 @@ import torch
 import torch.nn.functional as F
 from torchmetrics.collections import MetricCollection
 from torchvision.models import _utils, resnet
-from torchvision.models.segmentation.deeplabv3 import ASPP, DeepLabV3
 
 from composer.core.types import BatchPair
 from composer.models.base import ComposerModel
@@ -24,8 +23,7 @@ class SimpleSegmentationModel(torch.nn.Module):
     def forward(self, x):
         input_shape = x.shape[-2:]
         features = self.backbone(x)
-        logits = self.classifier([features["layer2"], features["layer4"]])
-        #logits = self.classifier(features["layer4"])
+        logits = self.classifier(tuple(features.values()))
         logits = F.interpolate(logits, size=input_shape, mode="bilinear", align_corners=False)
         return logits
 
@@ -33,7 +31,9 @@ class SimpleSegmentationModel(torch.nn.Module):
 def deeplabv3_builder(num_classes: int,
                       backbone_arch: str = 'resnet101',
                       is_backbone_pretrained: bool = True,
+                      backbone_url: str = '',
                       sync_bn: bool = True,
+                      use_plus: bool = True,
                       initializers: List[Initializer] = []):
     """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed.
 
@@ -42,40 +42,52 @@ def deeplabv3_builder(num_classes: int,
         backbone_arch (str): the architecture to use for the backbone. Must be either ['resnet50', 'resnet101'].
             Default is 'resnet101'.
         is_backbone_pretrained (bool): if true (default), use pretrained weights for the backbone.
+        backbone_url (str): url to download model weights from. If blank (default), will download from PyTorch's url.
+        use_plus (bool): if true (default), use DeepLabv3+ head instead of DeepLabv3.
         sync_bn (bool): if true (default), replace all BatchNorm layers with SyncBatchNorm layers.
     """
 
-    # Instantiate backbone module
-    if backbone_arch == 'resnet50':
-        resnet.model_urls[backbone_arch] = "https://download.pytorch.org/models/resnet50-f46c3f97.pth"
-    elif backbone_arch == 'resnet101':
-        resnet.model_urls[backbone_arch] = "https://download.pytorch.org/models/resnet101-cd907fc2.pth"
-    else:
-        raise ValueError(f"backbone_arch must be one of ['resnet50', 'resnet101'] not {backbone_arch}")
+    # check that the specified architecture is in the resnet module
+    if not hasattr(resnet, backbone_arch):
+        raise ValueError(f"backbone_arch must be part of the torchvision resnet module, got value: {backbone_arch}")
+
+    # change the model weight url if specified
+    if backbone_url:
+        resnet.model_urls[backbone_arch] = backbone_url
     backbone = getattr(resnet, backbone_arch)(pretrained=is_backbone_pretrained,
                                               replace_stride_with_dilation=[False, True, True])
-    backbone = _utils.IntermediateLayerGetter(backbone, return_layers={'layer1': 'layer2', 'layer4': 'layer4'})
 
-    # Instantiate head module
-    #feat_extractor = ASPP(in_channels=2048, atrous_rates=[12, 24, 36], out_channels=256)
-    #feat_extractor.project = feat_extractor.project[:3]  # Remove dropout due to higher standard deviation
-    #classifier = torch.nn.Conv2d(in_channels=256, out_channels=num_classes, kernel_size=1)
-    #head = torch.nn.Sequential(feat_extractor, classifier)
-    from mmseg import models
+    # specify which layers to extract activations from
+    return_layers = {'layer1': 'layer1', 'layer4': 'layer4'} if use_plus else {'layer4': 'layer4'}
+    backbone = _utils.IntermediateLayerGetter(backbone, return_layers=return_layers)
+
+    from mmseg.models import ASPPHead, DepthwiseSeparableASPPHead
     norm_cfg = dict(type='SyncBN', requires_grad=True)
-    head = models.DepthwiseSeparableASPPHead(in_channels=2048,
-                                             in_index=-1,
-                                             channels=512,
-                                             dilations=(1, 12, 24, 36),
-                                             c1_in_channels=256,
-                                             c1_channels=48,
-                                             dropout_ratio=0.1,
-                                             num_classes=num_classes,
-                                             norm_cfg=norm_cfg,
-                                             align_corners=False)
+    if use_plus:
+        # mmseg config:
+        # https://github.com/open-mmlab/mmsegmentation/blob/master/configs/_base_/models/deeplabv3plus_r50-d8.py
+        head = DepthwiseSeparableASPPHead(in_channels=2048,
+                                          in_index=-1,
+                                          channels=512,
+                                          dilations=(1, 12, 24, 36),
+                                          c1_in_channels=256,
+                                          c1_channels=48,
+                                          dropout_ratio=0.1,
+                                          num_classes=num_classes,
+                                          norm_cfg=norm_cfg,
+                                          align_corners=False)
+    else:
+        # mmseg config:
+        # https://github.com/open-mmlab/mmsegmentation/blob/master/configs/_base_/models/deeplabv3_r50-d8.py
+        head = ASPPHead(in_channels=2048,
+                        in_index=-1,
+                        channels=512,
+                        dilations=(1, 12, 24, 36),
+                        dropout_ratio=0.1,
+                        num_classes=num_classes,
+                        norm_cfg=norm_cfg,
+                        align_corners=False)
 
-    #model = DeepLabV3(backbone, head, aux_classifier=None)
-    #model = torch.nn.Sequential(backbone, head)
     model = SimpleSegmentationModel(backbone, head)
     print(head)
 
@@ -104,6 +116,8 @@ class ComposerDeepLabV3(ComposerModel):
         num_classes (int): the number of classes in the segmentation task.
         backbone_arch (str): the backbone architecture to use, either 'resnet50', 'resnet101'. Default is 'resnet101'.
         is_backbone_pretrained (bool): if true (default), use pre-trained weights for backbone.
+        backbone_url (str): url to download model weights from. If blank (default), will download from PyTorch's url.
+        use_plus (bool): if true (default), use DeepLabv3+ head instead of DeepLabv3.
         sync_bn (bool): if true (default), use SyncBatchNorm to sync batch norm statistics across GPUs.
     """
 
@@ -111,6 +125,8 @@ class ComposerDeepLabV3(ComposerModel):
                  num_classes: int,
                  backbone_arch: str = 'resnet101',
                  is_backbone_pretrained: bool = True,
+                 backbone_url: str = '',
+                 use_plus: bool = False,
                  sync_bn: bool = True,
                  initializers: List[Initializer] = []):
 
@@ -118,6 +134,8 @@ class ComposerDeepLabV3(ComposerModel):
         self.num_classes = num_classes
         self.model = deeplabv3_builder(backbone_arch=backbone_arch,
                                        is_backbone_pretrained=is_backbone_pretrained,
+                                       backbone_url=backbone_url,
+                                       use_plus=use_plus,
                                        num_classes=num_classes,
                                        sync_bn=sync_bn,
                                        initializers=initializers)

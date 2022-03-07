@@ -33,6 +33,8 @@ model:
     num_classes: 150
     backbone_arch: resnet101
     is_backbone_pretrained: true
+    backbone_url: https://download.pytorch.org/models/resnet101-cd907fc2.pth
+    use_plus: true
     sync_bn: true
 loggers:
   - tqdm: {}
