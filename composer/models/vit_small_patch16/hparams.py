@@ -29,7 +29,7 @@ class ViTSmallPatch16Hparams(ModelHparams):
 
     def validate(self):
         try:
-            import vit_pytorch
+            import vit_pytorch  # type: ignore
         except ImportError as e:
             raise ImportError(
                 textwrap.dedent("""\
