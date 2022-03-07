@@ -18,7 +18,6 @@ class ViTSmallPatch16Hparams(ModelHparams):
         channels (int): number of  image channels.
         dropout (float): 0.0 - 1.0 dropout rate.
         embedding_dropout (float): 0.0 - 1.0 embedding dropout rate.
-
     """
     image_size: int = hp.optional(
         "input image size. If you have rectangular images, make sure your image size is the maximum of the width and height",
