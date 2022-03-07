@@ -35,7 +35,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         ),
     LMDatasetHparams:
         lambda: LMDatasetHparams(
-            datadir=["hello"],
+            datadir=["hello"],  # type: ignore # need to remove the datadir from the base class.
             split='train',
             tokenizer_name='gpt2',
         ),
@@ -46,7 +46,13 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
             split="train",
         ),
     COCODatasetHparams:
-        lambda: COCODatasetHparams(is_train=False, datadir=["hello"], download=False, drop_last=False, shuffle=False), # type: ignore
+        lambda: COCODatasetHparams(
+            is_train=False,
+            datadir="hello",
+            download=False,
+            drop_last=False,
+            shuffle=False,
+        ),
     C4DatasetHparams:
         lambda: C4DatasetHparams(
             split="train",
