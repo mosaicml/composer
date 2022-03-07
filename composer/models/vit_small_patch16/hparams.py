@@ -6,10 +6,20 @@ import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
 
+__all__ = ["ViTSmallPatch16Hparams"]
+
 
 @dataclass
 class ViTSmallPatch16Hparams(ModelHparams):
+    """
+    Args:
+        num_classes (int): number of classes for the model.
+        image_size (int): input image size. If you have rectangular images, make sure your image size is the maximum of the width and height.
+        channels (int): number of  image channels.
+        dropout (float): 0.0 - 1.0 dropout rate.
+        embedding_dropout (float): 0.0 - 1.0 embedding dropout rate.
 
+    """
     image_size: int = hp.optional(
         "input image size. If you have rectangular images, make sure your image size is the maximum of the width and height",
         default=244)

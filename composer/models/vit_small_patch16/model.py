@@ -1,6 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 from composer.models.base import ComposerClassifier
 
+__all__ = ["ViTSmallPatch16"]
+
 
 class ViTSmallPatch16(ComposerClassifier):
     """Implements a ViT-S/16 wrapper around a MosaicClassifier.
@@ -9,7 +11,7 @@ class ViTSmallPatch16(ComposerClassifier):
 
     Args:
         num_classes (int): number of classes for the model.
-        image_size (int): input image size. If you have rectangular images, make sure your image size is the maximum of the width and height
+        image_size (int): input image size. If you have rectangular images, make sure your image size is the maximum of the width and height.
         channels (int): number of  image channels.
         dropout (float): 0.0 - 1.0 dropout rate.
         embedding_dropout (float): 0.0 - 1.0 embedding dropout rate.
