@@ -1,4 +1,4 @@
-# GPT-2
+# 📚 GPT-2
 
 Category of Task: ``NLP``
 
@@ -6,7 +6,7 @@ Kind of Task: ``Autoregressive Language Modeling``
 
 ## Overview
 
-The GPT-2 model family is set of transformer-based networks for autoregressive language modeling at various scales. This family was originally proposed by OpenAI, and is trained on the OpenWebText dataset. It is useful for downstream language generation tasks, such as summarization, translation, and dialog. 
+The GPT-2 model family is set of transformer-based networks for autoregressive language modeling at various scales. This family was originally proposed by OpenAI, and is trained on the OpenWebText dataset. It is useful for downstream language generation tasks, such as summarization, translation, and dialog.
 
 ## Attribution
 
@@ -42,6 +42,6 @@ Our codebase builds off of the Hugging Face *[Transformers](https://huggingface.
 
 There are two ways of varying the amount of time necessary to train a model or the cost necessary to do so: varying the size of the model or varying the number of steps (and therefore data) for which the model is trained. With the GPT family of models, we explore both of these axes. To develop methods for these models, we generally begin with the smallest members of this model family for initial experimentation and scale up once the ideas have been refined.
 
-To explore tradeoffs between quality and number of training steps: we have ablated both number of training steps, and number of data points to train on. We do this by checkpointing the model throughout training. 
+To explore tradeoffs between quality and number of training steps: we have ablated both number of training steps, and number of data points to train on. We do this by checkpointing the model throughout training.
 
-To explore tradeoffs between quality and the size of the model, we use "Scaling Laws for Neural Language Models" to provide suggestions on model capacity and dataset size, and then sweep hyperparameters such as learning rate and batch size to minimize loss. 
+To explore tradeoffs between quality and the size of the model, we use "Scaling Laws for Neural Language Models" to provide suggestions on model capacity and dataset size, and then sweep hyperparameters such as learning rate and batch size to minimize loss.

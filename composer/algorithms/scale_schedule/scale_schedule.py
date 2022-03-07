@@ -18,9 +18,9 @@ class ScaleSchedule(Algorithm):
     accordingly.
 
     Args:
-        ratio: The factor by which to scale the duration of the schedule. E.g., 0.5
+        ratio (float, optional): The factor by which to scale the duration of the schedule. E.g., 0.5
             makes the schedule take half as long and 2.0 makes it
-            take twice as long. default: 1.0.
+            take twice as long. Default: ``1.0``.
 
     See also:
         :func:`composer.trainer.scale_schedule.scale_scheduler`

@@ -43,7 +43,7 @@ def test_load(model_name: str):
         pytest.importorskip("vit_pytorch")
     if model_name in ['unet']:
         pytest.importorskip("monai")
-    if model_name in ['deeplabv3_ade20k']:
+    if model_name in ['deeplabv3_ade20k_unoptimized', 'deeplabv3_ade20k_optimized']:
         pytest.skip(f"Model {model_name} requires GPU")
 
     trainer_hparams = trainer.load(model_name)
@@ -72,6 +72,7 @@ def test_load(model_name: str):
 
 
 @pytest.mark.parametrize("ssr", ["0.25", "0.33", "0.50", "0.67", "0.75", "1.00", "1.25"])
+@pytest.mark.filterwarnings("ignore:ScaleScheduleDeprecationWarning:DeprecationWarning")
 def test_scale_schedule_load(ssr: str):
     trainer_hparams = trainer.load("classify_mnist")
     trainer_hparams.precision = Precision.FP32

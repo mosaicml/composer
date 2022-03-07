@@ -1,0 +1,15 @@
+{
+    "stochastic_depth": {
+        "name": "Stochastic Depth",
+        "class_name": "StochasticDepth",
+        "functional": "apply_stochastic_depth",
+        "tldr": "Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training",
+        "attribution": "(Huang et al, 2016)",
+        "link": "https://arxiv.org/abs/1603.09382",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Randomly drops the transformation function in a residual block, leaving only the skip connection.",
+        "use": "Networks with skip connections"
+    }
+}

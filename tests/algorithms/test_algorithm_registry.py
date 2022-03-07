@@ -17,8 +17,8 @@ default_required_fields = {
         'position_embedding_attribute': 'module.transformer.wpe',
         'attention_module_name': 'transformers.models.gpt2.modeling_gpt2.GPT2Attention',
         'attr_to_replace': '_attn',
-        'alibi_attention': 'composer.algorithms.alibi.gpt2_alibi._attn',
-        'mask_replacement_function': 'composer.algorithms.alibi.gpt2_alibi.enlarge_mask',
+        'alibi_attention': 'composer.algorithms.alibi._gpt2_alibi._attn',
+        'mask_replacement_function': 'composer.algorithms.alibi._gpt2_alibi.enlarge_mask',
     },
     BlurPoolHparams: {
         'replace_convs': True,
@@ -77,7 +77,7 @@ default_required_fields = {
         'target_layer_name': 'ResNetBottleneck',
         'drop_rate': 0.2,
         'drop_distribution': 'linear',
-        'drop_warmup': 0.0,
+        'drop_warmup': "0.0dur",
         'use_same_gpu_seed': False
     },
     ProgressiveResizingHparams: {
@@ -92,8 +92,12 @@ default_required_fields = {
         'augmentation_set': 'all'
     },
     SWAHparams: {
-        'swa_start': 0.8,
-        'anneal_epochs': 10,
+        'swa_start': "0.7dur",
+        'swa_end': "0.97dur",
+        'update_interval': "1ep",
+        'schedule_swa_lr': False,
+        'anneal_strategy': 'cos',
+        'anneal_steps': 10,
         'swa_lr': None
     },
     AugMixHparams: {

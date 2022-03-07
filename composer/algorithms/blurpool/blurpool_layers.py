@@ -33,25 +33,27 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
     """Apply a spatial low-pass filter.
 
     Args:
-        input: a 4d tensor of shape NCHW
-        stride: stride(s) along H and W axes. If a single value is passed, this
+        input (torch.Tensor): a 4d tensor of shape NCHW
+        stride (int or tuple, optional): stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
-        padding: implicit zero-padding to use. For the default 3x3 low-pass
-            filter, `padding=1` (the default) returns output of the same size
-            as the input.
-        filter: a 2d or 4d tensor to be cross-correlated with the input tensor
+        filter (torch.Tensor, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
             is required to be ``(C, 1, kH, kW)`` where ``C`` is the number of
             channels in the input tensor and ``kH`` and ``kW`` are the spatial
             sizes of the filter.
 
-    By default, the filter used is::
+    By default, the filter used is:
 
-        [1 2 1]
-        [2 4 2] * 1/16
-        [1 2 1]
+    .. code-block:: python
+
+            [1 2 1]
+            [2 4 2] * 1/16
+            [1 2 1]
+
+    Returns:
+        The blurred input
     """
-    n, c, h, w = input.shape
+    _, c, h, w = input.shape
     n_in_channels = c
 
     if filter is None:
@@ -77,12 +79,11 @@ def blurmax_pool2d(input: torch.Tensor,
                    padding: _size_2_t = 0,
                    dilation: _size_2_t = 1,
                    ceil_mode: bool = False,
-                   filter: Optional[torch.Tensor] = None):
+                   filter: Optional[torch.Tensor] = None) -> torch.Tensor:
     """Max-pooling with anti-aliasing.
 
-    This is a nearly drop-in replacement for Pytorch
-    `max_pool2d <https://pytorch.org/docs/stable/nn.functional.html#max-pool2d>`_.
-    The only API difference is that the parameter `return_indices` is not
+    This is a nearly drop-in replacement for PyTorch's :func:`~torch.nn.functional.max_pool2d`.
+    The only API difference is that the parameter ``return_indices`` is not
     available, because it is ill-defined when using anti-aliasing.
 
     See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
@@ -91,35 +92,41 @@ def blurmax_pool2d(input: torch.Tensor,
     This function can be understood as decoupling the max from the pooling, and
     inserting a low-pass filtering step between the two. Concretely, this
     function computes the max within spatial neighborhoods of shape
-    `kernel_size`, then applies an anti-aliasing filter to smooth the maxes,
-    and only then pools according to `stride`.
+    ``kernel_size``, then applies an anti-aliasing filter to smooth the maxes,
+    and only then pools according to ``stride``.
 
     See also: :func:`~blur_2d`.
 
     Args:
-        input: a 4d tensor of shape NCHW
-        kernel_size: size(s) of the spatial neighborhoods over which to pool.
+        input (torch.Tensor): a 4d tensor of shape NCHW
+        kernel_size (int or tuple, optional): size(s) of the spatial neighborhoods over which to pool.
             This is mostly commonly 2x2. If only a scalar ``s`` is provided, the
             neighborhood is of size ``(s, s)``.
-        stride: stride(s) along H and W axes. If a single value is passed, this
+        stride (int or tuple, optional): stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
-        padding: implicit zero-padding to use. For the default 3x3 low-pass
-            filter, `padding=1` (the default) returns output of the same size
+        padding (int or tuple, optional): implicit zero-padding to use. For the default 3x3 low-pass
+            filter, ``padding=1`` (the default) returns output of the same size
             as the input.
-        dilation: amount by which to "stretch" the pooling region for a given
-            total size. See `this blog post
-            <https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html#torch.nn.MaxPool2d>_
+        dilation (int or tuple, optional): amount by which to "stretch" the pooling region for a given
+            total size. See :class:`~torch.nn.MaxPool2d`
             for our favorite explanation of how this works.
-        ceil_mode: when True, will use ceil instead of floor to compute the output shape
-        filt: a 2d or 4d tensor to be cross-correlated with the input tensor
+        ceil_mode (bool): when True, will use ceil instead of floor to compute the output shape
+        filter (torch.Tensor, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
             is required to be ``(C, 1, kH, kW)`` where ``C`` is the number of
             channels in the input tensor and ``kH`` and ``kW`` are the spatial
-            sizes of the filter. By default, the filter used is::
+            sizes of the filter.
 
-                [1 2 1]
-                [2 4 2] * 1/16
-                [1 2 1]
+    By default, the filter used is:
+
+    .. code-block:: python
+
+            [1 2 1]
+            [2 4 2] * 1/16
+            [1 2 1]
+
+    Returns:
+         The blurred and max-pooled input
     """
     maxs = F.max_pool2d(input,
                         kernel_size=kernel_size,
@@ -131,9 +138,8 @@ def blurmax_pool2d(input: torch.Tensor,
 
 
 class BlurMaxPool2d(nn.Module):
-    """This module is a (nearly) drop-in replacement for PyTorch's `MaxPool2d.
-
-    <https://pytorch.org/docs/stable/generated/torch.nn.MaxPool2d.html>`_, but with an anti-aliasing filter applied.
+    """This module is a (nearly) drop-in replacement for PyTorch's :class:`~torch.nn.MaxPool2d`, but with an anti-
+    aliasing filter applied.
 
     The only API difference is that the parameter ``return_indices`` is not
     available, because it is ill-defined when using anti-aliasing.
@@ -141,7 +147,7 @@ class BlurMaxPool2d(nn.Module):
     See the associated `paper <http://proceedings.mlr.press/v97/zhang19a.html>`_
     for more details, experimental results, etc.
 
-    See also: :func:`~blur_2d`.
+    See :func:`~blurmax_pool2d` for details.
     """
 
     # based on https://pytorch.org/docs/stable/_modules/torch/nn/modules/pooling.html#MaxPool2d # noqa
@@ -187,9 +193,8 @@ class BlurMaxPool2d(nn.Module):
 
 
 class BlurConv2d(nn.Module):
-    """This module is a drop-in replacement for PyTorch's `Conv2d.
-
-    <https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html>`_, but with an anti-aliasing filter applied.
+    """This module is a drop-in replacement for PyTorch's :class:`~torch.nn.Conv2d`, but with an anti-aliasing filter
+    applied.
 
     The one new parameter is ``blur_first``. When set to ``True``, the
     anti-aliasing filter is applied before the underlying convolution, and

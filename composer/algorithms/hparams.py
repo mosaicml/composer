@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional
 
@@ -27,7 +28,8 @@ from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth import StochasticDepth
-from composer.algorithms.stochastic_depth.stochastic_depth import STOCHASTIC_LAYER_MAPPING, validate_stochastic_hparams
+from composer.algorithms.stochastic_depth.stochastic_depth import (_STOCHASTIC_LAYER_MAPPING,
+                                                                   _validate_stochastic_hparams)
 from composer.algorithms.swa import SWA
 
 
@@ -122,6 +124,7 @@ class CutMixHparams(AlgorithmHparams):
 
     num_classes: int = hp.required('Number of classes in the task labels.')
     alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
+    uniform_sampling: bool = hp.optional('Mix pixels with uniform probability', default=False)
 
     def initialize_object(self) -> CutMix:
         return CutMix(**asdict(self))
@@ -132,7 +135,8 @@ class CutOutHparams(AlgorithmHparams):
     """See :class:`CutOut`"""
 
     n_holes: int = hp.optional('Number of holes to cut out', default=1)
-    length: int = hp.optional('Side length of the square hole to cut out', default=112)
+    length: float = hp.optional('Relative or absolute side length of the square hole to cut out', default=0.5)
+    uniform_sampling: bool = hp.optional('Mask pixels with uniform probability', default=False)
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
@@ -305,8 +309,8 @@ class StochasticDepthHparams(AlgorithmHparams):
     """See :class:`StochasticDepth`"""
 
     target_layer_name: str = hp.required(
-        f'Reference name of layer to replace. "block" method can be {list(STOCHASTIC_LAYER_MAPPING["block"].keys())}.'
-        f' "sample" method can be {list(STOCHASTIC_LAYER_MAPPING["sample"].keys())}.')
+        f'Reference name of layer to replace. "block" method can be {list(_STOCHASTIC_LAYER_MAPPING["block"].keys())}.'
+        f' "sample" method can be {list(_STOCHASTIC_LAYER_MAPPING["sample"].keys())}.')
     stochastic_method: str = hp.optional('The version of stochastic depth to use. One of ["sample", "block"].',
                                          default='block')
     drop_rate: float = hp.optional('The probability of dropping a block or sample.', default=0.2)
@@ -316,19 +320,21 @@ class StochasticDepthHparams(AlgorithmHparams):
         default='linear')
     use_same_gpu_seed: bool = hp.optional(
         'Whether or not to drop the same blocks across GPUs. Only used with "block" method.', default=True)
-    drop_warmup: float = hp.optional(
-        'Percentage of training to warmup `drop_rate`. Only use with "block" stochastic method.', default=0.0)
+    drop_warmup: str = hp.optional(textwrap.dedent("""\
+            Time string to represent the amount of training to warmup the `drop_rate`.
+            Only use with "block" stochastic method."""),
+                                   default="0dur")
 
     def initialize_object(self) -> StochasticDepth:
         return StochasticDepth(**asdict(self))
 
     def validate(self):
         super().validate()
-        validate_stochastic_hparams(target_layer_name=self.target_layer_name,
-                                    stochastic_method=self.stochastic_method,
-                                    drop_rate=self.drop_rate,
-                                    drop_distribution=self.drop_distribution,
-                                    drop_warmup=self.drop_warmup)
+        _validate_stochastic_hparams(target_layer_name=self.target_layer_name,
+                                     stochastic_method=self.stochastic_method,
+                                     drop_rate=self.drop_rate,
+                                     drop_distribution=self.drop_distribution,
+                                     drop_warmup=self.drop_warmup)
 
 
 @dataclass
@@ -351,14 +357,32 @@ class SqueezeExciteHparams(AlgorithmHparams):
 
 @dataclass
 class SWAHparams(AlgorithmHparams):
-    """See :class:`~composer.algorithms.swa.SWA`"""
+    """See :class:`~.composer.algorithms.swa.SWA`"""
 
-    swa_start: float = hp.optional(
-        doc='Percentage of epochs before starting to apply SWA.',
-        default=0.8,
+    swa_start: str = hp.optional(
+        doc='Time string denoting the amount of training '
+        'completed before stochastic weight averaging begins. Currently only units of '
+        'duration (e.g. "0.7dur") and epoch (e.g "50ep") are supported.',
+        default="0.7dur",
     )
-    anneal_epochs: int = hp.optional(
-        doc='Number of annealing epochs.',
+    swa_end: str = hp.optional(
+        doc='Time string denoting amount of training completed before the baseline '
+        '(non-averaged) model is replaced with the stochastic weight averaged model. '
+        'Currently only units of duration (e.g. "0.97dur") and epoch (e.g "88ep") are supported.',
+        default="0.97dur")
+    update_interval: str = hp.optional(doc='Time string denoting how often the averaged model is updated. For example, '
+                                       '"1ep" means the averaged model will be updated once per epoch, and '
+                                       '"10ba" means the averaged model will be updated every 10 batches.',
+                                       default="1ep")
+    schedule_swa_lr: bool = hp.optional(doc='Flag to determine whether to apply an SWA-specific LR schedule during the '
+                                        'period in which SWA is active.',
+                                        default=False)
+    anneal_strategy: str = hp.optional(doc='SWA learning rate annealing schedule strategy. '
+                                       '"linear" for linear annealing, "cos" for cosine annealing.',
+                                       default='linear')
+    anneal_steps: int = hp.optional(
+        doc='Number of SWA model updates over which to anneal SWA learning rate. Note '
+        'that updates are determined by the ``update_interval`` argument.',
         default=10,
     )
     swa_lr: Optional[float] = hp.optional(

@@ -1,0 +1,15 @@
+{
+    "mixup": {
+        "name": "MixUp",
+        "class_name": "MixUp",
+        "functional": "mixup_batch",
+        "tldr": "Blends pairs of examples and labels",
+        "attribution": "(Zhang et al, 2017)",
+        "link": "https://arxiv.org/abs/1710.09412",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Trains the network on convex combinations of examples and targets rather than individual examples and targets.",
+        "use": "Tasks with continuous variability in the input"
+    }
+}

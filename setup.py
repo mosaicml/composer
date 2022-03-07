@@ -51,73 +51,85 @@ install_requires = [
     "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
     "torch>=1.9",
-    "yahp>=0.0.14",
+    "yahp>=0.1.0",
     "requests>=2.26.0",
     "numpy==1.21.5",
+    "apache-libcloud>=3.3.1",
+    "psutil>=5.8.0",
 ]
 extra_deps = {}
 
 extra_deps['base'] = []
 
 extra_deps['dev'] = [
+    # Imports for docs builds and running tests
     "custom_inherit==2.3.2",
     'junitparser>=2.1.1',
     'coverage[toml]>=6.1.1',
-    'fasteners>=0.16.3',  # run_directory_uploader tests require fasteners
-    'pytest>=6.2.0',
-    'yapf>=0.32.0',
+    'fasteners==0.17.3',  # run_directory_uploader tests require fasteners
+    'pytest>=7.0.0',
+    'toml==0.10.2',
+    'yapf==0.32.0',
     'isort>=5.9.3',
     'ipython>=7.29.0',
     'ipykernel>=6.5.0',
     'jupyter>=1.0.0',
     'yamllint>=1.26.2',
     'pytest-timeout>=1.4.2',
-    'pyright>=0.0.13',
-    'recommonmark>=0.7.1',
-    'sphinx>=4.2.0',
-    'sphinx_copybutton>=0.4.0',
-    'sphinx_markdown_tables>=0.0.15',
-    'sphinx-argparse>=0.3.1',
-    'sphinxcontrib.katex>=0.8.6',
-    'sphinxext.opengraph>=0.4.2',
-    'sphinxemoji>=0.2.0',
-    'sphinx_rtd_theme>=1.0.0',
+    'pyright==1.1.224.post1',
+    'recommonmark==0.7.1',
+    'sphinx>=4.4.0',
+    'docutils>=0.17',
+    'sphinx_copybutton==0.5.0',
+    'sphinx_markdown_tables==0.0.15',
+    'sphinx-argparse==0.3.1',
+    'sphinxcontrib.katex==0.8.6',
+    'sphinxext.opengraph==0.6.1',
+    'sphinxemoji==0.2.0',
     'furo>=2022.1.2',
-    'sphinx-copybutton>=0.4.0',
-    'autodocsumm>=0.2.7',
-    'testbook>=0.4.2',
-    'myst-parser>=0.15.2',
+    'sphinx-copybutton==0.5.0',
+    'testbook==0.4.2',
+    'myst-parser==0.16.1',
     'pylint>=2.12.2',
     'docformatter>=1.4',
+    'sphinx_panels==0.6.0',
 ]
 
-extra_deps['logging'] = ['wandb>=0.12.2', 'apache-libcloud>=3.4.1']
-
-extra_deps['perf'] = ['torch-tb-profiler>=0.3.1', 'psutil>=5.8.0', 'tensorboard>=2.7.0']
-
-extra_deps['nlp'] = [
-    'transformers>=4.11.3',
-    'datasets>=1.14.0',
+extra_deps["deepspeed"] = [
+    'deepspeed==0.5.10',
 ]
 
-extra_deps['vision'] = ['timm>=0.5.4']
+extra_deps["wandb"] = [
+    'wandb==0.12.10',
+    'coolname>=1.1.0',
+]
 
-extra_deps['unet'] = [
-    'monai>=0.7.0',
+extra_deps["unet"] = [
+    'monai==0.8.1',
     'scikit-learn>=1.0.1',
 ]
 
-extra_deps['deepspeed'] = [
-    'deepspeed>=0.5.5',
+extra_deps["timm"] = [
+    'timm==0.5.4',
+]
+
+extra_deps["coco"] = [
+    'pycocotools>=2.0.4',
+]
+
+extra_deps["nlp"] = [
+    'transformers>=4.11',
+    'datasets>=1.14',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(name="mosaicml",
-      version="0.3.1",
+      version="0.4.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
-      description="composing methods for ML training efficiency",
+      description="Composer provides well-engineered implementations of efficient training methods to give "
+      "the tools that help you train a better model for cheaper.",
       long_description=long_description,
       long_description_content_type="text/markdown",
       url="https://github.com/mosaicml/composer",
@@ -125,6 +137,7 @@ setup(name="mosaicml",
       package_data={
           "composer": ['py.typed'],
           "": package_files('composer/yamls'),
+          "": package_files('composer/algorithms')
       },
       packages=setuptools.find_packages(exclude=["tests*"]),
       classifiers=[

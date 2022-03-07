@@ -7,19 +7,18 @@
     from composer import functional as cf
     from torchvision import models
 
-    model = models.resnet(model_name='resnet50')
+    model = models.resnet50()
 
     # replace some layers with blurpool
     cf.apply_blurpool(model)
     # replace some layers with squeeze-excite
-    cf.apply_se(model, latent_channels=64, min_channels=128)
+    cf.apply_squeeze_excite(model, latent_channels=64, min_channels=128)
 """
 from composer.algorithms.alibi.alibi import apply_alibi as apply_alibi
 from composer.algorithms.augmix import augmix_image as augmix_image
 from composer.algorithms.blurpool import apply_blurpool as apply_blurpool
 from composer.algorithms.channels_last import apply_channels_last as apply_channels_last
 from composer.algorithms.colout import colout_batch as colout_batch
-from composer.algorithms.colout import colout_image as colout_image
 from composer.algorithms.cutmix import cutmix_batch as cutmix_batch
 from composer.algorithms.cutout import cutout_batch as cutout_batch
 from composer.algorithms.factorize import apply_factorization as apply_factorization
@@ -29,7 +28,7 @@ from composer.algorithms.layer_freezing import freeze_layers as freeze_layers
 from composer.algorithms.mixup import mixup_batch as mixup_batch
 from composer.algorithms.progressive_resizing import resize_batch as resize_batch
 from composer.algorithms.randaugment import randaugment_image as randaugment_image
-from composer.algorithms.selective_backprop import selective_backprop as selective_backprop
+from composer.algorithms.selective_backprop import select_using_loss as select_using_loss
 from composer.algorithms.selective_backprop import should_selective_backprop as should_selective_backprop
 from composer.algorithms.seq_length_warmup import set_batch_sequence_length as set_batch_sequence_length
 from composer.algorithms.squeeze_excite import apply_squeeze_excite as apply_squeeze_excite
@@ -42,7 +41,6 @@ __all__ = [
     "apply_blurpool",
     "apply_channels_last",
     "colout_batch",
-    "colout_image",
     "cutmix_batch",
     "cutout_batch",
     "apply_factorization",
@@ -53,7 +51,7 @@ __all__ = [
     "resize_batch",
     "randaugment_image",
     "should_selective_backprop",
-    "selective_backprop",
+    "select_using_loss",
     "set_batch_sequence_length",
     "apply_squeeze_excite",
     "apply_stochastic_depth",

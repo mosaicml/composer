@@ -1,5 +1,5 @@
-API Reference
-=============
+|:8ball:| API Reference
+=======================
 
 .. Explicitly enumerating all submodules so everything is top-level under the API Reference heading
 
@@ -13,6 +13,7 @@ API Reference
     callbacks
     core
     datasets
+    functional
     loggers
     models
     optim

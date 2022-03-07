@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Logs to a file or to the terminal."""
+
 from __future__ import annotations
 
 import os
@@ -13,9 +15,44 @@ from composer.core.state import State
 from composer.core.time import Timestamp
 from composer.utils import run_directory
 
+__all__ = ["FileLogger"]
+
 
 class FileLogger(LoggerCallback):
     """Logs to a file or to the terminal.
+
+    Example usage:
+        .. testcode::
+
+            from composer.loggers import FileLogger
+            from composer.trainer import Trainer
+            from composer.core.logging import LogLevel
+            logger = FileLogger(
+                filename="log.txt",
+                buffer_size=1,
+                log_level=LogLevel.BATCH,
+                log_interval=2,
+                flush_interval=50
+            )
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                optimizers=[optimizer],
+                loggers=[logger]
+            )
+
+        .. testcleanup::
+
+            import os
+            from composer.utils.run_directory import get_run_directory
+
+            path = os.path.join(get_run_directory(), "log.txt")
+            try:
+                os.remove(path)
+            except FileNotFoundError as e:
+                pass
 
     Example output::
 
@@ -27,23 +64,25 @@ class FileLogger(LoggerCallback):
 
     Args:
         filename (str, optional): File to log to.
-            Can be a filepath, ``stdout``, or ``stderr``. (default: ``stdout``)
+            Can be a filepath, ``"stdout"``, or ``"stderr"``. Default: ``"stdout"``.
+            Filepaths should be specified relative to the
+            :mod:`~.composer.utils.run_directory`.
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
-            (default: ``1`` for line buffering)
-        log_level (LogLevel, optional): Maximum
-            :class:`~composer.core.logging.logger.LogLevel`. to record.
-            (default: :attr:`~composer.core.logging.logger.LogLevel.EPOCH`)
+            Default: ``1`` for line buffering.
+        log_level (LogLevel, optional):
+            :class:`~.logger.LogLevel` (i.e. unit of resolution) at
+            which to record. Default: :attr:`~.LogLevel.EPOCH`.
         log_interval (int, optional):
-            Frequency to print logs. If ``log_level` is :attr:`~composer.core.logging.logger.LogLevel.EPOCH`,
-            logs will only be recorded every n epochs. If ``log_level` is
-            :attr:`~composer.core.logging.logger.LogLevel.BATCH`, logs will be printed every n batches.
-            Otherwise, if ``log_level` is :attr:`~composer.core.logging.logger.LogLevel.FIT`, this parameter is
-            ignored, as calls at the fit log level are always recorded. (default: ``1``)
-        flush_interval (int, optional): How frequently to flush the log to the file, relative to the ``log_level``.
-            For example, if the ``log_level`` is :attr:`~composer.core.logging.logger.LogLevel.EPOCH`,
-            then the logfile will be flushed every n epochs.
-            If the ``log_level`` is :attr:`~composer.core.logging.logger.LogLevel.BATCH`, then the logfile will be flushed
-            every n batches. (default: ``100``)
+            Frequency to print logs. If ``log_level`` is :attr:`~.LogLevel.EPOCH`,
+            logs will only be recorded every n epochs. If ``log_level`` is
+            :attr:`~.LogLevel.BATCH`, logs will be printed every n batches.  Otherwise, if
+            ``log_level`` is :attr:`~.LogLevel.FIT`, this parameter is ignored, as calls
+            at the :attr:`~.LogLevel.FIT` log level are always recorded. Default: ``1``.
+        flush_interval (int, optional): How frequently to flush the log to the file,
+            relative to the ``log_level``. For example, if the ``log_level`` is
+            :attr:`~.LogLevel.EPOCH`, then the logfile will be flushed every n epochs.  If
+            the ``log_level`` is :attr:`~.LogLevel.BATCH`, then the logfile will be
+            flushed every n batches. Default: ``100``.
     """
 
     def __init__(

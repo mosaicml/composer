@@ -1,0 +1,15 @@
+{
+    "seq_length_warmup": {
+        "name": "Sequence Length Warmup",
+        "class_name": "SeqLengthWarmup",
+        "functional": "set_batch_sequence_length",
+        "tldr": "Progressively increase sequence length.",
+        "attribution": "(Li et al, 2021)",
+        "link": "https://arxiv.org/abs/2108.06084",
+        "domains": [
+            "nlp"
+        ],
+        "summary": "Warms up the sequence length (number of tokens) from a\u00a0minimum length to a maximum length over some duration of training.",
+        "use": "Language modeling tasks"
+    }
+}

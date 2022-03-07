@@ -1,0 +1,15 @@
+{
+    "label_smoothing": {
+        "name": "Label Smoothing",
+        "class_name": "LabelSmoothing",
+        "functional": "smooth_labels",
+        "tldr": "Smooths the labels with a uniform prior",
+        "attribution": "(Szegedy et al, 2015)",
+        "link": "https://arxiv.org/abs/1512.00567",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Modifies the target distribution for a task by interpolating between the target distribution and a another distribution that usually has higher entropy.",
+        "use": "Tasks where targets are a categorical distribution"
+    }
+}

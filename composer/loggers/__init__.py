@@ -2,24 +2,18 @@
 
 """Logging.
 
-The trainer includes a :class:`~composer.core.logging.Logger`, which routes logging calls to logger backends.
-Each logger backend inherits from :class:`~composer.core.logging.base_backend.BaseLoggerBackend`,
-which inherits from :class:`Callback`.
+In Composer, algorithms and callbacks can make calls to the :class:`~.logger.Logger`,
+which then routes the calls to the appropriate :class:`~.base_backend.LoggerCallback`\\s.
+The :class:`~.base_backend.LoggerCallback` does the actual logging, for example to a file,
+or Weights and Biases.
 
-For example, to define a new logging backend:
-
-.. code-block:: python
-
-    from composer.core.logging import BaseLoggerBackend
-
-    class MyLoggerBackend(BaseLoggerBackend)
-
-        def log_metric(self, epoch, step, log_level, data):
-            print(f'Epoch {epoch} Step {step}: {log_level} {data}')
+See the :class:`~.base_backend.LoggerCallback` documentation for an example of how to
+define a custom logger and use it when training.
 """
+
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
-from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHaparms, LoggerCallbackHparams,
+from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCallbackHparams,
                                              TQDMLoggerHparams, WandBLoggerHparams)
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.loggers.wandb_logger import WandBLogger
@@ -30,7 +24,7 @@ __all__ = [
     "InMemoryLogger",
     "LoggerCallbackHparams",
     "FileLoggerHparams",
-    "InMemoryLoggerHaparms",
+    "InMemoryLoggerHparams",
     "TQDMLoggerHparams",
     "WandBLoggerHparams",
     "TQDMLogger",

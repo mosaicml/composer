@@ -1,39 +1,102 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core RandAugment code."""
+
+import functools
 import textwrap
 import weakref
-from typing import Optional
+from typing import List, TypeVar
 
 import numpy as np
 import torch
-from PIL.Image import Image as ImageType
+from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import Algorithm, Event, List, Logger, State
-from composer.utils.augmentation_primitives import augmentation_sets
-from composer.utils.data import add_dataset_transform
+from composer.algorithms.utils import augmentation_sets
+from composer.algorithms.utils.augmentation_common import map_pillow_function
+from composer.core.types import Algorithm, Event, Logger, State
+from composer.datasets.utils import add_vision_dataset_transform
+
+__all__ = ['RandAugment', "RandAugmentTransform", 'randaugment_image']
+
+ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 
 
-def randaugment_image(img: Optional[ImageType] = None,
+def randaugment_image(img: ImgT,
                       severity: int = 9,
                       depth: int = 2,
-                      augmentation_set: List = augmentation_sets["all"]) -> ImageType:
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al.
+                      augmentation_set: List = augmentation_sets["all"]) -> ImgT:
+    """Randomly applies a sequence of image data augmentations
+    (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image or batch of
+    images. See :class:`.RandAugment` or the
+    :doc:`Method Card </method_cards/randaugment>` for details. This function only acts on
+    a single image (or batch of images) per call and is unlikely to be used in a training
+    loop. Use :class:`.RandAugmentTransform`
+    to use RandAugment as part of a :class:`torchvision.datasets.VisionDataset`\\'s
+    ``transform``.
 
-    2019 <https://openaccess.thecvf.com/content_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.pdf>`_).
-    See :class:`RandAugment` for details.
+    Example:
+        .. testcode::
+
+            import composer.functional as cf
+
+            from composer.algorithms.utils import augmentation_sets
+
+            randaugmented_image = cf.randaugment_image(
+                img=image,
+                severity=9,
+                depth=2,
+                augmentation_set=augmentation_sets["all"]
+            )
+
+    Args:
+        img (PIL.Image): Image or batch of images to be RandAugmented.
+        severity (int, optional): See :class:`.RandAugment`.
+        depth (int, optional): See :class:`.RandAugment`.
+        augmentation_set (str, optional): See
+            :class:`.RandAugment`.
+
+    Returns:
+        PIL.Image: RandAugmented image.
     """
 
-    # Iterate over augmentations
-    for _ in range(depth):
-        aug = np.random.choice(augmentation_set)
-        img = aug(img, severity)
-    assert img is not None
-    return img
+    def _randaugment_pil_image(img: PillowImage, severity: int, depth: int, augmentation_set: List) -> PillowImage:
+        # Iterate over augmentations
+        for _ in range(depth):
+            aug = np.random.choice(augmentation_set)
+            img = aug(img, severity)
+        return img
+
+    f_pil = functools.partial(_randaugment_pil_image, severity=severity, depth=depth, augmentation_set=augmentation_set)
+    return map_pillow_function(f_pil, img)
 
 
 class RandAugmentTransform(torch.nn.Module):
-    """Wraps :func:`randaugment` in a ``torchvision``-compatible transform."""
+    """Wraps :func:`.randaugment_image` in a
+    ``torchvision``-compatible transform. See
+    :class:`.RandAugment` or the :doc:`Method
+    Card </method_cards/randaugment>` for more details.
+
+    Example:
+        .. testcode::
+
+            import torchvision.transforms as transforms
+            from composer.algorithms.randaugment import RandAugmentTransform
+
+            randaugment_transform = RandAugmentTransform(
+                severity=9,
+                depth=2,
+                augmentation_set="all"
+            )
+            composed = transforms.Compose([randaugment_transform, transforms.RandomHorizontalFlip()])
+            transformed_image = composed(image)
+
+    Args:
+        severity (int, optional): See :class:`.RandAugment`.
+        depth (int, optional): See :class:`.RandAugment`.
+        augmentation_set (str, optional): See
+            :class:`.RandAugment`.
+    """
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
         super().__init__()
@@ -47,8 +110,7 @@ class RandAugmentTransform(torch.nn.Module):
         self.depth = depth
         self.augmentation_set = augmentation_sets[augmentation_set]
 
-    def forward(self, img: ImageType) -> ImageType:
-
+    def forward(self, img: ImgT) -> ImgT:
         return randaugment_image(img=img,
                                  severity=self.severity,
                                  depth=self.depth,
@@ -56,32 +118,62 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al. 2019 <https://openaccess.thecvf.com/conten
-    t_CVPRW_2020/papers/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_20
-    20_paper.pdf>`_).
+    """Randomly applies a sequence of image data augmentations (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_)
+    to an image.
 
-    This algorithm runs on on :attr:`Event.INIT` to insert a dataset transformation. It is a no-op if this algorithm already
-    applied itself on the :attr:`State.train_dataloader.dataset`.
+    This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
+    transformation. It is a no-op if this algorithm already applied itself on the
+    :attr:`State.train_dataloader.dataset`.
+
+    See the :doc:`Method Card </method_cards/randaugment>` for more details.
+
+    Example:
+        .. testcode::
+
+            from composer.algorithms import RandAugment
+            from composer.trainer import Trainer
+
+            randaugment_algorithm = RandAugment(
+                severity=9,
+                depth=2,
+                augmentation_set="all"
+            )
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[randaugment_algorithm],
+                optimizers=[optimizer]
+            )
 
     Args:
-        severity (int): Severity of augmentation operators (between 1 to 10). M in the
-            original paper. Default = 9.
-        depth (int): Depth of augmentation chain. N in the original paper Default = 2.
-        augmentation_set (str): One of ["augmentations_all",
-            "augmentations_corruption_safe", "augmentations_original"]. Set of
-            augmentations to use. "augmentations_corruption_safe" excludes transforms
-            that are part of the ImageNet-C/CIFAR10-C test sets.
-            "augmentations_original" uses all augmentations, but some of the
-            implementations are identical to the original github repo, which appears
-            to contain implementation specificities for the augmentations "color",
-            "contrast", "sharpness", and "brightness". The original implementations
-            have an intensity sampling scheme that samples a value bounded by 0.118
-            at a minimum, and a maximum value of intensity*0.18 + .1, which ranges
-            from 0.28 (intensity = 1) to 1.9 (intensity 10). These augmentations
-            have different effects depending on whether they are < 0 or > 0 (or
-            < 1 or > 1). "augmentations_all" uses implementations of "color",
-            "contrast", "sharpness", and "brightness" that account for diverging
-            effects around 0 (or 1).
+        severity (int, optional): Severity of augmentation operators (between 1 to 10). M
+            in the original paper. Default: ``9``.
+        depth (int, optional): Depth of augmentation chain. N in the original paper
+            Default: ``2``.
+        augmentation_set (str, optional): Must be one of the following options:
+
+            * ``"augmentations_all"``
+                Uses all augmentations from the paper.
+            * ``"augmentations_corruption_safe"``
+                Like ``"augmentations_all"``, but excludes transforms that are part of
+                the ImageNet-C/CIFAR10-C test sets
+            * ``"augmentations_original"``
+                Like ``"augmentations_all"``, but some of the implementations
+                are identical to the original Github repository, which contains
+                implementation specificities for the augmentations
+                ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``. The
+                original implementations have an intensity sampling scheme that samples a
+                value bounded by 0.118 at a minimum, and a maximum value of
+                :math:`intensity \\times 0.18 + .1`, which ranges from 0.28 (intensity =
+                1) to 1.9 (intensity 10). These augmentations have different effects
+                depending on whether they are < 0 or > 0 (or < 1 or > 1).
+                "augmentations_all" uses implementations of "color", "contrast",
+                "sharpness", and "brightness" that account for diverging effects around 0
+                (or 1).
+
+            Default: ``"all"``.
     """
 
     def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
@@ -98,13 +190,6 @@ class RandAugment(Algorithm):
         return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Inserts RandAugment into the list of dataloader transforms.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
         assert state.train_dataloader is not None
         dataset = state.train_dataloader.dataset
@@ -113,4 +198,5 @@ class RandAugment(Algorithm):
                 textwrap.dedent(f"""\
                 To use {type(self).__name__}, the dataset must be a
                 {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
-        add_dataset_transform(dataset, ra, is_tensor_transform=False)
+        add_vision_dataset_transform(dataset, ra, is_tensor_transform=False)
+        self._transformed_datasets.add(dataset)

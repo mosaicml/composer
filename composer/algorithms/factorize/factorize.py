@@ -19,60 +19,6 @@ LOG_NUM_CONV2D_REPLACEMENTS_KEY = 'factorize/num_conv2d_replacements'
 LOG_NUM_LINEAR_REPLACEMENTS_KEY = 'factorize/num_linear_replacements'
 
 
-def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.Module]):
-    num_replaced_modules = module_surgery.count_module_instances(model, new_class)
-    log.info(f'Applied factorization to model {model.__class__.__name__}. ' +
-             f'Model now has {num_replaced_modules} {new_class.__name__} modules')
-
-
-def _factorize_conv2d_modules(model: torch.nn.Module,
-                              min_channels: int = 512,
-                              latent_channels: Union[int, float] = 0.25,
-                              optimizers: Optional[Optimizers] = None):
-    """Replaces :class:`torch.nn.Conv2d` modules in ``model`` with
-    :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
-
-    See :class:`Factorize` for details.
-    """
-
-    def _maybe_replace_conv2d(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
-        module = cast(torch.nn.Conv2d, module)
-        wide_enough = min(module.out_channels, module.in_channels) >= min_channels
-        if factorizing_could_speedup(module, latent_channels) and wide_enough:
-            return FactorizedConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
-        return None  # not enough rank reduction to be worth it
-
-    ret = module_surgery.replace_module_classes(model,
-                                                optimizers=optimizers,
-                                                policies={torch.nn.Conv2d: _maybe_replace_conv2d})
-    _python_log_surgery_result(model, FactorizedConv2d)
-    return ret
-
-
-def _factorize_linear_modules(model: torch.nn.Module,
-                              min_features: int = 512,
-                              latent_features: Union[int, float] = 0.25,
-                              optimizers: Optional[Optimizers] = None):
-    """Replaces :class:`torch.nn.Linear` modules in ``model`` with
-    :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
-
-    See :class:`Factorize` for details.
-    """
-
-    def _maybe_replace_linear(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
-        module = cast(torch.nn.Linear, module)
-        wide_enough = min(module.in_features, module.out_features) >= min_features
-        if factorizing_could_speedup(module, latent_features) and wide_enough:
-            return FactorizedLinear.from_linear(module, module_index, latent_features=latent_features)
-        return None  # not enough rank reduction to be worth it
-
-    ret = module_surgery.replace_module_classes(model,
-                                                optimizers=optimizers,
-                                                policies={torch.nn.Linear: _maybe_replace_linear})
-    _python_log_surgery_result(model, FactorizedLinear)
-    return ret
-
-
 def apply_factorization(model: torch.nn.Module,
                         factorize_convs: bool = True,
                         factorize_linears: bool = True,
@@ -81,10 +27,60 @@ def apply_factorization(model: torch.nn.Module,
                         min_features: int = 512,
                         latent_features: Union[int, float] = 0.25,
                         optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
-    """Replaces :class:`torch.nn.Linear` and :class:`torch.nn.Conv2d` modules and with
-    :class:`~composer.algorithms.factorize.FactorizedLinear` and :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
+    """Replaces :class:`~torch.nn.Linear` and :class:`~torch.nn.Conv2d` modules and with
+    :class:`~composer.algorithms.factorize.FactorizedLinear` and
+    :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
 
-    See :class:`Factorize` for details.
+    Factorized modules replace one full-rank operation with a sequence of two
+    lower-rank operations. When the rank is low enough, this can save
+    computation, at the cost of expressive power. See :class:`Factorize` for details.
+
+    Args:
+        model (torch.nn.Module): the model to modify in-place
+        factorize_convs (bool, optional): whether to try factorizing :class:`~torch.nn.Conv2d` modules.
+            Default: ``True``.
+        factorize_linears (bool, optional): whether to try factorizing :class:`~torch.nn.Linear` modules.
+            Default: ``True``.
+        min_channels (int, optional): if a :class:`~torch.nn.Conv2d` module does not have at least
+            this many input and output channels, it will be ignored. Modules with
+            few channels are unlikely to be accelerated by factorization due
+            to poor hardware utilization. Default: ``512``.
+        latent_channels (int or float, optional): number of latent channels to use in factorized
+            convolutions. Can be specified as either an integer > 1 or as
+            float within [0, 1). In the latter case, the value is
+            interpreted as a fraction of ``min(in_channels, out_channels)``
+            for each :class:`~torch.nn.Conv2d` module, and is converted to
+            the equivalent integer value, with a minimum of 1. Default: ``0.25``.
+        min_features (int, optional): if a :class:`~torch.nn.Linear` module does not have at least
+            this many input and output features, it will be ignored. Modules with
+            few features are unlikely to be accelerated by factorization due
+            to poor hardware utilization. Default: ``512``.
+        latent_features (int or float, optional): size of the latent space for factorized linear modules.
+            Can be specified as either an integer > 1 or as a float within [0, 0.5).
+            In the latter case, the value is interpreted as a fraction of
+            ``min(in_features, out_features)`` for each :class:`~torch.nn.Linear`
+            module, and is converted to the equivalent integer value, with a
+            minimum of 1. Default: ``0.25``.
+        optimizers (Optimizers, optional):  Existing optimizers bound to
+            ``model.parameters()``. All optimizers that have already been
+            constructed with ``model.parameters()`` must be specified here so
+            they will optimize the correct parameters.
+
+            If the optimizer(s) are constructed *after* calling this function,
+            then it is safe to omit this parameter. These optimizers will see
+            the correct model parameters.
+
+    Returns:
+        The modified model
+
+    Example:
+        .. testcode::
+
+            import composer.functional as cf
+            from torchvision import models
+            model = models.resnet50()
+            cf.apply_factorization(model)
+
     """
     if factorize_convs:
         _factorize_conv2d_modules(model,
@@ -115,37 +111,43 @@ class Factorize(Algorithm):
 
     For convolutions with kernel sizes greater than 1, the threshold for
     factorization being worthwhile varies with kernel size. Larger kernels
-    have lower thresholds.
+    allow larger intermediate ranks.
 
     See :func:`~composer.algorithms.factorize.factorize_matrix` and
     :func:`~composer.algorithms.factorize.factorize_conv2d` for more
-    information about the factorization process. See :class:`~composer.algorithms.factorize.FactorizedConv2d` and :class:`~composer.algorithms.factorize.FactorizedLinear`
+    information about the factorization process. See
+    :class:`~composer.algorithms.factorize.FactorizedConv2d` and
+    :class:`~composer.algorithms.factorize.FactorizedLinear`
     for more information about the factorized modules used to replace the
     original modules.
 
+    Runs on :attr:`~composer.core.event.Event.INIT`.
+
     Args:
-        factorize_convs: whether to try factorizing :class:`torch.nn.Conv2d` modules.
-        factorize_linears: whether to try factorizing :class:`torch.nn.Linear` modules.
-        min_channels: if a :class:`~torch.nn.Conv2d` module does not have at least
+        factorize_convs (bool): whether to try factorizing :class:`~torch.nn.Conv2d` modules.
+            Default: ``True``.
+        factorize_linears (bool): whether to try factorizing :class:`~torch.nn.Linear` modules.
+            Default: ``True``.
+        min_channels (int): if a :class:`~torch.nn.Conv2d` module does not have at least
             this many input and output channels, it will be ignored. Modules with
             few channels are unlikely to be accelerated by factorization due
-            to poor hardware utilization.
-        latent_channels: number of latent channels to use in factorized
+            to poor hardware utilization. Default: ``256``.
+        latent_channels (int, float): number of latent channels to use in factorized
             convolutions. Can be specified as either an integer > 1 or as
             float within [0, 1). In the latter case, the value is
             interpreted as a fraction of ``min(in_channels, out_channels)``
             for each :class:`~torch.nn.Conv2d` module, and is converted to
-            the equivalent integer value, with a minimum of 1.
-        min_features: if a :class:`~torch.nn.Linear` module does not have at least
+            the equivalent integer value, with a minimum of 1. Default: ``0.25``.
+        min_features (int): if a :class:`~torch.nn.Linear` module does not have at least
             this many input and output features, it will be ignored. Modules with
             few features are unlikely to be accelerated by factorization due
-            to poor hardware utilization.
-        latent_features: size of the latent space for factorized linear modules.
+            to poor hardware utilization. Default: ``256``.
+        latent_features (int, float): size of the latent space for factorized linear modules.
             Can be specified as either an integer > 1 or as a float within [0, 0.5).
             In the latter case, the value is interpreted as a fraction of
             ``min(in_features, out_features)`` for each :class:`~torch.nn.Linear`
             module, and is converted to the equivalent integer value, with a
-            minimum of 1.
+            minimum of 1. Default: ``128``.
     """
 
     def __init__(self,
@@ -163,11 +165,11 @@ class Factorize(Algorithm):
         self.latent_features = latent_features
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT.
+        """Runs on :attr:`~composer.core.event.Event.INIT`.
 
         Args:
-            event: The current event.
-            state: The current state.
+            event (Event): The current event.
+            state (State): The current state.
 
         Returns:
             bool: True if this algorithm should run
@@ -178,9 +180,9 @@ class Factorize(Algorithm):
         """Factorize convolutional and linear layers.
 
         Args:
-            event: the current event
-            state: the current trainer state
-            logger: the training logger
+            event (Event): the current event
+            state (State): the current trainer state
+            logger (Logger): the training logger
         """
         assert state.model is not None, "Model must be part of state!"
 
@@ -203,3 +205,57 @@ class Factorize(Algorithm):
             logger.metric_fit({
                 LOG_NUM_LINEAR_REPLACEMENTS_KEY: num_factorized,
             })
+
+
+def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.Module]):
+    num_replaced_modules = module_surgery.count_module_instances(model, new_class)
+    log.info(f'Applied factorization to model {model.__class__.__name__}. ' +
+             f'Model now has {num_replaced_modules} {new_class.__name__} modules')
+
+
+def _factorize_conv2d_modules(model: torch.nn.Module,
+                              min_channels: int = 512,
+                              latent_channels: Union[int, float] = 0.25,
+                              optimizers: Optional[Optimizers] = None):
+    """Replaces :class:`~torch.nn.Conv2d` modules in ``model`` with
+    :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
+
+    See :class:`Factorize` for details.
+    """
+
+    def _maybe_replace_conv2d(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
+        module = cast(torch.nn.Conv2d, module)
+        wide_enough = min(module.out_channels, module.in_channels) >= min_channels
+        if factorizing_could_speedup(module, latent_channels) and wide_enough:
+            return FactorizedConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
+        return None  # not enough rank reduction to be worth it
+
+    ret = module_surgery.replace_module_classes(model,
+                                                optimizers=optimizers,
+                                                policies={torch.nn.Conv2d: _maybe_replace_conv2d})
+    _python_log_surgery_result(model, FactorizedConv2d)
+    return ret
+
+
+def _factorize_linear_modules(model: torch.nn.Module,
+                              min_features: int = 512,
+                              latent_features: Union[int, float] = 0.25,
+                              optimizers: Optional[Optimizers] = None):
+    """Replaces :class:`~torch.nn.Linear` modules in ``model`` with
+    :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
+
+    See :class:`Factorize` for details.
+    """
+
+    def _maybe_replace_linear(module: torch.nn.Module, module_index: int) -> Optional[torch.nn.Module]:
+        module = cast(torch.nn.Linear, module)
+        wide_enough = min(module.in_features, module.out_features) >= min_features
+        if factorizing_could_speedup(module, latent_features) and wide_enough:
+            return FactorizedLinear.from_linear(module, module_index, latent_features=latent_features)
+        return None  # not enough rank reduction to be worth it
+
+    ret = module_surgery.replace_module_classes(model,
+                                                optimizers=optimizers,
+                                                policies={torch.nn.Linear: _maybe_replace_linear})
+    _python_log_surgery_result(model, FactorizedLinear)
+    return ret

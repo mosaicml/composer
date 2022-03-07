@@ -2,6 +2,7 @@
 
 import logging
 import tempfile
+import textwrap
 from dataclasses import dataclass
 from os.path import join
 from typing import List, Optional
@@ -78,8 +79,10 @@ class LMDatasetHparams(DatasetHparams):
             import datasets
             import transformers
         except ImportError as e:
-            raise ImportError('huggingface transformers and datasets are not installed. '
-                              'Please install with `pip install \'mosaicml[nlp]\'`') from e
+            raise ImportError(
+                textwrap.dedent("""\
+                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
+                if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")) from e
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)

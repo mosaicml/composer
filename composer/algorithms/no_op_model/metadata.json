@@ -1,0 +1,10 @@
+{
+    "no_op_model": {
+        "name": "No Op Model",
+        "class_name": "NoOpModel",
+        "functional": "",
+        "tldr": "Replaces the model with a dummy model. Used for dataloader profiling.",
+        "attribution": "MosaicML",
+        "link": ""
+    }
+}

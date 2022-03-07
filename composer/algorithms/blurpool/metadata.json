@@ -1,0 +1,15 @@
+{
+    "blurpool": {
+        "name": "BlurPool",
+        "class_name": "BlurPool",
+        "functional": "apply_blurpool",
+        "tldr": "Applies blur before pooling or downsampling",
+        "attribution": "(Zhang, 2019)",
+        "link": "https://arxiv.org/abs/1904.11486",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Applies a spatial low-pass filter before the pool in max pooling and whenever using a strided convolution.",
+        "use": "Convolutional Neural Networks"
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "selective_backprop": {
+        "name": "Selective Backprop",
+        "class_name": "SelectiveBackprop",
+        "functional": "selective_backprop",
+        "tldr": "Drops examples with small loss contributions.",
+        "attribution": "(Jiang et al, 2019)",
+        "link": "https://arxiv.org/abs/1910.00762",
+        "domains": [
+            "cv"
+        ],
+        "summary": "Prioritizes examples with high loss at each iteration, skipping examples with low loss.",
+        "use": "Generally applicable"
+    }
+}
