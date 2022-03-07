@@ -49,7 +49,7 @@ For a developer install, clone directly:
 Docker
 ~~~~~~
 
-To simplify environment setup for the MosaicML `Composer` library, we provide a set of Docker Images that users can
+To simplify environment setup for the MosaicML ``Composer`` library, we provide a set of Docker Images that users can
 leverage.
 
 PyTorch Images
