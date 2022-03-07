@@ -5,8 +5,8 @@
 # All methods signatures must be defined in there.
 
 """Utilities for iterating over collections."""
+import collections
 import contextlib
-from typing import Any, Tuple
 
 
 def map_collection(collection, map_fn):
@@ -36,7 +36,7 @@ def map_collection(collection, map_fn):
     return map_fn(collection)
 
 
-def ensure_tuple(x) -> Tuple[Any, ...]:
+def ensure_tuple(x):
     """Converts ``x`` into a tuple.
 
     * If ``x`` is ``None``, then ``tuple()`` is returned.
@@ -54,7 +54,9 @@ def ensure_tuple(x) -> Tuple[Any, ...]:
     """
     if x is None:
         return tuple()
-    if isinstance(x, (tuple, list, range)):
+    if isinstance(x, (str, bytes, bytearray)):
+        return (x,)
+    if isinstance(x, collections.abs.Sequence):
         return tuple(x)
     if isinstance(x, dict):
         return tuple(x.values())

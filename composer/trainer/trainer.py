@@ -148,11 +148,11 @@ class Trainer:
             no algorithms will be used. (default: ``None``)
 
             .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
-        optimizers (:attr:`~.types.Optimizers`, optional): The optimizer.
+        optimizers (types.Optimizer | Sequence[types.Optimizer], optional): The optimizer.
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
             .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
-        schedulers (:attr:`~.types.PyTorchScheduler` | Sequence[:attr:`~.types.PyTorchScheduler`], optional):
+        schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
             The learning rate schedulers. If ``[]`` or ``None``, will be set to ``[constant_scheduler]``.
             (default: ``None``).
 

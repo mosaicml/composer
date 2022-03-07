@@ -67,15 +67,15 @@ class State(Serializable):
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         train_dataloader (types.DataLoader, DataSpec, or dict):
             The :class:`~.types.DataLoader`, :class:`~.DataSpec`, or dict of :class:`~.DataSpec` kwargs to used for training.
-        evaluators (:attr:`~.types.Evaluators`):
-            The :attr:`~.types.Evaluators` contain the evaluation datasets used for evaluation with specific metrics.
+        evaluators (evaluator.Evaluator | Sequence[evaluator.Evaluator]):
+            The evaluators contain the evaluation dataset(s) used for evaluation with specific metrics.
         max_duration (str or Time): The maximum duration to train for.
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
         precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
-        optimizers (:attr:`~.types.Optimizers`, optional): The optimizers being used to train the model.
+        optimizers (types.Optimizer | Sequence[types.Optimizer], optional): The optimizers being used to train the model.
             Multiple optimizers are not currently supported.
-        schedulers (Many[:attr:`~.types.PytorchScheduler`], optional): The learning rate scheduler
+        schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional): The learning rate scheduler
             (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         algorithms (Sequence[Algorithm]): The algorithms used for training.
