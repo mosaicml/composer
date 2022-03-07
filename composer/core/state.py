@@ -7,7 +7,7 @@ import contextlib
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Callable, ContextManager, Optional, Sequence, Tuple, Union, cast
+from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -121,7 +121,7 @@ class State(Serializable):
     batch_num_tokens: int
     loss: types.Tensors
     outputs: types.Tensors
-    _schedulers: Tuple[types.PyTorchScheduler]
+    _schedulers: List[types.PyTorchScheduler]
 
     def __init__(
             self,

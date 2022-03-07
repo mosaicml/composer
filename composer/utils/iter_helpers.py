@@ -5,8 +5,8 @@
 # All methods signatures must be defined in there.
 
 """Utilities for iterating over collections."""
-import collections
 import contextlib
+from collections.abc import Sequence
 
 
 def map_collection(collection, map_fn):
@@ -56,7 +56,7 @@ def ensure_tuple(x):
         return tuple()
     if isinstance(x, (str, bytes, bytearray)):
         return (x,)
-    if isinstance(x, collections.abc.Sequence):
+    if isinstance(x, Sequence):
         return tuple(x)
     if isinstance(x, dict):
         return tuple(x.values())
