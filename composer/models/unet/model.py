@@ -5,6 +5,8 @@ import torch.nn as nn
 
 from composer.models.unet._layers import ConvBlock, OutputBlock, ResidBlock, UpsampleBlock
 
+__all__ = ["UNet"]
+
 
 class UNet(nn.Module):
     """Unet Architecture adapted from
