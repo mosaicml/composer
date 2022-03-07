@@ -48,7 +48,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
     COCODatasetHparams:
         lambda: COCODatasetHparams(
             is_train=False,
-            datadir=["hello"],  # type: ignore # need to remove the datadir from the base class.
+            datadir="hello",
             download=False,
             drop_last=False,
             shuffle=False,

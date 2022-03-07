@@ -370,14 +370,19 @@ class SWAHparams(AlgorithmHparams):
         '(non-averaged) model is replaced with the stochastic weight averaged model. '
         'Currently only units of duration (e.g. "0.97dur") and epoch (e.g "88ep") are supported.',
         default="0.97dur")
+    update_interval: str = hp.optional(doc='Time string denoting how often the averaged model is updated. For example, '
+                                       '"1ep" means the averaged model will be updated once per epoch, and '
+                                       '"10ba" means the averaged model will be updated every 10 batches.',
+                                       default="1ep")
     schedule_swa_lr: bool = hp.optional(doc='Flag to determine whether to apply an SWA-specific LR schedule during the '
                                         'period in which SWA is active.',
                                         default=False)
     anneal_strategy: str = hp.optional(doc='SWA learning rate annealing schedule strategy. '
                                        '"linear" for linear annealing, "cos" for cosine annealing.',
                                        default='linear')
-    anneal_epochs: int = hp.optional(
-        doc='Number of epochs over which to anneal SWA learning rate.',
+    anneal_steps: int = hp.optional(
+        doc='Number of SWA model updates over which to anneal SWA learning rate. Note '
+        'that updates are determined by the ``update_interval`` argument.',
         default=10,
     )
     swa_lr: Optional[float] = hp.optional(
