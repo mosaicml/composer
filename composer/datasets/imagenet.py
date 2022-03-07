@@ -34,7 +34,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
 
         if self.use_synthetic:
             total_dataset_size = 1_281_167 if self.is_train else 50_000
@@ -157,7 +157,7 @@ class Imagenet1kWebDatasetHparams(WebDatasetHparams):
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
         if self.is_train:
             # include fixed-size resize before RandomResizedCrop in training only
             # if requested (by specifying a size > 0)
