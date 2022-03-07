@@ -86,16 +86,16 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
         channel_stds (list of float): Channel stds for normalization.
     """
 
-    remote: str = hp.required('WebDataset S3 bucket name')
-    name: str = hp.required('WebDataset local cache name')
+    remote: str = hp.optional('WebDataset S3 bucket name', default='')
+    name: str = hp.optional('WebDataset local cache name', default='')
 
-    n_train_samples: int = hp.required('Number of samples in training split')
-    n_val_samples: int = hp.required('Number of samples in validation split')
-    n_classes: int = hp.required('Number of output classes')
-    channel_means: List[float] = hp.required('Mean per image channel')
-    channel_stds: List[float] = hp.required('Std per image channel')
+    n_train_samples: int = hp.optional('Number of samples in training split', default=0)
+    n_val_samples: int = hp.optional('Number of samples in validation split', default=0)
     height: int = hp.optional('Image height', default=32)
     width: int = hp.optional('Image width', default=32)
+    n_classes: int = hp.optional('Number of output classes', 0)
+    channel_means: List[float] = hp.optional('Mean per image channel', default=(0, 0, 0))
+    channel_stds: List[float] = hp.optional('Std per image channel', default=(0, 0, 0))
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         if self.is_train:
