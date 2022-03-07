@@ -91,11 +91,11 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
 
     n_train_samples: int = hp.required('Number of samples in training split')
     n_val_samples: int = hp.required('Number of samples in validation split')
-    height: int = hp.optional('Image height', default=32)
-    width: int = hp.optional('Image width', default=32)
     n_classes: int = hp.required('Number of output classes')
     channel_means: List[float] = hp.required('Mean per image channel')
     channel_stds: List[float] = hp.required('Std per image channel')
+    height: int = hp.optional('Image height', default=32)
+    width: int = hp.optional('Image width', default=32)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
         if self.is_train:
