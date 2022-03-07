@@ -51,7 +51,7 @@ install_requires = [
     "torch_optimizer==0.1.0",
     "torchvision>=0.9.0",
     "torch>=1.9",
-    "yahp>=0.0.14",
+    "yahp>=0.1.0",
     "requests>=2.26.0",
     "numpy==1.21.5",
     "apache-libcloud>=3.3.1",
