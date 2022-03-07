@@ -23,17 +23,8 @@ optimizer:
     eps: 1.0e-08
     weight_decay: 0.3
 schedulers:
-  - warmup:
-      warmup_iters: "30ep"
-      warmup_method: linear
-      warmup_factor: 0
-      verbose: false
-      interval: step
-  - cosine_decay:
-      T_max: "270ep"
-      eta_min: 0
-      verbose: false
-      interval: step
+  - cosine_decay_with_warmup:
+      warmup_time: "32ep"
 model:
   vit_small_patch16:
     num_classes: 1000
