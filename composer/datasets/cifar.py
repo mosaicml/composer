@@ -93,7 +93,7 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
     n_val_samples: int = hp.optional('Number of samples in validation split', default=0)
     height: int = hp.optional('Image height', default=32)
     width: int = hp.optional('Image width', default=32)
-    n_classes: int = hp.optional('Number of output classes', 0)
+    n_classes: int = hp.optional('Number of output classes', default=0)
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0, 0, 0))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0, 0, 0))
 
