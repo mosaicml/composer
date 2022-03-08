@@ -471,7 +471,7 @@ class TrainerHparams(hp.Hparams):
         seed = self.seed if self.seed else reproducibility.get_random_seed()
         # need to set seed before model initialization for determinism
         # don't need to set different seeds per process since only the rank 0 initialization is used
-        # algorithms should not use the `seed` on `__init__` but rather on `Event.INIT`, which occurs
+        # Algorithms should not use the `seed` on `__init__` but rather on `Event.INIT`, which occurs
         # after the seed was properly distributed across ranks to ensure checkpoint compatibility
         reproducibility.seed_all(seed)
 
