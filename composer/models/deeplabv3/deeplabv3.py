@@ -89,7 +89,6 @@ def deeplabv3_builder(num_classes: int,
                         align_corners=False)
 
     model = SimpleSegmentationModel(backbone, head)
-    print(head)
 
     if initializers:
         for initializer in initializers:
@@ -126,7 +125,7 @@ class ComposerDeepLabV3(ComposerModel):
                  backbone_arch: str = 'resnet101',
                  is_backbone_pretrained: bool = True,
                  backbone_url: str = '',
-                 use_plus: bool = False,
+                 use_plus: bool = True,
                  sync_bn: bool = True,
                  initializers: List[Initializer] = []):
 
@@ -148,7 +147,7 @@ class ComposerDeepLabV3(ComposerModel):
 
     def forward(self, batch: BatchPair):
         x = batch[0]
-        logits = self.model(x)  #['out']
+        logits = self.model(x)
         return logits
 
     def loss(self, outputs: Any, batch: BatchPair):
