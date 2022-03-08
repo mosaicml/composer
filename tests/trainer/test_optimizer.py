@@ -7,7 +7,7 @@ import torch
 
 from composer.core.types import ModelParameters
 from composer.optim.optimizer_hparams import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams,
-                                              OptimizerHparams, RAdamHparams, RMSPropHparams, SGDHparams, get_optimizer)
+                                              OptimizerHparams, RAdamHparams, RMSpropHparams, SGDHparams)
 from composer.trainer.trainer_hparams import optimizer_registry
 
 optimizer_constructors: Dict[Type[OptimizerHparams], OptimizerHparams] = {
@@ -17,7 +17,7 @@ optimizer_constructors: Dict[Type[OptimizerHparams], OptimizerHparams] = {
     DecoupledAdamWHparams: DecoupledAdamWHparams(),
     SGDHparams: SGDHparams(lr=0.001),
     DecoupledSGDWHparams: DecoupledSGDWHparams(lr=0.001),
-    RMSPropHparams: RMSPropHparams(lr=0.001),
+    RMSpropHparams: RMSpropHparams(lr=0.001),
 }
 
 
@@ -36,5 +36,5 @@ def test_optimizer_initialization(optimizer_name, dummy_parameters):
     optimizer_hparams = optimizer_constructors[optimizer_cls]
 
     # create the optimizer object using the hparams
-    optimizer = get_optimizer(dummy_parameters, optimizer_hparams)
+    optimizer = optimizer_hparams.initialize_object(param_group=dummy_parameters)
     assert isinstance(optimizer, optimizer_hparams.optimizer_object)

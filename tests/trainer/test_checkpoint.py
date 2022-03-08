@@ -23,8 +23,7 @@ from composer.core.state import State
 from composer.core.time import TimeUnit
 from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
-from composer.optim import AdamWHparams
-from composer.optim.scheduler import ConstantLRHparams, CosineAnnealingLRHparams
+from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer._checkpoint import _retrieve_checkpoint
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
@@ -220,8 +219,7 @@ def test_load_weights(
     second_trainer_hparams.optimizer = AdamWHparams()
 
     # setup a new LR scheduler
-    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(t_max=second_trainer_hparams.max_duration)]
-    second_trainer_hparams.schedulers = [random.choice(scheduler_options)]
+    second_trainer_hparams.schedulers = [CosineAnnealingSchedulerHparams(t_max=second_trainer_hparams.max_duration)]
 
     # ensure our new choice of scheduler is different than the original scheduler
     for idx in range(len(second_trainer_hparams.schedulers)):
