@@ -213,7 +213,7 @@ class TestTrainerEquivalence():
     def test_algorithm_different(self, config, *args):
         # as a control, we train with an algorithm and
         # expect the test to fail
-        config['algorithms'] = [LabelSmoothing(alpha=0.1)]
+        config['algorithms'] = [LabelSmoothing(0.1)]
         trainer = Trainer(**config)
         trainer.fit()
 
