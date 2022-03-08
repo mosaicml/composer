@@ -1,8 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Central parts of composer such as :class:`~.engine.Engine`, base class for critical components such as
+"""Central components used by other modules.
+
+Central parts of composer such as :class:`~.engine.Engine`, base class for critical components such as
 :class:`~.algorithm.Algorithm` and :class:`~.callback.Callback` and other useful functionality such as
-:class:`~.logger.Logger` and :class:`~.time.Timer` are implemented under core."""
+:class:`~.logger.Logger` and :class:`~.time.Timer` are implemented under core.
+"""
 
 from composer.core import types as types
 from composer.core.algorithm import Algorithm as Algorithm
