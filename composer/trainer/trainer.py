@@ -892,9 +892,9 @@ class Trainer:
                         itertools.islice(self.state.train_dataloader, self.state.steps_per_epoch)):
 
                     # if resuming, skip dataloader forward to the minibatch index
-                    if batch_idx + 1 == int(self.state.timer.batch_in_epoch):
+                    if batch_idx < int(self.state.timer.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
-                        if self._rng_state is not None:
+                        if batch_idx + 1 == int(self.state.timer.batch_in_epoch) and self._rng_state is not None:
                             reproducibility.load_rng_state(self._rng_state)
                             self._rng_state = None
                         continue

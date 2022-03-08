@@ -20,7 +20,7 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
-from composer.core.time import TimeUnit
+from composer.core.time import Time, TimeUnit
 from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
@@ -233,7 +233,7 @@ def test_load_weights(
     )
 
 
-@pytest.mark.timeout(90)
+@pytest.mark.timeout(900000)
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
@@ -248,11 +248,12 @@ def test_load_weights(
 @pytest.mark.parametrize(
     "seed,should_save,save_name_format_string,resume_file,final_checkpoint",
     [
-        [None, "1ep", "ep{epoch}.pt", "ep1.pt", "ep2.pt"],
-        [42, "1ep", "ep{epoch}.pt", "ep1.pt", "ep2.pt"],
-        [42, "1ep", "ep{epoch}.tgz", "ep1.tgz", "ep2.tgz"],
-        [42, "2ba", "ba{batch}.pt", "ba4.pt", "ba8.pt"],
-        [42, "2ba", "ba{batch}.pt", "ba6.pt", "ba8.pt"],
+        [None, "1ep", "ep{epoch}", "ep1.pt", "latest/rank_0.pt"],  # test randomized seed saving and symlinking
+        [42, "1ep", "ep{epoch}", "ep1.pt", "ep2.pt"],  # test save at epoch end
+        [42, "1ep", "ep{epoch}.tgz", "ep1.tgz", "ep2.tgz"],  # test tarball with compression
+        [42, "2ba", "ba{batch}", "ba4.pt", "ba8.pt"],  # test save batch in partial epoch
+        [42, "1ba", "ba{batch}", "ba5.pt", "ba8.pt"],  # test save batch at epoch end
+        [42, "2ba", "ba{batch}", "ba6.pt", "ba8.pt"],  # test save batch after complete epoch
     ],
 )
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
@@ -325,16 +326,18 @@ def test_checkpoint(
 
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
-    should_save_epochs = 1
-    should_save_batches = 2
     composer_trainer_hparams.should_save = should_save
     composer_trainer_hparams.seed = seed
 
     composer_trainer_hparams.validate_every_n_batches = 1 if resume_file.startswith("ba") else 0
     composer_trainer_hparams.validate_every_n_epochs = 1 if resume_file.startswith("ep") else 0
     first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
-    expected_num_checkpoints = num_epochs / should_save_epochs if resume_file.startswith(
-        "ep") else (composer_trainer_hparams.train_subset_num_batches + 1) / should_save_batches * num_epochs
+    should_save_time = Time.from_timestring(should_save)
+    if should_save_time.unit == TimeUnit.EPOCH:
+        expected_num_checkpoints = ((num_epochs - 1) // should_save_time.value) + 1
+    else:
+        expected_num_checkpoints = (
+            (composer_trainer_hparams.train_subset_num_batches * num_epochs - 1) // should_save_time.value) + 1
     checkpoint_saver = None
     for callback in first_trainer.state.callbacks:
         if isinstance(callback, CheckpointSaver):

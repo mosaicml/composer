@@ -10,7 +10,7 @@ import shutil
 import tarfile
 import tempfile
 import textwrap
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import torch
 
@@ -82,16 +82,25 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         raise NotImplementedError(
             f"Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.")
 
-    def should_checkpoint(state: State, event: Event):
-        if state.get_elapsed_duration() >= 1.0:
-            return True
+    last_checkpoint_batch = None
 
-        if event != save_event:
-            return False
-        if save_event == Event.EPOCH_CHECKPOINT:
-            return int(state.timer.epoch) % int(interval) == 0
-        if save_event == Event.BATCH_CHECKPOINT:
-            return int(state.timer.batch) % int(interval) == 0
+    def should_checkpoint(state: State, event: Event):
+        nonlocal last_checkpoint_batch
+        if state.get_elapsed_duration() >= 1.0:
+            # if doing batch-wise checkpointing, and we saved a checkpoint at the batch_checkpoint event
+            # right before the epoch_checkpoint event, do not save another checkpoint at the epoch_checkpoint
+            # event if the batch count didn't increase.
+            if state.timer.batch != last_checkpoint_batch:
+                last_checkpoint_batch = state.timer.batch
+                return True
+
+        if event == save_event:
+            if save_event == Event.EPOCH_CHECKPOINT and int(state.timer.epoch) % int(interval) == 0:
+                last_checkpoint_batch = state.timer.batch
+                return True
+            if save_event == Event.BATCH_CHECKPOINT and int(state.timer.batch) % int(interval) == 0:
+                last_checkpoint_batch = state.timer.batch
+                return True
 
         return False
 
@@ -144,6 +153,20 @@ class CheckpointSaver(Callback):
 
             Default: ``"ep{epoch}-ba{batch}/rank_{rank}"``
 
+        latest_symlink_format_string (str, optional): A format string for the name of a symlink
+            (relative to ``checkpoint_folder``) that points to the last saved checkpoint.
+
+            See :meth:`format_checkpoint_name` for the available format variables.
+
+            To disable symlinks, set this parameter to ``None``.
+
+            For example, setting this parameter to ````"latest/rank_{rank}"`` will create a subfolder called
+            ``'latest'`` inside the ``checkpoint_folder``. Files (symlinks) inside this folder will follow the naming
+            convention of ``rank_{rank}`` (``{rank}`` is a format variable corresponding to the checkpoint file's
+            process rank.) Each symlink will point to the latest checkpoint file for that rank.
+
+            Default: ``"latest/rank_{rank}"``
+
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
             If ``False`` (the default), then the ``checkpoint_folder`` must not exist or be empty.
             (default: ``False``)
@@ -187,6 +210,7 @@ class CheckpointSaver(Callback):
         self,
         save_folder: str = "checkpoints",
         name_format_string: str = "ep{epoch}-ba{batch}/rank_{rank}",
+        latest_symlink_format_string: Optional[str] = "latest/rank_{rank}",
         overwrite: bool = False,
         should_checkpoint: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
         weights_only: bool = False,
@@ -196,6 +220,7 @@ class CheckpointSaver(Callback):
 
         self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         self.name_format_string = name_format_string
+        self.latest_symlink_format_string = latest_symlink_format_string
         self.overwrite = overwrite
 
         self.should_checkpoint = should_checkpoint
@@ -340,11 +365,10 @@ class CheckpointSaver(Callback):
 
         checkpoint_filename = self.format_checkpoint_name(state, checkpoint_filename)
 
+        update_symlink = False
         with tempfile.TemporaryDirectory() as tmpdir:
             composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
             checkpoint_filepath = os.path.join(self.checkpoint_folder, checkpoint_filename)
-            os.makedirs(os.path.dirname(checkpoint_filepath),
-                        exist_ok=True)  # checkpoint_filepath could contain a (new) subfolder
             if dist.get_global_rank() == 0:
                 # Only rank zero saves the composer state dict
                 with open(composer_states_filepath, 'xb') as f:
@@ -355,22 +379,37 @@ class CheckpointSaver(Callback):
             if _is_archive(checkpoint_filepath) and (state.is_model_deepspeed or dist.get_global_rank() == 0):
                 # Either deepspeed (and every rank needs to call this),
                 # or not deepspeed (but using an archive), in which case only rank zero should call this.
+                os.makedirs(os.path.dirname(checkpoint_filepath), exist_ok=True)
                 write_mode = _get_write_mode(checkpoint_filepath)
                 with tarfile.open(checkpoint_filepath, write_mode) as tarball:
                     # add files flat to the tarball with the specified compression
                     tarball.add(tmpdir, arcname="")
+                update_symlink = True
             elif dist.get_global_rank() == 0:
                 # if not an archive, then only saving the states
                 # only rank zero saves the state dict
+                os.makedirs(os.path.dirname(checkpoint_filepath), exist_ok=True)
+                update_symlink = True
                 shutil.move(composer_states_filepath, checkpoint_filepath)
 
-            timestamp = state.timer.get_timestamp()
-            paths = dist.all_gather_object(checkpoint_filepath) if state.is_model_deepspeed else [checkpoint_filepath]
-            self.saved_checkpoints[timestamp] = paths
+        if self.latest_symlink_format_string is not None and update_symlink:
+            symlink_name = os.path.join(self.checkpoint_folder,
+                                        self.format_checkpoint_name(state, self.latest_symlink_format_string))
+            os.makedirs(os.path.dirname(symlink_name), exist_ok=True)
+            try:
+                os.remove(symlink_name)
+            except FileNotFoundError:
+                pass
+            os.symlink(checkpoint_filepath, symlink_name)
 
-            log.info(f'Trainer checkpoint saved to {checkpoint_filepath}')
+        timestamp = state.timer.get_timestamp()
+        paths = dist.all_gather_object(checkpoint_filepath if state.is_model_deepspeed else None)
+        paths = list(path for path in paths if path is not None)
+        self.saved_checkpoints[timestamp] = paths
 
-        # Ensure that the non-rank 0 processes don't exit before the checkpoint is saved.
+        log.info('Trainer checkpoint saved to %s', checkpoint_filepath)
+
+        # Ensure that all processes wait for the checkpoint to be saved.
         dist.barrier()
 
     def batch_checkpoint(self, state: State, logger: Logger):
