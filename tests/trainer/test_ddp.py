@@ -138,8 +138,6 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     We assert that each of these tensors are different to ensure that 1) random seeding works properly,
     and 2) each ddp process is indeed getting different data.
     """
-    if deepspeed:
-        pytest.skip("Deepspeed tests are unstable. See https://github.com/mosaicml/composer/issues/610.")
 
     hparams = composer_trainer_hparams
     model_hparams = hparams.model
