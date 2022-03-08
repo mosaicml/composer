@@ -128,7 +128,8 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | timer                 | The timer that tracks training loop progress.               |
             +-----------------------+-------------------------------------------------------------+
-            | rng                   | The state of the RNGs.                                      |
+            | is_model_ddp          | Whether the model is an instance of                         |
+            |                       | :class:`~torch.nn.parallel.DistributedDataParallel`.        |
             +-----------------------+-------------------------------------------------------------+
             | rank_zero_seed        | The seed of the rank zero process.                          |
             +-----------------------+-------------------------------------------------------------+
@@ -322,18 +323,14 @@ class State(Serializable):
         if len(unexpected_keys) > 0:
             logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
-    def load_state_dict(self, state: types.StateDict, strict: bool = False) -> List[types.StateDict]:
+    def load_state_dict(self, state: types.StateDict, strict: bool = False):
         """Loads the state.
 
         Args:
             state (types.StateDict): object returned from call to :meth:`state_dict`.
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
-        Returns:
-            List[types.StateDict]: The RNG state dicts, indexed by global rank.
         """
-
-        rng_state_dicts = []
 
         state = _ensure_backwards_compatible_checkpointing(state)
 
@@ -372,8 +369,6 @@ class State(Serializable):
                     except AttributeError:
                         # ignore AttributeError for properties that have getters but not setters.
                         pass
-
-        return rng_state_dicts
 
     @property
     def steps_per_epoch(self):
