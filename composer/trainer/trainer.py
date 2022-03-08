@@ -262,7 +262,7 @@ class Trainer:
 
                 import composer.trainer
 
-                composer.trainer.load_checkpoint = lambda *args, **kwargs: None
+                composer.trainer.trainer.load_checkpoint = lambda *args, **kwargs: None
 
             .. testcode::
 
