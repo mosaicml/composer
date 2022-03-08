@@ -338,6 +338,8 @@ class TrainerHparams(hp.Hparams):
     save_folder: Optional[str] = hp.optional(doc="Folder where checkpoints will be saved.", default=None)
     save_name_format_string: str = hp.optional("Checkpoint name format string.",
                                                default="ep{epoch}-ba{batch}/rank_{rank}")
+    save_latest_symlink_format_string: str = hp.optional("Latest checkpoint symlink format string.",
+                                                         default="latest/rank_{rank}")
     save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     should_save: str = hp.optional(textwrap.dedent("""\

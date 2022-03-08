@@ -315,6 +315,11 @@ class Trainer:
             .. seealso:: :class:`~.CheckpointSaver`.
             This parameter has no effect if ``save_load_folder`` is None.
             (default: ``"ep{epoch}-ba{batch}/rank_{rank}"``)
+        save_latest_symlink_format_string (str, optional): A format string for the name of a symlink
+            (relative to ``checkpoint_folder``) that points to the last saved checkpoint.
+            To disable symlinking, set to ``None``.
+            .. seealso:: :class:`~.CheckpointSaver`.
+            (default: ``"latest/rank_{rank}"``)
         save_overwrite (bool, optional):
             .. seealso:: :class:`~.CheckpointSaver`. Whether existing checkpoints should be overridden.
             This parameter has no effect if ``save_load_folder`` is None. (default: ``False``)
@@ -427,6 +432,7 @@ class Trainer:
         # save_checkpoint
         save_folder: Optional[str] = None,
         save_name_format_string: str = "ep{epoch}-ba{batch}/rank_{rank}",
+        save_latest_symlink_format_string: str = "latest/rank_{rank}",
         save_overwrite: bool = False,
         should_save: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,

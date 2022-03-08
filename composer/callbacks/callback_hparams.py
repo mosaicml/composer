@@ -140,6 +140,7 @@ class CheckpointSaverHparams(CallbackHparams):
     Args:
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         name_format_string (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        latest_symlink_format_string (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
 
@@ -152,6 +153,8 @@ class CheckpointSaverHparams(CallbackHparams):
     """
     save_folder: str = hp.optional(doc="Folder where checkpoints will be saved.", default="checkpoints")
     name_format_string: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}/rank_{rank}")
+    latest_symlink_format_string: Optional[str] = hp.optional("Latest checkpoint symlink format string.",
+                                                              default="latest/rank_{rank}")
     overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     should_checkpoint: str = hp.optional(textwrap.dedent("""\
@@ -170,6 +173,7 @@ class CheckpointSaverHparams(CallbackHparams):
         return CheckpointSaver(
             save_folder=self.save_folder,
             name_format_string=self.name_format_string,
+            latest_symlink_format_string=self.latest_symlink_format_string,
             overwrite=self.overwrite,
             should_checkpoint=should_checkpoint,
             weights_only=self.weights_only,
