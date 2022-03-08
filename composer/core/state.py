@@ -62,6 +62,19 @@ def _ensure_backwards_compatible_checkpointing(state_dict: types.StateDict):
     return state
 
 
+_STATE_DICT_SERIALIZED_ATTRIBUTES = [
+    # List of attributes that are serialized with state_dict
+    # Only the attributes listed in state.serialized_attributes will actually be saved.
+    "model",
+    "optimizers",
+    "schedulers",
+    "algorithms",
+    "callbacks",
+    "scaler",
+    "timer",
+]
+
+
 class State(Serializable):
     """The state of the trainer.
 
@@ -285,20 +298,9 @@ class State(Serializable):
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 serialized_value = attribute_value.state_dict()
             else:
-                # Duck typing since runtime checkable protocols are not available in Python 3.7
-                is_state_dict_serializable = any(hasattr(x, "state_dict") for x in ensure_tuple(attribute_value))
-                if len(ensure_tuple(attribute_value)) > 0:
-                    # any and all should be the same, except in for an empty collection, since
-                    # any([]) is False, while all([]) is True
-                    if is_state_dict_serializable != all(
-                            hasattr(x, "state_dict") for x in ensure_tuple(attribute_value)):
-                        raise RuntimeError(
-                            f"Every member of {attribute_name} should support `state_dict`, or no members should support it."
-                        )
-
-                if is_state_dict_serializable:
+                if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                     serialized_value = {
-                        obj.__class__.__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
+                        type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
                     }
                 else:
                     serialized_value = attribute_value
@@ -341,34 +343,24 @@ class State(Serializable):
 
             if attribute_name == "model":
                 self.load_model_state(state, strict=strict)
+                continue
+            state_field_value = getattr(self, attribute_name)
+            if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
+                for target in ensure_tuple(state_field_value):
+                    if type(target).__qualname__ not in serialized_value:
+                        warnings.warn(
+                            f"{type(target).__qualname__} is not in the state_dict. Its state will not be restored.",
+                            category=UserWarning)
+                        continue
+                    source = serialized_value[type(target).__qualname__]
+                    target.load_state_dict(source)
             else:
-                # Duck typing since runtime checkable protocols are not available in Python 3.7
-                state_field_value = getattr(self, attribute_name)
-                is_state_dict_serializable = any(hasattr(x, "load_state_dict") for x in ensure_tuple(state_field_value))
-                if len(ensure_tuple(state_field_value)) > 0:
-                    # any and all should be the same, except in for an empty collection, since
-                    # any([]) is False, while all([]) is True
-                    if is_state_dict_serializable != all(
-                            hasattr(x, "load_state_dict") for x in ensure_tuple(state_field_value)):
-                        raise RuntimeError(
-                            f"Every member of {attribute_name} should support `load_state_dict`, or no members should support it."
-                        )
-                if is_state_dict_serializable:
-                    for target in ensure_tuple(state_field_value):
-                        if target.__class__.__qualname__ not in serialized_value:
-                            warnings.warn(
-                                f"{target.__class__.__qualname__} was not found in the state_dict. Its state will NOT be restored",
-                                category=UserWarning)
-                            continue
-                        source = serialized_value[target.__class__.__qualname__]
-                        target.load_state_dict(source)
-                else:
-                    # direct serialization
-                    try:
-                        setattr(self, attribute_name, serialized_value)
-                    except AttributeError:
-                        # ignore AttributeError for properties that have getters but not setters.
-                        pass
+                # direct serialization
+                try:
+                    setattr(self, attribute_name, serialized_value)
+                except AttributeError:
+                    # ignore AttributeError for properties that have getters but not setters.
+                    pass
 
     @property
     def steps_per_epoch(self):
