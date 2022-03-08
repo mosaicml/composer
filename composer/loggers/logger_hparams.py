@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import textwrap
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -109,7 +110,7 @@ class WandBLoggerHparams(LoggerCallbackHparams):
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
     log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
-    rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=False)
+    rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=True)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
     flatten_hparams: bool = hp.optional(
         doc=
@@ -189,9 +190,26 @@ class WandBLoggerHparams(LoggerCallbackHparams):
                 )
             self.extra_init_params["config"].update(config)
 
-        name_suffix = f"Rank {dist.get_global_rank()}"
-        name = f"{self.name}_{name_suffix}" if self.name else name_suffix
-        group = self.name if (not self.group and self.rank_zero_only) else self.group
+        # If name=None, wandb.init(..) will automatically produce a unique run name
+        # But for multi-rank grouped runs, we want to provide a group name ahead of time to link the runs
+        # So let's explicitly default the run name here in a consistent way for single-rank and multi-rank
+        if self.name is None:
+            try:
+                import coolname
+            except ImportError as e:
+                raise ImportError(
+                    textwrap.dedent("""\
+                    Composer was installed without 'coolname' support which is used to configure WandB names.
+                    To use 'coolname' with Composer, run `pip install mosaicml[wandb]` if using pip
+                    or `conda install -c conda-forge coolname` if using Anaconda.""")) from e
+            self.name = coolname.generate_slug(2)
+
+        if self.rank_zero_only:
+            name = self.name
+            group = self.group
+        else:
+            name = f"{self.name} [RANK_{dist.get_global_rank()}]"
+            group = self.group if self.group else self.name
         init_params = {
             "project": self.project,
             "name": name,

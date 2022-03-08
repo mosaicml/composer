@@ -94,11 +94,13 @@ class SAM(Algorithm):
     existing optimizer with a :class:`SAMOptimizer`.
 
     Args:
-        rho: The neighborhood size parameter of SAM. Must be greater than 0.
-        epsilon: A small value added to the gradient norm for numerical stability.
-        interval: SAM will run once per ``interval`` steps. A value of 1 will
+        rho (float, optional): The neighborhood size parameter of SAM. Must be greater than 0.
+            Default: ``0.05``.
+        epsilon (float, optional): A small value added to the gradient norm for numerical stability.
+            Default: ``1e-12``.
+        interval (int, optional): SAM will run once per ``interval`` steps. A value of 1 will
             cause SAM to run every step. Steps on which SAM runs take
-            roughly twice as much time to complete.
+            roughly twice as much time to complete. Default: ``1``.
     """
 
     def __init__(
