@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from composer.algorithms import MixUpHparams
-from composer.algorithms.mixup.mixup import _gen_interpolation_lambda, mixup_batch
+from composer.algorithms.mixup.mixup import _gen_mixing_coef, mixup_batch
 from composer.core.types import Event
 from composer.models.base import ComposerClassifier
 
@@ -44,18 +44,18 @@ class TestMixUp:
         x_fake, y_fake, indices = fake_data
 
         # Get interpolation lambda based on alpha hparam
-        interpolation_lambda = _gen_interpolation_lambda(alpha)
+        mixing_coef = _gen_mixing_coef(alpha)
 
         # Apply mixup
         x_mix, _, _ = mixup_batch(
             x_fake,
             y_fake,
-            mixing=interpolation_lambda,
+            mixing=mixing_coef,
             num_classes=x_fake.size(1),  # Grab C
             indices=indices)
 
         # Validate results
-        validate_mixup_batch(x_fake, y_fake, indices, x_mix, interpolation_lambda)
+        validate_mixup_batch(x_fake, y_fake, indices, x_mix, mixing_coef)
 
     def test_mixup_algorithm(self, fake_data, alpha, minimal_state, empty_logger):
         # Generate fake data
@@ -70,5 +70,5 @@ class TestMixUp:
         algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
         x, _ = state.batch
-        # Use algorithm generated indices and interpolation_lambda for validation
+        # Use algorithm generated indices and mixing_coef for validation
         validate_mixup_batch(x_fake, y_fake, algorithm.indices, x, algorithm.mixing)

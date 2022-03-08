@@ -70,7 +70,7 @@ def mixup_batch(input: Tensor,
                 X, y, num_classes=num_classes, alpha=0.2)
     """
     if mixing is None:
-        mixing = _gen_interpolation_lambda(alpha)
+        mixing = _gen_mixing_coef(alpha)
     # Create shuffled versions of x and y in preparation for interpolation
     # Use given indices if there are any.
     if indices is None:
@@ -177,7 +177,7 @@ class MixUp(Algorithm):
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
 
-        self.mixing = _gen_interpolation_lambda(self.alpha)
+        self.mixing = _gen_mixing_coef(self.alpha)
 
         new_input, new_target, self.indices = mixup_batch(
             input,
@@ -189,7 +189,7 @@ class MixUp(Algorithm):
         state.batch = (new_input, new_target)
 
 
-def _gen_interpolation_lambda(alpha: float) -> float:
+def _gen_mixing_coef(alpha: float) -> float:
     """Samples ``max(z, 1-z), z ~ Beta(alpha, alpha)``."""
     # First check if alpha is positive.
     assert alpha >= 0
