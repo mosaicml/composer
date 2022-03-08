@@ -109,6 +109,11 @@ extra_deps["unet"] = [
     'scikit-learn>=1.0.1',
 ]
 
+extra_deps["deeplab"] = [
+    'pip install mmcv-full',
+    'pip install mmsegmentation',
+]
+
 extra_deps["timm"] = [
     'timm==0.5.4',
 ]
