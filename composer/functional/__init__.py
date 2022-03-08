@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Functional API for applying algorithims in your own training loop.
+"""Functional API for applying algorithms in your own training loop.
 
 .. code-block:: python
 
