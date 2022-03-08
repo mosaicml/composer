@@ -30,3 +30,5 @@ from composer.models.timm import TimmHparams as TimmHparams
 from composer.models.transformer_shared import ComposerTransformer as ComposerTransformer
 from composer.models.unet import UNet as UNet
 from composer.models.unet import UnetHparams as UnetHparams
+from composer.models.vit_small_patch16 import ViTSmallPatch16 as ViTSmallPatch16
+from composer.models.vit_small_patch16 import ViTSmallPatch16Hparams as ViTSmallPatch16Hparams
