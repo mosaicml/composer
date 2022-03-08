@@ -128,7 +128,8 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | timer                 | The timer that tracks training loop progress.               |
             +-----------------------+-------------------------------------------------------------+
-            | rng                   | The state of the RNGs.                                      |
+            | is_model_ddp          | Whether the model is an instance of                         |
+            |                       | :class:`~torch.nn.parallel.DistributedDataParallel`.        |
             +-----------------------+-------------------------------------------------------------+
             | rank_zero_seed        | The seed of the rank zero process.                          |
             +-----------------------+-------------------------------------------------------------+
