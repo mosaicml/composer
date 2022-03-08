@@ -13,6 +13,8 @@ from composer.core.types import Batch, Precision, Tensor
 from composer.utils import dist
 from composer.utils.iter_helpers import map_collection
 
+__all__ = ["_fix_batch_precision_for_deepspeed", "_parse_deepspeed_config"]
+
 
 def _add_batch_config(config: Dict[str, Any], state: State):
     if state.train_dataloader.batch_size is None:

@@ -874,7 +874,7 @@ class Trainer:
 
         if self.state.timer.batch_in_epoch == 0 and self._rng_state is not None:
             # only restore the rng state here if the step in the current epoch is zero.
-            self.state.rng = self._rng_state
+            reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
 
         while self.state.timer < self.state.max_duration:
@@ -895,7 +895,7 @@ class Trainer:
                     if batch_idx + 1 == int(self.state.timer.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
                         if self._rng_state is not None:
-                            self.state.rng = self._rng_state
+                            reproducibility.load_rng_state(self._rng_state)
                             self._rng_state = None
                         continue
 

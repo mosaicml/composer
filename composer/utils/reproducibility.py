@@ -35,12 +35,17 @@ Attributes:
 """
 import os
 import random
+import textwrap
 import time
 import warnings
+from typing import List
 
 import numpy as np
 import torch
 import torch.backends.cudnn
+
+from composer.core import types
+from composer.utils import dist
 
 __all__ = [
     "configure_deterministic_mode",
@@ -125,3 +130,66 @@ def seed_all(seed: int):
     # torch.manual_seed may call manual_seed_all but calling it again here
     # to make sure it gets called at least once
     torch.cuda.manual_seed_all(seed)
+
+
+def get_rng_state() -> List[types.StateDict]:
+    """The state of the RNG objects.
+
+    Returns:
+        List[types.StateDict]: A list of RNG State Dicts, indexed by global rank.
+    """
+
+    rng_state = {
+        "python": random.getstate(),
+        "numpy": np.random.get_state(),
+        "torch": torch.random.get_rng_state(),
+    }
+    if torch.cuda.is_available() and torch.cuda.is_initialized():
+        # This will not be compatible with model parallelism
+        rng_state['cuda'] = torch.cuda.get_rng_state()
+
+    return dist.all_gather_object(rng_state)
+
+
+def load_rng_state(rng_state_dicts: List[types.StateDict]):
+    """Restore the RNG state.
+
+    Args:
+        rng_state_dicts (List[types.StateDict]): The list of RNG state dicts to restore,
+            as returned by :func:`get_rng_state`.
+    """
+    if dist.get_world_size() > len(rng_state_dicts):
+        warnings.warn(
+            textwrap.dedent(f"""\
+                The current world size ({dist.get_world_size()} is greater than the number of RNG state(s) serialized
+                ({len(rng_state_dicts)}). Only the first {len(rng_state_dicts)} rank(s) will have their RNG restored.
+                """))
+    if dist.get_world_size() < len(rng_state_dicts):
+        warnings.warn(
+            textwrap.dedent(f"""\
+            The current world size ({dist.get_world_size()} is less than the number of RNG state(s) serialized
+            ({len(rng_state_dicts)}). Only the first {dist.get_world_size()} RNG state(s) will be consumed;
+            the remaining will be ignored."""))
+
+    if dist.get_global_rank() < len(rng_state_dicts):
+        rng_state_dict = rng_state_dicts[dist.get_global_rank()]
+        torch.set_rng_state(rng_state_dict['torch'])
+        random.setstate(rng_state_dict['python'])
+        np.random.set_state(rng_state_dict['numpy'])
+
+        is_cuda_available = torch.cuda.is_available() and torch.cuda.is_initialized()
+        has_cuda_rng_state = "cuda" in rng_state_dict
+
+        if is_cuda_available and has_cuda_rng_state:
+            torch.cuda.set_rng_state(rng_state_dict['cuda'])
+
+        if is_cuda_available and not has_cuda_rng_state:
+            warnings.warn(
+                textwrap.dedent(f"""\
+                The checkpoint did not include the CUDA RNG state. The CUDA RNG will have a
+                non-deterministic state."""))
+        if not is_cuda_available and has_cuda_rng_state:
+            warnings.warn(
+                textwrap.dedent(f"""\
+                The checkpoint included CUDA RNG state, but CUDA is not being used.
+                As such, the CUDA RNG state will be ignored."""))

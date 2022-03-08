@@ -45,7 +45,8 @@ Opening one of those checkpoints, you'll see:
    )
    print(f"Keys: {list(state_dict.keys())}")
 
-   >>> Keys: ['model', 'grad_accum', '_max_duration', 'timer', '_precision', '_optimizers', '_schedulers', 'scaler', '_algorithms', '_callbacks', '_is_model_ddp_wrapped']
+   >>> Top level keys: ['rng', 'state']
+   >>> Keys: ['model', 'timer', 'optimizers', 'schedulers', 'scaler', 'algorithms', 'callbacks', 'rng', 'rank_zero_seed', 'is_model_ddp']
 
 At the top level, we see details on the current RNG state and the
 ``trainer.state``.
