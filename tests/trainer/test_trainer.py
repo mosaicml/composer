@@ -125,8 +125,7 @@ class TestTrainerEquivalence():
     def set_default_threshold(self, device, precision, world_size):
         """Sets the default threshold to 0.
 
-        Individual tests can override by passing thresholds directly
-        to assert_models_equal.
+        Individual tests can override by passing thresholds directly to assert_models_equal.
         """
         self.default_threshold = {'atol': 0, 'rtol': 0}
 
