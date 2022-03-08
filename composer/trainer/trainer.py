@@ -29,7 +29,7 @@ Train a model and save a checkpoint:
                       save_interval="1ep")
 
     ### Fit and run evaluation for 1 epoch.
-    ### Save a checkpoint after 1 epocch as specified during trainer creation.
+    ### Save a checkpoint after 1 epoch as specified during trainer creation.
     trainer.fit()
 
 Load the checkpoint and resume training:

@@ -25,7 +25,8 @@ def cutmix_batch(input: Tensor,
                  length: Optional[Union[int, float]] = None,
                  alpha: float = 1.,
                  bbox: Optional[Tuple] = None,
-                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                 indices: Optional[torch.Tensor] = None,
+                 uniform_sampling: bool = False) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of ``input`` and filling the masked region with
@@ -75,6 +76,10 @@ def cutmix_batch(input: Tensor,
             coordinates of the bounding box. Default: ``None``.
         indices (torch.Tensor, optional): Permutation of the samples to use.
             Default: ``None``.
+        uniform_sampling (bool, optional): If ``True``, sample the bounding box
+            such that each pixel has an equal probability of being mixed.
+            If ``False``, defaults to the sampling used in the original paper
+            implementation. Default: ``False``.
 
     Returns:
         input_mixed (torch.Tensor): batch of inputs after cutmix has been
@@ -138,7 +143,7 @@ def cutmix_batch(input: Tensor,
         box_area = (rw - rx) * (rh - ry)
         cutmix_lambda = box_area / (H * W)
     else:
-        rx, ry, rw, rh = _rand_bbox(input.shape[2], input.shape[3], cutmix_lambda, cut_w=cut_w, cut_h=cut_h)
+        rx, ry, rw, rh = _rand_bbox(input.shape[2], input.shape[3], cutmix_lambda, cut_w=cut_w, cut_h=cut_h, uniform_sampling=uniform_sampling)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
@@ -179,6 +184,10 @@ class CutMix(Algorithm):
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``1``.
+        uniform_sampling (bool, optional): If ``True``, sample the bounding
+            box such that each pixel has an equal probability of being mixed.
+            If ``False``, defaults to the sampling used in the original
+            paper implementation. Default: ``False``.
 
     Example:
         .. testsetup::
@@ -216,9 +225,10 @@ class CutMix(Algorithm):
             )
     """
 
-    def __init__(self, num_classes: int, alpha: float = 1.):
+    def __init__(self, num_classes: int, alpha: float = 1., uniform_sampling: bool = False):
         self.num_classes = num_classes
         self.alpha = alpha
+        self._uniform_sampling = uniform_sampling
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox: Tuple[int, int, int, int] = (0, 0, 0, 0)
@@ -251,7 +261,7 @@ class CutMix(Algorithm):
         # these are saved only for testing
         self._indices = _gen_indices(input)
         _cutmix_lambda = _gen_cutmix_coef(alpha)
-        self._bbox = _rand_bbox(input.shape[2], input.shape[3], _cutmix_lambda)
+        self._bbox = _rand_bbox(input.shape[2], input.shape[3], _cutmix_lambda, uniform_sampling=self._uniform_sampling)
         self._cutmix_lambda = _adjust_lambda(_cutmix_lambda, input, self._bbox)
 
         new_input, new_target, _ = cutmix_batch(
@@ -306,7 +316,8 @@ def _rand_bbox(W: int,
                cx: Optional[int] = None,
                cy: Optional[int] = None,
                cut_w: Optional[int] = None,
-               cut_h: Optional[int] = None) -> Tuple[int, int, int, int]:
+               cut_h: Optional[int] = None,
+               uniform_sampling: bool = False) -> Tuple[int, int, int, int]:
     """Randomly samples a bounding box with area determined by cutmix_lambda.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
@@ -320,6 +331,9 @@ def _rand_bbox(W: int,
         cy: Optional y coordinate of the center of the box.
         cut_w: Optional width of the box
         cut_h: Optional height of the box
+        uniform_sampling: If true, sample the bounding box such that each pixel
+            has an equal probability of being mixed. If false, defaults to the
+            sampling used in the original paper implementation.
 
     Returns:
         bbx1: Leftmost edge of the bounding box
@@ -333,9 +347,15 @@ def _rand_bbox(W: int,
 
     # uniform
     if cx is None:
-        cx = np.random.randint(W)
+        if uniform_sampling is True:
+            cx = np.random.randint(-cut_w // 2, high=W + cut_w // 2)
+        else:
+            cx = np.random.randint(W)
     if cy is None:
-        cy = np.random.randint(H)
+        if uniform_sampling is True:
+            cy = np.random.randint(-cut_h // 2, high=H + cut_h // 2)
+        else:
+            cy = np.random.randint(H)
 
     bbx1 = np.clip(cx - cut_w // 2, 0, W)
     bby1 = np.clip(cy - cut_h // 2, 0, H)

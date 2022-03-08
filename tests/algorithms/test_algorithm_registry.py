@@ -94,9 +94,10 @@ default_required_fields = {
     SWAHparams: {
         'swa_start': "0.7dur",
         'swa_end': "0.97dur",
+        'update_interval': "1ep",
         'schedule_swa_lr': False,
         'anneal_strategy': 'cos',
-        'anneal_epochs': 10,
+        'anneal_steps': 10,
         'swa_lr': None
     },
     AugMixHparams: {

@@ -124,6 +124,7 @@ class CutMixHparams(AlgorithmHparams):
 
     num_classes: int = hp.required('Number of classes in the task labels.')
     alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
+    uniform_sampling: bool = hp.optional('Mix pixels with uniform probability', default=False)
 
     def initialize_object(self) -> CutMix:
         return CutMix(**asdict(self))
@@ -135,6 +136,7 @@ class CutOutHparams(AlgorithmHparams):
 
     n_holes: int = hp.optional('Number of holes to cut out', default=1)
     length: float = hp.optional('Relative or absolute side length of the square hole to cut out', default=0.5)
+    uniform_sampling: bool = hp.optional('Mask pixels with uniform probability', default=False)
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
@@ -368,14 +370,19 @@ class SWAHparams(AlgorithmHparams):
         '(non-averaged) model is replaced with the stochastic weight averaged model. '
         'Currently only units of duration (e.g. "0.97dur") and epoch (e.g "88ep") are supported.',
         default="0.97dur")
+    update_interval: str = hp.optional(doc='Time string denoting how often the averaged model is updated. For example, '
+                                       '"1ep" means the averaged model will be updated once per epoch, and '
+                                       '"10ba" means the averaged model will be updated every 10 batches.',
+                                       default="1ep")
     schedule_swa_lr: bool = hp.optional(doc='Flag to determine whether to apply an SWA-specific LR schedule during the '
                                         'period in which SWA is active.',
                                         default=False)
     anneal_strategy: str = hp.optional(doc='SWA learning rate annealing schedule strategy. '
                                        '"linear" for linear annealing, "cos" for cosine annealing.',
                                        default='linear')
-    anneal_epochs: int = hp.optional(
-        doc='Number of epochs over which to anneal SWA learning rate.',
+    anneal_steps: int = hp.optional(
+        doc='Number of SWA model updates over which to anneal SWA learning rate. Note '
+        'that updates are determined by the ``update_interval`` argument.',
         default=10,
     )
     swa_lr: Optional[float] = hp.optional(
