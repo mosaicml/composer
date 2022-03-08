@@ -23,8 +23,8 @@ from composer.core.time import TimeUnit
 from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
 from composer.optim import AdamWHparams
-from composer.optim.scheduler import ConstantLRHparams, CosineAnnealingLRHparams
 from composer.trainer._checkpoint import _retrieve_checkpoint
+from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
@@ -218,8 +218,7 @@ def test_load_weights(
     second_trainer_hparams.optimizer = AdamWHparams()
 
     # setup a new LR scheduler
-    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(t_max=second_trainer_hparams.max_duration)]
-    second_trainer_hparams.schedulers = [random.choice(scheduler_options)]
+    second_trainer_hparams.schedulers = [CosineAnnealingSchedulerHparams(t_max=second_trainer_hparams.max_duration)]
 
     # ensure our new choice of scheduler is different than the original scheduler
     for idx in range(len(second_trainer_hparams.schedulers)):
@@ -407,7 +406,9 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer):
         Event.BEFORE_TRAIN_BATCH: num_total_steps,
         Event.AFTER_TRAIN_BATCH: num_total_steps,
         Event.BATCH_END: num_total_steps,
+        Event.BATCH_CHECKPOINT: num_total_steps,
         Event.EPOCH_END: num_epochs,
+        Event.EPOCH_CHECKPOINT: num_epochs,
         Event.EVAL_START: num_evals,
         Event.EVAL_BATCH_START: num_eval_steps,
         Event.EVAL_BEFORE_FORWARD: num_eval_steps,

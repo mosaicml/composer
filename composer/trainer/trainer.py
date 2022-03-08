@@ -1007,6 +1007,8 @@ class Trainer:
                             self.state.timer.batch) % self._validate_every_n_batches == 0:
                         self.eval(is_batch=True)
 
+                    self.engine.run_event(Event.BATCH_CHECKPOINT)
+
                     if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=self.state,
                                                                                            event=Event.BATCH_END):
                         self._checkpoint_saver.save_checkpoint(state=self.state, device=self._device)
@@ -1030,6 +1032,8 @@ class Trainer:
 
             if self._validate_every_n_epochs > 0 and int(self.state.timer.epoch) % self._validate_every_n_epochs == 0:
                 self.eval(is_batch=False)
+
+            self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
             if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=self.state,
                                                                                    event=Event.EPOCH_END):
