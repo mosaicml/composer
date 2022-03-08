@@ -332,8 +332,8 @@ def test_checkpoint(
     composer_trainer_hparams.should_save = should_save
     composer_trainer_hparams.seed = seed
 
-    composer_trainer_hparams.validate_every_n_batches = 0 if resume_file.startswith("it") else 1
-    composer_trainer_hparams.validate_every_n_epochs = 0 if resume_file.startswith("ep") else 1
+    composer_trainer_hparams.validate_every_n_batches = 1 if resume_file.startswith("ba") else 0
+    composer_trainer_hparams.validate_every_n_epochs = 1 if resume_file.startswith("ep") else 0
     first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
     expected_num_checkpoints = num_epochs / should_save_epochs if resume_file.startswith(
         "ep") else (composer_trainer_hparams.train_subset_num_batches + 1) / should_save_batches * num_epochs

@@ -18,7 +18,7 @@ from composer.core import Event, State
 from composer.core.callback import Callback
 from composer.core.logging.logger import Logger
 from composer.core.time import Time, TimeUnit
-from composer.utils import dist, run_directory
+from composer.utils import dist, reproducibility, run_directory
 
 log = logging.getLogger(__name__)
 
@@ -324,16 +324,19 @@ class CheckpointSaver(Callback):
         return checkpoint_name
 
     def save_checkpoint(self, state: State, checkpoint_filename: str) -> None:
-        """Save the current ``state`` to ``checkpoint_filename`` (relative to :attr:`checkpoint_folder).
+        """Save the current ``state`` to ``checkpoint_filename`` (relative to :attr:`checkpoint_folder`).
 
         Args:
             state (State): The current State of the trainer.
             checkpoint_filename (str): The filename for the checkpoint (relative to :attr:`checkpoint_folder`).
                 It will be formatted according to :meth:`format_checkpoint_name`.
         """
-        state_dict = state.state_dict()
+        state_dict = {
+            'state': state.state_dict(),
+            'rng': reproducibility.get_rng_state(),
+        }
         if self.weights_only and not state.is_model_deepspeed:
-            state_dict = {"model": state_dict['model']}
+            state_dict['state'] = {"model": state_dict['state']['model']}
 
         checkpoint_filename = self.format_checkpoint_name(state, checkpoint_filename)
 

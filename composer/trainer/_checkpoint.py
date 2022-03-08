@@ -218,18 +218,14 @@ def _download_checkpoint(
 ) -> Tuple[str, Optional[str], bool]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
 
-    Returns:
-        Tuple[str, Optional[str], bool]: A tuple of ``composer_checkpoint_filepath``,
-            ``extracted_checkpoint_folder``, and ``extracted_rank_n``.
+    Returns a tuple of  (``composer_checkpoint_filepath``, ``extracted_checkpoint_folder``, ``extracted_rank_n``).
 
-            The ``composer_checkpoint_filepath``, is the path to the composer states,
-            which can be passed into :meth:`torch.load`.
-
-            The ``extracted_checkpoint_folder`` is the path to the checkpoint folder, which can be passed into
-            :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
-
-            The ``extracted_rank_n`` is a boolean flag indicating whether a tarball was extracted on global
-            rank greater than 0.
+    *   The ``composer_checkpoint_filepath``, is the path to the composer states, which can be passed into
+        :meth:`torch.load`.
+    *   The ``extracted_checkpoint_folder`` is the path to the checkpoint folder, which can be passed into
+        :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
+    *   The ``extracted_rank_n`` is a boolean flag indicating whether a tarball was extracted on global
+        rank greater than 0.
     """
     checkpoint_archive_name = path.split(os.path.sep)[-1]
     rank_zero_checkpoint_archive_name = "rank_0." + _format_path_with_rank(checkpoint_archive_name, 0)
@@ -314,23 +310,7 @@ def _restore_checkpoint(
     load_weights_only: bool,
     strict_model_weights: bool,
 ) -> Optional[List[types.StateDict]]:
-    """Restore a checkpoint into ``state``.
-
-    Args:
-        state (State): The state to load the checkpoint into.
-        composer_checkpoint_filepath (str): The filepath to the moasic states, which is passed into
-            :meth:`torch.load`.
-        extracted_rank_n (bool): A boolean flag indicating whether a tarball was extracted in the case
-            where global rank is greater than 0.
-        extracted_checkpoint_folder (Optional[str]): The path to the checkpoint folder, which is passed into
-            :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`. Set to ``None`` if not deepspeed.
-        load_weights_only (bool): TODO
-        strict_model_weights (bool): TODO
-
-    Returns:
-        Optional[List[types.StateDict]]: The RNG state dicts, indexed by global rank, if
-            :attr:`load_weights_only` is not None. Otherwise, None.
-    """
+    """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = torch.load(composer_checkpoint_filepath, map_location='cpu')
     log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
@@ -355,5 +335,5 @@ def _restore_checkpoint(
         state.load_model_state(state_dict['state'], strict=strict_model_weights)
 
     if not load_weights_only:
-        state.load_state_dict(state_dict)
-    return state_dict['rng']
+        state.load_state_dict(state_dict['state'])
+        return state_dict['rng']
