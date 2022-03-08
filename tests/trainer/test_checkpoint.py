@@ -250,7 +250,7 @@ def test_load_weights(
 @pytest.mark.parametrize(
     "seed,should_save,save_name_format_string,resume_file,final_checkpoint",
     [
-        [None, "1ep", "ep{epoch}.pt","ep1.pt","ep2.pt"],
+        [None, "1ep", "ep{epoch}.pt", "ep1.pt", "ep2.pt"],
         [42, "1ep", "ep{epoch}.pt", "ep1.pt", "ep2.pt"],
         [42, "1ep", "ep{epoch}.tgz", "ep1.tgz", "ep2.tgz"],
         [42, "2ba", "ba{batch}.pt", "ba4.pt", "ba8.pt"],

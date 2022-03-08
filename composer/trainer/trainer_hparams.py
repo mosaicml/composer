@@ -332,13 +332,14 @@ class TrainerHparams(hp.Hparams):
 
     # save checkpoint
     save_folder: Optional[str] = hp.optional(doc="Folder where checkpoints will be saved.", default=None)
-    save_name_format_string: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}/rank_{rank}")
+    save_name_format_string: str = hp.optional("Checkpoint name format string.",
+                                               default="ep{epoch}-ba{batch}/rank_{rank}")
     save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     should_save: str = hp.optional(textwrap.dedent("""\
         Checkpoint interval or path to a `(State, Event) -> bool` function
         returning whether a checkpoint should be saved."""),
-                                         default="1ep")
+                                   default="1ep")
 
     # subset parameters
     train_subset_num_batches: Optional[int] = hp.optional(

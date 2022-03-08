@@ -340,7 +340,8 @@ class CheckpointSaver(Callback):
         with tempfile.TemporaryDirectory() as tmpdir:
             composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
             checkpoint_filepath = os.path.join(self.checkpoint_folder, checkpoint_filename)
-            os.makedirs(os.path.dirname(checkpoint_filepath), exist_ok=True)  # checkpoint_filepath could contain a (new) subfolder
+            os.makedirs(os.path.dirname(checkpoint_filepath),
+                        exist_ok=True)  # checkpoint_filepath could contain a (new) subfolder
             if dist.get_global_rank() == 0:
                 # Only rank zero saves the composer state dict
                 with open(composer_states_filepath, 'xb') as f:
