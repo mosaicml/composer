@@ -1,4 +1,4 @@
-# EfficientNet
+# 🕸️ EfficientNet
 
 Category of Task: `Vision`
 

@@ -25,13 +25,14 @@ class ObjectStoreProviderHparams(hp.Hparams):
     * The AWS Access Key ID is stored in an environment variable named ``AWS_ACCESS_KEY_ID``.
     * The Secret Access Key is in an environmental variable named ``AWS_SECRET_ACCESS_KEY``.
 
-    .. testsetup::
+    .. testsetup:: composer.utils.object_store.ObjectStoreProviderHparams.__init__.s3
 
         import os
+
         os.environ["AWS_ACCESS_KEY_ID"] = "key"
         os.environ["AWS_SECRET_ACCESS_KEY"] = "secret"
 
-    .. doctest::
+    .. doctest:: composer.utils.object_store.ObjectStoreProviderHparams.__init__.s3
 
         >>> provider_hparams = ObjectStoreProviderHparams(
         ...     provider="s3",
@@ -56,7 +57,7 @@ class ObjectStoreProviderHparams(hp.Hparams):
             For example, if your key is an environment variable called ``OBJECT_STORE_KEY`` that is set to ``MY_KEY``,
             then you should set this parameter equal to ``OBJECT_STORE_KEY``. Composer will read the key like this:
             
-            .. testsetup::
+            .. testsetup::  composer.utils.object_store.ObjectStoreProviderHparams.__init__.key
 
                 import os
                 import functools
@@ -64,7 +65,7 @@ class ObjectStoreProviderHparams(hp.Hparams):
                 os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
                 ObjectStoreProviderHparams = functools.partial(ObjectStoreProviderHparams, provider="s3", container="container")
             
-            .. doctest::
+            .. doctest:: composer.utils.object_store.ObjectStoreProviderHparams.__init__.key
 
                 >>> import os
                 >>> params = ObjectStoreProviderHparams(key_environ="OBJECT_STORE_KEY")
@@ -79,15 +80,16 @@ class ObjectStoreProviderHparams(hp.Hparams):
             For example, if your secret is an environment variable called ``OBJECT_STORE_SECRET`` that is set to ``MY_SECRET``,
             then you should set this parameter equal to ``OBJECT_STORE_SECRET``. Composer will read the secret like this:
                 
-            .. testsetup::
+            .. testsetup:: composer.utils.object_store.ObjectStoreProviderHparams.__init__.secret
 
                 import os
                 import functools
+                original_secret = os.environ.get("OBJECT_STORE_SECRET")
                 os.environ["OBJECT_STORE_SECRET"] = "MY_SECRET"
                 ObjectStoreProviderHparams = functools.partial(ObjectStoreProviderHparams, provider="s3", container="container")
 
 
-            .. doctest::
+            .. doctest:: composer.utils.object_store.ObjectStoreProviderHparams.__init__.secret
 
                 >>> import os
                 >>> params = ObjectStoreProviderHparams(secret_environ="OBJECT_STORE_SECRET")

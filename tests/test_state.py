@@ -12,7 +12,7 @@ from composer.core import DataSpec, State, types
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.base import ComposerModel
-from composer.trainer import deepspeed
+from composer.trainer import _deepspeed
 from tests.fixtures.models import SimpleBatchPairModel
 
 
@@ -57,8 +57,8 @@ def assert_state_equivalent(state1: State, state2: State):
         var2 = getattr(state2, field_name)
 
         if field_name == "model":
-            if deepspeed.is_module_deepspeed(state1.model):
-                assert deepspeed.is_module_deepspeed(state2.model)
+            if _deepspeed.is_module_deepspeed(state1.model):
+                assert _deepspeed.is_module_deepspeed(state2.model)
             for p, q in zip(state1.model.parameters(), state2.model.parameters()):
                 torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
         elif isinstance(var1, types.Tensor):

@@ -40,7 +40,11 @@ class RunDirectoryUploader(Callback):
     timestamp. Only files that have a newer last modified timestamp since the last upload will be  uploaded.
 
     Example
-        .. testsetup:: *
+        .. testsetup:: composer.callbacks.RunDirectoryUploader.__init__
+
+           import os
+           import functools
+           from composer.callbacks import RunDirectoryUploader, run_directory_uploader
 
            # For this example, we do not validate credentials
            def do_not_validate(
@@ -48,9 +52,18 @@ class RunDirectoryUploader(Callback):
                object_name_prefix: str,
            ) -> None:
                pass
-           callbacks.run_directory_uploader._validate_credentials = do_not_validate
 
-        .. doctest::
+           run_directory_uploader._validate_credentials = do_not_validate
+           
+           os.environ['OBJECT_STORE_KEY'] = 'KEY'
+           os.environ['OBJECT_STORE_SECRET'] = 'SECRET'
+           RunDirectoryUploader = functools.partial(
+               RunDirectoryUploader,
+               use_procs=False,
+               num_concurrent_uploads=1,
+           )
+
+        .. doctest:: composer.callbacks.RunDirectoryUploader.__init__
 
            >>> osphparams = ObjectStoreProviderHparams(
            ...     provider="s3",
@@ -60,17 +73,23 @@ class RunDirectoryUploader(Callback):
            ...     region="us-west-2",
            ...     )
            >>> # construct trainer object with this callback
+           >>> run_directory_uploader = RunDirectoryUploader(osphparams)
            >>> trainer = Trainer(
            ...     model=model,
            ...     train_dataloader=train_dataloader,
            ...     eval_dataloader=eval_dataloader,
            ...     optimizers=optimizer,
            ...     max_duration="1ep",
-           ...     callbacks=[callbacks.RunDirectoryUploader(osphparams)],
+           ...     callbacks=[run_directory_uploader],
            ... )
            >>> # trainer will run this callback whenever the EPOCH_END
            >>> # is triggered, like this:
            >>> _ = trainer.engine.run_event(Event.EPOCH_END)
+        
+        .. testcleanup:: composer.callbacks.RunDirectoryUploader.__init__
+
+           # Shut down the uploader
+           run_directory_uploader._finished.set()
 
     .. note::
         This callback blocks the training loop to copy files from the :mod:`~composer.utils.run_directory` to the

@@ -12,7 +12,6 @@ from composer.core.types import BatchPair, Metrics, Tensor, Tensors
 from composer.models.base import ComposerModel
 from composer.models.loss import Dice
 from composer.models.unet.model import UNet as UNetModel
-from composer.models.unet.unet_hparams import UnetHparams
 
 log = logging.getLogger(__name__)
 
@@ -20,16 +19,12 @@ log = logging.getLogger(__name__)
 class UNet(ComposerModel):
     """A U-Net model extending :class:`ComposerClassifier`.
 
-    See this `paper <https://arxiv.org/abs/1505.04597>`_ for details on the
-    U-Net architecture.
-
-    Args:
-        hparams (UnetHparams): The hyperparameters for constructing the model.
+    See this `paper <https://arxiv.org/abs/1505.04597>`_ for details on the U-Net architecture.
     """
 
     n_classes: Optional[int] = None
 
-    def __init__(self, hparams: UnetHparams) -> None:
+    def __init__(self) -> None:
         super().__init__()
         try:
             from monai.losses import DiceLoss
@@ -39,7 +34,6 @@ class UNet(ComposerModel):
                 Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
                 if using pip or `conda install -c conda-forge monai` if using Anaconda.""")) from e
 
-        self.hparams = hparams
         self.module = self.build_nnunet()
 
         self.dice = Dice(3)
@@ -113,7 +107,7 @@ class UNet(ComposerModel):
                           strides=strides,
                           dimension=2,
                           residual=True,
-                          normalization_layer="instance",
+                          normalization_layer="batch",
                           negative_slope=0.01)
 
         return model

@@ -3,10 +3,12 @@
 """Core code for sequence length warmup."""
 
 import textwrap
+from math import ceil
 from typing import Dict, Mapping, Optional
 
 import torch
 
+from composer.core.time import TimeUnit
 from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
 from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
@@ -15,7 +17,7 @@ __all__ = ["SeqLengthWarmup", "set_batch_sequence_length"]
 
 
 def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
-    """Set the sequence length of the current batch.
+    """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
     to ``curr_seq_len``, by either truncating the tensors (``truncate=True``)
@@ -25,19 +27,35 @@ def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, trunc
     .. note::
 
         The schedule for ``curr_seq_len`` over training time should be managed
-        out of this function.
+        outside of this function.
 
-    Example: Awaiting language model test fixtures.
+    .. note::
+
+        Variable input lengths can create CUDA OOM errors. To avoid this,
+        we follow `PyTorch notes <https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html#pre-allocate-memory-in-case-of-variable-input-length>`_
+        and pre-allocate the memory with a blank forward and backward pass.
 
     Args:
         batch (Dict[str, Tensor]): The input batch to the model, must be a dictionary.
         curr_seq_length (int): The desired sequence length to apply.
         truncate (bool, optional): Truncate sequences early, or reshape tensors to create
-            new examples out of the extra tokens. Default = ``True``.
+            new examples out of the extra tokens. Default: ``True``.
 
     Returns:
         Dict[str, Tensor]: a Mapping of input tensors to the model,
             where all tensors have curr_seq_len in the second dimension.
+
+    Example:
+
+    .. code-block::
+
+        import composer.functional as cf
+
+        for epoch in range(num_epochs):
+            for X, y in train_loader:
+                X = cf.set_batch_sequence_length(X, sequence_length)
+                y_hat = model(X)
+                loss = loss_fn(y_hat, y)
     """
 
     assert isinstance(batch, Mapping)
@@ -95,7 +113,23 @@ class SeqLengthWarmup(Algorithm):
 
     See the :doc:`Method Card </method_cards/seq_length_warmup>` for more details.
 
-    Example: Awaiting language model test fixtures.
+    Example:
+
+    .. code-block::
+
+        from composer.algorithms import SeqLengthWarmup
+        from composer import Trainer
+
+        seq_length_warmup = SeqLengthWarmup(duration=0.5,
+                                            min_seq_length=8,
+                                            max_seq_length=1024,
+                                            ste_size=8,
+                                            truncate=False)
+
+        trainer = Trainer(model=model,
+                          train_dataloader=train_dataloader,
+                          max_duration="1ep",
+                          algorithms=[seq_length_warmup])
 
     Args:
         duration (float, optional): Fraction of total training for sequential length
@@ -142,6 +176,10 @@ class SeqLengthWarmup(Algorithm):
                     textwrap.dedent(f"""\
                     {type(self).__name__} requires state.model to be of type {ComposerTransformer.__name__}, not of type {type(state.model)}"""
                                    ))
+
+            if state.train_dataloader.batch_size is None:
+                raise RuntimeError("Sequence Length Warmup algorithm requires constant batch size.")
+
             self._original_model = state.model
             return
 
@@ -166,9 +204,8 @@ class SeqLengthWarmup(Algorithm):
 
             per_gpu_macrobatch = state.train_dataloader.batch_size
             if per_gpu_macrobatch is None:
-                raise RuntimeError("seq_length_warmup requires constant batch sizing")
-            assert per_gpu_macrobatch % state.grad_accum == 0, "grad accum should evenly divide the batch"
-            per_gpu_batch = per_gpu_macrobatch // state.grad_accum
+                raise RuntimeError("Sequence Length Warmup algorithm requires constant batch size.")
+            per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
 
             input_ids = torch.randint(low=0,
                                       high=vocab_size - 1,
@@ -198,14 +235,24 @@ class SeqLengthWarmup(Algorithm):
 
             self._activated = True
 
-        num_optimization_steps = state.steps_per_epoch * state.max_epochs
-        num_warmup_steps = int(num_optimization_steps * self.duration)
+        if state.max_duration.unit == TimeUnit.EPOCH:
+            num_optimization_steps = state.steps_per_epoch * state.max_duration.value
+        elif state.max_duration.unit == TimeUnit.BATCH:
+            num_optimization_steps = state.max_duration.value
+        else:
+            raise NotImplementedError(
+                textwrap.dedent("""\
+                    To use sequential length warmup, the max_duration must be in epochs or batches.
+                    Specifying the `max_duration` in tokens or samples for use with sequential
+                    length warmup will be supported in a future Composer release. See
+                    https://github.com/mosaicml/composer/issues/226."""))
+        num_warmup_steps = int(num_optimization_steps * self.duration)  # in batches
 
         # assume the full sequence length is the unaltered sequence length
         num_update_steps = (self.max_seq_length - self.min_seq_length) // self.step_size
         update_every_n_steps = num_warmup_steps // num_update_steps
 
-        curr_seq_len = self.step_size * (state.step // update_every_n_steps)
+        curr_seq_len = self.step_size * (int(state.timer.batch) // update_every_n_steps)
         curr_seq_len = max(curr_seq_len, self.min_seq_length)
         curr_seq_len = min(curr_seq_len, self.max_seq_length)
 

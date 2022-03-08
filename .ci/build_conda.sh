@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
 set -euo pipefail
 
 # This script builds composer as a conda package
@@ -28,5 +29,3 @@ conda install -y conda-build conda-verify anaconda-client
 echo "Building composer"
 
 conda-build $(dirname $0)/..
-
-# --user mosaicml --token MOSAICML_API_TOKEN $(dirname $0)/..

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import textwrap
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -21,13 +22,13 @@ if TYPE_CHECKING:
     from composer.loggers.wandb_logger import WandBLogger
 
 __all__ = [
-    "FileLoggerHparams", "InMemoryLoggerHaparms", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
+    "FileLoggerHparams", "InMemoryLoggerHparams", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
 ]
 
 
 @dataclass
 class LoggerCallbackHparams(hp.Hparams, ABC):
-    """Base class for logger backend hyperparameters.
+    """Base class for logger callback hyperparameters.
 
     Logger parameters that are added to :class:`~.trainer_hparams.TrainerHparams` (e.g. via YAML or the CLI) are
     initialized in the training loop.
@@ -50,6 +51,17 @@ class FileLoggerHparams(LoggerCallbackHparams):
     hyperparameters.
 
     See :class:`~composer.loggers.file_logger.FileLogger` for documentation.
+
+    Args:
+        filename (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`
+        buffer_size (int, optional): See
+            :class:`~composer.loggers.file_logger.FileLogger`.
+        log_level (LogLevel, optional): See
+            :class:`~composer.loggers.file_logger.FileLogger`.
+        log_interval (int, optional): See
+            :class:`~composer.loggers.file_logger.FileLogger`.
+        flush_interval (int, optional): See
+            :class:`~composer.loggers.file_logger.FileLogger`.
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
     filename: str = hp.optional("The path to the logfile. Can also be `stdout` or `stderr`. Default: stdout",
@@ -77,16 +89,18 @@ class WandBLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.wandb_logger.WandBLogger` hyperparameters.
 
     Args:
-        project (str, optional): Weights and Biases project name.
-        group (str, optional): Weights and Biases group name.
-        name (str, optional): Weights and Biases run name.
-        entity (str, optional): Weights and Biases entity name.
-        tags (str, optional): Comma-seperated list of tags to add to the run.
-        log_artifacts (bool, optional): Whether to log artifacts. Defaults to False.
-        log_artifacts_every_n_batches (int, optional). How frequently to log artifacts.
-            Default: ``100``. Only applicable if ``log_artifacts`` is True.
+        project (str, optional): WandB project name.
+        group (str, optional): WandB group name.
+        name (str, optional): WandB run name.
+        entity (str, optional): WandB entity name.
+        tags (str, optional): WandB tags, comma-separated.
+        log_artifacts (bool, optional): See
+            :class:`~composer.loggers.wandb_logger.WandBLogger`.
+        log_artifacts_every_n_batches (int, optional). See
+            :class:`~composer.loggers.wandb_logger.WandBLogger`.
 
-        extra_init_params (JSON Dictionary, optional): Extra parameters to pass into :func:`wandb.init`.
+        extra_init_params (JSON Dictionary, optional): See
+            :class:`~composer.loggers.wandb_logger.WandBLogger`.
     """
 
     project: Optional[str] = hp.optional(doc="wandb project name", default=None)
@@ -96,7 +110,7 @@ class WandBLoggerHparams(LoggerCallbackHparams):
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
     log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
-    rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=False)
+    rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=True)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
     flatten_hparams: bool = hp.optional(
         doc=
@@ -176,9 +190,26 @@ class WandBLoggerHparams(LoggerCallbackHparams):
                 )
             self.extra_init_params["config"].update(config)
 
-        name_suffix = f"Rank {dist.get_global_rank()}"
-        name = f"{self.name}_{name_suffix}" if self.name else name_suffix
-        group = self.name if (not self.group and self.rank_zero_only) else self.group
+        # If name=None, wandb.init(..) will automatically produce a unique run name
+        # But for multi-rank grouped runs, we want to provide a group name ahead of time to link the runs
+        # So let's explicitly default the run name here in a consistent way for single-rank and multi-rank
+        if self.name is None:
+            try:
+                import coolname
+            except ImportError as e:
+                raise ImportError(
+                    textwrap.dedent("""\
+                    Composer was installed without 'coolname' support which is used to configure WandB names.
+                    To use 'coolname' with Composer, run `pip install mosaicml[wandb]` if using pip
+                    or `conda install -c conda-forge coolname` if using Anaconda.""")) from e
+            self.name = coolname.generate_slug(2)
+
+        if self.rank_zero_only:
+            name = self.name
+            group = self.group
+        else:
+            name = f"{self.name} [RANK_{dist.get_global_rank()}]"
+            group = self.group if self.group else self.name
         init_params = {
             "project": self.project,
             "name": name,
@@ -200,10 +231,7 @@ class WandBLoggerHparams(LoggerCallbackHparams):
 @dataclass
 class TQDMLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.tqdm_logger.TQDMLogger`
-    hyperparameters.
-
-    See :class:`~composer.loggers.tqdm_logger.TQDMLogger`
-    for documentation.
+    hyperparameters. This class takes no parameters.
     """
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
@@ -212,12 +240,13 @@ class TQDMLoggerHparams(LoggerCallbackHparams):
 
 
 @dataclass
-class InMemoryLoggerHaparms(LoggerCallbackHparams):
+class InMemoryLoggerHparams(LoggerCallbackHparams):
     """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
     hyperparameters.
 
-    See :class:`~composer.loggers.in_memory_logger.InMemoryLogger`
-    for documentation.
+    Args:
+        log_level (str or LogLevel, optional):
+            See :class:`~composer.loggers.in_memory_logger.InMemoryLogger`.
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)
 

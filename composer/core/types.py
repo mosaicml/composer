@@ -1,13 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Reference for common types used throughout our library.
-
-TODO: This attributes list is incomplete.
+"""Reference for common types used throughout the composer library.
 
 Attributes:
     Model (torch.nn.Module): Alias for :class:`torch.nn.Module`.
     ModelParameters (Iterable[Tensor] | Iterable[Dict[str, Tensor]]): Type alias for model parameters used to
         initialize optimizers.
+    Tensor (torch.Tensor): Alias for :class:`torch.Tensor`.
     Tensors (Tensor | Tuple[Tensor, ...] | List[Tensor]): Commonly used to represent e.g. a set of inputs,
         where it is unclear whether each input has its own tensor, or if all the inputs are concatenated in a single
         tensor.
@@ -19,10 +18,13 @@ Attributes:
     Metrics (Metric | MetricCollection): Union type covering common formats for representing metrics.
     Optimizer (torch.optim.Optimizer): Alias for :class:`torch.optim.Optimizer`
     Optimizers (Optimizer | List[Optimizer] | Tuple[Optimizer, ...]): Union type for indeterminate amounts of optimizers.
-    Scheduler (torch.optim.Optimizer): Alias for :class:`torch.optim.lr_scheduler._LRScheduler`
-    Schedulers (Scheduler | List[Scheduler] | Tuple[Scheduler, ...]): Union type for indeterminate amounts of schedulers.
-    Scaler (torch.cuda.amp.grad_scaler.GradScaler): Alias for :class:`torch.cuda.amp.grad_scaler.GradScaler`.
+    PyTorchScheduler (torch.optim.lr_scheduler._LRScheduler): Alias for base class of learning rate schedulers such
+        as :class:`torch.optim.lr_scheduler.ConstantLR`
+    Scaler (torch.cuda.amp.grad_scaler.GradScaler): Alias for :class:`torch.cuda.amp.GradScaler`.
     JSON (str | float | int | None | List['JSON'] | Dict[str, 'JSON']): JSON Data
+    Evaluators (Many[Evaluator]): Union type for indeterminate amounts of evaluators.
+    StateDict (Dict[str, Any]): pickale-able dict via :func:`torch.save`
+    Dataset (torch.utils.data.Dataset[Batch]): Alias for :class:`torch.utils.data.Dataset`
 """
 
 from __future__ import annotations
@@ -52,6 +54,12 @@ except ImportError:
 if TYPE_CHECKING:
     from typing import Protocol
 
+__all__ = [
+    "ModelParameters", "Tensors", "Batch", "BatchPair", "BatchDict", "Metrics", "Optimizers", "PyTorchScheduler",
+    "Scaler", "JSON", "StateDict", "Evaluators", "MemoryFormat", "as_batch_dict", "as_batch_pair", "DataLoader",
+    "BreakEpochException"
+]
+
 T = TypeVar('T')
 Many = Union[T, Tuple[T, ...], List[T]]
 
@@ -64,6 +72,23 @@ BatchPair = Union[Tuple[Tensors, Tensors], List[Tensor]]
 BatchDict = Dict[str, Tensor]
 Batch = Union[BatchPair, BatchDict, Tensor]
 
+Dataset = torch.utils.data.Dataset[Batch]
+
+Evaluators = Many[Evaluator]
+Metrics = Union[Metric, MetricCollection]
+Optimizer = torch.optim.Optimizer
+Optimizers = Many[Optimizer]
+PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
+
+Scaler = torch.cuda.amp.grad_scaler.GradScaler
+
+Model = torch.nn.Module
+ModelParameters = Union[Iterable[Tensor], Iterable[Dict[str, Tensor]]]
+
+JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
+
+StateDict = Dict[str, Any]
+
 
 def as_batch_dict(batch: Batch) -> BatchDict:
     """Casts a :class:`Batch` as a :class:`BatchDict`.
@@ -71,7 +96,7 @@ def as_batch_dict(batch: Batch) -> BatchDict:
     Args:
         batch (Batch): A batch.
     Raises:
-        TypeError: If the batch is not a :class:`BatchDict`.
+        TypeError: If the ``batch`` is not a :class:`BatchDict`.
     Returns:
         BatchDict: The batch, represented as a :class:`BatchDict`.
     """
@@ -97,9 +122,6 @@ def as_batch_pair(batch: Batch) -> BatchPair:
     if not len(batch) == 2:
         raise TypeError(f'batch has length {len(batch)}, expected length 2')
     return batch
-
-
-Dataset = torch.utils.data.Dataset[Batch]
 
 
 class BreakEpochException(Exception):
@@ -162,24 +184,22 @@ class DataLoader(Protocol):
         ...
 
 
-Evaluators = Many[Evaluator]
-Metrics = Union[Metric, MetricCollection]
-Optimizer = torch.optim.Optimizer
-Optimizers = Many[Optimizer]
-Scheduler = torch.optim.lr_scheduler._LRScheduler
-Schedulers = Many[Scheduler]
-
-Scaler = torch.cuda.amp.grad_scaler.GradScaler
-
-Model = torch.nn.Module
-ModelParameters = Union[Iterable[Tensor], Iterable[Dict[str, Tensor]]]
-
-JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
-
-StateDict = Dict[str, Any]
-
-
 class MemoryFormat(StringEnum):
+    """Enum class to represent different memory formats.
+
+    See :class:`torch.torch.memory_format` for more details.
+
+    Attributes:
+        CONTIGUOUS_FORMAT: Default PyTorch memory format represnting a tensor allocated with consecutive dimensions
+            sequential in allocated memory.
+        CHANNELS_LAST: This is also known as NHWC. Typically used for images with 2 spatial dimensions (i.e., Height and
+            Width) where channels next to each other in indexing are next to each other in allocated memory. For example, if
+            C[0] is at memory location M_0 then C[1] is at memory location M_1, etc.
+        CHANNELS_LAST_3D: This can also be referred to as NTHWC. Same as :attr:`CHANNELS_LAST` but for videos with 3
+            spatial dimensions (i.e., Time, Height and Width).
+        PRESERVE_FORMAT: A way to tell operations to make the output tensor to have the same memory format as the input
+            tensor.
+    """
     CONTIGUOUS_FORMAT = "contiguous_format"
     CHANNELS_LAST = "channels_last"
     CHANNELS_LAST_3D = "channels_last_3d"

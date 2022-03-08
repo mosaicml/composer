@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Outputs profiling data in JSON trace format."""
+
 from __future__ import annotations
 
 import json
@@ -16,10 +18,15 @@ if TYPE_CHECKING:
     from composer.core.time import Timestamp
     from composer.core.types import Logger
 
+__all__ = ["JSONTraceHandler"]
+
 
 class JSONTraceHandler(ProfilerEventHandler):
     """Records trace events in `JSON trace format <https://\\
     docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_.
+
+    Traces are output to ``output_directory``.  Traces can be visualized using the Chrome Trace Viewer.
+    To view in a Google Chrome browser, navigate to ``chrome://tracing`` and load the JSON trace file.
 
     Args:
         flush_every_n_batches (int): Interval at which to flush the logfile. (Default: ``100`` batches)
@@ -28,7 +35,7 @@ class JSONTraceHandler(ProfilerEventHandler):
         output_directory (str): Directory, relative to the run directory, to store traces.
             Each trace will be called ``rank_XXX.trace.json`` within this directory,
             where ``XXX`` is the global rank.
-            (Default: ``composer_profiler`` within the run directory)
+            (Default: ``composer_profiler`` within the :mod:`.run_directory`)
     """
 
     def __init__(self,

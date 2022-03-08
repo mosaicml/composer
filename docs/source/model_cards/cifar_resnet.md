@@ -1,4 +1,4 @@
-# CIFAR ResNet
+# 👀 CIFAR ResNet
 
 Category of Task: `Vision`
 
