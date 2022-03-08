@@ -1070,7 +1070,8 @@ class Trainer:
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             total_loss = self.state.scaler.step(
-                                optimizer, closure=lambda **kwargs: self._train_batch_with_context(microbatches, **kwargs))
+                                optimizer,
+                                closure=lambda **kwargs: self._train_batch_with_context(microbatches, **kwargs))
                         else:
                             total_loss = optimizer.step(
                                 closure=lambda **kwargs: self._train_batch_with_context(microbatches, **kwargs).item())
@@ -1144,7 +1145,8 @@ class Trainer:
 
         return total_loss
 
-    def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int, total_loss: torch.Tensor, is_final_microbatch: bool):
+    def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int, total_loss: torch.Tensor,
+                          is_final_microbatch: bool):
         """Train and compute the loss for a single microbatch.
         
         Args:
