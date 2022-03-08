@@ -7,7 +7,7 @@ import torch
 
 from composer.core.types import ModelParameters
 from composer.optim.optimizer_hparams import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams,
-                                              OptimizerHparams, RAdamHparams, RMSpropHparams, SGDHparams, get_optimizer)
+                                              OptimizerHparams, RAdamHparams, RMSpropHparams, SGDHparams)
 from composer.trainer.trainer_hparams import optimizer_registry
 
 optimizer_constructors: Dict[Type[OptimizerHparams], OptimizerHparams] = {
