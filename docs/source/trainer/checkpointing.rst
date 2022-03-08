@@ -43,7 +43,8 @@ Opening one of those checkpoints, you'll see:
    state_dict = torch.load(
        os.path.join(trainer.checkpoint_saver.checkpoint_folder, "ep1.pt")
    )
-   print(f"Keys: {list(state_dict.keys())}")
+   print(f"Top level keys: {list(state_dict.keys())}")
+   print(f"state keys: {list(state_dict['state'].keys())}")
 
    >>> Top level keys: ['rng', 'state']
    >>> Keys: ['model', 'timer', 'optimizers', 'schedulers', 'scaler', 'algorithms', 'callbacks', 'rng', 'rank_zero_seed', 'is_model_ddp']
