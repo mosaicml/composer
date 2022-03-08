@@ -22,7 +22,7 @@ __all__ = ["CutMix", "cutmix_batch"]
 def cutmix_batch(input: Tensor,
                  target: Tensor,
                  num_classes: int,
-                 length: Optional[Union[int, float]] = None,
+                 length: Optional[float] = None,
                  alpha: float = 1.,
                  bbox: Optional[Tuple] = None,
                  indices: Optional[torch.Tensor] = None,
@@ -63,11 +63,9 @@ def cutmix_batch(input: Tensor,
             including, e.g., one-hot encoded class labels, smoothed class
             labels, or multi-output regression targets.
         num_classes (int): total number of classes or output variables
-        length (float, optional): side length of the masked region. Must be
-            greater than 0. If ``0 < length < 1``, ``length`` is
-            interpreted as a fraction of ``H`` and ``W`` and the resulting box
-            is of size ``(length * H, length * W)``. If ``length >= 1``,
-            ``length`` the resulting box is of size ``(length, length)``.
+        length (float, optional): Relative side length of the masked region.
+            If specified, ``length`` is interpreted as a fraction of ``H`` and
+            ``W``, and the resulting box is of size ``(length * H, length * W)``.
             Default: ``None``.
         alpha (float, optional): parameter for the Beta distribution over
             the fraction of the input to mask. Ignored if ``length`` is
@@ -124,15 +122,11 @@ def cutmix_batch(input: Tensor,
     H, W = input.shape[-2], input.shape[-1]
 
     # figure out fraction of area to cut
-    cut_w, cut_h = None, None
     if length is None:
         cutmix_lambda = _gen_cutmix_coef(alpha)
     else:
-        if 0 < length < 1:  # relative length
-            cut_w = int(length * W)
-            cut_h = int(length * H)
-        else:  # absolute length
-            cut_w, cut_h = int(length), int(length)
+        cut_w = int(length * W)
+        cut_h = int(length * H)
         cutmix_lambda = (cut_w * cut_h) / (H * W)
 
     # Create the new inputs.
@@ -143,7 +137,7 @@ def cutmix_batch(input: Tensor,
         box_area = (rw - rx) * (rh - ry)
         cutmix_lambda = box_area / (H * W)
     else:
-        rx, ry, rw, rh = _rand_bbox(input.shape[2], input.shape[3], cutmix_lambda, cut_w=cut_w, cut_h=cut_h, uniform_sampling=uniform_sampling)
+        rx, ry, rw, rh = _rand_bbox(input.shape[2], input.shape[3], cutmix_lambda, uniform_sampling=uniform_sampling)
         bbox = (rx, ry, rw, rh)
 
     # Fill in the box with a part of a random image.
@@ -315,8 +309,6 @@ def _rand_bbox(W: int,
                cutmix_lambda: float,
                cx: Optional[int] = None,
                cy: Optional[int] = None,
-               cut_w: Optional[int] = None,
-               cut_h: Optional[int] = None,
                uniform_sampling: bool = False) -> Tuple[int, int, int, int]:
     """Randomly samples a bounding box with area determined by cutmix_lambda.
 
@@ -342,8 +334,8 @@ def _rand_bbox(W: int,
         bby2: Bottom edge of the bounding box
     """
     cut_ratio = np.sqrt(1.0 - cutmix_lambda)
-    cut_w = cut_w or int(W * cut_ratio)
-    cut_h = cut_h or int(H * cut_ratio)
+    cut_w = int(W * cut_ratio)
+    cut_h = int(H * cut_ratio)
 
     # uniform
     if cx is None:
@@ -359,8 +351,8 @@ def _rand_bbox(W: int,
 
     bbx1 = np.clip(cx - cut_w // 2, 0, W)
     bby1 = np.clip(cy - cut_h // 2, 0, H)
-    bbx2 = np.clip(cx + (cut_w + 1) // 2, 0, W)
-    bby2 = np.clip(cy + (cut_h + 1) // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
 
     return bbx1, bby1, bbx2, bby2
 
