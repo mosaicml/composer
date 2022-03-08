@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import abc
-import dataclasses
 import textwrap
+from dataclasses import dataclass
 from typing import Optional, Union
 
 try:
@@ -23,7 +23,7 @@ from composer.datasets.dataloader import DataloaderHparams
 __all__ = ["SyntheticHparamsMixin", "DatasetHparams"]
 
 
-@dataclasses.dataclass
+@dataclass
 class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
     """Synthetic dataset parameter mixin for :class:`DatasetHparams`.
 
@@ -47,7 +47,7 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
                                                         default=MemoryFormat.CONTIGUOUS_FORMAT)
 
 
-@dataclasses.dataclass
+@dataclass
 class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     """Abstract base class for hyperparameters to initialize a dataset.
 
@@ -68,6 +68,35 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch. Defaults to True.", default=True)
 
     datadir: Optional[str] = hp.optional("The path to the data directory", default=None)
+
+    @abc.abstractmethod
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+        """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
+
+        Parameters:
+            batch_size (int): The size of the batch the dataloader should yield. This batch size is
+                device-specific and already incorporates the world size.
+            dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
+
+        Returns:
+            Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
+            a :class:`DataSpec`.
+        """
+        pass
+
+
+@dataclass
+class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
+    """Abstract base class for hyperparameters to initialize a dataset.
+
+    Parameters:
+        webdataset_cache_dir (str): WebDataset cache directory.
+        webdataset_cache_verbose (str): WebDataset cache verbosity.
+    """
+
+    webdataset_cache_dir: str = hp.optional('WebDataset cache directory', default='/tmp/webdataset_cache/')
+    webdataset_cache_verbose: bool = hp.optional('WebDataset cache verbosity', default=False)
+    shuffle_buffer: int = hp.optional('WebDataset shuffle buffer size per worker', default=256)
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
