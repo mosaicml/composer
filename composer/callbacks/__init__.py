@@ -5,8 +5,8 @@
 Each callback inherits from the :class:`~composer.core.callback.Callback` base class. See detailed description and
 examples for writing your own callbacks at the :class:`~composer.core.callback.Callback` base class.
 """
-from composer.callbacks.callback_hparams import (GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
-                                                 RunDirectoryUploaderHparams, SpeedMonitorHparams)
+from composer.callbacks.callback_hparams import (CallbackHparams, GradMonitorHparams, LRMonitorHparams,
+                                                 MemoryMonitorHparams, RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.callbacks.grad_monitor import GradMonitor
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
@@ -20,6 +20,7 @@ __all__ = [
     "RunDirectoryUploader",
     "SpeedMonitor",
     # hparams objects
+    "CallbackHparams",
     "GradMonitorHparams",
     "LRMonitorHparams",
     "MemoryMonitorHparams",
