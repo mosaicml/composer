@@ -29,6 +29,9 @@
         >>> # model will now be deterministically initialized, since the seed is set.
         >>> init_weights(model)
         >>> trainer = Trainer(model=model)
+
+Attributes:
+    MAX_SEED (int): The maximum allowed seed, which is :math:`2^{32} - 1`.
 """
 import os
 import random
@@ -43,7 +46,11 @@ __all__ = [
     "configure_deterministic_mode",
     "get_random_seed",
     "seed_all",
+    "MAX_SEED",
 ]
+
+# seeds must be 32-bit unsigned integers
+MAX_SEED = 2**32 - 1
 
 
 def configure_deterministic_mode():
@@ -88,8 +95,8 @@ def get_random_seed() -> int:
         int: A random seed.
     """
     rng = random.Random(int(time.time_ns()))  # get a new RNG does not respect the current seed
-    seed = rng.randint(0, 2**32 - 1)
-    assert seed >= 0 and seed < 2**32, "seed should be on this range"
+    seed = rng.randint(0, MAX_SEED)
+    assert seed >= 0 and seed <= MAX_SEED, "seed should be on this range"
     return seed
 
 
@@ -110,7 +117,7 @@ def seed_all(seed: int):
     Args:
         seed (int): The random seed
     """
-    if seed < 0 or seed >= 2**32:
+    if seed < 0 or seed > MAX_SEED:
         raise ValueError(f"Seed {seed} is invalid. It must be on [0; 2^32 - 1]")
     random.seed(seed)
     np.random.seed(seed)

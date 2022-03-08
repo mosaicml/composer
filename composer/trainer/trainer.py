@@ -501,9 +501,10 @@ class Trainer:
         # This "deterministically different" seed behavior is required to be able
         # to restore seeds when resuming form checkpoints, since only the
         # `rank_zero_seed` is stored on state.
-        if seed < 0 or seed >= 2**32:
-            raise ValueError("Invalid seed: {seed}. It must be on [0; 2**32 - 1)")
-        rank_zero_seed = torch.tensor([seed], dtype=torch.int64)  # using int64 to prevent overflow
+        if seed < 0 or seed > reproducibility.MAX_SEED:
+            raise ValueError(f"Invalid seed: {seed}. It must be on [0; 2**32 - 1)")
+        rank_zero_seed = self._device.tensor_to_device(torch.tensor(
+            [seed], dtype=torch.int64))  # using int64 to prevent overflow
         dist.broadcast(rank_zero_seed, src=0)
         rank_zero_seed = rank_zero_seed.item()
         assert isinstance(rank_zero_seed, int)
