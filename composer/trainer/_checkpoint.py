@@ -327,15 +327,20 @@ class CheckpointLoader:
         # download the checkpoint to the node-local folder
         tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
         with tempdir_ctx as tempdir:
-            node_checkpoint_folder = self._get_node_checkpoint_download_folder(tempdir)
-            composer_checkpoint_filepath, extracted_checkpoint_folder, extracted_rank_n = self._download_checkpoint(
-                node_checkpoint_folder)
-            seed_to_restore = self._restore_checkpoint(
-                state,
-                composer_checkpoint_filepath,
-                extracted_rank_n,
-                extracted_checkpoint_folder,
-            )
+            try:
+                node_checkpoint_folder = self._get_node_checkpoint_download_folder(tempdir)
+                composer_checkpoint_filepath, extracted_checkpoint_folder, extracted_rank_n = self._download_checkpoint(
+                    node_checkpoint_folder)
+                seed_to_restore = self._restore_checkpoint(
+                    state,
+                    composer_checkpoint_filepath,
+                    extracted_rank_n,
+                    extracted_checkpoint_folder,
+                )
+            finally:
+                # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
+                # be a shared resource between nodes.
+                dist.barrier()
 
         log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}'
                  f' loaded from {self.path}.')

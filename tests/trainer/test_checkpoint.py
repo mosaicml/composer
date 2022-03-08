@@ -266,8 +266,6 @@ def test_checkpoint(
     - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
     """
     del world_size  # unused. Read via env variable
-    if deepspeed_enabled:
-        pytest.skip("Deepspeed tests are unstable. See https://github.com/mosaicml/composer/issues/610.")
 
     if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
         pytest.skip("DeepSpeed tests must be ran on GPU")
