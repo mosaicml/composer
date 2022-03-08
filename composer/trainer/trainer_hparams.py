@@ -25,7 +25,7 @@ from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCa
                               WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNetHparams, TimmHparams, UnetHparams)
+                             ResNetHparams, SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
 from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
                             RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
@@ -67,6 +67,7 @@ scheduler_registry = {
 
 model_registry = {
     "unet": UnetHparams,
+    "ssd": SSDHparams,
     "deeplabv3": DeepLabV3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
     "resnet56_cifar10": CIFARResNetHparams,
@@ -77,7 +78,8 @@ model_registry = {
     "gpt2": GPT2Hparams,
     "bert": BERTHparams,
     "bert_classification": BERTForClassificationHparams,
-    "timm": TimmHparams
+    "timm": TimmHparams,
+    "vit_small_patch16": ViTSmallPatch16Hparams
 }
 
 dataset_registry = get_dataset_registry()
@@ -422,7 +424,12 @@ class TrainerHparams(hp.Hparams):
         super().validate()
 
         if self.deepspeed is not None:
-            zero_stage = cast(int, self.deepspeed.get("zero_stage", 0))
+            self.deepspeed["steps_per_print"] = cast(int, self.deepspeed.get("steps_per_print", 1e20))
+
+            if "zero_optimization" in self.deepspeed:
+                zero_stage = cast(dict, self.deepspeed["zero_optimization"]).get("stage", 0)
+            else:
+                zero_stage = 0
 
             if self.deterministic_mode and zero_stage > 0:
                 raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")

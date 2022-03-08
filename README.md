@@ -30,7 +30,7 @@
     <a href="https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg">
         <img alt="Chat @ Slack" src="https://img.shields.io/badge/slack-chat-2eb67d.svg?logo=slack">
     </a>
-    <a href="https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg">
+    <a href="https://github.com/mosaicml/composer/blob/dev/LICENSE">
         <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-green.svg?logo=slack">
     </a>
 </p>
@@ -40,8 +40,8 @@
 <p align="center">Composer provides well-engineered implementations of efficient training methods to give the tools that help you train <b>a better model for cheaper</b>.</p>
 
 <p align="center">
-<img src="docs/images/cost_graph_light.svg#gh-light-mode-only" width="80%"/>
-<img src="docs/images/cost_graph_dark.svg#gh-dark-mode-only" width="80%"/>
+<img src="docs/images/cost_graph_light.svg#gh-light-mode-only" width="100%"/>
+<img src="docs/images/cost_graph_dark.svg#gh-dark-mode-only" width="100%"/>
 </p>
 
 Using Composer, you can:
@@ -56,7 +56,7 @@ Everyone has their own priorities: best accuracy, cheapest cost, and somewhere i
 
 Composer features:
 - 20+ efficient training methods for training a better language and vision models! Don't waste hours trying to reproduce research papers when Composer has done the work for you.
-- Easy-to-use (optional) Trainer interface written to be as performant as possible, and [integrated best practices](https://www.mosaicml.com/blog/best-practices-dec-2021).
+- Easy-to-use (optional) Trainer interface written to be as performant as possible, and [integrated best practices](https://www.mosaicml.com/blog/5-best-practices-for-efficient-model-training).
 - Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
 - Strong, _reproducible_ baselines to get you started as 💨 fast 💨 as possible
 
@@ -70,7 +70,7 @@ pip install mosaicml
 ```
 Alternatively install Composer with Conda
 ```bash
-conda install mosaicml
+conda install -c mosaicml mosaicml
 ```
 ---
 
@@ -78,7 +78,7 @@ conda install mosaicml
 
 Composer provides both a **Functional API** (similar to `torch.nn.functional`) and a **Trainer** (that abstracts away the training loop) to provide flexibility to users.
 
-#### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1HIxLs61pyf0ln7MlnrGYvkNHq1uVbNWu?usp=sharing)
+#### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb)
 
 For users who choose to use their own training loop, we provide state-less functional implementations of our algorithms for a end-user to integrate.
 
@@ -104,9 +104,9 @@ for epoch in range(NUM_EPOCHS):
         optimizer.step()
 ```
 
-See the official [Composer Functional API Colab notebook](https://colab.research.google.com/drive/1HIxLs61pyf0ln7MlnrGYvkNHq1uVbNWu?usp=sharing) for more.
+See the official [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) for more.
 
-#### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://drive.google.com/file/d/12Dl0NVDaj4tf4gfpfg-rkIAoO_H7edo3/edit)
+#### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb)
 
 For maximal speedups, we recommend using our Trainer, which manages handling user state, performant algorithm implementations, and provides useful engineering abstractions to permit rapid experimentation.
 
@@ -284,6 +284,42 @@ Composer is an active and ongoing project. Since Composer is still in alpha, our
 We welcome any comments, feedback, or contributions to Composer! Please do not hesitate to file an issue or pull request 🤩.
 
 ## Learn More
+
+Here's some resources actively maintained by the Composer community to help you get started:
+<table>
+<thead>
+  <tr>
+      <th><b>Resource</b></th>
+      <th><b>Details</b></th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td><a href="https://www.mosaicml.com/blog/founders-blog" target="_blank" rel="noopener noreferrer">Founder's Blog</a></td>
+    <td>A blog post by our founders highlighting why MosaicML exists</td>
+  </tr>
+  <tr>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Trainer</a></td>
+    <td>An interactive Colab Notebook aimed at teaching users about our Trainer</td>
+  </tr>
+  <tr>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Functional API</a></td>
+    <td>An interactive Colab Notebook aimed at teaching users about our Functional API</td>
+  </tr>
+  <tr>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/custom_method_tutorial.ipynb" target="_blank" rel="noopener noreferrer">Building Speedup Methods</a></td>
+    <td>An interactive Colab Notebook aimed at teaching users about building speedup methods on top of Composer</td>
+  </tr>
+  <tr>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/nlp_notebook_tutorial.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer</a></td>
+    <td>An interactive Colab Notebook aimed at helping users learn how to train BERT models with Composer!</td>
+  </tr>
+  <tr>
+    <td><a href="https://mosaicml.com/jobs" target="_blank" rel="noopener noreferrer">We're Hiring!</a></td>
+    <td>Join us! 🤩</td>
+  </tr>
+</tbody>
+</table>
 
 If you have any questions, please feel free to reach out to us on [Twiter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
 

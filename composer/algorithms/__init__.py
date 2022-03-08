@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Algorithms programmatically modify the model or training process.
+"""Efficiency methods for training.
 
 Examples include :class:`smoothing the labels <composer.algorithms.label_smoothing.LabelSmoothing>`
 and adding :class:`Squeeze-and-Excitation <composer.algorithms.squeeze_excite.SqueezeExcite>` blocks,
