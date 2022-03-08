@@ -141,6 +141,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
 
     hparams = composer_trainer_hparams
     model_hparams = hparams.model
+    model_hparams.num_classes = 100
     model = model_hparams.initialize_object()
     assert isinstance(model, SimpleBatchPairModel)
 
