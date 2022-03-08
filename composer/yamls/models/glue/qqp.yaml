@@ -30,7 +30,7 @@ optimizer:
     weight_decay: 3.0e-6
 schedulers:
   - linear_decay_with_warmup:
-      warmup_time: 0.06dur
+      t_warmup: 0.06dur
 loggers:
   - tqdm: {}
 max_duration: 5ep

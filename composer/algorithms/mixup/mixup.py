@@ -19,75 +19,77 @@ log = logging.getLogger(__name__)
 __all__ = ["MixUp", "mixup_batch"]
 
 
-def mixup_batch(x: Tensor,
-                y: Tensor,
-                n_classes: int,
-                interpolation_lambda: Optional[float] = None,
+def mixup_batch(input: Tensor,
+                target: Tensor,
+                num_classes: int,
+                mixing: Optional[float] = None,
                 alpha: float = 0.2,
                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Create new samples using convex combinations of pairs of samples.
 
-    This is done by taking a convex combination of x with a randomly
-    permuted copy of x. The interpolation parameter lambda should be chosen from
-    a ``Beta(alpha, alpha)`` distribution for some parameter alpha > 0.
-    Note that the same lambda is used for all examples within the batch.
+    This is done by taking a convex combination of ``input`` with a randomly
+    permuted copy of ``input``. The permutation takes place along the sample
+    axis (dim 0).
 
-    Both the original and shuffled labels are returned. This is done because
-    for many loss functions (such as cross entropy) the targets are given as
-    indices, so interpolation must be handled separately.
-
-    Example:
-         .. testcode::
-
-            from composer.algorithms.mixup import mixup_batch
-            new_inputs, new_targets, perm = mixup_batch(
-                                                x=X_example,
-                                                y=y_example,
-                                                n_classes=1000,
-                                                alpha=0.2
-                                                )
+    The relative weight of the original ``input`` versus the permuted copy is
+    defined by the ``mixing`` parameter. This parameter should be chosen
+    from a ``Beta(alpha, alpha)`` distribution for some parameter ``alpha > 0``.
+    Note that the same ``mixing`` is used for the whole batch.
 
     Args:
-        x (Tensor): input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
-            are feature dimensions.
-        y (Tensor): target tensor of shape (B, f1, f2, ..., fm), B is batch size, f1-fn
-            are possible target dimensions.
-        n_classes: total number of classes.
-        interpolation_lambda (float, optional): coefficient used to interpolate between the
-            two examples. If provided, must be in ``[0, 1]``. If ``None``,
-            value is drawn from a ``Beta(alpha, alpha)`` distribution. Default: ``None``.
-        alpha (float, optional): parameter for the beta distribution over the
-            ``interpolation_lambda``. Only used if ``interpolation_lambda``
-            is not provided. Default: ``0.2``.
-        indices (Tensor, optional): Permutation of the batch indices `1..B`. Used
-            for permuting without randomness.
+        input (torch.Tensor): input tensor of shape ``(minibatch, ...)``, where
+            ``...`` indicates zero or more dimensions.
+        target (torch.Tensor): target tensor of shape ``(minibatch, ...)``, where
+            ``...`` indicates zero or more dimensions.
+        num_classes (int): total number of classes or output variables
+        mixing (float, optional): coefficient used to interpolate
+            between the two examples. If provided, must be in :math:`[0, 1]`.
+            If ``None``, value is drawn from a ``Beta(alpha, alpha)``
+            distribution. Default: ``None``.
+        alpha (float, optional): parameter for the Beta distribution over
+            ``mixing``. Ignored if ``mixing`` is provided. Default: ``0.2``.
+        indices (Tensor, optional): Permutation of the samples to use.
+            Default: ``None``.
 
     Returns:
-        x_mix (Tensor): batch of inputs after mixup has been applied
-        y_mix (Tensor): labels after mixup has been applied
-        perm (Tuple[Tensor]): the permutation used
+        input_mixed (torch.Tensor): batch of inputs after mixup has been applied
+        target_mixed (torch.Tensor): labels after mixup has been applied
+        perm (torch.Tensor): the permutation used
+
+    Example:
+        .. testcode::
+
+            import torch
+            from composer.functional import mixup_batch
+
+            N, C, H, W = 2, 3, 4, 5
+            num_classes = 10
+            X = torch.randn(N, C, H, W)
+            y = torch.randint(num_classes, size=(N,))
+            X_mixed, y_mixed, perm = mixup_batch(
+                X, y, num_classes=num_classes, alpha=0.2)
     """
-    if interpolation_lambda is None:
-        interpolation_lambda = _gen_interpolation_lambda(alpha)
+    if mixing is None:
+        mixing = _gen_mixing_coef(alpha)
     # Create shuffled versions of x and y in preparation for interpolation
     # Use given indices if there are any.
     if indices is None:
-        shuffled_idx = torch.randperm(x.shape[0])
+        shuffled_idx = torch.randperm(input.shape[0])
     else:
         shuffled_idx = indices
-    x_shuffled = x[shuffled_idx]
-    y_shuffled = y[shuffled_idx]
+    x_shuffled = input[shuffled_idx]
+    y_shuffled = target[shuffled_idx]
     # Interpolate between the inputs
-    x_mix = (1 - interpolation_lambda) * x + interpolation_lambda * x_shuffled
+    x_mix = (1 - mixing) * input + mixing * x_shuffled
 
     # First check if labels are indices. If so, convert them to onehots.
     # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
-    if check_for_index_targets(y):
-        y_onehot = F.one_hot(y, num_classes=n_classes)
-        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=n_classes)
-        y_mix = ((1. - interpolation_lambda) * y_onehot + interpolation_lambda * y_shuffled_onehot)
+    if check_for_index_targets(target):
+        y_onehot = F.one_hot(target, num_classes=num_classes)
+        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
+        y_mix = ((1. - mixing) * y_onehot + mixing * y_shuffled_onehot)
     else:
-        y_mix = ((1. - interpolation_lambda) * y + interpolation_lambda * y_shuffled)
+        y_mix = ((1. - mixing) * target + mixing * y_shuffled)
     return x_mix, y_mix, shuffled_idx
 
 
@@ -97,39 +99,38 @@ class MixUp(Algorithm):
 
     This is done by taking a convex combination of a given batch X with a
     randomly permuted copy of X. The mixing coefficient is drawn from a
-    Beta(``alpha``, ``alpha``) distribution.
+    ``Beta(alpha, alpha)`` distribution.
 
     Training in this fashion sometimes reduces generalization error.
 
+    Args:
+        num_classes (int): the number of classes in the task labels.
+        alpha (float, optional): the psuedocount for the Beta distribution used to sample
+            mixing parameters. As ``alpha`` grows, the two samples
+            in each pair tend to be weighted more equally. As ``alpha``
+            approaches 0 from above, the combination approaches only using
+            one element of the pair. Default: ``0.2``.
+
     Example:
-         .. testcode::
+        .. testcode::
 
             from composer.algorithms import MixUp
-            from composer.trainer import Trainer
-            mixup_algorithm = MixUp(num_classes=1000, alpha=0.2)
+            algorithm = MixUp(num_classes=10, alpha=0.2)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
-                algorithms=[mixup_algorithm],
+                algorithms=[algorithm],
                 optimizers=[optimizer]
             )
-
-    Args:
-        num_classes (int): the number of classes in the task labels.
-        alpha (float, optional): the psuedocount for the Beta distribution used to sample
-            interpolation parameters. As ``alpha`` grows, the two samples
-            in each pair tend to be weighted more equally. As ``alpha``
-            approaches 0 from above, the combination approaches only using
-            one element of the pair. Default: ``0.2``.
     """
 
     def __init__(self, num_classes: int, alpha: float = 0.2):
         self.num_classes = num_classes
         self.alpha = alpha
-        self._interpolation_lambda = 0.0
-        self._indices = torch.Tensor()
+        self.mixing = 0.0
+        self.indices = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER.
@@ -141,22 +142,6 @@ class MixUp(Algorithm):
             bool: True if this algorithm should run now.
         """
         return event == Event.AFTER_DATALOADER
-
-    @property
-    def interpolation_lambda(self) -> float:
-        return self._interpolation_lambda
-
-    @interpolation_lambda.setter
-    def interpolation_lambda(self, new_int_lamb: float) -> None:
-        self._interpolation_lambda = new_int_lamb
-
-    @property
-    def indices(self) -> Tensor:
-        return self._indices
-
-    @indices.setter
-    def indices(self, new_indices: Tensor) -> None:
-        self._indices = new_indices
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Applies MixUp augmentation on State input.
@@ -171,30 +156,30 @@ class MixUp(Algorithm):
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
 
-        self.interpolation_lambda = _gen_interpolation_lambda(self.alpha)
+        self.mixing = _gen_mixing_coef(self.alpha)
 
         new_input, new_target, self.indices = mixup_batch(
-            x=input,
-            y=target,
-            interpolation_lambda=self.interpolation_lambda,
-            n_classes=self.num_classes,
+            input,
+            target,
+            mixing=self.mixing,
+            num_classes=self.num_classes,
         )
 
         state.batch = (new_input, new_target)
 
 
-def _gen_interpolation_lambda(alpha: float) -> float:
-    """Generates ``Beta(alpha, alpha)`` distribution."""
+def _gen_mixing_coef(alpha: float) -> float:
+    """Samples ``max(z, 1-z), z ~ Beta(alpha, alpha)``."""
     # First check if alpha is positive.
     assert alpha >= 0
-    # Draw the interpolation parameter from a beta distribution.
+    # Draw the mixing parameter from a beta distribution.
     # Check here is needed because beta distribution requires alpha > 0
     # but alpha = 0 is fine for mixup.
     if alpha == 0:
-        interpolation_lambda = 0
+        mixing_lambda = 0
     else:
-        interpolation_lambda = np.random.beta(alpha, alpha)
+        mixing_lambda = np.random.beta(alpha, alpha)
     # for symmetric beta distribution, can always use 0 <= lambda <= .5;
     # this way the "main" label is always the original one, which keeps
     # the training accuracy meaningful
-    return max(interpolation_lambda, 1. - interpolation_lambda)
+    return max(mixing_lambda, 1. - mixing_lambda)
