@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 import pytest
 
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
-from composer.datasets.synthetic import generate_synthetic_tokenizer
+from composer.datasets.synthetic_lm import generate_synthetic_tokenizer
 from composer.models import DeepLabV3Hparams, ModelHparams, TransformerHparams
 
 
