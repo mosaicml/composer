@@ -91,9 +91,9 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
                                          column_names=column_names).generate_dataset()
 
             # flatten the columnar dataset into one column
-            self.tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=dataset)
+            tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=dataset)
         else:
-            self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+            tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
             log.info(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
             download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
@@ -107,7 +107,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
 
             first_half = inp[text_column_names[0]]
             second_half = inp[text_column_names[1]] if text_column_names[1] in inp else None
-            return self.tokenizer(
+            return tokenizer(
                 text=first_half,
                 text_pair=second_half,
                 padding="max_length",

@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 import pytest
 
+from composer.datasets import GLUEHparams, LMDatasetHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer
 from composer.models import DeepLabV3Hparams, ModelHparams, TransformerHparams
@@ -23,6 +24,7 @@ def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams,
             raise ValueError(f"Model {model_hparams_name} is currently not supported for synthetic testing!")
 
         tokenizer_family = _model_hparams_to_tokenizer_family[model_hparams_name]
+        assert isinstance(dataset_hparams, GLUEHparams) or isinstance(dataset_hparams, LMDatasetHparams)
         dataset_hparams.tokenizer_name = tokenizer_family
         dataset_hparams.max_seq_length = 128
 
@@ -59,7 +61,7 @@ def configure_model_for_synthetic(model_hparams: ModelHparams) -> None:
         model_hparams.sync_bn = False  # sync_bn throws an error when run on CPU
 
 
-def generate_dummy_model_config(class_name, tokenizer) -> Dict[str, Dict[str, Any]]:
+def generate_dummy_model_config(class_name, tokenizer) -> Dict[str, Any]:
     model_to_dummy_mapping = {
         "BERTHparams": {
             "architectures": ["BertForMaskedLM"],

@@ -94,10 +94,10 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                                              chars_per_sample=self.max_seq_length,
                                              column_names=column_names).generate_dataset()
 
-            self.tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=lm_datasets)
+            tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=lm_datasets)
 
             columns_to_remove = ["idx"] + column_names
-            lm_datasets = lm_datasets.map(lambda inp: self.tokenizer(
+            lm_datasets = lm_datasets.map(lambda inp: tokenizer(
                 text=inp[column_names[0]], padding="max_length", max_length=self.max_seq_length, truncation=True),
                                           batched=True,
                                           num_proc=1,
@@ -109,7 +109,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             self.subsample_ratio = 1.0
             lm_datasets = [{self.split: lm_datasets}]
         else:
-            self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+            tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
             self.config = transformers.AutoConfig.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
             # loads a dataset that is assumed to be pre-tokenized
             lm_datasets = [datasets.load_from_disk(i) for i in self.datadir]  #type: ignore (thirdparty)
@@ -155,10 +155,10 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         dataset = lm_datasets
 
         # for some tokenizers, e.g. GPT-2, they don't have padding tokens. Hence, we cannot use the LM collator.
-        if self.tokenizer.pad_token_id is None:
+        if tokenizer.pad_token_id is None:
             data_collator = transformers.default_data_collator
         else:
-            data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=self.tokenizer,
+            data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer,
                                                                          mlm=self.use_masked_lm,
                                                                          mlm_probability=self.mlm_probability)
 
