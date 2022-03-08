@@ -900,7 +900,9 @@ class Trainer:
 
         if self.state.timer.batch_in_epoch == 0 and self._checkpoint_loader:
             # only restore the rng state here if the step in the current epoch is zero.
-            self._checkpoint_loader.restore_checkpoint_rng_state(self._device)
+            if self._checkpoint_loader.checkpoint_rng_state is not None:
+                reproducibility.load_rng_state(self._checkpoint_loader.checkpoint_rng_state)
+                self._checkpoint_loader.checkpoint_rng_state = None
 
         while self.state.timer < self.state.max_duration:
             try:
@@ -919,7 +921,9 @@ class Trainer:
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.timer.batch_in_epoch:
                         if self._checkpoint_loader:
-                            self._checkpoint_loader.restore_checkpoint_rng_state(self._device)
+                            if self._checkpoint_loader.checkpoint_rng_state is not None:
+                                reproducibility.load_rng_state(self._checkpoint_loader.checkpoint_rng_state)
+                                self._checkpoint_loader.checkpoint_rng_state = None
                         continue
 
                     self.state.batch = self._device.batch_to_device(self.state.batch)
