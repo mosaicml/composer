@@ -23,7 +23,7 @@ optimizer:
     nesterov: false
 schedulers:
   - polynomial:
-      min_factor: 0.01
+      alpha_f: 0.01
       power: 0.9
 model:
   deeplabv3:
