@@ -22,9 +22,8 @@ from composer.core.state import State
 from composer.core.time import TimeUnit
 from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
-from composer.optim import AdamWHparams
-from composer.trainer._checkpoint import _retrieve_checkpoint
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
+from composer.trainer._checkpoint import _retrieve_checkpoint
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
