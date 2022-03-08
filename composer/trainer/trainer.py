@@ -995,7 +995,7 @@ class Trainer:
         if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
             # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
             if self.state.grad_accum == self.state.batch_num_samples:
-                raise RuntimeError("CUDA out of memory. Train loop failed with an internal microbatch of size 1")
+                raise RuntimeError("CUDA out of memory. Train loop failed with an internal microbatch of size 1") from e
             else:
                 self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
                 self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
