@@ -7,6 +7,7 @@ import pytest
 from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticDataType,
                                          SyntheticPILDataset)
 
+
 @pytest.mark.parametrize('data_type', [
     SyntheticDataType.GAUSSIAN,
     SyntheticDataType.SEPARABLE,

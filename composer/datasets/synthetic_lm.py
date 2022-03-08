@@ -97,8 +97,7 @@ def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
 def generate_synthetic_tokenizer(tokenizer_family: str,
                                  dataset: Optional[Dataset] = None,
                                  vocab_size: int = 256) -> PreTrainedTokenizer:
-    """
-    Generates a synthetic tokenizer based on a tokenizer family.
+    """Generates a synthetic tokenizer based on a tokenizer family.
 
     Args:
         tokenizer_family (str): Which tokenizer family to emulate. One of ['gpt2', 'bert'].
