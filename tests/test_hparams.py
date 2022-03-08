@@ -38,6 +38,8 @@ class TestHparamsCreate:
     def test_hparams_create(self, hparams_file: str):
         if "timm" in hparams_file:
             pytest.importorskip("timm")
+        if "vit" in hparams_file:
+            pytest.importorskip("vit_pytorch")
         if hparams_file in ["unet.yaml"]:
             pytest.importorskip("monai")
         if "deeplabv3" in hparams_file:
@@ -48,6 +50,8 @@ class TestHparamsCreate:
     def test_trainer_initialize(self, hparams_file: str):
         if "timm" in hparams_file:
             pytest.importorskip("timm")
+        if "vit" in hparams_file:
+            pytest.importorskip("vit_pytorch")
         if hparams_file in ["unet.yaml"]:
             pytest.importorskip("monai")
         if "deeplabv3" in hparams_file:

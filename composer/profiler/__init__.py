@@ -1,6 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""The profiler gathers performance metrics during a training run that can be used to diagnose bottlenecks and
+"""Performance profiling tools.
+
+The profiler gathers performance metrics during a training run that can be used to diagnose bottlenecks and
 facilitate model development.
 
 The metrics gathered include:
