@@ -1,19 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Datasets  TODO -- more description.
-:class:`DataloaderHparams` contains the :class:`torch.utils.data.dataloader` settings that are common across both training and eval datasets:
-* ``num_workers``
-* ``prefetch_factor``
-* ``persistent_workers``
-* ``pin_memory``
-* ``timeout``
-Each :class:`DatasetHparams` is then responsible for settings such as:
-* ``dataset``
-* ``drop_last``
-* ``shuffle``
-* ``collate_fn``
-A :class:`DatasetHparams` is responsible for returning a :class:`torch.utils.data.dataloader` or a :class:`DataloaderSpec`.
-"""
+"""Natively supported datasets."""
+
 from composer.datasets.ade20k import ADE20kDatasetHparams as ADE20kDatasetHparams
 from composer.datasets.ade20k import ADE20kWebDatasetHparams as ADE20kWebDatasetHparams
 from composer.datasets.brats import BratsDatasetHparams as BratsDatasetHparams
