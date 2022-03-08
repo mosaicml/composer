@@ -69,30 +69,9 @@ class LabelSmoothing(Algorithm):
             Default: ``0.1``.
 
     Example:
-        .. testsetup::
-
-            import torch
-            from composer import models
-            from composer.algorithms import LabelSmoothing
-            from composer.trainer import Trainer
-
-            # create dataloaders and optimizer
-            num_batches, batch_size, num_features = 2, 3, 5
-            num_classes = 10
-            X_train = torch.randn(num_batches, num_features)
-            y_train = torch.randint(num_classes, size=(num_batches, batch_size))
-            X_val = torch.randn(num_batches, num_features)
-            y_val = torch.randint(num_classes, size=(num_batches, batch_size))
-            train_dataloader = torch.utils.data.DataLoader(zip(X_train, y_train))
-            eval_dataloader = torch.utils.data.DataLoader(zip(X_val, y_val))
-
-            # create model and optimizer
-            model = models.MNIST_Classifier(num_classes=num_classes)
-            optimizer = torch.optim.Adam(model.parameters())
-
-
         .. testcode::
 
+            from composer.algorithms import LabelSmoothing
             algorithm = LabelSmoothing(smoothing=0.1)
             trainer = Trainer(
                 model=model,

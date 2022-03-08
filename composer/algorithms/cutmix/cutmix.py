@@ -29,10 +29,9 @@ def cutmix_batch(input: Tensor,
                  uniform_sampling: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
-    This is done by masking a region of ``input`` and filling the masked region with
-    the corresponding content in a permuted copy of ``input``. The permutation takes
-    place along the sample axis (dim 0), so that each output image has part
-    of it replaced with content from another image.
+    This is done by masking a region of each image in ``input`` and filling
+    the masked region with the corresponding content from a random different
+    image in``input``.
 
     The position of the masked region is determined by drawing a center point
     uniformly at random from all spatial positions.
@@ -105,7 +104,7 @@ def cutmix_batch(input: Tensor,
             num_classes = 10
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
-            X_mixed, y_mixed, perm = cutmix_batch(
+            X_mixed, y_mixed = cutmix_batch(
                 X, y, num_classes=num_classes, alpha=0.2)
     """
     if bbox is not None and length is not None:
@@ -183,30 +182,9 @@ class CutMix(Algorithm):
             paper implementation. Default: ``False``.
 
     Example:
-        .. testsetup::
-
-            import torch
-            from composer import models
-            from composer.algorithms import CutMix
-            from composer.trainer import Trainer
-
-            # create dataloaders and optimizer
-            num_batches, batch_size, num_features = 2, 3, 5
-            num_classes = 10
-            X_train = torch.randn(num_batches, num_features)
-            y_train = torch.randint(num_classes, size=(num_batches, batch_size))
-            X_val = torch.randn(num_batches, num_features)
-            y_val = torch.randint(num_classes, size=(num_batches, batch_size))
-            train_dataloader = torch.utils.data.DataLoader(zip(X_train, y_train))
-            eval_dataloader = torch.utils.data.DataLoader(zip(X_val, y_val))
-
-            # create model and optimizer
-            model = models.MNIST_Classifier(num_classes=num_classes)
-            optimizer = torch.optim.Adam(model.parameters())
-
-
         .. testcode::
 
+            from composer.algorithms import CutMix
             algorithm = CutMix(num_classes=10, alpha=0.2)
             trainer = Trainer(
                 model=model,
