@@ -40,7 +40,8 @@ class TestHparamsCreate:
             pytest.importorskip("timm")
         if hparams_file in ["unet.yaml"]:
             pytest.importorskip("monai")
-
+        if "deeplabv3" in hparams_file:
+            pytest.importorskip("mmseg")
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
         assert isinstance(hparams, TrainerHparams)
 
@@ -49,6 +50,8 @@ class TestHparamsCreate:
             pytest.importorskip("timm")
         if hparams_file in ["unet.yaml"]:
             pytest.importorskip("monai")
+        if "deeplabv3" in hparams_file:
+            pytest.importorskip("mmseg")
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
         hparams.dataloader.num_workers = 0
         hparams.dataloader.persistent_workers = False
