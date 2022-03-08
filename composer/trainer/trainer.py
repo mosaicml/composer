@@ -73,7 +73,7 @@ import itertools
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.distributed
@@ -101,7 +101,7 @@ from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
-from composer.trainer._checkpoint import CheckpointLoader, CheckpointSaver
+from composer.trainer._checkpoint import CheckpointSaver, load_checkpoint
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
@@ -109,9 +109,6 @@ from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_dd
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
-
-if TYPE_CHECKING:
-    import deepspeed
 
 log = logging.getLogger(__name__)
 
@@ -263,9 +260,9 @@ class Trainer:
 
             .. testsetup::
 
-                from composer.trainer._checkpoint import CheckpointLoader
+                import composer.trainer
 
-                CheckpointLoader.load_checkpoint = lambda *args, **kwargs: 0
+                composer.trainer.load_checkpoint = lambda *args, **kwargs: None
 
             .. testcode::
 
@@ -702,14 +699,16 @@ class Trainer:
                 compression=save_compression,
             )
 
-        self._checkpoint_loader = None
+        self._rng_state = None
         if load_path is not None:
-            self._checkpoint_loader = CheckpointLoader(path=load_path,
-                                                       object_store=load_object_store,
-                                                       load_weights_only=load_weights_only,
-                                                       strict_model_weights=load_strict,
-                                                       chunk_size=load_chunk_size,
-                                                       progress_bar=load_progress_bar)
+            self._rng_state = load_checkpoint(state=self.state,
+                                              path=load_path,
+                                              object_store=load_object_store,
+                                              load_weights_only=load_weights_only,
+                                              strict_model_weights=load_strict,
+                                              chunk_size=load_chunk_size,
+                                              progress_bar=load_progress_bar)
+            reproducibility.seed_all(self.state.seed)
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -741,9 +740,6 @@ class Trainer:
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
         # DDP.
-        if self._checkpoint_loader is not None:
-            self._checkpoint_loader.load_checkpoint(state=self.state)
-            reproducibility.seed_all(self.state.seed)
 
         if not self.deepspeed_enabled:
             host_model_params = self.state.model.parameters()
@@ -898,11 +894,10 @@ class Trainer:
 
         self._spin_dataloaders()
 
-        if self.state.timer.batch_in_epoch == 0 and self._checkpoint_loader:
+        if self.state.timer.batch_in_epoch == 0 and self._rng_state is not None:
             # only restore the rng state here if the step in the current epoch is zero.
-            if self._checkpoint_loader.checkpoint_rng_state is not None:
-                reproducibility.load_rng_state(self._checkpoint_loader.checkpoint_rng_state)
-                self._checkpoint_loader.checkpoint_rng_state = None
+            reproducibility.load_rng_state(self._rng_state)
+            self._rng_state = None
 
         while self.state.timer < self.state.max_duration:
             try:
@@ -920,10 +915,9 @@ class Trainer:
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.timer.batch_in_epoch:
-                        if self._checkpoint_loader:
-                            if self._checkpoint_loader.checkpoint_rng_state is not None:
-                                reproducibility.load_rng_state(self._checkpoint_loader.checkpoint_rng_state)
-                                self._checkpoint_loader.checkpoint_rng_state = None
+                        if self._rng_state is not None:
+                            reproducibility.load_rng_state(self._rng_state)
+                            self._rng_state = None
                         continue
 
                     self.state.batch = self._device.batch_to_device(self.state.batch)
@@ -1118,7 +1112,7 @@ class Trainer:
                     self.state.loss = cast(torch.Tensor, self.state.scaler.scale(self.state.loss))
 
                 if self.deepspeed_enabled:
-                    cast("deepspeed.DeepSpeedEngine", self.state.model).backward(self.state.loss)
+                    self.state.deepspeed_model.backward(self.state.loss)
 
                     # This is the same loss scaling and reporting we skipped earlier.
                     for loss in ensure_tuple(self.state.loss):
@@ -1131,7 +1125,7 @@ class Trainer:
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
             if self.deepspeed_enabled:
-                cast("deepspeed.DeepSpeedEngine", self.state.model).step()
+                self.state.deepspeed_model.step()
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:

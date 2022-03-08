@@ -24,7 +24,7 @@ from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
 from composer.optim import AdamWHparams
 from composer.optim.scheduler import ConstantLRHparams, CosineAnnealingLRHparams
-from composer.trainer._checkpoint import CheckpointLoader
+from composer.trainer._checkpoint import _retrieve_checkpoint
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
@@ -425,12 +425,18 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer):
     assert False, "EventCounterCallback not found in callbacks"
 
 
-def test_checkpoint_load_uri(tmpdir: pathlib.Path):
-    pytest.xfail("example.com sometimes returns a 404. Need to mock out the actual download")
-    loader = CheckpointLoader("https://example.com")
-    loader._retrieve_checkpoint(destination_filepath=str(tmpdir / "example"), rank=0, ignore_not_found_errors=False)
+def test_checkpoint_load_uri(tmpdir: pathlib.Path, dummy_state: State):
+    _retrieve_checkpoint(
+        path="https://www.mosaicml.com",
+        object_store=None,
+        destination_filepath=str(tmpdir / "example"),
+        rank=0,
+        ignore_not_found_errors=False,
+        chunk_size=1024 * 1024,
+        progress_bar=False,
+    )
     with open(str(tmpdir / "example"), "r") as f:
-        assert f.readline().startswith("<!doctype html>")
+        assert f.readline().startswith("<!")
 
 
 def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
@@ -444,8 +450,12 @@ def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.Mo
     ).initialize_object()
     with open(str(remote_dir / "checkpoint.txt"), 'wb') as f:
         f.write(b"checkpoint1")
-    loader = CheckpointLoader("checkpoint.txt", object_store=provider)
-
-    loader._retrieve_checkpoint(destination_filepath=str(tmpdir / "example"), rank=0, ignore_not_found_errors=False)
+    _retrieve_checkpoint(path="checkpoint.txt",
+                         object_store=provider,
+                         destination_filepath=str(tmpdir / "example"),
+                         rank=0,
+                         ignore_not_found_errors=False,
+                         chunk_size=1024 * 1024,
+                         progress_bar=False)
     with open(str(tmpdir / "example"), "rb") as f:
         f.read() == b"checkpoint1"
