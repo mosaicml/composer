@@ -26,7 +26,7 @@ def cutmix_batch(input: Tensor,
                  alpha: float = 1.,
                  bbox: Optional[Tuple] = None,
                  indices: Optional[torch.Tensor] = None,
-                 uniform_sampling: bool = False) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                 uniform_sampling: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of ``input`` and filling the masked region with
@@ -91,7 +91,6 @@ def cutmix_batch(input: Tensor,
             40% of the image of was replaced with data from an image with label
             ``2``, the resulting labels, assuming only three classes, would be
             ``[1, 0, 0] * 0.6 + [0, 0, 1] * 0.4 = [0.6, 0, 0.4]``.
-        perm (torch.Tensor): the permutation used
 
     Raises:
         ValueError: If both ``length`` and ``bbox`` are provided.
@@ -158,7 +157,7 @@ def cutmix_batch(input: Tensor,
     else:
         y_cutmix = adjusted_lambda * target + (1 - adjusted_lambda) * y_shuffled
 
-    return X_cutmix, y_cutmix, shuffled_idx
+    return X_cutmix, y_cutmix
 
 
 class CutMix(Algorithm):
@@ -258,7 +257,7 @@ class CutMix(Algorithm):
         self._bbox = _rand_bbox(input.shape[2], input.shape[3], _cutmix_lambda, uniform_sampling=self._uniform_sampling)
         self._cutmix_lambda = _adjust_lambda(_cutmix_lambda, input, self._bbox)
 
-        new_input, new_target, _ = cutmix_batch(
+        new_input, new_target = cutmix_batch(
             input=input,
             target=target,
             num_classes=self.num_classes,
