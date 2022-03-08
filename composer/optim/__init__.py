@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Optimizers and schedulers.
+"""Optimizers and learning rate schedulers.
 
 Composer is compatible with optimizers based off of PyTorch's native :class:`~torch.optim.Optimizer` API, and common
 optimizers such as :class:`~torch.optim.SGD` and :class:`~torch.optim.Adam` have been thoroughly tested with Composer.
