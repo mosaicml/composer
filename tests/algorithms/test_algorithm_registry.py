@@ -26,7 +26,7 @@ default_required_fields = {
         'blur_first': True
     },
     LabelSmoothingHparams: {
-        'alpha': 0.1
+        'smoothing': 0.1
     },
     LayerFreezingHparams: {
         'freeze_start': 0.5,
