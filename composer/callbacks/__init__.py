@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Callbacks that run at each training loop :class:`~composer.core.event.Event`
+"""Callbacks that run at each training loop :class:`~composer.core.event.Event`.
 
 Each callback inherits from the :class:`~composer.core.callback.Callback` base class. See detailed description and
 examples for writing your own callbacks at the :class:`~composer.core.callback.Callback` base class.
