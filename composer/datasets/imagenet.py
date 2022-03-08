@@ -26,7 +26,7 @@ IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the ImageNet dataset for image classification.
 
-    Parameters:
+    Args:
         resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.
         crop size (int): The crop size to use.
     """
@@ -92,7 +92,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the TinyImagenet-200 WebDataset for image classification.
 
-    Parameters:
+    Args:
         remote (str): S3 bucket or root directory where dataset is stored.
         name (str): Key used to determine where dataset is cached on local filesystem.
         n_train_samples (int): Number of training samples.
@@ -146,7 +146,7 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
 class Imagenet1kWebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the ImageNet-1k dataset for image classification.
 
-    Parameters:
+    Args:
         remote (str): S3 bucket or root directory where dataset is stored.
         name (str): Key used to determine where dataset is cached on local filesystem.
         resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.

@@ -40,7 +40,7 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 class C4DatasetHparams(DatasetHparams):
     """Builds a DataSpec for the C4 (Colossal Cleaned CommonCrawl) dataset.
 
-    Parameters:
+    Args:
         split (str): What split of the dataset to use. Either `train` or `validation`.
         max_samples (int): Max number of post-processed token samples, used to set epoch size of the IterableDataset.
         tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with.
@@ -130,7 +130,7 @@ class C4Dataset(IterableDataset):
     HuggingFace's C4 Dataset with streaming backend (See https://huggingface.co/datasets/c4 for more details). The text
     samples are then shuffled, tokenized, and grouped on-the-fly.
 
-    Parameters:
+    Args:
         split (str): What split of the dataset to use. Either `train` or `validation`.
         max_samples (int): Max number of post-processed token samples, used to set epoch size of the IterableDataset.
         tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with.

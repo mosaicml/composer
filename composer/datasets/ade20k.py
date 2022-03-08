@@ -351,7 +351,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class ADE20kWebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the ADE20k dataset for semantic segmentation.
 
-    Parameters:
+    Args:
         remote (str): S3 bucket or root directory where dataset is stored.
         name (str): Key used to determine where dataset is cached on local filesystem.
         split (str): the dataset split to use either 'train', 'val', or 'test'. Default is `train`.

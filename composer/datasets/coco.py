@@ -23,7 +23,7 @@ from composer.utils import dist
 class COCODatasetHparams(DatasetHparams):
     """Defines an instance of COCO Dataset.
 
-    Parameters:
+    Args:
         is_train (bool): Whether to load the training or validation dataset.
         datadir (str): Data directory to use.
         download (bool): Whether to download the dataset, if needed.

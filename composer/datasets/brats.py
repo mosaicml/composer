@@ -32,7 +32,7 @@ def _my_collate(batch):
 class BratsDatasetHparams(DatasetHparams):
     """Defines an instance of the BraTS dataset for image segmentation.
 
-    Parameters:
+    Args:
         oversampling (float): The oversampling ratio to use.
     """
 

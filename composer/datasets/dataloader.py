@@ -93,7 +93,7 @@ def unwrap_data_loader(dataloader: DataLoader) -> DataLoader:
 class DataloaderHparams(hp.Hparams):
     """Hyperparameters to initialize a :class:`~torch.utils.data.Dataloader`.
 
-    Parameters:
+    Args:
         num_workers (int, optional): Number of CPU workers to use per device to fetch data.
             Set to ``0`` to use the main training thread for dataloading.
             While zero workers can be useful for debugging, it should not be used for performance reasons.

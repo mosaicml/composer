@@ -27,7 +27,7 @@ __all__ = ["SyntheticHparamsMixin", "DatasetHparams"]
 class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
     """Synthetic dataset parameter mixin for :class:`DatasetHparams`.
 
-    Parameters:
+    Args:
         use_synthetic (bool, optional): Whether to use synthetic data. (Default: ``False``)
         synthetic_num_unique_samples (int, optional): The number of unique samples to allocate memory for.
             Ignored if :attr:`use_synthetic` is False. (Default: ``100``)
@@ -51,7 +51,7 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
 class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     """Abstract base class for hyperparameters to initialize a dataset.
 
-    Parameters:
+    Args:
         datadir (str): The path to the data directory.
         is_train (bool): Whether to load the training data (the default) or validation data.
         drop_last (bool):
@@ -73,7 +73,7 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
         """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
 
-        Parameters:
+        Args:
             batch_size (int): The size of the batch the dataloader should yield. This batch size is
                 device-specific and already incorporates the world size.
             dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
@@ -89,7 +89,7 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
 class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
     """Abstract base class for hyperparameters to initialize a dataset.
 
-    Parameters:
+    Args:
         webdataset_cache_dir (str): WebDataset cache directory.
         webdataset_cache_verbose (str): WebDataset cache verbosity.
     """
@@ -102,7 +102,7 @@ class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
         """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
 
-        Parameters:
+        Args:
             batch_size (int): The size of the batch the dataloader should yield. This batch size is
                 device-specific and already incorporates the world size.
             dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader

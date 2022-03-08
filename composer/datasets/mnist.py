@@ -16,7 +16,7 @@ from composer.utils import dist
 class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the MNIST dataset for image classification.
 
-    Parameters:
+    Args:
         download (bool): Whether to download the dataset, if needed.
     """
     download: bool = hp.optional("whether to download the dataset, if needed", default=True)
@@ -54,7 +54,7 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class MNISTWebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the MNIST WebDataset for image classification.
 
-    Parameters:
+    Args:
         remote (str): S3 bucket or root directory where dataset is stored.
         name (str): Key used to determine where dataset is cached on local filesystem.
     """

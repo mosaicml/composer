@@ -18,7 +18,7 @@ from composer.utils import dist
 class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the CIFAR-10 dataset for image classification.
 
-    Parameters:
+    Args:
         download (bool): Whether to download the dataset, if needed.
     """
     download: bool = hp.optional("whether to download the dataset, if needed", default=True)
@@ -73,7 +73,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class CIFARWebDatasetHparams(WebDatasetHparams):
     """Common functionality for CIFAR WebDatasets.
 
-    Parameters:
+    Args:
         remote (str): S3 bucket or root directory where dataset is stored.
         name (str): Key used to determine where dataset is cached on local filesystem.
         n_train_samples (int): Number of training samples.
