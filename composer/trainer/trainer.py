@@ -1035,7 +1035,7 @@ class Trainer:
             raise e
 
     def _compute_metrics(self, train_metrics: Union[MetricCollection, None]):
-        """Compute training metrics. 
+        """Compute training metrics.
 
         Args:
             train_metrics (Union[MetricCollection, None]): Existing train metrics
@@ -1106,7 +1106,7 @@ class Trainer:
 
     def _train_microbatches(self, microbatches: Sequence[Batch]):
         """Iterate over microbatches and compute the loss that will be used to step the optimizer.
-        
+
         Args:
             microbatches (Sequence[Batch]): The microbatches which make up the batch.
         """
@@ -1148,7 +1148,7 @@ class Trainer:
     def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int, total_loss: torch.Tensor,
                           is_final_microbatch: bool):
         """Train and compute the loss for a single microbatch.
-        
+
         Args:
             use_grad_scaling (bool): Whether to use gradient scaling.
             current_batch_size (int): Size of current batch.
