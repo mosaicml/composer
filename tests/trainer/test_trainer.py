@@ -166,7 +166,7 @@ class TestTrainerEquivalence():
         config = deepcopy(config)  # ensure the reference model is not passed to tests
 
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
-        config.update({'should_save': '1ep', 'save_folder': save_folder})
+        config.update({'should_save': '1ep', 'save_folder': save_folder, 'save_name_format_string': 'ep{epoch}.pt'})
 
         trainer = Trainer(**config)
         trainer.fit()
