@@ -50,7 +50,7 @@ optimizer:
     weight_decay: 1e-4
 schedulers:
   - multistep_with_warmup:
-      warmup_time: "5ep"
+      t_warmup: "5ep"
       milestones:
         - "80ep"
         - "120ep"
