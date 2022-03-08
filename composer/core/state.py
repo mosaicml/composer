@@ -312,8 +312,8 @@ class State(Serializable):
 
         Args:
             state_dict (types.StateDict): The state dict, generated from a previous call to :meth:`state_dict`.
-            strict (bool): Whether the keys (i.e., model parameter names) in the ``state_dict["model"]`` should
-                perfectly match the keys in the ``self.model``.
+            strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
+                perfectly match the keys in the model instance.
         """
         if state_dict["is_model_ddp"] and not self.is_model_ddp:
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
