@@ -29,13 +29,7 @@ _DEEPSPEED_TAG = "deepspeed"  # always tag with the same, deterministic name. We
 
 
 def _format_path_with_rank(path: str, rank: int) -> str:
-    """Returns the path with ``{{RANK}}`` substituted with the ``rank`` argument. See the :class:`CheckpointLoader` docs
-    for a description of how this is used.
-
-    Args:
-        path (str): Path to format
-        rank (int): The rank
-    """
+    """Returns the ``path`` with ``{RANK}`` substituted with the ``rank`` argument."""
     return path.format(RANK=rank)
 
 
@@ -162,7 +156,10 @@ def _retrieve_checkpoint(
 
     if checkpoint_uri_parsed.scheme == "":
         if not os.path.exists(checkpoint_name):
-            raise FileNotFoundError(f"Checkpoint file does not exist: {checkpoint_name}")
+            if ignore_not_found_errors:
+                return
+            else:
+                raise FileNotFoundError(f"Checkpoint file does not exist: {checkpoint_name}")
         # assume it's a local file
         os.symlink(os.path.abspath(checkpoint_name), destination_filepath)
         return

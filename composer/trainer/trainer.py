@@ -260,9 +260,9 @@ class Trainer:
 
             .. testsetup::
 
-                from composer.trainer._checkpoint import CheckpointLoader
+                import composer.trainer
 
-                CheckpointLoader.load_checkpoint = lambda *args, **kwargs: 0
+                composer.trainer.load_checkpoint = lambda *args, **kwargs: None
 
             .. testcode::
 

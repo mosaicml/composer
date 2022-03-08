@@ -457,7 +457,6 @@ def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.Mo
     ).initialize_object()
     with open(str(remote_dir / "checkpoint.txt"), 'wb') as f:
         f.write(b"checkpoint1")
-
     _retrieve_checkpoint(path="checkpoint.txt",
                          object_store=provider,
                          destination_filepath=str(tmpdir / "example"),
