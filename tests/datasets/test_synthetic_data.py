@@ -1,6 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from collections import namedtuple
 from itertools import product
 from typing import Optional
 
