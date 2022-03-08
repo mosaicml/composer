@@ -959,7 +959,7 @@ class Trainer:
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
 
-                    total_loss = self._train_and_compute_loss(use_grad_scaling)
+                    total_loss = self._train_batch(use_grad_scaling)
 
                     if use_grad_scaling:
                         self.state.scaler.update()
@@ -1051,7 +1051,7 @@ class Trainer:
                     outputs, targets = self._original_model.validate(eval_microbatch)
                     train_metrics.update(outputs, targets)
 
-    def _train_and_compute_loss(self, use_grad_scaling: bool):
+    def _train_batch(self, use_grad_scaling: bool):
         """Compute loss by training on a full batch of data. Adaptively change microbatch size if enabled to maximize
         GPU usage.
 
@@ -1065,17 +1065,17 @@ class Trainer:
                 total_loss = None
                 microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
                 if self.deepspeed_enabled:
-                    total_loss = self._train_batch(microbatches)
+                    total_loss = self._train_batch_with_context(microbatches)
                 elif self._use_closures():
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             total_loss = self.state.scaler.step(
-                                optimizer, closure=lambda **kwargs: self._train_batch(microbatches, **kwargs))
+                                optimizer, closure=lambda **kwargs: self._train_batch_with_context(microbatches, **kwargs))
                         else:
                             total_loss = optimizer.step(
-                                closure=lambda **kwargs: self._train_batch(microbatches, **kwargs).item())
+                                closure=lambda **kwargs: self._train_batch_with_context(microbatches, **kwargs).item())
                 else:
-                    total_loss = self._train_batch(microbatches)
+                    total_loss = self._train_batch_with_context(microbatches)
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             self.state.scaler.step(optimizer)
@@ -1086,7 +1086,7 @@ class Trainer:
             except RuntimeError as e:
                 self._handle_cuda_oom(e)
 
-    def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
+    def _train_batch_with_context(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
 
         Args:
@@ -1101,10 +1101,14 @@ class Trainer:
             context = cast(Callable[[], ContextManager], self.state.model.no_sync)
 
         with context():
-            return self._train_batch_inner(microbatches)
+            return self._train_microbatches(microbatches)
 
-    def _train_batch_inner(self, microbatches: Sequence[Batch]):
-        """Iterate over microbatches and compute the loss that will be used to step the optimizer."""
+    def _train_microbatches(self, microbatches: Sequence[Batch]):
+        """Iterate over microbatches and compute the loss that will be used to step the optimizer.
+        
+        Args:
+            microbatches (Sequence[Batch]): The microbatches which make up the batch.
+        """
         self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
 
         assert self.state.optimizers is not None
@@ -1121,61 +1125,8 @@ class Trainer:
         current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
 
         for microbatch_idx, self.state.batch in enumerate(microbatches):
-            microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
             is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            sync_context = contextlib.nullcontext() if self.deepspeed_enabled else _ddp_sync_context(
-                self.state, is_final_microbatch, self._ddp_sync_strategy)
-            with sync_context:
-                # forward pass
-                self.engine.run_event(Event.BEFORE_FORWARD)
-
-                with self.state.precision_context:
-                    self.state.outputs = self.state.model.forward(self.state.batch)
-
-                self.engine.run_event(Event.AFTER_FORWARD)
-
-                # loss
-                self.engine.run_event(Event.BEFORE_LOSS)
-
-                with self.state.precision_context:
-                    self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
-
-                # We always want to scale loss by the grad_accum before the backwards pass and
-                # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
-                # own scaling when we call `.backward`, but this isn't in place so we still need
-                # to scale for sake of metrics after the `.backward` call.
-
-                # Loss is added to losses with clone to not scale the loss for the step printout
-                # Likely need to look into the performance impact
-                if not self.deepspeed_enabled:
-                    for loss in ensure_tuple(self.state.loss):
-                        loss.mul_(microbatch_num_samples / current_batch_size)
-                        total_loss += loss.detach().clone()
-
-                assert self.state.loss is not None
-                self.engine.run_event(Event.AFTER_LOSS)
-
-                # backward
-                self.engine.run_event(Event.BEFORE_BACKWARD)
-
-                if use_grad_scaling:
-                    self.state.loss = self.state.scaler.scale(self.state.loss)
-
-                if self.deepspeed_enabled:
-                    cast("deepspeed.DeepSpeedEngine", self.state.model).backward(self.state.loss)
-
-                    # This is the same loss scaling and reporting we skipped earlier.
-                    for loss in ensure_tuple(self.state.loss):
-                        loss.mul_(microbatch_num_samples / current_batch_size)
-                        total_loss += loss.detach().clone()
-                else:
-                    for loss in ensure_tuple(self.state.loss):
-                        loss.backward(create_graph=self._backwards_create_graph)
-
-                self.engine.run_event(Event.AFTER_BACKWARD)
-
-            if self.deepspeed_enabled:
-                cast("deepspeed.DeepSpeedEngine", self.state.model).step()
+            self._train_microbatch(use_grad_scaling, current_batch_size, total_loss, is_final_microbatch)
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:
@@ -1192,6 +1143,70 @@ class Trainer:
         self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
         return total_loss
+
+    def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int, total_loss: torch.Tensor, is_final_microbatch: bool):
+        """Train and compute the loss for a single microbatch.
+        
+        Args:
+            use_grad_scaling (bool): Whether to use gradient scaling.
+            current_batch_size (int): Size of current batch.
+            total_loss (torch.Tensor): Total loss aggregated across all microbatches.
+            is_final_microbatch (bool): If current microbatch is the last one.
+        """
+        microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
+        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else _ddp_sync_context(
+            self.state, is_final_microbatch, self._ddp_sync_strategy)
+        with sync_context:
+            # forward pass
+            self.engine.run_event(Event.BEFORE_FORWARD)
+
+            with self.state.precision_context:
+                self.state.outputs = self.state.model.forward(self.state.batch)
+
+            self.engine.run_event(Event.AFTER_FORWARD)
+
+            # loss
+            self.engine.run_event(Event.BEFORE_LOSS)
+
+            with self.state.precision_context:
+                self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
+
+            # We always want to scale loss by the grad_accum before the backwards pass and
+            # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
+            # own scaling when we call `.backward`, but this isn't in place so we still need
+            # to scale for sake of metrics after the `.backward` call.
+
+            # Loss is added to losses with clone to not scale the loss for the step printout
+            # Likely need to look into the performance impact
+            if not self.deepspeed_enabled:
+                for loss in ensure_tuple(self.state.loss):
+                    loss.mul_(microbatch_num_samples / current_batch_size)
+                    total_loss += loss.detach().clone()
+
+            assert self.state.loss is not None
+            self.engine.run_event(Event.AFTER_LOSS)
+
+            # backward
+            self.engine.run_event(Event.BEFORE_BACKWARD)
+
+            if use_grad_scaling:
+                self.state.loss = self.state.scaler.scale(self.state.loss)
+
+            if self.deepspeed_enabled:
+                cast("deepspeed.DeepSpeedEngine", self.state.model).backward(self.state.loss)
+
+                # This is the same loss scaling and reporting we skipped earlier.
+                for loss in ensure_tuple(self.state.loss):
+                    loss.mul_(microbatch_num_samples / current_batch_size)
+                    total_loss += loss.detach().clone()
+            else:
+                for loss in ensure_tuple(self.state.loss):
+                    loss.backward(create_graph=self._backwards_create_graph)
+
+            self.engine.run_event(Event.AFTER_BACKWARD)
+
+        if self.deepspeed_enabled:
+            cast("deepspeed.DeepSpeedEngine", self.state.model).step()
 
     def eval(self, is_batch: bool):
         """Evaluate the model on the provided evaluation data and log appropriate metrics.
