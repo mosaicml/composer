@@ -50,6 +50,7 @@ class BERTForClassificationHparams(TransformerHparams):
             model = transformers.AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name,
                                                                                     **model_hparams)
         else:
+            # an invariant to ensure that we don't lose keys when creating the HF config
             for k, v in model_hparams.items():
                 assert getattr(config, k) == v
             model = transformers.AutoModelForSequenceClassification.from_config(  #type: ignore (thirdparty)
