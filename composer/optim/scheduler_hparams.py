@@ -44,13 +44,13 @@ class SchedulerHparams(hp.Hparams, ABC):
 
 @dataclass
 class StepSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.StepScheduler` scheduler.
+    """Hyperparameters for the :class:`~.StepScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.StepScheduler` for documentation.
+    See :class:`~.StepScheduler` for documentation.
 
     Args:
-        step_size (str, optional): See :class:`~composer.optim.scheduler.StepScheduler`.
-        gamma (float, optional): See :class:`~composer.optim.scheduler.StepScheduler`.
+        step_size (str, optional): See :class:`~.StepScheduler`.
+        gamma (float, optional): See :class:`~.StepScheduler`.
     """
 
     step_size: str = hp.required(doc="Time between changes to the learning rate.")
@@ -61,13 +61,13 @@ class StepSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class MultiStepSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.MultiStepScheduler` scheduler.
+    """Hyperparameters for the :class:`~.MultiStepScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.MultiStepScheduler` for documentation.
+    See :class:`~.MultiStepScheduler` for documentation.
 
     Args:
-        milestones (List[str]): See :class:`~composer.optim.scheduler.MultiStepScheduler`.
-        gamma (float, optional): See :class:`~composer.optim.scheduler.MultiStepScheduler`.
+        milestones (List[str]): See :class:`~.MultiStepScheduler`.
+        gamma (float, optional): See :class:`~.MultiStepScheduler`.
     """
 
     milestones: List[str] = hp.required(doc="Times at which the learning rate should change.")
@@ -78,13 +78,13 @@ class MultiStepSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class ConstantSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.ConstantScheduler` scheduler.
+    """Hyperparameters for the :class:`~.ConstantScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.ConstantScheduler` for documentation.
+    See :class:`~.ConstantScheduler` for documentation.
 
     Args:
-        alpha (float, optional): See :class:`~composer.optim.scheduler.ConstantScheduler`.
-        t_max (str, optional): See :class:`~composer.optim.scheduler.ConstantScheduler`.
+        alpha (float, optional): See :class:`~.ConstantScheduler`.
+        t_max (str, optional): See :class:`~.ConstantScheduler`.
     """
 
     alpha: float = hp.optional(default=1.0, doc="Learning rate multiplier to maintain while this scheduler is active.")
@@ -95,14 +95,14 @@ class ConstantSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class LinearSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.LinearScheduler` scheduler.
+    """Hyperparameters for the :class:`~.LinearScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.LinearScheduler` for documentation.
+    See :class:`~.LinearScheduler` for documentation.
 
     Args:
-        alpha_i (float, optional): See :class:`~composer.optim.scheduler.LinearScheduler`.
-        alpha_f (float, optional): See :class:`~composer.optim.scheduler.LinearScheduler`.
-        t_max (str, optional): See :class:`~composer.optim.scheduler.LinearScheduler`.
+        alpha_i (float, optional): See :class:`~.LinearScheduler`.
+        alpha_f (float, optional): See :class:`~.LinearScheduler`.
+        t_max (str, optional): See :class:`~.LinearScheduler`.
     """
 
     alpha_i: float = hp.optional("Initial learning rate multiplier.", default=1.0)
@@ -114,13 +114,13 @@ class LinearSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class ExponentialSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.ExponentialScheduler` scheduler.
+    """Hyperparameters for the :class:`~.ExponentialScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.ExponentialScheduler` for documentation.
+    See :class:`~.ExponentialScheduler` for documentation.
 
     Args:
-        gamma (float): See :class:`~composer.optim.scheduler.ExponentialScheduler`.
-        decay_period (str, optional): See :class:`~composer.optim.scheduler.ExponentialScheduler`.
+        gamma (float): See :class:`~.ExponentialScheduler`.
+        decay_period (str, optional): See :class:`~.ExponentialScheduler`.
     """
 
     gamma: float = hp.required(doc="Multiplicative decay factor.")
@@ -131,13 +131,13 @@ class ExponentialSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.CosineAnnealingScheduler` scheduler.
+    """Hyperparameters for the :class:`~.CosineAnnealingScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.CosineAnnealingScheduler` for documentation.
+    See :class:`~.CosineAnnealingScheduler` for documentation.
 
     Args:
-        t_max (str, optional): See :class:`~composer.optim.scheduler.CosineAnnealingScheduler`.
-        alpha_f (float, optional): See :class:`~composer.optim.scheduler.CosineAnnealingScheduler`.
+        t_max (str, optional): See :class:`~.CosineAnnealingScheduler`.
+        alpha_f (float, optional): See :class:`~.CosineAnnealingScheduler`.
     """
 
     t_max: str = hp.optional(default="1dur", doc="Duration of this scheduler.")
@@ -148,14 +148,14 @@ class CosineAnnealingSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingWarmRestartsSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.CosineAnnealingWarmRestartsScheduler` scheduler.
+    """Hyperparameters for the :class:`~.CosineAnnealingWarmRestartsScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.CosineAnnealingWarmRestartsScheduler` for documentation.
+    See :class:`~.CosineAnnealingWarmRestartsScheduler` for documentation.
 
     Args:
-        t_0 (str, optional): See :class:`~composer.optim.scheduler.CosineAnnealingWarmRestartsScheduler`.
-        alpha_f (float, optional): See :class:`~composer.optim.scheduler.CosineAnnealingWarmRestartsScheduler`.
-        t_mult (float, optional): See :class:`~composer.optim.scheduler.CosineAnnealingWarmRestartsScheduler`.
+        t_0 (str, optional): See :class:`~.CosineAnnealingWarmRestartsScheduler`.
+        alpha_f (float, optional): See :class:`~.CosineAnnealingWarmRestartsScheduler`.
+        t_mult (float, optional): See :class:`~.CosineAnnealingWarmRestartsScheduler`.
     """
 
     t_0: str = hp.optional(default="1dur", doc="The period of the first cycle.")
@@ -167,14 +167,14 @@ class CosineAnnealingWarmRestartsSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class PolynomialSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.PolynomialScheduler` scheduler.
+    """Hyperparameters for the :class:`~.PolynomialScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.PolynomialScheduler` for documentation.
+    See :class:`~.PolynomialScheduler` for documentation.
 
     Args:
-        power (float): See :class:`~composer.optim.scheduler.PolynomialScheduler`.
-        t_max (str, optional): See :class:`~composer.optim.scheduler.PolynomialScheduler`.
-        alpha_f (float, optional): See :class:`~composer.optim.scheduler.PolynomialScheduler`.
+        power (float): See :class:`~.PolynomialScheduler`.
+        t_max (str, optional): See :class:`~.PolynomialScheduler`.
+        alpha_f (float, optional): See :class:`~.PolynomialScheduler`.
     """
 
     power: float = hp.required(doc="The exponent to be used for the proportionality relationship.")
@@ -186,14 +186,14 @@ class PolynomialSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class MultiStepWithWarmupSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.MultiStepWithWarmupScheduler` scheduler.
+    """Hyperparameters for the :class:`~.MultiStepWithWarmupScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.MultiStepWithWarmupScheduler` for documentation.
+    See :class:`~.MultiStepWithWarmupScheduler` for documentation.
 
     Args:
-        t_warmup (str,): See :class:`~composer.optim.scheduler.MultiStepWithWarmupScheduler`.
-        milestones (List[str]): See :class:`~composer.optim.scheduler.MultiStepWithWarmupScheduler`.
-        gamma (float, optional): See :class:`~composer.optim.scheduler.MultiStepWithWarmupScheduler`.
+        t_warmup (str,): See :class:`~.MultiStepWithWarmupScheduler`.
+        milestones (List[str]): See :class:`~.MultiStepWithWarmupScheduler`.
+        gamma (float, optional): See :class:`~.MultiStepWithWarmupScheduler`.
     """
 
     t_warmup: str = hp.required(doc="Warmup time.")
@@ -205,15 +205,15 @@ class MultiStepWithWarmupSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class LinearWithWarmupSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.LinearWithWarmupScheduler` scheduler.
+    """Hyperparameters for the :class:`~.LinearWithWarmupScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.LinearWithWarmupScheduler` for documentation.
+    See :class:`~.LinearWithWarmupScheduler` for documentation.
 
     Args:
-        t_warmup (str): See :class:`~composer.optim.scheduler.LinearWithWarmupScheduler`.
-        alpha_i (float, optional): See :class:`~composer.optim.scheduler.LinearWithWarmupScheduler`.
-        alpha_f (float, optional): See :class:`~composer.optim.scheduler.LinearWithWarmupScheduler`.
-        t_max (str, optional): See :class:`~composer.optim.scheduler.LinearWithWarmupScheduler`.
+        t_warmup (str): See :class:`~.LinearWithWarmupScheduler`.
+        alpha_i (float, optional): See :class:`~.LinearWithWarmupScheduler`.
+        alpha_f (float, optional): See :class:`~.LinearWithWarmupScheduler`.
+        t_max (str, optional): See :class:`~.LinearWithWarmupScheduler`.
     """
 
     t_warmup: str = hp.required(doc="Warmup time.")
@@ -226,14 +226,14 @@ class LinearWithWarmupSchedulerHparams(SchedulerHparams):
 
 @dataclass
 class CosineAnnealingWithWarmupSchedulerHparams(SchedulerHparams):
-    """Hyperparameters for the :class:`~composer.optim.scheduler.CosineAnnealingWithWarmupScheduler` scheduler.
+    """Hyperparameters for the :class:`~.CosineAnnealingWithWarmupScheduler` scheduler.
 
-    See :class:`~composer.optim.scheduler.CosineAnnealingWithWarmupScheduler` for documentation.
+    See :class:`~.CosineAnnealingWithWarmupScheduler` for documentation.
 
     Args:
-        t_warmup (str): See :class:`~composer.optim.scheduler.CosineAnnealingWithWarmupScheduler`.
-        t_max (str, optional): See :class:`~composer.optim.scheduler.CosineAnnealingWithWarmupScheduler`.
-        alpha_f (float, optional): See :class:`~composer.optim.scheduler.CosineAnnealingWithWarmupScheduler`.
+        t_warmup (str): See :class:`~.CosineAnnealingWithWarmupScheduler`.
+        t_max (str, optional): See :class:`~.CosineAnnealingWithWarmupScheduler`.
+        alpha_f (float, optional): See :class:`~.CosineAnnealingWithWarmupScheduler`.
     """
 
     t_warmup: str = hp.required(doc="Warmup time.")

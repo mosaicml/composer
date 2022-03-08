@@ -120,16 +120,16 @@ class AdamWHparams(OptimizerHparams):
 
 @dataclass
 class DecoupledAdamWHparams(OptimizerHparams):
-    """Hyperparameters for the :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW` optimizer.
+    """Hyperparameters for the :class:`~.DecoupledAdamW` optimizer.
 
-    See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW` for documentation.
+    See :class:`~.DecoupledAdamW` for documentation.
 
     Args:
-        lr (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW`.
-        betas (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW`.
-        eps (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW`.
-        weight_decay (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW`.
-        amsgrad (bool, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledAdamW`.
+        lr (float, optional): See :class:`~.DecoupledAdamW`.
+        betas (float, optional): See :class:`~.DecoupledAdamW`.
+        eps (float, optional): See :class:`~.DecoupledAdamW`.
+        weight_decay (float, optional): See :class:`~.DecoupledAdamW`.
+        amsgrad (bool, optional): See :class:`~.DecoupledAdamW`.
     """
     lr: float = hp.optional(default=0.001, doc="learning rate")
     betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
@@ -169,16 +169,16 @@ class SGDHparams(OptimizerHparams):
 
 @dataclass
 class DecoupledSGDWHparams(OptimizerHparams):
-    """Hyperparameters for the :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW` optimizer.
+    """Hyperparameters for the :class:`~.DecoupledSGDW` optimizer.
 
-    See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW` for documentation.
+    See :class:`~.DecoupledSGDW` for documentation.
 
     Args:
-        lr (float): See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW`.
-        momentum (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW`.
-        weight_decay (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW`.
-        dampening (float, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW`.
-        nesterov (bool, optional): See :class:`~composer.optim.decoupled_weight_decay.DecoupledSGDW`.
+        lr (float): See :class:`~.DecoupledSGDW`.
+        momentum (float, optional): See :class:`~.DecoupledSGDW`.
+        weight_decay (float, optional): See :class:`~.DecoupledSGDW`.
+        dampening (float, optional): See :class:`~.DecoupledSGDW`.
+        nesterov (bool, optional): See :class:`~.DecoupledSGDW`.
     """
     lr: float = hp.required(doc="learning rate")
     momentum: float = hp.optional(default=0.0, doc="momentum factor")
