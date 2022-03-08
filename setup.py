@@ -110,8 +110,8 @@ extra_deps["unet"] = [
 ]
 
 extra_deps["deeplab"] = [
-    'pip install mmcv-full',
-    'pip install mmsegmentation',
+    'mmcv-full==1.4.4',
+    'mmsegmentation==0.22.0',
 ]
 
 extra_deps["timm"] = [
