@@ -214,7 +214,6 @@ class State(Serializable):
             "scaler",
             "timer",
             "rank_zero_seed",
-            "rng",
         ]
 
     @property
