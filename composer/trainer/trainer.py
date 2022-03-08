@@ -1155,6 +1155,8 @@ class Trainer:
             total_loss (torch.Tensor): Total loss aggregated across all microbatches.
             is_final_microbatch (bool): If current microbatch is the last one.
         """
+        assert self.state.scaler is not None
+
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         sync_context = contextlib.nullcontext() if self.deepspeed_enabled else _ddp_sync_context(
             self.state, is_final_microbatch, self._ddp_sync_strategy)
