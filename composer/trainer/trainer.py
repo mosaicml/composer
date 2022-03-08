@@ -699,17 +699,6 @@ class Trainer:
                 compression=save_compression,
             )
 
-        self._rng_state = None
-        if load_path is not None:
-            self._rng_state = load_checkpoint(state=self.state,
-                                              path=load_path,
-                                              object_store=load_object_store,
-                                              load_weights_only=load_weights_only,
-                                              strict_model_weights=load_strict,
-                                              chunk_size=load_chunk_size,
-                                              progress_bar=load_progress_bar)
-            reproducibility.seed_all(self.state.seed)
-
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
             try:
@@ -740,6 +729,17 @@ class Trainer:
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
         # DDP.
+
+        self._rng_state = None
+        if load_path is not None:
+            self._rng_state = load_checkpoint(state=self.state,
+                                              path=load_path,
+                                              object_store=load_object_store,
+                                              load_weights_only=load_weights_only,
+                                              strict_model_weights=load_strict,
+                                              chunk_size=load_chunk_size,
+                                              progress_bar=load_progress_bar)
+            reproducibility.seed_all(self.state.seed)
 
         if not self.deepspeed_enabled:
             host_model_params = self.state.model.parameters()
