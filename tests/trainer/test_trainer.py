@@ -2,23 +2,24 @@
 
 import os
 import pathlib
+from copy import deepcopy
+from typing import Dict
 
 import pytest
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
-from composer.algorithms import LayerFreezing
-from composer.algorithms.cutout.cutout import CutOut
-from composer.callbacks import LRMonitor
-from composer.callbacks.run_directory_uploader import RunDirectoryUploader
+from composer import Trainer
+from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
+from composer.callbacks import LRMonitor, RunDirectoryUploader
 from composer.core.callback import Callback
-from composer.core.time import Time, TimeUnit
+from composer.core.precision import Precision
 from composer.core.types import Model
 from composer.loggers import FileLogger, TQDMLogger, WandBLogger
-from composer.trainer import Trainer
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from composer.utils import dist
+from composer.utils.reproducibility import seed_all
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 
@@ -84,6 +85,7 @@ class TestTrainerInit():
         with pytest.raises(ValueError, match="active iterator"):
             Trainer(**config)
 
+    @pytest.mark.timeout(5.0)
     def test_init_with_integers(self, config, tmpdir):
         config.update({
             'max_duration': 1,
@@ -96,6 +98,7 @@ class TestTrainerInit():
         assert trainer._checkpoint_saver is not None and \
             trainer._checkpoint_saver._save_interval == "10ep"
 
+    @pytest.mark.timeout(5.0)
     def test_init_with_max_duration_in_batches(self, config):
         config["max_duration"] = '1ba'
         trainer = Trainer(**config)
@@ -108,19 +111,35 @@ class TestTrainerEquivalence():
 
     reference_model: Model
     reference_folder: pathlib.Path
+    default_threshold: Dict[str, float]
 
-    def assert_models_equal(self, model_1, model_2):
+    def assert_models_equal(self, model_1, model_2, threshold=None):
+        if threshold is None:
+            threshold = self.default_threshold
+
+        assert model_1 is not model_2, "Same model should not be compared."
         for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
-            torch.testing.assert_allclose(param1, param2)
+            torch.testing.assert_allclose(param1, param2, **threshold)
+
+    @pytest.fixture(autouse=True)
+    def set_default_threshold(self, device, precision, world_size):
+        """Sets the default threshold to 0.
+
+        Individual tests can override by passing thresholds directly to assert_models_equal.
+        """
+        self.default_threshold = {'atol': 0, 'rtol': 0}
 
     @pytest.fixture
     def config(self, device, precision, world_size):
+        """Returns the reference config."""
+
+        seed_all(seed=0)
         return {
             'model': SimpleModel(),
             'train_dataloader': DataLoader(
                 dataset=RandomClassificationDataset(),
                 batch_size=4,
-                shuffle=True,
+                shuffle=False,
             ),
             'eval_dataloader': DataLoader(
                 dataset=RandomClassificationDataset(),
@@ -137,6 +156,8 @@ class TestTrainerEquivalence():
     @pytest.fixture(autouse=True)
     def create_reference_model(self, config, tmpdir_factory, *args):
         """Trains the reference model, and saves checkpoints."""
+        config = deepcopy(config)  # ensure the reference model is not passed to tests
+
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
         config.update({'save_interval': '1ep', 'save_folder': save_folder})
 
@@ -152,7 +173,14 @@ class TestTrainerEquivalence():
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
-    def test_grad_accum(self, config, *args):
+    def test_grad_accum(self, config, precision, *args):
+        # grad accum requires non-zero tolerance
+        # Precision.AMP requires a even higher tolerance.
+        threshold = {
+            'atol': 1e-04 if precision == Precision.AMP else 1e-08,
+            'rtol': 1e-02 if precision == Precision.AMP else 1e-05,
+        }
+
         config.update({
             'grad_accum': 2,
         })
@@ -160,15 +188,13 @@ class TestTrainerEquivalence():
         trainer = Trainer(**config)
         trainer.fit()
 
-        self.assert_models_equal(trainer.state.model, self.reference_model)
+        self.assert_models_equal(trainer.state.model, self.reference_model, threshold=threshold)
 
     def test_max_duration(self, config, *args):
-        max_duration = Time.from_timestring(config['max_duration'])
-        assert max_duration.unit == TimeUnit.EPOCH
-        max_duration_in_batches = Time(len(config['train_dataloader']) * int(max_duration.value), TimeUnit.BATCH)
-        config['max_duration'] = max_duration_in_batches.to_timestring()
+        num_batches = 2 * len(config["train_dataloader"])  # convert 2ep to batches
+        config['max_duration'] = f'{num_batches}ba'
+
         trainer = Trainer(**config)
-        assert trainer.state.max_duration.unit == TimeUnit.BATCH
         trainer.fit()
         self.assert_models_equal(trainer.state.model, self.reference_model)
 
@@ -182,6 +208,16 @@ class TestTrainerEquivalence():
         trainer.fit()
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
+
+    def test_algorithm_different(self, config, *args):
+        # as a control, we train with an algorithm and
+        # expect the test to fail
+        config['algorithms'] = [LabelSmoothing(alpha=0.1)]
+        trainer = Trainer(**config)
+        trainer.fit()
+
+        with pytest.raises(AssertionError):
+            self.assert_models_equal(trainer.state.model, self.reference_model)
 
     def test_model_init(self, config, *args):
         # as a control test, we reinitialize the model weights, and

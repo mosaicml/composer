@@ -266,8 +266,6 @@ def test_checkpoint(
     - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
     """
     del world_size  # unused. Read via env variable
-    if deepspeed_enabled:
-        pytest.skip("Deepspeed tests are unstable. See https://github.com/mosaicml/composer/issues/610.")
 
     if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
         pytest.skip("DeepSpeed tests must be ran on GPU")
@@ -319,9 +317,9 @@ def test_checkpoint(
                 pytest.skip(
                     textwrap.dedent(f"""\
                         Skipping test since deterministic mode is required for
-                        non-trivial models, but deterministic mode isn't compatible with deepsped
+                        non-trivial models, but deterministic mode isn't compatible with deepspeed
                         zero stage {zero_stage}"""))
-        composer_trainer_hparams.deepspeed = {"zero_stage": zero_stage}
+        composer_trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
 
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder

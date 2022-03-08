@@ -45,8 +45,8 @@ def colout_batch(X: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
         X: :class:`PIL.Image.Image` or :class:`torch.Tensor` of image data. In
             the latter case, must be a single image of shape ``CHW`` or a batch
             of images of shape ``NCHW``.
-        p_row: Fraction of rows to drop (drop along H).
-        p_col: Fraction of columns to drop (drop along W).
+        p_row: Fraction of rows to drop (drop along H). Default: ``0.15``.
+        p_col: Fraction of columns to drop (drop along W). Default: ``0.15``.
 
     Returns:
         torch.Tensor: Input batch tensor with randomly dropped columns and rows.
@@ -94,8 +94,8 @@ class ColOutTransform:
             transforms = transforms.Compose([colout_transform, transforms.ToTensor()])
 
     Args:
-        p_row (float): Fraction of rows to drop (drop along H).
-        p_col (float): Fraction of columns to drop (drop along W).
+        p_row (float): Fraction of rows to drop (drop along H). Default: ``0.15``.
+        p_col (float): Fraction of columns to drop (drop along W). Default: ``0.15``.
     """
 
     def __init__(self, p_row: float = 0.15, p_col: float = 0.15):
@@ -142,9 +142,9 @@ class ColOut(Algorithm):
             )
 
     Args:
-        p_row (float): Fraction of rows to drop (drop along H).
-        p_col (float): Fraction of columns to drop (drop along W).
-        batch (bool): Run ColOut at the batch level.
+        p_row (float): Fraction of rows to drop (drop along H). Default: ``0.15``.
+        p_col (float): Fraction of columns to drop (drop along W). Default: ``0.15``.
+        batch (bool): Run ColOut at the batch level. Default: ``True``.
     """
 
     def __init__(self, p_row: float = 0.15, p_col: float = 0.15, batch: bool = True):

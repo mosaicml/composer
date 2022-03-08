@@ -97,8 +97,7 @@ def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
 def generate_synthetic_tokenizer(tokenizer_family: str,
                                  dataset: Optional[Dataset] = None,
                                  vocab_size: int = 256) -> PreTrainedTokenizer:
-    """
-    Generates a synthetic tokenizer based on a tokenizer family.
+    """Generates a synthetic tokenizer based on a tokenizer family.
 
     Args:
         tokenizer_family (str): Which tokenizer family to emulate. One of ['gpt2', 'bert'].
@@ -126,15 +125,15 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
                                      column_names=column_names).generate_dataset()
 
     # change a columnar dataset into a list
-    flattened_dataset = [dataset[key] for key in dataset.column_names if key != 'idx']
+    flattened_columns = [dataset[key] for key in dataset.column_names if key != 'idx']
     # flatten the list of lists into a single list
-    dataset = []
-    for sublist in flattened_dataset:
+    flattened_dataset = []
+    for sublist in flattened_columns:
         for item in sublist:
-            dataset.append(item)
+            flattened_dataset.append(item)
 
     if "bert" in tokenizer_family:
-        tokenizer_params = _generate_bert_tokenizer_params(dataset)
+        tokenizer_params = _generate_bert_tokenizer_params(flattened_dataset)
     elif "gpt2" in tokenizer_family:
         tokenizer_params = _generate_gpt2_tokenizer_params()
     else:
@@ -154,7 +153,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         initial_alphabet=tokenizer_params.initial_alphabet,
         special_tokens=tokenizer_params.special_tokens,
     )
-    tokenizer.train_from_iterator(dataset, trainer=tokenizer_trainer)
+    tokenizer.train_from_iterator(flattened_dataset, trainer=tokenizer_trainer)
 
     # save the tokenizer config
     tmp_tokenizer_dir = mkdtemp()

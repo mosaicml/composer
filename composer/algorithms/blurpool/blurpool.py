@@ -31,15 +31,15 @@ def apply_blurpool(model: torch.nn.Module,
     Args:
         model (torch.nn.Module): the model to modify in-place
         replace_convs (bool, optional): replace strided :class:`torch.nn.Conv2d` modules with
-            :class:`.BlurConv2d` modules
+            :class:`.BlurConv2d` modules. Default: ``True``.
         replace_maxpools (bool, optional): replace eligible :class:`torch.nn.MaxPool2d` modules
-            with :class:`.BlurMaxPool2d` modules.
+            with :class:`.BlurMaxPool2d` modules. Default: ``True``.
         blur_first (bool, optional): for ``replace_convs``, blur input before the associated
             convolution. When set to ``False``, the convolution is applied with
             a stride of 1 before the blurring, resulting in significant
             overhead (though more closely matching
             `the paper <http://proceedings.mlr.press/v97/zhang19a.html>`_).
-            See :class:`.BlurConv2d` for further discussion.
+            See :class:`.BlurConv2d` for further discussion. Default: ``True``.
         optimizers (Optimizers, optional):  Existing optimizers bound to
             ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so
@@ -82,14 +82,14 @@ class BlurPool(Algorithm):
 
     Args:
         replace_convs (bool): replace strided :class:`torch.nn.Conv2d` modules with
-            :class:`.BlurConv2d` modules
+            :class:`.BlurConv2d` modules. Default: ``True``.
         replace_maxpools (bool): replace eligible :class:`torch.nn.MaxPool2d` modules
-            with :class:`.BlurMaxPool2d` modules.
+            with :class:`.BlurMaxPool2d` modules. Default: ``True``.
         blur_first (bool): when ``replace_convs`` is ``True``, blur input before the
             associated convolution. When set to ``False``, the convolution is
             applied with a stride of 1 before the blurring, resulting in
             significant overhead (though more closely matching the paper).
-            See :class:`.BlurConv2d` for further discussion.
+            See :class:`.BlurConv2d` for further discussion. Default: ``True``.
     """
 
     def __init__(self, replace_convs: bool, replace_maxpools: bool, blur_first: bool) -> None:

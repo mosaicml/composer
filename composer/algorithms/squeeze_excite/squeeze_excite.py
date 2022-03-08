@@ -31,10 +31,14 @@ def apply_squeeze_excite(
     like in a convolutional layer.
 
     Args:
+        model (torch.nn.Module): The module to apply squeeze excite replacement.
         latent_channels (float, optional): Dimensionality of the hidden layer within the added
             MLP. If less than 1, interpreted as a fraction of the number of
             output channels in the :class:`~torch.nn.Conv2d` immediately
-            preceding each Squeeze-and-Excitation block.
+            preceding each Squeeze-and-Excitation block. Default: ``64``.
+        min_channels (int, optional): An SE block is added after a :class:`~torch.nn.Conv2d`
+            module ``conv`` only if one of the layer's input or output channels is greater than
+            this threshold. Default: ``128``.
         optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
@@ -79,7 +83,7 @@ class SqueezeExcite2d(torch.nn.Module):
     Args:
         num_features (int): Number of features or channels in the input
         latent_channels (float, optional): Dimensionality of the hidden layer within the added
-            MLP. If less than 1, interpreted as a fraction of ``num_features``.
+            MLP. If less than 1, interpreted as a fraction of ``num_features``. Default: ``0.125``.
     """
 
     def __init__(self, num_features: int, latent_channels: float = .125):
@@ -122,18 +126,18 @@ class SqueezeExcite(Algorithm):
     Runs on :attr:`~composer.core.event.Event.INIT`. See :class:`SqueezeExcite2d` for more information.
 
     Args:
-        latent_channels: Dimensionality of the hidden layer within the added
+        latent_channels (float, optional): Dimensionality of the hidden layer within the added
             MLP. If less than 1, interpreted as a fraction of the number of
             output channels in the :class:`~torch.nn.Conv2d` immediately
-            preceding each Squeeze-and-Excitation block.
-        min_channels: An SE block is added after a :class:`~torch.nn.Conv2d`
+            preceding each Squeeze-and-Excitation block. Default: ``64``.
+        min_channels (int, optional): An SE block is added after a :class:`~torch.nn.Conv2d`
             module ``conv`` only if
             ``min(conv.in_channels, conv.out_channels) >= min_channels``.
             For models that reduce spatial size and increase channel count
             deeper in the network, this parameter can be used to only
             add SE blocks deeper in the network. This may be desirable
             because SE blocks add less overhead when their inputs have
-            smaller spatial size.
+            smaller spatial size. Default: ``128``.
     """
 
     def __init__(
