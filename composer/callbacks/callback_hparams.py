@@ -5,25 +5,31 @@ from __future__ import annotations
 
 import abc
 import dataclasses
+import importlib
 import textwrap
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import yahp as hp
 
+from composer.callbacks.checkpoint_saver import CheckpointSaver
+from composer.callbacks.grad_monitor import GradMonitor
+from composer.callbacks.lr_monitor import LRMonitor
+from composer.callbacks.memory_monitor import MemoryMonitor
+from composer.callbacks.run_directory_uploader import RunDirectoryUploader
+from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.core.callback import Callback
+from composer.core.time import Time
 from composer.utils.object_store import ObjectStoreProviderHparams
 
-if TYPE_CHECKING:
-    from composer.callbacks.grad_monitor import GradMonitor
-    from composer.callbacks.lr_monitor import LRMonitor
-    from composer.callbacks.memory_monitor import MemoryMonitor
-    from composer.callbacks.run_directory_uploader import RunDirectoryUploader
-    from composer.callbacks.speed_monitor import SpeedMonitor
-
 __all__ = [
-    "CallbackHparams", "GradMonitorHparams", "MemoryMonitorHparams", "LRMonitorHparams", "SpeedMonitorHparams",
-    "RunDirectoryUploaderHparams"
+    "CallbackHparams",
+    "GradMonitorHparams",
+    "MemoryMonitorHparams",
+    "LRMonitorHparams",
+    "SpeedMonitorHparams",
+    "RunDirectoryUploaderHparams",
+    "CheckpointSaverHparams",
 ]
 
 
@@ -125,6 +131,49 @@ class SpeedMonitorHparams(CallbackHparams):
         """
         from composer.callbacks.speed_monitor import SpeedMonitor
         return SpeedMonitor(window_size=self.window_size)
+
+
+@dataclass
+class CheckpointSaverHparams(CallbackHparams):
+    """:class:`~composer.callbacks.checkpoint_saver.CheckpointSaver` hyperparameters.
+    
+    Args:
+        save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        name_format_string (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+
+        should_checkpoint (str, optional): Either a :doc:`time-string </trainer/time>` or a path to a function.
+            If a :doc:`time-string </trainer/time>`, checkpoints will be saved according to this interval.
+            If a path to a function, it should be of the format `path.to.function:function_name`. The function
+            should take (state, event) and return a boolean indicating whether a checkpoint should be saved
+            given the current state and event. The event will be either :attr:`~composer.core.event.BATCH_CHECKPOINT`
+            or :attr:`~composer.core.event.EPOCH_CHECKPOINT`.
+    """
+    save_folder: str = hp.optional(doc="Folder where checkpoints will be saved.", default="checkpoints")
+    name_format_string: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}/rank_{rank}")
+    overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
+    weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
+    should_checkpoint: str = hp.optional(textwrap.dedent("""\
+        Checkpoint interval or path to a `(State, Event) -> bool` function
+        returning whether a checkpoint should be saved."""),
+                                         default="1ep")
+
+    def initialize_object(self) -> CheckpointSaver:
+        try:
+            should_checkpoint = Time.from_timestring(self.should_checkpoint)
+        except ValueError:
+            # assume it is a module path
+            module_path, function_name = self.should_checkpoint.split(":")
+            mod = importlib.import_module(module_path)
+            should_checkpoint = getattr(mod, function_name)
+        return CheckpointSaver(
+            save_folder=self.save_folder,
+            name_format_string=self.name_format_string,
+            overwrite=self.overwrite,
+            should_checkpoint=should_checkpoint,
+            weights_only=self.weights_only,
+        )
 
 
 @dataclass

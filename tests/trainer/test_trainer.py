@@ -13,7 +13,9 @@ from torch.utils.data import DataLoader
 from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
 from composer.callbacks import LRMonitor, RunDirectoryUploader
+from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.callback import Callback
+from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.types import Model
 from composer.loggers import FileLogger, TQDMLogger, WandBLogger
@@ -86,17 +88,22 @@ class TestTrainerInit():
             Trainer(**config)
 
     @pytest.mark.timeout(5.0)
-    def test_init_with_integers(self, config, tmpdir):
+    def test_init_with_integers(self, config, tmpdir: pathlib.Path):
         config.update({
             'max_duration': 1,
-            'save_interval': 10,
+            'should_save': 10,
             'save_folder': tmpdir,
         })
 
         trainer = Trainer(**config)
         assert trainer.state.max_duration == "1ep"
-        assert trainer._checkpoint_saver is not None and \
-            trainer._checkpoint_saver._save_interval == "10ep"
+        checkpoint_saver = None
+        for callback in trainer.state.callbacks:
+            if isinstance(callback, CheckpointSaver):
+                checkpoint_saver = callback
+        assert checkpoint_saver is not None
+        trainer.state.timer.epoch._value = 10
+        assert checkpoint_saver.should_checkpoint(trainer.state, Event.EPOCH_CHECKPOINT)
 
     @pytest.mark.timeout(5.0)
     def test_init_with_max_duration_in_batches(self, config):
@@ -159,7 +166,7 @@ class TestTrainerEquivalence():
         config = deepcopy(config)  # ensure the reference model is not passed to tests
 
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
-        config.update({'save_interval': '1ep', 'save_folder': save_folder})
+        config.update({'should_save': '1ep', 'save_folder': save_folder})
 
         trainer = Trainer(**config)
         trainer.fit()

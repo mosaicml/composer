@@ -8,8 +8,8 @@ checkpoints will be stored in
 ``CWD/runs/<timestamp>/<rank>/<save_folder>``. Absolute paths will be used as-is.
 
 By default, checkpoints are saved every epoch, but can be configured
-using the ``save_interval`` argument. Specify ``save_interval="10ep"``
-to save every 10 epochs or ``save_interval="500ba"`` to save every
+using the ``should_save`` argument. Specify ``should_save="10ep"``
+to save every 10 epochs or ``should_save="500ba"`` to save every
 500 batches/steps.
 
 .. code:: python
@@ -20,7 +20,7 @@ to save every 10 epochs or ``save_interval="500ba"`` to save every
                      train_dataloader=dataloader,
                      max_duration="1ep",
                      save_folder="/path/to/checkpoints",
-                     save_interval="1ep")  # Save checkpoints every epoch
+                     should_save="1ep")  # Save checkpoints every epoch
    trainer.fit()
 
 The above code will train a model for 1 epoch, and then save the checkpoint.
@@ -43,11 +43,9 @@ Opening one of those checkpoints, you'll see:
    state_dict = torch.load(
        os.path.join(trainer.checkpoint_saver.checkpoint_folder, "ep1.pt")
    )
-   print(f"Top level keys: {list(state_dict.keys())}")
-   print(f"state keys: {list(state_dict['state'].keys())}")
+   print(f"Keys: {list(state_dict.keys())}")
 
-   >>> Top level keys: ['rng', 'seed', 'state']
-   >>> state keys: ['model', 'grad_accum', '_max_duration', 'timer', '_precision', '_optimizers', '_schedulers', 'scaler', '_algorithms', '_callbacks', '_is_model_ddp_wrapped']
+   >>> Keys: ['model', 'grad_accum', '_max_duration', 'timer', '_precision', '_optimizers', '_schedulers', 'scaler', '_algorithms', '_callbacks', '_is_model_ddp_wrapped']
 
 At the top level, we see details on the current RNG state and the
 ``trainer.state``.
@@ -286,7 +284,7 @@ Saving
 
 - ``save_folder`` (``str``, `optional`): Folder path to save checkpoints, relative to the run directory.
   Set to ``None`` to not save checkpoints. (default: ``None``)
-- ``save_interval`` (``str`` or ``int``): How often to save checkpoints. For example, set to "1ep" to save checkpoints
+- ``should_save`` (``str`` or ``int``): How often to save checkpoints. For example, set to "1ep" to save checkpoints
   every epoch, or "10ba" to save checkpoints every 10 batches. An integer will be assumed to be epochs.
   (default: ``1ep``)
 - ``save_compression`` (``str``): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,

@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import random
 import textwrap
 import warnings
 from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequence, Union, cast
 
+import numpy as np
 import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
@@ -20,6 +22,8 @@ from composer.core.time import Time, Timer, TimeUnit
 from composer.utils import dist, ensure_tuple
 
 if TYPE_CHECKING:
+    import deepspeed
+
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.profiler import Profiler
@@ -193,6 +197,7 @@ class State(Serializable):
             "scaler",
             "timer",
             "rank_zero_seed",
+            "rng",
         ]
 
     @property
@@ -258,32 +263,31 @@ class State(Serializable):
         """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
 
-        for state_field_name, state_field_value in self.__dict__.items():
-            if state_field_name.lstrip("_") not in self.serialized_attributes:
-                continue
-            if state_field_name == "model":
+        for attribute_name in self.serialized_attributes:
+            attribute_value = getattr(self, attribute_name)
+            if attribute_name == "model":
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-                serialized_value = state_field_value.state_dict()
+                serialized_value = attribute_value.state_dict()
             else:
                 # Duck typing since runtime checkable protocols are not available in Python 3.7
-                is_state_dict_serializable = any(hasattr(x, "state_dict") for x in ensure_tuple(state_field_value))
-                if len(ensure_tuple(state_field_value)) > 0:
+                is_state_dict_serializable = any(hasattr(x, "state_dict") for x in ensure_tuple(attribute_value))
+                if len(ensure_tuple(attribute_value)) > 0:
                     # any and all should be the same, except in for an empty collection, since
                     # any([]) is False, while all([]) is True
                     if is_state_dict_serializable != all(
-                            hasattr(x, "state_dict") for x in ensure_tuple(state_field_value)):
+                            hasattr(x, "state_dict") for x in ensure_tuple(attribute_value)):
                         raise RuntimeError(
-                            f"Every member of {state_field_name} should support `state_dict`, or no members should support it."
+                            f"Every member of {attribute_name} should support `state_dict`, or no members should support it."
                         )
 
                 if is_state_dict_serializable:
                     serialized_value = {
-                        obj.__class__.__qualname__: obj.state_dict() for obj in ensure_tuple(state_field_value)
+                        obj.__class__.__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
                     }
                 else:
-                    serialized_value = state_field_value
+                    serialized_value = attribute_value
 
-            state_dict[state_field_name] = serialized_value
+            state_dict[attribute_name] = serialized_value
 
         state_dict["_is_model_ddp_wrapped"] = isinstance(self.model, DistributedDataParallel)
         return state_dict
@@ -292,8 +296,8 @@ class State(Serializable):
         """Loads the model's state from a state_dict.
 
         Args:
-            state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
-            strict (bool): whether the keys (i.e., model parameter names) in the ``state_dict["model"]`` should
+            state_dict (types.StateDict): The state dict, generated from a previous call to :meth:`state_dict`.
+            strict (bool): Whether the keys (i.e., model parameter names) in the ``state_dict["model"]`` should
                 perfectly match the keys in the ``self.model``.
         """
         if state_dict["_is_model_ddp_wrapped"] and not isinstance(self.model, DistributedDataParallel):
@@ -304,24 +308,34 @@ class State(Serializable):
         if len(unexpected_keys) > 0:
             logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
-    def load_state_dict(self, state: types.StateDict, strict: bool = False):
+    def load_state_dict(self, state: types.StateDict, strict: bool = False) -> List[types.StateDict]:
         """Loads the state.
 
         Args:
             state (types.StateDict): object returned from call to :meth:`state_dict`.
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
+        Returns:
+            List[types.StateDict]: The RNG state dicts, indexed by global rank.
         """
 
-        for state_field_name, state_field_value in self.__dict__.items():
-            if state_field_name.lstrip("_") not in self.serialized_attributes:
-                continue
-            serialized_value = state[state_field_name]
+        rng_state_dicts = []
 
-            if state_field_name == "model":
+        for attribute_name, serialized_value in state.items():
+            if attribute_name not in self.serialized_attributes:
+                # it's possible some attributes we removed
+                continue
+
+            if attribute_name == "model":
                 self.load_model_state(state, strict=strict)
+            elif attribute_name == "rng":
+                # rng state is NOT restored. Instead, it is returned so the trainer
+                # can restore it later
+                rng_state_dicts = serialized_value
+                continue
             else:
                 # Duck typing since runtime checkable protocols are not available in Python 3.7
+                state_field_value = getattr(self, attribute_name)
                 is_state_dict_serializable = any(hasattr(x, "load_state_dict") for x in ensure_tuple(state_field_value))
                 if len(ensure_tuple(state_field_value)) > 0:
                     # any and all should be the same, except in for an empty collection, since
@@ -329,7 +343,7 @@ class State(Serializable):
                     if is_state_dict_serializable != all(
                             hasattr(x, "load_state_dict") for x in ensure_tuple(state_field_value)):
                         raise RuntimeError(
-                            f"Every member of {state_field_name} should support `load_state_dict`, or no members should support it."
+                            f"Every member of {attribute_name} should support `load_state_dict`, or no members should support it."
                         )
                 if is_state_dict_serializable:
                     for target in ensure_tuple(state_field_value):
@@ -342,7 +356,9 @@ class State(Serializable):
                         target.load_state_dict(source)
                 else:
                     # direct serialization
-                    setattr(self, state_field_name, serialized_value)
+                    setattr(self, attribute_name, serialized_value)
+
+        return rng_state_dicts
 
     @property
     def steps_per_epoch(self):
@@ -398,3 +414,115 @@ class State(Serializable):
     @property
     def precision_context(self):
         return self._precision_context(self.precision)
+
+    @property
+    def devices(self) -> List[torch.device]:
+        """The list of devices on which the model parameters reside.
+
+        .. note::
+
+            The ordering of the devices is stable with respect to the ordering of :meth:`torch.nn.Module.parameters`.
+
+        Returns:
+            List[torch.device]: The list of devices on which the model parameters reside.
+        """
+        parameters = list(self.model.parameters())
+
+        devices: List[torch.device] = []
+        for parameter in parameters:
+            device = parameter.device
+            if device not in devices:
+                devices.append(device)
+
+        return devices
+
+    @property
+    def rng(self) -> List[types.StateDict]:
+        """The state of the RNG objects.
+
+        Returns:
+            List[types.StateDict]: A list of RNG State Dicts, indexed by global rank.
+        """
+
+        cuda_rng_state = []
+        for device in self.devices:
+            if device.type == "cpu":
+                continue
+            if device.type == "cuda":
+                cuda_rng_state.append(torch.cuda.get_rng_state(device))
+            else:
+                raise RuntimeError(f"Unsupported device type: {device.type}")
+
+        rng_state = {
+            "python": random.getstate(),
+            "numpy": np.random.get_state(),
+            "torch": torch.random.get_rng_state(),
+            "cuda": cuda_rng_state,
+        }
+        return dist.all_gather_object(rng_state)
+
+    @rng.setter
+    def rng(self, rng_state_dicts: List[types.StateDict]):
+        """Restore the RNG state.
+
+        Args:
+            rng_state_dicts (List[types.StateDict]): The list of RNG state dicts to restore,
+                as returned by ``self.rng``.
+        """
+        if dist.get_world_size() > len(rng_state_dicts):
+            warnings.warn(
+                textwrap.dedent(f"""\
+                The current world size ({dist.get_world_size()} is greater than the number of RNG state(s) serialized
+                ({len(rng_state_dicts)}). Only the first {len(rng_state_dicts)} rank(s) will have their RNG restored.
+                """))
+        if dist.get_world_size() < len(rng_state_dicts):
+            warnings.warn(
+                textwrap.dedent(f"""\
+                The current world size ({dist.get_world_size()} is less than the number of RNG state(s) serialized
+                ({len(rng_state_dicts)}). Only the first {dist.get_world_size()} RNG state(s) will be consumed;
+                the remaining will be ignored."""))
+
+        if dist.get_global_rank() < len(rng_state_dicts):
+            rng_state_dict = rng_state_dicts[dist.get_global_rank()]
+            torch.set_rng_state(rng_state_dict['torch'])
+            random.setstate(rng_state_dict['python'])
+            np.random.set_state(rng_state_dict['numpy'])
+
+            cuda_devices = list(device for device in self.devices if device.type == "cuda")
+            cuda_device_states = rng_state_dict["cuda"]
+            if len(cuda_devices) > len(cuda_device_states):
+                warnings.warn(
+                    textwrap.dedent(f"""\
+                    For rank {dist.get_global_rank()}, the number of CUDA devices ({len(cuda_devices)}) is greater than
+                    the number of CUDA RNG state(s) serialized ({len(rng_state_dict["cuda"])}). Only the first
+                    {len(rng_state_dict["cuda"])} will have their RNG states restored."""))
+
+            if len(cuda_devices) < len(cuda_device_states):
+                warnings.warn(
+                    textwrap.dedent(f"""\
+                    For rank {dist.get_global_rank()}, the number of CUDA devices ({len(cuda_devices)}) is less than
+                    the number of CUDA RNG state(s) serialized ({len(rng_state_dict["cuda"])}). Only the first
+                    {len(cuda_devices)} CUDA RNG state(s) will be consumed; the remaining will be ignored."""))
+            for i, device in enumerate(cuda_devices):
+                if i >= len(cuda_device_states):
+                    # No more rng states to restore
+                    break
+                cuda_device_state = rng_state_dict["cuda"][i]
+                torch.cuda.set_rng_state(cuda_device_state, device)
+
+    @property
+    def is_model_deepspeed(self) -> bool:
+        """Whether :attr:`model` is an instance of a :class:`~deepspeed.DeepSpeedEngine`."""
+        try:
+            import deepspeed
+        except ImportError:
+            return False
+        else:
+            return isinstance(self.model, deepspeed.DeepSpeedEngine)
+
+    @property
+    def deepspeed_model(self) -> deepspeed.DeepSpeedEngine:
+        """Cast :attr:`model` to :class:`~deepspeed.DeepSpeedEngine`."""
+        if self.is_model_deepspeed:
+            return cast("deepspeed.DeepSpeedEngine", self.model)
+        raise TypeError("state.model is not a DeepSpeed model")
