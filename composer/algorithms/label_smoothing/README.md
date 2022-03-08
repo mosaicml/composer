@@ -15,7 +15,7 @@ Label smoothing modifies the target distribution for a task by interpolating bet
 ### Functional Interface
 
 ```python
-# Run the Label Smoothing algorithm directly on the targets using the Composer functional API 
+# Run the Label Smoothing algorithm directly on the targets using the Composer functional API
 
 import composer.functional as cf
 
@@ -30,7 +30,7 @@ def training_loop(model, train_loader):
 
             # note that if you were to modify the variable y here it is a good
             # idea to set y back to the original targets after computing the loss
-            smoothed_targets = cf.smooth_labels(y_hat, y, alpha=0.1)
+            smoothed_targets = cf.smooth_labels(y_hat, y, smoothing=0.1)
 
             loss = loss_fn(y_hat, smoothed_targets)
             loss.backward()
@@ -47,7 +47,7 @@ def training_loop(model, train_loader):
 from composer.algorithms import LabelSmoothing
 from composer.trainer import Trainer
 
-label_smoothing = LabelSmoothing(alpha=0.1)
+label_smoothing = LabelSmoothing(smoothing=0.1)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
@@ -62,7 +62,7 @@ trainer.fit()
 
 `LabelSmoothing` converts targets to a one-hot representation if they are not in that format already and then applies a convex combination with a uniform distribution over the labels using the following formula:
 
-`smoothed_labels = (targets * (1. - alpha)) + (alpha / n_classes)`
+`smoothed_labels = (targets * (1. - smoothing)) + (smoothing / n_classes)`
 
 The functional form of the algorithm (accessible with the function `smooth_labels` in `composer.functional`), simply computes smoothed labels and returns them.
 
@@ -70,8 +70,8 @@ The class form of the algorithm also takes care of setting the targets back to t
 
 ## Suggested Hyperparameters
 
-The only hyperparameter for Label Smoothing is `alpha`, a value between 0.0 and 1.0 that specifies the interpolation between the target distribution and a uniform distribution. For example. a value of 0.9 specifies that the target values should be multiplied by 0.9 and added to a uniform distribution multiplied by 0.1.
-`alpha=0.1` is a standard starting point for label smoothing.
+The only hyperparameter for Label Smoothing is `smoothing`, a value between 0.0 and 1.0 that specifies the interpolation between the target distribution and a uniform distribution. For example. a value of 0.9 specifies that the target values should be multiplied by 0.9 and added to a uniform distribution multiplied by 0.1.
+`smoothing=0.1` is a standard starting point for label smoothing.
 
 ## Technical Details
 
