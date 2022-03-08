@@ -1119,7 +1119,7 @@ class Trainer:
                     self.state.loss = cast(torch.Tensor, self.state.scaler.scale(self.state.loss))
 
                 if self.deepspeed_enabled:
-                    cast("deepspeed.DeepSpeedEngine", self.state.model).backward(self.state.loss)
+                    self.state.deepspeed_model.backward(self.state.loss)
 
                     # This is the same loss scaling and reporting we skipped earlier.
                     for loss in ensure_tuple(self.state.loss):
@@ -1132,7 +1132,7 @@ class Trainer:
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
             if self.deepspeed_enabled:
-                cast("deepspeed.DeepSpeedEngine", self.state.model).step()
+                self.state.deepspeed_model.step()
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:
