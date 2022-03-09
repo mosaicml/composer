@@ -234,6 +234,10 @@ class ComposerClassifier(ComposerModel):
 
     def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensors:
         _, targets = batch
+        if not isinstance(outputs, Tensor):
+            raise ValueError("Loss expects input as Tensor")
+        if not isinstance(targets, Tensor):
+            raise ValueError("Loss does not support multiple target Tensors")
         return soft_cross_entropy(outputs, targets, *args, **kwargs)
 
     def metrics(self, train: bool = False) -> Metrics:
