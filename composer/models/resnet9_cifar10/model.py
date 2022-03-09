@@ -14,11 +14,10 @@ __all__ = ["ResNet9", "CIFAR10_ResNet9"]
 # adapted from https://raw.githubusercontent.com/matthias-wright/cifar10-resnet/master/model.py
 # under the MIT license
 class ResNet9(nn.Module):
-    """A 9-layer residual network, excluding BatchNorms and activation functions, as described in this blog post:
-    https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
+    """A 9-layer residual network, excluding BatchNorms and activation functions, as described in the
+    `myrtle.ai blog <https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/>`_.
 
-    See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
-    on the residual network architecture.
+    See `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ for details on the residual network architecture.
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.
@@ -60,8 +59,7 @@ class ResNet9(nn.Module):
 class CIFAR10_ResNet9(ComposerClassifier):
     """A ResNet-9 model extending :class:`.ComposerClassifier`.
 
-    See this blog post for details regarding the architecture:
-    https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
+    See `myrtle.ai blog <https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/>`_ for more details.
 
     Args:
         num_classes (int): The number of classes. Needed for classification tasks. Default: 10.

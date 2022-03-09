@@ -161,7 +161,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         raise NotImplementedError('Implement metrics in your ComposerModel to run validation.')
 
     def validate(self, batch: Batch) -> Tuple[Any, Any]:
-        """Compute model outputs on provided data. Will be called by the trainer with :func:`torch.nograd()` enabled.
+        """Compute model outputs on provided data. Will be called by the trainer with :class:`torch.no_grad` enabled.
 
         The output of this function will be directly used as input
         to all metrics returned by :meth:`metrics`.
@@ -201,7 +201,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 class ComposerClassifier(ComposerModel):
     """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a vanilla PyTorch model.
     :class:`.ComposerClassifier` requires batches in the form: (``input``, ``target``) and includes a basic
-    classification training loop with CrossEntropy loss and accuracy logging.
+    classification training loop with :func:`.soft_cross_entropy` loss and accuracy logging.
 
     Args:
         module (torch.nn.Module): A PyTorch neural network module.
@@ -234,8 +234,6 @@ class ComposerClassifier(ComposerModel):
 
     def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensors:
         _, targets = batch
-        assert isinstance(outputs, Tensor), "Loss expects outputs as Tensor"
-        assert isinstance(targets, Tensor), "Loss does not support multiple target Tensors"
         return soft_cross_entropy(outputs, targets, *args, **kwargs)
 
     def metrics(self, train: bool = False) -> Metrics:

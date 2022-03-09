@@ -13,10 +13,7 @@ __all__ = ["Model", "MNIST_Classifier"]
 
 
 class Model(nn.Module):
-    """Toy classifier for MNIST.
-
-    Should not be used to evaluate any method.
-    """
+    """Toy convolutional neural network architecture in pytorch for MNIST."""
 
     def __init__(self, initializers: Sequence[Union[str, Initializer]], num_classes: int = 10):
         super().__init__()
@@ -48,13 +45,12 @@ class Model(nn.Module):
 
 class MNIST_Classifier(ComposerClassifier):
     """A simple convolutional neural network extending :class:`.ComposerClassifier`.
-
-    A simple example convolutional neural network which can be used to classify MNIST data.
+    This class makes :class:`.Model` compatible with :class:`.Trainer`
 
     Args:
-        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``
         initializers (List[Initializer], optional): list of Initializers
-            for the model. ``None`` for no initialization. (default: ``None``)
+            for the model. ``None`` for no initialization. Default: ``None``
 
     Example:
 

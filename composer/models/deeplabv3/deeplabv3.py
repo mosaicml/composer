@@ -70,14 +70,14 @@ class ComposerDeepLabV3(ComposerModel):
     """DeepLabV3 model extending :class:`.ComposerClassifier`. Logs Mean Intersection over Union (MIoU) and Cross
     Entropy during training and validation.
 
-    From the paper Rethinking Atrous Convolution for Semantic Image Segmentation `<arxiv.org/abs/1706.05587>`_.
+    From `Rethinking Atrous Convolution for Semantic Image Segmentation <arxiv.org/abs/1706.05587>`_.
 
     Args:
         num_classes (int): The number of classes in the segmentation task.
-        backbone_arch (str, optional): The backbone architecture to use, either 'resnet50', 'resnet101'. Default: 'resnet101'.
-        is_backbone_pretrained (bool, optional): if true (default), use pre-trained weights for backbone. Default: True.
-        sync_bn (bool, optional): Use SyncBatchNorm to sync batch norm statistics across GPUs. Default: True.
-        initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: [].
+        backbone_arch (str, optional): The backbone architecture to use, either 'resnet50', 'resnet101'. Default: ``'resnet101'``.
+        is_backbone_pretrained (bool, optional): if true (default), use pre-trained weights for backbone. Default: ``True``.
+        sync_bn (bool, optional): Use SyncBatchNorm to sync batch norm statistics across GPUs. Default: ``True``.
+        initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: ``[]``.
 
     Example:
 

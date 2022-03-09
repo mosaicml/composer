@@ -180,7 +180,8 @@ class DepthwiseSeparableConv(nn.Module):
 
 
 class MBConvBlock(nn.Module):
-    """Mobile Inverted Residual Bottleneck Block as defined in https://arxiv.org/abs/1801.04381.
+    """Mobile Inverted Residual Bottleneck Block as defined in `MobileNetV2: Inverted Residuals and Linear Bottlenecks
+<https://arxiv.org/abs/1801.04381>`_.
 
     Args:
         in_channels (int): Number of channels in the input tensor.
@@ -268,7 +269,7 @@ class MBConvBlock(nn.Module):
 
 
 class EfficientNet(nn.Module):
-    """EfficientNet architecture designed for ImageNet in https://arxiv.org/abs/1905.11946.
+    """From `EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks <https://arxiv.org/abs/1905.11946>`_.
 
     Args:
         num_classes (int): Size of the EfficientNet output, typically viewed

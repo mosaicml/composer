@@ -7,8 +7,8 @@ __all__ = ["EfficientNetB0"]
 
 
 class EfficientNetB0(ComposerClassifier):
-    """A :class:`.ComposerClassifier` wrapper around the EfficientNet-b0 architecture. From the paper EfficientNet:
-    Rethinking Model Scaling for Convolutional Neural Networks `<https://arxiv.org/abs/1905.11946>`_.
+    """A :class:`.ComposerClassifier` wrapper around the EfficientNet-b0 architecture.
+    From `Rethinking Model Scaling for Convolutional Neural Networks <https://arxiv.org/abs/1905.11946>`_.
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 1000.
