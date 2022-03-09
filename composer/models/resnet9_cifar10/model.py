@@ -2,13 +2,10 @@
 
 """A ResNet-9 model extending :class:`.ComposerClassifier` and ResNet-9 architecture."""
 
-from typing import List, Optional
-
 import torch.nn as nn
 from torchvision.models.resnet import BasicBlock
 
 from composer.models.base import ComposerClassifier
-from composer.models.model_hparams import Initializer
 
 __all__ = ["ResNet9", "CIFAR10_ResNet9"]
 
