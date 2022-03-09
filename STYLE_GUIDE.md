@@ -1,4 +1,4 @@
-# Style and Conventions 
+# Style and Conventions
 
 ### 2.1 Style Guide
 
@@ -89,7 +89,6 @@ The following are examples of public APIs:
 The following rules apply to public APIs:
 1. All public APIs must have a docstring (see the Documentation section below)
 1. All parameters must have type annotations.
-1. Parameters should be flattened, rather than nested. While this violates the software engineering practice of being DRY (don't repeat yourself), it simplifies the user API by making all parameters visible.
 1. To minimize user imports, parameters should should use native PyTorch or Python types whenever possible.
 
     It is acceptable to use a union of types, so long as one of the options is a primitive. For example, in the
@@ -328,14 +327,3 @@ The following guidelines apply to documentation.
     ```bash
     cd docs && make clean && make html && make doctest
     ```
-
-## 8. Hparams and Config Classes
-
-Each class that could be initialized by the hparams will need its configuration variables defined in
-[yahp](https://github.com/mosaicml/yahp) dataclass.
-
-Guidelines:
-* The fields in the dataclass should roughly follow the init signature of the class being constructed
-* `initialize_object(self)` should take any parameters needed to construct the class. It acceptable to
-take complex types or other hparam dataclasses, as required, to initialize the object.
-
