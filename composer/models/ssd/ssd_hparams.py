@@ -8,6 +8,7 @@ import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
 
+__all__ = ["SSDHparams"]
 
 @dataclass
 class SSDHparams(ModelHparams):
