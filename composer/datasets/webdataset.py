@@ -4,7 +4,7 @@ import math
 import os
 import subprocess
 import textwrap
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple, Union
 
 from tqdm import tqdm
 
@@ -54,7 +54,7 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
                       split: str,
                       n_samples: int,
                       n_shards: int,
-                      use_tqdm: bool = True) -> None:
+                      use_tqdm: Union[bool, int] = True) -> None:
     """Write an entire WebDataset to a local directory, given an iterable of samples.
 
     Args:
@@ -64,7 +64,7 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
         n_samples (int): Number of samples in dataset.
         n_shards (int): Number of full shards to write (may write a leftovers shard).
         use_tqdm (bool): Whether to show progress with tqdm.
-"""
+    """
     require_webdataset()
     split_dir = os.path.join(dataset_dir, split)
     os.makedirs(split_dir)
