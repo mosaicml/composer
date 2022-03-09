@@ -81,14 +81,16 @@ class RandomCropPair(torch.nn.Module):
                 # measure max area percentage of a single class
                 labels, counts = np.unique(np.array(target_crop), return_counts=True)
                 counts = counts[labels != 0]
-                current_max_percent = (np.max(counts) / np.sum(counts))
 
-                if len(counts) > 1 and current_max_percent < self.class_max_percent:
-                    break
+                if len(counts) > 0:
+                    current_max_percent = (np.max(counts) / np.sum(counts))
 
-                if current_max_percent < best_max_percent:
-                    best_crop = crop
-                    best_max_percent = current_max_percent
+                    if len(counts) > 1 and current_max_percent < self.class_max_percent:
+                        break
+
+                    if current_max_percent < best_max_percent:
+                        best_crop = crop
+                        best_max_percent = current_max_percent
 
                 crop = transforms.RandomCrop.get_params(
                     image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
