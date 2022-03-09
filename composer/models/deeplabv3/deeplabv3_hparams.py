@@ -16,7 +16,7 @@ class DeepLabV3Hparams(ModelHparams):
 
     Args:
         num_classes (int): The number of classes in the segmentation task.
-        backbone_arch (str, optional): The backbone architecture to use, either 'resnet50', 'resnet101'. Default: 'resnet101'.
+        backbone_arch (str, optional): The backbone architecture to use, either 'resnet50', 'resnet101'. Default: ``'resnet101'``.
         is_backbone_pretrained (bool, optional): if true (default), use pre-trained weights for backbone. Default: True.
         sync_bn (bool, optional): Use SyncBatchNorm to sync batch norm statistics across GPUs. Default: True.
         initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: [].
