@@ -10,7 +10,7 @@ __all__ = ["ViTSmallPatch16"]
 class ViTSmallPatch16(ComposerClassifier):
     """Implements ViT-S/16 as a :class:`.ComposerClassifier`.
 
-    See `Training data-efficient image transformers & distillation through attention <https://arxiv.org/pdf/2012.12877.pdf>`_ for details on ViT-S/16.
+    See `Training data-efficient image transformers & distillation through attention <https://arxiv.org/pdf/2012.12877.pdf>`_ (Touvron et al, 2021) for details on ViT-S/16.
 
     Args:
         num_classes (int, optional): number of classes for the model. Default: ``1000``.

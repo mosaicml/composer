@@ -15,14 +15,14 @@ __all__ = ["Perplexity", "BinaryF1Score", "LanguageCrossEntropyLoss", "CrossEntr
 class MaskedAccuracy(Metric):
     """Computes accuracy with support for masked indicies.
 
+    Adds metric state variables:
+        correct (float): The number of instances where the prediction masked the target.
+        total (float): The number of total instances that were predicted.
+
     Args:
         ignore_index (int): The class index to ignore.
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step. Default: ``False``.
-
-    State:
-        correct (float): The number of instances where the prediction masked the target.
-        total (float): The number of total instances that were predicted.
     """
 
     def __init__(self, ignore_index: int, dist_sync_on_step=False):
@@ -55,15 +55,15 @@ class MaskedAccuracy(Metric):
 class CrossEntropyLoss(Metric):
     """Computes cross entropy loss.
 
+    Adds metric state variables:
+        sum_loss (float): The sum of the per-example loss in the batch.
+        total_items (float): The number of batches to average across.
+
     Args:
         vocab_size (int): The size of the tokenizer vocabulary.
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step. Default: ``False``.
         ignore_index (int, optional): The class index to ignore. Default: ``-100``.
-
-    State:
-        sum_loss (float): The sum of the per-example loss in the batch.
-        total_items (float): The number of batches to average across.
     """
 
     def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = -100):
@@ -108,14 +108,14 @@ class CrossEntropyLoss(Metric):
 class BinaryF1Score(Metric):
     """Implements F1 Scores for binary classification tasks via sklearn.
 
-    Args:
-        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step. Default: ``False``.
-
-    State:
+    Adds metric state variables:
         true_positive (float): A counter of how many items were correctly classified as positives.
         false_positive (float): A counter of how many items were incorrectly classified as positives.
         false_negative (float): A counter of how many items were incorrectly classified as negatives.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
     """
 
     def __init__(self, dist_sync_on_step=False):
@@ -155,13 +155,13 @@ class BinaryF1Score(Metric):
 class LanguageCrossEntropyLoss(Metric):
     """Hugging Face compatible cross entropy loss.
 
+    Adds metric state variables:
+        sum_loss (float): The sum of the per-example loss in the batch.
+        total_batches (float): The number of batches to average across.
+
     Args:
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step. Default: ``False``
-
-    State:
-        sum_loss (float): The sum of the per-example loss in the batch.
-        total_batches (float): The number of batches to average across.
     """
 
     def __init__(self, dist_sync_on_step=False):

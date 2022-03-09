@@ -172,9 +172,8 @@ class DepthwiseSeparableConv(nn.Module):
 
 
 class MBConvBlock(nn.Module):
-    """Mobile Inverted Residual Bottleneck Block as defined in `MobileNetV2: Inverted Residuals and Linear Bottlenecks.
-
-    <https://arxiv.org/abs/1801.04381>`_.
+    """Mobile Inverted Residual Bottleneck Block as defined in
+    `MobileNetV2: Inverted Residuals and Linear Bottlenecks <https://arxiv.org/abs/1801.04381>`_ (Sandler et al, 2018).
 
         Args:
             in_channels (int): Number of channels in the input tensor.

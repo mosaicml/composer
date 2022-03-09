@@ -28,7 +28,7 @@ class GPT2Model(ComposerTransformer):
     transformers <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_. Logs training and
     validation perplexity.
 
-    From `Language Models are Unsupervised Multitask Learners <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_.
+    From `Language Models are Unsupervised Multitask Learners <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_ (Radford et al, 2018).
 
     Args:
         module (transformers.GPT2Model): The model to wrap with this module.
