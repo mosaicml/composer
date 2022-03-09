@@ -116,12 +116,12 @@ into a dictionary:
             # Dictionary to store logged data
             self.data = {}
 
-        def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict):
+        def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
             if log_level <= self.log_level:
                 for k, v in data.items():
                     if k not in self.data:
                         self.data[k] = []
-                    self.data[k].append((timestamp, log_level, v))
+                    self.data[k].append((state.timer.get_timestamp(), log_level, v))
 
 In addition, :class:`.LoggerDestination` can also implement the typical event-based
 hooks of typical callbacks if needed. See :doc:`Callbacks<callbacks>` for
