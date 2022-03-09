@@ -99,8 +99,8 @@ class Logger:
         self.run_name = run_name
         self._state = state
 
-    def metric(self, log_level: Union[str, LogLevel], data: LoggerDataDict) -> None:
-        """Log a metric to the :attr:`destinations`.
+    def data(self, log_level: Union[str, LogLevel], data: LoggerDataDict) -> None:
+        """Log data to the :attr:`destinations`.
 
         Args:
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
@@ -110,19 +110,19 @@ class Logger:
             log_level = LogLevel[log_level.upper()]
 
         for destination in self.destinations:
-            destination.log_data(self._state.timer.get_timestamp(), log_level, data)
+            destination.log_data(self._state, log_level, data)
 
     def data_fit(self, data: LoggerDataDict) -> None:
-        """Helper function for ``metric(LogLevel.FIT, data)``"""
-        self.metric(LogLevel.FIT, data)
+        """Helper function for ``self.metric(LogLevel.FIT, data)``"""
+        self.data(LogLevel.FIT, data)
 
     def data_epoch(self, data: LoggerDataDict) -> None:
         """Helper function for ``self.metric(LogLevel.EPOCH, data)``"""
-        self.metric(LogLevel.EPOCH, data)
+        self.data(LogLevel.EPOCH, data)
 
     def data_batch(self, data: LoggerDataDict) -> None:
         """Helper function for ``self.metric(LogLevel.BATCH, data)``"""
-        self.metric(LogLevel.BATCH, data)
+        self.data(LogLevel.BATCH, data)
 
 
 def format_log_data_value(data: LoggerData) -> str:

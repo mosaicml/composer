@@ -15,7 +15,6 @@ from tqdm import auto
 from composer.core.logging import LoggerDataDict, LogLevel, format_log_data_value
 from composer.core.logging.logger_destination import LoggerDestination
 from composer.core.state import State
-from composer.core.time import Timestamp
 from composer.core.types import StateDict
 from composer.utils import dist
 
@@ -104,8 +103,8 @@ class TQDMLogger(LoggerDestination):
         self.is_train: Optional[bool] = None
         self.config = config
 
-    def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict) -> None:
-        del timestamp
+    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict) -> None:
+        del state
         if dist.get_global_rank() == 0 and log_level <= LogLevel.BATCH and self.is_train in self.pbars:
             # Logging outside an epoch
             assert self.is_train is not None

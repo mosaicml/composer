@@ -14,6 +14,7 @@ import numpy as np
 from torch import Tensor
 
 from composer.core.logging import LoggerData, LoggerDataDict, LoggerDestination, LogLevel
+from composer.core.state import State
 from composer.core.time import Timestamp
 
 __all__ = ["InMemoryLogger"]
@@ -56,7 +57,7 @@ class InMemoryLogger(LoggerDestination):
             (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`,
             :attr:`~.logger.LoggerDataDict`) tuple. This dictionary contains all logged
             data.
-        most_recent_values (Dict[str, LoggerDataDict]): Mapping of a key to the most recent value for that key.
+        most_recent_values (LoggerDataDict): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
     """
@@ -67,10 +68,11 @@ class InMemoryLogger(LoggerDestination):
         self.most_recent_values: LoggerDataDict = {}
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
 
-    def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict):
+    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
         if log_level > self.log_level:
             # the logged metric is more verbose than what we want to record.
             return
+        timestamp = state.timer.get_timestamp()
         copied_data = copy.deepcopy(data)
         for k, v in copied_data.items():
             if k not in self.data:
@@ -79,14 +81,14 @@ class InMemoryLogger(LoggerDestination):
         self.most_recent_values.update(copied_data.items())
         self.most_recent_timestamps.update({k: timestamp for k in copied_data})
 
-    def get_timeseries(self, metric: str) -> Dict[str, LoggerDataDict]:
+    def get_timeseries(self, metric: str) -> Dict[str, LoggerData]:
         """Returns logged data as dict containing values of a desired metric over time.
 
         Args:
             metric (str): Metric of interest. Must be present in self.data.keys().
 
         Returns:
-            timeseries (Dict[str, LoggerDataDict]): Dictionary in which one key is ``metric``,
+            timeseries (LoggerDataDict): Dictionary in which one key is ``metric``,
                 and the associated value is a list of values of that metric. The remaining
                 keys are each a unit of time, and the associated values are each a list of
                 values of that time unit for the corresponding index of the metric. For

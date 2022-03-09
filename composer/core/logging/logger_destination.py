@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from composer.core.callback import Callback
-from composer.core.time import Timestamp
+from composer.core import State
 
 if TYPE_CHECKING:
     from composer.core.logging.logger import LoggerDataDict, LogLevel
@@ -40,7 +40,7 @@ class LoggerDestination(Callback, ABC):
     """
 
     @abstractmethod
-    def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict):
+    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
         """Invoked by the :class:`~composer.core.logging.logger.Logger` whenever there is a data to log.
 
         The logger callback should implement this method to log the data
@@ -48,13 +48,18 @@ class LoggerDestination(Callback, ABC):
 
         .. note::
 
-            This method will block the training loop. For optimal performance, it is recommended to
-            ``copy.deepcopy(data)``, and store the copied data in queue. Background thread(s) or process(s) should
-            read from this queue to perform any processing.
+            This method will block the training loop. For optimal performance, it is recommended to deepcopy the
+            ``data`` (e.g. ``copy.deepcopy(data)``), and store the copied data in queue. Then, either:
+            
+            *   Use background thread(s) or process(s) to read from this queue to perform any I/O.
+            *   Batch multiple ``data``\\s together and flush periodically on events, such as 
+                :attr:`~composer.core.event.Event.BATCH_END` or :attr:`~composer.core.event.Event.EPOCH_END`.
+                
+                .. seealso:: :class:`~composer.loggers.file_logger.FileLogger` as an example.
 
         Args:
-            timestamp (Timestamp): The timestamp for the logged data.
+            state (State): The training state.
             log_level (LogLevel): The log level.
-            data (LoggerDataDict): The metric to log.
+            data (LoggerDataDict): The data to log.
         """
         pass
