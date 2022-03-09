@@ -25,7 +25,7 @@ def deeplabv3_builder(num_classes: int,
     Args:
         num_classes (int): number of classes in the segmentation task.
         backbone_arch (str, optional): the architecture to use for the backbone. Must be either ['resnet50', 'resnet101'].
-            Default is 'resnet101'.
+            Default: ``'resnet101'``.
         is_backbone_pretrained (bool, optional): if true (default), use pretrained weights for the backbone.
         sync_bn (bool, optional): if true (default), replace all BatchNorm layers with SyncBatchNorm layers.
         initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: ``[]``.
