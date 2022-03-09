@@ -232,9 +232,9 @@ class ComposerClassifier(ComposerModel):
         if hasattr(self.module, "num_classes"):
             self.num_classes = getattr(self.module, "num_classes")
 
-    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensors:
+    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensor:
         _, targets = batch
-        if not isinstance(outputs, Tensor):
+        if not isinstance(outputs, Tensor):  # to pass typechecking
             raise ValueError("Loss expects input as Tensor")
         if not isinstance(targets, Tensor):
             raise ValueError("Loss does not support multiple target Tensors")
