@@ -22,7 +22,7 @@ class GPT2Hparams(TransformerHparams):
         tokenizer_name (str): The tokenizer used for this model,
             necessary to assert required model inputs.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
-        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
     """
 
     def initialize_object(self) -> "ComposerTransformer":
