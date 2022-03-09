@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import collections.abc
 import operator
+import pathlib
 import time
 from enum import IntEnum
 from functools import reduce
@@ -49,6 +50,16 @@ class LogLevel(IntEnum):
     FIT = 1
     EPOCH = 2
     BATCH = 3
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, LogLevel):
+            return value
+        if isinstance(value, int):
+            return LogLevel(value)
+        if isinstance(value, str):
+            return LogLevel[value.upper()]
+        return super()._missing_(value)
 
 
 class Logger:
@@ -99,29 +110,58 @@ class Logger:
         self.run_name = run_name
         self._state = state
 
-    def data(self, log_level: Union[str, LogLevel], data: LoggerDataDict) -> None:
+    def data(self, log_level: Union[str, int, LogLevel], data: LoggerDataDict) -> None:
         """Log data to the :attr:`destinations`.
 
         Args:
-            log_level (Union[str, LogLevel]): A :class:`LogLevel`.
+            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
+                :class:`LogLevel`.
             data (LoggerDataDict): The data to log.
         """
-        if isinstance(log_level, str):
-            log_level = LogLevel[log_level.upper()]
+        log_level = LogLevel(log_level)
 
         for destination in self.destinations:
             destination.log_data(self._state, log_level, data)
 
+    def file_artifact(
+        self,
+        log_level: Union[str, int, LogLevel],
+        artifact_name: str,
+        file_path: Union[pathlib.Path, str],
+        *,
+        allow_overwrite: bool = False,
+    ):
+        """Log ``file_path`` as an artifact named ``artifact_name``.
+
+        Args:
+            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
+                :class:`LogLevel`.
+            artifact_name (str): The name of the artifact.
+            file_path (str | pathlib.Path): The file path.
+            allow_overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
+                (default: ``False``)
+        """
+        log_level = LogLevel(log_level)
+        file_path = pathlib.Path(file_path)
+        for destination in self.destinations:
+            destination.log_file_artifact(
+                state=self._state,
+                log_level=log_level,
+                artifact_name=artifact_name,
+                file_path=file_path,
+                allow_overwrite=allow_overwrite,
+            )
+
     def data_fit(self, data: LoggerDataDict) -> None:
-        """Helper function for ``self.metric(LogLevel.FIT, data)``"""
+        """Helper function for ``self.data(LogLevel.FIT, data)``"""
         self.data(LogLevel.FIT, data)
 
     def data_epoch(self, data: LoggerDataDict) -> None:
-        """Helper function for ``self.metric(LogLevel.EPOCH, data)``"""
+        """Helper function for ``self.data(LogLevel.EPOCH, data)``"""
         self.data(LogLevel.EPOCH, data)
 
     def data_batch(self, data: LoggerDataDict) -> None:
-        """Helper function for ``self.metric(LogLevel.BATCH, data)``"""
+        """Helper function for ``self.data(LogLevel.BATCH, data)``"""
         self.data(LogLevel.BATCH, data)
 
 

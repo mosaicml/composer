@@ -11,6 +11,7 @@ from tqdm import auto
 
 from composer.core.event import Event
 from composer.core.logging import Logger, LogLevel
+from composer.core.logging.logger_destination import LoggerDestination
 from composer.core.state import State
 from composer.core.time import Time, Timestamp
 from composer.loggers.in_memory_logger import InMemoryLogger
@@ -182,7 +183,7 @@ def test_in_memory_logger_get_timeseries():
 
 
 @pytest.mark.world_size(2)
-def test_logger_run_name(dummy_state: State,):
+def test_logger_run_name(dummy_state: State):
     # seeding with the global rank to ensure that each rank has a different seed
     reproducibility.seed_all(dist.get_global_rank())
 
@@ -192,3 +193,28 @@ def test_logger_run_name(dummy_state: State,):
     run_names = dist.all_gather_object(logger.run_name)
     assert len(run_names) == 2  # 2 ranks
     assert all(run_name == run_names[0] for run_name in run_names)
+
+
+def test_logger_file_artifact(dummy_state: State):
+
+    file_logged = False
+
+    class DummyLoggerDestination(LoggerDestination):
+
+        def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+                              allow_overwrite: bool):
+            nonlocal file_logged
+            file_logged = True
+            assert artifact_name == "foo"
+            assert file_path.name == "bar"
+            assert allow_overwrite
+
+    logger = Logger(state=dummy_state, destinations=[DummyLoggerDestination()])
+    logger.file_artifact(
+        log_level="epoch",
+        artifact_name="foo",
+        file_path="bar",
+        allow_overwrite=True,
+    )
+
+    assert file_logged
