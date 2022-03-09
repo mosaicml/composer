@@ -65,7 +65,7 @@ class ModelHparams(hp.Hparams, ABC):
 
     Args:
         num_classes (int): The number of classes. Needed for classification tasks. Default: None.
-        initializers (List[Initializer], optional): The initialization strategy for the model. Default: None
+        initializers (List[Initializer], optional): The initialization strategy for the model. Default: ``None``.
     """
     initializers: List[Initializer] = hp.optional(
         default_factory=lambda: [],
