@@ -39,7 +39,7 @@ def deeplabv3_builder(num_classes: int,
 
     .. testcode::
 
-        from composer.models import deeplabv3_builder
+        from composer.models.deeplabv3.deeplabv3 import deeplabv3_builder
 
         pytorch_model = deeplabv3_builder(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
     """
