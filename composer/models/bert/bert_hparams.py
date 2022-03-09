@@ -25,7 +25,7 @@ class BERTForClassificationHparams(TransformerHparams):
             necessary to assert required model inputs.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
-        num_labels (int, optional): The number of classes in the segmentation task. Default: 2.
+        num_labels (int, optional): The number of classes in the segmentation task. Default: ``2``.
     """
     num_labels: int = hp.optional(doc="The number of possible labels for the task.", default=2)
 
