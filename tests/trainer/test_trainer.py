@@ -103,7 +103,7 @@ class TestTrainerInit():
                 checkpoint_saver = callback
         assert checkpoint_saver is not None
         trainer.state.timer.epoch._value = 10
-        assert checkpoint_saver.should_checkpoint(trainer.state, Event.EPOCH_CHECKPOINT)
+        assert checkpoint_saver.should_save(trainer.state, Event.EPOCH_CHECKPOINT)
 
     @pytest.mark.timeout(5.0)
     def test_init_with_max_duration_in_batches(self, config):

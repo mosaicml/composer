@@ -51,6 +51,8 @@ __all__ = [
     "configure_deterministic_mode",
     "get_random_seed",
     "seed_all",
+    "get_rng_state",
+    "load_rng_state",
     "MAX_SEED",
 ]
 

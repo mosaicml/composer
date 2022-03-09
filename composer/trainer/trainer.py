@@ -218,7 +218,8 @@ class Trainer:
                 not have deterministic implementations, which will result in a crash.
 
             .. note:: In order to get reproducible results, call the
-                :func:`.configure_deterministic_mode` function at the start of your script. This will ensure any initialization done before the trainer init also runs deterministically.
+                :func:`.configure_deterministic_mode` function at the start of your script.
+                This will ensure any initialization done before the trainer init also runs deterministically.
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
         loggers (Sequence[LoggerCallback], optional): The destinations to log training information to.
@@ -229,7 +230,8 @@ class Trainer:
             then no callbacks will be run. (default: ``None``).
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
-        load_path (str, optional):  The template path to an existing checkpoint file.
+
+        load_path (str, optional): The template path to an existing checkpoint file.
             It can be a path to a file on local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
@@ -301,7 +303,7 @@ class Trainer:
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
         save_folder (str, optional): Folder where checkpoints are saved. If ``None``, checkpoints will not be saved
             by default.
-            .. seealso:: :class:`~.CheckpointSaver`.
+            .. seealso:: :class:`~.CheckpointSaver`
 
             .. note::
 
@@ -312,21 +314,34 @@ class Trainer:
             (default: ``None``)
 
         save_name_format_string (str, optional): A format string describing how to name checkpoints.
-            .. seealso:: :class:`~.CheckpointSaver`.
-            This parameter has no effect if ``save_load_folder`` is None.
+            This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"ep{epoch}-ba{batch}/rank_{rank}"``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
         save_latest_symlink_format_string (str, optional): A format string for the name of a symlink
             (relative to ``checkpoint_folder``) that points to the last saved checkpoint.
-            To disable symlinking, set to ``None``.
-            .. seealso:: :class:`~.CheckpointSaver`.
-            (default: ``"latest/rank_{rank}"``)
-        save_overwrite (bool, optional):
-            .. seealso:: :class:`~.CheckpointSaver`. Whether existing checkpoints should be overridden.
-            This parameter has no effect if ``save_load_folder`` is None. (default: ``False``)
-        should_save (Time | str | int | (State, Event) -> bool): See :class:`~.CheckpointSaver`.
-            This parameter has no effect if ``save_load_folder`` is None. (default: ``'1ep'``)
-        save_weights_only (bool, optional): See :class:`~.CheckpointSaver`. This parameter has no effect
-            if ``save_load_folder`` is None. (default: ``False``)
+            This parameter has no effect if ``save_folder`` is ``None``.
+            To disable symlinking, set to ``None``. (default: ``"latest/rank_{rank}"``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
+        save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
+            This parameter has no effect if ``save_folder`` is None. (default: ``False``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
+        should_save (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
+            or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
+            This parameter has no effect if ``save_folder`` is ``None``. (default: ``'1ep'``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
+        save_weights_only (bool, optional): Whether to save only the model weights instead of the entire training
+            state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
@@ -699,7 +714,7 @@ class Trainer:
                     name_format_string=save_name_format_string,
                     overwrite=save_overwrite,
                     weights_only=save_weights_only,
-                    should_checkpoint=should_save,
+                    should_save=should_save,
                 ))
 
         self.engine = Engine(

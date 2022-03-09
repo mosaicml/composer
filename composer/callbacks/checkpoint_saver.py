@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Load and save checkpoints during training."""
+"""Callback to save checkpoints during training."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from composer.utils import dist, reproducibility, run_directory
 
 log = logging.getLogger(__name__)
 
-__all__ = ["CheckpointSaver"]
+__all__ = ["CheckpointSaver", "checkpoint_periodically"]
 
 _COMPOSER_STATES_FILENAME = "composer_states.pt"
 _DEEPSPEED_TAG = "deepspeed"  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
@@ -58,15 +58,18 @@ def _get_write_mode(checkpoint_name: str) -> str:
 
 
 def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State, Event], bool]:
-    """_summary_
+    """Helper function to create a checkpoint scheduler according to a specified interval.
 
     Args:
         interval (Union[str, int, Time]): The interval describing how often checkpoints should be
             saved. If an integer, it will be assumed to be :attr:`TimeUnit.EPOCH`.
             Otherwise, the unit must be in :attr:`TimeUnit.EPOCH` or :attr:`TimeUnit.BATCH`.
 
+            Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
+            and at the end of training.
+
     Returns:
-        Callable[[State, Event], bool]: A function that can be passed as the ``save_checkpoint``
+        Callable[[State, Event], bool]: A function that can be passed as the ``should_save``
             argument into :class:`CheckpointSaver`.
     """
     if isinstance(interval, str):
@@ -84,7 +87,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
     last_checkpoint_batch = None
 
-    def should_checkpoint(state: State, event: Event):
+    def should_save(state: State, event: Event):
         nonlocal last_checkpoint_batch
         if state.get_elapsed_duration() >= 1.0:
             # if doing batch-wise checkpointing, and we saved a checkpoint at the batch_checkpoint event
@@ -104,11 +107,22 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
         return False
 
-    return should_checkpoint
+    return should_save
 
 
 class CheckpointSaver(Callback):
-    """Manager for saving trainer state to checkpoint files.
+    """Callback to save checkpoints.
+
+    Example
+        >>> trainer = Trainer(..., callbacks=[
+        ...     CheckpointSaver(
+        ...         save_folder='checkpoints',
+        ...         name_format_string="ep{epoch}-ba{batch}/rank_{rank}",
+        ...         latest_symlink_format_string="latest/rank_{rank}",
+        ...         should_save="1ep",
+        ...         weights_only=False,
+        ...     )
+        ... ])
 
     Args:
         save_folder (str): Folder where checkpoints are saved.
@@ -130,9 +144,9 @@ class CheckpointSaver(Callback):
 
                 *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
                     requires tarball format, as it saves model and optimizer states in separate files.
-                    Ensure that ``{rank}`` appears within the ``name_format_string``.
-
-                    If no file extension is specified, ``.tar`` will be used.
+                    Ensure that ``{rank}`` appears within the ``name_format_string``. Otherwise, multiple ranks
+                    may attempt to write to the same file(s), leading to corrupted checkpoints. If no file extension
+                    is specified, ``.tar`` will be used.
 
                 *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
                     to ``.tar.gz``, ``.tgz``, ``.tar.bzip``, or ``.tar.lzma`` (depending on the desired
@@ -141,7 +155,7 @@ class CheckpointSaver(Callback):
 
             Consider the following example:
 
-            *   The ```checkpoint_folder`` argument is set to ``"checkpoints"``
+            *   The ``checkpoint_folder`` argument is set to ``"checkpoints"``
             *   The ``name_format_string`` is set to ``"ep{epoch}-ba{batch}/rank_{rank}"``
             *   DeepSpeed is not being used.
             *   The global rank of the current process is ``0``.
@@ -160,28 +174,30 @@ class CheckpointSaver(Callback):
 
             To disable symlinks, set this parameter to ``None``.
 
-            For example, setting this parameter to ````"latest/rank_{rank}"`` will create a subfolder called
+            For example, setting this parameter to ``'latest/rank_{rank}'`` will create a subfolder called
             ``'latest'`` inside the ``checkpoint_folder``. Files (symlinks) inside this folder will follow the naming
-            convention of ``rank_{rank}`` (``{rank}`` is a format variable corresponding to the checkpoint file's
-            process rank.) Each symlink will point to the latest checkpoint file for that rank.
+            convention of ``rank_{rank}``, where ``{rank}`` is a format variable corresponding to the checkpoint file's
+            process rank. Each symlink will point to the latest checkpoint file for that rank.
 
-            Default: ``"latest/rank_{rank}"``
+            Default: ``'latest/rank_{rank}'``
 
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
             If ``False`` (the default), then the ``checkpoint_folder`` must not exist or be empty.
             (default: ``False``)
 
-        should_checkpoint (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer,
+        should_save (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
 
             If an integer, checkpoints will be saved every n epochs.
             If :class:`Time` or a time-string, checkpoints will be saved according to this interval.
 
-            .. seealso:: checkpoint_periodically
+            .. seealso:: :func:`.checkpoint_periodically`
 
             If a function, then this function should take two arguments (:class:`State`, :class:`Event`).
-            The latter argument will be :attr:`Event.BATCH_CHECKPOINT` or :attr:`EPOCH_CHECKPOINT`. It should return
-            ``True`` if a checkpoint should be saved given the current State and Event.
+            The first argument will be the current state of the trainer, and the second argument will be
+            be :attr:`.Event.BATCH_CHECKPOINT` or :attr:`.EPOCH_CHECKPOINT` (depending on the current training
+            progress). It should return ``True`` if a checkpoint should be saved given the current state and
+            event.
 
         weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
             This parmeter must be ``False`` when using DeepSpeed. (default: ``False``)
@@ -212,18 +228,18 @@ class CheckpointSaver(Callback):
         name_format_string: str = "ep{epoch}-ba{batch}/rank_{rank}",
         latest_symlink_format_string: Optional[str] = "latest/rank_{rank}",
         overwrite: bool = False,
-        should_checkpoint: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
+        should_save: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
         weights_only: bool = False,
     ):
-        if not callable(should_checkpoint):
-            should_checkpoint = checkpoint_periodically(should_checkpoint)
+        if not callable(should_save):
+            should_save = checkpoint_periodically(should_save)
 
         self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         self.name_format_string = name_format_string
         self.latest_symlink_format_string = latest_symlink_format_string
         self.overwrite = overwrite
 
-        self.should_checkpoint = should_checkpoint
+        self.should_save = should_save
         self.saved_checkpoints = {}
         self.weights_only = weights_only
 
@@ -272,7 +288,7 @@ class CheckpointSaver(Callback):
         |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
         +------------------------+-------------------------------------------------------+
         | ``{node_rank}``        | The node rank, as returned by                         |
-        |                        | :func:`~composer.utils.dist.node_rank`.               |
+        |                        | :func:`~composer.utils.dist.getnode_rank`.            |
         +------------------------+-------------------------------------------------------+
         | ``{epoch}``            | The total epoch count, as returned by                 |
         |                        | :meth:`~composer.core.time.Timer.epoch`.              |
@@ -414,10 +430,10 @@ class CheckpointSaver(Callback):
 
     def batch_checkpoint(self, state: State, logger: Logger):
         del logger  # unused
-        if self.should_checkpoint(state, Event.BATCH_CHECKPOINT):
+        if self.should_save(state, Event.BATCH_CHECKPOINT):
             return self.save_checkpoint(state, self.name_format_string)
 
     def epoch_checkpoint(self, state: State, logger: Logger):
         del logger  # unused
-        if self.should_checkpoint(state, Event.EPOCH_CHECKPOINT):
+        if self.should_save(state, Event.EPOCH_CHECKPOINT):
             return self.save_checkpoint(state, self.name_format_string)

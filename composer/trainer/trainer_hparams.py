@@ -192,10 +192,12 @@ class TrainerHparams(hp.Hparams):
         load_chunk_size (int, optional): See :class:`.Trainer`.
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_name_format_string (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_latest_symlink_format_string (str, optional): See
+            :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         should_save (str, optional): See
-            :class:`~composer.callbacks.checkpoint_hparams.CheckpointSaverHparams`.
+            :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
         train_subset_num_batches (int, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
         deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed

@@ -140,16 +140,20 @@ class CheckpointSaverHparams(CallbackHparams):
     Args:
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         name_format_string (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        latest_symlink_format_string (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        latest_symlink_format_string (str, optional): See
+            :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
 
-        should_checkpoint (str, optional): Either a :doc:`time-string </trainer/time>` or a path to a function.
+        should_save (str, optional): Either a :doc:`time-string </trainer/time>` or a path to a function.
+
             If a :doc:`time-string </trainer/time>`, checkpoints will be saved according to this interval.
-            If a path to a function, it should be of the format `path.to.function:function_name`. The function
-            should take (state, event) and return a boolean indicating whether a checkpoint should be saved
-            given the current state and event. The event will be either :attr:`~composer.core.event.BATCH_CHECKPOINT`
-            or :attr:`~composer.core.event.EPOCH_CHECKPOINT`.
+
+            If a path to a function, it should be of the format ``'path.to.function:function_name'``. The function
+            should take (:class:`~composer.core.state.State`, :class:`~composer.core.event.Event`) and return a
+            boolean indicating whether a checkpoint should be saved given the current state and event. The event will
+            be either :attr:`~composer.core.event.Event.BATCH_CHECKPOINT` or
+            :attr:`~composer.core.event.Event.EPOCH_CHECKPOINT`.
     """
     save_folder: str = hp.optional(doc="Folder where checkpoints will be saved.", default="checkpoints")
     name_format_string: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}/rank_{rank}")
@@ -157,25 +161,25 @@ class CheckpointSaverHparams(CallbackHparams):
                                                               default="latest/rank_{rank}")
     overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
-    should_checkpoint: str = hp.optional(textwrap.dedent("""\
+    should_save: str = hp.optional(textwrap.dedent("""\
         Checkpoint interval or path to a `(State, Event) -> bool` function
         returning whether a checkpoint should be saved."""),
-                                         default="1ep")
+                                   default="1ep")
 
     def initialize_object(self) -> CheckpointSaver:
         try:
-            should_checkpoint = Time.from_timestring(self.should_checkpoint)
+            should_save = Time.from_timestring(self.should_save)
         except ValueError:
             # assume it is a module path
-            module_path, function_name = self.should_checkpoint.split(":")
+            module_path, function_name = self.should_save.split(":")
             mod = importlib.import_module(module_path)
-            should_checkpoint = getattr(mod, function_name)
+            should_save = getattr(mod, function_name)
         return CheckpointSaver(
             save_folder=self.save_folder,
             name_format_string=self.name_format_string,
             latest_symlink_format_string=self.latest_symlink_format_string,
             overwrite=self.overwrite,
-            should_checkpoint=should_checkpoint,
+            should_save=should_save,
             weights_only=self.weights_only,
         )
 

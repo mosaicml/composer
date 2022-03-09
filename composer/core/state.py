@@ -429,6 +429,7 @@ class State(Serializable):
 
     @property
     def is_model_ddp(self):
+        """Whether :attr:`model` is an instance of a :class:`.DistributedDataParallel`."""
         return isinstance(self.model, DistributedDataParallel)
 
     @property
