@@ -16,7 +16,7 @@ __all__ = ["BERTForClassificationHparams", "BERTHparams"]
 
 @dataclass
 class BERTForClassificationHparams(TransformerHparams):
-    """yahp Hparams interface for BERT classification Models.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ classification interface for :class:`.BERTModel`.
 
     Args:
         pretrained_model_name (str): "Pretrained model name to pull from Huggingface Model Hub."
@@ -75,7 +75,7 @@ class BERTForClassificationHparams(TransformerHparams):
 
 @dataclass
 class BERTHparams(TransformerHparams):
-    """yahp Hparams interface for BERT Models.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.BERTModel`.
 
     Args:
         pretrained_model_name (str): "Pretrained model name to pull from Huggingface Model Hub."

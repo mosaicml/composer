@@ -22,8 +22,8 @@ class TransformerHparams(ModelHparams, ABC):
         model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
         tokenizer_name (str): The tokenizer used for this model,
             necessary to assert required model inputs.
-        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
-        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
+        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
     """
 
     tokenizer_name: str = hp.optional("Tokenizer name to pull from Huggingface Model Hub.", default=None)

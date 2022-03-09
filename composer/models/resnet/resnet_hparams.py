@@ -12,7 +12,7 @@ __all__ = ["ResNetHparams"]
 
 @dataclass
 class ResNetHparams(ModelHparams):
-    """yahp Hparams interface for ResNet models.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.ComposerResNet`.
 
     Args:
         model_name (str): Name of the ResNet model instance. Either ["resnet18", "resnet34", "resnet50", "resnet101",

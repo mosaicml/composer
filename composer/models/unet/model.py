@@ -10,7 +10,7 @@ __all__ = ["UNet"]
 
 class UNet(nn.Module):
     """Unet Architecture adapted from
-    https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/Segmentation/nnUNet/.
+    `Nvidia Deep Learning Examples <https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/Segmentation/nnUNet/>`._
 
     Args:
         in_channels (int): number of input channels.

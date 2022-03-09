@@ -9,7 +9,7 @@ __all__ = ["MnistClassifierHparams"]
 
 @dataclass
 class MnistClassifierHparams(ModelHparams):
-    """yahp Hparams interface for the simple mnist classifier.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.MNIST_Classifier`.
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.

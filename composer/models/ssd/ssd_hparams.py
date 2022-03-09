@@ -9,6 +9,8 @@ from composer.models.model_hparams import ModelHparams
 
 @dataclass
 class SSDHparams(ModelHparams):
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.SSD`."""
+
     input_size: int = hp.optional(
         doc="input size",
         default=300,

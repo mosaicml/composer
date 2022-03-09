@@ -13,7 +13,7 @@ __all__ = ["TimmHparams"]
 
 @dataclass
 class TimmHparams(ModelHparams):
-    """yahp Hparams interface for Timm models.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.Timm`.
 
     Args:
         model_name (str): timm model name e.g: "resnet50". List of models can be found at

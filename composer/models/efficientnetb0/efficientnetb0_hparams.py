@@ -11,7 +11,7 @@ __all__ = ["EfficientNetB0Hparams"]
 
 @dataclass
 class EfficientNetB0Hparams(ModelHparams):
-    """yahp Hparams interface for EfficientNetB0.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.EfficientNetB0`.
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 1000.

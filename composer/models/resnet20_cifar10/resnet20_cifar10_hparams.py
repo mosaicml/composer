@@ -9,7 +9,7 @@ __all__ = ["CIFARResNet20Hparams"]
 
 @dataclass
 class CIFARResNet20Hparams(ModelHparams):
-    """yahp Hparams interface for CIFAR10_ResNet models.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.CIFAR10_ResNet20`.
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.
