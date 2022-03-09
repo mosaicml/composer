@@ -125,7 +125,7 @@ period is *never* scaled. For example, if we apply
 
     scheduler = MultiStepWithWarmupScheduler(
         milestones=["10ep", "20ep"],
-        warmup_time="4ep",
+        t_warmup="4ep",
     )
 
 The resulting scheduler would warmup for 4 epochs, and then
