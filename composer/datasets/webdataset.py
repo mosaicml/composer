@@ -163,8 +163,8 @@ def _init_webdataset(remote: str,
     return dataset, meta
 
 
-def _size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, n_devices: int, workers_per_device: int,
-                    batch_size: int, drop_last: bool) -> WebDataset:
+def _size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, n_devices: int,
+                     workers_per_device: int, batch_size: int, drop_last: bool) -> WebDataset:
     """Calculate WebDataset with_epoch() and with_length().
 
     Args:
@@ -240,4 +240,4 @@ def load_webdataset(remote: str, name: str, split: str, cache_dir: Optional[str]
     if preprocess:
         dataset = preprocess(dataset)
     return _size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], n_devices, workers_per_device,
-                           batch_size, drop_last)
+                            batch_size, drop_last)
