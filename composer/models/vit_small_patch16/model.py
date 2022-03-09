@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Implements a ViT-S/16 wrapper around a ComposerClassifier."""
+"""Implements ViT-S/16 as a :class:`.ComposerClassifier`."""
 
 from composer.models.base import ComposerClassifier
 
@@ -8,7 +8,7 @@ __all__ = ["ViTSmallPatch16"]
 
 
 class ViTSmallPatch16(ComposerClassifier):
-    """Implements a ViT-S/16 wrapper around a ComposerClassifier.
+    """Implements ViT-S/16 as a :class:`.ComposerClassifier`.
 
     See `Training data-efficient image transformers & distillation through attention <https://arxiv.org/pdf/2012.12877.pdf>_` for details on ViT-S/16.
 
