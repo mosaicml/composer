@@ -15,14 +15,6 @@ class ComposerResNet(ComposerClassifier):
 
     From the paper Deep Residual Learning for Image Recognition `<https://arxiv.org/abs/1512.03385>`_.
 
-    Example:
-
-    .. testcode::
-
-        from composer.models import ComposerResNet
-
-        model = ComposerResNet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
-
     Args:
         model_name (str): Name of the ResNet model instance. Either ["resnet18", "resnet34", "resnet50", "resnet101",
             "resnet152"].
@@ -33,6 +25,14 @@ class ComposerResNet(ComposerClassifier):
             Default: 64.
         initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization.
             Default: None.
+
+    Example:
+
+    .. testcode::
+
+        from composer.models import ComposerResNet
+
+        model = ComposerResNet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
     """
 
     valid_model_names = ["resnet18", "resnet34", "resnet50", "resnet101", "resnet152"]

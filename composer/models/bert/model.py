@@ -22,6 +22,13 @@ class BERTModel(ComposerTransformer):
     """Implements a BERT wrapper around a :class:`.ComposerTransformer`. Works with
     `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
 
+    Args:
+        module (transformers.BertModel): An instance of BertModel that
+            contains the forward pass function.
+        config (transformers.BertConfig): The BertConfig object that
+            stores information about the model hyperparameters.
+        tokenizer (transformers.BertTokenizer): An instance of BertTokenizer. Necessary to process model inputs.
+
     To create a bert model for Language Model pretraining:
 
     .. testcode::
@@ -33,13 +40,6 @@ class BERTModel(ComposerTransformer):
         hf_model = transformers.BertLMHeadModel(config=config)
         tokenizer = transformers.BertTokenizer.from_pretrained("bert-base-uncased")
         model = BERTModel(module=hf_model, config=config, tokenizer=tokenizer)
-
-    Args:
-        module (transformers.BertModel): An instance of BertModel that
-            contains the forward pass function.
-        config (transformers.BertConfig): The BertConfig object that
-            stores information about the model hyperparameters.
-        tokenizer (transformers.BertTokenizer): An instance of BertTokenizer. Necessary to process model inputs.
     """
 
     def __init__(self, module: transformers.BertModel, config: transformers.BertConfig,

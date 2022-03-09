@@ -23,6 +23,12 @@ class GPT2Model(ComposerTransformer):
 
     From the paper Language Models are Unsupervised Multitask Learners `<https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_
 
+    Args:
+        module (transformers.GPT2Model): The model to wrap with this module.
+        config (transformers.GPT2Config): The config for the model.
+        tokenizer (transformers.GPT2Tokenizer): The tokenizer used for this model. Necessary to process model inputs.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
+
     To create a GPT-2 model for language modeling pretraining:
 
     .. testcode::
@@ -34,12 +40,6 @@ class GPT2Model(ComposerTransformer):
         hf_model = transformers.GPT2LMHeadModel(config=config) # gpt2-small model from huggingface
         tokenizer = transformers.GPT2Tokenizer.from_pretrained("gpt2")
         model = GPT2Model(module=hf_model, config=config, tokenizer=tokenizer)
-
-    Args:
-        module (transformers.GPT2Model): The model to wrap with this module.
-        config (transformers.GPT2Config): The config for the model.
-        tokenizer (transformers.GPT2Tokenizer): The tokenizer used for this model. Necessary to process model inputs.
-        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
     """
 
     def __init__(self,

@@ -49,8 +49,12 @@ class Model(nn.Module):
 class MNIST_Classifier(ComposerClassifier):
     """A simple convolutional neural network extending :class:`.ComposerClassifier`.
 
-    A simple example
-    convolutional neural network which can be used to classify MNIST data.
+    A simple example convolutional neural network which can be used to classify MNIST data.
+
+    Args:
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10
+        initializers (List[Initializer], optional): list of Initializers
+            for the model. ``None`` for no initialization. (default: ``None``)
 
     Example:
 
@@ -59,11 +63,6 @@ class MNIST_Classifier(ComposerClassifier):
         from composer.models import MNIST_Classifier
 
         model = MNIST_Classifier()
-
-    Args:
-        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10
-        initializers (List[Initializer], optional): list of Initializers
-            for the model. ``None`` for no initialization. (default: ``None``)
     """
 
     def __init__(

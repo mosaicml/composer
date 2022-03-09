@@ -72,6 +72,13 @@ class ComposerDeepLabV3(ComposerModel):
 
     From the paper Rethinking Atrous Convolution for Semantic Image Segmentation `<arxiv.org/abs/1706.05587>`_.
 
+    Args:
+        num_classes (int): The number of classes in the segmentation task.
+        backbone_arch (str, optional): The backbone architecture to use, either 'resnet50', 'resnet101'. Default: 'resnet101'.
+        is_backbone_pretrained (bool, optional): if true (default), use pre-trained weights for backbone. Default: True.
+        sync_bn (bool, optional): Use SyncBatchNorm to sync batch norm statistics across GPUs. Default: True.
+        initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: [].
+
     Example:
 
     .. testcode::
@@ -79,13 +86,6 @@ class ComposerDeepLabV3(ComposerModel):
         from composer.models import ComposerDeepLabV3
 
         model = ComposerDeepLabV3(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
-
-    Args:
-        num_classes (int): The number of classes in the segmentation task.
-        backbone_arch (str, optional): The backbone architecture to use, either 'resnet50', 'resnet101'. Default: 'resnet101'.
-        is_backbone_pretrained (bool, optional): if true (default), use pre-trained weights for backbone. Default: True.
-        sync_bn (bool, optional): Use SyncBatchNorm to sync batch norm statistics across GPUs. Default: True.
-        initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: [].
     """
 
     def __init__(self,

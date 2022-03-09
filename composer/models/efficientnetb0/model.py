@@ -10,6 +10,10 @@ class EfficientNetB0(ComposerClassifier):
     """A :class:`.ComposerClassifier` wrapper around the EfficientNet-b0 architecture. From the paper EfficientNet:
     Rethinking Model Scaling for Convolutional Neural Networks `<https://arxiv.org/abs/1905.11946>`_.
 
+    Args:
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 1000.
+        drop_connect_rate (float, optional): Probability of dropping a sample within a block before identity connection. Default: 0.2.
+
     Example:
 
     .. testcode::
@@ -17,10 +21,6 @@ class EfficientNetB0(ComposerClassifier):
         from composer.models import EfficientNetB0
 
         model = EfficientNetB0()  # creates EfficientNet-b0 for image classification
-
-    Args:
-        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 1000.
-        drop_connect_rate (float, optional): Probability of dropping a sample within a block before identity connection. Default: 0.2.
     """
 
     def __init__(self, num_classes: int = 1000, drop_connect_rate: float = 0.2) -> None:

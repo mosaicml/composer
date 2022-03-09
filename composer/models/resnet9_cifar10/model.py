@@ -63,6 +63,12 @@ class CIFAR10_ResNet9(ComposerClassifier):
     See this blog post for details regarding the architecture:
     https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
 
+    Args:
+        num_classes (int): The number of classes. Needed for classification tasks. Default: 10.
+        initializers (List[Initializer], optional): Initializers
+            for the model. ``None`` for no initialization.
+            (default: ``None``).
+
     Example:
 
     .. testcode::
@@ -70,12 +76,6 @@ class CIFAR10_ResNet9(ComposerClassifier):
         from composer.models import CIFAR10_ResNet9
 
         model = CIFAR10_ResNet9()  # creates a resnet9 for cifar image classification
-
-    Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default: 10.
-        initializers (List[Initializer], optional): Initializers
-            for the model. ``None`` for no initialization.
-            (default: ``None``).
     """
 
     def __init__(

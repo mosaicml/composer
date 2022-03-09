@@ -10,14 +10,6 @@ __all__ = ["Timm"]
 class Timm(ComposerClassifier):
     """A wrapper around ``timm.create_model()`` used to create :class:`.ComposerClassifier`.
 
-    Resnet18 Example:
-
-    .. testcode::
-
-        from composer.models import Timm
-
-        model = Timm(model_name='resnet18')  # creates a timm resnet18
-
     Args:
         model_name (str): timm model name e.g: "resnet50". List of models can be found at
             https://github.com/rwightman/pytorch-image-models.
@@ -29,6 +21,14 @@ class Timm(ComposerClassifier):
         global_pool (str, optional): Global pool type, one of ("fast", "avg", "max", "avgmax", "avgmaxc"). Model default if None. Default: None.
         bn_momentum (float, optional): BatchNorm momentum override (model default if not None). Default: None.
         bn_eps (float, optional): BatchNorm epsilon override (model default if not None). Default: None.
+
+    Resnet18 Example:
+
+    .. testcode::
+
+        from composer.models import Timm
+
+        model = Timm(model_name='resnet18')  # creates a timm resnet18
     """
 
     def __init__(
