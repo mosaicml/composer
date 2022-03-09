@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Transformer Hparams interface for yahp."""
+"""General `YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for ComposerTransformers."""
+
 from abc import ABC
 from dataclasses import dataclass
 from typing import Dict, Optional

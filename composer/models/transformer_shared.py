@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """The ComposerModel base interface for Transformers."""
+
 from __future__ import annotations
 
 import logging
@@ -31,7 +32,7 @@ class ComposerTransformer(ComposerModel):
             stores information about the model hyperparameters.
         tokenizer (transformers.PreTrainedTokenizer): The tokenizer used for this model,
             necessary to assert required model inputs.
-        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
     """
 
     def __init__(self,
