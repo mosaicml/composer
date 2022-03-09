@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+""""A simple convolutional neural network extending :class:`.ComposerClassifier`."""
+
 from typing import List, Optional, Sequence, Union
 
 import torch

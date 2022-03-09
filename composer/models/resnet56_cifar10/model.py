@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""A ResNet-56 model extending :class:`.ComposerClassifier`."""
+
 from typing import List, Optional
 
 from composer.models.base import ComposerClassifier

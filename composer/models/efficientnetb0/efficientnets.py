@@ -1,7 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-# Code adapted from (Generic) EfficientNets for PyTorch repo:
-# https://github.com/rwightman/gen-efficientnet-pytorch
+"""EffecientNet PyTorch architecture, adapted from
+`(Generic) EfficientNets for PyTorch <https://github.com/rwightman/gen-efficientnet-pytorch>`_.
+"""
+
 import math
 import re
 from typing import Any, Callable, Dict, Optional

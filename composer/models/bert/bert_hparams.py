@@ -1,5 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_
+general and classification interfaces for :class:`.BERTModel`.
+"""
+
 import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING

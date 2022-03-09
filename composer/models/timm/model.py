@@ -1,4 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+
+"""A wrapper around ``timm.create_model()`` used to create :class:`.ComposerClassifier`."""
+
 import textwrap
 from typing import Optional
 

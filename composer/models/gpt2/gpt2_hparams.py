@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.GPT2Model`."""
+
 import dataclasses
 import textwrap
 from typing import TYPE_CHECKING
@@ -14,7 +16,7 @@ __all__ = ["GPT2Hparams"]
 
 @dataclasses.dataclass
 class GPT2Hparams(TransformerHparams):
-    """yahp Hparams interface for GPT2 Models.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.GPT2Model`.
 
     Args:
         pretrained_model_name (str): "Pretrained model name to pull from Huggingface Model Hub."

@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""DeepLabV3 model extending :class:`.ComposerClassifier`."""
+
 from typing import Any, List
 
 import torch

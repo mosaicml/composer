@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""A ResNet-9 model extending :class:`.ComposerClassifier` and ResNet-9 architecture"""
+
 from typing import List, Optional
 
 import torch.nn as nn

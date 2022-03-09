@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""A U-Net model extending :class:`.ComposerModel`"""
+
 import logging
 import textwrap
 from typing import Any, Optional, Tuple

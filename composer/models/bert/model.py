@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Implements a BERT wrapper around a :class:`.ComposerTransformer`."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping, Tuple
