@@ -29,7 +29,7 @@ class BERTModel(ComposerTransformer):
             stores information about the model hyperparameters.
         tokenizer (transformers.BertTokenizer): An instance of BertTokenizer. Necessary to process model inputs.
 
-    To create a bert model for Language Model pretraining:
+    To create a BERT model for Language Model pretraining:
 
     .. testcode::
 
@@ -124,7 +124,7 @@ class BERTModel(ComposerTransformer):
         if output.shape[1] == 1:
             output = output.squeeze(dim=1)
 
-        return (output, labels)
+        return output, labels
 
     def metrics(self, train: bool = False) -> Metrics:
         return MetricCollection(self.train_metrics) if train else MetricCollection(self.val_metrics)

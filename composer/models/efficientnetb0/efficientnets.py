@@ -275,18 +275,20 @@ class EfficientNet(nn.Module):
         num_classes (int): Size of the EfficientNet output, typically viewed
              as the number of classes in a classification task.
         width_multiplier (float, optional): How much to scale the EfficientNet-B0 channel
-             dimension throughout the model.
-        depth_multiplier (float, optional): How much to scale the EFficientNet-B0 depth.
-        drop_rate (float, optional): Dropout probability for the penultimate activations.
+             dimension throughout the model. Default: ``1.0``.
+        depth_multiplier (float, optional): How much to scale the EFficientNet-B0 depth. Default: ``1.0``.
+        drop_rate (float, optional): Dropout probability for the penultimate activations. Default: ``0.2``.
         drop_connect_rate (float, optional): Probability of dropping a sample before the
              identity connection, provides regularization similar to stochastic
-             depth.
-        act_layer (torch.nn.Module, optional): Activation layer to use in the model.
-        norm_kwargs (dict, optional): Normalization layer's keyword arguments.
-        norm_layer (torch.nn.Module, optional): Normalization layer to use in the model.
+             depth. Default: ``0.2``.
+        act_layer (torch.nn.Module, optional): Activation layer to use in the model. Default: ``nn.SiLU``.
+        norm_kwargs (dict, optional): Normalization layer's keyword arguments. Default: ``{"momentum": 0.1, "eps": 1e-5}``.
+        norm_layer (torch.nn.Module, optional): Normalization layer to use in the model. Default: ``nn.BatchNorm2d``.
     """
 
-    # EfficientNet-B0 architecture specification
+    # EfficientNet-B0 architecture specification.
+    # block_strings are decoded into block level hyperparameters.
+    # r=repeat, k=kernel_size, s=stride, e=expand_ratio, i=in_channels, o=out_channels, se=se_ratio.
     _blocks_strings = [
         'r1_k3_s1_e1_i32_o16_se0.25',
         'r2_k3_s2_e6_i16_o24_se0.25',
