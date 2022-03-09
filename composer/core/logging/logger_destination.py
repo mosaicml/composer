@@ -57,5 +57,4 @@ class LoggerDestination(Callback, ABC):
             log_level (LogLevel): The log level.
             data (LoggerDataDict): The metric to log.
         """
-        del timestamp, log_level, data  # unused
         pass
