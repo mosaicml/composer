@@ -6,16 +6,18 @@ import textwrap
 from typing import Any, Tuple
 
 import numpy as np
+from torch import Tensor
 import requests
 from torchmetrics import Metric
 
-from composer.core.types import BatchPair, Metrics, Tensor, Tensors
+from composer.core.types import BatchPair, Metrics, Tensors
 from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
 
 __all__ = ["SSD"]
+
 
 class SSD(ComposerModel):
     """Single Shot Object detection Model with pretrained ResNet34 backbone extending :class:`.ComposerModel`.
@@ -75,7 +77,6 @@ class SSD(ComposerModel):
     def forward(self, batch: BatchPair) -> Tensor:
         (img, _, _, _, _) = batch  #type: ignore
         ploc, plabel = self.module(img)
-
         return ploc, plabel  #type: ignore
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:

@@ -10,6 +10,7 @@ from composer.models.model_hparams import ModelHparams
 
 __all__ = ["SSDHparams"]
 
+
 @dataclass
 class SSDHparams(ModelHparams):
     """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.SSD`.
