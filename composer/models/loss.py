@@ -170,7 +170,7 @@ def soft_cross_entropy(input: Tensor,
             :math:`K \geq 1` in the case of K-dimensional loss. If containing class probabilities,
             same shape as the input.
         weight (torch.Tensor, optional): a manual rescaling weight given to each
-            class. If given, has to be a Tensor of size `C`
+            class. If given, has to be a Tensor of size `C`. Default: ``None``.
         size_average (bool, optional): Deprecated (see `reduction`). By default,
             the losses are averaged over each loss element in the batch. Note that for
             some losses, there multiple elements per sample. If the field ``size_average``
@@ -180,7 +180,7 @@ def soft_cross_entropy(input: Tensor,
             and does not contribute to the input gradient. When ``size_average`` is
             ``True``, the loss is averaged over non-ignored targets. Note that
             ``ignore_index`` is only applicable when the target contains class indices.
-            Default: -100
+            Default: ``-100``
         reduce (bool, optional): Deprecated (see ``reduction``). By default, the
             losses are averaged or summed over observations for each minibatch depending
             on `size_average`. When ``reduce`` is ``False``, returns a loss per
@@ -234,9 +234,9 @@ class CrossEntropyLoss(Metric):
     Args:
         ignore_index (int, optional): Specifies a target value that is ignored
             and does not contribute to the input gradient. ``ignore_index`` is only applicable when the target
-            contains class indices. Default: -100.
+            contains class indices. Default: ``-100``.
 
-        dist_sync_on_step (bool, optional): sync distributed metrics every step. Default: False.
+        dist_sync_on_step (bool, optional): sync distributed metrics every step. Default: ``False``.
     """
 
     def __init__(self, ignore_index: int = -100, dist_sync_on_step=False):

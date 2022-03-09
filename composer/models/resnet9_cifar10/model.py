@@ -65,7 +65,6 @@ class CIFAR10_ResNet9(ComposerClassifier):
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
-        initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
 
     Example:
 
@@ -76,13 +75,6 @@ class CIFAR10_ResNet9(ComposerClassifier):
         model = CIFAR10_ResNet9()  # creates a resnet9 for cifar image classification
     """
 
-    def __init__(
-        self,
-        num_classes: int = 10,
-        initializers: Optional[List[Initializer]] = None,
-    ) -> None:
-        if initializers is None:
-            initializers = []
-
+    def __init__(self, num_classes: int = 10) -> None:
         model = ResNet9(num_classes)
         super().__init__(module=model)

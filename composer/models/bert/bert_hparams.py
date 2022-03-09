@@ -23,7 +23,7 @@ class BERTForClassificationHparams(TransformerHparams):
     :class:`.BERTModel`.
 
     Args:
-        pretrained_model_name (str): "Pretrained model name to pull from Huggingface Model Hub."
+        pretrained_model_name (str): Pretrained model name to pull from Hugging Face Model Hub.
         model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
         tokenizer_name (str): The tokenizer used for this model,
             necessary to assert required model inputs.
