@@ -16,7 +16,7 @@ from composer.core.time import Time, Timestamp
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_hparams import FileLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import dist
+from composer.utils import dist, reproducibility
 
 
 @pytest.fixture
@@ -179,3 +179,16 @@ def test_in_memory_logger_get_timeseries():
     timeseries = in_memory_logger.get_timeseries("accuracy/val")
     for k, v in data.items():
         assert np.all(timeseries[k] == np.array(v))
+
+
+@pytest.mark.world_size(2)
+def test_logger_run_name(dummy_state: State,):
+    # seeding with the global rank to ensure that each rank has a different seed
+    reproducibility.seed_all(dist.get_global_rank())
+
+    logger = Logger(state=dummy_state)
+    # The run name should be the same on every rank -- it is set via a distributed reduction
+    # Manually verify that all ranks have the same run name
+    run_names = dist.all_gather_object(logger.run_name)
+    assert len(run_names) == 2  # 2 ranks
+    assert all(run_name == run_names[0] for run_name in run_names)

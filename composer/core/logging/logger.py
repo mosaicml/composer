@@ -74,7 +74,7 @@ class Logger:
             .. doctest:: composer.core.logging.logger.Logger.__init__.run_name
 
                 >>> str(time.time_ns()) + "-" + coolname.generate_slug(2)
-                '1234-cool-name'
+                '...-electric-zebra'
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
