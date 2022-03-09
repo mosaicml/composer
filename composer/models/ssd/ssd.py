@@ -15,6 +15,7 @@ from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
 
+__all__ = ["SSD"]
 
 class SSD(ComposerModel):
     """Single Shot Object detection Model with pretrained ResNet34 backbone extending :class:`.ComposerModel`.
