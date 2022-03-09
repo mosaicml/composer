@@ -82,7 +82,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
         Returns:
             Tensors:
-                The result that is passed to :meth:`loss` as :attr:`outputs`.
+                The result that is passed to :meth:`loss` as the parameter :attr:`outputs`.
 
         :meta public:
         """
