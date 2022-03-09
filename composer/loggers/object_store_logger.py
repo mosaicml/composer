@@ -83,7 +83,7 @@ class ObjectStoreLogger(LoggerDestination):
            >>> object_store_logger = ObjectStoreLogger(object_store_provider_hparams)
            >>> trainer = Trainer(
            ...     ...
-           ...     logger_destinations=[run_directory_uploader],
+           ...     logger_destinations=[object_store_logger],
            ... )
         
         .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__

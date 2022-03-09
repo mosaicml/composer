@@ -55,12 +55,6 @@ def get_parser():
                         help="The port on the master hosting the C10d TCP store. If you are running "
                         "multiple trainers on a single node, this generally needs to be unique for "
                         "each one. Defaults to a random free port.")
-    parser.add_argument("--run_directory",
-                        type=str,
-                        default=None,
-                        help=textwrap.dedent("""\
-                            Directory to store run artifcats. 
-                            Defaults to runs/{timestamp}/""")),
     parser.add_argument("-m",
                         "--module_mode",
                         action="store_true",
@@ -104,14 +98,16 @@ def parse_args():
 
 
 def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int, master_addr: str,
-                     master_port: Optional[int], module_mode: bool, run_directory: Optional[str], training_script: str,
+                     master_port: Optional[int], module_mode: bool, training_script: str,
                      training_script_args: List[Any]) -> Set[subprocess.Popen]:
     log.info("Starting DDP on local node for global_rank(%s-%s)", base_rank, base_rank + nproc - 1)
     processes = []
 
-    if run_directory is None:
-        run_directory = os.path.join("runs", datetime.datetime.now().isoformat().replace(":", "-"))
-    os.makedirs(run_directory, exist_ok=True)
+    # TODO Instead of capturing logs in the launch script,
+    # make each rank responsible for capturing its own stdout / stderr.
+    # Need to design how this would work.
+    logs_dir = os.path.join("logs", datetime.datetime.now().isoformat().replace(":", "-"))
+    os.makedirs(logs_dir, exist_ok=True)
 
     if master_port is None:
         warnings.warn("AutoSelectPortWarning: The DDP port was auto-selected. "
@@ -137,14 +133,12 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int
         current_env["NODE_RANK"] = str(node_rank)
         current_env["MASTER_ADDR"] = master_addr
         current_env["MASTER_PORT"] = str(master_port)
-        current_env["COMPOSER_RUN_DIRECTORY"] = run_directory
 
         log.info("Launching process for local_rank(%s), global_rank(%s) with command(%s)", local_rank, global_rank, cmd)
 
         if local_rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True, shell=True)
         else:
-            logs_dir = os.path.join(run_directory, f"rank_{global_rank}", "logs")
             os.makedirs(logs_dir, exist_ok=True)
             process = subprocess.Popen(
                 cmd,
@@ -277,7 +271,6 @@ def main():
                                  master_port=args.master_port,
                                  module_mode=args.module_mode,
                                  training_script=args.training_script,
-                                 run_directory=args.run_directory,
                                  training_script_args=args.training_script_args)
 
     try:

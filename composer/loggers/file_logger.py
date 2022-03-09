@@ -12,7 +12,6 @@ import yaml
 
 from composer.core.logging import Logger, LoggerDataDict, LoggerDestination, LogLevel, format_log_data_value
 from composer.core.state import State
-from composer.utils import run_directory
 
 __all__ = ["FileLogger"]
 
