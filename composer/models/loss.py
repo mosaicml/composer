@@ -194,6 +194,10 @@ def soft_cross_entropy(input: Tensor,
 
     This function will be obsolete with `this update <https://github.com/pytorch/pytorch/pull/61044>`_.
     """
+    if not isinstance(input, Tensor):
+        raise ValueError("Loss expects input as Tensor")
+    if not isinstance(target, Tensor):
+        raise ValueError("Loss does not support multiple target Tensors")
     target_type = _infer_target_type(input, target)
 
     if target_type == 'indices':
