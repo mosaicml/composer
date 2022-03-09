@@ -15,9 +15,7 @@ class CIFARResNet9Hparams(ModelHparams):
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.
-        initializers (List[Initializer], optional): Initializers
-            for the model. ``None`` for no initialization.
-            (default: ``None``).
+        initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
     """
 
     def initialize_object(self):

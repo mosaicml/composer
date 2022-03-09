@@ -17,10 +17,8 @@ class CIFAR10_ResNet56(ComposerClassifier):
     From `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_.
 
     Args:
-        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.
-        initializers (List[Initializer], optional): Initializers
-            for the model. ``None`` for no initialization.
-            (default: ``None``).
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
+        initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
 
     Example:
 

@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""A wrapper around ``timm.create_model()`` used to create :class:`.ComposerClassifier`."""
+"""A wrapper around `timm.create_model() <https://rwightman.github.io/pytorch-image-models/#load-a-pretrained-model>_` used to create :class:`.ComposerClassifier`."""
 
 import textwrap
 from typing import Optional
@@ -11,7 +11,7 @@ __all__ = ["Timm"]
 
 
 class Timm(ComposerClassifier):
-    """A wrapper around ``timm.create_model()`` used to create :class:`.ComposerClassifier`.
+    """A wrapper around `timm.create_model() <https://rwightman.github.io/pytorch-image-models/#load-a-pretrained-model>_` used to create :class:`.ComposerClassifier`.
 
     Args:
         model_name (str): timm model name e.g: ``"resnet50"``. List of models can be found at

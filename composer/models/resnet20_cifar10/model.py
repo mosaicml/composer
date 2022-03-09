@@ -14,13 +14,11 @@ __all__ = ["CIFAR10_ResNet20"]
 class CIFAR10_ResNet20(ComposerClassifier):
     """A ResNet-20 model extending :class:`.ComposerClassifier`.
 
-    From `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_.
+    From `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2016).
 
     Args:
-        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.
-        initializers (List[Initializer], optional): Initializers
-            for the model. ``None`` for no initialization.
-            (default: ``None``).
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
+        initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
 
     Example:
 

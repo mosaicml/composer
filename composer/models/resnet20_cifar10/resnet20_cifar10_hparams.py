@@ -14,10 +14,8 @@ class CIFARResNet20Hparams(ModelHparams):
     """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.CIFAR10_ResNet20`.
 
     Args:
-        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.
-        initializers (List[Initializer], optional): Initializers
-            for the model. ``None`` for no initialization.
-            (default: ``None``).
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
+        initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
     """
 
     def initialize_object(self):

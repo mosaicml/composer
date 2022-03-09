@@ -19,10 +19,10 @@ class ResNet9(nn.Module):
     """A 9-layer residual network, excluding BatchNorms and activation functions, as described in the
     `myrtle.ai blog <https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/>`_.
 
-    See `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ for details on the residual network architecture.
+    See `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2016) for details on the residual network architecture.
 
     Args:
-        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 10.
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
     """
 
     def __init__(self, num_classes: int = 10):
@@ -64,10 +64,8 @@ class CIFAR10_ResNet9(ComposerClassifier):
     See `myrtle.ai blog <https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/>`_ for more details.
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default: 10.
-        initializers (List[Initializer], optional): Initializers
-            for the model. ``None`` for no initialization.
-            (default: ``None``).
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
+        initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
 
     Example:
 
