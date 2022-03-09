@@ -154,8 +154,8 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
         Args:
             train (bool, optional): True to return metrics that should be computed
-                during training and False otherwise. (default: ``False``). This flag is set automatically by the
-                :class:`.Trainer`
+                during training and False otherwise. This flag is set automatically by the
+                :class:`.Trainer`. Default: ``False``.
 
         Returns:
              Metric or MetricCollection: An instance of :class:`~torchmetrics.Metric` or :ref:`MetricCollection </pages/overview.rst#metriccollection>`.
