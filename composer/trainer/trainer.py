@@ -840,7 +840,7 @@ class Trainer:
                 label = f'{name.lower()}/{suffix}'
             else:
                 label = f'{logging_label}/{name.lower()}_{suffix}'
-            self.logger.metric(log_level, {label: value})
+            self.logger.data(log_level, {label: value})
         metrics.reset()
 
     def _spin_dataloaders(self):
