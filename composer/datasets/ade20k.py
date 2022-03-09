@@ -62,24 +62,44 @@ class RandomCropPair(torch.nn.Module):
 
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
-        if image.height > self.crop_size[0] or image.width > self.crop_size[1]:
-            i, j, h, w = transforms.RandomCrop.get_params(
-                image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
-            target_crop = TF.crop(target, i, j, h, w)  # type: ignore - transform typing excludes PIL.Image
-            if self.class_max_percent < 1.0:
-                for _ in range(self.n_retry):
-                    labels, counts = np.unique(np.array(target_crop), return_counts=True)
-                    counts = counts[labels != 0]
-                    if len(counts) > 1 and (np.max(counts) / np.sum(counts)) < self.class_max_percent:
-                        break
-                    i, j, h, w = transforms.RandomCrop.get_params(
-                        image, output_size=self.crop_size)  # type: ignore - transform type excludes PIL.Image
-                    target_crop = TF.crop(target, i, j, h, w)  # type: ignore - transform typing excludes PIL.Image
 
-            image = TF.crop(image, i, j, h, w)  # type: ignore - transform typing does not include PIL.Image
+        # if image size is smaller than crop size, no cropping necessary
+        if image.height <= self.crop_size[0] and image.width <= self.crop_size[1]:
+            return image, target
+
+        # generate crop
+        crop = transforms.RandomCrop.get_params(
+            image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
+
+        if self.class_max_percent < 1.0:
+            best_max_percent = 1.0
+            best_crop = crop
+            for _ in range(self.n_retry):
+                # Crop target
+                target_crop = TF.crop(target, *crop)  # type: ignore - transform typing excludes PIL.Image
+
+                # measure max area percentage of a single class
+                labels, counts = np.unique(np.array(target_crop), return_counts=True)
+                counts = counts[labels != 0]
+                current_max_percent = (np.max(counts) / np.sum(counts))
+
+                if len(counts) > 1 and current_max_percent < self.class_max_percent:
+                    break
+
+                if current_max_percent < best_max_percent:
+                    best_crop = crop
+                    best_max_percent = current_max_percent
+
+                crop = transforms.RandomCrop.get_params(
+                    image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
+
+            image = TF.crop(image, *best_crop)
+            target = TF.crop(target, *best_crop)
         else:
-            target_crop = target
-        return image, target_crop
+            image = TF.crop(image, *crop)
+            target = TF.crop(target, *crop)  # type: ignore - transform typing excludes PIL.Image
+
+        return image, target
 
 
 class RandomHFlipPair(torch.nn.Module):
