@@ -6,8 +6,8 @@ import textwrap
 from typing import Any, Tuple
 
 import numpy as np
-from torch import Tensor
 import requests
+from torch import Tensor
 from torchmetrics import Metric
 
 from composer.core.types import BatchPair, Metrics, Tensors
