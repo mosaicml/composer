@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""A U-Net model extending :class:`.ComposerModel`"""
+"""A U-Net model extending :class:`.ComposerModel`."""
 
 import logging
 import textwrap
