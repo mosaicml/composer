@@ -13,7 +13,8 @@ __all__ = ["DeepLabV3Hparams"]
 
 @dataclass
 class DeepLabV3Hparams(ModelHparams):
-    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.ComposerDeepLabV3`.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for
+    :class:`.ComposerDeepLabV3`.
 
     Args:
         num_classes (int): Number of classes in the segmentation task.

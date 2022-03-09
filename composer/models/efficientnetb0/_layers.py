@@ -1,4 +1,4 @@
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 import torch
 from torch import nn as nn
@@ -172,24 +172,25 @@ class DepthwiseSeparableConv(nn.Module):
 
 
 class MBConvBlock(nn.Module):
-    """Mobile Inverted Residual Bottleneck Block as defined in `MobileNetV2: Inverted Residuals and Linear Bottlenecks
-<https://arxiv.org/abs/1801.04381>`_.
+    """Mobile Inverted Residual Bottleneck Block as defined in `MobileNetV2: Inverted Residuals and Linear Bottlenecks.
 
-    Args:
-        in_channels (int): Number of channels in the input tensor.
-        out_channels (int): Number of channels in the output tensor.
-        kernel_size (int): Size of the convolving kernel.
-        stride (int): Stride of the convolution.
-        expand_ratio (int): How much to expand the input channels for the
-            depthwise convolution.
-        se_ratio (float): How much to scale `in_channels` for the hidden layer
-            dimensionality of the squeeze-excite module.
-        drop_connect_rate (float): Probability of dropping a sample before the
-            identity connection, provides regularization similar to stochastic
-            depth.
-        act_layer (torch.nn.Module): Activation layer to use in block.
-        norm_kwargs (dict): Normalization layer's keyword arguments.
-        norm_layer (torch.nn.Module): Normalization layer to use in block.
+    <https://arxiv.org/abs/1801.04381>`_.
+
+        Args:
+            in_channels (int): Number of channels in the input tensor.
+            out_channels (int): Number of channels in the output tensor.
+            kernel_size (int): Size of the convolving kernel.
+            stride (int): Stride of the convolution.
+            expand_ratio (int): How much to expand the input channels for the
+                depthwise convolution.
+            se_ratio (float): How much to scale `in_channels` for the hidden layer
+                dimensionality of the squeeze-excite module.
+            drop_connect_rate (float): Probability of dropping a sample before the
+                identity connection, provides regularization similar to stochastic
+                depth.
+            act_layer (torch.nn.Module): Activation layer to use in block.
+            norm_kwargs (dict): Normalization layer's keyword arguments.
+            norm_layer (torch.nn.Module): Normalization layer to use in block.
     """
 
     def __init__(self,

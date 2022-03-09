@@ -1,7 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""EffecientNet PyTorch architecture, adapted from
-`(Generic) EfficientNets for PyTorch <https://github.com/rwightman/gen-efficientnet-pytorch>`_.
+"""EffecientNet PyTorch architecture, adapted from `(Generic) EfficientNets for PyTorch.
+
+<https://github.com/rwightman/gen-efficientnet-pytorch>`_.
 """
 
 import math
@@ -11,14 +12,16 @@ from typing import Any, Callable, Dict
 import torch
 import torch.nn as nn
 
-from composer.models.efficientnetb0._layers import round_channels, calculate_same_padding, DepthwiseSeparableConv, \
-    MBConvBlock
+from composer.models.efficientnetb0._layers import (DepthwiseSeparableConv, MBConvBlock, calculate_same_padding,
+                                                    round_channels)
 
 __all__ = ["EfficientNet"]
 
 
 class EfficientNet(nn.Module):
-    """From `EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks <https://arxiv.org/abs/1905.11946>`_.
+    """From `EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks.
+
+    <https://arxiv.org/abs/1905.11946>`_.
 
     Args:
         num_classes (int): Size of the EfficientNet output, typically viewed

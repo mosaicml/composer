@@ -1,8 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap `huggingface GPT-2.
 
-"""Implements :class:`~composer.models.transformer_shared.ComposerTransformer`
-to wrap `huggingface GPT-2 <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_"""
+<https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_
+"""
 
 from __future__ import annotations
 
@@ -22,9 +23,9 @@ __all__ = ["GPT2Model"]
 
 
 class GPT2Model(ComposerTransformer):
-    """Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap
-    `huggingface GPT-2 transformers <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_.
-    Logs training and validation perplexity.
+    """Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap `huggingface GPT-2
+    transformers <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_. Logs training and
+    validation perplexity.
 
     From `Language Models are Unsupervised Multitask Learners <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_.
 

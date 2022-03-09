@@ -46,8 +46,8 @@ class Model(nn.Module):
 
 
 class MNIST_Classifier(ComposerClassifier):
-    """A simple convolutional neural network extending :class:`.ComposerClassifier`.
-    This class makes :class:`.Model` compatible with :class:`.Trainer`
+    """A simple convolutional neural network extending :class:`.ComposerClassifier`. This class makes :class:`.Model`
+    compatible with :class:`.Trainer`
 
     Args:
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``
