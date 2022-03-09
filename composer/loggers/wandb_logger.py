@@ -95,7 +95,7 @@ class WandBLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         import wandb
-        del state  # unused
+        del state, logger  # unused
         if self._enabled:
             wandb.init(**self._init_params)
 

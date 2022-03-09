@@ -109,7 +109,7 @@ class TQDMLogger(LoggerDestination):
         return dist.get_global_rank() == 0 and log_level <= LogLevel.BATCH
 
     def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict) -> None:
-        del timestamp, log_level  # unused
+        del timestamp, log_level  # Unused
         if self.is_train in self.pbars:
             # Logging outside an epoch
             assert self.is_train is not None
