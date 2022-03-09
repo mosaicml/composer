@@ -4,415 +4,72 @@ Thanks for considering contributing to Composer!
 
 Issues tagged with [good first issue](https://github.com/mosaicml/composer/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) are great options to start contributing.
 
-To submit a contribution, please create a fork of Composer, and submit a pull request against the `dev` branch.
-
 If you have questions, join us on [Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg) -- we'll be happy to help you!
 
+We welcome contributions for bug fixes, new efficient methods you'd like to contribute to the community, or new models and datasets!
 
-## 1. Running Tests
+## New Algorithms
 
-### 1.1 Unit Tests
-
-
-Composer uses PyTest as the testing framework.
-The [Makefile](../Makefile) contains helper commands for invoking PyTest, as described below.
-
-#### Single-Rank Tests
-To execute single rank tests, simply call `pytest` or `make test`.
-
-#### Multi-Rank Tests
-By default, tests assume a world-size of one. However, tests which require multiple workers are annotated
-with `@pytest.mark.world_size(n)`, where n is the number of workers required. Currently, only world sizes
-of `1` and `2` are supported.
-
-To run multi-rank tests, set the `WORLD_SIZE` flag, and use the `make test-dist` or `make test-dist-gpu`
-targets (`make test` and `make test-gpu` ignore the `WORLD_SIZE` flag). 
-
-When using `make test-dist` or `make test-dist-gpu`, the [composer launch script](../composer/cli/launcher.py) is used
-to launch PyTest.
-
-Valid options are `WORLD_SIZE=1` and `WORLD_SIZE=2`. For example:
-
-* `make test-dist WORLD_SIZE=1 `: runs tests that have a world size of one using the composer launch script.
-* `make test-dist WORLD_SIZE=2`: runs tests that have a world size of two
-* `make test-dist-gpu WORLD_SIZE=2`: runs GPU tests that have a world size of two
-
-#### GPU Tests
-GPU tests are marked with `@pytest.mark.gpu`. Tests without this annotation are assumed to be CPU-only tests.
-By default, only CPU tests are run.
-
-To run single-rank GPU tests, run `make test-gpu`.
-To run multi-rank GPU tests, run `make test-dist-gpu WORLD_SIZE=2`.
-
-#### Test Duration
-By default, all tests are run.
-To run only "short" tests (those that take 2 seconds or less) or "long" tests (those that take more than 2 seconds),
-set the `DURATION` flag to `short` or `long`, respectively.
-
-The `DURATION` flag can be combined with other flags. for example:
-
-* `make test DURATION=long ` runs long, single-rank tests.
-* `make test-dist DURATION=all WORLD_SIZE=2 ` runs all tests that have a world size of two.
-* `make test-gpu DURATION=all ` runs all single-rank GPU tests.
-
-##### Extra Arguments
-To provide extra arguments to PyTest when using Makefile targets, set the `EXTRA_ARGS` flag.
-For example `make test EXTRA_ARGS='-v'` runs PyTest with extra verbosity.
+Have a new algorithm you'd like to contribute to the library as part of your research? Reach out to us on Slack or file a new issue with the proposed method, and we'll work with you to get started!
 
 
-### 1.2 Doctests
+## Submitting a contribution
 
-To run doctests, run:
+To submit a contribution:
 
+1. Fork a copy of the [Composer](https://github.com/mosaicml/composer) library to your own account.
+
+1. Clone your fork locally and add the mosaicml repo as a remote repository:
 ```bash
-cd docs && make clean && make html && make doctest
+git clone git@github.com:<github_id>/composer.git
+cd composer
+git remote add upstream https://github.com/mosaicml/composer.git
 ```
 
+1. Create a branch and make your proposed changes.
 
-## 2. Code Style
+```bash
+git checkout -b cool-new-feature
+```
 
-### 2.1 Style Guide
+1. To test and format the code, remember to install with the [dev] tag. This will install some needed dependencies for testing.
 
+```bash
+pip install -e .[dev]
+```
 
-Composer generally follows Google's
-[Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code.
-
-### 2.2. Code Formatting
-
-Composer uses the [yapf](https://github.com/google/yapf) formatter for general formatting,
-[isort](https://github.com/PyCQA/isort) to sort imports, and
-[docformatter](https://github.com/myint/docformatter) to format docstrings.
-
-To (auto)format code, run
-
+We use a few formatters for code style, and you run the following to autocorrect your files:
 ```bash
 make style
 ```
 
-To verify that styling is correct, run:
-```bash
-make lint
-```
+That will run the [yapf](https://github.com/google/yapf) formatter for general formatting,
+[isort](https://github.com/PyCQA/isort) to sort imports, and
+[docformatter](https://github.com/myint/docformatter) to format docstrings.
 
-The configuration is stored in [pyproject.toml](pyproject.toml).
+1. When you are ready, submit a pull request into the composer repository! If merged, we'll reach out to send you some free swag :)
 
+## Running Tests
 
-## 3. Type Annotations and Typechecking
+To test your changes locally, run:
+
+1. `make test`  # run CPU tests
+1. `make test-gpu`  # run GPU tests
+1. `cd docs && make doctest`  # run doctests
+
+Some of our checks test distributed training as well. To test these, run:
+
+* `make test-dist WORLD_SIZE=2`  # run 2-cpu distributed tests
+* `make test-dist-gpu WORLD_SIZE=2`  # run 2-gpu distributed tests
+
+These tests run with the `composer` launcher. We also support `WORLD_SIZE=1`, which would run the tests with the `composer` launcher on a single device.
+
+See the [Makefile](https://github.com/mosaicml/composer/blob/dev/Makefile) for more information.
+
+## Code Style & Typing
+
+Follow Google's
+[Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code. Many of these are already taken care of by the `make style` command above.
 
 Composer aims to annotate all functions with type annotations (introduced in
-[PEP 526](https://www.python.org/dev/peps/pep-0526/). Type annotations help statically catch `TypeError` and
-`AttributeError` bugs, in addition to other benefits, as outlined in the PEP.
-
-Composer uses [PyRight](https://github.com/microsoft/pyright)
-to validate type annotations. To check typing, run:
-
-```bash
-pyright .
-```
-
-Our PyRight configuration is stored in [pyproject.toml](pyproject.toml).
-
-While PyRight warnings will not cause a build to fail, they should be reviewed as they can identify potential bugs.
-
-### Debugging
-
-Here are some suggestions to deal with PyRight errors:
-
-1. Suppose a variable could be one of multiple types, like the following:
-
-    ```python
-    def foo(x: Union[int, None]):
-        """
-        Args:
-            x (int or None): Foo parameter
-        """
-        return x + 5  # type error -- None + 5 is not allowed!
-    ```
-
-    PyRight will complain since `None + 5` is not a valid operation.
-    Instead, add a check to ensure that `x is not None`:
-
-    ```python
-    def foo(x: Union[int, None]):
-        if x is None:
-            raise TypeError("x must be an integer, not None!")
-        return x + 5  # valid
-    ```
-
-    Assert statements also work. However, assert statements should NOT be used for data validation
-    (see the assert statement section below).
-    ```python
-    def foo(x: Union[int, None]):
-        assert x is not None, "x should never be None"
-        return x + 5  # valid
-    ```
-
-1. For variables where it is impossible for PyRight to infer the correct type, use
-[cast](https://docs.python.org/3/library/typing.html#typing.cast).
-1. As a last resort, add a `# type: ignore` comment to the line where PyRight emits an error.
-Immediately following this statement, paste in the error emitted by PyRight,
-so other contributors will know why this error was silenced.
-
-
-## 4. Public APIs
-A public API, generally speaking, can be invoked by a user without a leading underscore in any portion of the path.
-The following are examples of public APIs:
-
-* Standalone functions in public modules (e.g. `composer.utils.dist.get_world_size`)
-* Classes in public modules (e.g. `composer.trainer.trainer.Trainer`)
-* Public methods in public classes (e.g. `composer.trainer.trainer.Trainer.fit`)
-* Public modules (e.g. `composer.trainer.trainer`)
-
-The following rules apply to public APIs:
-1. All public APIs must have a docstring (see the Documentation section below)
-1. All parameters must have type annotations.
-1. Parameters should be flattened, rather than nested. While this violates the software engineering practice of
-    being DRY (don't repeat yourself), it simplifies the user API by making all parameters visible.
-1. To minimize user imports, parameters should support native PyTorch types or Python primitives whenever possible.
-
-    It is acceptable to use a union of types, so long as one of the options is a primitive. For example, in the
-    constructor for `composer.trainer.trainer.Trainer`, the `device` parameter is annotated like the following:
-
-    ```python
-    from typing import Optional, Union
-
-    from composer.trainer.devices import Device
-
-    class Trainer:
-        def __init__(
-            self,
-            ...,
-            device: Union[str, Device],
-
-        ):
-            if isinstance(device, str):
-                device = Device(device)
-            ...
-    ```
-
-    This signature allows a user to pass a string for a device,
-    rather than having to import our custom device class.
-
-    Parameters that are for power users (such as `load_object_store`) in the Trainer are exempt from this rule.
-    These parameters can require custom imports.
-
-1. Parameters that could take a sequence of elements should also allow `None` or a singleton.
-    This simplifies the user API by not having to construct a list (or tuple) to hold a single element
-    (or no element). For example, `Tensors = Union[Tensor, Tuple[Tensor, ...], List[Tensor]]`.
-
-    The `composer.utils.ensure_tuple` helper method can convert a singleton, list, or tuple into a tuple.
-    For example
-
-    ```python
-    def foo(x: Optional[Tensors]) -> Tuple[Tensor, ...]:
-        return ensure_tuple(x)  # ensures that the result is always a (potentially empty) tuple of tensors
-    ```
-
-
-## 5. Use of `assert`
-
-`assert` should be used only in test cases and for verifying invariants (likely required for type checking),
-not for data validation. As asserts can be disabled in python by using the `-O` flag (e.g. `python -O path/to/script.py`),
-they are not guaranteed to run. For data validation, instead use a style like the following:
-
-```python
-if parameter is None:
-    raise ValueError("parameter must be specified and cannot be None")
-```
-
-
-## 6. Imports and `__init__.py`
-
-All imports in composer should be absolute -- that is, they do not begin with a period.
-
-### 6.1 External Dependencies
-1.  All external dependencies must be specified in both [setup.py](setup.py) for pip and [meta.yaml](meta.yaml)
-    for Anaconda.
-
-1.  If a dependency is not core to Composer (e.g. it is for a model, dataset, algorithm, or some callbacks):
-    1.  It must be specified in a entry of the `extra_deps` dictionary of [setup.py](setup.py).
-        This dictionary groups dependencies that can be conditionally installed. An entry named `foo`
-        can be installed with `pip install mosaicml[foo]`. For example, running `pip install mosaicml[unet]`
-        will install everything in `install_requires`, along with `monai` and `scikit-learn`.
-    1.  It must also be specified in the `run_constrained` and the `test.requires` section.
-    1.  The import must be conditionally imported in the code. For example:
-
-        ```python
-        def unet():
-            try:
-                import monai
-            except ImportError as e:
-                raise ImportError(textwrap.dedent("""\
-                    Composer was installed without unet support. To use unet with Composer, run: `pip install mosaicml
-                    [unet]` if using pip or `conda install -c conda-forge monai` if using Anaconda""") from e
-        ```
-
-        This style allows users to perform minimal install of Composer without triggering `ImportError`s if
-        an optional dependency is missing.
-
-    1.  If the dependency is core to Composer, add the dependency to the `install_requires` section of
-        [setup.py](./setup.py) and the `requirements.run` section of [meta.yaml](./meta.yaml).
-
-### 6.2 Use of `__all__`
-
-All public classes must define `__all__` to be the list of members that should be re-exported.
-The variable is necessary to limit what `from XXX import *` imports, and so the documentation build
-only documents exported members (and not unrelated re-imports).
-
-For example, from [composer/callbacks/memory_monitor.py](composer/callbacks/memory_monitor.py)
-
-```python
-"""Log memory usage during training."""
-import logging
-from typing import Dict, Union
-
-import torch.cuda
-
-from composer.core import Logger, State
-from composer.core.callback import Callback
-
-log = logging.getLogger(__name__)
-
-__all__ = ["MemoryMonitor"]  # export only the MemoryMonitor, not other imports like `Logger`, `State`, or `Callback`
-
-
-class MemoryMonitor(Callback):
-    ...
-```
-
-
-### 6.3 `__init__.py`
-
-All public classes and functions should be added to the module's `__init__.py`.
-
-```python
-from composer.path.to.module.file import MyClass as MyClass
-from composer.path.to.module.file import my_func as my_func
-```
-
-If a file only contains public functions, then the following is also acceptable:
-
-```python
-from composer.path.to.module import my_file as my_file
-```
-
-
-## 7. Documentation
-
-Composer uses [Google Style Docstrings](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html).
-
-The following guidelines apply to documentation.
-1.  Each function that needs a docstring must have its input arguments and return statement (if not None) annotated.
-1.  Each argument annotation should include the type. If the argument has a default value, the type annotation should
-    specify "optional", and the docstring should say the default value. There should only be one line for the "Returns:"
-    section, even if a tuple is returned. For example:
-
-    ```python
-
-    def foo(bar: int):
-        """Foo.
-
-        Args:
-            bar (int): Required bar.
-        """
-        ...
-
-    def foo2(bar: int = 42):
-        """Foo2.
-
-        Args:
-            bar (int, optional): Optional bar. (default: ``42``)
-        """
-        ...
-    
-    def foo3(bar: Optional[int] = None):
-        """Foo3.
-
-        Args:
-            bar (int, optional): Optional bar. (default: ``None``)
-        """
-        ...
-
-    def foo4(bar: Union[int, str] = 42):
-        """Foo4.
-
-        Args:
-            bar (int | str, optional): Optional bar. (default: ``42``)
-        """
-        ...
-
-    def foo5(bar: int) -> int:
-        """Foo5.
-
-        Args:
-            bar (int): Required bar.
-
-        Returns:
-            int: Description of return statement.
-        """
-        ...
-
-    def foo6(bar: int) -> Tuple[int, str]:
-        """Foo6.
-
-        Args:
-            bar (int): Required bar.
-
-        Returns:
-            Tuple[int, str]: Description of return statement.
-        """
-        ...
-    ```
-
-1.  For examples in docstrings, use `.. doctest::` or
-    `.. testcode::` . See the [Sphinx Doctest Extension](https://www.sphinx-doc.org/en/master/usage/extensions/doctest.html)
-    for all of the available directives. Do not use `.. code-block::` for Python examples, as they are untested.
-
-    Any test fixtures for doctests should go in [docs/source/doctest_fixtures.py](docs/source//doctest_fixtures.py)
-    or in a `.. testsetup::` block.
-
-    For example:
-    ```python
-    def my_function(x: Optional[torch.Tensor]) -> torch.Tensor:
-        """blah function
-
-        Args:
-            input (torch.Tensor, optional): Your guess.
-
-        Returns:
-            torch.Tensor: How good your input is.
-
-        Raises:
-            ValueError: If your input is negative.
-
-        Example:
-            .. testsetup::
-
-                # optional setup section, not shown in docs
-                import torch
-                x = torch.randn(42)
-                
-
-            .. testcode::
-
-                # shown in docs; runs after testsetup
-                my_function(x)
-        """
-        ...
-    ```
-
-    To check doctests, run:
-    
-    ```bash
-    cd docs && make clean && make html && make doctest
-    ```
-
-## 8. Hparams and Config Classes
-
-Each class that could be initialized by the hparams will need its configuration variables defined in
-[yahp](https://github.com/mosaicml/yahp) dataclass.
-
-Guidelines:
-* The fields in the dataclass should roughly follow the init signature of the class being constructed
-* `initialize_object(self)` should take any parameters needed to construct the class. It acceptable to
-take complex types or other hparam dataclasses, as required, to initialize the object.
+[PEP 526](https://www.python.org/dev/peps/pep-0526/). Not to worry if you are not a python typing expert, put in the pull request, and we'll help you with getting the code into shape.
