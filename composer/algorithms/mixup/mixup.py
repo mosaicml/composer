@@ -84,10 +84,10 @@ def mixup_batch(input: Tensor,
 
     # First check if labels are indices. If so, convert them to onehots.
     # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
-    if _check_for_index_targets(y):
-        y_onehot = F.one_hot(y, num_classes=n_classes)
-        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=n_classes)
-        y_mix = ((1. - interpolation_lambda) * y_onehot + interpolation_lambda * y_shuffled_onehot)
+    if _check_for_index_targets(target):
+        y_onehot = F.one_hot(target, num_classes=num_classes)
+        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
+        y_mix = ((1. - mixing) * y_onehot + mixing * y_shuffled_onehot)
     else:
         y_mix = ((1. - mixing) * target + mixing * y_shuffled)
     return x_mix, y_mix, shuffled_idx
