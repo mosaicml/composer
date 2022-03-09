@@ -168,8 +168,10 @@ def test_in_memory_logger_get_timeseries():
             token=Time(0, "tok"),
             token_in_epoch=Time(0, "tok"),
         )
+        state = MagicMock()
+        state.timer.get_timestamp.return_value = timestamp
         datapoint = i / 3
-        in_memory_logger.log_data(timestamp=timestamp, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+        in_memory_logger.log_data(state=state, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
         data["accuracy/val"].append(datapoint)
         data["batch"].append(batch)
         data["batch_in_epoch"].append(batch_in_epoch)

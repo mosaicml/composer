@@ -8,7 +8,7 @@ from abc import ABC
 from typing import TYPE_CHECKING
 
 from composer.core.callback import Callback
-from composer.core import State
+from composer.core.state import State
 
 if TYPE_CHECKING:
     from composer.core.logging.logger import LoggerDataDict, LogLevel
@@ -49,11 +49,11 @@ class LoggerDestination(Callback, ABC):
 
             This method will block the training loop. For optimal performance, it is recommended to deepcopy the
             ``data`` (e.g. ``copy.deepcopy(data)``), and store the copied data in queue. Then, either:
-            
+
             *   Use background thread(s) or process(s) to read from this queue to perform any I/O.
-            *   Batch multiple ``data``\\s together and flush periodically on events, such as 
+            *   Batch multiple ``data``\\s together and flush periodically on events, such as
                 :attr:`~composer.core.event.Event.BATCH_END` or :attr:`~composer.core.event.Event.EPOCH_END`.
-                
+
                 .. seealso:: :class:`~composer.loggers.file_logger.FileLogger` as an example.
 
         Args:
