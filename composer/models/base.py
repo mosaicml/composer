@@ -20,7 +20,7 @@ __all__ = ["ComposerClassifier", "ComposerModel"]
 class ComposerModel(torch.nn.Module, abc.ABC):
     """The interface needed to use a PyTorch model with :class:`.Trainer`.
 
-    To create a :class:`.Trainer` compatible model, subclass :class:`.ComposerModel` and
+    To create a :class:`.Trainer`\\-compatible model, subclass :class:`.ComposerModel` and
     implement :meth:`forward` and :meth:`loss`. For full functionality (logging and validation), implement :meth:`metrics`
     and :meth:`validate`.
 
