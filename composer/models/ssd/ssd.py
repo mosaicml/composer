@@ -1,4 +1,4 @@
-"""Single Shot Object detection Model with pretrained ResNet34 backbone extending :class:`.ComposerModel`."""
+"""Single Shot Object Detection model with pretrained ResNet34 backbone extending :class:`.ComposerModel`."""
 
 import os
 import tempfile
