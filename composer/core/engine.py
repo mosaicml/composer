@@ -222,7 +222,7 @@ class Engine():
                 # batch-frequency vs epoch-frequency evaluators
                 log_level = LogLevel.BATCH
             if len(trace) > 0:
-                self.logger.metric(log_level=log_level, data={key: 1 if tr.run else 0 for key, tr in trace.items()})
+                self.logger.data(log_level=log_level, data={key: 1 if tr.run else 0 for key, tr in trace.items()})
 
         return trace
 

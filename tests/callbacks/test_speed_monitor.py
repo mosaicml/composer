@@ -16,6 +16,7 @@ def test_speed_monitor(composer_trainer_hparams: TrainerHparams):
     composer_trainer_hparams.max_duration = f"{max_epochs}ep"
     trainer = composer_trainer_hparams.initialize_object()
     log_destination = MagicMock()
+    log_destination.will_log.return_value = True
     trainer.logger.destinations = [log_destination]
     trainer.fit()
 

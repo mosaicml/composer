@@ -15,15 +15,12 @@ from __future__ import annotations
 
 import collections.abc
 import operator
-import time
+from copy import deepcopy
 from enum import IntEnum
 from functools import reduce
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Callable, Dict, Generator, List, Sequence, Union
 
-import coolname
 import torch
-
-from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core.logging.logger_destination import LoggerDestination
@@ -52,77 +49,68 @@ class LogLevel(IntEnum):
 
 
 class Logger:
-    r"""Logger routes metrics to the :class:`.LoggerDestination`. Logger is what users call from within
+    """Logger routes metrics to the :class:`.LoggerDestination`. Logger is what users call from within
     algorithms/callbacks. A logger routes the calls/data to any different number of destination
     :class:`.LoggerDestination`\\s (e.g., :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged should be
     of the type :attr:`~.logger.LoggerDataDict` (i.e., a ``{<name>: <value>}`` mapping).
 
     Args:
         state (State): The global :class:`~.core.state.State` object.
-        destinations (Sequence[LoggerDestination]): A sequence of :class:`.LoggerDestination`\s to
-            which logging calls will be sent.
-        run_name (str, optional): The name for this training run.
-            If not specified, a :doc:`coolname <coolname:/>` will be used like the following:
-
-            .. testsetup:: composer.core.logging.logger.Logger.__init__.run_name
-
-                import random
-                import coolname
-
-                coolname.replace_random(random.Random(0))
-
-            .. doctest:: composer.core.logging.logger.Logger.__init__.run_name
-
-                >>> str(time.time_ns()) + "-" + coolname.generate_slug(2)
-                '1234-cool-name'
+        destinations (Sequence[LoggerDestination]): A sequence of :class:`.LoggerDestination`\\s to which logging calls will be sent.
 
     Attributes:
-        destinations (Sequence[LoggerDestination]):
-            A sequence of :class:`~.LoggerDestination`\s to which logging calls will be sent.
+        backends (Sequence[LoggerDestination]):
+            A sequence of :class:`~..base_backend.LoggerDestination`\\s to which logging calls will be sent.
     """
 
     def __init__(
             self,
             state: State,
             destinations: Sequence[LoggerDestination] = tuple(),
-            run_name: Optional[str] = None,
     ):
         self.destinations = destinations
-        if run_name is None:
-            # prefixing with the time so experiments sorted alphabetically will
-            # have the latest experiment last
-            run_name = str(time.time_ns()) + "-" + coolname.generate_slug(2)
-            run_name_list = [run_name]
-            # ensure all ranks have the same experiment name
-            dist.broadcast_object_list(run_name_list)
-            run_name = run_name_list[0]
-        self.run_name = run_name
         self._state = state
 
-    def metric(self, log_level: Union[str, LogLevel], data: LoggerDataDict) -> None:
+    def _get_destinations_for_log_level(self, log_level: LogLevel) -> Generator[LoggerDestination, None, None]:
+        for destination in self.destinations:
+            if destination.will_log(self._state, log_level):
+                yield destination
+
+    def data(self, log_level: Union[str, LogLevel], data: Union[LoggerDataDict, Callable[[], LoggerDataDict]]) -> None:
         """Log a metric to the :attr:`destinations`.
 
         Args:
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
-            data (LoggerDataDict): The data to log.
+            data (Union[LoggerDataDict, Callable[[], LoggerDataDict]]):
+                Can be either logging data or a callable that returns data to be logged.
+                Callables will be invoked only when
+                :meth:`~.base_backend.LoggerDestination.will_log` returns True for at least one
+                :class:`~.logging.base_backend.LoggerDestination`. Useful when it is
+                expensive to generate the data to be logged.
         """
         if isinstance(log_level, str):
             log_level = LogLevel[log_level.upper()]
 
-        for destination in self.destinations:
-            destination.log_data(self._state.timer.get_timestamp(), log_level, data)
+        for destination in self._get_destinations_for_log_level(log_level):
+            if callable(data):
+                data = data()
+            # copying the data in case if a backend queues the logged data and flushes later
+            # this way, the flushed data will be the same as at the time of the logger call
+            copied_data = deepcopy(data)
+            assert isinstance(copied_data, collections.abc.Mapping)
+            destination.log_data(self._state.timer.get_timestamp(), log_level, copied_data)
 
     def data_fit(self, data: LoggerDataDict) -> None:
-        """Helper function for ``metric(LogLevel.FIT, data)``"""
-        self.metric(LogLevel.FIT, data)
+        """Helper function for ``self.data(LogLevel.FIT, data)``"""
+        self.data(LogLevel.FIT, data)
 
     def data_epoch(self, data: LoggerDataDict) -> None:
-        """Helper function for ``self.metric(LogLevel.EPOCH, data)``"""
-        self.metric(LogLevel.EPOCH, data)
+        """Helper function for ``self.data(LogLevel.EPOCH, data)``"""
+        self.data(LogLevel.EPOCH, data)
 
     def data_batch(self, data: LoggerDataDict) -> None:
-        """Helper function for ``self.metric(LogLevel.BATCH, data)``"""
-        self.metric(LogLevel.BATCH, data)
+        """Helper function for ``self.data(LogLevel.BATCH, data)``"""
+        self.data(LogLevel.BATCH, data)
 
 
 def format_log_data_value(data: LoggerData) -> str:

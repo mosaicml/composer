@@ -224,7 +224,6 @@ class Trainer:
                 :func:`.configure_deterministic_mode` function at the start of your script. This will ensure any initialization done before the trainer init also runs deterministically.
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
-        run_name (str, optional): A name for this training run. If not specified, TODO.
         logger_destinations (Sequence[LoggerDestination], optional): The destinations to log training information to.
             If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
 
@@ -404,7 +403,6 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # logging and callbacks
-        run_name: Optional[str] = None,
         logger_destinations: Optional[Sequence[LoggerDestination]] = None,
         callbacks: Sequence[Callback] = tuple(),
 
@@ -662,7 +660,7 @@ class Trainer:
 
         if logger_destinations is None:
             logger_destinations = [TQDMLogger()]
-        self.logger = Logger(state=self.state, destinations=logger_destinations, run_name=run_name)
+        self.logger = Logger(state=self.state, destinations=logger_destinations)
         self.state.callbacks = list(cast(List[Callback], logger_destinations)) + self.state.callbacks
 
         self.engine = Engine(
@@ -820,7 +818,7 @@ class Trainer:
 
         return metrics
 
-    def _compute_and_log_datas(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
+    def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
         """Computes metrics, logs the results, and resets the metrics.
 
         Args:
@@ -840,7 +838,7 @@ class Trainer:
                 label = f'{name.lower()}/{suffix}'
             else:
                 label = f'{logging_label}/{name.lower()}_{suffix}'
-            self.logger.metric(log_level, {label: value})
+            self.logger.data(log_level, {label: value})
         metrics.reset()
 
     def _spin_dataloaders(self):
@@ -984,7 +982,7 @@ class Trainer:
 
                     if self._compute_training_metrics:
                         assert train_metrics is not None
-                        self._compute_and_log_datas(train_metrics, is_train=True, is_batch=True)
+                        self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
 
                     self.state.timer.on_batch_complete(
                         samples=int(num_samples_in_batch.item()),
@@ -1184,7 +1182,7 @@ class Trainer:
                 self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
                 self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
 
-                self._compute_and_log_datas(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
+                self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
 
             self.engine.run_event(Event.EVAL_END)
 

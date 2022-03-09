@@ -97,6 +97,10 @@ Custom Logger Destinations
 To use a custom logger destination, create a class that inherits from
 :class:`.LoggerDestination`, and optionally implement the following methods:
 
+-  :meth:`.LoggerDestination.will_log`(:class:`.State`, :class:`.LogLevel`:
+   returns a boolean to determine if a metric will be logged. This is often
+   used to filter messages of a lower log level than desired. The default
+   returns ``True`` (i.e. always log).
 -  :meth:`.LoggerDestination.log_data`(``TimeStamp``, ``LogLevel``, ``LoggerDataDict``):
    Handles the actual logging of the provided data to an end source. For example,
    write into a log file, or upload to a service.
@@ -115,6 +119,9 @@ into a dictionary:
             self.log_level = log_level
             # Dictionary to store logged data
             self.data = {}
+
+        def will_log(state: State, log_level: LogLevel) -> bool:
+           return log_level < LogLevel.BATCH
 
         def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict):
             if log_level <= self.log_level:

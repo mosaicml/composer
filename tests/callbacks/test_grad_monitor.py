@@ -14,6 +14,7 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, log_layers: bool =
     composer_trainer_hparams.train_batch_size = 50
     trainer = composer_trainer_hparams.initialize_object()
     log_destination = MagicMock()
+    log_destination.will_log.return_value = True
     trainer.logger.destinations = [log_destination]
     trainer.fit()
 

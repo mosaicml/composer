@@ -114,7 +114,7 @@ class FileLogger(LoggerDestination):
         # Flush any log calls that occurred during INIT or FIT_START
         self._flush_file()
 
-    def will_log(self, log_level: LogLevel) -> bool:
+    def will_log(self, state: State, log_level: LogLevel) -> bool:
         if log_level == LogLevel.FIT:
             return True  # fit is always logged
         if log_level == LogLevel.EPOCH:
@@ -132,8 +132,6 @@ class FileLogger(LoggerDestination):
         raise ValueError(f"Unknown log level: {log_level}")
 
     def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict):
-        if not self.will_log(log_level):
-            return
         data_str = format_log_data_value(data)
         if self.file is None:
             raise RuntimeError("Attempted to log before self.init() or after self.close()")

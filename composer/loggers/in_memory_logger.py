@@ -7,7 +7,6 @@ Useful for collecting and plotting data inside notebooks.
 
 from __future__ import annotations
 
-import copy
 from typing import Dict, List, Tuple, Union
 
 import numpy as np
@@ -56,7 +55,7 @@ class InMemoryLogger(LoggerDestination):
             (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`,
             :attr:`~.logger.LoggerDataDict`) tuple. This dictionary contains all logged
             data.
-        most_recent_values (Dict[str, LoggerDataDict]): Mapping of a key to the most recent value for that key.
+        most_recent_values (LoggerDataDict): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
     """
@@ -71,22 +70,21 @@ class InMemoryLogger(LoggerDestination):
         if log_level > self.log_level:
             # the logged metric is more verbose than what we want to record.
             return
-        copied_data = copy.deepcopy(data)
-        for k, v in copied_data.items():
+        for k, v in data.items():
             if k not in self.data:
                 self.data[k] = []
             self.data[k].append((timestamp, log_level, v))
-        self.most_recent_values.update(copied_data.items())
-        self.most_recent_timestamps.update({k: timestamp for k in copied_data})
+        self.most_recent_values.update(data.items())
+        self.most_recent_timestamps.update({k: timestamp for k in data})
 
-    def get_timeseries(self, metric: str) -> Dict[str, LoggerDataDict]:
+    def get_timeseries(self, metric: str) -> Dict[str, LoggerData]:
         """Returns logged data as dict containing values of a desired metric over time.
 
         Args:
             metric (str): Metric of interest. Must be present in self.data.keys().
 
         Returns:
-            timeseries (Dict[str, LoggerDataDict]): Dictionary in which one key is ``metric``,
+            timeseries (Dict[str, LoggerData]): Dictionary in which one key is ``metric``,
                 and the associated value is a list of values of that metric. The remaining
                 keys are each a unit of time, and the associated values are each a list of
                 values of that time unit for the corresponding index of the metric. For

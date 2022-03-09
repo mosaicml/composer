@@ -243,7 +243,7 @@ class RunDirectoryUploader(Callback):
             # now log which files are being uploaded. OK to do, since we're done reading the directory,
             # and any logfiles will now have their last modified timestamp
             # incremented past self._last_upload_timestamp
-            logger.metric(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
+            logger.data(log_level, {"run_directory/uploaded_files": files_to_be_uploaded})
 
     def get_uri_for_uploaded_file(self, local_filepath: Union[pathlib.Path, str]) -> str:
         """Get the object store provider uri for a specific local filepath.
