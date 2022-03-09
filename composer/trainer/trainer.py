@@ -820,7 +820,7 @@ class Trainer:
 
         return metrics
 
-    def _compute_and_log_datas(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
+    def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
         """Computes metrics, logs the results, and resets the metrics.
 
         Args:
@@ -984,7 +984,7 @@ class Trainer:
 
                     if self._compute_training_metrics:
                         assert train_metrics is not None
-                        self._compute_and_log_datas(train_metrics, is_train=True, is_batch=True)
+                        self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
 
                     self.state.timer.on_batch_complete(
                         samples=int(num_samples_in_batch.item()),
@@ -1184,7 +1184,7 @@ class Trainer:
                 self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
                 self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
 
-                self._compute_and_log_datas(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
+                self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
 
             self.engine.run_event(Event.EVAL_END)
 
