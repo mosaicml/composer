@@ -26,14 +26,14 @@ def deeplabv3_builder(num_classes: int,
 
     Args:
         num_classes (int): number of classes in the segmentation task.
-        backbone_arch (str, optional): the architecture to use for the backbone. Must be either ['resnet50', 'resnet101'].
+        backbone_arch (str, optional): the architecture to use for the backbone. Must be either [``'resnet50'``, ``'resnet101'``].
             Default: ``'resnet101'``.
         is_backbone_pretrained (bool, optional): if true (default), use pretrained weights for the backbone.
         sync_bn (bool, optional): if true (default), replace all BatchNorm layers with SyncBatchNorm layers.
-        initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: ``[]``.
+        initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``[]``.
 
     Returns:
-        deeplabv3: A DeepLabV3 PyTorch neural network module (:class:`torch.nn.Module`).
+        deeplabv3: A DeepLabV3 :class:`torch.nn.Module`.
 
     Example:
 
@@ -87,10 +87,10 @@ class ComposerDeepLabV3(ComposerModel):
 
     Args:
         num_classes (int): The number of classes in the segmentation task.
-        backbone_arch (str, optional): The backbone architecture to use, either 'resnet50', 'resnet101'. Default: ``'resnet101'``.
+        backbone_arch (str, optional): The backbone architecture to use, either ``'resnet50'``, ``'resnet101'``. Default: ``'resnet101'``.
         is_backbone_pretrained (bool, optional): if true (default), use pre-trained weights for backbone. Default: ``True``.
         sync_bn (bool, optional): Use SyncBatchNorm to sync batch norm statistics across GPUs. Default: ``True``.
-        initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: ``[]``.
+        initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``[]``.
 
     Example:
 
