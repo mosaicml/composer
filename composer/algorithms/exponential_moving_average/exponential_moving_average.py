@@ -17,10 +17,11 @@ __all__ = ["ExponentialMovingAverage", "exponential_moving_average"]
 
 
 def exponential_moving_average(model: Model, ema_model: Model, alpha: float = 0.9):
-    msd = model.state_dict()
-    for k, ema_v in ema_model.state_dict().items():
-        model_v = msd[k].detach()
-        ema_v.copy_(ema_v * alpha + (1. - alpha) * model_v)
+    model_dict = model.state_dict()
+    for key, ema_param in ema_model.state_dict().items():
+        ema_device = ema_param.device
+        model_param = model_dict[key].detach().to(ema_device)
+        ema_param.copy_(ema_param * alpha + (1. - alpha) * model_param)
 
 
 class ExponentialMovingAverage(Algorithm):
@@ -38,8 +39,8 @@ class ExponentialMovingAverage(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         if event == Event.FIT_START:
             # Initialize the ema model
-            self.ema_model = copy.deepcopy(state.model)
-            self.training_model = copy.deepcopy(state.model)
+            self.ema_model = copy.deepcopy(state.model).to("cpu")
+            self.training_model = copy.deepcopy(state.model).to("cpu")
         if event == Event.BATCH_END:
             # Update the ema model
             exponential_moving_average(state.model, self.ema_model, alpha=self.alpha)
