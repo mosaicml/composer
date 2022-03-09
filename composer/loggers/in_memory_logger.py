@@ -111,15 +111,8 @@ class InMemoryLogger(LoggerDestination):
                 # Populate the logger with data
                 for b in range(0,3):
                     datapoint = b * 3
-                    timestamp = Timestamp(epoch=Time(0, "ep"),
-                                        batch=Time(b, "ba"),
-                                        batch_in_epoch=Time(0, "ba"),
-                                        sample=Time(0, "sp"),
-                                        sample_in_epoch=Time(0, "sp"),
-                                        token=Time(0, "tok"),
-                                        token_in_epoch=Time(0, "tok"))
-                    in_mem_logger.log_data(timestamp=timestamp, 
-                        log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+                    in_mem_logger.log_data(state=state, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+
                 timeseries = in_mem_logger.get_timeseries("accuracy/val")
                 plt.plot(timeseries["batch"], timeseries["accuracy/val"])
                 plt.xlabel("Batch")
