@@ -16,7 +16,7 @@ class EfficientNetB0Hparams(ModelHparams):
     """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.EfficientNetB0`.
 
     Args:
-        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 1000.
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``1000``.
         drop_connect_rate (float, optional): Probability of dropping a sample within a block before identity connection. Default: ``0.2``.
     """
     drop_connect_rate: float = hp.optional(
