@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Implements a BERT wrapper around a :class:`.ComposerTransformer`."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping, Tuple
@@ -19,16 +21,27 @@ __all__ = ["BERTModel"]
 
 
 class BERTModel(ComposerTransformer):
-    """Implements a BERT wrapper around a ComposerTransformer.
-
-    See this `paper <https://arxiv.org/abs/1810.04805>`_
-    for details on the BERT architecutre.
+    """Implements a BERT wrapper around a :class:`.ComposerTransformer`. Works with
+    `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
 
     Args:
-        module (transformers.BertModel): The model to wrap with this module.
-        config (transformers.BertConfig): The config for the model.
-        tokenizer (transformers.BertTokenizer): The tokenizer used for this model,
-            necessary to assert required model inputs.
+        module (transformers.BertModel): An instance of BertModel that
+            contains the forward pass function.
+        config (transformers.BertConfig): The BertConfig object that
+            stores information about the model hyperparameters.
+        tokenizer (transformers.BertTokenizer): An instance of BertTokenizer. Necessary to process model inputs.
+
+    To create a BERT model for Language Model pretraining:
+
+    .. testcode::
+
+        from composer.models import BERTModel
+        import transformers
+
+        config = transformers.BertConfig()
+        hf_model = transformers.BertLMHeadModel(config=config)
+        tokenizer = transformers.BertTokenizer.from_pretrained("bert-base-uncased")
+        model = BERTModel(module=hf_model, config=config, tokenizer=tokenizer)
     """
 
     def __init__(self, module: transformers.BertModel, config: transformers.BertConfig,
@@ -96,13 +109,12 @@ class BERTModel(ComposerTransformer):
 
         Args:
             batch (BatchDict): a dictionary of Dict[str, Tensor] of inputs
-                that the model expects, as found in ComposerTransformer.get_model_inputs().
+                that the model expects, as found in :meth:`.ComposerTransformer.get_model_inputs`.
 
         Returns:
-            A tuple of (Tensor, Tensor) with the output from the forward pass and the correct labels.
-            This is fed into directly into the output of :meth:`metrics`.
+            tuple (Tensor, Tensor): with the output from the forward pass and the correct labels.
+                This is fed into directly into the output of :meth:`.ComposerModel.metrics`.
         """
-
         assert self.training is False, "For validation, model must be in eval mode"
 
         # temporary hack until eval on multiple datasets is finished
@@ -114,7 +126,7 @@ class BERTModel(ComposerTransformer):
         if output.shape[1] == 1:
             output = output.squeeze(dim=1)
 
-        return (output, labels)
+        return output, labels
 
     def metrics(self, train: bool = False) -> Metrics:
         return MetricCollection(self.train_metrics) if train else MetricCollection(self.val_metrics)
