@@ -54,18 +54,32 @@ class RandomCropPair(torch.nn.Module):
         crop_size (Tuple[int, int]): the size (height x width) of the crop.
     """
 
-    def __init__(self, crop_size: Tuple[int, int]):
+    def __init__(self, crop_size: Tuple[int, int], class_max_percent: float = 1.0, n_retry: int = 0):
         super().__init__()
         self.crop_size = crop_size
+        self.class_max_percent = class_max_percent
+        self.n_retry = n_retry
 
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
         if image.height > self.crop_size[0] or image.width > self.crop_size[1]:
             i, j, h, w = transforms.RandomCrop.get_params(
-                image, output_size=self.crop_size)  # type: ignore - transform typing does not include PIL.Image
+                image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
+            target_crop = TF.crop(target, i, j, h, w)  # type: ignore - transform typing excludes PIL.Image
+            if self.class_max_percent < 1.0:
+                for _ in range(self.n_retry):
+                    labels, counts = np.unique(np.array(target_crop), return_counts=True)
+                    counts = counts[labels != 0]
+                    if len(counts) > 1 and (np.max(counts) / np.sum(counts)) < self.class_max_percent:
+                        break
+                    i, j, h, w = transforms.RandomCrop.get_params(
+                        image, output_size=self.crop_size)  # type: ignore - transform type excludes PIL.Image
+                    target_crop = TF.crop(target, i, j, h, w)  # type: ignore - transform typing excludes PIL.Image
+
             image = TF.crop(image, i, j, h, w)  # type: ignore - transform typing does not include PIL.Image
-            target = TF.crop(target, i, j, h, w)  # type: ignore - transform typing does not include PIL.Image
-        return image, target
+        else:
+            target_crop = target
+        return image, target_crop
 
 
 class RandomHFlipPair(torch.nn.Module):
@@ -306,7 +320,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     RandomResizePair(min_scale=self.min_resize_scale,
                                      max_scale=self.max_resize_scale,
                                      base_size=(self.base_size, self.base_size)),
-                    RandomCropPair(crop_size=(self.final_size, self.final_size)),
+                    RandomCropPair(crop_size=(self.final_size, self.final_size), class_max_percent=0.75, n_retry=10),
                     RandomHFlipPair(),
                 )
 
@@ -395,7 +409,7 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
                 RandomResizePair(min_scale=self.min_resize_scale,
                                  max_scale=self.max_resize_scale,
                                  base_size=(self.base_size, self.base_size)),
-                RandomCropPair(crop_size=(self.final_size, self.final_size)),
+                RandomCropPair(crop_size=(self.final_size, self.final_size), class_max_percent=0.75, n_retry=10),
                 RandomHFlipPair(),
             )
 
