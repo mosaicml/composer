@@ -165,8 +165,6 @@ nitpick_ignore = [
     ('py:attr', 'wandb.run.tags'),
     ('py:meth', 'torch.save'),
     ('py:meth', 'torch.load'),
-    ('py:class', 'LoggerDataDict'),
-    ('py:class', 'LoggerDataDict'),
     ('py:class', 'T_nnModule'),
 ]
 
