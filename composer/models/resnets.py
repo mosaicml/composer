@@ -95,9 +95,9 @@ class CIFAR_ResNet(nn.Module):
 
     @staticmethod
     def get_model_from_name(model_name: str, initializers: List[Initializer], outputs: int = 10):
-        """The naming scheme for a ResNet is 'cifar_resnet_D[_W]'.
+        """The naming scheme for a ResNet is ``'cifar_resnet_D[_W]'``.
 
-        D is the model depth (e.g. cifar_resnet56)
+        D is the model depth (e.g. ``'cifar_resnet56'``)
         """
 
         if not CIFAR_ResNet.is_valid_model_name(model_name):

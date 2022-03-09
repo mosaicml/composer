@@ -1,5 +1,5 @@
-## Code adapted from https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
-
+"""SSD 300 utils adapted from
+ `MLCommons <https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd>`_"""
 import itertools
 import random
 from math import sqrt

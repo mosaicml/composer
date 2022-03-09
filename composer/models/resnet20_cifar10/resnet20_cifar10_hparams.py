@@ -1,10 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.CIFAR10_ResNet20`."""
+
 from dataclasses import asdict, dataclass
 
 from composer.models.model_hparams import ModelHparams
-
-"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.CIFAR10_ResNet20`."""
 
 __all__ = ["CIFARResNet20Hparams"]
 

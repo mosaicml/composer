@@ -73,10 +73,7 @@ class ComposerTransformer(ComposerModel):
                 It could contain the loss as computed by Hugging Face,
                 or algorithms can pop the labels from the input in case
                 they modify the loss function.
-            batch (~composer.core.types.Batch): The set of ground truth labels to use to compute the loss against.
-
-    Returns:
-        ComposerClassifier: An instance of :class:`.ComposerClassifier`.
+            batch (:class:`~composer.core.types.Batch`): The set of ground truth labels to use to compute the loss against.
 
         Raises:
             NotImplementedError: A model-specific and task-specific loss function must be written.

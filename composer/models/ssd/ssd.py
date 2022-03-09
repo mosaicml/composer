@@ -15,6 +15,16 @@ from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
 
 
 class SSD(ComposerModel):
+    """Single Shot Object detection Model with pretrained ResNet34 backbone extending :class:`.ComposerModel`.
+
+    Args:
+        input_size (int, optional): input image size. Default: ``300``.
+        num_classes (int, optional): The number of classes to detect. Default: ``80``.
+        overlap_threshold (float, optional): Minimum IOU threshold for NMS. Default: ``0.5``.
+        nms_max_detections (int, optional): Max number of boxes after NMS. Default: ``200``.
+        data (str, optional): path to coco dataset. Default: ``"/localdisk/coco"``.
+
+    """
 
     def __init__(self, input_size: int, overlap_threshold: float, nms_max_detections: int, num_classes: int, data: str):
         super().__init__()
