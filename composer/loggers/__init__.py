@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logging.
+"""Loggers to store metrics and artifacts.
 
 In Composer, algorithms and callbacks can make calls to the :class:`~.logger.Logger`,
 which then routes the calls to the appropriate :class:`~.base_backend.LoggerCallback`\\s.

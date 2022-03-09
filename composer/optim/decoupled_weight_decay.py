@@ -1,5 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Optimizers with weight decay decoupled from the learning rate.
+
+These optimizers are based off of `Decoupled Weight Decay Regularization <https://arxiv.org/abs/1711.05101>`_, which
+proposes this decoupling. In general, it is recommended to use these optimizers over their native PyTorch equivalents.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -12,11 +18,13 @@ from torch.optim.optimizer import required  # type: ignore
 
 log = logging.getLogger(__name__)
 
+__all__ = ["DecoupledSGDW", "DecoupledAdamW"]
+
 
 class DecoupledSGDW(SGD):
     """SGD optimizer with the weight decay term decoupled from the learning rate.
 
-    Argument defaults are copied from `torch.optim.SGD`.
+    Argument defaults are copied from :class:`torch.optim.SGD`.
 
     The standard `SGD <https://pytorch.org/docs/stable/generated/torch.optim.SGD.html?highlight=sgd#torch.optim.SGD>`_
     optimizer couples the weight decay term with the gradient calculation. This ties the optimal value
@@ -82,7 +90,7 @@ class DecoupledSGDW(SGD):
                  nesterov: bool = False):
         super().__init__(params, lr, momentum, dampening, weight_decay, nesterov)
         for group in self.param_groups:
-            group['initial_lr'] = group['lr']
+            group["initial_lr"] = group["lr"]
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -101,23 +109,23 @@ class DecoupledSGDW(SGD):
             params_with_grad = []
             d_p_list = []
             momentum_buffer_list = []
-            weight_decay = group['weight_decay']
-            momentum = group['momentum']
-            dampening = group['dampening']
-            nesterov = group['nesterov']
-            lr = group['lr']
-            initial_lr = group['initial_lr']
+            weight_decay = group["weight_decay"]
+            momentum = group["momentum"]
+            dampening = group["dampening"]
+            nesterov = group["nesterov"]
+            lr = group["lr"]
+            initial_lr = group["initial_lr"]
 
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is not None:
                     params_with_grad.append(p)
                     d_p_list.append(p.grad)
 
                     state = self.state[p]
-                    if 'momentum_buffer' not in state:
+                    if "momentum_buffer" not in state:
                         momentum_buffer_list.append(None)
                     else:
-                        momentum_buffer_list.append(state['momentum_buffer'])
+                        momentum_buffer_list.append(state["momentum_buffer"])
 
             self.sgdw(params_with_grad,
                       d_p_list,
@@ -132,7 +140,7 @@ class DecoupledSGDW(SGD):
             # update momentum_buffers in state
             for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list):
                 state = self.state[p]
-                state['momentum_buffer'] = momentum_buffer
+                state["momentum_buffer"] = momentum_buffer
 
         return loss
 
@@ -140,7 +148,7 @@ class DecoupledSGDW(SGD):
 class DecoupledAdamW(AdamW):
     """Adam optimizer with the weight decay term decoupled from the learning rate.
 
-    Argument defaults are copied from `torch.optim.AdamW`.
+    Argument defaults are copied from :class:`torch.optim.AdamW`.
 
     The standard `AdamW <https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html#torch.optim.AdamW>`_
     optimizer explicitly couples the weight decay term with the learning rate. This ties the
@@ -218,7 +226,7 @@ class DecoupledAdamW(AdamW):
                  amsgrad: bool = False):
         super().__init__(params, lr, betas, eps, weight_decay, amsgrad)
         for group in self.param_groups:
-            group['initial_lr'] = group['lr']
+            group["initial_lr"] = group["lr"]
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -240,44 +248,44 @@ class DecoupledAdamW(AdamW):
             exp_avg_sqs = []
             max_exp_avg_sqs = []
             state_steps = []
-            amsgrad = group['amsgrad']
-            beta1, beta2 = group['betas']
-            eps = group['eps']
-            lr = group['lr']
-            initial_lr = group['initial_lr']
-            weight_decay = group['weight_decay']
+            amsgrad = group["amsgrad"]
+            beta1, beta2 = group["betas"]
+            eps = group["eps"]
+            lr = group["lr"]
+            initial_lr = group["initial_lr"]
+            weight_decay = group["weight_decay"]
 
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is None:
                     continue
                 params_with_grad.append(p)
                 if p.grad.is_sparse:
-                    raise RuntimeError('AdamW does not support sparse gradients')
+                    raise RuntimeError("AdamW does not support sparse gradients")
                 grads.append(p.grad)
 
                 state = self.state[p]
 
                 # State initialization
                 if len(state) == 0:
-                    state['step'] = 0
+                    state["step"] = 0
                     # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                    state["exp_avg"] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                    state["exp_avg_sq"] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     if amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
-                        state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                        state["max_exp_avg_sq"] = torch.zeros_like(p, memory_format=torch.preserve_format)
 
-                exp_avgs.append(state['exp_avg'])
-                exp_avg_sqs.append(state['exp_avg_sq'])
+                exp_avgs.append(state["exp_avg"])
+                exp_avg_sqs.append(state["exp_avg_sq"])
 
                 if amsgrad:
-                    max_exp_avg_sqs.append(state['max_exp_avg_sq'])
+                    max_exp_avg_sqs.append(state["max_exp_avg_sq"])
 
                 # update the steps for each param group update
-                state['step'] += 1
+                state["step"] += 1
                 # record the step after step update
-                state_steps.append(state['step'])
+                state_steps.append(state["step"])
 
             self.adamw(params_with_grad,
                        grads,

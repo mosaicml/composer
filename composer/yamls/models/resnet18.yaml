@@ -23,7 +23,7 @@ optimizer:
     nesterov: false
 schedulers:
   - cosine_decay_with_warmup:
-      warmup_time: "8ep"
+      t_warmup: "8ep"
 model:
   resnet:
     model_name: resnet18

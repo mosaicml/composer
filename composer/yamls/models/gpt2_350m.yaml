@@ -63,7 +63,7 @@ optimizer:
     weight_decay: 0.0
 schedulers:
   - cosine_decay_with_warmup:
-      warmup_time: 110ba
+      t_warmup: 110ba
 loggers:
   - tqdm: {}
 max_duration: 1ep

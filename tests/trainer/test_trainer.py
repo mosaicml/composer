@@ -125,8 +125,7 @@ class TestTrainerEquivalence():
     def set_default_threshold(self, device, precision, world_size):
         """Sets the default threshold to 0.
 
-        Individual tests can override by passing thresholds directly
-        to assert_models_equal.
+        Individual tests can override by passing thresholds directly to assert_models_equal.
         """
         self.default_threshold = {'atol': 0, 'rtol': 0}
 
@@ -213,7 +212,7 @@ class TestTrainerEquivalence():
     def test_algorithm_different(self, config, *args):
         # as a control, we train with an algorithm and
         # expect the test to fail
-        config['algorithms'] = [LabelSmoothing(alpha=0.1)]
+        config['algorithms'] = [LabelSmoothing(0.1)]
         trainer = Trainer(**config)
         trainer.fit()
 
