@@ -3,7 +3,7 @@
 """
 
 Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap
-`huggingface GPT-2 <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_.
+`Hugging Face GPT-2 <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ __all__ = ["GPT2Model"]
 
 
 class GPT2Model(ComposerTransformer):
-    """Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap `huggingface GPT-2
+    """Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap `Hugging Face GPT-2
     transformers <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_. Logs training and
     validation perplexity.
 
