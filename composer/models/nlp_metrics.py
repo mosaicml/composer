@@ -18,7 +18,7 @@ class MaskedAccuracy(Metric):
     Args:
         ignore_index (int): The class index to ignore.
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step.
+            each forward() before returning the value at the step. Default: ``False``.
 
     State:
         correct (float): the number of instances where the prediction masked the target
