@@ -75,8 +75,8 @@ class ComposerTransformer(ComposerModel):
                 they modify the loss function.
             batch (~composer.core.types.Batch): The set of ground truth labels to use to compute the loss against.
 
-        Returns:
-            loss: The loss as a :class:`~composer.core.types.Tensors` object.
+    Returns:
+        ComposerClassifier: An instance of :class:`.ComposerClassifier`.
 
         Raises:
             NotImplementedError: A model-specific and task-specific loss function must be written.

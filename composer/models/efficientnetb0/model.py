@@ -12,8 +12,8 @@ class EfficientNetB0(ComposerClassifier):
     From `Rethinking Model Scaling for Convolutional Neural Networks <https://arxiv.org/abs/1905.11946>`_.
 
     Args:
-        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 1000.
-        drop_connect_rate (float, optional): Probability of dropping a sample within a block before identity connection. Default: 0.2.
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``1000``.
+        drop_connect_rate (float, optional): Probability of dropping a sample within a block before identity connection. Default: ``0.2``.
 
     Example:
 

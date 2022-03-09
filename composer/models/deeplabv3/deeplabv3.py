@@ -31,6 +31,17 @@ def deeplabv3_builder(num_classes: int,
         is_backbone_pretrained (bool, optional): if true (default), use pretrained weights for the backbone.
         sync_bn (bool, optional): if true (default), replace all BatchNorm layers with SyncBatchNorm layers.
         initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: ``[]``.
+
+    Returns:
+        deeplabv3: A DeepLabV3 PyTorch neural network module (:class:`torch.nn.Module`).
+
+    Example:
+
+    .. testcode::
+
+        from composer.models import deeplabv3_builder
+
+        pytorch_model = deeplabv3_builder(num_classes=150, backbone_arch='resnet101', is_backbone_pretrained=False)
     """
 
     # Instantiate backbone module

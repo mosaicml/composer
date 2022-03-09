@@ -21,8 +21,8 @@ class MaskedAccuracy(Metric):
             each forward() before returning the value at the step. Default: ``False``.
 
     State:
-        correct (float): the number of instances where the prediction masked the target
-        total (float): the number of total instances that were predicted.
+        correct (float): The number of instances where the prediction masked the target.
+        total (float): The number of total instances that were predicted.
     """
 
     def __init__(self, ignore_index: int, dist_sync_on_step=False):
@@ -56,14 +56,14 @@ class CrossEntropyLoss(Metric):
     """Computes cross entropy loss.
 
     Args:
-        vocab_size (int): the size of the tokenizer vocabulary.
+        vocab_size (int): The size of the tokenizer vocabulary.
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step.
-        ignore_index (int, optional): The class index to ignore. Defaults to -100.
+            each forward() before returning the value at the step. Default: ``False``.
+        ignore_index (int, optional): The class index to ignore. Default: ``-100``.
 
     State:
-        sum_loss (float): the sum of the per-example loss in the batch.
-        total_items (float): the number of batches to average across.
+        sum_loss (float): The sum of the per-example loss in the batch.
+        total_items (float): The number of batches to average across.
     """
 
     def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = -100):
@@ -110,12 +110,12 @@ class BinaryF1Score(Metric):
 
     Args:
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step.
+            each forward() before returning the value at the step. Default: ``False``.
 
     State:
-        true_positive (float): a counter of how many items were correctly classified as positives
-        false_positive (float): a counter of how many items were incorrectly classified as positives
-        false_negative (float): a counter of how many items were incorrectly classified as negatives
+        true_positive (float): A counter of how many items were correctly classified as positives.
+        false_positive (float): A counter of how many items were incorrectly classified as positives.
+        false_negative (float): A counter of how many items were incorrectly classified as negatives.
     """
 
     def __init__(self, dist_sync_on_step=False):
@@ -157,11 +157,11 @@ class LanguageCrossEntropyLoss(Metric):
 
     Args:
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step.
+            each forward() before returning the value at the step. Default: ``False``
 
     State:
-        sum_loss (float): the sum of the per-example loss in the batch.
-        total_batches (float): the number of batches to average across.
+        sum_loss (float): The sum of the per-example loss in the batch.
+        total_batches (float): The number of batches to average across.
     """
 
     def __init__(self, dist_sync_on_step=False):
