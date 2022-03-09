@@ -1,7 +1,7 @@
 import os
 from argparse import ArgumentParser, Namespace
 from random import shuffle
-from typing import Any, Dict, Generator, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 from PIL import Image
 from tqdm import tqdm
@@ -43,7 +43,7 @@ def get_val(in_root: str, wnid2idx: Dict[str, int]) -> List[Tuple[str, int]]:
     return pairs
 
 
-def each_sample(pairs: List[Tuple[str, int]]) -> Generator[Dict[str, Any], None, None]:
+def each_sample(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
     for idx, (img_file, cls) in enumerate(pairs):
         img = Image.open(img_file)
         yield {

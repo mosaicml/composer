@@ -1,7 +1,7 @@
 from argparse import ArgumentParser, Namespace
 from glob import glob
 from random import shuffle
-from typing import Any, Dict, Generator, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 from PIL import Image
 
@@ -18,7 +18,7 @@ def parse_args() -> Namespace:
     return args.parse_args()
 
 
-def each_sample(pairs: List[Tuple[str, str]]) -> Generator[Dict[str, Any], None, None]:
+def each_sample(pairs: List[Tuple[str, str]]) -> Iterable[Dict[str, Any]]:
     for idx, (scene_file, annotation_file) in enumerate(pairs):
         scene = Image.open(scene_file)
         annotation = Image.open(annotation_file)

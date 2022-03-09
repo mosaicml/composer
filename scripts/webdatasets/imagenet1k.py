@@ -2,7 +2,7 @@ import os
 from argparse import ArgumentParser, Namespace
 from glob import glob
 from random import shuffle
-from typing import Any, Dict, Generator, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 from composer.datasets.webdataset import create_webdataset
 
@@ -34,7 +34,7 @@ def find_samples(in_root: str, split: str) -> List[Tuple[str, int]]:
     return pairs
 
 
-def each_sample(pairs: List[Tuple[str, int]]) -> Generator[Dict[str, Any], None, None]:
+def each_sample(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
     for idx, (img_file, cls) in enumerate(pairs):
         img = open(img_file, 'rb').read()
         yield {

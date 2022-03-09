@@ -1,5 +1,5 @@
 from argparse import ArgumentParser, Namespace
-from typing import Any, Dict, Generator, Tuple
+from typing import Any, Dict, Iterable, Tuple
 
 import numpy as np
 from torchvision.datasets import CIFAR100
@@ -24,7 +24,7 @@ def shuffle(dataset: CIFAR100) -> Tuple[np.ndarray, np.ndarray]:
     return images, classes
 
 
-def each_sample(images: np.ndarray, classes: np.ndarray) -> Generator[Dict[str, Any], None, None]:
+def each_sample(images: np.ndarray, classes: np.ndarray) -> Iterable[Dict[str, Any]]:
     for idx, (img, cls) in enumerate(zip(images, classes)):
         yield {
             '__key__': f'{idx:05d}',
