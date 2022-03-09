@@ -31,8 +31,8 @@ class LoggerDestination(Callback, ABC):
 
     >>> from composer.core.logging import LoggerDestination
     >>> class MyLogger(LoggerDestination):
-    ... def log_data(self, timestamp, log_level, data):
-    ...     print(f'Timestamp: {timestamp}: {log_level} {data}')
+    ...     def log_data(self, timestamp, log_level, data):
+    ...         print(f'Timestamp: {timestamp}: {log_level} {data}')
     >>> trainer = Trainer(
     ...     ...,
     ...     logger_destinations=[MyLogger()]
