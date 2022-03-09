@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import TYPE_CHECKING
 
 from composer.core.callback import Callback
@@ -39,7 +39,6 @@ class LoggerDestination(Callback, ABC):
     ... )
     """
 
-    @abstractmethod
     def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
         """Invoked by the :class:`~composer.core.logging.logger.Logger` whenever there is a data to log.
 
@@ -62,4 +61,5 @@ class LoggerDestination(Callback, ABC):
             log_level (LogLevel): The log level.
             data (LoggerDataDict): The data to log.
         """
+        del state, log_level, data  # unused
         pass
