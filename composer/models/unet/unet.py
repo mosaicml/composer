@@ -24,7 +24,7 @@ class UNet(ComposerModel):
     U-Net architecture.
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default: 3.
+        num_classes (int): The number of classes. Needed for classification tasks. Default: ``3``.
     """
 
     def __init__(self, num_classes: Optional[int] = 3) -> None:
