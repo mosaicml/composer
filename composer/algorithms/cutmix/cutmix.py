@@ -12,7 +12,7 @@ import torch
 from torch.nn import functional as F
 
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
-from composer.models.loss import check_for_index_targets
+from composer.models.loss import _check_for_index_targets
 
 log = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ def cutmix_batch(input: Tensor,
     # Interpolate between labels using the adjusted lambda
     # First check if labels are indices. If so, convert them to onehots.
     # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
-    if check_for_index_targets(target):
+    if _check_for_index_targets(target):
         y_onehot = F.one_hot(target, num_classes=num_classes)
         y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
         y_cutmix = adjusted_lambda * y_onehot + (1 - adjusted_lambda) * y_shuffled_onehot
@@ -161,7 +161,7 @@ def cutmix_batch(input: Tensor,
 
 class CutMix(Algorithm):
     """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations of pairs of
-    examples and iterpolated targets rather than individual examples and targets.
+    examples and interpolated targets rather than individual examples and targets.
 
     This is done by taking a non-overlapping combination of a given batch X with a
     randomly permuted copy of X. The area is drawn from a ``Beta(alpha, alpha)``
@@ -172,7 +172,7 @@ class CutMix(Algorithm):
     Args:
         num_classes (int): the number of classes in the task labels.
         alpha (float, optional): the psuedocount for the Beta distribution
-            used to sample area parameters. As ``alpha`` grows, the two ssamples
+            used to sample area parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``1``.
