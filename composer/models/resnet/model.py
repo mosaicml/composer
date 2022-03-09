@@ -15,11 +15,11 @@ __all__ = ["ComposerResNet"]
 class ComposerResNet(ComposerClassifier):
     """A :class:`.ComposerClassifier` wrapper around the torchvision implementations of the ResNet model family.
 
-    From `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2016).
+    From `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_.
 
     Args:
-        model_name (str): Name of the ResNet model instance. Either ["resnet18", "resnet34", "resnet50", "resnet101",
-            "resnet152"].
+        model_name (str): Name of the ResNet model instance. Either [``"resnet18"``, ``"resnet34"``, ``"resnet50"``, ``"resnet101"``,
+            ``"resnet152"``].
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``1000``.
         pretrained (bool, optional): If True, use ImageNet pretrained weights. Default: ``False``.
         groups (int, optional): Number of filter groups for the 3x3 convolution layer in bottleneck blocks. Default: ``1``.
