@@ -14,7 +14,8 @@ define a custom logger and use it when training.
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
-                                             TQDMLoggerHparams, WandBLoggerHparams)
+                                             ObjectStoreLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams)
+from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.loggers.wandb_logger import WandBLogger
 
@@ -29,4 +30,6 @@ __all__ = [
     "WandBLoggerHparams",
     "TQDMLogger",
     "WandBLogger",
+    "ObjectStoreLogger",
+    "ObjectStoreLoggerHparams",
 ]

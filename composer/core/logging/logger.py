@@ -129,7 +129,7 @@ class Logger:
         artifact_name: str,
         file_path: Union[pathlib.Path, str],
         *,
-        allow_overwrite: bool = False,
+        overwrite: bool = False,
     ):
         """Log ``file_path`` as an artifact named ``artifact_name``.
 
@@ -138,7 +138,7 @@ class Logger:
                 :class:`LogLevel`.
             artifact_name (str): The name of the artifact.
             file_path (str | pathlib.Path): The file path.
-            allow_overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
+            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
                 (default: ``False``)
         """
         log_level = LogLevel(log_level)
@@ -149,7 +149,7 @@ class Logger:
                 log_level=log_level,
                 artifact_name=artifact_name,
                 file_path=file_path,
-                allow_overwrite=allow_overwrite,
+                overwrite=overwrite,
             )
 
     def data_fit(self, data: LoggerDataDict) -> None:

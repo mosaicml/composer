@@ -6,22 +6,26 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yahp as hp
 
 from composer.core.logging import LoggerDestination, LogLevel
 from composer.core.types import JSON
+from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
-from composer.utils import dist
-
-if TYPE_CHECKING:
-    from composer.loggers.file_logger import FileLogger
-    from composer.loggers.tqdm_logger import TQDMLogger
-    from composer.loggers.wandb_logger import WandBLogger
+from composer.loggers.object_store_logger import ObjectStoreLogger
+from composer.loggers.tqdm_logger import TQDMLogger
+from composer.loggers.wandb_logger import WandBLogger
+from composer.utils import ObjectStoreProviderHparams, dist, import_object
 
 __all__ = [
-    "FileLoggerHparams", "InMemoryLoggerHparams", "LoggerDestinationHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
+    "FileLoggerHparams",
+    "InMemoryLoggerHparams",
+    "LoggerDestinationHparams",
+    "TQDMLoggerHparams",
+    "WandBLoggerHparams",
+    "ObjectStoreLoggerHparams",
 ]
 
 
@@ -237,3 +241,46 @@ class InMemoryLoggerHparams(LoggerDestinationHparams):
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> LoggerDestination:
         return InMemoryLogger(log_level=self.log_level)
+
+
+@dataclass
+class ObjectStoreLoggerHparams(LoggerDestinationHparams):
+    """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
+    hyperparameters.
+
+    Args:
+        object_store_provider_hparams (ObjectStoreProviderHparams): The object store provider hparams.
+        should_log_artifact (str, optional): The path to a filter function which returns whether an artifact should be
+            logged. The path should be of the format `path.to.module:filter_function_name`.
+
+            The function should take (:class:`State`, :class:`LogLevel`, artifact name), and return a boolean indicating
+            whether the artifact should be logged.
+
+            .. seealso: :func:`composer.utils.dynamic_import.import_object`
+
+            Setting this parameter to ``None`` (the default) will log all artifacts.
+        object_name_format (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
+        num_concurrent_uploads (int, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
+        upload_staging_folder (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
+        use_procs (bool, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
+    """
+    object_store_provider_hparams: ObjectStoreProviderHparams = hp.required("Object store provider hparams.")
+    should_log_artifact: Optional[str] = hp.optional(
+        "Path to a filter function which returns whether an artifact should be logged.", default=None)
+    object_name_format: str = hp.optional("A format string for object names", default="{run_name}/{artifact_name}")
+    num_concurrent_uploads: int = hp.optional("Maximum number of concurrent uploads.", default=4)
+    use_procs: bool = hp.optional("Whether to perform file uploads in background processes (as opposed to threads).",
+                                  default=True)
+    upload_staging_folder: Optional[str] = hp.optional(
+        "Staging folder for uploads. If not specified, will use a temporary directory.", default=None)
+
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> ObjectStoreLogger:
+        return ObjectStoreLogger(
+            object_store_provider_hparams=self.object_store_provider_hparams,
+            object_name_format=self.object_name_format,
+            should_log_artifact=import_object(self.should_log_artifact)
+            if self.should_log_artifact is not None else None,
+            num_concurrent_uploads=self.num_concurrent_uploads,
+            upload_staging_folder=self.upload_staging_folder,
+            use_procs=self.use_procs,
+        )
