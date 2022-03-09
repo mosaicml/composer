@@ -94,11 +94,7 @@ class WandBLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         import wandb
-        del state  # unused
-        if "name" not in self._init_params:
-            # Use the logger run name if the name is not set.
-            self._init_params["name"] = logger.run_name
-
+        del state, logger  # unused
         if self._enabled:
             wandb.init(**self._init_params)
 

@@ -15,15 +15,11 @@ from __future__ import annotations
 
 import collections.abc
 import operator
-import time
 from enum import IntEnum
 from functools import reduce
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Dict, List, Sequence, Union
 
-import coolname
 import torch
-
-from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core.logging.logger_destination import LoggerDestination
@@ -61,20 +57,6 @@ class Logger:
         state (State): The global :class:`~.core.state.State` object.
         destinations (Sequence[LoggerDestination]): A sequence of :class:`.LoggerDestination`\s to
             which logging calls will be sent.
-        run_name (str, optional): The name for this training run.
-            If not specified, a :doc:`coolname <coolname:/>` will be used like the following:
-
-            .. testsetup:: composer.core.logging.logger.Logger.__init__.run_name
-
-                import random
-                import coolname
-
-                coolname.replace_random(random.Random(0))
-
-            .. doctest:: composer.core.logging.logger.Logger.__init__.run_name
-
-                >>> str(time.time_ns()) + "-" + coolname.generate_slug(2)
-                '1234-cool-name'
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
@@ -85,18 +67,8 @@ class Logger:
             self,
             state: State,
             destinations: Sequence[LoggerDestination] = tuple(),
-            run_name: Optional[str] = None,
     ):
         self.destinations = destinations
-        if run_name is None:
-            # prefixing with the time so experiments sorted alphabetically will
-            # have the latest experiment last
-            run_name = str(time.time_ns()) + "-" + coolname.generate_slug(2)
-            run_name_list = [run_name]
-            # ensure all ranks have the same experiment name
-            dist.broadcast_object_list(run_name_list)
-            run_name = run_name_list[0]
-        self.run_name = run_name
         self._state = state
 
     def data(self, log_level: Union[str, LogLevel], data: LoggerDataDict) -> None:
