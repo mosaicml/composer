@@ -12,7 +12,7 @@ class UnetHparams(ModelHparams):
     """yahp Hparams interface for Unet segmentation models.
 
     Args:
-        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: 3.
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``3``.
     """
 
     def initialize_object(self):
