@@ -18,7 +18,7 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'seq_length_warmup': SeqLengthWarmupHparams,
     'cutmix': CutMixHparams,
     'cutout': CutOutHparams,
-    'exponential_moving_average': ExponentialMovingAverageHparams,
+    'ema': EMAHparams,
     'factorize': FactorizeHparams,
     'ghost_batchnorm': GhostBatchNormHparams,
     'label_smoothing': LabelSmoothingHparams,
