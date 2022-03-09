@@ -28,7 +28,7 @@ def deeplabv3_builder(num_classes: int,
             Default is 'resnet101'.
         is_backbone_pretrained (bool, optional): if true (default), use pretrained weights for the backbone.
         sync_bn (bool, optional): if true (default), replace all BatchNorm layers with SyncBatchNorm layers.
-        initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: [].
+        initializers (List[Initializer], optional): Initializers for the model. [] for no initialization. Default: ``[]``.
     """
 
     # Instantiate backbone module
