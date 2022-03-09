@@ -37,14 +37,16 @@ class EMA(Algorithm):
         return event in [Event.FIT_START, Event.BATCH_END, Event.EVAL_START, Event.EVAL_END]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
+        if event == Event.FIT_START:
+            # Initialize the ema model
+            self.ema_model = copy.deepcopy(state.model)
+            self.training_model = copy.deepcopy(state.model)
+
         if self.train_with_ema_weights:
             if event == Event.BATCH_END:
-                ema(state.model, state.model, alpha=self.alpha)
+                ema(state.model, self.ema_model, alpha=self.alpha)
+                state.model.load_state_dict(self.ema_model.state_dict())
         else:
-            if event == Event.FIT_START:
-                # Initialize the ema model
-                self.ema_model = copy.deepcopy(state.model)
-                self.training_model = copy.deepcopy(state.model)
             if event == Event.BATCH_END:
                 # Update the ema model
                 ema(state.model, self.ema_model, alpha=self.alpha)
