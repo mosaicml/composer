@@ -21,7 +21,7 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
-def require_webdataset():
+def _require_webdataset():
     """Hard require webdataset."""
     if not webdataset_installed:
         raise ImportError(
@@ -30,7 +30,7 @@ def require_webdataset():
                 mosaicml[webdataset]`."""))
 
 
-def create_webdataset_meta(split_dir: str, n_samples: int, n_shards: int) -> None:
+def _create_webdataset_meta(split_dir: str, n_samples: int, n_shards: int) -> None:
     """Write a WebDataset meta file.
 
     Args:
@@ -65,7 +65,7 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
         n_shards (int): Number of full shards to write (may write a leftovers shard).
         use_tqdm (bool): Whether to show progress with tqdm.
     """
-    require_webdataset()
+    _require_webdataset()
     split_dir = os.path.join(dataset_dir, split)
     os.makedirs(split_dir)
     pattern = os.path.join(split_dir, '%05d.tar')
@@ -78,10 +78,10 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
     for sample in samples:
         out.write(sample)
     out.close()
-    create_webdataset_meta(split_dir, n_samples, n_shards)
+    _create_webdataset_meta(split_dir, n_samples, n_shards)
 
 
-def init_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
+def _init_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
     """Read a WebDataset meta file from S3.
 
     Args:
@@ -95,7 +95,7 @@ def init_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
     return ret.stdout
 
 
-def init_webdataset_meta_from_local(remote: str, split: str) -> bytes:
+def _init_webdataset_meta_from_local(remote: str, split: str) -> bytes:
     """Read a WebDataset meta file from local filesystem.
 
     Args:
@@ -106,7 +106,7 @@ def init_webdataset_meta_from_local(remote: str, split: str) -> bytes:
     return open(path, 'rb').read()
 
 
-def init_webdataset_meta(remote: str, split: str) -> bytes:
+def _init_webdataset_meta(remote: str, split: str) -> bytes:
     """Read a WebDataset meta file.
 
     Args:
@@ -114,16 +114,16 @@ def init_webdataset_meta(remote: str, split: str) -> bytes:
         split (str): Dataset split.
     """
     if remote.startswith('s3://'):
-        return init_webdataset_meta_from_s3(remote, split)
+        return _init_webdataset_meta_from_s3(remote, split)
     else:
-        return init_webdataset_meta_from_local(remote, split)
+        return _init_webdataset_meta_from_local(remote, split)
 
 
-def init_webdataset(remote: str,
-                    name: str,
-                    split: str,
-                    cache_dir: Optional[str] = None,
-                    cache_verbose: bool = False) -> Tuple[WebDataset, dict]:
+def _init_webdataset(remote: str,
+                     name: str,
+                     split: str,
+                     cache_dir: Optional[str] = None,
+                     cache_verbose: bool = False) -> Tuple[WebDataset, dict]:
     """Initialize a WebDataset with an optional local cache dir.
 
     Args:
@@ -137,21 +137,21 @@ def init_webdataset(remote: str,
         dataset (WebDataset): The webdataset object for streaming.
         meta (dict): Dataset sample/shard statistics.
     """
-    require_webdataset()
+    _require_webdataset()
     if cache_dir:
         split_dir = os.path.join(cache_dir, name, split)
         meta_file = os.path.join(split_dir, 'meta.json')
         if os.path.exists(meta_file):
             text = open(meta_file).read()
         else:
-            text = init_webdataset_meta(remote, split)
+            text = _init_webdataset_meta(remote, split)
             if not os.path.exists(split_dir):
                 os.makedirs(split_dir)
             with open(meta_file, 'wb') as out:
                 out.write(text)
     else:
         split_dir = None
-        text = init_webdataset_meta(remote, split)
+        text = _init_webdataset_meta(remote, split)
     meta = json.loads(text)
     max_shard = meta['n_shards'] - 1
     shards = f'{{{0:05d}..{max_shard:05d}}}.tar'
@@ -163,7 +163,7 @@ def init_webdataset(remote: str,
     return dataset, meta
 
 
-def size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, n_devices: int, workers_per_device: int,
+def _size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, n_devices: int, workers_per_device: int,
                     batch_size: int, drop_last: bool) -> WebDataset:
     """Calculate WebDataset with_epoch() and with_length().
 
@@ -234,10 +234,10 @@ def load_webdataset(remote: str, name: str, split: str, cache_dir: Optional[str]
         batch_size (int): Batch size.
         drop_last (bool): Whether to drop partial last batches.
     """
-    dataset, meta = init_webdataset(remote, name, split, cache_dir, cache_verbose)
+    dataset, meta = _init_webdataset(remote, name, split, cache_dir, cache_verbose)
     if shuffle:
         dataset = dataset.shuffle(shuffle_buffer)
     if preprocess:
         dataset = preprocess(dataset)
-    return size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], n_devices, workers_per_device,
+    return _size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], n_devices, workers_per_device,
                            batch_size, drop_last)
