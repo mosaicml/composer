@@ -211,7 +211,7 @@ def composer_trainer_hparams(
         ),
         device=CPUDeviceHparams(),
         deterministic_mode=True,
-        loggers=[],
+        logger_destinations=[],
         model=dummy_model_hparams,
         val_dataset=dummy_val_dataset_hparams,
         train_dataset=dummy_train_dataset_hparams,

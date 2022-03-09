@@ -21,7 +21,7 @@ from composer.core.types import JSON, Precision
 from composer.datasets import DataloaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCallbackHparams, TQDMLoggerHparams,
+from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams, TQDMLoggerHparams,
                               WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
@@ -174,7 +174,8 @@ class TrainerHparams(hp.Hparams):
         ddp_sync_strategy (DDPSyncStrategy, optional): See :class:`.Trainer`.
         seed (int, optional): See :class:`.Trainer`.
         deterministic_mode (bool, optional): See :class:`.Trainer`.
-        loggers (List[LoggerCallbackHparams], optional): Hparams for constructing the destinations
+        run_name (str, optional): See :class:`.Trainer`.
+        logger_destinations (List[LoggerDestinationHparams], optional): Hparams for constructing the destinations
             to log to. (default: ``[]``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
@@ -223,7 +224,7 @@ class TrainerHparams(hp.Hparams):
         "algorithms": algorithms_registry,
         "optimizer": optimizer_registry,
         "schedulers": scheduler_registry,
-        "loggers": logger_registry,
+        "logger_destinations": logger_registry,
         "model": model_registry,
         "train_dataset": dataset_registry,
         "val_dataset": dataset_registry,
@@ -298,7 +299,8 @@ class TrainerHparams(hp.Hparams):
                                            default=False)
 
     # logging and callbacks
-    loggers: List[LoggerCallbackHparams] = hp.optional(doc="loggers to use", default_factory=list)
+    run_name: Optional[str] = hp.optional("Experiment name", default=None)
+    logger_destinations: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
@@ -482,7 +484,7 @@ class TrainerHparams(hp.Hparams):
 
         # callbacks, loggers, and seed
         dict_config = self.to_dict()
-        loggers = [x.initialize_object(config=dict_config) for x in self.loggers]
+        logger_destinations = [x.initialize_object(config=dict_config) for x in self.logger_destinations]
         callbacks = [x.initialize_object() for x in self.callbacks]
 
         if self.datadir is not None:
@@ -560,7 +562,8 @@ class TrainerHparams(hp.Hparams):
             deterministic_mode=self.deterministic_mode,
 
             # Callbacks and logging
-            loggers=loggers,
+            run_name=self.run_name,
+            logger_destinations=logger_destinations,
             callbacks=callbacks,
 
             # Profiler

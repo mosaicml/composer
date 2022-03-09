@@ -4,10 +4,10 @@
 
 Attributes:
 
-     TLogDataValue: Data value(s) to be logged. Can be any of the following types:
-         ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[TLogDataValue]``;
-         ``Mapping[str, TLogDataValue]``.
-     TLogData: Name-value pair for data to be logged. Type ``Mapping[str, TLogDataValue]``.
+     LoggerData: Data value(s) to be logged. Can be any of the following types:
+         ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[LoggerData]``;
+         ``Mapping[str, LoggerData]``.
+     LoggerDataDict: Name-value pair for data to be logged. Type ``Mapping[str, LoggerData]``.
          Example: ``{"accuracy", 21.3}``.
 """
 
@@ -15,21 +15,24 @@ from __future__ import annotations
 
 import collections.abc
 import operator
-from copy import deepcopy
+import time
 from enum import IntEnum
 from functools import reduce
-from typing import TYPE_CHECKING, Callable, Generator, Mapping, Sequence, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
 
+import coolname
 import torch
 
+from composer.utils import dist
+
 if TYPE_CHECKING:
-    from composer.core.logging.base_backend import LoggerCallback
+    from composer.core.logging.logger_destination import LoggerDestination
     from composer.core.state import State
 
-__all__ = ["LoggerCallback", "Logger", "LogLevel", "TLogData", "TLogDataValue", "format_log_data_value"]
+__all__ = ["LoggerDestination", "Logger", "LogLevel", "LoggerData", "LoggerDataDict", "format_log_data_value"]
 
-TLogDataValue = Union[str, float, int, torch.Tensor, Sequence["TLogDataValue"], Mapping[str, "TLogDataValue"]]
-TLogData = Mapping[str, TLogDataValue]
+LoggerData = Union[str, float, int, torch.Tensor, List["LoggerData"], Dict[str, "LoggerData"]]
+LoggerDataDict = Dict[str, LoggerData]
 
 
 class LogLevel(IntEnum):
@@ -49,71 +52,80 @@ class LogLevel(IntEnum):
 
 
 class Logger:
-    """Logger routes metrics to the :class:`.LoggerCallback`. Logger is what users call from within
+    r"""Logger routes metrics to the :class:`.LoggerDestination`. Logger is what users call from within
     algorithms/callbacks. A logger routes the calls/data to any different number of destination
-    :class:`.LoggerCallback`\\s (e.g., :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged should be
-    of the type :attr:`~.logger.TLogData` (i.e., a ``{<name>: <value>}`` mapping).
+    :class:`.LoggerDestination`\\s (e.g., :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged should be
+    of the type :attr:`~.logger.LoggerDataDict` (i.e., a ``{<name>: <value>}`` mapping).
 
     Args:
         state (State): The global :class:`~.core.state.State` object.
-        backends (Sequence[LoggerCallback]): A sequence of :class:`.LoggerCallback`\\s to which logging calls will be sent.
+        destinations (Sequence[LoggerDestination]): A sequence of :class:`.LoggerDestination`\s to
+            which logging calls will be sent.
+        run_name (str, optional): The name for this training run.
+            If not specified, a :doc:`coolname <coolname:/>` will be used like the following:
+
+            .. testsetup:: composer.core.logging.logger.Logger.__init__.run_name
+
+                import random
+                import coolname
+
+                coolname.replace_random(random.Random(0))
+
+            .. doctest:: composer.core.logging.logger.Logger.__init__.run_name
+
+                >>> str(time.time_ns()) + "-" + coolname.generate_slug(2)
+                '1234-cool-name'
 
     Attributes:
-        backends (Sequence[LoggerCallback]):
-            A sequence of :class:`~..base_backend.LoggerCallback`\\s to which logging calls will be sent.
+        destinations (Sequence[LoggerDestination]):
+            A sequence of :class:`~.LoggerDestination`\s to which logging calls will be sent.
     """
 
     def __init__(
             self,
             state: State,
-            backends: Sequence[LoggerCallback] = tuple(),
+            destinations: Sequence[LoggerDestination] = tuple(),
+            run_name: Optional[str] = None,
     ):
-        self.backends = backends
+        self.destinations = destinations
+        if run_name is None:
+            # prefixing with the time so experiments sorted alphabetically will
+            # have the latest experiment last
+            run_name = str(time.time_ns()) + "-" + coolname.generate_slug(2)
+            run_name_list = [run_name]
+            # ensure all ranks have the same experiment name
+            dist.broadcast_object_list(run_name_list)
+            run_name = run_name_list[0]
+        self.run_name = run_name
         self._state = state
 
-    def _get_destinations_for_log_level(self, log_level: LogLevel) -> Generator[LoggerCallback, None, None]:
-        for destination in self.backends:
-            if destination.will_log(self._state, log_level):
-                yield destination
-
-    def metric(self, log_level: Union[str, LogLevel], data: Union[TLogData, Callable[[], TLogData]]) -> None:
-        """Log a metric to the :attr:`backends`.
+    def metric(self, log_level: Union[str, LogLevel], data: LoggerDataDict) -> None:
+        """Log a metric to the :attr:`destinations`.
 
         Args:
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
-            data (Union[TLogData, Callable[[], TLogData]]):
-                Can be either logging data or a callable that returns data to be logged.
-                Callables will be invoked only when
-                :meth:`~.base_backend.LoggerCallback.will_log` returns True for at least one
-                :class:`~.logging.base_backend.LoggerCallback`. Useful when it is
-                expensive to generate the data to be logged.
+            data (LoggerDataDict): The data to log.
         """
         if isinstance(log_level, str):
             log_level = LogLevel[log_level.upper()]
 
-        for destination in self._get_destinations_for_log_level(log_level):
-            if callable(data):
-                data = data()
-            # copying the data in case if a backend queues the logged data and flushes later
-            # this way, the flushed data will be the same as at the time of the logger call
-            copied_data = deepcopy(data)
-            assert isinstance(copied_data, collections.abc.Mapping)
-            destination.log_metric(self._state.timer.get_timestamp(), log_level, copied_data)
+        for destination in self.destinations:
+            destination.log_data(self._state.timer.get_timestamp(), log_level, data)
 
-    def metric_fit(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
+    def data_fit(self, data: LoggerDataDict) -> None:
         """Helper function for ``metric(LogLevel.FIT, data)``"""
         self.metric(LogLevel.FIT, data)
 
-    def metric_epoch(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
+    def data_epoch(self, data: LoggerDataDict) -> None:
         """Helper function for ``self.metric(LogLevel.EPOCH, data)``"""
         self.metric(LogLevel.EPOCH, data)
 
-    def metric_batch(self, data: Union[TLogData, Callable[[], TLogData]]) -> None:
+    def data_batch(self, data: LoggerDataDict) -> None:
         """Helper function for ``self.metric(LogLevel.BATCH, data)``"""
         self.metric(LogLevel.BATCH, data)
 
 
-def format_log_data_value(data: TLogDataValue) -> str:
+def format_log_data_value(data: LoggerData) -> str:
     """Recursively formats a given log data value into a string.
 
     Args:

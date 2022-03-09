@@ -34,7 +34,7 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str
         buffer_size=1,
         flush_interval=1,
     ).initialize_object()
-    logger = Logger(dummy_state, backends=[log_destination])
+    logger = Logger(dummy_state, destinations=[log_destination])
     log_destination.run_event(Event.INIT, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
@@ -44,19 +44,19 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     dummy_state.timer.on_epoch_complete()
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
-    logger.metric_fit({"metric": "fit"})  # should print
-    logger.metric_epoch({"metric": "epoch"})  # should print on batch level, since epoch calls are always printed
-    logger.metric_batch({"metric": "batch"})  # should print on batch level, since we print every 3 steps
+    logger.data_fit({"metric": "fit"})  # should print
+    logger.data_epoch({"metric": "epoch"})  # should print on batch level, since epoch calls are always printed
+    logger.data_batch({"metric": "batch"})  # should print on batch level, since we print every 3 steps
     dummy_state.timer.on_epoch_complete()
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
-    logger.metric_epoch({"metric": "epoch1"})  # should print, since we log every 3 epochs
+    logger.data_epoch({"metric": "epoch1"})  # should print, since we log every 3 epochs
     dummy_state.timer.on_epoch_complete()
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     dummy_state.timer.on_batch_complete()
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
-    logger.metric_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
-    logger.metric_batch({"metric": "batch1"})  # should NOT print
+    logger.data_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
+    logger.data_batch({"metric": "batch1"})  # should NOT print
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     log_destination.close()
     with open(log_file_name, 'r') as f:
@@ -97,7 +97,7 @@ def test_tqdm_logger(composer_trainer_hparams: TrainerHparams, monkeypatch: Monk
 
     max_epochs = 2
     composer_trainer_hparams.max_duration = f"{max_epochs}ep"
-    composer_trainer_hparams.loggers = [TQDMLoggerHparams()]
+    composer_trainer_hparams.logger_destinations = [TQDMLoggerHparams()]
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
     if dist.get_global_rank() == 1:
@@ -121,7 +121,7 @@ def test_tqdm_logger(composer_trainer_hparams: TrainerHparams, monkeypatch: Monk
 def test_wandb_logger(composer_trainer_hparams: TrainerHparams, world_size: int):
     pytest.importorskip("wandb", reason="wandb is an optional dependency")
     del world_size  # unused. Set via launcher script
-    composer_trainer_hparams.loggers = [
+    composer_trainer_hparams.logger_destinations = [
         WandBLoggerHparams(log_artifacts=True, log_artifacts_every_n_batches=1, extra_init_params={"mode": "disabled"})
     ]
     trainer = composer_trainer_hparams.initialize_object()
@@ -130,11 +130,11 @@ def test_wandb_logger(composer_trainer_hparams: TrainerHparams, world_size: int)
 
 def test_in_memory_logger(dummy_state: State):
     in_memory_logger = InMemoryLogger(LogLevel.EPOCH)
-    logger = Logger(dummy_state, backends=[in_memory_logger])
-    logger.metric_batch({"batch": "should_be_ignored"})
-    logger.metric_epoch({"epoch": "should_be_recorded"})
+    logger = Logger(dummy_state, destinations=[in_memory_logger])
+    logger.data_batch({"batch": "should_be_ignored"})
+    logger.data_epoch({"epoch": "should_be_recorded"})
     dummy_state.timer.on_batch_complete(samples=1, tokens=1)
-    logger.metric_epoch({"epoch": "should_be_recorded_and_override"})
+    logger.data_epoch({"epoch": "should_be_recorded_and_override"})
 
     # no batch events should be logged, since the level is epoch
     assert "batch" not in in_memory_logger.data
@@ -169,7 +169,7 @@ def test_in_memory_logger_get_timeseries():
             token_in_epoch=Time(0, "tok"),
         )
         datapoint = i / 3
-        in_memory_logger.log_metric(timestamp=timestamp, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+        in_memory_logger.log_data(timestamp=timestamp, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
         data["accuracy/val"].append(datapoint)
         data["batch"].append(batch)
         data["batch_in_epoch"].append(batch_in_epoch)

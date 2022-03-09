@@ -259,7 +259,7 @@ class SeqLengthWarmup(Algorithm):
         state.batch = set_batch_sequence_length(state.batch_dict, curr_seq_len, self.truncate)
 
         batch_size = state.batch_dict['input_ids'].shape[0]
-        logger.metric_batch({
+        logger.data_batch({
             'seq_length_warmup/curr_seq_len': curr_seq_len,
             'seq_length_warmup/curr_bs': batch_size,
         })

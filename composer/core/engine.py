@@ -112,16 +112,11 @@ class Engine():
 
     Args:
         state (State): The initial :class:`~.state.State` of the trainer. ``state`` will be modified in-place.
-        logger (Optional[Logger]): A :class:`~.logger.Logger` instance to be used for logging algorithm and callback
+        logger (Logger): A :class:`~.logger.Logger` instance to be used for logging algorithm and callback
             specific metrics.
     """
 
-    def __init__(self, state: State, logger: Optional[Logger] = None):
-        if logger is None:
-            log.warning("No logger passed to the engine.  Defaulting to an empty logger")
-            logger = Logger(state=state, backends=[])
-
-        assert logger is not None
+    def __init__(self, state: State, logger: Logger):
         self.logger = logger
         self.state = state
 

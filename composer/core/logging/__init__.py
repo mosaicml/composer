@@ -2,7 +2,7 @@
 
 """Base classes, functions, and variables for logging."""
 
-from composer.core.logging.base_backend import LoggerCallback
-from composer.core.logging.logger import Logger, LogLevel, TLogData, TLogDataValue, format_log_data_value
+from composer.core.logging.logger import Logger, LoggerData, LoggerDataDict, LogLevel, format_log_data_value
+from composer.core.logging.logger_destination import LoggerDestination
 
-__all__ = ["LoggerCallback", "Logger", "LogLevel", "TLogData", "TLogDataValue", "format_log_data_value"]
+__all__ = ["LoggerDestination", "Logger", "LogLevel", "LoggerData", "LoggerDataDict", "format_log_data_value"]

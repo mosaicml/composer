@@ -42,7 +42,7 @@ def test_classifier_trains(
     state = _get_state(train_dataloader=train_dataloader, eval_dataloader=eval_dataloader, steps_per_epoch=n_steps)
     model = state.model
 
-    logger = Logger(state=state, backends=[])
+    logger = Logger(state=state, destinations=[])
     engine = Engine(state=state, logger=logger)
 
     engine.run_event(Event.INIT)

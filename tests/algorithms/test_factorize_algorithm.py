@@ -88,7 +88,7 @@ def test_algorithm_logging(state: State, algo_instance: Factorize):
 
     factorize_convs = algo_instance.factorize_convs
     factorize_linears = algo_instance.factorize_linears
-    mock_obj = logger_mock.metric_fit
+    mock_obj = logger_mock.data_fit
 
     if factorize_convs:
         mock_obj.assert_any_call({LOG_NUM_CONV2D_REPLACEMENTS_KEY: conv_count})

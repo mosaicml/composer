@@ -129,7 +129,7 @@ def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool):
 
     blurpool_instance.apply(Event.INIT, state, mock_logger)
 
-    mock_logger.metric_fit.assert_called_once_with({
+    mock_logger.data_fit.assert_called_once_with({
         'blurpool/num_blurpool_layers': 1 if blurpool_instance.replace_maxpools else 0,
         'blurpool/num_blurconv_layers': 1 if blurpool_instance.replace_convs else 0,
     })

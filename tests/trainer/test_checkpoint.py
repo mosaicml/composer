@@ -187,7 +187,7 @@ def test_load_weights(
     composer_trainer_hparams.val_dataset.use_synthetic = True
     composer_trainer_hparams.val_dataset.shuffle = False
     composer_trainer_hparams.grad_accum = 2
-    composer_trainer_hparams.loggers = []
+    composer_trainer_hparams.logger_destinations = []
     composer_trainer_hparams.train_batch_size = 8
     composer_trainer_hparams.eval_batch_size = 16
     composer_trainer_hparams.max_duration = "2ep"
@@ -297,7 +297,7 @@ def test_checkpoint(
     composer_trainer_hparams.val_dataset.use_synthetic = True
     composer_trainer_hparams.val_dataset.shuffle = False
     composer_trainer_hparams.grad_accum = 2
-    composer_trainer_hparams.loggers = []
+    composer_trainer_hparams.logger_destinations = []
     composer_trainer_hparams.train_batch_size = 8
     composer_trainer_hparams.eval_batch_size = 16
     num_epochs = 2

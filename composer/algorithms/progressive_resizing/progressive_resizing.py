@@ -210,7 +210,7 @@ class ProgressiveResizing(Algorithm):
         state.batch = (new_input, new_target)
 
         if logger is not None:
-            logger.metric_batch({
+            logger.data_batch({
                 "progressive_resizing/height": new_input.shape[2],
                 "progressive_resizing/width": new_input.shape[3],
                 "progressive_resizing/scale_factor": scale_factor

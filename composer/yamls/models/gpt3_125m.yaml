@@ -63,7 +63,7 @@ optimizer:
 schedulers:
   - cosine_decay_with_warmup:
       t_warmup: 0.01dur
-loggers:
+logger_destinations:
   - tqdm: {}
 max_duration: 1ep
 train_batch_size: 256 # 0.5e6 tok ~= 256[bs] * 2048[msl]

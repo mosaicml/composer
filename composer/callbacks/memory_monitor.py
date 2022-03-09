@@ -83,7 +83,7 @@ class MemoryMonitor(Callback):
         memory_report = _get_memory_report()
 
         for mem_stat, val in memory_report.items():
-            logger.metric_batch({'memory/{}'.format(mem_stat): val})
+            logger.data_batch({'memory/{}'.format(mem_stat): val})
 
 
 _MEMORY_STATS = {

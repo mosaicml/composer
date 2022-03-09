@@ -147,7 +147,7 @@ class TorchProfiler(Callback):
     def batch_start(self, state: State, logger: Logger) -> None:
         del state  # unused
         assert self.profiler is not None, _PROFILE_MISSING_ERROR
-        logger.metric_batch({"profiler/state": self.profiler.current_action.name})
+        logger.data_batch({"profiler/state": self.profiler.current_action.name})
 
     def close(self) -> None:
         if self.profiler is not None:

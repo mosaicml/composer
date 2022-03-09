@@ -88,7 +88,7 @@ from composer.algorithms import ScaleSchedule
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
-from composer.core.logging import LoggerCallback, LogLevel
+from composer.core.logging import LoggerDestination, LogLevel
 from composer.core.time import Timestamp
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
                                  Precision, PyTorchScheduler)
@@ -224,7 +224,8 @@ class Trainer:
                 :func:`.configure_deterministic_mode` function at the start of your script. This will ensure any initialization done before the trainer init also runs deterministically.
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
-        loggers (Sequence[LoggerCallback], optional): The destinations to log training information to.
+        run_name (str, optional): A name for this training run. If not specified, TODO.
+        logger_destinations (Sequence[LoggerDestination], optional): The destinations to log training information to.
             If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
@@ -403,7 +404,8 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # logging and callbacks
-        loggers: Optional[Sequence[LoggerCallback]] = None,
+        run_name: Optional[str] = None,
+        logger_destinations: Optional[Sequence[LoggerDestination]] = None,
         callbacks: Sequence[Callback] = tuple(),
 
         # load checkpoint
@@ -658,10 +660,10 @@ class Trainer:
                                   with_stack=torch_prof_with_stack,
                                   with_flops=torch_prof_with_flops))
 
-        if loggers is None:
-            loggers = [TQDMLogger()]
-        self.logger = Logger(self.state, loggers)
-        self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
+        if logger_destinations is None:
+            logger_destinations = [TQDMLogger()]
+        self.logger = Logger(state=self.state, destinations=logger_destinations, run_name=run_name)
+        self.state.callbacks = list(cast(List[Callback], logger_destinations)) + self.state.callbacks
 
         self.engine = Engine(
             state=self.state,
@@ -818,7 +820,7 @@ class Trainer:
 
         return metrics
 
-    def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
+    def _compute_and_log_datas(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
         """Computes metrics, logs the results, and resets the metrics.
 
         Args:
@@ -866,7 +868,7 @@ class Trainer:
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
         # print training start
-        self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
+        self.logger.data_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
         if self._compute_training_metrics:
             log.warn('Computing model evaluation metrics during training.'
@@ -898,7 +900,7 @@ class Trainer:
 
                 if self.state.timer.batch_in_epoch == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.metric_epoch({"epoch": int(self.state.timer.epoch)})
+                    self.logger.data_epoch({"epoch": int(self.state.timer.epoch)})
 
                 if isinstance(self.state.train_dataloader.sampler, torch.utils.data.DistributedSampler):
                     self.state.train_dataloader.sampler.set_epoch(int(self.state.timer.epoch))
@@ -944,7 +946,7 @@ class Trainer:
                     dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
 
                     self.engine.run_event(Event.BATCH_START)
-                    self.logger.metric_batch({
+                    self.logger.data_batch({
                         "trainer/global_step": int(self.state.timer.batch),
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
@@ -978,11 +980,11 @@ class Trainer:
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation="SUM")
                         full_loss = total_loss.cpu().item()
-                        self.logger.metric_batch({'loss/train': full_loss / dist.get_world_size()})
+                        self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
                     if self._compute_training_metrics:
                         assert train_metrics is not None
-                        self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
+                        self._compute_and_log_datas(train_metrics, is_train=True, is_batch=True)
 
                     self.state.timer.on_batch_complete(
                         samples=int(num_samples_in_batch.item()),
@@ -1179,10 +1181,10 @@ class Trainer:
 
                     self.engine.run_event(Event.EVAL_BATCH_END)
 
-                self.logger.metric_epoch({"epoch": self.state.timer.epoch.value})
-                self.logger.metric_batch({"trainer/global_step": self.state.timer.batch.value})
+                self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
+                self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
 
-                self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
+                self._compute_and_log_datas(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
 
             self.engine.run_event(Event.EVAL_END)
 

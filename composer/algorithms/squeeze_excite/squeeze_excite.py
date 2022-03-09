@@ -178,6 +178,6 @@ class SqueezeExcite(Algorithm):
                  f'min_channels={self.min_channels}. '
                  f'Model now has {layer_count} SqueezeExcite layers.')
 
-        logger.metric_fit({
+        logger.data_fit({
             'squeeze_excite/num_squeeze_excite_layers': layer_count,
         })

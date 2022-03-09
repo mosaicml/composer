@@ -44,9 +44,9 @@ class TestTrainerInit():
         should_be_ddp_wrapped = dist.get_world_size() > 1 and "deepspeed_config" not in config
         assert isinstance(trainer.state.model, DistributedDataParallel) == should_be_ddp_wrapped
 
-    def test_loggers_before_callbacks(self, config):
+    def test_logger_destinations_before_callbacks(self, config):
         config.update({
-            "loggers": [TQDMLogger()],
+            "logger_destinations": [TQDMLogger()],
             "callbacks": [LRMonitor()],
         })
 
@@ -150,7 +150,7 @@ class TestTrainerEquivalence():
             'device': device,
             'precision': precision,
             'deterministic_mode': True,  # testing equivalence
-            'loggers': [],  # no progress bar
+            'logger_destinations': [],  # no progress bar
         }
 
     @pytest.fixture(autouse=True)
@@ -265,7 +265,7 @@ class TestTrainerEvents():
             ),
             'eval_dataloader': None,
             'max_duration': '1ep',
-            'loggers': []
+            'logger_destinations': []
         }
 
     def test_data_augmented(self, config):
@@ -316,7 +316,7 @@ class TestTrainerAssets:
                 batch_size=4,
             ),
             'max_duration': '2ep',
-            'loggers': [],  # no progress bar
+            'logger_destinations': [],  # no progress bar
         }
 
     # Note: Not all algorithms, callbacks, and loggers are compatible
@@ -397,7 +397,7 @@ class TestTrainerAssets:
         trainer.fit()
 
     def test_loggers(self, config, logger):
-        config['loggers'] = [logger]
+        config['logger_destinations'] = [logger]
         trainer = Trainer(**config)
         trainer.fit()
 
@@ -424,7 +424,7 @@ class TestTrainerAssets:
     def test_loggers_multiple_calls(self, config, logger):
         if isinstance(logger, (FileLogger, WandBLogger)):
             pytest.xfail("Cannot close/load multiple times yet.")
-        config['loggers'] = [logger]
+        config['logger_destinations'] = [logger]
         trainer = Trainer(**config)
         self._test_multiple_fits(trainer)
 

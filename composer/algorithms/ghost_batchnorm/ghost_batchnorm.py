@@ -111,7 +111,7 @@ class GhostBatchNorm(Algorithm):
                  f'Model now has {num_new_modules} {module_name} modules')
 
         if logger is not None:
-            logger.metric_fit({
+            logger.data_fit({
                 f'{classname}/num_new_modules': num_new_modules,
             })
 

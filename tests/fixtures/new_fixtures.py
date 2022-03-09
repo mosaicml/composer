@@ -25,7 +25,7 @@ def minimal_state():
 @pytest.fixture
 def empty_logger(minimal_state: State) -> Logger:
     """Logger without any output configured."""
-    return Logger(state=minimal_state, backends=[])
+    return Logger(state=minimal_state, destinations=[])
 
 
 @pytest.fixture(autouse=True)

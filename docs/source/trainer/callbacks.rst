@@ -24,7 +24,7 @@ registered with the ``callbacks`` argument to the :class:`.Trainer`.
            eval_dataloader=None,
            max_duration='1ep',
            callbacks=[SpeedMonitor(window_size=100), LRMonitor()],
-           loggers=[WandBLogger()])
+           logger_destinations=[WandBLogger()])
 
 This example includes callbacks that measure the model throughput (and
 the learning rate) and logs them to Weights & Biases.

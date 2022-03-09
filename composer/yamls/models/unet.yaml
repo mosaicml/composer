@@ -23,7 +23,7 @@ model:
     initializers:
       - kaiming_normal
       - bn_ones
-loggers:
+logger_destinations:
   - tqdm: {}
 max_duration: 200ep
 train_batch_size: 64
