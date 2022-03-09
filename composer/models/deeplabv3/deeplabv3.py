@@ -25,11 +25,11 @@ def deeplabv3_builder(num_classes: int,
     """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed.
 
     Args:
-        num_classes (int): number of classes in the segmentation task.
-        backbone_arch (str, optional): the architecture to use for the backbone. Must be either [``'resnet50'``, ``'resnet101'``].
+        num_classes (int): Number of classes in the segmentation task.
+        backbone_arch (str, optional): The architecture to use for the backbone. Must be either [``'resnet50'``, ``'resnet101'``].
             Default: ``'resnet101'``.
-        is_backbone_pretrained (bool, optional): if true (default), use pretrained weights for the backbone.
-        sync_bn (bool, optional): if true (default), replace all BatchNorm layers with SyncBatchNorm layers.
+        is_backbone_pretrained (bool, optional): If ``True``, use pretrained weights for the backbone. Default: ``True``.
+        sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers. Default: ``True``.
         initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``[]``.
 
     Returns:
@@ -86,11 +86,13 @@ class ComposerDeepLabV3(ComposerModel):
     From `Rethinking Atrous Convolution for Semantic Image Segmentation <arxiv.org/abs/1706.05587>`_.
 
     Args:
-        num_classes (int): The number of classes in the segmentation task.
-        backbone_arch (str, optional): The backbone architecture to use, either ``'resnet50'``, ``'resnet101'``. Default: ``'resnet101'``.
-        is_backbone_pretrained (bool, optional): if true (default), use pre-trained weights for backbone. Default: ``True``.
-        sync_bn (bool, optional): Use SyncBatchNorm to sync batch norm statistics across GPUs. Default: ``True``.
+        num_classes (int): Number of classes in the segmentation task.
+        backbone_arch (str, optional): The architecture to use for the backbone. Must be either [``'resnet50'``, ``'resnet101'``].
+            Default: ``'resnet101'``.
+        is_backbone_pretrained (bool, optional): If ``True``, use pretrained weights for the backbone. Default: ``True``.
+        sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers. Default: ``True``.
         initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``[]``.
+
 
     Example:
 

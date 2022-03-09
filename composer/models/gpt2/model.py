@@ -24,7 +24,7 @@ __all__ = ["GPT2Model"]
 class GPT2Model(ComposerTransformer):
     """Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap
     `huggingface GPT-2 transformers <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_.
-     Logs training and validation perplexity.
+    Logs training and validation perplexity.
 
     From `Language Models are Unsupervised Multitask Learners <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_.
 
