@@ -4,6 +4,7 @@ import math
 import os
 import subprocess
 import textwrap
+from random import shuffle
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple, Union
 
 from tqdm import tqdm
@@ -79,6 +80,63 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
         out.write(sample)
     out.close()
     _create_webdataset_meta(split_dir, n_samples, n_shards)
+
+
+def _find_samples(split_dirname):
+    """Collect and shuffle sample as pairs of (image filename, class).
+
+    Args:
+        split_dirname (str): Dataset split directory.
+
+    Returns:
+        Shuffled list of (image filename, class).
+    """
+    pairs = []
+    for cls, basename in enumerate(sorted(os.listdir(split_dirname))):
+        class_dirname = os.path.join(split_dirname, basename)
+        for basename in sorted(os.listdir(class_dirname)):
+            sample_filename = os.path.join(class_dirname, basename)
+            pairs.append((sample_filename, cls))
+    shuffle(pairs)
+    return pairs
+
+
+def _each_sample(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
+    """Generator over each dataset sample.
+
+    Args:
+        pairs (list): List of pairs of (image filename, class ID).
+
+    Yields:
+        Sample dicts.
+    """
+    for idx, (img_file, cls) in enumerate(pairs):
+        img = open(img_file, 'rb').read()
+        yield {
+            '__key__': f'{idx:05d}',
+            'jpg': img,
+            'cls': cls,
+        }
+
+
+def create_webdatasets_from_image_folder(in_root: str,
+                                         out_root: str,
+                                         n_shards: int,
+                                         use_tqdm: Union[bool, int] = True) -> None:
+    """Given a directory tree of classified images, create a WebDataset per dataset split.
+
+    Directory tree format: (path to dataset)/(split name)/(class name)/(image file).
+
+    Args:
+        in_root (str): Input dataset root.
+        out_root (str): Output WebDataset root.
+        n_shards (int): Number of full shards to write (may write a leftovers shard).
+        use_tqdm (bool): Whether to show progress with tqdm.
+    """
+    for split in sorted(os.listdir(in_root)):
+        in_dir = os.path.join(in_root, split)
+        pairs = _find_samples(in_dir)
+        create_webdataset(_each_sample(pairs), out_root, len(pairs), n_shards, use_tqdm)
 
 
 def _init_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
