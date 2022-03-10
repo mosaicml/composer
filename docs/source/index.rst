@@ -19,12 +19,11 @@ Composer features:
 - Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
 - Strong, `reproducible` baselines to get you started as 💨 fast 💨 as possible
 
-See :doc:`Getting Started<getting_started/installation>` for
-installation an initial usage, the :doc:`Trainer<trainer/using_the_trainer>` section for an introduction
-to our trainer, and :doc:`Methods<method_cards/methods_overview>` for details about our efficiency methods
-and how to use them in your code.
+See :doc:`getting_started/installation` for quick start, and peruse our :doc:`trainer/algorithms` library.
+See :doc:`trainer/using_the_trainer` to learn how to use our (optional) Trainer. To learn more details
+about our efficient methods and how to deploy them in your code, see :doc:`method_cards/methods_overview`.
 
-At MosaicML, we are focused on making training ML models accessible. To do this,
+At `MosaicML`_, we are focused on making training ML models accessible. To do this,
 we continually productionize state-of-the-art academic research on efficient model
 training, and also study the `combinations`` of these methods in order to ensure
 that model training is ✨ as efficient as possible ✨.
@@ -70,7 +69,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    trainer/distributed_training.rst
    trainer/numerics.rst
    trainer/performance.rst
-
 
 
 .. toctree::
@@ -125,3 +123,4 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 .. _Twitter: https://twitter.com/mosaicml
 .. _Email: mailto:community@mosaicml.com
 .. _Slack: https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg
+.. _MosaicML: www.mosaicml.com
