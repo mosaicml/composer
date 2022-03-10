@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Synthetic datasets used for testing."""
+"""Synthetic datasets used for testing, profiling, and debugging."""
 
 from typing import Callable, Optional, Sequence, Union
 

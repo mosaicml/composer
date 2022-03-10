@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Utility and helper functions for datasets."""
+
 import logging
 import textwrap
 from typing import Callable, List, Tuple, Union
@@ -32,8 +34,8 @@ class NormalizationFn:
     Args:
         mean (Tuple[float, float, float]): The mean pixel value for each channel (RGB) for the dataset.
         std (Tuple[float, float, float]): The standard deviation pixel value for each channel (RGB) for the dataset.
-        ignore_background (bool): If ``True``, ignore the background class in the training loss.
-            Only used in semantic segmentation. Default is ``False``.
+        ignore_background (bool): If ``True``, ignore the background class in the training
+            loss. Only used in semantic segmentation. Default: ``False``.
     """
 
     def __init__(self,
