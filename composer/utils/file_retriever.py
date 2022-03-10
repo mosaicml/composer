@@ -28,6 +28,7 @@ def get_file(
 
     Args:
         path (str): The path to the file to retreive.
+
             *   If ``object_store`` is specified, then the ``uri`` should be the object name for the file to get.
                 (do not include the the cloud provider name or cloud bucket in the URI)
 
