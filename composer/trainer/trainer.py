@@ -90,6 +90,7 @@ from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
+from composer.core.time import Timestamp
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
                                  Precision, PyTorchScheduler)
 from composer.datasets.dataloader import unwrap_data_loader
@@ -230,19 +231,26 @@ class Trainer:
             then no callbacks will be run. (default: ``None``).
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
-<<<<<<< HEAD
+        load_path_format (str, optional):  The path format string to an existing checkpoint file.
 
-        load_path (str, optional): The template path to an existing checkpoint file.
-=======
-        load_path_format (str, optional):  The template path to an existing checkpoint file.
->>>>>>> ravi/i414_p1.3
-            It can be a path to a file on local disk, a URL, or if ``load_object_store`` is set, the object name
+            It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
-            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, saved checkpoints are
-            sharded rank. To load deepspeed checkpoints, specify ``{RANK}`` in this ``load_path_format``
-            parameter, and the ``RANK`` variable will be substituted with the global rank, thus allowing the correct
-            checkpoints to be loaded per-rank.
+            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
+            Instead of hard-coding the rank in the ``path_format``, use the following format variables:
+
+            +------------------------+-------------------------------------------------------+
+            | Variable               | Description                                           |
+            +========================+=======================================================+
+            | ``{rank}``             | The global rank, as returned by                       |
+            |                        | :func:`~.dist.get_global_rank`.                       |
+            +------------------------+-------------------------------------------------------+
+            | ``{local_rank}``       | The local rank of the process, as returned by         |
+            |                        | :func:`~.dist.get_local_rank`.                        |
+            +------------------------+-------------------------------------------------------+
+            | ``{node_rank}``        | The node rank, as returned by                         |
+            |                        | :func:`~.dist.get_node_rank`.                         |
+            +------------------------+-------------------------------------------------------+
 
             For example, suppose that checkpoints are stored in the following structure:
 
@@ -253,8 +261,8 @@ class Trainer:
                 my_model/rank_2/ep1.tar
                 ...
 
-            Then, ``load_path_format`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks
-            will load the correct data.
+            Then, ``load_path_format`` should be set to ``my_model/rank_{rank}/ep1.tar``, and all ranks will load the
+            correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
         load_object_store (ObjectStoreProvider, optional): If the ``load_path_format`` is in an object store
@@ -711,16 +719,17 @@ class Trainer:
         self.logger = Logger(self.state, loggers)
         self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
+        self._checkpoint_saver = None
         if save_folder is not None:
-            self.state.callbacks.append(
-                CheckpointSaver(
-                    save_folder=save_folder,
-                    name_format=save_name_format,
-                    save_latest_format=save_latest_format,
-                    overwrite=save_overwrite,
-                    weights_only=save_weights_only,
-                    should_save=should_save,
-                ))
+            self._checkpoint_saver = CheckpointSaver(
+                save_folder=save_folder,
+                name_format=save_name_format,
+                save_latest_format=save_latest_format,
+                overwrite=save_overwrite,
+                weights_only=save_weights_only,
+                should_save=should_save,
+            )
+            self.state.callbacks.append(self._checkpoint_saver)
 
         self.engine = Engine(
             state=self.state,
@@ -807,6 +816,44 @@ class Trainer:
         .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
         """
         return self._deepspeed_config is not None
+
+    @property
+    def saved_checkpoints(self) -> Dict[Timestamp, List[str]]:
+        """The times and paths to checkpoint files saved across all ranks during training.
+
+        Returns:
+
+            Dict[Timestamp, List[str]]: A dictionary mapping a save :class:`.Timestamp`. to a list of
+                filepaths, indexed by global rank, corresponding to the checkpoints saved at that time.
+
+        .. note::
+        
+            When using DeepSpeed, the index of a filepath corresponds to the
+            global rank of the process that wrote that file. These filepaths are valid only on
+            the global rank's node. Otherwise, when not using DeepSpeed, this list will contain
+            only one filepath since only rank zero saves checkpoints.
+        """
+        if self._checkpoint_saver is None:
+            raise RuntimeError("`save_folder` was not specified, so no checkpoints were saved.")
+        return self._checkpoint_saver.saved_checkpoints
+
+    @property
+    def checkpoint_folder(self) -> Optional[str]:
+        """The folder in which checkpoints are stored.
+
+        Returns:
+            Optional[str]: The checkpoint folder, or None, if checkpoints were not saved.
+
+            If an absolute path was specified for ``save_folder`` upon trainer instantiation, then that path will be
+            used. Otherwise, this folder is relative to the :mod:`~composer.utils.run_directory` of the training run
+            (e.g. ``{run_directory}/{save_folder}``). If no run directory is provided, then by default, it is of the
+            form ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp`` is the start time of the
+            run in iso-format, ``GLOBAL_RANK`` is the global rank of the process, and ``save_folder`` is the
+            ``save_folder`` argument provided upon construction.
+        """
+        if self._checkpoint_saver is None:
+            raise RuntimeError("`save_folder` was not specified, so no checkpoints were saved.")
+        return self._checkpoint_saver.checkpoint_folder
 
     def fit(self):
         """Train and evaluate the model on the provided data."""

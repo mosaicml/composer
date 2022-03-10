@@ -25,15 +25,15 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
     Args:
         interval (Union[str, int, Time]): The interval describing how often checkpoints should be
-            saved. If an integer, it will be assumed to be :attr:`TimeUnit.EPOCH`.
-            Otherwise, the unit must be in :attr:`TimeUnit.EPOCH` or :attr:`TimeUnit.BATCH`.
+            saved. If an integer, it will be assumed to be in :attr:`~TimeUnit.EPOCH`\\s.
+            Otherwise, the unit must be either :attr:`TimeUnit.EPOCH` or :attr:`TimeUnit.BATCH`.
 
             Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
             and at the end of training.
 
     Returns:
         Callable[[State, Event], bool]: A function that can be passed as the ``should_save``
-            argument into :class:`CheckpointSaver`.
+            argument into the :class:`CheckpointSaver`.
     """
     if isinstance(interval, str):
         interval = Time.from_timestring(interval)
@@ -80,15 +80,22 @@ class CheckpointSaver(Callback):
     """Callback to save checkpoints.
 
     Example
-        >>> trainer = Trainer(..., callbacks=[
-        ...     CheckpointSaver(
-        ...         save_folder='checkpoints',
-        ...         name_format_string="ep{epoch}-ba{batch}/rank_{rank}",
-        ...         save_latest_format="latest/rank_{rank}",
-        ...         should_save="1ep",
-        ...         weights_only=False,
-        ...     )
-        ... ])
+
+        .. testsetup::
+
+            from composer.callbacks.checkpoint_saver import CheckpointSaver
+
+        .. doctest::
+
+            >>> trainer = Trainer(..., callbacks=[
+            ...     CheckpointSaver(
+            ...         save_folder='checkpoints',
+            ...         name_format="ep{epoch}-ba{batch}/rank_{rank}",
+            ...         save_latest_format="latest/rank_{rank}",
+            ...         should_save="1ep",
+            ...         weights_only=False,
+            ...     )
+            ... ])
 
     Args:
         save_folder (str): Folder where checkpoints are saved.
@@ -99,7 +106,7 @@ class CheckpointSaver(Callback):
             If the ``save_folder`` does not exist, it will be created.
 
         name_format (str, optional): A format string describing how to name checkpoints.
-            (default: ``'"ep{epoch}-ba{batch}/rank_{rank}"``)
+            (default: ``'ep{epoch}-ba{batch}/rank_{rank}'``)
 
             Checkpoints will be saved approximately to ``{save_folder}/{name_format.format(...)}``.
 
@@ -111,16 +118,17 @@ class CheckpointSaver(Callback):
                 
                 *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
                     requires tarball format, as it saves model and optimizer states in separate files.
-                    Ensure that ``{rank}`` appears within the ``name_format_string``. Otherwise, multiple ranks
+                    Ensure that ``'{rank}'`` appears within the ``name_format_string``. Otherwise, multiple ranks
                     may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
-                    extension is specified, ``.tar`` will be used.
+                    extension is specified, ``'.tar'`` will be used.
 
                 *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
-                    to ``.tar.gz``, ``.tgz``, ``.tar.bzip``, or ``.tar.lzma`` (depending on the desired
+                    to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
                     compression algorithm). Using compression will block the training loop while checkpoints are
                     being compressed. As such, we recommend saving checkpoints without compression.
 
             Consider the following scenario, where:
+
             *   The default ``save_folder='checkpoints'`` is used.
             *   The default ``name_format='ep{epoch}-ba{batch}/rank_{rank}'`` is used.
             *   The current epoch count is ``1``.
@@ -136,7 +144,7 @@ class CheckpointSaver(Callback):
                 ...
 
         save_latest_format (str, optional): A format string for a symlink which points to the last saved checkpoint.
-            (default: ``latest/rank_{rank}``)
+            (default: ``'latest/rank_{rank}'``)
             
             Symlinks will be created approximately at ``{save_folder}/{save_latest_format.format(...)}``. 
 
@@ -145,14 +153,15 @@ class CheckpointSaver(Callback):
             To disable symlinks, set this parameter to ``None``.
 
             Consider the following scenario, where:
+
             *   The default ``save_folder='checkpoints'`` is used.
             *   The default ``name_format='ep{epoch}-ba{batch}/rank_{rank}'`` is used.
             *   The default ``save_latest_format='latest/rank_{rank}'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
-            When DeepSpeed is not being used, the rank zero process will save the checkpoint to ``"checkpoints/ep1-ba42/rank_0"``,
-            and a symlink will be created at ``"checkpoints/latest/rank_0" -> "checkpoints/ep1-ba42/rank_0"``
+            When DeepSpeed is not being used, the rank zero process will save the checkpoint to ``'checkpoints/ep1-ba42/rank_0'``,
+            and a symlink will be created at ``'checkpoints/latest/rank_0' -> 'checkpoints/ep1-ba42/rank_0'``
 
             When DeepSpeed is being used, each rank (process) will save checkpoints to::
 
@@ -161,7 +170,7 @@ class CheckpointSaver(Callback):
                 checkpoints/ep1-ba42/rank_2.tar
                 ...
 
-            Corresponding symlinks will be created at:
+            Corresponding symlinks will be created at::
 
                 checkpoints/latest/rank_0.tar -> checkpoints/ep1-ba42/rank_0.tar
                 checkpoints/latest/rank_1.tar -> checkpoints/ep1-ba42/rank_1.tar
