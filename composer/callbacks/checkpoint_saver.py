@@ -32,7 +32,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             and at the end of training.
 
     Returns:
-        Callable[[State, Event], bool]: A function that can be passed as the ``should_save``
+        Callable[[State, Event], bool]: A function that can be passed as the ``save_interval``
             argument into the :class:`CheckpointSaver`.
     """
     if isinstance(interval, str):
@@ -50,7 +50,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
     last_checkpoint_batch = None
 
-    def should_save(state: State, event: Event):
+    def save_interval(state: State, event: Event):
         nonlocal last_checkpoint_batch
         if state.get_elapsed_duration() >= 1.0:
             # if doing batch-wise checkpointing, and we saved a checkpoint at the batch_checkpoint event
@@ -73,7 +73,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
         return False
 
-    return should_save
+    return save_interval
 
 
 class CheckpointSaver(Callback):
@@ -92,7 +92,7 @@ class CheckpointSaver(Callback):
             ...         save_folder='checkpoints',
             ...         name_format="ep{epoch}-ba{batch}/rank_{rank}",
             ...         save_latest_format="latest/rank_{rank}",
-            ...         should_save="1ep",
+            ...         save_interval="1ep",
             ...         weights_only=False,
             ...     )
             ... ])
@@ -185,7 +185,7 @@ class CheckpointSaver(Callback):
             If ``False`` (the default), then the ``checkpoint_folder`` must not exist or be empty.
             (default: ``False``)
 
-        should_save (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
+        save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
 
             If an integer, checkpoints will be saved every n epochs.
@@ -228,18 +228,18 @@ class CheckpointSaver(Callback):
         name_format: str = "ep{epoch}-ba{batch}/rank_{rank}",
         save_latest_format: Optional[str] = "latest/rank_{rank}",
         overwrite: bool = False,
-        should_save: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
+        save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
         weights_only: bool = False,
     ):
-        if not callable(should_save):
-            should_save = checkpoint_periodically(should_save)
+        if not callable(save_interval):
+            save_interval = checkpoint_periodically(save_interval)
 
         self.checkpoint_folder = os.path.join(run_directory.get_run_directory(), save_folder)
         self.name_format = name_format
         self.save_latest_format = save_latest_format
         self.overwrite = overwrite
 
-        self.should_save = should_save
+        self.save_interval = save_interval
         self.saved_checkpoints = {}
         self.weights_only = weights_only
 
@@ -266,12 +266,12 @@ class CheckpointSaver(Callback):
 
     def batch_checkpoint(self, state: State, logger: Logger):
         del logger  # unused
-        if self.should_save(state, Event.BATCH_CHECKPOINT):
+        if self.save_interval(state, Event.BATCH_CHECKPOINT):
             self._save_checkpoint(state)
 
     def epoch_checkpoint(self, state: State, logger: Logger):
         del logger  # unused
-        if self.should_save(state, Event.EPOCH_CHECKPOINT):
+        if self.save_interval(state, Event.EPOCH_CHECKPOINT):
             self._save_checkpoint(state)
 
     def _save_checkpoint(self, state: State):

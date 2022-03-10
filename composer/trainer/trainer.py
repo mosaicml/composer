@@ -26,7 +26,7 @@ Train a model and save a checkpoint:
                       device="cpu",
                       validate_every_n_epochs=1,
                       save_folder="checkpoints",
-                      should_save="1ep")
+                      save_interval="1ep")
 
     ### Fit and run evaluation for 1 epoch.
     ### Save a checkpoint after 1 epoch as specified during trainer creation.
@@ -43,7 +43,7 @@ Load the checkpoint and resume training:
     ### will be of the form my_run_directory/rank_0/checkpoints
     checkpoint_folder = trainer.checkpoint_folder
 
-    ### If the should_save was in terms of epochs like above then by default,
+    ### If the save_interval was in terms of epochs like above then by default,
     ### checkpoint filenames are of the form "ep{EPOCH_NUMBER}.pt".
     checkpoint_path = os.path.join(checkpoint_folder, "ep1.pt")
 
@@ -343,7 +343,7 @@ class Trainer:
 
             .. seealso:: :class:`~.CheckpointSaver`
 
-        should_save (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
+        save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
             This parameter has no effect if ``save_folder`` is ``None``. (default: ``'1ep'``)
 
@@ -461,7 +461,7 @@ class Trainer:
         save_name_format: str = "ep{epoch}-ba{batch}/rank_{rank}",
         save_latest_format: str = "latest/rank_{rank}",
         save_overwrite: bool = False,
-        should_save: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
+        save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,
 
         # subset parameters
@@ -727,7 +727,7 @@ class Trainer:
                 save_latest_format=save_latest_format,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
-                should_save=should_save,
+                save_interval=save_interval,
             )
             self.state.callbacks.append(self._checkpoint_saver)
 

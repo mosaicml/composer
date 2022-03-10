@@ -196,7 +196,7 @@ class TrainerHparams(hp.Hparams):
             :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        should_save (str, optional): See
+        save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
         train_subset_num_batches (int, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
@@ -342,7 +342,7 @@ class TrainerHparams(hp.Hparams):
     save_latest_format: str = hp.optional("Latest checkpoint symlink format string.", default="latest/rank_{rank}")
     save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
-    should_save: str = hp.optional(textwrap.dedent("""\
+    save_interval: str = hp.optional(textwrap.dedent("""\
         Checkpoint interval or path to a `(State, Event) -> bool` function
         returning whether a checkpoint should be saved."""),
                                    default="1ep")
@@ -596,7 +596,7 @@ class TrainerHparams(hp.Hparams):
             save_folder=self.save_folder,
             save_overwrite=self.save_overwrite,
             save_name_format=self.save_name_format,
-            should_save=self.should_save,
+            save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
 
             # Subset parameters

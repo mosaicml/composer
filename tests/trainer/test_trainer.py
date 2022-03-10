@@ -91,7 +91,7 @@ class TestTrainerInit():
     def test_init_with_integers(self, config, tmpdir: pathlib.Path):
         config.update({
             'max_duration': 1,
-            'should_save': 10,
+            'save_interval': 10,
             'save_folder': tmpdir,
         })
 
@@ -103,7 +103,7 @@ class TestTrainerInit():
                 checkpoint_saver = callback
         assert checkpoint_saver is not None
         trainer.state.timer.epoch._value = 10
-        assert checkpoint_saver.should_save(trainer.state, Event.EPOCH_CHECKPOINT)
+        assert checkpoint_saver.save_interval(trainer.state, Event.EPOCH_CHECKPOINT)
 
     @pytest.mark.timeout(5.0)
     def test_init_with_max_duration_in_batches(self, config):
@@ -166,7 +166,7 @@ class TestTrainerEquivalence():
         config = deepcopy(config)  # ensure the reference model is not passed to tests
 
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
-        config.update({'should_save': '1ep', 'save_folder': save_folder, 'save_name_format': 'ep{epoch}.pt'})
+        config.update({'save_interval': '1ep', 'save_folder': save_folder, 'save_name_format': 'ep{epoch}.pt'})
 
         trainer = Trainer(**config)
         trainer.fit()

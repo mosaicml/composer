@@ -139,7 +139,7 @@ class CheckpointSaverHparams(CallbackHparams):
         overwrite (str, optional): See :class:`~.CheckpointSaver`.
         weights_only (bool, optional): See :class:`~.CheckpointSaver`.
 
-        should_save (str, optional): Either a :doc:`time-string </trainer/time>` or a path to a function.
+        save_interval (str, optional): Either a :doc:`time-string </trainer/time>` or a path to a function.
 
             If a :doc:`time-string </trainer/time>`, checkpoints will be saved according to this interval.
 
@@ -155,25 +155,25 @@ class CheckpointSaverHparams(CallbackHparams):
                                                     default="latest/rank_{rank}")
     overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
-    should_save: str = hp.optional(textwrap.dedent("""\
+    save_interval: str = hp.optional(textwrap.dedent("""\
         Checkpoint interval or path to a `(State, Event) -> bool` function
         returning whether a checkpoint should be saved."""),
                                    default="1ep")
 
     def initialize_object(self) -> CheckpointSaver:
         try:
-            should_save = Time.from_timestring(self.should_save)
+            save_interval = Time.from_timestring(self.save_interval)
         except ValueError:
             # assume it is a module path
-            module_path, function_name = self.should_save.split(":")
+            module_path, function_name = self.save_interval.split(":")
             mod = importlib.import_module(module_path)
-            should_save = getattr(mod, function_name)
+            save_interval = getattr(mod, function_name)
         return CheckpointSaver(
             save_folder=self.save_folder,
             name_format=self.name_format,
             save_latest_format=self.save_latest_format,
             overwrite=self.overwrite,
-            should_save=should_save,
+            save_interval=save_interval,
             weights_only=self.weights_only,
         )
 
