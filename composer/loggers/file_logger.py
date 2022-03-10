@@ -108,30 +108,21 @@ class FileLogger(LoggerDestination):
         self.is_epoch_interval = False
         self.file: Optional[TextIO] = None
         self.config = config
-        self._stdout_queue: queue.Queue[str] = queue.Queue()
-        self._stderr_queue: queue.Queue[str] = queue.Queue()
+        self._queue: queue.Queue[str] = queue.Queue()
         self._original_stdout_write = sys.stdout.write
         self._original_stderr_write = sys.stderr.write
 
         if capture_stdout:
-            sys.stdout.write = self._get_new_writer("[stdout]", self._stdout_queue, self._original_stdout_write)
+            sys.stdout.write = self._get_new_writer("[stdout]: ", self._original_stdout_write)
 
         if capture_stderr:
-            sys.stderr.write = self._get_new_writer("[stderr]", self._stderr_queue, self._original_stderr_write)
+            sys.stderr.write = self._get_new_writer("[stderr]: ", self._original_stderr_write)
 
-    def _get_new_writer(self, prefix: str, q: queue.Queue, original_writer: Callable[[str], int]):
-        """Returns a writer captures calls to the ``original_writer``."""
+    def _get_new_writer(self, prefix: str, original_writer: Callable[[str], int]):
+        """Returns a writer that intercepts calls to the ``original_writer``."""
 
         def new_write(s: str) -> int:
-
-            if self.file is None:
-                q.put_nowait(s)
-            else:
-                # Write directly if the file is open, in case if there was an error,
-                # and the process crashes before the queue can be flushed
-                # But first, flush the existing queue, so messages will print in order
-                self._flush_queue(prefix, q)
-                self._print_to_file(prefix, s)
+            self.write(prefix, s)
             return original_writer(s)
 
         return new_write
@@ -164,10 +155,11 @@ class FileLogger(LoggerDestination):
     def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
         if not self._will_log(log_level):
             return
-        data_str = format_log_data_value(data)
-        if self.file is None:
-            raise RuntimeError("Attempted to log before self.init() or after self.close()")
-        print(f"[{log_level.name}][batch={int(state.timer.batch)}]: {data_str}", file=self.file, flush=False)
+        data_str = format_log_data_value(data) + "\n"
+        self.write(
+            f'[{log_level.name}][batch={int(state.timer.batch)}]: ',
+            data_str,
+        )
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
@@ -178,9 +170,10 @@ class FileLogger(LoggerDestination):
             "x+",
             buffering=self.buffer_size,
         )
+        self._flush_queue()
         if self.config is not None:
             data = ("-" * 30) + "\n" + yaml.safe_dump(self.config) + "\n" + ("-" * 30) + "\n"
-            self._print_to_file(prefix='[config]', data=data)
+            self.write('[config]: ', data)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -198,32 +191,46 @@ class FileLogger(LoggerDestination):
                 state.timer.epoch) % self.flush_interval == 0:
             self._flush_file()
 
-    def _print_to_file(self, prefix: str, data: str):
+    def write(self, prefix: str, s: str):
+        """Write to the logfile.
+
+        .. note::
+
+            If the ``write`` occurs before the :attr:`~composer.core.event.Event.INIT` event,
+            the write will be enqueued, as the file is not yet open.
+
+        Args:
+            prefix (str): A prefix for each line in the logfile.
+            s (str): The string to write. Each line will be prefixed with ``prefix``.
+        """
         formatted_lines = []
-        for line in data.splitlines(True):
+        for line in s.splitlines(True):
             if line == os.linesep:
                 # If it's an empty line, don't print the prefix
                 formatted_lines.append(line)
             else:
-                formatted_lines.append(f"{prefix}: {line}")
+                formatted_lines.append(f"{prefix}{line}")
+        formatted_s = ''.join(formatted_lines)
+        if self.file is None:
+            self._queue.put_nowait(formatted_s)
+        else:
+            # Flush the queue, so all prints will be in order
+            self._flush_queue()
+            # Then, write to the file
+            print(formatted_s, file=self.file, flush=False, end='')
 
-        # Writing all lines in one print statement to ensure a single call to `_print_to_file`
-        # does not interleave the lines.
-        print(''.join(formatted_lines), file=self.file, flush=False, end='')
-
-    def _flush_queue(self, prefix: str, q: queue.Queue):
+    def _flush_queue(self):
         while True:
             try:
-                data = q.get_nowait()
+                s = self._queue.get_nowait()
             except queue.Empty:
                 break
-            self._print_to_file(prefix=prefix, data=data)
+            print(s, file=self.file, flush=False, end='')
 
     def _flush_file(self) -> None:
         assert self.file is not None
 
-        self._flush_queue("[stdout]", self._stdout_queue)
-        self._flush_queue("[stderr]", self._stderr_queue)
+        self._flush_queue()
 
         self.file.flush()
         os.fsync(self.file.fileno())
