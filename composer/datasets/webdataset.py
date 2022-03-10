@@ -5,7 +5,7 @@ import os
 import subprocess
 import textwrap
 from random import shuffle
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from tqdm import tqdm
 
@@ -136,7 +136,7 @@ def create_webdatasets_from_image_folder(in_root: str,
     for split in sorted(os.listdir(in_root)):
         in_dir = os.path.join(in_root, split)
         pairs = _find_samples(in_dir)
-        create_webdataset(_each_sample(pairs), out_root, len(pairs), n_shards, use_tqdm)
+        create_webdataset(_each_sample(pairs), out_root, split, len(pairs), n_shards, use_tqdm)
 
 
 def _init_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
