@@ -168,4 +168,4 @@ and closure support.
 
 For more information, check out the :doc:`/trainer/using_the_trainer` guide.
 
-.. _Howard et al, 2020:: https://arxiv.org/abs/2002.04688
+.. _Howard et al, 2020: https://arxiv.org/abs/2002.04688

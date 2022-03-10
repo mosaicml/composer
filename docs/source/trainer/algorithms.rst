@@ -145,7 +145,7 @@ handling any collisions or reorderings needed.
                       max_duration='10ep',
     )
 
-For more information, see: :doc:`trainer/using_the_trainer` and :doc:`getting_started/welcome_tour`.
+For more information, see: :doc:`/trainer/using_the_trainer` and :doc:`/getting_started/welcome_tour`.
 
 
 Two-way callbacks

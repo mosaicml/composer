@@ -78,7 +78,7 @@ GPU-based instances on AWS, GCP, and Azure. ``Pillow-SIMD`` is installed by defa
 Pulling Images
 ^^^^^^^^^^^^^^
 
-Pre-built images can be pulled from `MosaicML's DockerHub Repository <https://hub.docker.com/r/mosaicml/pytorch>`_\:
+Pre-built images can be pulled from `MosaicML's DockerHub Repository <https://hub.docker.com/r/mosaicml/pytorch>`_:
 
 .. code-block:: bash
 
@@ -100,10 +100,10 @@ Building Images locally
     Docker must be `installed <https://docs.docker.com/get-docker/>`_ on your local machine.
 
 
-:rocket: Quick Start
-====================
+|:rocket:| Quick Start
+======================
 
-Access our library of speedup methods with the :doc:`functional_api` methods:
+Access our library of speedup methods with the :doc:`/functional_api` methods:
 
 .. testcode::
 
@@ -118,7 +118,7 @@ Access our library of speedup methods with the :doc:`functional_api` methods:
 
 This creates a ResNet50 model and replaces several pooling and convolution layers with
 BlurPool variants (`Zhang et al, 2019 <https://arxiv.org/abs/1904.11486>`_). For more information,
-see :doc:`method_cards/blurpool`. The method should log:
+see :doc:`/method_cards/blurpool`. The method should log:
 
 .. code-block:: none
 
@@ -126,7 +126,7 @@ see :doc:`method_cards/blurpool`. The method should log:
 
 These methods are easy to integrate into your own training loop code with just a few lines.
 
-For an overview of the algorithms, see :doc:`trainer/algorithms`.
+For an overview of the algorithms, see :doc:`/trainer/algorithms`.
 
 We make composing recipes together even easier with our (optional) :class`.Trainer`. Here
 is training an MNIST classifer with a recipe of methods:
@@ -166,8 +166,7 @@ We handle insert and running the logic during the training, as well as many feat
 Next steps
 ----------
 
-* Try :doc:`getting_started/notebooks` to see our speed-ups with notebooks on Colab.
-* See :doc:`getting_started/using_the_trainer` for more details on our trainer.
-* Read :doc:`getting_started/welcome_tour` for a tour through the library.
-
+* Try :doc:`/getting_started/notebooks` to see our speed-ups with notebooks on Colab.
+* See :doc:`/getting_started/using_the_trainer` for more details on our trainer.
+* Read :doc:`/getting_started/welcome_tour` for a tour through the library.
 
