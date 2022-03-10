@@ -119,8 +119,7 @@ class ObjectStoreLogger(LoggerDestination):
 
             By default, all artifacts will be uploaded.
 
-        object_name_format (str, optional):
-            A format string used to determine the object name.
+        object_name_format (str, optional): A format string used to determine the object name.
 
             The following format variables are available:
 
@@ -214,7 +213,7 @@ class ObjectStoreLogger(LoggerDestination):
             raise RuntimeError("The ObjectStoreLogger is already initialized.")
         self._finished = self._finished_cls()
         self._run_name = logger.run_name
-        object_name_to_test = self._format(".credentials_validated_successfully")
+        object_name_to_test = self._format_object_name(".credentials_validated_successfully")
         _validate_credentials(self._object_store_provider_hparams, object_name_to_test)
         assert len(self._workers) == 0, "workers should be empty if self._finished was None"
         for _ in range(self._num_concurrent_uploads):
@@ -254,7 +253,7 @@ class ObjectStoreLogger(LoggerDestination):
         copied_path_dirname = os.path.dirname(copied_path)
         os.makedirs(copied_path_dirname, exist_ok=True)
         shutil.copy2(file_path, copied_path)
-        object_name = self._format(artifact_name)
+        object_name = self._format_object_name(artifact_name)
         self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
 
     def post_close(self):
@@ -276,13 +275,13 @@ class ObjectStoreLogger(LoggerDestination):
         Returns:
             str: The uri corresponding to the uploaded location of the artifact.
         """
-        obj_name = self._format(artifact_name)
+        obj_name = self._format_object_name(artifact_name)
         provider_name = self._object_store_provider_hparams.provider
         container = self._object_store_provider_hparams.container
         provider_prefix = f"{provider_name}://{container}/"
         return provider_prefix + obj_name.lstrip("/")
 
-    def _format(self, artifact_name: str):
+    def _format_object_name(self, artifact_name: str):
         """Format the ``artifact_name`` according to the ``object_name_format_string``."""
         if self._run_name is None:
             raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
@@ -295,7 +294,7 @@ class ObjectStoreLogger(LoggerDestination):
             artifact_name=artifact_name,
             run_name=self._run_name,
         )
-        key_name = key_name.strip('/')
+        key_name = key_name.lstrip('/')
 
         return key_name
 
