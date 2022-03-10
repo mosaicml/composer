@@ -40,20 +40,25 @@ class LMDatasetHparams(DatasetHparams):
     Args:
         datadir (list): List containing the string of the path to the HuggingFace
             Datasets directory.
-        split (str or None, optional): Whether to use ``'train'``, ``'test'``, or
+        split (str): Whether to use ``'train'``, ``'test'``, or
             ``'validation'`` split. 
-        tokenizer_name (str or None, optional): The name of the HuggingFace tokenizer to
+        tokenizer_name (str): The name of the HuggingFace tokenizer to
             preprocess text with. See `HuggingFace documentation
-            <https://huggingface.co/models>`_. Default: ``None``.
-        use_masked_lm (bool, optional): Whether the dataset should be encoded with masked
-            language modeling or not. Default: ``None``.
-        num_tokens (int, optional): Number of tokens to truncate the dataset to. ``0``
-            will result in no truncation. Default: ``0``.
+            <https://huggingface.co/models>`_.
+        use_masked_lm (bool): Whether the dataset should be encoded with masked
+            language modeling or not.
+        num_tokens (int, optional): Number of tokens to train on. ``0``
+            will train on all tokens in the dataset. Default: ``0``.
         mlm_probability (float, optional): If using masked language modeling, the
             probability with which tokens will be masked. Default: ``0.15``.
         seed (int, optional): Random seed for generating train and validation splits.
             Default: ``5``.
-        
+        subsample_ratio (float, optional): Proportion of the dataset to use. Default:
+            ``1.0``.
+        train_sequence_length (int, optional): Sequence length for training dataset.
+            Default: ``1024``.
+        val_sequence_length (int, optional): Sequence length for validation dataset.
+            Default: ``1024``.
     """
 
     # TODO(moin): Switch datadir to be a string, rather than a list of strings, to be similar to the
