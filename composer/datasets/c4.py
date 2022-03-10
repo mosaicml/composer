@@ -1,5 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""C4 (Colossal Cleaned CommonCrawl) dataset.
+
+This dataset is a colossal, cleaned version of Common Crawl's web crawl corpus and it is based on the `Common Crawl
+<https://commoncrawl.org>`_ dataset.
+"""
 import logging
 from dataclasses import dataclass
 from functools import partial
@@ -38,22 +43,27 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 @dataclass
 class C4DatasetHparams(DatasetHparams):
-    """Builds a DataSpec for the C4 (Colossal Cleaned CommonCrawl) dataset.
+    """Builds a :class:`.DataSpec` for the C4 (Colossal Cleaned CommonCrawl) dataset.
 
-    Parameters:
-        split (str): What split of the dataset to use. Either `train` or `validation`.
+    Args:
+        split (str): What split of the dataset to use. Either ``'train'`` or ``'validation'``. Default: ``None``.
         max_samples (int): Max number of post-processed token samples, used to set epoch size of the IterableDataset.
-        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with.
-        max_seq_len (int): The max sequence length of each token sample.
+            Default: ``None``.
+        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default: ``None``.
+        max_seq_len (int): The max sequence length of each token sample. Default: ``None``.
         group_method (str): How to group text samples into token samples. Either `truncate` or `concat`.
-        mlm (bool): Whether or not to use masked language modeling. (Default: `False`)
-        mlm_probability (float): If `mlm=True`, the probability that tokens are masked. (Default: `0.15`)
-        shuffle (bool): Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle buffers. (Default: `False`)
-        shuffle_buffer_size (int): If `shuffle=True`, samples are read into a buffer of this size (per-device), and randomly sampled from there to produce shuffled samples. (Default: `10000`)
-        seed (int): If `shuffle=True`, what seed to use for shuffling operations. (Default: `5`)
-        drop_last (bool): Whether to drop the last samples for the last batch. (Default: `True`)
+            Default: ``None``.
+        mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
+        mlm_probability (float): If ``mlm=True``, the probability that tokens are masked. Default: ``0.15``.
+        shuffle (bool): Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with
+            deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle
+            buffers. Default: ``False``.
+        shuffle_buffer_size (int): If ``shuffle=True``, samples are read into a buffer of this size (per-device), and
+            randomly sampled from there to produce shuffled samples. Default: ``10000``.
+        seed (int): If ``shuffle=True``, what seed to use for shuffling operations. Default: ``5``.
+        drop_last (bool): Whether to drop the last samples for the last batch. Default: ``True``.
     Returns:
-        A :class:`~composer.core.DataSpec` object
+        DataSpec: A :class:`.DataSpec` object.
     """
 
     split: str = hp.optional("What split of the dataset to use. Either `train` or `validation`.", default=None)
@@ -130,17 +140,20 @@ class C4Dataset(IterableDataset):
     HuggingFace's C4 Dataset with streaming backend (See https://huggingface.co/datasets/c4 for more details). The text
     samples are then shuffled, tokenized, and grouped on-the-fly.
 
-    Parameters:
-        split (str): What split of the dataset to use. Either `train` or `validation`.
+    Args:
+        split (str): What split of the dataset to use. Either ``'train'`` or ``'validation'``.
         max_samples (int): Max number of post-processed token samples, used to set epoch size of the IterableDataset.
         tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with.
         max_seq_len (int): The max sequence length of each token sample.
-        group_method (str): How to group text samples into token samples. Either `truncate` or `concat`.
-        shuffle (bool): Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle buffers. (Default: `False`)
-        shuffle_buffer_size (int): If `shuffle=True`, samples are read into a buffer of this size (per-device), and randomly sampled from there to produce shuffled samples. (Default: `10000`)
-        seed (int): If `shuffle=True`, what seed to use for shuffling operations. (Default: `5`)
+        group_method (str): How to group text samples into token samples. Either ``'truncate'`` or ``'concat'``.
+        shuffle (bool): Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with
+            deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle
+            buffers. Default: ``False``.
+        shuffle_buffer_size (int): If ``shuffle=True``, samples are read into a buffer of this size (per-device), and
+            randomly sampled from there to produce shuffled samples. Default: ``10000``.
+        seed (int): If ``shuffle=True``, what seed to use for shuffling operations. Default: ``5``.
     Returns:
-        A :class:`torch.utils.data.IterableDataset` object
+        IterableDataset: A :class:`torch.utils.data.IterableDataset` object.
     """
 
     def __init__(self,
