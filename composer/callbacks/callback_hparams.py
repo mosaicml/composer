@@ -86,7 +86,7 @@ class MemoryMonitorHparams(CallbackHparams):
         """Initialize the MemoryMonitor callback.
 
         Returns:
-            MemoryMonitor: An instance of :mod:`~.MemoryMonitor`.
+            MemoryMonitor: An instance of :class:`~.MemoryMonitor`.
         """
         return MemoryMonitor()
 
@@ -233,7 +233,7 @@ class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
         """Initialize the RunDirectoryUploader callback.
 
         Returns:
-            RunDirectoryUploader: An instance of :mod:`~.RunDirectoryUploader`.
+            RunDirectoryUploader: An instance of :class:`~.RunDirectoryUploader`.
         """
         return RunDirectoryUploader(
             object_store_provider_hparams=ObjectStoreProviderHparams(
