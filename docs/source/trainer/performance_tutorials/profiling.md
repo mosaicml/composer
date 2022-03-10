@@ -9,7 +9,7 @@ The profiler enables users to capture the following metrics:
 - Duration of each Event, Callback and Algorithm during training
 - Time taken by the data loader to return a batch
 - Host metrics such as CPU, system memory, disk and network utilization over time
-- Execution order, latency and attributes of PyTorch operators and GPU kernels (see torch.profiler)
+- Execution order, latency and attributes of PyTorch operators and GPU kernels (see {mod}`torch.profiler`)
 
 This tutorial will demonstrate how to to setup and configure profiling, capture and visualize performance traces. 
 
@@ -53,12 +53,12 @@ Next we instantiate the dataset, data loader and model.
 
 ## Instantiate the Trainer and configure profiling
 
-Next we instantiate an instance of the `Trainer` and configure following profiling options:
+Next we instantiate an instance of the {class}`~.Trainer` and configure following profiling options:
 
 - Name of the `profiler_trace_file`
 - Location of the Torch Profiler `torch_trace_dir`
 - Specify profiling window
-- Limit the scope of the training run
+- Limit the duration of the training run to keep the size of the `profiler_trace_file` manageable
 
 ```{literalinclude} ../../../../examples/profiler_demo.py
 :language: python
@@ -159,7 +159,7 @@ Once the training loop is complete, navigate to the `$COMPOSER_RUN_DIRECTORY` (s
 composer_profiler  profiler_traces.json  torch_profiler
 ```
 
-The file `profiler_traces.json` is contains the unified trace data from the `mosaic_profiler` and the `torch_profiler` .
+The file `profiler_traces.json` is contains the unified trace data from the `composer_profiler` and the `torch_profiler` .
 
 The `composer_profiler` folder contains the raw traces for the Engine, Data Loader and System profilers.
 
