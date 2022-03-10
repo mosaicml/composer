@@ -12,16 +12,15 @@ import tarfile
 import tempfile
 import textwrap
 import urllib.parse
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
-import requests
 import torch
-import tqdm
 
 from composer.core import Event, State, types
 from composer.core.time import Time, TimeUnit
 from composer.trainer.devices.device import Device
-from composer.utils import ObjectStoreProvider, dist, iterate_with_pbar, reproducibility, run_directory
+from composer.utils import ObjectStoreProvider, dist, reproducibility, run_directory
+from composer.utils.file_retriever import GetFileNotFoundException, get_file
 
 log = logging.getLogger(__name__)
 
@@ -129,77 +128,6 @@ def load_checkpoint(
     return rng_state_dicts
 
 
-def _retrieve_checkpoint(
-    path: str,
-    object_store: Optional[ObjectStoreProvider],
-    rank: int,
-    chunk_size: int,
-    destination_filepath: str,
-    ignore_not_found_errors: bool,
-    progress_bar: bool,
-):
-    """Download the checkpoint at ``path`` into ``destination_filepath``, potentially using an ``object_store``."""
-    checkpoint_name = _format_path_with_rank(path, rank)
-    if object_store is not None:
-        try:
-            total_size_in_bytes = object_store.get_object_size(checkpoint_name)
-        except Exception as e:
-            if "ObjectDoesNotExistError" in str(e) and ignore_not_found_errors:
-                return
-            raise
-        _write_to_file_with_pbar(
-            destination_filepath=destination_filepath,
-            total_size=total_size_in_bytes,
-            iterator=object_store.download_object_as_stream(checkpoint_name, chunk_size=chunk_size),
-            progress_bar=progress_bar,
-            description=f"Downloading {path}",
-        )
-        return
-    checkpoint_uri_parsed = urllib.parse.urlparse(checkpoint_name)
-
-    if checkpoint_uri_parsed.scheme == "":
-        if not os.path.exists(checkpoint_name):
-            if ignore_not_found_errors:
-                return
-            else:
-                raise FileNotFoundError(f"Checkpoint file does not exist: {checkpoint_name}")
-        # assume it's a local file
-        os.symlink(os.path.abspath(checkpoint_name), destination_filepath)
-        return
-    # it's a url
-    with requests.get(checkpoint_name, stream=True) as r:
-        r.raise_for_status()
-        total_size_in_bytes = r.headers.get('content-length')
-        if total_size_in_bytes is not None:
-            total_size_in_bytes = int(total_size_in_bytes)
-        _write_to_file_with_pbar(
-            destination_filepath,
-            total_size=total_size_in_bytes,
-            iterator=r.iter_content(chunk_size),
-            progress_bar=progress_bar,
-            description=f"Downloading {path}",
-        )
-
-
-def _write_to_file_with_pbar(
-    destination_filepath: str,
-    total_size: Optional[int],
-    iterator: Iterator[bytes],
-    progress_bar: bool,
-    description: str,
-):
-    """Write the contents of ``iterator`` to ``destination_filepath`` while showing a progress bar."""
-    if progress_bar:
-        if len(description) > 60:
-            description = description[:42] + "..." + description[-15:]
-        pbar = tqdm.tqdm(desc=description, total=total_size, unit='iB', unit_scale=True)
-    else:
-        pbar = None
-    with open(destination_filepath, "wb") as fp:
-        for chunk in iterate_with_pbar(iterator, pbar):
-            fp.write(chunk)
-
-
 def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
     """Broadcasts the ``path`` from the LOCAL rank zero to all LOCAL ranks."""
     local_rank_zero = dist.get_local_world_size() * dist.get_node_rank()
@@ -247,13 +175,11 @@ def _download_checkpoint(
     try:
         if dist.get_local_rank() == 0:
             # every NODE needs the GLOBAL rank zero checkpoint
-            _retrieve_checkpoint(destination_filepath=rank_zero_checkpoint_archive_filepath,
-                                 rank=dist.get_global_rank(),
-                                 ignore_not_found_errors=False,
-                                 object_store=object_store,
-                                 path=path,
-                                 chunk_size=chunk_size,
-                                 progress_bar=progress_bar)
+            get_file(destination=rank_zero_checkpoint_archive_filepath,
+                     path=_format_path_with_rank(path, dist.get_global_rank()),
+                     object_store=object_store,
+                     chunk_size=chunk_size,
+                     progress_bar=progress_bar)
             if extracted_checkpoint_folder is not None:
                 try:
                     with tarfile.open(rank_zero_checkpoint_archive_filepath) as tarball:
@@ -270,15 +196,16 @@ def _download_checkpoint(
             # But, the  global rank zero is a special case -- these files are the same!
             assert dist.get_global_rank() != 0, "invariant violation"
 
-            # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
-            # (e.g. when not using deepspeed)
-            _retrieve_checkpoint(destination_filepath=rank_n_checkpoint_archive_filepath,
-                                 rank=dist.get_global_rank(),
-                                 ignore_not_found_errors=True,
-                                 path=path,
-                                 object_store=object_store,
-                                 chunk_size=chunk_size,
-                                 progress_bar=progress_bar)
+            try:
+                get_file(destination=rank_n_checkpoint_archive_filepath,
+                         path=_format_path_with_rank(path, dist.get_global_rank()),
+                         object_store=object_store,
+                         chunk_size=chunk_size,
+                         progress_bar=progress_bar)
+            except GetFileNotFoundException:
+                # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
+                # (e.g. when not using deepspeed)
+                pass
 
             if extracted_checkpoint_folder is not None:
                 try:
