@@ -62,15 +62,15 @@ class RandomCropPair(torch.nn.Module):
     Args:
         crop_size (Tuple[int, int]): the size (height x width) of the crop.
         class_max_percent (float): the maximum percent of the image area a single class should occupy. Default is 1.0.
-        n_retry (int): the number of times to resample the crop if ``class_max_percent`` threshold is not reached.
+        num_retry (int): the number of times to resample the crop if ``class_max_percent`` threshold is not reached.
             Default is 1.
     """
 
-    def __init__(self, crop_size: Tuple[int, int], class_max_percent: float = 1.0, n_retry: int = 1):
+    def __init__(self, crop_size: Tuple[int, int], class_max_percent: float = 1.0, num_retry: int = 1):
         super().__init__()
         self.crop_size = crop_size
         self.class_max_percent = class_max_percent
-        self.n_retry = n_retry
+        self.num_retry = num_retry
 
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
@@ -84,7 +84,7 @@ class RandomCropPair(torch.nn.Module):
             image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
 
         if self.class_max_percent < 1.0:
-            for _ in range(self.n_retry):
+            for _ in range(self.num_retry):
                 # Crop target
                 target_crop = TF.crop(target, *crop)  # type: ignore - transform typing excludes PIL.Image
 
@@ -343,7 +343,11 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     RandomResizePair(min_scale=self.min_resize_scale,
                                      max_scale=self.max_resize_scale,
                                      base_size=(self.base_size, self.base_size)),
-                    RandomCropPair(crop_size=(self.final_size, self.final_size), class_max_percent=0.75, n_retry=10),
+                    RandomCropPair(
+                        crop_size=(self.final_size, self.final_size),
+                        class_max_percent=0.75,
+                        num_retry=10,
+                    ),
                     RandomHFlipPair(),
                 )
 
@@ -433,7 +437,11 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
                 RandomResizePair(min_scale=self.min_resize_scale,
                                  max_scale=self.max_resize_scale,
                                  base_size=(self.base_size, self.base_size)),
-                RandomCropPair(crop_size=(self.final_size, self.final_size), class_max_percent=0.75, n_retry=10),
+                RandomCropPair(
+                    crop_size=(self.final_size, self.final_size),
+                    class_max_percent=0.75,
+                    num_retry=10,
+                ),
                 RandomHFlipPair(),
             )
 
