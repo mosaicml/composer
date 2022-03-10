@@ -33,17 +33,6 @@ def resize_batch(input: torch.Tensor,
                  resize_targets: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     """Resize inputs and optionally outputs by cropping or interpolating.
 
-    Example:
-         .. testcode::
-
-            from composer.algorithms.progressive_resizing import resize_batch
-            X_resized, y_resized = resize_batch(X_example,
-                                                y_example,
-                                                scale_factor=0.5,
-                                                mode='resize',
-                                                resize_targets=False
-            )
-
     Args:
         input (torch.Tensor): input tensor of shape ``(N, C, H, W)``.
             Resizing will be done along dimensions H and W using the constant
@@ -63,6 +52,16 @@ def resize_batch(input: torch.Tensor,
         y_sized: if ``resized_targets`` is ``True``, resized output tensor
             of shape ``(N, H * scale_factor, W * scale_factor)`` or  ``(N, C, H * scale_factor, W * scale_factor)``.
             Depending on the input ``y``. Otherwise returns original ``y``.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.progressive_resizing import resize_batch
+            X_resized, y_resized = resize_batch(X_example,
+                                                y_example,
+                                                scale_factor=0.5,
+                                                mode='resize',
+                                                resize_targets=False)
     """
     # Verify dimensionalities are enough to support resizing
     assert input.dim() > 2, "Input dimensionality not large enough for resizing"
