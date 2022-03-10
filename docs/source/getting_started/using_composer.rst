@@ -11,7 +11,7 @@ Functional API
 For users who choose to use their own training loop, we provide state-less functional
 implementations of our algorithms for a end-user to integrate.
 
-The following example highlights using [BlurPool](https://arxiv.org/abs/1904.11486),
+The following example highlights using `BlurPool <https://arxiv.org/abs/1904.11486>`__,
 which applies an anti-aliasing filter before every downsampling operation.
 
 .. code-block:: python
@@ -44,7 +44,7 @@ image size over the course of training:
         # your train step here
         train_step()
 
-For more details, please see :mod:`composer.functional`.
+For more details, please see :doc:`/functional_api``.
 
 .. _using_composer_trainer:
 
@@ -62,7 +62,7 @@ Our trainer features:
 * trainer to handle boilerplate around numerics, distributed training, and others
 * integration with popular model libraries such as TIMM or HuggingFace Transformers.
 
-For more details, see :doc:`Using Trainer</trainer/using_the_trainer>`
+For more details, see :doc:`/trainer/using_the_trainer`
 
 
 .. _yahp: https://github.com/mosaicml/yahp

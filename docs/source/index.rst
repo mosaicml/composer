@@ -3,8 +3,8 @@
 Composer
 ========
 
-Composer provides well-engineered implementations of efficient training methods
-to give the tools that help you train a better model for cheaper.
+`Composer <https://github.com/mosaicml/composer>`__ provides well-engineered implementations of efficient
+training methods to give the tools that help you train a better model for cheaper.
 
 Using Composer, you can:
 
