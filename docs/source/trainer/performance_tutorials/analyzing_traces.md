@@ -9,10 +9,9 @@ trace file, please see the [Performance Profiling](profiling.md) tutorial.
 
 Details about various events of the trainer loop such as forward pass, backward pass etc. are added to the profiling trace. The various trainer events profiled are listed [here](../events.rst).  As seen in the image below, the boundaries of trainer loop events such as batch, forward, backward etc. are clearly shown with `event/batch`, `event/forward`, `event/backward` respectively.
 
-```{image} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-trainer_events.png
+```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-trainer_events.png
 :alt: Trainer Events trace
-:target: https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-trainer_events.png 
-```
+``` 
 
 ## Dataloader 
 
@@ -20,9 +19,8 @@ Dataloader profiling measures the time it takes the dataloader to return a batch
 
 The image below shows the time taken by train dataloader (`dataloader/train` event) in loading batch 2 of epoch 0. 
 
-```{image} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-dataloader.png 
+```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-dataloader.png 
 :alt: Dataloader trace 
-:target: https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-dataloader.png 
 ```
 
 ## System Metrics 
@@ -31,43 +29,42 @@ System profiling is used to record system utilization metrics such as CPU, memor
 
 The following image shows recorded cpu and memory utilization (e.g., cpu and memory/cuda/active_mem rows in the picture below) metrics when visualized with the Chrome Trace viewer. 
 
-```{image} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-system_metrics.png 
+```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-system_metrics.png 
 :alt: System metrics trace 
-:target: https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-system_metrics.png
 ```
 
 ## Composer vs Torch Profilers
 
 The following two pictures show the trace produced by PyTorch profiler only (top) and by the composer profiler (bottom) for the same model for the same step. As seen in the bottom picture, the boundaries of trainer loop events such as forward, backward, epoch etc. are clearly marked with `event/forward`, `event/backward`, `event/epoch` respectively and seamlessly merged with the trace from PyTorch profiler. 
 
-```{figure} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-torch.png
+```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-torch.png
 :alt: PyTorch profiler trace
-:target: https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-torch.png 
+:title:
 
 Visualization of trace dumped by PyTorch profiler.
 ```
+Visualization of trace dumped by PyTorch profiler.
 
 <br />
 
-```{figure} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-composer.png
+```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-composer.png
 :alt: Merged Composer Profiler trace
-:target: https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-torch.png 
+:title: 
 
 Visualization of trace dumped by the Composer Profiler. Composer automatically merges the PyTorch profiler operator trace with the training loop profiler trace into an easy to digest trace showing various training event boundaries clearly.
 ```
+Visualization of trace dumped by the Composer Profiler. Composer automatically merges the PyTorch profiler operator trace with the training loop profiler trace into an easy to digest trace showing various training event boundaries clearly.
 
 ## Example: Identifying dataloader bottlenecks 
 
 The image below shows the trace collected with `num_workers=0` (i.e., only a single process is used by the train dataloader to load a batch of data).  Just by looking at this trace, one can tell that `dataloader/train` is taking much more time than `event/batch` (this event contains forward and backward pass), therefore, one can conclude that training is dataloader bottlenecked and increasing the number of workers used for loading data will be helpful.  
 
-```{image} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analying_traces-example_pre.png
+```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analying_traces-example_pre.png
 :alt: Bottleneck example baseline trace
-:target: https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analying_traces-example_pre.png
 ```
 
 Same model and dataset as above but with `num_workers=8`. We see that `dataloder/train` is much smaller (almost invisible in the image below) in comparison to the time in `event/forward`.
 
-```{image} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-example_post.png
+```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-example_post.png
 :alt: Bottleneck example optimized trace
-:target: https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-example_post.png
 ```
