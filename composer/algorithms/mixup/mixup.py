@@ -12,7 +12,7 @@ import torch
 from torch.nn import functional as F
 
 from composer.core.types import Algorithm, Event, Logger, State, Tensor
-from composer.models.loss import check_for_index_targets
+from composer.models.loss import _check_for_index_targets
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ def mixup_batch(input: Tensor,
 
     # First check if labels are indices. If so, convert them to onehots.
     # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
-    if check_for_index_targets(target):
+    if _check_for_index_targets(target):
         y_onehot = F.one_hot(target, num_classes=num_classes)
         y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
         y_mix = ((1. - mixing) * y_onehot + mixing * y_shuffled_onehot)

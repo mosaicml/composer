@@ -1,10 +1,16 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+"""COCO (Common Objects in Context) dataset.
+
+COCO is a large-scale object detection, segmentation, and captioning dataset. Please refer to the `COCO dataset
+<https://cocodataset.org>`_ for more details.
+"""
 import json
 import os
 from dataclasses import dataclass
 from typing import Sequence
 
 import torch
-import yahp as hp
 from PIL import Image
 
 
@@ -18,26 +24,17 @@ from composer.datasets.hparams import DatasetHparams
 from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
 from composer.utils import dist
 
+__all__ = ["COCODatasetHparams", "COCODetection"]
+
 
 @dataclass
 class COCODatasetHparams(DatasetHparams):
-    """Defines an instance of COCO Dataset.
-
-    Parameters:
-        is_train (bool): Whether to load the training or validation dataset.
-        datadir (str): Data directory to use.
-        download (bool): Whether to download the dataset, if needed.
-        drop_last (bool): Whether to drop the last samples for the last batch.
-        shuffle (bool): Whether to shuffle the dataset for each epoch.
-    """
-
-    is_train: bool = hp.required("whether to load the training or validation dataset")
-    drop_last: bool = hp.required("Whether to drop the last samples for the last batch")
-    datadir: str = hp.required("data directory")
-    shuffle: bool = hp.required("Whether to shuffle the dataset for each epoch")
-    download: bool = hp.required("whether to download the dataset, if needed")
+    """Defines an instance of the COCO Dataset."""
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
+
+        if self.datadir is None:
+            raise ValueError("datadir is required.")
 
         dboxes = dboxes300_coco()
 
@@ -77,6 +74,14 @@ import torch.utils.data as data
 
 
 class COCODetection(data.Dataset):
+    """PyTorch Dataset for the COCO dataset.
+
+    Args:
+        img_folder (str): the path to the COCO folder.
+        annotate_file (str): path to a file that contains image id, annotations (e.g., bounding boxes and object
+            classes) etc.
+        transform (torch.nn.Module): transformations to apply to the image.
+    """
 
     def __init__(self, img_folder, annotate_file, transform=None):
         self.img_folder = img_folder
