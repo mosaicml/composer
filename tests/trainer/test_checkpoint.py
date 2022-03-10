@@ -27,7 +27,6 @@ from composer.trainer._checkpoint import CheckpointLoader
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
-from composer.utils import run_directory
 from composer.utils.object_store import ObjectStoreProviderHparams
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
@@ -169,6 +168,7 @@ def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
 def test_load_weights(
     device_hparams: DeviceHparams,
     composer_trainer_hparams: TrainerHparams,
+    rank_zero_tmpdir: pathlib.Path,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.

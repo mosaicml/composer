@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence,
 
 from composer.profiler._profiler_action import ProfilerAction
 from composer.profiler.json_trace import JSONTraceHandler
-from composer.utils import dist, run_directory
+from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -51,7 +51,6 @@ class Profiler:
         active (int, optional): For each profiling cycle, number of batches to record after warming up.  Defaults to ``4``.
         repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch.
             Defaults to ``1``.
-        merged_trace_file (str, optional): Name of the trace file, relative to the run directory.  Defaults to ``merged_profiler_trace.json``.
     """
 
     def __init__(self,
@@ -62,7 +61,8 @@ class Profiler:
                  warmup: int = 1,
                  active: int = 4,
                  repeat: int = 1,
-                 merged_trace_file: str = "merged_profiler_trace.json") -> None:
+                 merged_trace_file_format: str = "{run_name}/node_{node_rank}_merged_profiler_trace.json",
+                 merged_trace_artifact_name_format: Optional[str] = None) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
         self._event_handlers = event_handlers if event_handlers else [JSONTraceHandler()]
         self.state = state
@@ -71,7 +71,10 @@ class Profiler:
         self.warmup = warmup
         self.active = active
         self.repeat = repeat
-        self.merged_trace_file = os.path.join(run_directory.get_run_directory(), merged_trace_file)
+        self.merged_trace_file_format = merged_trace_file_format
+        if merged_trace_artifact_name_format is None:
+            merged_trace_artifact_name_format = merged_trace_file_format
+        self.merged_trace_artifact_name_format = merged_trace_artifact_name_format
         self._action = ProfilerAction.SKIP
 
     def get_action(self, batch_idx: int) -> ProfilerAction:
@@ -105,37 +108,6 @@ class Profiler:
     def event_handlers(self):
         """Profiler event handlers."""
         return self._event_handlers
-
-    def _merge_traces(self):
-        """Merge traces together.
-
-        .. note::
-
-            This method is invoked by the engine. Do not invoke this method directly.
-        """
-        dist.barrier()
-        if not dist.get_local_rank() == 0:
-            return
-        from composer.profiler.json_trace import JSONTraceHandler
-        from composer.profiler.json_trace_merger import merge_traces
-        from composer.profiler.torch_profiler import TorchProfiler
-        log.info("Merging profiling trace files together")
-        trace_folders = []
-        for callback in self.state.callbacks:
-            if isinstance(callback, JSONTraceHandler):
-                trace_folders.append(callback.output_directory)
-            if isinstance(callback, TorchProfiler):
-                trace_folders.append(callback.tensorboard_trace_handler_dir)
-
-        trace_files = []
-        for trace_folder in trace_folders:
-            for rootdir, dirnames, filenames in os.walk(trace_folder):
-                del dirnames  # unused
-                for filename in filenames:
-                    filepath = os.path.join(rootdir, filename)
-                    if filepath.endswith(".json"):
-                        trace_files.append(filepath)
-        merge_traces(self.merged_trace_file, *trace_files)
 
     def marker(
         self,

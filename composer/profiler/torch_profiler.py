@@ -15,7 +15,7 @@ from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
 from composer.core import Callback, Logger, State
 from composer.profiler._profiler_action import ProfilerAction
-from composer.utils import dist, run_directory
+from composer.utils import dist
 
 __all__ = ["TorchProfiler"]
 

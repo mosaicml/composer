@@ -46,7 +46,6 @@ components of training.
     ~lr_monitor.LRMonitor
     ~grad_monitor.GradMonitor
     ~memory_monitor.MemoryMonitor
-    ~run_directory_uploader.RunDirectoryUploader
 
 
 Custom Callbacks

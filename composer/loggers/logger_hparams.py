@@ -56,7 +56,8 @@ class FileLoggerHparams(LoggerDestinationHparams):
     See :class:`~composer.loggers.file_logger.FileLogger` for documentation.
 
     Args:
-        filename (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`
+        filename_format (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
+        artifact_name_format (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
         capture_stdout (bool, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
         capture_stderr (bool, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
         buffer_size (int, optional): See
@@ -69,8 +70,9 @@ class FileLoggerHparams(LoggerDestinationHparams):
             :class:`~composer.loggers.file_logger.FileLogger`.
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
-    filename: str = hp.optional("The path to the logfile. Can also be `stdout` or `stderr`. Default: stdout",
-                                default="stdout")
+    filename_format: str = hp.optional("Filename format string for the logfile.",
+                                       default='{run_name}/rank_{rank}_log.txt')
+    artifact_name_format: Optional[str] = hp.optional("Artifact name format string for the logfile.", default=None)
     capture_stdout: bool = hp.optional("Whether to capture writes to `stdout`", default=True)
     capture_stderr: bool = hp.optional("Whether to capture writes to `stderr`", default=True)
     buffer_size: int = hp.optional("Number of bytes to buffer. Defaults to 1 for line-buffering. "
@@ -104,8 +106,6 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         tags (str, optional): WandB tags, comma-separated.
         log_artifacts (bool, optional): See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
-        log_artifacts_every_n_batches (int, optional). See
-            :class:`~composer.loggers.wandb_logger.WandBLogger`.
         extra_init_params (JSON Dictionary, optional): See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
     """
@@ -116,7 +116,6 @@ class WandBLoggerHparams(LoggerDestinationHparams):
     entity: Optional[str] = hp.optional(doc="wandb entity", default=None)
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
-    log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
     rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=True)
     extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
     flatten_hparams: bool = hp.optional(
@@ -216,7 +215,6 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         return WandBLogger(
             log_artifacts=self.log_artifacts,
             rank_zero_only=self.rank_zero_only,
-            log_artifacts_every_n_batches=self.log_artifacts_every_n_batches,
             init_params=init_params,
         )
 

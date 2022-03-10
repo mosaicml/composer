@@ -16,13 +16,13 @@ import yahp as hp
 import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
-                                RunDirectoryUploaderHparams, SpeedMonitorHparams)
+                                SpeedMonitorHparams)
 from composer.core.types import JSON, Precision
 from composer.datasets import DataloaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams, ProgressBarLoggerHparams,
-                              WandBLoggerHparams)
+from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
+                              ProgressBarLoggerHparams, WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
                              ResNetHparams, SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
@@ -95,7 +95,6 @@ callback_registry = {
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
-    "run_directory_uploader": RunDirectoryUploaderHparams,
 }
 
 logger_registry = {

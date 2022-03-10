@@ -120,11 +120,46 @@ class ObjectStoreLogger(LoggerDestination):
             By default, all artifacts will be uploaded.
 
         object_name_format (str, optional):
-            A format string used to determine the object store key.
+            A format string used to determine the object name.
 
-            .. seealso:: `:meth:`.format_object_name` for the available format variables.
+            The following format variables are available:
 
-            Default: ``'{run_name}/{artifact_name}'``
+            +------------------------+-------------------------------------------------------+
+            | Variable               | Description                                           |
+            +========================+=======================================================+
+            | ``{artifact_name}``    | The name of the artifact being logged.                |
+            +------------------------+-------------------------------------------------------+
+            | ``{run_name}``         | The name of the training run. See                     |
+            |                        | :attr:`~composer.core.logging.Logger.run_name`.       |
+            +------------------------+-------------------------------------------------------+
+            | ``{rank}``             | The global rank, as returned by                       |
+            |                        | :func:`~composer.utils.dist.get_global_rank`.         |
+            +------------------------+-------------------------------------------------------+
+            | ``{local_rank}``       | The local rank of the process, as returned by         |
+            |                        | :func:`~composer.utils.dist.get_local_rank`.          |
+            +------------------------+-------------------------------------------------------+
+            | ``{world_size}``       | The world size, as returned by                        |
+            |                        | :func:`~composer.utils.dist.get_world_size`.          |
+            +------------------------+-------------------------------------------------------+
+            | ``{local_world_size}`` | The local world size, as returned by                  |
+            |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
+            +------------------------+-------------------------------------------------------+
+            | ``{node_rank}``        | The node rank, as returned by                         |
+            |                        | :func:`~composer.utils.dist.get_node_rank`.           |
+            +------------------------+-------------------------------------------------------+
+
+            Leading slashes (``'/'``) will be stripped.
+
+            Consider the following example, which subfolders the artifacts by their rank:
+
+            >>> object_store_logger = ObjectStoreLogger(..., object_name_format='rank_{rank}/{artifact_name}')
+            >>> trainer = Trainer(..., run_name='foo', logger_destinations=[object_store_logger])
+            >>> trainer.logger.file_artifact(..., artifact_name='bar.txt', file_path='path/to/file.txt')
+
+            Assuming that the process's rank is ``0``, the object store would store the contents of
+            ``'path/to/file.txt'`` in an object named ``'rank_0/bar.txt'``.
+
+            Default: ``'{artifact_name}'``
         num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 4.
         upload_staging_folder (str, optional): A folder to use for staging uploads.
             If not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`.
@@ -179,7 +214,7 @@ class ObjectStoreLogger(LoggerDestination):
             raise RuntimeError("The ObjectStoreLogger is already initialized.")
         self._finished = self._finished_cls()
         self._run_name = logger.run_name
-        object_name_to_test = self.format_object_name(".credentials_validated_successfully")
+        object_name_to_test = self._format(".credentials_validated_successfully")
         _validate_credentials(self._object_store_provider_hparams, object_name_to_test)
         assert len(self._workers) == 0, "workers should be empty if self._finished was None"
         for _ in range(self._num_concurrent_uploads):
@@ -219,7 +254,7 @@ class ObjectStoreLogger(LoggerDestination):
         copied_path_dirname = os.path.dirname(copied_path)
         os.makedirs(copied_path_dirname, exist_ok=True)
         shutil.copy2(file_path, copied_path)
-        object_name = self.format_object_name(artifact_name)
+        object_name = self._format(artifact_name)
         self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
 
     def post_close(self):
@@ -241,71 +276,14 @@ class ObjectStoreLogger(LoggerDestination):
         Returns:
             str: The uri corresponding to the uploaded location of the artifact.
         """
-        obj_name = self.format_object_name(artifact_name)
+        obj_name = self._format(artifact_name)
         provider_name = self._object_store_provider_hparams.provider
         container = self._object_store_provider_hparams.container
         provider_prefix = f"{provider_name}://{container}/"
         return provider_prefix + obj_name.lstrip("/")
 
-    def format_object_name(self, artifact_name: str):
-        """Format the ``artifact_name`` according to the ``object_name_format_string``.
-
-        The following format variables are available:
-
-        +------------------------+-------------------------------------------------------+
-        | Variable               | Description                                           |
-        +========================+=======================================================+
-        | ``{artifact_name}``    | The name of the artifact being logged.                |
-        +------------------------+-------------------------------------------------------+
-        | ``{run_name}``         | The name of the training run. See                     |
-        |                        | :attr:`~composer.core.logging.Logger.run_name`.       |
-        +------------------------+-------------------------------------------------------+
-        | ``{rank}``             | The global rank, as returned by                       |
-        |                        | :func:`~composer.utils.dist.get_global_rank`.         |
-        +------------------------+-------------------------------------------------------+
-        | ``{local_rank}``       | The local rank of the process, as returned by         |
-        |                        | :func:`~composer.utils.dist.get_local_rank`.          |
-        +------------------------+-------------------------------------------------------+
-        | ``{world_size}``       | The world size, as returned by                        |
-        |                        | :func:`~composer.utils.dist.get_world_size`.          |
-        +------------------------+-------------------------------------------------------+
-        | ``{local_world_size}`` | The local world size, as returned by                  |
-        |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
-        +------------------------+-------------------------------------------------------+
-        | ``{node_rank}``        | The node rank, as returned by                         |
-        |                        | :func:`~composer.utils.dist.getnode_rank`.            |
-        +------------------------+-------------------------------------------------------+
-
-        The resulting checkpoint file name will be approximately
-        ``self.object_name_format.format(artifact_name=artifact_name, run_name=..., ...)``.
-
-        Leading and trailing slashes (``'/'``) will be stripped.
-
-        Consider the following example, where the :attr:`~.Logger.run_name` is ``'foo'``.
-
-        .. testsetup:: composer.loggers.object_store_logger.ObjectStoreLogger.format_object_name
-            state = State(
-                train_dataloader=train_dataloader,
-                max_duration='1ep',
-                model=model,
-                rank_zero_seed=0,
-            )
-            state.timer._batch.value = 42
-            state.timer._epoch.value = 1
-            object_store_logger = ObjectStoreLogger(..., key_name_format='{run_name}/{artifact_name}')
-            logger = Logger(..., run_name='foo', destinations=[object_store_logger])
-            object_store_logger.run_event(Event.INIT, state, logger)
-
-            # Return the already created instance.
-            def ObjectStoreLogger(*args, **kwargs):
-                return object_store_logger
-        
-        .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.format_object_name
-
-            >>> object_store_logger = ObjectStoreLogger(..., key_name_format='{run_name}/{artifact_name}')
-            >>> object_store_logger.format_object_name(artifact_name='bar')
-            'foo/bar'
-        """
+    def _format(self, artifact_name: str):
+        """Format the ``artifact_name`` according to the ``object_name_format_string``."""
         if self._run_name is None:
             raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
         key_name = self.object_name_format.format(
@@ -317,8 +295,7 @@ class ObjectStoreLogger(LoggerDestination):
             artifact_name=artifact_name,
             run_name=self._run_name,
         )
-        key_name = key_name.lstrip('/')
-        key_name = key_name.rstrip('/')
+        key_name = key_name.strip('/')
 
         return key_name
 

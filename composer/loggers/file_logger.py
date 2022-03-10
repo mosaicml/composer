@@ -13,6 +13,7 @@ import yaml
 
 from composer.core.logging import Logger, LoggerDataDict, LoggerDestination, LogLevel, format_log_data_value
 from composer.core.state import State
+from composer.utils import dist
 
 __all__ = ["FileLogger"]
 
@@ -27,7 +28,7 @@ class FileLogger(LoggerDestination):
             from composer.trainer import Trainer
             from composer.core.logging import LogLevel
             logger = FileLogger(
-                filename="log.txt",
+                filename_format="{run_name}/rank_{rank}.txt",
                 buffer_size=1,
                 log_level=LogLevel.BATCH,
                 log_interval=2,
@@ -44,12 +45,8 @@ class FileLogger(LoggerDestination):
 
         .. testcleanup::
 
-            import os
-            from composer.utils.run_directory import get_run_directory
-
-            path = os.path.join(get_run_directory(), "log.txt")
             try:
-                os.remove(path)
+                os.remove(logger.filename)
             except FileNotFoundError as e:
                 pass
 
@@ -62,7 +59,61 @@ class FileLogger(LoggerDestination):
 
 
     Args:
-        filename (str): Filepath to log to, relative to the :mod:`~.composer.utils.run_directory`.
+        filename_format (str, optional): Format string for the filename.
+
+            The following format variables are available:
+
+            +------------------------+-------------------------------------------------------+
+            | Variable               | Description                                           |
+            +========================+=======================================================+
+            | ``{run_name}``         | The name of the training run. See                     |
+            |                        | :attr:`~composer.core.logging.Logger.run_name`.       |
+            +------------------------+-------------------------------------------------------+
+            | ``{rank}``             | The global rank, as returned by                       |
+            |                        | :func:`~composer.utils.dist.get_global_rank`.         |
+            +------------------------+-------------------------------------------------------+
+            | ``{local_rank}``       | The local rank of the process, as returned by         |
+            |                        | :func:`~composer.utils.dist.get_local_rank`.          |
+            +------------------------+-------------------------------------------------------+
+            | ``{world_size}``       | The world size, as returned by                        |
+            |                        | :func:`~composer.utils.dist.get_world_size`.          |
+            +------------------------+-------------------------------------------------------+
+            | ``{local_world_size}`` | The local world size, as returned by                  |
+            |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
+            +------------------------+-------------------------------------------------------+
+            | ``{node_rank}``        | The node rank, as returned by                         |
+            |                        | :func:`~composer.utils.dist.get_node_rank`.           |
+            +------------------------+-------------------------------------------------------+
+
+            .. note::
+
+                When training with multiple devices (i.e. GPUs), ensure that ``'{rank}'`` appears in the format.
+                Otherwise, multiple processes may attempt to write to the same file.
+
+            Consider the following example when using default value of '{run_name}/rank_{rank}_log.txt':
+
+            >>> file_logger = FileLogger(filename_format='{run_name}/rank_{rank}_log.txt')
+            >>> trainer = Trainer(logger_destinations=[file_logger], run_name='foo')
+            >>> trainer.file_logger.filename
+            'foo/rank_0_log.txt'
+
+            Default: `'{run_name}/rank_{rank}_log.txt'`
+
+        artifact_name_format (str, optional): Format string for the logfile's artifact name.
+        
+            The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
+            The artifact name will be determined by this format string.
+
+            .. seealso:: :meth:`~composer.core.logging.Logger.log_file_artifact` for file artifact logging.
+
+            The same format variables for ``filename_format`` are available. Setting this parameter to ``None``
+            (the default) will use the same format string as ``filename_format``. It is sometimes helpful to deviate
+            from this default. For example, when ``filename_format`` contains an absolute path, it is recommended to
+            set this parameter explicitely, so the absolute path does not appear in any artifact stores.
+
+            Leading slashes (``'/'``) will be stripped.
+
+            Default: ``None`` (which uses the same format string as ``filename_format``)
         capture_stdout (bool, optional): If ``True`` (the default), writes to ``stdout`` will be included in
             ``filename``.
         capture_stderr (bool, optional): If ``True`` (the default), writes to ``stderr`` will be included in
@@ -87,7 +138,8 @@ class FileLogger(LoggerDestination):
 
     def __init__(
         self,
-        filename: str,
+        filename_format: str = "{run_name}/rank_{rank}.txt",
+        artifact_name_format: Optional[str] = None,
         *,
         capture_stdout: bool = True,
         capture_stderr: bool = True,
@@ -98,7 +150,10 @@ class FileLogger(LoggerDestination):
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
-        self.filename = filename
+        self.filename_format = filename_format
+        if artifact_name_format is None:
+            artifact_name_format = filename_format.replace(os.path.sep, '/')
+        self.artifact_name_format = artifact_name_format
         self.buffer_size = buffer_size
         self.log_level = log_level
         self.log_interval = log_interval
@@ -111,6 +166,7 @@ class FileLogger(LoggerDestination):
         self._stderr_queue: queue.Queue[str] = queue.Queue()
         self._original_stdout_write = sys.stdout.write
         self._original_stderr_write = sys.stderr.write
+        self._run_name = None
 
         if capture_stdout:
 
@@ -128,13 +184,47 @@ class FileLogger(LoggerDestination):
 
             sys.stderr.write = new_stderr_write
 
+    @property
+    def filename(self) -> str:
+        """The filename for the logfile."""
+        if self._run_name is None:
+            raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
+        name = self.filename_format.format(
+            rank=dist.get_global_rank(),
+            local_rank=dist.get_local_rank(),
+            world_size=dist.get_world_size(),
+            local_world_size=dist.get_local_world_size(),
+            node_rank=dist.get_node_rank(),
+            run_name=self._run_name,
+        )
+
+        return name
+
+    @property
+    def artifact_name(self) -> str:
+        """The artifact name for the logfile."""
+        if self._run_name is None:
+            raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
+        name = self.filename_format.format(
+            rank=dist.get_global_rank(),
+            local_rank=dist.get_local_rank(),
+            world_size=dist.get_world_size(),
+            local_world_size=dist.get_local_world_size(),
+            node_rank=dist.get_node_rank(),
+            run_name=self._run_name,
+        )
+
+        name.lstrip("/")
+
+        return name
+
     def batch_start(self, state: State, logger: Logger) -> None:
         self.is_batch_interval = (int(state.timer.batch) + 1) % self.log_interval == 0
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         self.is_epoch_interval = (int(state.timer.epoch) + 1) % self.log_interval == 0
         # Flush any log calls that occurred during INIT or FIT_START
-        self._flush_file()
+        self._flush_file(logger)
 
     def _will_log(self, log_level: LogLevel) -> bool:
         if log_level == LogLevel.FIT:
@@ -156,75 +246,75 @@ class FileLogger(LoggerDestination):
     def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
         if not self._will_log(log_level):
             return
-        data_str = format_log_data_value(data)
+        data_str = format_log_data_value(data) + "\n"
         if self.file is None:
             raise RuntimeError("Attempted to log before self.init() or after self.close()")
-        print(f"[{log_level.name}][batch={int(state.timer.batch)}]: {data_str}", file=self.file, flush=False)
+        self._print_to_file(
+            prefix=f'[{log_level.name}][batch={int(state.timer.batch)}]',
+            data=data_str,
+        )
 
     def init(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
+        del state  # unused
+        self._run_name = logger.run_name
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
-        self.file = open(
-            os.path.join(run_directory.get_run_directory(), self.filename),
-            "x+",
-            buffering=self.buffer_size,
-        )
+        self.file = open(self.filename, "x+", buffering=self.buffer_size)
         if self.config is not None:
-            print("Config", file=self.file)
-            print("-" * 30, file=self.file)
-            yaml.safe_dump(self.config, stream=self.file)
-            print("-" * 30, file=self.file)
-            print(file=self.file)
+            data = ("-" * 30) + "\n" + yaml.safe_dump(self.config) + "\n" + ("-" * 30) + "\n"
+            self._print_to_file(prefix='[config]', data=data)
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        del logger  # unused
         assert self.file is not None
         if self.log_level == LogLevel.BATCH and int(state.timer.batch) % self.flush_interval == 0:
-            self._flush_file()
+            self._flush_file(logger)
 
     def eval_start(self, state: State, logger: Logger) -> None:
         # Flush any log calls that occurred during INIT when using the trainer in eval-only mode
-        self._flush_file()
+        self._flush_file(logger)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        del logger  # unused
         if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and int(
                 state.timer.epoch) % self.flush_interval == 0:
-            self._flush_file()
+            self._flush_file(logger)
 
-    def _flush_file(self) -> None:
+    def _print_to_file(self, prefix: str, data: str):
+        formatted_lines = []
+        for line in data.splitlines(True):
+            if line == os.linesep:
+                # If it's an empty line, don't print the prefix
+                formatted_lines.append(line)
+            else:
+                formatted_lines.append(f"{prefix}: {line}")
+
+        # Writing all lines in one print statement to ensure a single call to `_print_to_file`
+        # does not interleave the lines.
+        print(os.sep.join(formatted_lines), file=self.file, flush=False, end='')
+
+    def _flush_queue(self, prefix: str, q: queue.Queue):
+        while True:
+            try:
+                data = q.get_nowait()
+            except queue.Empty:
+                break
+            self._print_to_file(prefix=prefix, data=data)
+
+    def _flush_file(self, logger: Logger) -> None:
         assert self.file is not None
 
-        while True:
-            try:
-                data = self._stdout_queue.get_nowait()
-            except queue.Empty:
-                break
-            for line in data.splitlines(True):
-                if line == os.linesep:
-                    print(line, file=self.file, flush=False, end='')
-                else:
-                    print(f"[stdout]: {line}", file=self.file, flush=False, end='')
-
-        while True:
-            try:
-                data = self._stderr_queue.get_nowait()
-            except queue.Empty:
-                break
-            for line in data.splitlines(True):
-                if line == os.linesep:
-                    print(line, file=self.file, flush=False, end='')
-                else:
-                    print(f"[stderr]: {line}", file=self.file, flush=False, end='')
+        self._flush_queue("[stdout]", self._stdout_queue)
+        self._flush_queue("[stderr]", self._stderr_queue)
 
         self.file.flush()
         os.fsync(self.file.fileno())
+        logger.file_artifact(LogLevel.FIT, self.artifact_name, self.file.name, overwrite=True)
 
-    def close(self) -> None:
+    def close(self, state: State, logger: Logger) -> None:
+        del state  # unused
         if self.file is not None:
             sys.stdout.write = self._original_stdout_write
             sys.stderr.write = self._original_stderr_write
-            self._flush_file()
+            self._flush_file(logger)
             self.file.close()
             self.file = None
+            self._run_name = None

@@ -47,7 +47,7 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
     logger.data_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
     logger.data_batch({"metric": "batch1"})  # should NOT print
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
-    log_destination.close()
+    log_destination.close(dummy_state, logger)
     with open(log_file_name, 'r') as f:
         if log_level == LogLevel.EPOCH:
             assert f.readlines() == [
@@ -64,15 +64,14 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
                 '[EPOCH][batch=3]: { "metric": "epoch2", }\n',
             ]
 
+
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmpdir: pathlib.Path):
     log_file_name = os.path.join(tmpdir, "output.log")
-    log_destination = FileLoggerHparams(
-        filename=log_file_name,
-        buffer_size=1,
-        flush_interval=1,
-        capture_stderr=True,
-        capture_stdout=True
-    ).initialize_object()
+    log_destination = FileLoggerHparams(filename=log_file_name,
+                                        buffer_size=1,
+                                        flush_interval=1,
+                                        capture_stderr=True,
+                                        capture_stdout=True).initialize_object()
     # capturing should start immediately
     print("Hello, stdout!\nExtra Line")
     print("Hello, stderr!\nExtra Line2", file=sys.stderr)
@@ -81,7 +80,7 @@ def test_file_logger_capture_stdout_stderr(dummy_state: State, tmpdir: pathlib.P
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
-    log_destination.close()
+    log_destination.close(dummy_state, logger)
     with open(log_file_name, 'r') as f:
         assert f.readlines() == [
             '[stdout]: Hello, stdout!\n',

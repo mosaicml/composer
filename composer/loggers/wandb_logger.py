@@ -5,10 +5,10 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import sys
 import textwrap
 import warnings
-import pathlib
 from typing import Any, Dict, Optional
 
 from composer.core.logging import LoggerDataDict, LoggerDestination, LogLevel
@@ -93,7 +93,8 @@ class WandBLogger(LoggerDestination):
         if self._enabled:
             wandb.init(**self._init_params)
 
-    def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *, overwrite: bool):
+    def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+                          overwrite: bool):
         if self._enabled and self._log_artifacts:
             import wandb
             extension = file_path.name.split(".")[-1]

@@ -2,14 +2,11 @@
 
 import logging
 import os
-import pathlib
 from typing import List
 
 import pytest
-from pytest import MonkeyPatch
 
 import composer
-from composer.utils import run_directory
 
 # Allowed options for pytest.mark.world_size()
 # Important: when updating this list, make sure to also up ./.ci/test.sh
@@ -120,15 +117,6 @@ def set_loglevels():
     """Ensures all log levels are set to DEBUG."""
     logging.basicConfig()
     logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
-
-
-@pytest.fixture(autouse=True)
-def subfolder_run_directory(tmpdir: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
-    tmpdir_test_folder_name = os.path.basename(os.path.normpath(str(tmpdir)))
-    test_folder_tmpdir = os.path.join(run_directory.get_node_run_directory(), tmpdir_test_folder_name)
-    monkeypatch.setenv(run_directory._RUN_DIRECTORY_KEY, test_folder_tmpdir)
-    os.makedirs(run_directory.get_run_directory(), exist_ok=True)
-    os.makedirs(run_directory.get_node_run_directory(), exist_ok=True)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

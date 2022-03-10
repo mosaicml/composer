@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
-from composer.callbacks import LRMonitor, RunDirectoryUploader
+from composer.callbacks import LRMonitor
 from composer.core.callback import Callback
 from composer.core.precision import Precision
 from composer.core.types import Model
@@ -353,25 +353,15 @@ class TestTrainerAssets:
         return algorithm
 
     @pytest.fixture(params=callback_registry.items(), ids=callback_registry.keys())
-    def callback(self, request, tmpdir, monkeypatch):
-        name, hparams = request.param
+    def callback(self, request):
+        _, hparams = request.param
 
-        # create callback
-        if name == 'run_directory_uploader':
-            monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
-
-            callback = hparams(
-                provider='local',
-                container='.',
-                key_environ="KEY_ENVIRON",
-            ).initialize_object()
-        else:
-            callback = hparams().initialize_object()
+        callback = hparams().initialize_object()
 
         return callback
 
     @pytest.fixture(params=logger_registry.items(), ids=logger_registry.keys())
-    def logger(self, request):
+    def logger(self, request, monkeypatch: pytest.MonkeyPatch, tmpdir: pathlib.Path):
 
         name, hparams = request.param
 
@@ -379,7 +369,18 @@ class TestTrainerAssets:
         if name == 'wandb':
             pytest.importorskip('wandb', reason='Required wandb')
 
-        return hparams(**required_args).initialize_object()
+        if name == 'object_store_logger':
+            monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
+
+            logger = hparams(
+                provider='local',
+                container='.',
+                key_environ="KEY_ENVIRON",
+            ).initialize_object()
+        else:
+            logger = hparams(**required_args).initialize_object()
+
+        return logger
 
     """
     Tests that training completes.

@@ -2,19 +2,19 @@
 
 import json
 import os
+import pathlib
 
 import pytest
 
 from composer.profiler.profiler_hparams import JSONTraceHandlerHparams
 from composer.trainer import TrainerHparams
-from composer.utils import run_directory
 
 
 @pytest.mark.timeout(10)
-def test_json_trace_profiler_hanlder(composer_trainer_hparams: TrainerHparams):
-    json_trace_handler_params = JSONTraceHandlerHparams(flush_every_n_batches=1,)
+def test_json_trace_profiler_hanlder(composer_trainer_hparams: TrainerHparams, tmpdir: pathlib.Path):
+    profiler_file = os.path.join(tmpdir, 'trace.json')
+    json_trace_handler_params = JSONTraceHandlerHparams(flush_every_n_batches=1, filename_format=profiler_file)
 
-    composer_trainer_hparams.profiler_trace_file = "profiler_traces.json"
     composer_trainer_hparams.prof_event_handlers = [json_trace_handler_params]
     composer_trainer_hparams.prof_skip_first = 0
     composer_trainer_hparams.prof_warmup = 0
@@ -25,8 +25,6 @@ def test_json_trace_profiler_hanlder(composer_trainer_hparams: TrainerHparams):
 
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
-
-    profiler_file = os.path.join(run_directory.get_run_directory(), "composer_profiler", "rank_0.trace.json")
 
     with open(profiler_file, "r") as f:
         trace_json = json.load(f)

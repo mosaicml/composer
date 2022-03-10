@@ -7,7 +7,6 @@ import signal
 import socket
 import subprocess
 import sys
-import textwrap
 import time
 import warnings
 from argparse import ArgumentParser
@@ -103,12 +102,6 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int
     log.info("Starting DDP on local node for global_rank(%s-%s)", base_rank, base_rank + nproc - 1)
     processes = []
 
-    # TODO Instead of capturing logs in the launch script,
-    # make each rank responsible for capturing its own stdout / stderr.
-    # Need to design how this would work.
-    logs_dir = os.path.join("logs", datetime.datetime.now().isoformat().replace(":", "-"))
-    os.makedirs(logs_dir, exist_ok=True)
-
     if master_port is None:
         warnings.warn("AutoSelectPortWarning: The DDP port was auto-selected. "
                       "This may lead to race conditions when launching multiple training processes simultaneously. "
@@ -139,14 +132,13 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int
         if local_rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True, shell=True)
         else:
-            os.makedirs(logs_dir, exist_ok=True)
             process = subprocess.Popen(
                 cmd,
                 # Using a shell to execute the command, so the env variables will be available to the CLI arguments
                 shell=True,
                 env=current_env,
-                stdout=open(os.path.join(logs_dir, f"rank_{global_rank}.stdout.txt"), "x"),
-                stderr=open(os.path.join(logs_dir, f"rank_{global_rank}.stderr.txt"), "x"),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 text=True,
             )
         processes.append(process)

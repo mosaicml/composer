@@ -317,11 +317,15 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
-    def close(self) -> None:
+    def close(self, state: State, logger: Logger) -> None:
         """Called whenever the trainer finishes training, even when there is an exception.
 
         It should be used for clean up tasks such as flushing I/O streams and/or closing any files that may have been
         opened during the :attr:`~.Event.INIT` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
         """
         pass
 
