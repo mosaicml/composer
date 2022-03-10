@@ -159,6 +159,7 @@ class ObjectStoreLogger(LoggerDestination):
             ``'path/to/file.txt'`` in an object named ``'rank_0/bar.txt'``.
 
             Default: ``'{artifact_name}'``
+
         num_concurrent_uploads (int, optional): Maximum number of concurrent uploads. Defaults to 4.
         upload_staging_folder (str, optional): A folder to use for staging uploads.
             If not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`.
