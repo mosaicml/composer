@@ -27,6 +27,7 @@ from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceH
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import run_directory
+from composer.utils.checkpoint import _is_archive
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -111,7 +112,7 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> T
 
 def _load_checkpoint(checkpoint_dir: str, filename: str):
     filename = filename.format(RANK=0)
-    if filename.endswith('.pt'):
+    if not _is_archive(filename):
         return torch.load(filename, map_location='cpu')
 
     with tarfile.open(filename) as tarball:
@@ -195,7 +196,7 @@ def test_load_weights(
     composer_trainer_hparams.device = device_hparams
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
-    composer_trainer_hparams.save_name_format_string = "ep{epoch}.pt"
+    composer_trainer_hparams.save_name_format = "ep{epoch}.pt"
     composer_trainer_hparams.should_save = "1ep"
     composer_trainer_hparams.seed = None
     composer_trainer_hparams.validate_every_n_batches = 1
@@ -243,14 +244,14 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
-    "seed,should_save,save_name_format_string,resume_file,final_checkpoint",
+    "seed,should_save,save_name_format,resume_file,final_checkpoint",
     [
-        [None, "1ep", "ep{epoch}", "ep1.pt", "latest/rank_0.pt"],  # test randomized seed saving and symlinking
-        [42, "1ep", "ep{epoch}", "ep1.pt", "ep2.pt"],  # test save at epoch end
+        [None, "1ep", "ep{epoch}", "ep1", "latest/rank_0"],  # test randomized seed saving and symlinking
+        [42, "1ep", "ep{epoch}", "ep1", "ep2"],  # test save at epoch end
         [42, "1ep", "ep{epoch}.tgz", "ep1.tgz", "ep2.tgz"],  # test tarball with compression
-        [42, "2ba", "ba{batch}", "ba4.pt", "ba8.pt"],  # test save batch in partial epoch
-        [42, "1ba", "ba{batch}", "ba5.pt", "ba8.pt"],  # test save batch at epoch end
-        [42, "2ba", "ba{batch}", "ba6.pt", "ba8.pt"],  # test save batch after complete epoch
+        [42, "2ba", "ba{batch}", "ba4", "ba8"],  # test save batch in partial epoch
+        [42, "1ba", "ba{batch}", "ba5", "ba8"],  # test save batch at epoch end
+        [42, "2ba", "ba{batch}", "ba6", "ba8"],  # test save batch after complete epoch
     ],
 )
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
@@ -261,7 +262,7 @@ def test_checkpoint(
     zero_stage: Optional[int],
     composer_trainer_hparams: TrainerHparams,
     should_save: str,
-    save_name_format_string: str,
+    save_name_format: str,
     resume_file: str,
     final_checkpoint: str,
     seed: Optional[int],
@@ -276,6 +277,12 @@ def test_checkpoint(
 
     if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
         pytest.skip("DeepSpeed tests must be ran on GPU")
+
+    if deepspeed_enabled:
+        if not _is_archive(resume_file):
+            resume_file += ".tar"
+        if not _is_archive(final_checkpoint):
+            final_checkpoint += ".tar"
 
     if model_name is not None:
         if not isinstance(device_hparams, GPUDeviceHparams):
@@ -293,7 +300,7 @@ def test_checkpoint(
         pytest.skip("Checkpointing tests require synthetic data")
         return
 
-    composer_trainer_hparams.save_name_format_string = save_name_format_string
+    composer_trainer_hparams.save_name_format = save_name_format
     composer_trainer_hparams.train_dataset.use_synthetic = True
     composer_trainer_hparams.train_dataset.shuffle = False
     composer_trainer_hparams.val_dataset.use_synthetic = True

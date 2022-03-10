@@ -191,8 +191,8 @@ class TrainerHparams(hp.Hparams):
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_name_format_string (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_latest_symlink_format_string (str, optional): See
+        save_name_format (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_latest_format (str, optional): See
             :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -338,10 +338,8 @@ class TrainerHparams(hp.Hparams):
 
     # save checkpoint
     save_folder: Optional[str] = hp.optional(doc="Folder where checkpoints will be saved.", default=None)
-    save_name_format_string: str = hp.optional("Checkpoint name format string.",
-                                               default="ep{epoch}-ba{batch}/rank_{rank}")
-    save_latest_symlink_format_string: str = hp.optional("Latest checkpoint symlink format string.",
-                                                         default="latest/rank_{rank}")
+    save_name_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}/rank_{rank}")
+    save_latest_format: str = hp.optional("Latest checkpoint symlink format string.", default="latest/rank_{rank}")
     save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     should_save: str = hp.optional(textwrap.dedent("""\
@@ -597,7 +595,7 @@ class TrainerHparams(hp.Hparams):
             load_progress_bar=self.load_progress_bar,
             save_folder=self.save_folder,
             save_overwrite=self.save_overwrite,
-            save_name_format_string=self.save_name_format_string,
+            save_name_format=self.save_name_format,
             should_save=self.should_save,
             save_weights_only=self.save_weights_only,
 

@@ -33,19 +33,24 @@
 Attributes:
     MAX_SEED (int): The maximum allowed seed, which is :math:`2^{32} - 1`.
 """
+
+from __future__ import annotations
+
 import os
 import random
 import textwrap
 import time
 import warnings
-from typing import List
+from typing import TYPE_CHECKING, List
 
 import numpy as np
 import torch
 import torch.backends.cudnn
 
-from composer.core import types
 from composer.utils import dist
+
+if TYPE_CHECKING:
+    from composer.core import types
 
 __all__ = [
     "configure_deterministic_mode",

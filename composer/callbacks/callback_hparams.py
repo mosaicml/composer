@@ -54,11 +54,11 @@ class CallbackHparams(hp.Hparams, abc.ABC):
 
 @dataclass
 class GradMonitorHparams(CallbackHparams):
-    """:class:`~composer.callbacks.grad_monitor.GradMonitor` hyperparamters.
+    """:class:`~.GradMonitor` hyperparamters.
 
     Args:
         log_layer_grad_norms (bool, optional): 
-            See :class:`~composer.callbacks.grad_monitor.GradMonitor` for documentation.
+            See :class:`~.GradMonitor` for documentation.
     """
 
     log_layer_grad_norms: bool = hp.optional(
@@ -72,24 +72,22 @@ class GradMonitorHparams(CallbackHparams):
         Returns:
             GradMonitor: An instance of :mod:`~composer.callbacks.grad_monitor.GradMonitor`.
         """
-        from composer.callbacks.grad_monitor import GradMonitor
         return GradMonitor(log_layer_grad_norms=self.log_layer_grad_norms)
 
 
 @dataclass
 class MemoryMonitorHparams(CallbackHparams):
-    """:class:`~composer.callbacks.memory_monitor.MemoryMonitor` hyperparameters.
+    """:class:`~.MemoryMonitor` hyperparameters.
 
-    There are no parameters as :class:`~composer.callbacks.memory_monitor.MemoryMonitor` does not take any parameters.
+    There are no parameters as :class:`~.MemoryMonitor` does not take any parameters.
     """
 
     def initialize_object(self) -> MemoryMonitor:
         """Initialize the MemoryMonitor callback.
 
         Returns:
-            MemoryMonitor: An instance of :mod:`~composer.callbacks.memory_monitor.MemoryMonitor`.
+            MemoryMonitor: An instance of :mod:`~.MemoryMonitor`.
         """
-        from composer.callbacks.memory_monitor import MemoryMonitor
         return MemoryMonitor()
 
 
@@ -106,7 +104,6 @@ class LRMonitorHparams(CallbackHparams):
         Returns:
             LRMonitor: An instance of :mod:`~composer.callbacks.lr_monitor.LRMonitor`.
         """
-        from composer.callbacks.lr_monitor import LRMonitor
         return LRMonitor()
 
 
@@ -129,7 +126,6 @@ class SpeedMonitorHparams(CallbackHparams):
         Returns:
             SpeedMonitor: An instance of :mod:`~composer.callbacks.speed_monitor.SpeedMonitor`.
         """
-        from composer.callbacks.speed_monitor import SpeedMonitor
         return SpeedMonitor(window_size=self.window_size)
 
 
@@ -139,8 +135,8 @@ class CheckpointSaverHparams(CallbackHparams):
     
     Args:
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        name_format_string (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        latest_symlink_format_string (str, optional): See
+        name_format (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_latest_format (str, optional): See
             :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -150,15 +146,15 @@ class CheckpointSaverHparams(CallbackHparams):
             If a :doc:`time-string </trainer/time>`, checkpoints will be saved according to this interval.
 
             If a path to a function, it should be of the format ``'path.to.function:function_name'``. The function
-            should take (:class:`~composer.core.state.State`, :class:`~composer.core.event.Event`) and return a
+            should take (:class:`~.State`, :class:`~.Event`) and return a
             boolean indicating whether a checkpoint should be saved given the current state and event. The event will
             be either :attr:`~composer.core.event.Event.BATCH_CHECKPOINT` or
             :attr:`~composer.core.event.Event.EPOCH_CHECKPOINT`.
     """
     save_folder: str = hp.optional(doc="Folder where checkpoints will be saved.", default="checkpoints")
-    name_format_string: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}/rank_{rank}")
-    latest_symlink_format_string: Optional[str] = hp.optional("Latest checkpoint symlink format string.",
-                                                              default="latest/rank_{rank}")
+    name_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}/rank_{rank}")
+    save_latest_format: Optional[str] = hp.optional("Latest checkpoint symlink format string.",
+                                                    default="latest/rank_{rank}")
     overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     should_save: str = hp.optional(textwrap.dedent("""\
@@ -176,8 +172,8 @@ class CheckpointSaverHparams(CallbackHparams):
             should_save = getattr(mod, function_name)
         return CheckpointSaver(
             save_folder=self.save_folder,
-            name_format_string=self.name_format_string,
-            latest_symlink_format_string=self.latest_symlink_format_string,
+            name_format=self.name_format,
+            save_latest_format=self.save_latest_format,
             overwrite=self.overwrite,
             should_save=should_save,
             weights_only=self.weights_only,

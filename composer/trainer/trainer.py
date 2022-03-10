@@ -101,13 +101,13 @@ from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
-from composer.trainer._checkpoint import load_checkpoint
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
+from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.object_store import ObjectStoreProvider
 
 log = logging.getLogger(__name__)
@@ -313,13 +313,13 @@ class Trainer:
 
             (default: ``None``)
 
-        save_name_format_string (str, optional): A format string describing how to name checkpoints.
+        save_name_format (str, optional): A format string describing how to name checkpoints.
             This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"ep{epoch}-ba{batch}/rank_{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
-        save_latest_symlink_format_string (str, optional): A format string for the name of a symlink
+        save_latest_format (str, optional): A format string for the name of a symlink
             (relative to ``checkpoint_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
             To disable symlinking, set to ``None``. (default: ``"latest/rank_{rank}"``)
@@ -446,8 +446,8 @@ class Trainer:
 
         # save_checkpoint
         save_folder: Optional[str] = None,
-        save_name_format_string: str = "ep{epoch}-ba{batch}/rank_{rank}",
-        save_latest_symlink_format_string: str = "latest/rank_{rank}",
+        save_name_format: str = "ep{epoch}-ba{batch}/rank_{rank}",
+        save_latest_format: str = "latest/rank_{rank}",
         save_overwrite: bool = False,
         should_save: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,
@@ -711,7 +711,8 @@ class Trainer:
             self.state.callbacks.append(
                 CheckpointSaver(
                     save_folder=save_folder,
-                    name_format_string=save_name_format_string,
+                    name_format=save_name_format,
+                    save_latest_format=save_latest_format,
                     overwrite=save_overwrite,
                     weights_only=save_weights_only,
                     should_save=should_save,
@@ -1238,3 +1239,15 @@ class Trainer:
         return all(
             getattr(optimizer, "_step_supports_amp_closure", False)
             for optimizer in ensure_tuple(self.state.optimizers))
+
+    def save_checkpoint(self, name_format: str = "ep{epoch}-ba{batch}/rank_{rank}", *, weights_only: bool = False):
+        """Checkpoint the training ``state``.
+
+        Args:
+            name_format (str, optional): See :func:`.save_checkpoint`.
+            weights_only (bool, optional): See :func:`.save_checkpoint`.
+
+        Returns:
+            List[pathlib.Path]: See :func:`.save_checkpoint`.
+        """
+        return save_checkpoint(state=self.state, name_format=name_format, weights_only=weights_only)
