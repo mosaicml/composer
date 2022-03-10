@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import queue
 import sys
-from typing import Any, Dict, Optional, TextIO
+from typing import Any, Callable, Dict, Optional, TextIO
 
 import yaml
 
@@ -114,20 +114,27 @@ class FileLogger(LoggerDestination):
         self._original_stderr_write = sys.stderr.write
 
         if capture_stdout:
-
-            def new_stdout_write(s: str) -> int:
-                self._stdout_queue.put_nowait(s)
-                return self._original_stdout_write(s)
-
-            sys.stdout.write = new_stdout_write
+            sys.stdout.write = self._get_new_writer("[stdout]", self._stdout_queue, self._original_stdout_write)
 
         if capture_stderr:
+            sys.stderr.write = self._get_new_writer("[stderr]", self._stderr_queue, self._original_stderr_write)
 
-            def new_stderr_write(s: str) -> int:
-                self._stderr_queue.put_nowait(s)
-                return self._original_stderr_write(s)
+    def _get_new_writer(self, prefix: str, q: queue.Queue, original_writer: Callable[[str], int]):
+        """Returns a writer captures calls to the ``original_writer``."""
 
-            sys.stderr.write = new_stderr_write
+        def new_write(s: str) -> int:
+
+            if self.file is None:
+                q.put_nowait(s)
+            else:
+                # Write directly if the file is open, in case if there was an error,
+                # and the process crashes before the queue can be flushed
+                # But first, flush the existing queue, so messages will print in order
+                self._flush_queue(prefix, q)
+                self._print_to_file(prefix, s)
+            return original_writer(s)
+
+        return new_write
 
     def batch_start(self, state: State, logger: Logger) -> None:
         self.is_batch_interval = (int(state.timer.batch) + 1) % self.log_interval == 0
@@ -172,11 +179,8 @@ class FileLogger(LoggerDestination):
             buffering=self.buffer_size,
         )
         if self.config is not None:
-            print("Config", file=self.file)
-            print("-" * 30, file=self.file)
-            yaml.safe_dump(self.config, stream=self.file)
-            print("-" * 30, file=self.file)
-            print(file=self.file)
+            data = ("-" * 30) + "\n" + yaml.safe_dump(self.config) + "\n" + ("-" * 30) + "\n"
+            self._print_to_file(prefix='[config]', data=data)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -194,30 +198,32 @@ class FileLogger(LoggerDestination):
                 state.timer.epoch) % self.flush_interval == 0:
             self._flush_file()
 
+    def _print_to_file(self, prefix: str, data: str):
+        formatted_lines = []
+        for line in data.splitlines(True):
+            if line == os.linesep:
+                # If it's an empty line, don't print the prefix
+                formatted_lines.append(line)
+            else:
+                formatted_lines.append(f"{prefix}: {line}")
+
+        # Writing all lines in one print statement to ensure a single call to `_print_to_file`
+        # does not interleave the lines.
+        print(''.join(formatted_lines), file=self.file, flush=False, end='')
+
+    def _flush_queue(self, prefix: str, q: queue.Queue):
+        while True:
+            try:
+                data = q.get_nowait()
+            except queue.Empty:
+                break
+            self._print_to_file(prefix=prefix, data=data)
+
     def _flush_file(self) -> None:
         assert self.file is not None
 
-        while True:
-            try:
-                data = self._stdout_queue.get_nowait()
-            except queue.Empty:
-                break
-            for line in data.splitlines(True):
-                if line == os.linesep:
-                    print(line, file=self.file, flush=False, end='')
-                else:
-                    print(f"[stdout]: {line}", file=self.file, flush=False, end='')
-
-        while True:
-            try:
-                data = self._stderr_queue.get_nowait()
-            except queue.Empty:
-                break
-            for line in data.splitlines(True):
-                if line == os.linesep:
-                    print(line, file=self.file, flush=False, end='')
-                else:
-                    print(f"[stderr]: {line}", file=self.file, flush=False, end='')
+        self._flush_queue("[stdout]", self._stdout_queue)
+        self._flush_queue("[stderr]", self._stderr_queue)
 
         self.file.flush()
         os.fsync(self.file.fileno())

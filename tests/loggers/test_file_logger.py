@@ -64,15 +64,14 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
                 '[EPOCH][batch=3]: { "metric": "epoch2", }\n',
             ]
 
+
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmpdir: pathlib.Path):
     log_file_name = os.path.join(tmpdir, "output.log")
-    log_destination = FileLoggerHparams(
-        filename=log_file_name,
-        buffer_size=1,
-        flush_interval=1,
-        capture_stderr=True,
-        capture_stdout=True
-    ).initialize_object()
+    log_destination = FileLoggerHparams(filename=log_file_name,
+                                        buffer_size=1,
+                                        flush_interval=1,
+                                        capture_stderr=True,
+                                        capture_stdout=True).initialize_object()
     # capturing should start immediately
     print("Hello, stdout!\nExtra Line")
     print("Hello, stderr!\nExtra Line2", file=sys.stderr)
