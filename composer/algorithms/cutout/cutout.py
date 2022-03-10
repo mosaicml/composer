@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, TypeVar, Union
+from typing import Optional, TypeVar
 
 import numpy as np
 import torch
@@ -47,7 +47,6 @@ def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_s
 
             from composer.algorithms.cutout import cutout_batch
             new_input_batch = cutout_batch(X_example, num_holes=1, length=0.25)
-
     """
     X_tensor = image_as_type(input, torch.Tensor)
     h = X_tensor.shape[-2]
