@@ -307,7 +307,7 @@ class TrainerHparams(hp.Hparams):
         If specified, the path to an existing checkpoint file
         (if the checkpoint is on the local disk) or the object name for the checkpoint
         (if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint."""),
-                                           default=None)
+                                                  default=None)
     load_object_store: Optional[ObjectStoreProviderHparams] = hp.optional(doc=textwrap.dedent("""\
         If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,

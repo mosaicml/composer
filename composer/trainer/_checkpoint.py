@@ -28,22 +28,23 @@ _COMPOSER_STATES_FILENAME = "composer_states.pt"
 _DEEPSPEED_TAG = "deepspeed"  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 
 
-def _format_path_with_rank_zero(path: str) -> str:
-    """Formats ``path`` with the rank zero values."""
-    return path.format(
+def _format_path_with_rank_zero(path_format: str) -> str:
+    """Formats ``path_format`` with the rank zero values."""
+    return path_format.format(
         rank=0,
         local_rank=0,
         node_rank=0,
     )
 
 
-def _format_path_with_current_rank(path: str) -> str:
-    """Formats ``path`` formatted with the current rank values."""
-    return path.format(
+def _format_path_with_current_rank(path_format: str) -> str:
+    """Formats ``path_format`` formatted with the current rank values."""
+    return path_format.format(
         rank=dist.get_global_rank(),
         local_rank=dist.get_local_rank(),
         node_rank=dist.get_node_rank(),
     )
+
 
 def _is_archive(path: str) -> bool:
     """Returns whether the path is a tar archive."""
@@ -92,11 +93,11 @@ def load_checkpoint(
                 my_model/rank_2/ep1.tar
                 ...
 
-            Then, ``path`` should be set to ``my_model/rank_{rank}/ep1.tar``, and all ranks will load the correct
-            state.
+            Then, ``path_format`` should be set to ``my_model/rank_{rank}/ep1.tar``, and all ranks will load the
+            correct state.
 
         state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
-        object_store (ObjectStoreProvider, optional): If the ``path`` is in an object store
+        object_store (ObjectStoreProvider, optional): If the ``path_format`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStoreProvider` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
@@ -159,7 +160,8 @@ def _download_checkpoint(
     chunk_size: int,
     progress_bar: bool,
 ) -> Tuple[str, Optional[str], bool]:
-    """Download the checkpoint stored at ``path_format``, potentially in ``object_store``, to ``node_checkpoint_folder``.
+    """Download the checkpoint stored at ``path_format``, potentially in ``object_store``, to
+    ``node_checkpoint_folder``.
 
     Returns a tuple of  (``composer_states_filepath``, ``extracted_checkpoint_folder``, ``extracted_rank_n``).
 
