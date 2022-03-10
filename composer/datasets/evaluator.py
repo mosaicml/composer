@@ -27,9 +27,17 @@ __all__ = ["EvaluatorHparams"]
 
 @dataclass
 class EvaluatorHparams(hp.Hparams):
-    """Params for the :class:`Evaluator`.
+    """Params for the :class:`~composer.core.types.Evaluator`.
 
-    See the documentation for the :class:`Evaluator`.
+    Also see the documentation for the :class:`~composer.core.types.Evaluator`.
+
+    Args
+        label (str): Name of the Evaluator. Used for logging/reporting metrics.
+        eval_dataset (DatasetHparams): Evaluation dataset.
+        metrics (list, optional): List of strings of names of the metrics for the
+            evaluator. Can be a :class:`torchmetrics.Metric` name or the class name of a
+            metric returned by model.metrics(). If ``None``, uses all metrics in the
+            model. Default: ``None``.
     """
     hparams_registry = {  # type: ignore
         "eval_dataset": get_dataset_registry(),
@@ -43,9 +51,9 @@ class EvaluatorHparams(hp.Hparams):
         default=None)
 
     def initialize_object(self, model: ComposerModel, batch_size: int, dataloader_hparams: DataloaderHparams):
-        """Initialize an :class:`Evaluator`
+        """Initialize an :class:`~composer.core.types.Evaluator`
 
-        If the Evaluatormetric_names is empty or None is provided, the function returns
+        If the Evaluator metric_names is empty or None is provided, the function returns
         a copy of all the model's default evaluation metrics.
 
         Args:

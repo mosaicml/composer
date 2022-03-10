@@ -38,7 +38,22 @@ class LMDatasetHparams(DatasetHparams):
     masked language models.
     
     Args:
-        datadir (List[str])
+        datadir (list): List containing the string of the path to the HuggingFace
+            Datasets directory.
+        split (str or None, optional): Whether to use ``'train'``, ``'test'``, or
+            ``'validation'`` split. 
+        tokenizer_name (str or None, optional): The name of the HuggingFace tokenizer to
+            preprocess text with. See `HuggingFace documentation
+            <https://huggingface.co/models>`_. Default: ``None``.
+        use_masked_lm (bool, optional): Whether the dataset should be encoded with masked
+            language modeling or not. Default: ``None``.
+        num_tokens (int, optional): Number of tokens to truncate the dataset to. ``0``
+            will result in no truncation. Default: ``0``.
+        mlm_probability (float, optional): If using masked language modeling, the
+            probability with which tokens will be masked. Default: ``0.15``.
+        seed (int, optional): Random seed for generating train and validation splits.
+            Default: ``5``.
+        
     """
 
     # TODO(moin): Switch datadir to be a string, rather than a list of strings, to be similar to the
@@ -48,7 +63,7 @@ class LMDatasetHparams(DatasetHparams):
 
     split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     tokenizer_name: Optional[str] = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
-    use_masked_lm: bool = hp.optional("Whether the dataset shoud be encoded with masked language modeling or not.",
+    use_masked_lm: bool = hp.optional("Whether the dataset should be encoded with masked language modeling or not.",
                                       default=None)
     num_tokens: int = hp.optional(doc='If desired, the number of tokens to truncate the dataset to.', default=0)
     mlm_probability: float = hp.optional("If using masked language modeling, the probability to mask tokens with.",
