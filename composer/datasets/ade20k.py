@@ -52,9 +52,12 @@ class RandomCropPair(torch.nn.Module):
 
     Args:
         crop_size (Tuple[int, int]): the size (height x width) of the crop.
+        class_max_percent (float): the maximum percent of the image area a single class should occupy. Default is 1.0.
+        n_retry (int): the number of times to resample the crop if ``class_max_percent`` threshold is not reached.
+            Default is 1.
     """
 
-    def __init__(self, crop_size: Tuple[int, int], class_max_percent: float = 1.0, n_retry: int = 0):
+    def __init__(self, crop_size: Tuple[int, int], class_max_percent: float = 1.0, n_retry: int = 1):
         super().__init__()
         self.crop_size = crop_size
         self.class_max_percent = class_max_percent
