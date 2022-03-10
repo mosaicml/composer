@@ -49,8 +49,8 @@ def deeplabv3_builder(num_classes: int,
         is_backbone_pretrained (bool, optional): If ``True``, use pretrained weights for the backbone. Default: ``True``.
         backbone_url (str, optional): Url used to download model weights. If empty, the PyTorch url will be used.
             Default: ``''``.
-        use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
         sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers. Default: ``True``.
+        use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
         initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``[]``.
 
     Returns:
@@ -87,7 +87,7 @@ def deeplabv3_builder(num_classes: int,
             Either mmcv or mmsegmentation is not installed. To install mmcv, please run pip install mmcv-full==1.4.4 -f
              https://download.openmmlab.com/mmcv/dist/{cu_version}/{torch_version}/index.html where {cu_version} and
              {torch_version} refer to your CUDA and PyTorch versions, respectively. To install mmsegmentation, please
-             run pip install mmsegmentation==0.22.0 .""")) from e
+             run pip install mmsegmentation==0.22.0 on command-line.""")) from e
     norm_cfg = dict(type='SyncBN', requires_grad=True)
     if use_plus:
         # mmseg config:
@@ -145,8 +145,8 @@ class ComposerDeepLabV3(ComposerModel):
         is_backbone_pretrained (bool, optional): If ``True``, use pretrained weights for the backbone. Default: ``True``.
         backbone_url (str, optional): Url used to download model weights. If empty, the PyTorch url will be used.
             Default: ``''``.
-        use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
         sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers. Default: ``True``.
+        use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
         initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``[]``.
 
 
@@ -164,8 +164,8 @@ class ComposerDeepLabV3(ComposerModel):
                  backbone_arch: str = 'resnet101',
                  is_backbone_pretrained: bool = True,
                  backbone_url: str = '',
-                 use_plus: bool = True,
                  sync_bn: bool = True,
+                 use_plus: bool = True,
                  initializers: List[Initializer] = []):
 
         super().__init__()
