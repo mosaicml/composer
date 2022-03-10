@@ -44,7 +44,7 @@ image size over the course of training:
         # your train step here
         train_step()
 
-For more details, please see :doc:`/functional_api``.
+For more details, please see :doc:`/functional_api`.
 
 .. _using_composer_trainer:
 
