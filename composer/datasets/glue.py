@@ -61,7 +61,7 @@ class GLUEHparams(DatasetHparams):
             they fail. Default: ``10``.
 
     Returns:
-       DataSpe: A :class:`~composer.core.DataSpec` object.
+       DataSpec: A :class:`~composer.core.DataSpec` object.
     """
 
     task: str = hp.optional(

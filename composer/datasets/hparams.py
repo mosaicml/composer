@@ -32,15 +32,16 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
     Args:
         use_synthetic (bool, optional): Whether to use synthetic data. Default: ``False``.
         synthetic_num_unique_samples (int, optional): The number of unique samples to
-            allocate memory for. Ignored if :attr:`use_synthetic` is False. Default:
+            allocate memory for. Ignored if :attr:`use_synthetic` is ``False``. Default:
             ``100``.
         synthetic_device (str, optional): The device to store the sample pool on.
             Set to ``'cuda'`` to store samples on the GPU and eliminate PCI-e bandwidth
             with the dataloader. Set to ``'cpu'`` to move data between host memory and the
-            device on every batch. Ignored if :attr:`use_synthetic` is False. Default:
+            device on every batch. Ignored if :attr:`use_synthetic` is ``False``. Default:
             ``'cpu'``.
         synthetic_memory_format: The :class:`~.core.types.MemoryFormat` to use.
-            Ignored if :attr:`use_synthetic` is False. Default: ``'CONTIGUOUS_FORMAT'``.
+            Ignored if :attr:`use_synthetic` is ``False``. Default:
+            ``'CONTIGUOUS_FORMAT'``.
     """
 
     use_synthetic: bool = hp.optional("Whether to use synthetic data. Defaults to False.", default=False)
@@ -76,8 +77,8 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
-        """Creates a :class:`~.core.type.DataLoader` or
-        :class:`~.core.types.DataSpec` for this dataset.
+        """Creates a :class:`~.core.types.DataLoader` or
+        :class:`~.core.data_spec.DataSpec` for this dataset.
 
         Args:
             batch_size (int): The size of the batch the dataloader should yield. This
@@ -87,7 +88,7 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
 
         Returns:
             Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of
-                custom types, a :class:`~core.types.DataSpec`.
+                custom types, a :class:`~core.data_spec.DataSpec`.
         """
         pass
 
@@ -108,6 +109,6 @@ class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
         """Creates a :class:`~.core.types.DataLoader` or
-        :class:`~.core.types.DataloaderSpec` for this dataset.
+        :class:`~.core.data_spec.DataSpec` for this dataset.
         """
         pass
