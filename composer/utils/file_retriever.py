@@ -11,6 +11,8 @@ import tqdm
 from composer.utils.iter_helpers import iterate_with_pbar
 from composer.utils.object_store import ObjectStoreProvider
 
+__all__ = ['GetFileNotFoundException', 'get_file']
+
 
 class GetFileNotFoundException(RuntimeError):
     """Exception if :meth:`get_file` failed due to a not found error."""
@@ -28,10 +30,11 @@ def get_file(
 
     Args:
         path (str): The path to the file to retreive.
-            *   If ``object_store`` is specified, then the ``uri`` should be the object name for the file to get.
-                (do not include the the cloud provider name or cloud bucket in the URI)
 
-            *   If ``object_store`` is not specified but the ``uri`` begins with ``http://`` or ``https://``,
+            *   If ``object_store`` is specified, then the ``path`` should be the object name for the file to get.
+                Do not include the the cloud provider or bucket name.
+
+            *   If ``object_store`` is not specified but the ``path`` begins with ``http://`` or ``https://``,
                 the object at this URL will be downloaded.
 
             *   Otherwise, ``path`` is presumed to be a local filepath.
@@ -41,15 +44,13 @@ def get_file(
             If ``path`` is a local filepath, then a symlink to ``path`` at ``destination`` will be created.
             Otherwise, ``path`` will be downloaded to a file at ``destination``.
 
-        object_store (ObjectStoreProvider, optional): An :class:`~.ObjectStoreProvider>`, if ``path`` is located inside
-            an object store (i.e. AWS S3 or Google Cloud Storage).
+        object_store (ObjectStoreProvider, optional): An :class:`~.ObjectStoreProvider`, if ``path`` is located inside
+            an object store (i.e. AWS S3 or Google Cloud Storage). (default: ``None``)
 
-            This instance will be used to retreive the file. The ``path`` parameter should be set to the object name
-            within the object store.
+            This :class:`~.ObjectStoreProvider` instance will be used to retreive the file. The ``path`` parameter
+            should be set to the object name within the object store.
 
             Set this parameter to ``None`` (the default) if ``path`` is a URL or a local file.
-
-            (default: ``None``)
 
         chunk_size (int, optional): Chunk size (in bytes). Ignored if ``path`` is a local file. (default: 1MB)
 
