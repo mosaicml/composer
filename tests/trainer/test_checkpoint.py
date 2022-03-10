@@ -84,7 +84,7 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
     """
 
     # load_weights_only is False since the original Trainer is testing full checkpoint recovery
-    original_trainer_hparams.load_path = new_trainer_hparams.load_path
+    original_trainer_hparams.load_path_format = new_trainer_hparams.load_path_format
     original_trainer_hparams.load_weights_only = False
     original_trainer_hparams.load_strict_model_weights = False
 
@@ -133,17 +133,17 @@ def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: 
 
         deep_compare(checkpoint_a["rng"], checkpoint_b["rng"])
 
-    assert hparams_b.load_path is not None
+    assert hparams_b.load_path_format is not None
     assert hparams_b.save_folder is not None
-    hparams_a.load_path = hparams_b.load_path
+    hparams_a.load_path_format = hparams_b.load_path_format
     hparams_a.load_weights_only = False
     hparams_a.load_strict_model_weights = False
     hparams_a.save_folder = hparams_b.save_folder
 
     assert hparams_a.to_dict() == hparams_b.to_dict()
 
-    hparams_a.load_path = checkpoint_file_a
-    hparams_b.load_path = checkpoint_file_b
+    hparams_a.load_path_format = checkpoint_file_a
+    hparams_b.load_path_format = checkpoint_file_b
 
     trainer_a = hparams_a.initialize_object()
     state_a = trainer_a.state
@@ -210,7 +210,7 @@ def test_load_weights(
     checkpoint_a_file_path = os.path.join(run_directory.get_run_directory(), checkpoint_a_folder, final_checkpoint)
 
     # load only model weights
-    second_trainer_hparams.load_path = checkpoint_a_file_path
+    second_trainer_hparams.load_path_format = checkpoint_a_file_path
     second_trainer_hparams.load_weights_only = True
     second_trainer_hparams.load_strict_model_weights = True
     # setup a new optimizer
@@ -358,7 +358,7 @@ def test_checkpoint(
     second_trainer_hparams.save_folder = checkpoint_b_folder
     second_trainer_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}",
                                            checkpoint_a_file_path)
-    second_trainer_hparams.load_path = second_trainer_filepath
+    second_trainer_hparams.load_path_format = second_trainer_filepath
     second_trainer_hparams.load_weights_only = False
     second_trainer_hparams.load_strict_model_weights = False
 

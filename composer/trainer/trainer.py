@@ -47,7 +47,7 @@ Load the checkpoint and resume training:
     ### checkpoint filenames are of the form "ep{EPOCH_NUMBER}.pt".
     checkpoint_path = os.path.join(checkpoint_folder, "ep1.pt")
 
-    ### Create a new trainer with the load_path argument set to the checkpoint path.
+    ### Create a new trainer with the load_path_format argument set to the checkpoint path.
     ### This will automatically load the checkpoint on trainer creation.
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
@@ -57,7 +57,7 @@ Load the checkpoint and resume training:
                       schedulers=scheduler,
                       device="cpu",
                       validate_every_n_epochs=1,
-                      load_path=checkpoint_path)
+                      load_path_format=checkpoint_path)
 
     ### Continue training and running evaluation where the previous trainer left off
     ### until the new max_duration is reached.
@@ -230,13 +230,17 @@ class Trainer:
             then no callbacks will be run. (default: ``None``).
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
+<<<<<<< HEAD
 
         load_path (str, optional): The template path to an existing checkpoint file.
+=======
+        load_path_format (str, optional):  The template path to an existing checkpoint file.
+>>>>>>> ravi/i414_p1.3
             It can be a path to a file on local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
             When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, saved checkpoints are
-            sharded rank. To load deepspeed checkpoints, specify ``{RANK}`` in this ``load_path``
+            sharded rank. To load deepspeed checkpoints, specify ``{RANK}`` in this ``load_path_format``
             parameter, and the ``RANK`` variable will be substituted with the global rank, thus allowing the correct
             checkpoints to be loaded per-rank.
 
@@ -249,14 +253,14 @@ class Trainer:
                 my_model/rank_2/ep1.tar
                 ...
 
-            Then, ``load_path`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks
+            Then, ``load_path_format`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks
             will load the correct data.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (ObjectStoreProvider, optional): If the ``load_path`` is in an object store
+        load_object_store (ObjectStoreProvider, optional): If the ``load_path_format`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStoreProvider` which
             will be used to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath,
-            set to ``None``. Ignored if ``load_path`` is ``None``. (default: ``None``)
+            set to ``None``. Ignored if ``load_path_format`` is ``None``. (default: ``None``)
 
             Example:
 
@@ -289,18 +293,18 @@ class Trainer:
                                   schedulers=scheduler,
                                   device="cpu",
                                   validate_every_n_epochs=1,
-                                  load_path=checkpoint_path,
+                                  load_path_format=checkpoint_path,
                                   load_object_store=store)
 
 
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
-            restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
+            restoring the associated state. Ignored if ``load_path_format`` is ``None``. (default: ``False``)
         load_strict (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
-            Ignored if ``load_path`` is ``None``. (default: ``False``)
+            Ignored if ``load_path_format`` is ``None``. (default: ``False``)
         load_chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
-            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
+            Ignored if ``load_path_format`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
-            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
+            Ignored if ``load_path_format`` is either ``None`` or a local file path. (default: ``True``)
         save_folder (str, optional): Folder where checkpoints are saved. If ``None``, checkpoints will not be saved
             by default.
             .. seealso:: :class:`~.CheckpointSaver`
@@ -437,7 +441,7 @@ class Trainer:
         callbacks: Sequence[Callback] = tuple(),
 
         # load checkpoint
-        load_path: Optional[str] = None,
+        load_path_format: Optional[str] = None,
         load_object_store: Optional[ObjectStoreProvider] = None,
         load_weights_only: bool = False,
         load_strict: bool = False,
@@ -768,9 +772,9 @@ class Trainer:
         # DDP.
 
         self._rng_state = None
-        if load_path is not None:
+        if load_path_format is not None:
             self._rng_state = load_checkpoint(state=self.state,
-                                              path=load_path,
+                                              path_format=load_path_format,
                                               object_store=load_object_store,
                                               load_weights_only=load_weights_only,
                                               strict_model_weights=load_strict,
