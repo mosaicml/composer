@@ -58,7 +58,7 @@ def deeplabv3_builder(num_classes: int,
 
     Example:
 
-    .. testcode::
+    .. code-block:: python
 
         from composer.models.deeplabv3.deeplabv3 import deeplabv3_builder
 
@@ -152,7 +152,7 @@ class ComposerDeepLabV3(ComposerModel):
 
     Example:
 
-    .. testcode::
+    .. code-block:: python
 
         from composer.models import ComposerDeepLabV3
 
