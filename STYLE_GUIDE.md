@@ -31,7 +31,7 @@ Composer aims to annotate all functions with type annotations (introduced in
 [PEP 526](https://www.python.org/dev/peps/pep-0526/). Type annotations help statically catch `TypeError` and
 `AttributeError` bugs, in addition to other benefits, as outlined in the PEP.
 
-Composer uses [PyRight](https://github.com/microsoft/pyright)
+Composer uses [pyright](https://github.com/microsoft/pyright)
 to validate type annotations. To check typing, run:
 
 ```bash
@@ -177,8 +177,7 @@ All imports in composer should be absolute -- that is, they do not begin with a 
 ### 6.2 Use of `__all__`
 
 All public modules must define `__all__` to be the list of members that should be re-exported.
-The variable is necessary to limit what `from XXX import *` imports, and so the documentation build
-only documents exported members (and not unrelated re-imports).
+The variable is necessary to 1) limit what `from XXX import *` imports, and 2) ensure that the documentation only includes exported members, not unrelated re-imports.
 
 For example, from [composer/callbacks/memory_monitor.py](composer/callbacks/memory_monitor.py)
 
@@ -241,7 +240,7 @@ The following guidelines apply to documentation.
         """Foo2.
 
         Args:
-            bar (int, optional): Optional bar. (default: ``42``)
+            bar (int, optional): The first Argument. Default: ``42``.
         """
         ...
 
@@ -249,7 +248,7 @@ The following guidelines apply to documentation.
         """Foo3.
 
         Args:
-            bar (int, optional): Optional bar. (default: ``None``)
+            bar (int, optional): The first Argument. Default: ``None``.
         """
         ...
 
@@ -257,7 +256,7 @@ The following guidelines apply to documentation.
         """Foo4.
 
         Args:
-            bar (int | str, optional): Optional bar. (default: ``42``)
+            bar (int | str, optional): The first Argument. Default: ``42``.
         """
         ...
 
@@ -298,7 +297,7 @@ The following guidelines apply to documentation.
         """blah function
 
         Args:
-            input (torch.Tensor, optional): Your guess.
+            input (torch.Tensor): Your guess.
 
         Returns:
             torch.Tensor: How good your input is.

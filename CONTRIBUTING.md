@@ -10,7 +10,7 @@ We welcome contributions for bug fixes, new efficient methods you'd like to cont
 
 ## New Algorithms
 
-Have a new algorithm you'd like to contribute to the library as part of your research? Reach out to us on Slack or file a new issue with the proposed method, and we'll work with you to get started!
+Have a new algorithm you'd like to contribute to the library as part of your research? We welcome any PRs, and recommend filing an issue with the proposed method or reaching out on Slack first!
 
 
 ## Submitting a contribution
@@ -69,7 +69,7 @@ See the [Makefile](https://github.com/mosaicml/composer/blob/dev/Makefile) for m
 ## Code Style & Typing
 
 Follow Google's
-[Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code. Many of these are already taken care of by the `make style` command above.
+[Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code. Many of these guidelines are already taken care of by the `make style` command above.
 
 Composer aims to annotate all functions with type annotations (introduced in
-[PEP 526](https://www.python.org/dev/peps/pep-0526/). Not to worry if you are not a python typing expert, put in the pull request, and we'll help you with getting the code into shape.
+[PEP 526](https://www.python.org/dev/peps/pep-0526/)). Don't worry if you are not a Python typing expert; put in the pull request, and we'll help you with getting the code into shape.
