@@ -167,6 +167,6 @@ Next steps
 ----------
 
 * Try :doc:`/getting_started/notebooks` to see our speed-ups with notebooks on Colab.
-* See :doc:`/getting_started/using_the_trainer` for more details on our trainer.
+* See :doc:`/trainer/using_the_trainer` for more details on our trainer.
 * Read :doc:`/getting_started/welcome_tour` for a tour through the library.
 
