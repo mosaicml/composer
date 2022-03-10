@@ -47,6 +47,7 @@ class RandomResizePair(torch.nn.Module):
         return resized_image, resized_target
 
 
+# Based on: https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L584
 class RandomCropPair(torch.nn.Module):
     """Crop the image and target at a randomly sampled position.
 
@@ -75,34 +76,23 @@ class RandomCropPair(torch.nn.Module):
             image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
 
         if self.class_max_percent < 1.0:
-            best_max_percent = 1.0
-            best_crop = crop
             for _ in range(self.n_retry):
                 # Crop target
                 target_crop = TF.crop(target, *crop)  # type: ignore - transform typing excludes PIL.Image
 
-                # measure max area percentage of a single class
+                # count the number of each class represented in cropped target
                 labels, counts = np.unique(np.array(target_crop), return_counts=True)
                 counts = counts[labels != 0]
 
-                if len(counts) > 0:
-                    current_max_percent = (np.max(counts) / np.sum(counts))
-
-                    if len(counts) > 1 and current_max_percent < self.class_max_percent:
-                        break
-
-                    if current_max_percent < best_max_percent:
-                        best_crop = crop
-                        best_max_percent = current_max_percent
+                #
+                if len(counts) > 1 and (np.max(counts) / np.sum(counts)) < self.class_max_percent:
+                    break
 
                 crop = transforms.RandomCrop.get_params(
                     image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
 
-            image = TF.crop(image, *best_crop)
-            target = TF.crop(target, *best_crop)
-        else:
-            image = TF.crop(image, *crop)
-            target = TF.crop(target, *crop)  # type: ignore - transform typing excludes PIL.Image
+        image = TF.crop(image, *crop)
+        target = TF.crop(target, *crop)  # type: ignore - transform typing excludes PIL.Image
 
         return image, target
 
