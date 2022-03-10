@@ -109,11 +109,6 @@ extra_deps["unet"] = [
     'scikit-learn>=1.0.1',
 ]
 
-extra_deps["deeplab"] = [
-    'mmcv-full==1.4.4',
-    'mmsegmentation==0.22.0',
-]
-
 extra_deps["vit"] = [
     'vit_pytorch>=0.27',
 ]

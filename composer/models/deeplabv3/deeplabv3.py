@@ -1,5 +1,5 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
-
+import textwrap
 from typing import Any, List
 
 import torch
@@ -61,7 +61,15 @@ def deeplabv3_builder(num_classes: int,
     return_layers = {'layer1': 'layer1', 'layer4': 'layer4'} if use_plus else {'layer4': 'layer4'}
     backbone = _utils.IntermediateLayerGetter(backbone, return_layers=return_layers)
 
-    from mmseg.models import ASPPHead, DepthwiseSeparableASPPHead
+    try:
+        from mmseg.models import ASPPHead, DepthwiseSeparableASPPHead
+    except ImportError as e:
+        raise ImportError(
+            textwrap.dedent("""\
+            Either mmcv or mmsegmentation is not installed. To install mmcv, please run pip install mmcv-full==1.4.4 -f
+             https://download.openmmlab.com/mmcv/dist/{cu_version}/{torch_version}/index.html where {cu_version} and
+             {torch_version} refer to your CUDA and PyTorch versions, respectively. To install mmsegmentation, please
+             run pip install mmsegmentation==0.22.0 .""")) from e
     norm_cfg = dict(type='SyncBN', requires_grad=True)
     if use_plus:
         # mmseg config:
