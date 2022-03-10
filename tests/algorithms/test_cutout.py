@@ -95,8 +95,8 @@ def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, em
     #   - Real data can have 0. pixels but this will not affect cutout algorithm since mask is generated independent of input data
     input = torch.rand((batch_size, channels, height, width)) + 1
 
-    # Fix cutout_n_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
-    algorithm = CutOutHparams(n_holes=1, length=cutout_length, uniform_sampling=uniform_sampling).initialize_object()
+    # Fix cutout_num_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
+    algorithm = CutOutHparams(num_holes=1, length=cutout_length, uniform_sampling=uniform_sampling).initialize_object()
     state = minimal_state
     state.batch = (input, torch.Tensor())
 
