@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Utility for retrieving files."""
+
 import os
 from typing import Iterator, Optional
 
@@ -8,7 +10,6 @@ import tqdm
 
 from composer.utils.iter_helpers import iterate_with_pbar
 from composer.utils.object_store import ObjectStoreProvider
-"""Utility for retrieving files."""
 
 
 class GetFileNotFoundException(RuntimeError):
