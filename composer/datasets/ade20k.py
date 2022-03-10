@@ -84,14 +84,14 @@ class RandomCropPair(torch.nn.Module):
                 labels, counts = np.unique(np.array(target_crop), return_counts=True)
                 counts = counts[labels != 0]
 
-                #
+                # if the class with the most area is within the class_max_percent threshold, stop retrying
                 if len(counts) > 1 and (np.max(counts) / np.sum(counts)) < self.class_max_percent:
                     break
 
                 crop = transforms.RandomCrop.get_params(
                     image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
 
-        image = TF.crop(image, *crop)
+        image = TF.crop(image, *crop)  # type: ignore - transform typing excludes PIL.Image
         target = TF.crop(target, *crop)  # type: ignore - transform typing excludes PIL.Image
 
         return image, target
