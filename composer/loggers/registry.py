@@ -5,14 +5,14 @@
 from typing import Type
 
 from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
-                                             TQDMLoggerHparams, WandBLoggerHparams)
+                                             ProgressBarLoggerHparams, WandBLoggerHparams)
 
 __all__ = ["get_logger_hparams", "logger_registry"]
 
 logger_registry = {
     "file": FileLoggerHparams,
     "wandb": WandBLoggerHparams,
-    "tqdm": TQDMLoggerHparams,
+    "tqdm": ProgressBarLoggerHparams,
     "in_memory": InMemoryLoggerHparams,
 }
 
