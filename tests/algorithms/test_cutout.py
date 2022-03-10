@@ -60,7 +60,7 @@ def tensor_sizes(request):
 # cutout_length=4 should produce 4x4 box due except when boundary clipping
 # cutout_length=0.5 should produce a box with half the side length of the input
 @pytest.fixture(params=[1, 3, 4])
-def cutout_length(request):
+def cutout_length_pixels(request):
     return request.param
 
 
@@ -70,13 +70,13 @@ def anchors(request):
     return request.param
 
 
-def test_cutout_mask(tensor_sizes, cutout_length, anchors):
+def test_cutout_mask(tensor_sizes, cutout_length_pixels, anchors):
 
     batch_size, channels, height, width = tensor_sizes
     x, y = anchors
 
     test_mask = torch.ones(tensor_sizes)
-    test_mask = _generate_mask(mask=test_mask, width=width, height=height, x=x, y=y, cutout_length=cutout_length)
+    test_mask = _generate_mask(mask=test_mask, width=width, height=height, x=x, y=y, cutout_length=cutout_length_pixels)
 
     check_box(batch_size, channels, test_mask)
 
@@ -85,7 +85,7 @@ def test_cutout_mask(tensor_sizes, cutout_length, anchors):
 @pytest.mark.parametrize('channels', [1, 4])
 @pytest.mark.parametrize('height', [32, 64])
 @pytest.mark.parametrize('width', [32, 71])
-@pytest.mark.parametrize('cutout_length', [16, 23, 0.25, 0.5])
+@pytest.mark.parametrize('cutout_length', [0.25, 0.5])
 @pytest.mark.parametrize('uniform_sampling', [True, False])
 def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, empty_logger, minimal_state,
                           uniform_sampling):
@@ -95,8 +95,8 @@ def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, em
     #   - Real data can have 0. pixels but this will not affect cutout algorithm since mask is generated independent of input data
     input = torch.rand((batch_size, channels, height, width)) + 1
 
-    # Fix cutout_n_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
-    algorithm = CutOutHparams(n_holes=1, length=cutout_length, uniform_sampling=uniform_sampling).initialize_object()
+    # Fix cutout_num_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
+    algorithm = CutOutHparams(num_holes=1, length=cutout_length, uniform_sampling=uniform_sampling).initialize_object()
     state = minimal_state
     state.batch = (input, torch.Tensor())
 
