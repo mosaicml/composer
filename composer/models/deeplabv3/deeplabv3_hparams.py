@@ -1,22 +1,30 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.ComposerDeepLabV3`."""
+
 from dataclasses import dataclass
 
 import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
 
+__all__ = ["DeepLabV3Hparams"]
+
 
 @dataclass
 class DeepLabV3Hparams(ModelHparams):
-    """This class specifies arguments for a DeepLabV3 model and can instantiate a DeepLabV3 model.
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for
+    :class:`.ComposerDeepLabV3`.
 
     Args:
-        backbone_arch (str): the backbone architecture to use, either ['resnet50', 'resnet101'].
-            Default is 'resnet101'.
-        is_backbone_pretrained (bool): if true (default), use pre-trained weights for backbone.
-        sync_bn (bool): if true (default), use SyncBatchNorm to sync batch norm statistics across GPUs.
+        num_classes (int): Number of classes in the segmentation task.
+        backbone_arch (str, optional): The architecture to use for the backbone. Must be either [``'resnet50'``, ``'resnet101'``].
+            Default: ``'resnet101'``.
+        is_backbone_pretrained (bool, optional): If ``True``, use pretrained weights for the backbone. Default: ``True``.
+        sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers. Default: ``True``.
+        initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``[]``.
     """
+
     backbone_arch: str = hp.optional("The backbone architecture to use. Must be either ['resnet50', resnet101'].",
                                      default='resnet101')
     is_backbone_pretrained: bool = hp.optional("If true, use pre-trained weights for backbone.", default=True)
