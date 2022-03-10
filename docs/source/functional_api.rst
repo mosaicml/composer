@@ -10,7 +10,7 @@ algorithms can be grouped into three broad classes:
 
 Data augmentations can be inserted either into the dataloader as a transform, or after a
 batch has been loaded depending on what the augmentation acts on. Here is an example of using
-:class:`.RandAugment` with the functional API
+:doc:`/method_cards/randaugment` with the functional API.
 
 .. code-block:: python
 

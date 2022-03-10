@@ -164,6 +164,7 @@ Composer Trainer
 For advanced experimentation, we recommend using our provided trainer.
 Our trainer takes care of all the state management and event callbacks from above,
 and adds a bunch of advanced features, including hyperparameter management, gradient accumulation,
-
 and closure support.
-For more information, check out the :doc:`Trainer</trainer/using_the_trainer>` guide.
+
+For more information, check out the :doc:`/trainer/using_the_trainer` guide.
+
