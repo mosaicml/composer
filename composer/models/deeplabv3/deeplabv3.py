@@ -80,7 +80,7 @@ def deeplabv3_builder(num_classes: int,
     backbone = _utils.IntermediateLayerGetter(backbone, return_layers=return_layers)
 
     try:
-        from mmseg.models import ASPPHead, DepthwiseSeparableASPPHead
+        from mmseg.models import ASPPHead, DepthwiseSeparableASPPHead  # type: ignore
     except ImportError as e:
         raise ImportError(
             textwrap.dedent("""\
