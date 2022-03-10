@@ -2,8 +2,8 @@
 
 """MNIST image classification dataset.
 
-The MNIST dataset is a collection of labeled 28x28 black and white images of handwritten
-examples of the numbers 0-9. See the `wikipedia entry <https://en.wikipedia.org/wiki/MNIST_database>`_ for more details.
+The MNIST dataset is a collection of labeled 28x28 black and white images of handwritten examples of the numbers 0-9.
+See the `wikipedia entry <https://en.wikipedia.org/wiki/MNIST_database>`_ for more details.
 """
 
 from dataclasses import dataclass
