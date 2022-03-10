@@ -32,7 +32,8 @@ def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_s
         length (float, optional): Relative side length of the masked region.
             If specified, ``length`` is interpreted as a fraction of ``H`` and
             ``W``, and the resulting box is a square with side length
-            ``length * min(H, W)``. Default: ``0.5``.
+            ``length * min(H, W)``. Must be in the interval :math:`(0, 1)`.
+            Default: ``0.5``.
         uniform_sampling (bool, optional): If ``True``, sample the bounding
             box such that each pixel has an equal probability of being masked.
             If ``False``, defaults to the sampling used in the original paper
@@ -52,7 +53,6 @@ def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_s
     h = X_tensor.shape[-2]
     w = X_tensor.shape[-1]
 
-    length = min(1., length)
     length = int(min(h, w) * length)
 
     mask = torch.ones_like(X_tensor)
@@ -98,7 +98,8 @@ class CutOut(Algorithm):
         length (float, optional): Relative side length of the masked region.
             If specified, ``length`` is interpreted as a fraction of ``H`` and
             ``W``, and the resulting box is a square with side length
-            ``length * min(H, W)``. Default: ``0.5``.
+            ``length * min(H, W)``. Must be in the interval :math:`(0, 1)`.
+            Default: ``0.5``.
     """
 
     def __init__(self, num_holes: int = 1, length: float = 0.5, uniform_sampling: bool = False):
