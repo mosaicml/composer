@@ -22,7 +22,7 @@ Composer's trainer.
 
     {% for name, data in metadata.items() %}
     {% if data.functional %}
-    :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | ``{{ data.functional }}``
+    :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | :meth:`.{{data.functional}}`
     {% else %}
     :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | {{ data.functional }}
     {% endif %}

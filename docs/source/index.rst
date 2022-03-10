@@ -44,12 +44,21 @@ Table of Contents
    getting_started/installation.rst
    getting_started/using_composer.rst
    getting_started/welcome_tour.rst
+   getting_started/notebooks.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Algorithms
+
+   trainer/algorithms.rst
+   functional_api.rst
 
 .. toctree::
    :maxdepth: 1
    :caption: Trainer
 
    trainer/using_the_trainer.rst
+   composer_model.rst
    trainer/dataloaders.rst
    trainer/evaluation.rst
    trainer/schedulers.rst
@@ -62,12 +71,7 @@ Table of Contents
    trainer/numerics.rst
    trainer/performance.rst
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Key Classes
 
-   composer_model.rst
-   trainer/algorithms.rst
 
 .. toctree::
    :maxdepth: 1
