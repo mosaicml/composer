@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import datetime
 import os
 import pathlib
 from unittest.mock import MagicMock
@@ -182,7 +183,10 @@ def test_in_memory_logger_get_timeseries():
 
 
 @pytest.mark.world_size(2)
-def test_logger_run_name(dummy_state: State,):
+def test_logger_run_name(dummy_state: State):
+    # need to manually initialize distributed if not already initialized, since this test occurs outside of the trainer
+    if not dist.is_initialized():
+        dist.initialize_dist('gloo', timeout=datetime.timedelta(seconds=5))
     # seeding with the global rank to ensure that each rank has a different seed
     reproducibility.seed_all(dist.get_global_rank())
 
