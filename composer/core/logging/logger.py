@@ -68,7 +68,6 @@ class Logger:
 
                 import random
                 import coolname
-                import time
 
                 coolname.replace_random(random.Random(0))
 
