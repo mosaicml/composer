@@ -55,7 +55,7 @@ default_required_fields = {
     },
     CutOutHparams: {
         'num_holes': 1,
-        'length': 112
+        'length': 0.5
     },
     MixUpHparams: {
         'alpha': 0.2,
