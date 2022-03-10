@@ -138,11 +138,11 @@ class ProgressBarLogger(LoggerDestination):
             desc += f", Batch {int(state.timer.batch)} (val)"
         self.pbars[self.is_train] = _ProgressBarLoggerInstance(
             _ProgressBarLoggerInstanceState(total=total_steps,
-                                         position=position,
-                                         n=0,
-                                         keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
-                                         description=desc,
-                                         epoch_metrics={}))
+                                            position=position,
+                                            n=0,
+                                            keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
+                                            description=desc,
+                                            epoch_metrics={}))
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
