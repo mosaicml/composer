@@ -247,6 +247,81 @@ class ObjectStoreLogger(LoggerDestination):
         provider_prefix = f"{provider_name}://{container}/"
         return provider_prefix + obj_name.lstrip("/")
 
+    def format_object_name(self, artifact_name: str):
+        """Format the ``artifact_name`` according to the ``object_name_format_string``.
+
+        The following format variables are available:
+
+        +------------------------+-------------------------------------------------------+
+        | Variable               | Description                                           |
+        +========================+=======================================================+
+        | ``{artifact_name}``    | The name of the artifact being logged.                |
+        +------------------------+-------------------------------------------------------+
+        | ``{run_name}``         | The name of the training run. See                     |
+        |                        | :attr:`~composer.core.logging.Logger.run_name`.       |
+        +------------------------+-------------------------------------------------------+
+        | ``{rank}``             | The global rank, as returned by                       |
+        |                        | :func:`~composer.utils.dist.get_global_rank`.         |
+        +------------------------+-------------------------------------------------------+
+        | ``{local_rank}``       | The local rank of the process, as returned by         |
+        |                        | :func:`~composer.utils.dist.get_local_rank`.          |
+        +------------------------+-------------------------------------------------------+
+        | ``{world_size}``       | The world size, as returned by                        |
+        |                        | :func:`~composer.utils.dist.get_world_size`.          |
+        +------------------------+-------------------------------------------------------+
+        | ``{local_world_size}`` | The local world size, as returned by                  |
+        |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
+        +------------------------+-------------------------------------------------------+
+        | ``{node_rank}``        | The node rank, as returned by                         |
+        |                        | :func:`~composer.utils.dist.getnode_rank`.            |
+        +------------------------+-------------------------------------------------------+
+
+        The resulting checkpoint file name will be approximately
+        ``self.object_name_format.format(artifact_name=artifact_name, run_name=..., ...)``.
+
+        Leading and trailing slashes (``'/'``) will be stripped.
+
+        Consider the following example, where the :attr:`~.Logger.run_name` is ``'foo'``.
+
+        .. testsetup:: composer.loggers.object_store_logger.ObjectStoreLogger.format_object_name
+            state = State(
+                train_dataloader=train_dataloader,
+                max_duration='1ep',
+                model=model,
+                rank_zero_seed=0,
+            )
+            state.timer._batch.value = 42
+            state.timer._epoch.value = 1
+            object_store_logger = ObjectStoreLogger(..., key_name_format='{run_name}/{artifact_name}')
+            logger = Logger(..., run_name='foo', destinations=[object_store_logger])
+            object_store_logger.run_event(Event.INIT, state, logger)
+
+            # Return the already created instance.
+            def ObjectStoreLogger(*args, **kwargs):
+                return object_store_logger
+        
+        .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.format_object_name
+
+            >>> object_store_logger = ObjectStoreLogger(..., key_name_format='{run_name}/{artifact_name}')
+            >>> object_store_logger.format_object_name(artifact_name='bar')
+            'foo/bar'
+        """
+        if self._run_name is None:
+            raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
+        key_name = self.object_name_format.format(
+            rank=dist.get_global_rank(),
+            local_rank=dist.get_local_rank(),
+            world_size=dist.get_world_size(),
+            local_world_size=dist.get_local_world_size(),
+            node_rank=dist.get_node_rank(),
+            artifact_name=artifact_name,
+            run_name=self._run_name,
+        )
+        key_name = key_name.lstrip('/')
+        key_name = key_name.rstrip('/')
+
+        return key_name
+
 
 def _validate_credentials(
     object_store_provider_hparams: ObjectStoreProviderHparams,
