@@ -18,7 +18,7 @@ __all__ = ["FileLogger"]
 
 
 class FileLogger(LoggerDestination):
-    """Logs to a file or to the terminal.
+    """Log data to a file.
 
     Example usage:
         .. testcode::
@@ -62,8 +62,7 @@ class FileLogger(LoggerDestination):
 
 
     Args:
-        filename (str, optional): File to log to.
-            Can be a filepath, ``"stdout"``, or ``"stderr"``. Default: ``"stdout"``.
+        filename (str): File to log to.
             Filepaths should be specified relative to the
             :mod:`~.composer.utils.run_directory`.
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
@@ -86,7 +85,7 @@ class FileLogger(LoggerDestination):
 
     def __init__(
         self,
-        filename: str = 'stdout',
+        filename: str,
         *,
         buffer_size: int = 1,
         log_level: LogLevel = LogLevel.EPOCH,
@@ -142,14 +141,9 @@ class FileLogger(LoggerDestination):
         del state, logger  # unused
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
-        if self.filename == "stdout":
-            self.file = sys.stdout
-        elif self.filename == "stderr":
-            self.file = sys.stderr
-        else:
-            self.file = open(os.path.join(run_directory.get_run_directory(), self.filename),
-                             "x+",
-                             buffering=self.buffer_size)
+        self.file = open(os.path.join(run_directory.get_run_directory(), self.filename),
+                         "x+",
+                         buffering=self.buffer_size)
         if self.config is not None:
             print("Config", file=self.file)
             print("-" * 30, file=self.file)
@@ -175,13 +169,11 @@ class FileLogger(LoggerDestination):
 
     def _flush_file(self) -> None:
         assert self.file is not None
-        if self.file not in (sys.stdout, sys.stderr):
-            self.file.flush()
-            os.fsync(self.file.fileno())
+        self.file.flush()
+        os.fsync(self.file.fileno())
 
     def close(self) -> None:
         if self.file is not None:
-            if self.file not in (sys.stdout, sys.stderr):
-                self._flush_file()
-                self.file.close()
+            self._flush_file()
+            self.file.close()
             self.file = None

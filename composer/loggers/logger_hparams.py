@@ -15,7 +15,7 @@ from composer.core.types import JSON
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.object_store_logger import ObjectStoreLogger
-from composer.loggers.tqdm_logger import TQDMLogger
+from composer.loggers.terminal_logger import TerminalLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import ObjectStoreProviderHparams, dist, import_object
 
@@ -23,7 +23,7 @@ __all__ = [
     "FileLoggerHparams",
     "InMemoryLoggerHparams",
     "LoggerDestinationHparams",
-    "TQDMLoggerHparams",
+    "TerminalLoggerHparams",
     "WandBLoggerHparams",
     "ObjectStoreLoggerHparams",
 ]
@@ -218,14 +218,14 @@ class WandBLoggerHparams(LoggerDestinationHparams):
 
 
 @dataclass
-class TQDMLoggerHparams(LoggerDestinationHparams):
-    """:class:`~composer.loggers.tqdm_logger.TQDMLogger`
+class TerminalLoggerHparams(LoggerDestinationHparams):
+    """:class:`~composer.loggers.terminal_logger.TerminalLogger`
     hyperparameters. This class takes no parameters.
     """
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
-        from composer.loggers.tqdm_logger import TQDMLogger
-        return TQDMLogger(config=config)
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TerminalLogger:
+        from composer.loggers.terminal_logger import TerminalLogger
+        return TerminalLogger(config=config)
 
 
 @dataclass
