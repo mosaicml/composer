@@ -10,6 +10,7 @@ from composer.datasets.webdataset import create_webdataset
 def parse_args() -> Namespace:
     """Parse commandline arguments."""
     args = ArgumentParser()
+    args.add_argument('--in_root', type=str, required=True)
     args.add_argument('--out_root', type=str, required=True)
     args.add_argument('--train_shards', type=int, default=128)
     args.add_argument('--val_shards', type=int, default=128)
@@ -57,11 +58,11 @@ def main(args: Namespace) -> None:
     Args:
         args (Namespace): Commandline arguments.
     """
-    dataset = MNIST(root='/datasets/mnist', train=True, download=True)
+    dataset = MNIST(root=args.in_root, train=True, download=True)
     images, classes = shuffle(dataset)
     create_webdataset(each_sample(images, classes), args.out_root, 'train', len(images), args.train_shards, args.tqdm)
 
-    dataset = MNIST(root='/datasets/mnist', train=False, download=True)
+    dataset = MNIST(root=args.in_root, train=False, download=True)
     images, classes = shuffle(dataset)
     create_webdataset(each_sample(images, classes), args.out_root, 'val', len(images), args.val_shards, args.tqdm)
 

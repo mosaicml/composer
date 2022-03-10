@@ -11,6 +11,7 @@ from composer.datasets.webdataset import create_webdataset
 def parse_args() -> Namespace:
     """Parse commandline arguments."""
     args = ArgumentParser()
+    args.add_argument('--in_root', type=str, required=True)
     args.add_argument('--out_root', type=str, required=True)
     args.add_argument('--train_shards', type=int, default=128)
     args.add_argument('--val_shards', type=int, default=128)
@@ -67,12 +68,12 @@ def main(args: Namespace) -> None:
         args (Namespace): Commandline arguments.
     """
     with pipes():
-        dataset = CIFAR100(root="/datasets/cifar100", train=True, download=True)
+        dataset = CIFAR100(root=args.in_root, train=True, download=True)
     images, classes = shuffle(dataset)
     create_webdataset(each_sample(images, classes), args.out_root, 'train', len(images), args.train_shards, args.tqdm)
 
     with pipes():
-        dataset = CIFAR100(root="/datasets/cifar100", train=False, download=True)
+        dataset = CIFAR100(root=args.in_root, train=False, download=True)
     images, classes = shuffle(dataset)
     create_webdataset(each_sample(images, classes), args.out_root, 'val', len(images), args.val_shards, args.tqdm)
 
