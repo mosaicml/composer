@@ -23,7 +23,7 @@ optimizer:
     weight_decay: 1.0e-5
 schedulers:
   - cosine_decay_with_warmup:
-      warmup_time: "16ep"
+      t_warmup: "16ep"
 model:
   efficientnetb0:
     drop_connect_rate: 0.2

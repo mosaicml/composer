@@ -1,0 +1,51 @@
+train_dataset:
+  imagenet:
+    resize_size: -1
+    crop_size: 224
+    is_train: true
+    datadir: /datasets/ImageNet
+    shuffle: true
+    drop_last: true
+val_dataset:
+  imagenet:
+    resize_size: 256
+    crop_size: 224
+    is_train: false
+    datadir: /datasets/ImageNet
+    shuffle: false
+    drop_last: false
+optimizer:
+  adamw:
+    lr: 3e-3
+    betas:
+      - 0.9
+      - 0.999
+    eps: 1.0e-08
+    weight_decay: 0.3
+schedulers:
+  - cosine_decay_with_warmup:
+      t_warmup: "32ep"
+model:
+  vit_small_patch16:
+    num_classes: 1000
+    image_size: 224
+    channels: 3
+    dropout: 0.1
+loggers:
+  - tqdm: {}
+max_duration: 300ep
+train_batch_size: 4096
+eval_batch_size: 512
+seed: 1337
+device:
+  gpu: {}
+dataloader:
+  pin_memory: true
+  timeout: 0
+  prefetch_factor: 2
+  persistent_workers: true
+  num_workers: 8
+validate_every_n_epochs: 1
+grad_accum: 8
+grad_clip_norm: 1.0
+precision: amp

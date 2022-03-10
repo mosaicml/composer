@@ -25,10 +25,14 @@ from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCa
                               WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNetHparams, SSDHparams, TimmHparams, UnetHparams)
+                             ResNetHparams, SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
-from composer.optim import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams, OptimizerHparams,
-                            RAdamHparams, RMSPropHparams, SchedulerHparams, SGDHparams, scheduler)
+from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams, CosineAnnealingSchedulerHparams,
+                            CosineAnnealingWarmRestartsSchedulerHparams, CosineAnnealingWithWarmupSchedulerHparams,
+                            DecoupledAdamWHparams, DecoupledSGDWHparams, ExponentialSchedulerHparams,
+                            LinearSchedulerHparams, LinearWithWarmupSchedulerHparams, MultiStepSchedulerHparams,
+                            MultiStepWithWarmupSchedulerHparams, OptimizerHparams, PolynomialSchedulerHparams,
+                            RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
 from composer.profiler.profiler_hparams import JSONTraceHandlerHparams, ProfilerEventHandlerHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
@@ -48,21 +52,21 @@ optimizer_registry = {
     "radam": RAdamHparams,
     "sgd": SGDHparams,
     "decoupled_sgdw": DecoupledSGDWHparams,
-    "rmsprop": RMSPropHparams,
+    "rmsprop": RMSpropHparams,
 }
 
 scheduler_registry = {
-    "step": scheduler.StepLRHparams,
-    "multistep": scheduler.MultiStepLRHparams,
-    "exponential": scheduler.ExponentialLRHparams,
-    "linear_decay": scheduler.LinearLRHparams,
-    "cosine_decay": scheduler.CosineAnnealingLRHparams,
-    "cosine_warmrestart": scheduler.CosineAnnealingWarmRestartsHparams,
-    "constant": scheduler.ConstantLRHparams,
-    "polynomial": scheduler.PolynomialLRHparams,
-    "multistep_with_warmup": scheduler.MultiStepWithWarmupLRHparams,
-    "linear_decay_with_warmup": scheduler.LinearWithWarmupLRHparams,
-    "cosine_decay_with_warmup": scheduler.CosineAnnealingWithWarmupLRHparams,
+    "step": StepSchedulerHparams,
+    "multistep": MultiStepSchedulerHparams,
+    "exponential": ExponentialSchedulerHparams,
+    "linear_decay": LinearSchedulerHparams,
+    "cosine_decay": CosineAnnealingSchedulerHparams,
+    "cosine_warmrestart": CosineAnnealingWarmRestartsSchedulerHparams,
+    "constant": ConstantSchedulerHparams,
+    "polynomial": PolynomialSchedulerHparams,
+    "multistep_with_warmup": MultiStepWithWarmupSchedulerHparams,
+    "linear_decay_with_warmup": LinearWithWarmupSchedulerHparams,
+    "cosine_decay_with_warmup": CosineAnnealingWithWarmupSchedulerHparams,
 }
 
 model_registry = {
@@ -78,7 +82,8 @@ model_registry = {
     "gpt2": GPT2Hparams,
     "bert": BERTHparams,
     "bert_classification": BERTForClassificationHparams,
-    "timm": TimmHparams
+    "timm": TimmHparams,
+    "vit_small_patch16": ViTSmallPatch16Hparams
 }
 
 dataset_registry = get_dataset_registry()
