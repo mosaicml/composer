@@ -1,5 +1,5 @@
-"""SSD 300 utils adapted from `MLCommons.
-
+"""SSD 300 utils adapted from 
+`MLCommons
 <https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd>`_.
 """
 

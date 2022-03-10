@@ -29,11 +29,13 @@ class NormalizationFn:
 
     An instance of this class can be used as the ``device_transforms`` argument
     when constructing a :class:`~composer.core.data_spec.DataSpec`. When used here,
-    the data will normalized after it has been loaded onto the device (i.e. GPU).
+    the data will normalized after it has been loaded onto the device (i.e., GPU).
 
     Args:
-        mean (Tuple[float, float, float]): The mean pixel value for each channel (RGB) for the dataset.
-        std (Tuple[float, float, float]): The standard deviation pixel value for each channel (RGB) for the dataset.
+        mean (Tuple[float, float, float]): The mean pixel value for each channel (RGB) for
+            the dataset.
+        std (Tuple[float, float, float]): The standard deviation pixel value for each
+            channel (RGB) for the dataset.
         ignore_background (bool): If ``True``, ignore the background class in the training
             loss. Only used in semantic segmentation. Default: ``False``.
     """
@@ -119,9 +121,9 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
     Args:
         dataset (VisionDataset): A torchvision dataset.
         transform (Callable): Function to be added to the dataset's collection of
-            :attr:`~torchvision.dataset.transform`\\s.
-        is_tensor_transform (bool): Whether ``transform`` acts on data of the type :class:`~torch.Tensor`.
-            (default: ``False``)
+            transforms.
+        is_tensor_transform (bool): Whether ``transform`` acts on data of the type
+            :class:`~torch.Tensor`. default: ``False``.
 
             * If ``True``, and :class:`~torchvision.transforms.ToTensor` is present in
               ``dataset``'s transforms, ``transform`` will be inserted after the

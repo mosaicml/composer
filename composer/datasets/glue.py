@@ -1,8 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""`General Language Understanding Evaluation (GLUE; Wang et al, 2019)
-
-<https://gluebenchmark.com/>`_ benchmark datasets.
+"""GLUE (General Language Understanding Evaluation) dataset (Wang et al, 2019).
 
 The GLUE benchmark datasets consist of nine sentence- or sentence-pair language
 understanding tasks designed to cover a diverse range of dataset sizes, text genres, and
@@ -11,6 +9,8 @@ degrees of difficulty.
 Note that the GLUE diagnostic dataset, which is designed to evaluate and analyze model
 performance with respect to a wide range of linguistic phenomena found in natural
 language, is not included here.
+
+Please refer to the `GLUE benchmark <https://gluebenchmark.com/>`_ for more details. 
 """
 
 import logging
@@ -61,7 +61,7 @@ class GLUEHparams(DatasetHparams):
             they fail. Default: ``10``.
 
     Returns:
-        A :class:`~composer.core.DataSpec` object.
+       DataSpe: A :class:`~composer.core.DataSpec` object.
     """
 
     task: str = hp.optional(

@@ -16,11 +16,25 @@ __all__ = ["SyntheticDataType", "SyntheticDataLabelType", "SyntheticBatchPairDat
 
 
 class SyntheticDataType(StringEnum):
+    """Defines the distribution of the synthetic data. 
+    
+    Attributes:
+        GAUSSIAN: Standard Guassian distribution.
+        SEPARABLE: Gaussian distributed, but classes will be mean-shifted for
+            separability.
+    """
+
     GAUSSIAN = "gaussian"
     SEPARABLE = "separable"
 
 
 class SyntheticDataLabelType(StringEnum):
+    """Defines the class label type of the synthetic data.
+
+    Attributes:
+        CLASSIFICATION_INT: Class labels are ints.
+        CLASSIFICATION_ONE_HOT: Class labels are one-hot vectors.
+    """
     CLASSIFICATION_INT = "classification_int"
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
 
@@ -141,7 +155,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
 
 
 class SyntheticPILDataset(VisionDataset):
-    """Similar to :class:`SyntheticBatchPairDataset`, but yields samples of type :class:`~Image.Image` and supports
+    """Similar to :class:`SyntheticBatchPairDataset`, but yields samples of type :class:`~PIL.Image.Image` and supports
     dataset transformations.
 
     Args:
@@ -154,7 +168,7 @@ class SyntheticPILDataset(VisionDataset):
             create. Default: ``SyntheticDataLabelType.CLASSIFICATION_INT``.
         num_classes (int, optional): Number of classes to use. Required if
             ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT``
-            or``CLASSIFICATION_ONE_HOT``. Default: ``None``.
+            or ``CLASSIFICATION_ONE_HOT``. Default: ``None``.
         label_shape (List[int], optional): Shape of the tensor for each sample label.
             Default: ``None``.
         transform (Callable, optional): Transform(s) to apply to data. Default: ``None``.

@@ -39,7 +39,7 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
             with the dataloader. Set to ``'cpu'`` to move data between host memory and the
             device on every batch. Ignored if :attr:`use_synthetic` is False. Default:
             ``'cpu'``.
-        synthetic_memory_format: The :class:`MemoryFormat` to use.
+        synthetic_memory_format: The :class:`~.core.types.MemoryFormat` to use.
             Ignored if :attr:`use_synthetic` is False. Default: ``'CONTIGUOUS_FORMAT'``.
     """
 
@@ -76,7 +76,8 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
-        """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
+        """Creates a :class:`~.core.type.DataLoader` or
+        :class:`~.core.types.DataSpec` for this dataset.
 
         Args:
             batch_size (int): The size of the batch the dataloader should yield. This
@@ -86,14 +87,14 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
 
         Returns:
             Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of
-                custom types, a :class:`DataSpec`.
+                custom types, a :class:`~core.types.DataSpec`.
         """
         pass
 
 
 @dataclass
 class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
-    """Abstract base class for hyperparameters to initialize a dataset.
+    """Abstract base class for hyperparameters to initialize a webdataset.
 
     Args:
         webdataset_cache_dir (str): WebDataset cache directory.
@@ -106,15 +107,7 @@ class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
-        """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
-
-        Args:
-            batch_size (int): The size of the batch the dataloader should yield. This batch size is
-                device-specific and already incorporates the world size.
-            dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
-
-        Returns:
-            Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
-                a :class:`DataSpec`.
+        """Creates a :class:`~.core.types.DataLoader` or
+        :class:`~.core.types.DataloaderSpec` for this dataset.
         """
         pass

@@ -62,7 +62,6 @@ class LMDatasetHparams(DatasetHparams):
     # other datasets
     datadir: List[str] = hp.optional(  # type: ignore
         "Path to the Huggingface Datasets directory.", default_factory=list)
-
     split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     tokenizer_name: Optional[str] = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
     use_masked_lm: bool = hp.optional("Whether the dataset should be encoded with masked language modeling or not.",
