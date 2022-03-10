@@ -1241,7 +1241,7 @@ class Trainer:
             for optimizer in ensure_tuple(self.state.optimizers))
 
     def save_checkpoint(self, name_format: str = "ep{epoch}-ba{batch}/rank_{rank}", *, weights_only: bool = False):
-        """Checkpoint the training ``state``.
+        """Checkpoint the training :class:`~.State`.
 
         Args:
             name_format (str, optional): See :func:`.save_checkpoint`.
