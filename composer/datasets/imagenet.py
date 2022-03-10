@@ -1,5 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""ImageNet classfication dataset.
+
+The most widely used dataset for Image Classification algorithms. Please refer to the `ImageNet 2012 Classification
+Dataset <http://image-net.org/>`_ for more details. Also includes streaming dataset versions based on the `WebDatasets
+<https://github.com/webdataset/webdataset>`_.
+"""
+
 import os
 from dataclasses import dataclass
 from typing import List
@@ -21,14 +28,16 @@ from composer.utils import dist
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
+__all__ = ["ImagenetDatasetHparams", "Imagenet1kWebDatasetHparams", "TinyImagenet200WebDatasetHparams"]
+
 
 @dataclass
 class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the ImageNet dataset for image classification.
 
-    Parameters:
-        resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.
-        crop size (int): The crop size to use.
+    Args:
+        resize_size (int, optional): The resize size to use. Use ``-1`` to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
     """
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
@@ -92,16 +101,17 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the TinyImagenet-200 WebDataset for image classification.
 
-    Parameters:
+    Args:
         remote (str): S3 bucket or root directory where dataset is stored.
-        name (str): Key used to determine where dataset is cached on local filesystem.
-        n_train_samples (int): Number of training samples.
-        n_val_samples (int): Number of validation samples.
-        height (int): Sample image height in pixels.
-        width (int): Sample image width in pixels.
-        n_classes (int): Number of output classes.
-        channel_means (list of float): Channel means for normalization.
-        channel_stds (list of float): Channel stds for normalization.
+            Default: ``'s3://mosaicml-internal-dataset-tinyimagenet200'``.
+        name (str): Key used to determine where dataset is cached on local filesystem. Default: ``'tinyimagenet200'``.
+        n_train_samples (int): Number of training samples. Default: ``100000``.
+        n_val_samples (int): Number of validation samples. Default: ``10000``.
+        height (int): Sample image height in pixels. Default: ``64``.
+        width (int): Sample image width in pixels. Default: ``64``.
+        n_classes (int): Number of output classes. Default: ``200``.
+        channel_means (list of float): Channel means for normalization. Default: ``(0.485, 0.456, 0.406)``.
+        channel_stds (list of float): Channel stds for normalization. Default: ``(0.229, 0.224, 0.225)``.
     """
 
     remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-tinyimagenet200')
@@ -144,13 +154,14 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
 
 @dataclass
 class Imagenet1kWebDatasetHparams(WebDatasetHparams):
-    """Defines an instance of the ImageNet-1k dataset for image classification.
+    """Defines an instance of the ImageNet-1k WebDataset for image classification.
 
-    Parameters:
+    Args:
         remote (str): S3 bucket or root directory where dataset is stored.
-        name (str): Key used to determine where dataset is cached on local filesystem.
-        resize_size (int, optional): The resize size to use. Defaults to -1 to not resize.
-        crop size (int): The crop size to use.
+            Default: ``'s3://mosaicml-internal-dataset-imagenet1k'``.
+        name (str): Key used to determine where dataset is cached on local filesystem. Default: ``'imagenet1k'``.
+        resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
     """
 
     remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-imagenet1k')

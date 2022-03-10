@@ -1,5 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""BraTS (Brain Tumor Segmentation) dataset.
+
+Please refer to the `Brain Tumor Segmentation (BraTS) challenge <https://www.med.upenn.edu/cbica/brats2021/>`_ for more
+details about this dataset.
+"""
+
 import glob
 import os
 import random
@@ -19,6 +25,8 @@ from composer.utils import dist
 
 PATCH_SIZE = [1, 192, 160]
 
+__all__ = ["BratsDatasetHparams"]
+
 
 def _my_collate(batch):
     """Custom collate function to handle images with different depths."""
@@ -32,8 +40,8 @@ def _my_collate(batch):
 class BratsDatasetHparams(DatasetHparams):
     """Defines an instance of the BraTS dataset for image segmentation.
 
-    Parameters:
-        oversampling (float): The oversampling ratio to use.
+    Args:
+        oversampling (float): The oversampling ratio to use. Default: ``0.33``.
     """
 
     oversampling: float = hp.optional("oversampling", default=0.33)
@@ -43,7 +51,7 @@ class BratsDatasetHparams(DatasetHparams):
         oversampling = self.oversampling
 
         if self.datadir is None:
-            raise ValueError("datadir must be specified if self.synthetic is False")
+            raise ValueError("datadir must be specified.")
         x_train, y_train, x_val, y_val = get_data_split(self.datadir)
         dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
         collate_fn = None if self.is_train else _my_collate
