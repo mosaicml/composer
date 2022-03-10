@@ -165,7 +165,19 @@ def _init_webdataset(remote: str,
 
 def _size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int, n_devices: int,
                      workers_per_device: int, batch_size: int, drop_last: bool) -> WebDataset:
-    """Calculate WebDataset with_epoch() and with_length().
+    """Set IterableDataset epoch boundary and length for DDP, PyTorch DataLoader compatability.
+
+    Calculation:
+                                        shards
+        shards per worker = ------------------------------
+                             devices * workers per device
+
+        samples per worker = samples per shard * shards per worker
+
+        If drop last,
+            samples per worker = samples per worker // batch size * batch size
+
+        samples per device = samples per worker * workers per device
 
     Args:
         dataset (WebDataset):
@@ -183,7 +195,6 @@ def _size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int,
     if n_shards % n_workers_global != 0:
         raise ValueError(f"n_shards={n_shards} must be divisible by n_workers_global={n_workers_global}!")
 
-    # Set IterableDataset epoch boundary and length for DDP, PyTorch Dataloader compatability
     shards_per_worker = n_shards // n_devices // workers_per_device
     expected_samples_per_worker = samples_per_shard * shards_per_worker
     if drop_last:
