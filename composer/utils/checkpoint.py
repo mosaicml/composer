@@ -91,7 +91,7 @@ def load_checkpoint(
         state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
         object_store (ObjectStoreProvider, optional): If the ``path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
-            :class:`~composer.utils.object_store.ObjectStoreProvider` which will be used
+            :class:`~.ObjectStoreProvider` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
             (default: ``None``)
         load_weights_only (bool, optional): Whether or not to only restore the model weights from the checkpoint without
@@ -291,19 +291,19 @@ def format_name(name_format: str, state: State):
     | Variable               | Description                                           |
     +========================+=======================================================+
     | ``{rank}``             | The global rank, as returned by                       |
-    |                        | :func:`~composer.utils.dist.get_global_rank`.         |
+    |                        | :func:`~.dist.get_global_rank`.                       |
     +------------------------+-------------------------------------------------------+
     | ``{local_rank}``       | The local rank of the process, as returned by         |
-    |                        | :func:`~composer.utils.dist.get_local_rank`.          |
+    |                        | :func:`~.dist.get_local_rank`.                        |
     +------------------------+-------------------------------------------------------+
     | ``{world_size}``       | The world size, as returned by                        |
-    |                        | :func:`~composer.utils.dist.get_world_size`.          |
+    |                        | :func:`~.dist.get_world_size`.                        |
     +------------------------+-------------------------------------------------------+
     | ``{local_world_size}`` | The local world size, as returned by                  |
-    |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
+    |                        | :func:`~.dist.get_local_world_size`.                  |
     +------------------------+-------------------------------------------------------+
     | ``{node_rank}``        | The node rank, as returned by                         |
-    |                        | :func:`~composer.utils.dist.get_node_rank`.           |
+    |                        | :func:`~.dist.get_node_rank`.                         |
     +------------------------+-------------------------------------------------------+
     | ``{epoch}``            | The total epoch count, as returned by                 |
     |                        | :meth:`~composer.core.time.Timer.epoch`.              |

@@ -95,7 +95,7 @@ class CheckpointSaver(Callback):
 
             If an absolute path is specified, then
             that path will be used. Otherwise, the ``save_folder`` will be relative
-            to the folder returned by :meth:`~composer.utils.run_directory.get_run_directory`.
+            to the folder returned by :meth:`~.run_directory.get_run_directory`.
             If the ``save_folder`` does not exist, it will be created.
 
         name_format (str, optional): A format string describing how to name checkpoints.
@@ -198,7 +198,7 @@ class CheckpointSaver(Callback):
             is the start time of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process,
             and ``save_folder`` is the save_folder argument provided upon construction.
 
-            .. seealso:: :mod:`~composer.utils.run_directory` for details on the format of the run directory
+            .. seealso:: :mod:`~.run_directory` for details on the format of the run directory
                 and how to customize it.
         saved_checkpoints (Dict[Timestamp, List[str]]): A dictionary mapping a save timestamp
             to a list of filepaths corresponding to the checkpoints saved at that time.
