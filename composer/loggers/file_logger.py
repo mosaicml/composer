@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import queue
 import sys
-from typing import Any, Dict, Optional, TextIO
+from typing import Any, Callable, Dict, Optional, TextIO
 
 import yaml
 
@@ -169,20 +169,27 @@ class FileLogger(LoggerDestination):
         self._run_name = None
 
         if capture_stdout:
-
-            def new_stdout_write(s: str) -> int:
-                self._stdout_queue.put_nowait(s)
-                return self._original_stdout_write(s)
-
-            sys.stdout.write = new_stdout_write
+            sys.stdout.write = self._get_new_writer("[stdout]", self._stdout_queue, self._original_stdout_write)
 
         if capture_stderr:
+            sys.stderr.write = self._get_new_writer("[stderr]", self._stderr_queue, self._original_stderr_write)
 
-            def new_stderr_write(s: str) -> int:
-                self._stderr_queue.put_nowait(s)
-                return self._original_stderr_write(s)
+    def _get_new_writer(self, prefix: str, q: queue.Queue, original_writer: Callable[[str], int]):
+        """Returns a writer captures calls to the ``original_writer``."""
 
-            sys.stderr.write = new_stderr_write
+        def new_write(s: str) -> int:
+
+            if self.file is None:
+                q.put_nowait(s)
+            else:
+                # Write directly if the file is open, in case if there was an error,
+                # and the process crashes before the queue can be flushed
+                # But first, flush the existing queue, so messages will print in order
+                self._flush_queue(prefix, q)
+                self._print_to_file(prefix, s)
+            return original_writer(s)
+
+        return new_write
 
     @property
     def filename(self) -> str:
@@ -289,7 +296,7 @@ class FileLogger(LoggerDestination):
 
         # Writing all lines in one print statement to ensure a single call to `_print_to_file`
         # does not interleave the lines.
-        print(os.sep.join(formatted_lines), file=self.file, flush=False, end='')
+        print(''.join(formatted_lines), file=self.file, flush=False, end='')
 
     def _flush_queue(self, prefix: str, q: queue.Queue):
         while True:
