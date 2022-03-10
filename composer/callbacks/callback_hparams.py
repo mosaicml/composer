@@ -158,7 +158,7 @@ class CheckpointSaverHparams(CallbackHparams):
     save_interval: str = hp.optional(textwrap.dedent("""\
         Checkpoint interval or path to a `(State, Event) -> bool` function
         returning whether a checkpoint should be saved."""),
-                                   default="1ep")
+                                     default="1ep")
 
     def initialize_object(self) -> CheckpointSaver:
         try:

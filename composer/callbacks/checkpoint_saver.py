@@ -79,23 +79,31 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 class CheckpointSaver(Callback):
     """Callback to save checkpoints.
 
+    .. note::
+
+        If the ``save_folder`` argument is specified constructing the :class:`~composer.trainer.trainer.Trainer`,
+        then the :class:`.CheckpointSaver` callback need not be constructed manually. However, for advanced
+        checkpointing use cases (such as saving a weights-only checkpoint at one interval and the full training state
+        at another interval), instance(s) of this :class:`.CheckpointSaver` callback can be specified in the
+        ``callbacks`` argument of the :class:`~composer.trainer.trainer.Trainer`, as shown in the example below.
+
     Example
 
-        .. testsetup::
+    .. testsetup::
 
-            from composer.callbacks.checkpoint_saver import CheckpointSaver
+        from composer.callbacks.checkpoint_saver import CheckpointSaver
 
-        .. doctest::
+    .. doctest::
 
-            >>> trainer = Trainer(..., callbacks=[
-            ...     CheckpointSaver(
-            ...         save_folder='checkpoints',
-            ...         name_format="ep{epoch}-ba{batch}/rank_{rank}",
-            ...         save_latest_format="latest/rank_{rank}",
-            ...         save_interval="1ep",
-            ...         weights_only=False,
-            ...     )
-            ... ])
+        >>> trainer = Trainer(..., callbacks=[
+        ...     CheckpointSaver(
+        ...         save_folder='checkpoints',
+        ...         name_format="ep{epoch}-ba{batch}/rank_{rank}",
+        ...         save_latest_format="latest/rank_{rank}",
+        ...         save_interval="1ep",
+        ...         weights_only=False,
+        ...     )
+        ... ])
 
     Args:
         save_folder (str): Folder where checkpoints are saved.
