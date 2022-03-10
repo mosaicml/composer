@@ -25,8 +25,8 @@ import torch.nn.functional as F
 def training_loop(model, train_loader):
     opt = torch.optim.Adam(model.parameters())
 
-    # only need to pass in opt if apply_blurpool is used after optimizer creation
-    # otherwise only the model needs to be passed in
+    # only need to pass in opt if apply_blurpool is used after optimizer
+    # creation; otherwise only the model needs to be passed in
     cf.apply_blurpool(model,
                     optimizers=opt,
                     replace_convs=True,
@@ -49,7 +49,7 @@ def training_loop(model, train_loader):
 
 ```python
 # Instantiate the algorithm and pass it into the Trainer
-# The trainer will automatically run it at the appropriate points in the training loop
+# The trainer will automatically run it at the appropriate point in the training loop
 
 from composer.algorithms import BlurPool
 from composer.trainer import Trainer
@@ -59,7 +59,7 @@ def train_model(model, train_dataloader):
                         replace_maxpools=True)
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
-                      max_duration='1ep',
+                      max_duration='10ep',
                       algorithms=[blurpool])
     trainer.fit()
 ```
