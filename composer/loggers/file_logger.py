@@ -108,24 +108,24 @@ class FileLogger(LoggerDestination):
         self.is_epoch_interval = False
         self.file: Optional[TextIO] = None
         self.config = config
-        self._stdout_queue = queue.Queue()
-        self._stderr_queue = queue.Queue()
+        self._stdout_queue: queue.Queue[str] = queue.Queue()
+        self._stderr_queue: queue.Queue[str] = queue.Queue()
         self._original_stdout_write = sys.stdout.write
         self._original_stderr_write = sys.stderr.write
 
         if capture_stdout:
 
-            def new_stdout_write(__s: str) -> int:
-                self._stdout_queue.put_nowait(__s)
-                return self._original_stdout_write(__s)
+            def new_stdout_write(s: str) -> int:
+                self._stdout_queue.put_nowait(s)
+                return self._original_stdout_write(s)
 
             sys.stdout.write = new_stdout_write
 
         if capture_stderr:
 
-            def new_stderr_write(__s: str) -> int:
-                self._stderr_queue.put_nowait(__s)
-                return self._original_stderr_write(__s)
+            def new_stderr_write(s: str) -> int:
+                self._stderr_queue.put_nowait(s)
+                return self._original_stderr_write(s)
 
             sys.stderr.write = new_stderr_write
 
@@ -202,16 +202,22 @@ class FileLogger(LoggerDestination):
                 data = self._stdout_queue.get_nowait()
             except queue.Empty:
                 break
-            for line in data.split("\n"):
-                print(f"[stdout]: {line}", file=self.file, flush=False)
+            for line in data.splitlines(True):
+                if line == os.linesep:
+                    print(line, file=self.file, flush=False, end='')
+                else:
+                    print(f"[stdout]: {line}", file=self.file, flush=False, end='')
 
         while True:
             try:
                 data = self._stderr_queue.get_nowait()
             except queue.Empty:
                 break
-            for line in data.split("\n"):
-                print(f"[stderr]: {line}", file=self.file, flush=False)
+            for line in data.splitlines(True):
+                if line == os.linesep:
+                    print(line, file=self.file, flush=False, end='')
+                else:
+                    print(f"[stderr]: {line}", file=self.file, flush=False, end='')
 
         self.file.flush()
         os.fsync(self.file.fileno())
