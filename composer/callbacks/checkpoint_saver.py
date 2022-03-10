@@ -124,8 +124,12 @@ class CheckpointSaver(Callback):
 
                 *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
                     to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
-                    compression algorithm). Using compression will block the training loop while checkpoints are
-                    being compressed. As such, we recommend saving checkpoints without compression.
+                    compression algorithm).
+            
+            .. warning::
+
+                Using compression will block the training loop while checkpoints are being compressed. As such, we
+                recommend saving checkpoints without compression.
 
             Consider the following scenario, where:
 

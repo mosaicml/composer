@@ -384,7 +384,6 @@ def format_name(name_format: str, state: State):
         .. testcleanup:: composer.utils.checkpoint.format_name.deepspeed
 
             setattr(State, 'is_model_deepspeed', original_is_model_deepspeed)
-
     """
     checkpoint_name = name_format.format(
         rank=dist.get_global_rank(),
@@ -432,8 +431,12 @@ def save_checkpoint(state: State,
 
                 *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
                     to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
-                    compression algorithm). Using compression will block the training loop while checkpoints are
-                    being compressed. As such, we recommend saving checkpoints without compression.
+                    compression algorithm).
+
+            .. warning::
+
+                Using compression will block the training loop while checkpoints are being compressed. As such, we
+                recommend saving checkpoints without compression.
 
             Consider the following scenario, where:
 

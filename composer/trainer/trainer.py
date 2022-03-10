@@ -827,7 +827,7 @@ class Trainer:
                 filepaths, indexed by global rank, corresponding to the checkpoints saved at that time.
 
         .. note::
-        
+
             When using DeepSpeed, the index of a filepath corresponds to the
             global rank of the process that wrote that file. These filepaths are valid only on
             the global rank's node. Otherwise, when not using DeepSpeed, this list will contain
