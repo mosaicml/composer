@@ -19,7 +19,7 @@ __all__ = ["FileLogger"]
 
 
 class FileLogger(LoggerDestination):
-    """Logs to a file or to the terminal.
+    """Log data to a file.
 
     Example usage:
         .. testcode::
@@ -66,7 +66,7 @@ class FileLogger(LoggerDestination):
         filename (str): Filepath to log to, relative to the :mod:`~.composer.utils.run_directory`.
         capture_stdout (bool, optional): If ``True`` (the default), writes to ``stdout`` will be included in
             ``filename``.
-        capture_stderr (bool, optional): If ``True`` (the default), writes to the ``stderr`` stream will be included in
+        capture_stderr (bool, optional): If ``True`` (the default), writes to ``stderr`` will be included in
             ``filename``.
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
             Default: ``1`` for line buffering.
@@ -114,21 +114,19 @@ class FileLogger(LoggerDestination):
         self._original_stderr_write = sys.stderr.write
 
         if capture_stdout:
-            
-            
+
             def new_stdout_write(__s: str) -> int:
                 self._stdout_queue.put_nowait(__s)
                 return self._original_stdout_write(__s)
-            
+
             sys.stdout.write = new_stdout_write
 
         if capture_stderr:
-            
-            
+
             def new_stderr_write(__s: str) -> int:
                 self._stderr_queue.put_nowait(__s)
                 return self._original_stderr_write(__s)
-            
+
             sys.stderr.write = new_stderr_write
 
     def batch_start(self, state: State, logger: Logger) -> None:
@@ -168,9 +166,11 @@ class FileLogger(LoggerDestination):
         del state, logger  # unused
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
-        self.file = open(os.path.join(run_directory.get_run_directory(), self.filename),
-                         "x+",
-                         buffering=self.buffer_size,)
+        self.file = open(
+            os.path.join(run_directory.get_run_directory(), self.filename),
+            "x+",
+            buffering=self.buffer_size,
+        )
         if self.config is not None:
             print("Config", file=self.file)
             print("-" * 30, file=self.file)

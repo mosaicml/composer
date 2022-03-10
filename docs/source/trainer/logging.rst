@@ -1,7 +1,7 @@
 |:wood:| Logging
 ================
 
-By default, the trainer enables :class:`.TQDMLogger`, which logs
+By default, the trainer enables :class:`.TerminalLogger`, which logs
 information to a ``tqdm`` progress bar.
 
 To attach other loggers, use the ``loggers`` argument. For example, the
@@ -29,7 +29,7 @@ Available Loggers
 
     ~file_logger.FileLogger
     ~wandb_logger.WandBLogger
-    ~tqdm_logger.TQDMLogger
+    ~terminal_logger.TerminalLogger
     ~in_memory_logger.InMemoryLogger
 
 

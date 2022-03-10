@@ -33,8 +33,6 @@ model:
     backbone_arch: resnet101
     is_backbone_pretrained: true
     sync_bn: true
-logger_destinations:
-  - tqdm: {}
 max_duration: 128ep
 train_batch_size: 32
 eval_batch_size: 32
