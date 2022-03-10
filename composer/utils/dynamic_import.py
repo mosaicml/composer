@@ -1,6 +1,9 @@
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+"""Dynamically import a Python object (e.g. module, class, function, ...)."""
+
 import importlib
 from typing import Any
-"""Dynamically import a Python object (e.g. module, class, function, ...)."""
 
 __all__ = ["import_object"]
 
