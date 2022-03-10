@@ -283,7 +283,7 @@ def _restore_checkpoint(
 
 
 def format_name(name_format: str, state: State):
-    """Format a checkpoint filename according to the ``name_format`` and the training ``state``.
+    """Format a checkpoint filename according to the ``name_format`` and the training :class:`~.State`.
 
     The following format variables are available:
 
@@ -329,32 +329,51 @@ def format_name(name_format: str, state: State):
 
     .. note::
 
-        If using DeepSpeed, and ``name_format` does not end with an tarfile archive extension
-        (``'.tar'``, ``'.tgz'``, ``'.tar.gz'``, ``'.tar.bz2'``, or ``'.tar.lzma'``), then ``'.tar'`` will be appended.
-        DeepSpeed requires tarball format, as it saves model and optimizer states in separate files.
+        If using DeepSpeed, and ``name_format`` does not end with an tarfile archive extension (``'.tar'``, ``'.tgz'``,
+        ``'.tar.gz'``, ``'.tar.bz2'``, or ``'.tar.lzma'``), then ``'.tar'`` will be appended. DeepSpeed uses a tarball
+        format as it saves model and optimizer states in separate files within the tarball.
 
-    Consider the following example:
-
-    *   The global rank is ``0``.
-    *   The current epoch count is ``1``.
-    *   The current batch_count is ``42``.
-    *   DeepSpeed is not being used.
-
-    .. testsetup:: composer.utils.checkpoint.format_checkpoint_filename
-
-        state = State(
-            train_dataloader=train_dataloader,
-            max_duration='1ep',
-            model=model,
-            rank_zero_seed=0,
-        )
-        state.timer._batch.value = 42
-        state.timer._epoch.value = 1
+    Consider the following scenario, where the current epoch count is ``1`` and the current batch count is ``42``:
     
-    .. doctest:: composer.utils.checkpoint.format_checkpoint_filename
+    *   When not using DeepSpeed, then the rank zero process will call this function:
 
-        >>> format_checkpoint_filename("ep{epoch}-ba{batch}/rank_{rank}.pt", state)
-        'ep1-ba42/rank_0.pt'
+        .. testsetup:: composer.utils.checkpoint.format_name.no_deepspeed
+
+            state = State(
+                train_dataloader=train_dataloader,
+                max_duration='1ep',
+                model=model,
+                rank_zero_seed=0,
+            )
+            state.timer._batch.value = 42
+            state.timer._epoch.value = 1
+
+        .. doctest:: composer.utils.checkpoint.format_name.no_deepspeed
+
+            >>> format_name("ep{epoch}-ba{batch}", state)
+            'ep1-ba42'
+
+    *   When using DeepSpeed, each rank (process) will call this function. ``'{rank}'`` should appear within
+        ``name_format``, so each rank (process) will write to its own file. For example, on the rank zero process:
+
+        .. testsetup:: composer.utils.checkpoint.format_name.deepspeed
+
+            State.is_model_deepspeed.__get__ = lambda x: True
+
+            state = State(
+                train_dataloader=train_dataloader,
+                max_duration='1ep',
+                model=model,
+                rank_zero_seed=0,
+            )
+            
+            state.timer._batch.value = 42
+            state.timer._epoch.value = 1
+
+        .. doctest:: composer.utils.checkpoint.format_name.deepspeed
+
+            >>> format_name("ep{epoch}-ba{batch}/rank_{rank}", state)
+            'ep1-ba42/rank_0.tar'
     """
     checkpoint_name = name_format.format(
         rank=dist.get_global_rank(),
