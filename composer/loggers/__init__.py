@@ -14,9 +14,9 @@ define a custom logger and use it when training.
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
-                                             ObjectStoreLoggerHparams, TerminalLoggerHparams, WandBLoggerHparams)
+                                             ObjectStoreLoggerHparams, ProgressBarLoggerHparams, WandBLoggerHparams)
 from composer.loggers.object_store_logger import ObjectStoreLogger
-from composer.loggers.terminal_logger import TerminalLogger
+from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
 
 # All needs to be defined properly for sphinx autosummary
@@ -26,9 +26,9 @@ __all__ = [
     "LoggerDestinationHparams",
     "FileLoggerHparams",
     "InMemoryLoggerHparams",
-    "TerminalLoggerHparams",
+    "ProgressBarLoggerHparams",
     "WandBLoggerHparams",
-    "TerminalLogger",
+    "ProgressBarLogger",
     "WandBLogger",
     "ObjectStoreLogger",
     "ObjectStoreLoggerHparams",

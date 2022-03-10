@@ -84,6 +84,8 @@ class Logger:
 
             .. doctest:: composer.core.logging.logger.Logger.__init__.run_name
 
+                >>> import coolname
+                >>> import time
                 >>> str(time.time_ns()) + "-" + coolname.generate_slug(2)
                 '...-electric-zebra'
 

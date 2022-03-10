@@ -16,7 +16,7 @@ from composer.callbacks import LRMonitor, RunDirectoryUploader
 from composer.core.callback import Callback
 from composer.core.precision import Precision
 from composer.core.types import Model
-from composer.loggers import FileLogger, TerminalLogger, WandBLogger
+from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from composer.utils import dist
 from composer.utils.reproducibility import seed_all
@@ -46,12 +46,12 @@ class TestTrainerInit():
 
     def test_logger_destinations_before_callbacks(self, config):
         config.update({
-            "logger_destinations": [TerminalLogger()],
+            "logger_destinations": [ProgressBarLogger()],
             "callbacks": [LRMonitor()],
         })
 
         trainer = Trainer(**config)
-        assert isinstance(trainer.state.callbacks[0], TerminalLogger)
+        assert isinstance(trainer.state.callbacks[0], ProgressBarLogger)
         assert isinstance(trainer.state.callbacks[1], LRMonitor)
 
     @device('gpu', 'cpu')

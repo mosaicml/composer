@@ -15,7 +15,7 @@ from composer.core.types import JSON
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.object_store_logger import ObjectStoreLogger
-from composer.loggers.terminal_logger import TerminalLogger
+from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import ObjectStoreProviderHparams, dist, import_object
 
@@ -23,7 +23,7 @@ __all__ = [
     "FileLoggerHparams",
     "InMemoryLoggerHparams",
     "LoggerDestinationHparams",
-    "TerminalLoggerHparams",
+    "ProgressBarLoggerHparams",
     "WandBLoggerHparams",
     "ObjectStoreLoggerHparams",
 ]
@@ -222,14 +222,14 @@ class WandBLoggerHparams(LoggerDestinationHparams):
 
 
 @dataclass
-class TerminalLoggerHparams(LoggerDestinationHparams):
-    """:class:`~composer.loggers.terminal_logger.TerminalLogger`
+class ProgressBarLoggerHparams(LoggerDestinationHparams):
+    """:class:`~composer.loggers.progress_bar_logger.ProgressBarLogger`
     hyperparameters. This class takes no parameters.
     """
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TerminalLogger:
-        from composer.loggers.terminal_logger import TerminalLogger
-        return TerminalLogger(config=config)
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> ProgressBarLogger:
+        from composer.loggers.progress_bar_logger import ProgressBarLogger
+        return ProgressBarLogger(config=config)
 
 
 @dataclass
