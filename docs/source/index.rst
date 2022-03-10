@@ -34,10 +34,8 @@ our `Slack`_ channel!
 
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues.
 
-Table of Contents
------------------
-
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Getting Started
 
@@ -47,6 +45,7 @@ Table of Contents
    getting_started/notebooks.rst
 
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Algorithms
 
@@ -54,6 +53,7 @@ Table of Contents
    functional_api.rst
 
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Trainer
 
@@ -74,6 +74,7 @@ Table of Contents
 
 
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Methods Library
 
@@ -104,6 +105,7 @@ Table of Contents
    method_cards/swa.md
 
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Model Library
 
@@ -114,18 +116,11 @@ Table of Contents
    model_cards/unet.md
 
 .. toctree::
+   :hidden:
    :caption: API Reference
    :maxdepth: 1
 
    api_reference.rst
-
-Indices and tables
-------------------
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
 
 .. _Twitter: https://twitter.com/mosaicml
 .. _Email: mailto:community@mosaicml.com
