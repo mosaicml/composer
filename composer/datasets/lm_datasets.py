@@ -1,5 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Generic dataset class for self-supervised training of autoregressive and masked
+language models.
+"""
+
 import logging
 import tempfile
 import textwrap
@@ -13,6 +17,8 @@ from composer.core.types import Batch, DataSpec
 from composer.datasets.dataloader import DataloaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
+
+__all__ = ["LMDatasetHparams"]
 
 log = logging.getLogger(__name__)
 
@@ -28,8 +34,12 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 @dataclass
 class LMDatasetHparams(DatasetHparams):
-    """Defines a generic dataset class for autoregressive and masked language models trained with self-supervised
-    learning."""
+    """Defines a generic dataset class for self-supervised training of autoregressive and
+    masked language models.
+    
+    Args:
+        datadir (List[str])
+    """
 
     # TODO(moin): Switch datadir to be a string, rather than a list of strings, to be similar to the
     # other datasets

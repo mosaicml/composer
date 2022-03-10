@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-""":class:`yahp.Hparams` for :class:`~composer.core.types.Evaluator`, which wraps a
+"""Specifies an instance of an :class:`~composer.core.types.Evaluator`, which wraps a
 dataloader to include metrics that apply to a specific dataset.
 """
 
