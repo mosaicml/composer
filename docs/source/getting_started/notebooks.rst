@@ -2,7 +2,8 @@
 ======================
 
 We have a variety of notebooks, that can easily run on colab, available to easily get
-started using our methods.
+started using our methods. Some of these demonstrate the speed-ups from our work,
+even with short training times.
 
 .. csv-table::
     :header: "Notebook", "Summary", "Colab"

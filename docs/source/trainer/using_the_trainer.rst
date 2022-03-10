@@ -1,6 +1,8 @@
 |:gear:| Using the Trainer
 ==========================
 
+.. _using_composer_trainer:
+
 The Composer :class:`.Trainer` implements a highly-optimized PyTorch training loop for neural networks. Using the trainer gives you several superpowers:
 
 -  Easily insert our library of efficiency speedups methods into the

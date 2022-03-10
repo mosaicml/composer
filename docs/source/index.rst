@@ -39,9 +39,8 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :caption: Getting Started
 
    getting_started/installation.rst
-   getting_started/using_composer.rst
-   getting_started/welcome_tour.rst
    getting_started/notebooks.rst
+   getting_started/welcome_tour.rst
 
 .. toctree::
    :hidden:

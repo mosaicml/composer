@@ -100,10 +100,10 @@ Building Images locally
     Docker must be `installed <https://docs.docker.com/get-docker/>`_ on your local machine.
 
 
-Verification
-~~~~~~~~~~~~
+:rocket: Quick Start
+====================
 
-Test ``Composer`` was installed properly by opening a ``python`` prompt, and run:
+Access our library of speedup methods with the :doc:`functional_api` methods:
 
 .. testcode::
 
@@ -117,22 +117,28 @@ Test ``Composer`` was installed properly by opening a ``python`` prompt, and run
     CF.apply_blurpool(model)
 
 This creates a ResNet50 model and replaces several pooling and convolution layers with
-BlurPool variants (`Zhang et al, 2019 <https://arxiv.org/abs/1904.11486>`_). The method should log:
+BlurPool variants (`Zhang et al, 2019 <https://arxiv.org/abs/1904.11486>`_). For more information,
+see :doc:`method_cards/blurpool`. The method should log:
 
 .. code-block:: none
 
     Applied BlurPool to model ResNet Model now has 1 BlurMaxPool2d and 6 BlurConv2D layers.
 
-Next, train a small classifier on MNIST with the label smoothing algorithm:
+These methods are easy to integrate into your own training loop code with just a few lines.
 
-.. code-block:: python
+For an overview of the algorithms, see :doc:`trainer/algorithms`.
+
+We make composing recipes together even easier with our (optional) :class`.Trainer`. Here
+is training an MNIST classifer with a recipe of methods:
+
+.. testcode::
 
     from torchvision import datasets, transforms
     from torch.utils.data import DataLoader
 
     from composer import Trainer
     from composer.models import MNIST_Classifier
-    from composer.algorithms import LabelSmoothing
+    from composer.algorithms import LabelSmoothing, MixUp, ChannelsLast
 
     transform = transforms.Compose([transforms.ToTensor()])
     dataset = datasets.MNIST("data", train=True, download=True, transform=transform)
@@ -142,6 +148,26 @@ Next, train a small classifier on MNIST with the label smoothing algorithm:
         model=MNIST_Classifier(num_classes=10),
         train_dataloader=train_dataloader,
         max_duration="2ep",
-        algorithms=[LabelSmoothing(alpha=0.1)]
+        algorithms=[
+            LabelSmoothing(alpha=0.1),
+            MixUp(num_classes=10, alpha=0.2),
+            ChannelsLast()
+            ]
     )
     trainer.fit()
+
+We handle insert and running the logic during the training, as well as many features:
+
+* interface to flexibly add algorithms to the training loop
+* engine that manages the ordering of algorithms for composition
+* trainer to handle boilerplate around numerics, distributed training, and others
+* integration with popular model libraries such as TIMM or HuggingFace Transformers.
+
+Next steps
+----------
+
+* Try :doc:`getting_started/notebooks` to see our speed-ups with notebooks on Colab.
+* See :doc:`getting_started/using_the_trainer` for more details on our trainer.
+* Read :doc:`getting_started/welcome_tour` for a tour through the library.
+
+
