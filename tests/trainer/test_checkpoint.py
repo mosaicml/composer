@@ -111,7 +111,7 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> T
 
 
 def _load_checkpoint(checkpoint_dir: str, filename: str):
-    filename = filename.format(RANK=0)
+    filename = filename.format(rank=0)
     if not _is_archive(filename):
         return torch.load(filename, map_location='cpu')
 
@@ -349,21 +349,21 @@ def test_checkpoint(
     assert checkpoint_saver is not None
     assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, resume_file)
-    checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
+    checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}", checkpoint_a_folder,
                                           final_checkpoint)
 
     second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
     checkpoint_b_folder = "second"
 
     second_trainer_hparams.save_folder = checkpoint_b_folder
-    second_trainer_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}",
+    second_trainer_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}",
                                            checkpoint_a_file_path)
     second_trainer_hparams.load_path_format = second_trainer_filepath
     second_trainer_hparams.load_weights_only = False
     second_trainer_hparams.load_strict_model_weights = False
 
     _test_checkpoint_trainer(second_trainer_hparams)
-    checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_b_folder,
+    checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}", checkpoint_b_folder,
                                           final_checkpoint)
 
     assert_checkpoints_equivalent(
