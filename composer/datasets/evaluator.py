@@ -36,8 +36,8 @@ class EvaluatorHparams(hp.Hparams):
         eval_dataset (DatasetHparams): Evaluation dataset.
         metrics (list, optional): List of strings of names of the metrics for the
             evaluator. Can be a :class:`torchmetrics.Metric` name or the class name of a
-            metric returned by model.metrics(). If ``None``, uses all metrics in the
-            model. Default: ``None``.
+            metric returned by :meth:`~composer.models.base.ComposerModel.metrics` If
+            ``None``, uses all metrics in the model. Default: ``None``.
     """
     hparams_registry = {  # type: ignore
         "eval_dataset": get_dataset_registry(),
