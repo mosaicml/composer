@@ -55,24 +55,53 @@ class RandomResizePair(torch.nn.Module):
         return resized_image, resized_target
 
 
+# Based on: https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L584
 class RandomCropPair(torch.nn.Module):
     """Crop the image and target at a randomly sampled position.
 
     Args:
         crop_size (Tuple[int, int]): the size (height x width) of the crop.
+        class_max_percent (float): the maximum percent of the image area a single class should occupy. Default is 1.0.
+        num_retry (int): the number of times to resample the crop if ``class_max_percent`` threshold is not reached.
+            Default is 1.
     """
 
-    def __init__(self, crop_size: Tuple[int, int]):
+    def __init__(self, crop_size: Tuple[int, int], class_max_percent: float = 1.0, num_retry: int = 1):
         super().__init__()
         self.crop_size = crop_size
+        self.class_max_percent = class_max_percent
+        self.num_retry = num_retry
 
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
-        if image.height > self.crop_size[0] or image.width > self.crop_size[1]:
-            i, j, h, w = transforms.RandomCrop.get_params(
-                image, output_size=self.crop_size)  # type: ignore - transform typing does not include PIL.Image
-            image = TF.crop(image, i, j, h, w)  # type: ignore - transform typing does not include PIL.Image
-            target = TF.crop(target, i, j, h, w)  # type: ignore - transform typing does not include PIL.Image
+
+        # if image size is smaller than crop size, no cropping necessary
+        if image.height <= self.crop_size[0] and image.width <= self.crop_size[1]:
+            return image, target
+
+        # generate crop
+        crop = transforms.RandomCrop.get_params(
+            image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
+
+        if self.class_max_percent < 1.0:
+            for _ in range(self.num_retry):
+                # Crop target
+                target_crop = TF.crop(target, *crop)  # type: ignore - transform typing excludes PIL.Image
+
+                # count the number of each class represented in cropped target
+                labels, counts = np.unique(np.array(target_crop), return_counts=True)
+                counts = counts[labels != 0]
+
+                # if the class with the most area is within the class_max_percent threshold, stop retrying
+                if len(counts) > 1 and (np.max(counts) / np.sum(counts)) < self.class_max_percent:
+                    break
+
+                crop = transforms.RandomCrop.get_params(
+                    image, output_size=self.crop_size)  # type: ignore - transform typing excludes PIL.Image
+
+        image = TF.crop(image, *crop)  # type: ignore - transform typing excludes PIL.Image
+        target = TF.crop(target, *crop)  # type: ignore - transform typing excludes PIL.Image
+
         return image, target
 
 
@@ -314,7 +343,11 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     RandomResizePair(min_scale=self.min_resize_scale,
                                      max_scale=self.max_resize_scale,
                                      base_size=(self.base_size, self.base_size)),
-                    RandomCropPair(crop_size=(self.final_size, self.final_size)),
+                    RandomCropPair(
+                        crop_size=(self.final_size, self.final_size),
+                        class_max_percent=0.75,
+                        num_retry=10,
+                    ),
                     RandomHFlipPair(),
                 )
 
@@ -404,7 +437,11 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
                 RandomResizePair(min_scale=self.min_resize_scale,
                                  max_scale=self.max_resize_scale,
                                  base_size=(self.base_size, self.base_size)),
-                RandomCropPair(crop_size=(self.final_size, self.final_size)),
+                RandomCropPair(
+                    crop_size=(self.final_size, self.final_size),
+                    class_max_percent=0.75,
+                    num_retry=10,
+                ),
                 RandomHFlipPair(),
             )
 
