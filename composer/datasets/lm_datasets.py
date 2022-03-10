@@ -1,8 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Generic dataset class for self-supervised training of autoregressive and masked
-language models.
-"""
+"""Generic dataset class for self-supervised training of autoregressive and masked language models."""
 
 import logging
 import tempfile
@@ -34,14 +32,13 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 @dataclass
 class LMDatasetHparams(DatasetHparams):
-    """Defines a generic dataset class for self-supervised training of autoregressive and
-    masked language models.
-    
+    """Defines a generic dataset class for self-supervised training of autoregressive and masked language models.
+
     Args:
         datadir (list): List containing the string of the path to the HuggingFace
             Datasets directory.
         split (str): Whether to use ``'train'``, ``'test'``, or
-            ``'validation'`` split. 
+            ``'validation'`` split.
         tokenizer_name (str): The name of the HuggingFace tokenizer to
             preprocess text with. See `HuggingFace documentation
             <https://huggingface.co/models>`_.
