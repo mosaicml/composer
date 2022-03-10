@@ -22,7 +22,7 @@ def shuffle(dataset: CIFAR10) -> Tuple[np.ndarray, np.ndarray]:
     """Numpy-convert and shuffle a CIFAR10 dataset.
 
     Args:
-        dataset (CIFAR110): CIFAR10 dataset object.
+        dataset (CIFAR10): CIFAR10 dataset object.
 
     Returns:
         images (np.ndarray of np.uint8): Dataset images in NCHW.
