@@ -130,12 +130,14 @@ class SWA(Algorithm):
             if time_obj.unit not in [TimeUnit.DURATION, TimeUnit.EPOCH]:
                 raise ValueError(f"Invalid unit string for parameter {time_attr}: {time_obj.unit}")
         if self.update_interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
-            raise ValueError(f"Invalid unit string for parameter update_interval: " f"{self.update_interval.unit}")
+            raise ValueError(f"Invalid unit string for parameter update_interval: "
+                             f"{self.update_interval.unit}")
 
         # Check time objects have valid values
         if self.swa_start.unit == TimeUnit.DURATION:
             if self.swa_start < 0 or self.swa_start >= 1:
-                raise ValueError("If swa_start is specified in units of 'dur', it must " "be in the interval [0, 1).")
+                raise ValueError("If swa_start is specified in units of 'dur', it must "
+                                 "be in the interval [0, 1).")
         if self.swa_end.unit == TimeUnit.DURATION:
             if self.swa_end == 1:
                 log.warning("'swa_end' = '1dur'. Batch norm statistics of averaged model "

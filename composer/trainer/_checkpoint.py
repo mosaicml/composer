@@ -342,7 +342,8 @@ class CheckpointLoader:
                 # be a shared resource between nodes.
                 dist.barrier()
 
-        log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}' f' loaded from {self.path}.')
+        log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}'
+                 f' loaded from {self.path}.')
 
         return seed_to_restore
 
