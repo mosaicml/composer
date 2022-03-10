@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
-import pathlib
 import random
 import tarfile
 import tempfile
@@ -24,12 +23,10 @@ from composer.core.time import Time, TimeUnit
 from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
-from composer.trainer._checkpoint import _retrieve_checkpoint
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import run_directory
-from composer.utils.object_store import ObjectStoreProviderHparams
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -431,39 +428,3 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer):
                 assert expected == actual, f"Event {event} expected to be called {expected} times, but instead it was called {actual} times"
             return
     assert False, "EventCounterCallback not found in callbacks"
-
-
-def test_checkpoint_load_uri(tmpdir: pathlib.Path, dummy_state: State):
-    _retrieve_checkpoint(
-        path="https://www.mosaicml.com",
-        object_store=None,
-        destination_filepath=str(tmpdir / "example"),
-        rank=0,
-        ignore_not_found_errors=False,
-        chunk_size=1024 * 1024,
-        progress_bar=False,
-    )
-    with open(str(tmpdir / "example"), "r") as f:
-        assert f.readline().startswith("<!")
-
-
-def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    remote_dir = tmpdir / "remote_dir"
-    os.makedirs(remote_dir)
-    monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
-    provider = ObjectStoreProviderHparams(
-        provider='local',
-        key_environ="OBJECT_STORE_KEY",
-        container=".",
-    ).initialize_object()
-    with open(str(remote_dir / "checkpoint.txt"), 'wb') as f:
-        f.write(b"checkpoint1")
-    _retrieve_checkpoint(path="checkpoint.txt",
-                         object_store=provider,
-                         destination_filepath=str(tmpdir / "example"),
-                         rank=0,
-                         ignore_not_found_errors=False,
-                         chunk_size=1024 * 1024,
-                         progress_bar=False)
-    with open(str(tmpdir / "example"), "rb") as f:
-        f.read() == b"checkpoint1"
