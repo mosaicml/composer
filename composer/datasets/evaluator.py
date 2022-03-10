@@ -1,5 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+""":class:`yahp.Hparams` for :class:`~composer.core.types.Evaluator`, which wraps a
+dataloader to include metrics that apply to a specific dataset.
+"""
+
 from __future__ import annotations
 
 import copy
@@ -19,6 +23,7 @@ from composer.models.base import ComposerModel
 
 log = logging.getLogger(__name__)
 
+__all__ = ["EvaluatorHparams"]
 
 @dataclass
 class EvaluatorHparams(hp.Hparams):
@@ -44,12 +49,12 @@ class EvaluatorHparams(hp.Hparams):
         a copy of all the model's default evaluation metrics.
 
         Args:
-            model (ComposerModel): The model, which is used to retrieve metric names
-            batch_size (int): The device batch size to use for the evaluation dataset
-            dataloader_hparams (DataloaderHparams): The hparams to use to construct a dataloader for the evaluation dataset
+            model (ComposerModel): The model, which is used to retrieve metric names.
+            batch_size (int): The device batch size to use for the evaluation dataset.
+            dataloader_hparams (DataloaderHparams): The hparams to use to construct a dataloader for the evaluation dataset.
 
         Returns:
-            Evaluator: The evaluator
+            Evaluator: The evaluator.
         """
         dataloader = self.eval_dataset.initialize_object(batch_size=batch_size, dataloader_hparams=dataloader_hparams)
 
