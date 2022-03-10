@@ -9,6 +9,7 @@ from composer.datasets.webdataset import create_webdataset
 
 
 def parse_args() -> Namespace:
+    """Parse commandline arguments."""
     args = ArgumentParser()
     args.add_argument('--out_root', type=str, required=True)
     args.add_argument('--train_shards', type=int, default=128)
@@ -18,6 +19,15 @@ def parse_args() -> Namespace:
 
 
 def shuffle(dataset: CIFAR100) -> Tuple[np.ndarray, np.ndarray]:
+    """Numpy-convert and shuffle a CIFAR100 dataset.
+
+    Args:
+        dataset (CIFAR110): CIFAR100 dataset object.
+
+    Returns:
+        images (np.ndarray of np.uint8): Dataset images in NCHW.
+        classes (np.ndarray of np.int64): Dataset classes.
+    """
     indices = np.random.permutation(len(dataset))
     images = dataset.data[indices]
     classes = np.array(dataset.targets)[indices]
@@ -25,6 +35,15 @@ def shuffle(dataset: CIFAR100) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def each_sample(images: np.ndarray, classes: np.ndarray) -> Iterable[Dict[str, Any]]:
+    """Generator over each dataset sample.
+
+    Args:
+        images (np.ndarray of np.uint8): Dataset images in NCHW.
+        classes (np.ndarray of np.int64): Dataset classes.
+
+    Yields:
+        Sample dicts.
+    """
     for idx, (img, cls) in enumerate(zip(images, classes)):
         yield {
             '__key__': f'{idx:05d}',
@@ -34,6 +53,11 @@ def each_sample(images: np.ndarray, classes: np.ndarray) -> Iterable[Dict[str, A
 
 
 def main(args: Namespace) -> None:
+    """Main: create CIFAR100 webdataset.
+
+    Args:
+        args (Namespace): Commandline arguments.
+    """
     with pipes():
         dataset = CIFAR100(root="/datasets/cifar100", train=True, download=True)
     images, classes = shuffle(dataset)

@@ -8,6 +8,7 @@ from composer.datasets.webdataset import create_webdataset
 
 
 def parse_args() -> Namespace:
+    """Parse commandline arguments."""
     args = ArgumentParser()
     args.add_argument('--in_root', type=str, required=True)
     args.add_argument('--out_root', type=str, required=True)
@@ -18,6 +19,15 @@ def parse_args() -> Namespace:
 
 
 def find_samples(in_root: str, split: str) -> List[Tuple[str, int]]:
+    """Collect the samples for this dataset split.
+
+    Args:
+        in_root (str): Input dataset root directory.
+        split (str): Dataset split.
+
+    Returns:
+        List of pairs of (image filename, class ID).
+    """
     pattern = os.path.join(in_root, split, '*', '*.JPEG')
     filenames = sorted(glob(pattern))
     wnid2class = {}
@@ -35,6 +45,14 @@ def find_samples(in_root: str, split: str) -> List[Tuple[str, int]]:
 
 
 def each_sample(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
+    """Generator over each dataset sample.
+
+    Args:
+        pairs (list): List of pairs of (image filename, class ID).
+
+    Yields:
+        Sample dicts.
+    """
     for idx, (img_file, cls) in enumerate(pairs):
         img = open(img_file, 'rb').read()
         yield {
@@ -45,6 +63,11 @@ def each_sample(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
 
 
 def main(args: Namespace) -> None:
+    """Main: create imagenet1k webdataset.
+
+    Args:
+        args (Namespace): Commandline arguments.
+    """
     pairs = find_samples(args.in_root, 'train')
     create_webdataset(each_sample(pairs), args.out_root, 'train', len(pairs), args.train_shards, args.tqdm)
 
