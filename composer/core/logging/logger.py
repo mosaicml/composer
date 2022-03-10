@@ -65,29 +65,32 @@ class LogLevel(IntEnum):
 class Logger:
     r"""Logger routes metrics to the :class:`.LoggerDestination`. Logger is what users call from within
     algorithms/callbacks. A logger routes the calls/data to any different number of destination
-    :class:`.LoggerDestination`\\s (e.g., :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged should be
-    of the type :attr:`~.logger.LoggerDataDict` (i.e., a ``{<name>: <value>}`` mapping).
+    :class:`.LoggerDestination`\\s (e.g., :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged
+    should be of the type :attr:`~.logger.LoggerDataDict` (i.e., a ``{<name>: <value>}`` mapping).
 
     Args:
         state (State): The global :class:`~.core.state.State` object.
         destinations (Sequence[LoggerDestination]): A sequence of :class:`.LoggerDestination`\s to
             which logging calls will be sent.
         run_name (str, optional): The name for this training run.
-            If not specified, a :doc:`coolname <coolname:/>` will be used like the following:
+
+            If not specified, the timestamp will be combined with a :doc:`coolname <coolname:index>` ike the following:
 
             .. testsetup:: composer.core.logging.logger.Logger.__init__.run_name
 
                 import random
                 import coolname
+                import time
 
                 coolname.replace_random(random.Random(0))
 
+                time.time_ns = lambda: 1646931750990173286
+
             .. doctest:: composer.core.logging.logger.Logger.__init__.run_name
 
-                >>> import coolname
-                >>> import time
-                >>> str(time.time_ns()) + "-" + coolname.generate_slug(2)
-                '...-electric-zebra'
+                >>> logger = Logger(state=state, destinations=[])
+                >>> logger.run_name
+                '1646931750990173286-electric-zebra'
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
