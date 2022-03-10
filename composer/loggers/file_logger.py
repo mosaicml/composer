@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from typing import Any, Dict, Optional, TextIO
 
 import yaml
@@ -135,7 +134,7 @@ class FileLogger(LoggerDestination):
         data_str = format_log_data_value(data)
         if self.file is None:
             raise RuntimeError("Attempted to log before self.init() or after self.close()")
-        print(f"[{log_level.name}][step={int(state.timer.batch)}]: {data_str}", file=self.file, flush=False)
+        print(f"[{log_level.name}][batch={int(state.timer.batch)}]: {data_str}", file=self.file, flush=False)
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused

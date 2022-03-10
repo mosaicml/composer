@@ -21,13 +21,13 @@ from composer.utils import dist
 if TYPE_CHECKING:
     from composer.core.logging import Logger
 
-__all__ = ["TerminalLogger"]
+__all__ = ["ProgressBarLogger"]
 
 _IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['accuracy/val']}
 
 
 @dataclass
-class _TerminalLoggerInstanceState:
+class _ProgressBarLoggerInstanceState:
     total: Optional[int]
     description: str
     position: int
@@ -36,9 +36,9 @@ class _TerminalLoggerInstanceState:
     epoch_metrics: LoggerDataDict
 
 
-class _TerminalLoggerInstance:
+class _ProgressBarLoggerInstance:
 
-    def __init__(self, state: _TerminalLoggerInstanceState) -> None:
+    def __init__(self, state: _ProgressBarLoggerInstanceState) -> None:
         self.state = state
         self.pbar = auto.tqdm(total=state.total,
                               desc=state.description,
@@ -62,7 +62,7 @@ class _TerminalLoggerInstance:
         return asdict(self.state)
 
 
-class TerminalLogger(LoggerDestination):
+class ProgressBarLogger(LoggerDestination):
     """Logs metrics to a `TQDM <https://github.com/tqdm/tqdm>`_ progress bar displayed in the terminal.
 
     During training, the progress bar logs the batch and training loss.
@@ -71,7 +71,7 @@ class TerminalLogger(LoggerDestination):
     Example usage:
         .. testcode::
 
-            from composer.loggers import TerminalLogger
+            from composer.loggers import ProgressBarLogger
             from composer.trainer import Trainer
             trainer = Trainer(
                 model=model,
@@ -79,7 +79,7 @@ class TerminalLogger(LoggerDestination):
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
                 optimizers=[optimizer],
-                logger_destinations=[TerminalLogger()]
+                logger_destinations=[ProgressBarLogger()]
             )
 
     Example output::
@@ -99,7 +99,7 @@ class TerminalLogger(LoggerDestination):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         super().__init__()
-        self.pbars: Dict[bool, _TerminalLoggerInstance] = {}
+        self.pbars: Dict[bool, _ProgressBarLoggerInstance] = {}
         self.is_train: Optional[bool] = None
         self.config = config
 
@@ -136,8 +136,8 @@ class TerminalLogger(LoggerDestination):
         position = 0 if self.is_train else 1
         if not self.is_train:
             desc += f", Batch {int(state.timer.batch)} (val)"
-        self.pbars[self.is_train] = _TerminalLoggerInstance(
-            _TerminalLoggerInstanceState(total=total_steps,
+        self.pbars[self.is_train] = _ProgressBarLoggerInstance(
+            _ProgressBarLoggerInstanceState(total=total_steps,
                                          position=position,
                                          n=0,
                                          keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
@@ -206,6 +206,6 @@ class TerminalLogger(LoggerDestination):
 
     def load_state_dict(self, state: StateDict) -> None:
         self.pbars = {
-            k: _TerminalLoggerInstance(_TerminalLoggerInstanceState(**v)) for (k, v) in state["pbars"].items()
+            k: _ProgressBarLoggerInstance(_ProgressBarLoggerInstanceState(**v)) for (k, v) in state["pbars"].items()
         }
         self.is_train = state["is_train"]
