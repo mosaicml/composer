@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Specifies an instance of an :class:`~composer.core.types.Evaluator`, which wraps a
+"""Specifies an instance of an :class:`~composer.core.evaluator.Evaluator`, which wraps a
 dataloader to include metrics that apply to a specific dataset.
 """
 
@@ -25,13 +25,14 @@ log = logging.getLogger(__name__)
 
 __all__ = ["EvaluatorHparams"]
 
+
 @dataclass
 class EvaluatorHparams(hp.Hparams):
-    """Params for the :class:`~composer.core.types.Evaluator`.
+    """Params for the :class:`~composer.core.evaluator.Evaluator`.
 
-    Also see the documentation for the :class:`~composer.core.types.Evaluator`.
+    Also see the documentation for the :class:`~composer.core.evaluator.Evaluator`.
 
-    Args
+    Args:
         label (str): Name of the Evaluator. Used for logging/reporting metrics.
         eval_dataset (DatasetHparams): Evaluation dataset.
         metrics (list, optional): List of strings of names of the metrics for the
@@ -51,7 +52,7 @@ class EvaluatorHparams(hp.Hparams):
         default=None)
 
     def initialize_object(self, model: ComposerModel, batch_size: int, dataloader_hparams: DataloaderHparams):
-        """Initialize an :class:`~composer.core.types.Evaluator`
+        """Initialize an :class:`~composer.core.evaluator.Evaluator`
 
         If the Evaluator metric_names is empty or None is provided, the function returns
         a copy of all the model's default evaluation metrics.
