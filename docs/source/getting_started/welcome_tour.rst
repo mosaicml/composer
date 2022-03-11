@@ -1,8 +1,7 @@
 |:bus:| Welcome Tour
 ====================
 
-Welcome to MosaicML Composer! This guide will walk you through the basics of how the Composer trainer works, and how it interacts with our methods libary. This guide will assume you've already gone through the
-:doc:`installation instructions <installation>`.
+Welcome to MosaicML Composer! This guide will walk you through the basics of how the Composer trainer works and how it interacts with our methods libary. This guide will assume you've already gone through the :doc:`installation instructions <installation>`.
 
 Our First Method!
 -----------------
