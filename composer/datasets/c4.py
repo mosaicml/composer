@@ -281,6 +281,8 @@ class C4Dataset(IterableDataset):
     def __len__(self):
         return self.max_samples_per_device
 
+    # Repeat a HF iterable dataset infinitely
+    # TODO: This functionality should eventually be upstreamed to HF as `hf_iterable_dataset.repeat()`
     def _repeat(self, dataset):
         try:
             from datasets.iterable_dataset import _BaseExamplesIterable
