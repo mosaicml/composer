@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Dataset Hyperparameter classes."""
+
 from __future__ import annotations
 
 import abc
@@ -28,15 +30,18 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
     """Synthetic dataset parameter mixin for :class:`DatasetHparams`.
 
     Args:
-        use_synthetic (bool, optional): Whether to use synthetic data. (Default: ``False``)
-        synthetic_num_unique_samples (int, optional): The number of unique samples to allocate memory for.
-            Ignored if :attr:`use_synthetic` is False. (Default: ``100``)
-        synthetic_device (str, optonal): The device to store the sample pool.
-            Set to ``cuda`` to store samples on the GPU and eliminate PCI-e bandwidth with the dataloader.
-            Set to ``cpu`` to move data between host memory and the device on every batch.
-            Ignored if :attr:`use_synthetic` is False. (Default: ``cpu``)
-        synthetic_memory_format: The :class:`MemoryFormat` to use.
-            Ignored if :attr:`use_synthetic` is False. (Default: ``CONTIGUOUS_FORMAT``)
+        use_synthetic (bool, optional): Whether to use synthetic data. Default: ``False``.
+        synthetic_num_unique_samples (int, optional): The number of unique samples to
+            allocate memory for. Ignored if :attr:`use_synthetic` is ``False``. Default:
+            ``100``.
+        synthetic_device (str, optional): The device to store the sample pool on.
+            Set to ``'cuda'`` to store samples on the GPU and eliminate PCI-e bandwidth
+            with the dataloader. Set to ``'cpu'`` to move data between host memory and the
+            device on every batch. Ignored if :attr:`use_synthetic` is ``False``. Default:
+            ``'cpu'``.
+        synthetic_memory_format: The :class:`~.core.types.MemoryFormat` to use.
+            Ignored if :attr:`use_synthetic` is ``False``. Default:
+            ``'CONTIGUOUS_FORMAT'``.
     """
 
     use_synthetic: bool = hp.optional("Whether to use synthetic data. Defaults to False.", default=False)
@@ -53,11 +58,12 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
 
     Args:
         datadir (str): The path to the data directory.
-        is_train (bool): Whether to load the training data (the default) or validation data.
-        drop_last (bool):
-            If the number of samples is not divisible by the batch size, whether
-            to drop the last batch (the default) or pad the last batch with zeros.
-        shuffle (bool): Whether to shuffle the dataset. Defaults to True.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
+        drop_last (bool): If the number of samples is not divisible by the batch size,
+            whether to drop the last batch or pad the last batch with zeros. Default:
+            ``True``.
+        shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
     """
 
     is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
@@ -71,23 +77,25 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
-        """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
+        """Creates a :class:`~.core.types.DataLoader` or
+        :class:`~.core.data_spec.DataSpec` for this dataset.
 
         Args:
-            batch_size (int): The size of the batch the dataloader should yield. This batch size is
-                device-specific and already incorporates the world size.
-            dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
+            batch_size (int): The size of the batch the dataloader should yield. This
+                batch size is device-specific and already incorporates the world size.
+            dataloader_hparams (DataloaderHparams): The dataset-independent hparams for
+                the dataloader.
 
         Returns:
-            Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
-                a :class:`DataSpec`.
+            Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of
+                custom types, a :class:`~core.data_spec.DataSpec`.
         """
         pass
 
 
 @dataclass
 class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
-    """Abstract base class for hyperparameters to initialize a dataset.
+    """Abstract base class for hyperparameters to initialize a webdataset.
 
     Args:
         webdataset_cache_dir (str): WebDataset cache directory.

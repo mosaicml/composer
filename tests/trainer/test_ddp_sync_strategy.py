@@ -55,6 +55,7 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
     metric_coll = MetricCollection([Accuracy()])
     evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(model=original_model,
+                  rank_zero_seed=0,
                   optimizers=optimizer,
                   grad_accum=2,
                   max_duration="1ep",
