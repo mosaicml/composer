@@ -5,6 +5,7 @@
 This dataset is a colossal, cleaned version of Common Crawl's web crawl corpus and it is based on the `Common Crawl
 <https://commoncrawl.org>`_ dataset.
 """
+import copy
 import logging
 from dataclasses import dataclass
 from functools import partial
@@ -209,18 +210,18 @@ class C4Dataset(IterableDataset):
             )
             self.max_samples = new_max_samples
 
-        # # Try and detect if max_samples is too large
-        # # TODO: For safety, repeat original dataset if max_samples is larger than original size
-        # original_approx_samples = self.num_shards * self.approx_samples_per_shard
-        # if self.max_samples > original_approx_samples and self.group_method == "truncate":
-        #     raise ValueError(
-        #         f"Max samples was set to {self.max_samples} with group_method 'truncate' but split '{split}' has only {original_approx_samples}.)"
-        #     )
-        # if self.group_method == "concat":
-        #     log.warning(
-        #         f"When using group_method 'concat', sequential token samples are concatenated and chunked into fixed-length samples of size max_seq_len={self.max_seq_len}. "
-        #         f"In general we cannot detect ahead-of-time if your setting of max_samples={self.max_samples} is safe, "
-        #         f"so please be cautious to not request more tokens than the size of the original dataset.")
+        # Try and detect if max_samples is larger than original dataset
+        original_approx_samples = self.num_shards * self.approx_samples_per_shard
+        if self.max_samples > original_approx_samples and self.group_method == "truncate":
+            log.warning(
+                f"Max samples was set to {self.max_samples} with group_method 'truncate' but split '{split}' has only {original_approx_samples}. "
+                f"The original dataset will cycle until the new nominal length of {self.max_samples}.")
+        if self.group_method == "concat":
+            log.warning(
+                f"When using group_method 'concat', sequential token samples are concatenated and chunked into fixed-length samples of size max_seq_len={self.max_seq_len}. "
+                f"In general we cannot detect ahead-of-time if your setting of max_samples={self.max_samples} will be larger than the original dataset, "
+                f"but if it is larger, the original dataset will cycle until the new nominal length of {self.max_samples}."
+            )
 
         # Build tokenizer
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
@@ -256,12 +257,12 @@ class C4Dataset(IterableDataset):
             batch_size=token_sample_batch_size,
         )
 
-        # Cycle over the dataset
-        # This functionality should eventually be upstreamed to HF
-        cycle_token_dataset = self._cycle(token_dataset)
+        # Repeat over the dataset
+        # TODO: This functionality should eventually be upstreamed to HF as `hf_iterable_dataset.repeat()`
+        repeat_token_dataset = self._repeat(token_dataset)
 
         # Limit the number of post-processed token samples
-        sized_token_dataset = token_dataset.take(self.max_samples_per_device)
+        sized_token_dataset = repeat_token_dataset.take(self.max_samples_per_device)
 
         # Shuffle post-processed token samples
         # Samples are read into and randomly sampled from per-device shuffle buffer
@@ -280,9 +281,15 @@ class C4Dataset(IterableDataset):
     def __len__(self):
         return self.max_samples_per_device
 
-    def _cycle(self, hf_iterable):
+    def _repeat(self, dataset):
+        try:
+            from datasets.iterable_dataset import _BaseExamplesIterable
+            from datasets.iterable_dataset import iterable_dataset as hf_iterable_dataset
+        except ImportError:
+            raise ImportError('HuggingFace datasets are not installed. '
+                              'Please install with `pip install composer[nlp]`')
 
-        class RepeatExamplesIterable(datasets.iterable_dataset._BaseExamplesIterable):
+        class RepeatExamplesIterable(_BaseExamplesIterable):
 
             def __init__(self, ex_iterable):
                 self.ex_iterable = ex_iterable
@@ -294,13 +301,13 @@ class C4Dataset(IterableDataset):
             def n_shards(self):
                 return self.ex_iterable.n_shards
 
-        ex_iterable = RepeatExamplesIterable(hf_iterable._ex_iterable)
-        return datasets.iterable_dataset.iterable_dataset(
+        ex_iterable = RepeatExamplesIterable(dataset._ex_iterable)
+        return hf_iterable_dataset(
             ex_iterable=ex_iterable,
-            info=hf_iterable._info.copy(),
-            split=hf_iterable._split,
-            format_type=hf_iterable._format_type,
-            shuffling=copy.deepcopy(hf_iterable._shuffling),
+            info=dataset._info.copy(),
+            split=dataset._split,
+            format_type=dataset._format_type,
+            shuffling=copy.deepcopy(dataset._shuffling),
         )
 
     def _subsample(self, device_offset, text_batch):
