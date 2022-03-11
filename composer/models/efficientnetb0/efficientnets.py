@@ -19,7 +19,7 @@ __all__ = ["EfficientNet"]
 
 
 class EfficientNet(nn.Module):
-    """From `EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks.
+    """From `EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks
     <https://arxiv.org/abs/1905.11946>`_ (Tan et al, 2019).
 
     Args:
