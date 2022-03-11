@@ -28,10 +28,10 @@ def training_loop(model, train_loader):
     # only need to pass in opt if apply_blurpool is used after optimizer
     # creation; otherwise only the model needs to be passed in
     cf.apply_blurpool(model,
-                    optimizers=opt,
-                    replace_convs=True,
-                    replace_maxpools=True,
-                    blur_first=True)
+                      optimizers=opt,
+                      replace_convs=True,
+                      replace_maxpools=True,
+                      blur_first=True)
 
     loss_fn = F.cross_entropy
     model.train()
