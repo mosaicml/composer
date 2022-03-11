@@ -80,7 +80,7 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
 
         Returns:
             Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
-            a :class:`DataSpec`.
+                a :class:`DataSpec`.
         """
         pass
 
@@ -109,6 +109,6 @@ class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
 
         Returns:
             Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
-            a :class:`DataSpec`.
+                a :class:`DataSpec`.
         """
         pass
