@@ -3,36 +3,37 @@
 Composer
 ========
 
-Composer provides well-engineered implementations of efficient training methods
-to give the tools that help you train a better model for cheaper.
+Composer is a library for training neural networks better, faster, and cheaper. It contains many state-of-the-art methods for accelerating neural network training and improving generalization, along with an optional :doc:`Trainer<trainer/using_the_trainer>` API that makes `composing` many different enhancements easy.
+
+We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to.
 
 Using Composer, you can:
 
-- Train an ImageNet model to 76.1% accuracy for $37 (`with vanilla PyTorch`:$127)
-- Train a GPT-2 125M to a perplexity of 23.9 for $148 (`with vanilla PyTorch`: $255)
-- Use start-of-the-art implementations of methods to speed up your own training loop.
+- Train an ImageNet model to `76.1% accuracy for $38 <https://app.mosaicml.com/explorer/imagenet>`_ (`with vanilla PyTorch` :$127)
+- Train a GPT-2 125M to a perplexity of `23.9 for $149 <https://app.mosaicml.com/explorer/openwebtext>`_ (`with vanilla PyTorch`: $255)
+- Use high-quality implementations of start-of-the-art methods to speed up your own training
+- Easily experiment with your own dataloader, model, or training loop changes
 
 Composer features:
 
-- 20+ efficient training methods for training a better language and vision models! Don't waste hours trying to reproduce research papers when Composer has done the work for you.
-- Easy-to-use Trainer interface written to be as performant as possible, and `integrated best practices <https://www.mosaicml.com/blog/best-practices-dec-2021>`_.
-- Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
-- Strong, `reproducible` baselines to get you started as 💨 fast 💨 as possible
+- 20+ curated efficiency methods for training better language and vision models.
+- An easy-to-use Trainer interface written to be as performant as possible, with integrated multi-GPU training, mixed-precision training, and numerous `best practices <https://www.mosaicml.com/blog/best-practices-dec-2021>`_ implemented out of the box.
+- Standalone functional forms of training methods for easy integration into your own training loop
+- Strong, reproducible baselines to get you started as fast as possible.
 
 See :doc:`Getting Started<getting_started/installation>` for
-installation an initial usage, the :doc:`Trainer<trainer/using_the_trainer>` section for an introduction
+installation and initial usage, the :doc:`Trainer<trainer/using_the_trainer>` section for an introduction
 to our trainer, and :doc:`Methods<method_cards/methods_overview>` for details about our efficiency methods
 and how to use them in your code.
 
-At MosaicML, we are focused on making training ML models accessible. To do this,
+At MosaicML, we are focused on making fast, high-quality ML training accessible to everyone. To do this,
 we continually productionize state-of-the-art academic research on efficient model
-training, and also study the `combinations`` of these methods in order to ensure
+training, and also study the `combinations` of these methods in order to ensure
 that model training is ✨ as efficient as possible ✨.
 
-If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or join
-our `Slack`_ channel!
+If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or `Slack`_!
 
-Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues.
+Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, and issues.
 
 Table of Contents
 -----------------
