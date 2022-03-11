@@ -47,13 +47,10 @@ For a developer install, clone directly:
 
 
 Docker
-~~~~~~
+------
 
 To simplify environment setup for the MosaicML ``Composer`` library, we provide a set of Docker Images that users can
-leverage.
-
-PyTorch Images
---------------
+leverage, show below:
 
 ============ =============== ============ ============== ===================================================================
 Linux Distro Pytorch Version Cuda Version Python Version Docker Tag
@@ -74,9 +71,6 @@ GPU-based instances on AWS, GCP, and Azure. ``Pillow-SIMD`` is installed by defa
 .. note::
 
     These images do not include Composer preinstalled. To install composer, once inside the image, run ``pip install mosaicml``.
-
-Pulling Images
-^^^^^^^^^^^^^^
 
 Pre-built images can be pulled from `MosaicML's DockerHub Repository <https://hub.docker.com/r/mosaicml/pytorch>`_:
 
