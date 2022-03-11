@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import logging
 from typing import Optional
+import warnings
 
 import numpy as np
 import torch
@@ -13,6 +14,7 @@ from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Optimizers
 from composer.utils import module_surgery
+from composer.algorithms import NoEffectWarning
 
 log = logging.getLogger(__name__)
 
@@ -153,6 +155,10 @@ class BlurPool(Algorithm):
 def _log_surgery_result(model: torch.nn.Module):
     num_blurpool_layers = module_surgery.count_module_instances(model, BlurMaxPool2d)
     num_blurconv_layers = module_surgery.count_module_instances(model, BlurConv2d)
+    if num_blurconv_layers == 0 and num_blurpool_layers == 0:
+        warnings.warn(
+            NoEffectWarning("Applying BlurPool did not change any layers. "
+                            "Likely no strided Conv2d or Pool2d layers were found."))
     log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
              f'Model now has {num_blurpool_layers} BlurMaxPool2d '
              f'and {num_blurconv_layers} BlurConv2D layers.')
