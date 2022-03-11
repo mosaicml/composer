@@ -26,7 +26,7 @@ from composer.core.time import Time, TimeUnit
 from composer.core.types import StateDict
 from composer.trainer._deepspeed import is_module_deepspeed
 from composer.trainer.devices.device import Device
-from composer.utils import ObjectStoreProvider, dist, iterate_with_pbar, reproducibility, run_directory
+from composer.utils import ObjectStoreProvider, dist, iterate_with_pbar, run_directory
 
 log = logging.getLogger(__name__)
 
@@ -257,7 +257,7 @@ class CheckpointLoader:
         return composer_checkpoint_filepath, extracted_checkpoint_folder, extracted_rank_n
 
     def _restore_checkpoint(self, state: State, composer_checkpoint_filepath: str, extracted_rank_n: bool,
-                            extracted_checkpoint_folder: Optional[str]) -> Optional[int]:
+                            extracted_checkpoint_folder: Optional[str]):
         """Restore a checkpoint into ``state``.
 
         Args:
@@ -268,14 +268,10 @@ class CheckpointLoader:
                 where global rank is greater than 0.
             extracted_checkpoint_folder (Optional[str]): The path to the checkpoint folder, which is passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
-
-        Returns:
-            Optional[int]: The seed that was loaded from the checkpoint if it exists otherwise ``None``.
         """
         # Now, all ranks load the checkpoint that local rank zero downloaded
         state_dict = torch.load(composer_checkpoint_filepath, map_location='cpu')
         log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state with keys {state_dict['state'].keys()}")
-        seed_to_restore = None
 
         if is_module_deepspeed(state.model):
             if extracted_checkpoint_folder is None:
@@ -300,28 +296,11 @@ class CheckpointLoader:
             state.load_state_dict(state_dict["state"])
             self.checkpoint_rng_state = self._get_checkpoint_rng_state(state_dict["rng"])
 
-            if "seed" in state_dict:
-                world_size = dist.get_world_size()
-                checkpointed_world_size = len(state_dict["seed"])
-                if world_size != checkpointed_world_size:
-                    warnings.warn(
-                        textwrap.dedent(f"""\
-                            Current world size {world_size} does not match the checkpointed
-                            world size {checkpointed_world_size}. The seed will not be restored."""))
-                else:
-                    seed_to_restore = state_dict["seed"][dist.get_global_rank()]
-                    reproducibility.seed_all(seed_to_restore)
-
-        return seed_to_restore
-
-    def load_checkpoint(self, state: State) -> Optional[int]:
+    def load_checkpoint(self, state: State):
         """Initialize state from the loaded checkpoint's data.
 
         Args:
             state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
-
-        Returns:
-            Optional[int]: The seed that was loaded from the checkpoint if it exists otherwise ``None``.
         """
 
         # download the checkpoint to the node-local folder
@@ -331,7 +310,7 @@ class CheckpointLoader:
                 node_checkpoint_folder = self._get_node_checkpoint_download_folder(tempdir)
                 composer_checkpoint_filepath, extracted_checkpoint_folder, extracted_rank_n = self._download_checkpoint(
                     node_checkpoint_folder)
-                seed_to_restore = self._restore_checkpoint(
+                self._restore_checkpoint(
                     state,
                     composer_checkpoint_filepath,
                     extracted_rank_n,
@@ -344,8 +323,6 @@ class CheckpointLoader:
 
         log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}'
                  f' loaded from {self.path}.')
-
-        return seed_to_restore
 
     def restore_checkpoint_rng_state(self, device: Device):
         """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
@@ -478,7 +455,7 @@ class CheckpointSaver:
 
         return False
 
-    def save_checkpoint(self, state: State, seed: int, device: Device) -> None:
+    def save_checkpoint(self, state: State, device: Device) -> None:
         """Save the current state to a new checkpoint file.
 
         There are 3 cases for the format in which the checkpoint is saved:
@@ -495,12 +472,10 @@ class CheckpointSaver:
 
         Args:
             state (State): The current State of the trainer.
-            seed (int): The seed used for random number generation.
             device (Device): The Device in use by this process.
         """
         state_dict = {
             'rng': self._get_rng_state(device=device),  # stored across all ranks
-            'seed': dist.all_gather_object(seed),
         }
 
         if self.save_event == Event.EPOCH_END:
