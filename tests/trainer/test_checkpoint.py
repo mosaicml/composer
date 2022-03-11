@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
-import pathlib
 import random
 import tarfile
 import tempfile
@@ -23,12 +22,10 @@ from composer.core.time import TimeUnit
 from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
-from composer.trainer._checkpoint import CheckpointLoader
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import run_directory
-from composer.utils.object_store import ObjectStoreProviderHparams
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -85,7 +82,7 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
     """
 
     # load_weights_only is False since the original Trainer is testing full checkpoint recovery
-    original_trainer_hparams.load_path = new_trainer_hparams.load_path
+    original_trainer_hparams.load_path_format = new_trainer_hparams.load_path_format
     original_trainer_hparams.load_weights_only = False
     original_trainer_hparams.load_strict_model_weights = False
 
@@ -112,7 +109,7 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> T
 
 
 def _load_checkpoint(checkpoint_dir: str, filename: str):
-    filename = filename.format(RANK=0)
+    filename = filename.format(rank=0)
     if filename.endswith('.pt'):
         return torch.load(filename, map_location='cpu')
 
@@ -134,17 +131,17 @@ def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: 
 
         deep_compare(checkpoint_a["rng"], checkpoint_b["rng"])
 
-    assert hparams_b.load_path is not None
+    assert hparams_b.load_path_format is not None
     assert hparams_b.save_folder is not None
-    hparams_a.load_path = hparams_b.load_path
+    hparams_a.load_path_format = hparams_b.load_path_format
     hparams_a.load_weights_only = False
     hparams_a.load_strict_model_weights = False
     hparams_a.save_folder = hparams_b.save_folder
 
     assert hparams_a.to_dict() == hparams_b.to_dict()
 
-    hparams_a.load_path = checkpoint_file_a
-    hparams_b.load_path = checkpoint_file_b
+    hparams_a.load_path_format = checkpoint_file_a
+    hparams_b.load_path_format = checkpoint_file_b
 
     trainer_a = hparams_a.initialize_object()
     state_a = trainer_a.state
@@ -210,7 +207,7 @@ def test_load_weights(
     checkpoint_a_file_path = os.path.join(run_directory.get_run_directory(), checkpoint_a_folder, final_checkpoint)
 
     # load only model weights
-    second_trainer_hparams.load_path = checkpoint_a_file_path
+    second_trainer_hparams.load_path_format = checkpoint_a_file_path
     second_trainer_hparams.load_weights_only = True
     second_trainer_hparams.load_strict_model_weights = True
     # setup a new optimizer
@@ -337,21 +334,21 @@ def test_checkpoint(
     assert first_trainer._checkpoint_saver is not None
     assert len(first_trainer.saved_checkpoints) == expected_num_checkpoints
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
-    checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
+    checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}", checkpoint_a_folder,
                                           final_checkpoint)
 
     second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
     checkpoint_b_folder = "second"
 
     second_trainer_hparams.save_folder = checkpoint_b_folder
-    second_trainer_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}",
+    second_trainer_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}",
                                            checkpoint_a_file_path)
-    second_trainer_hparams.load_path = second_trainer_filepath
+    second_trainer_hparams.load_path_format = second_trainer_filepath
     second_trainer_hparams.load_weights_only = False
     second_trainer_hparams.load_strict_model_weights = False
 
     _test_checkpoint_trainer(second_trainer_hparams)
-    checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_b_folder,
+    checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}", checkpoint_b_folder,
                                           final_checkpoint)
 
     assert_checkpoints_equivalent(
@@ -423,29 +420,3 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer):
                 assert expected == actual, f"Event {event} expected to be called {expected} times, but instead it was called {actual} times"
             return
     assert False, "EventCounterCallback not found in callbacks"
-
-
-def test_checkpoint_load_uri(tmpdir: pathlib.Path):
-    pytest.xfail("example.com sometimes returns a 404. Need to mock out the actual download")
-    loader = CheckpointLoader("https://example.com")
-    loader._retrieve_checkpoint(destination_filepath=str(tmpdir / "example"), rank=0, ignore_not_found_errors=False)
-    with open(str(tmpdir / "example"), "r") as f:
-        assert f.readline().startswith("<!doctype html>")
-
-
-def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    remote_dir = tmpdir / "remote_dir"
-    os.makedirs(remote_dir)
-    monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
-    provider = ObjectStoreProviderHparams(
-        provider='local',
-        key_environ="OBJECT_STORE_KEY",
-        container=".",
-    ).initialize_object()
-    with open(str(remote_dir / "checkpoint.txt"), 'wb') as f:
-        f.write(b"checkpoint1")
-    loader = CheckpointLoader("checkpoint.txt", object_store=provider)
-
-    loader._retrieve_checkpoint(destination_filepath=str(tmpdir / "example"), rank=0, ignore_not_found_errors=False)
-    with open(str(tmpdir / "example"), "rb") as f:
-        f.read() == b"checkpoint1"
