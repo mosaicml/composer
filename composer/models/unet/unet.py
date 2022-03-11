@@ -22,7 +22,7 @@ __all__ = ["UNet"]
 class UNet(ComposerModel):
     """A U-Net model extending :class:`.ComposerModel`.
 
-    See U-Net: Convolutional Networks for Biomedical Image Segmentation (|Ronneberger et al, 2015|_)
+    See U-Net: Convolutional Networks for Biomedical Image Segmentation (`Ronneberger et al, 2015`_)
     on the U-Net architecture.
 
     Args:

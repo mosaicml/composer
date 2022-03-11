@@ -21,8 +21,9 @@ __all__ = ["BERTModel"]
 
 
 class BERTModel(ComposerTransformer):
-    """Implements a BERT wrapper around a :class:`.ComposerTransformer`. Uses 
-    `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
+    """BERT model based on |:hugging_face:| Transformers.
+
+    For more information, see `Transformers <https://huggingface.co/transformers/>`_.
 
     Args:
         module (transformers.BertModel): An instance of BertModel that

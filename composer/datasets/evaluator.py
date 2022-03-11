@@ -1,7 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Specifies an instance of an :class:`~.evaluator.Evaluator`, which wraps a dataloader to include metrics
-that apply to a specific dataset."""
+"""Specifies an instance of an :class:`~.evaluator.Evaluator`, which wraps a dataloader to include metrics that apply to
+a specific dataset."""
 
 from __future__ import annotations
 

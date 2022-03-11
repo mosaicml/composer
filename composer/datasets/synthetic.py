@@ -16,8 +16,8 @@ __all__ = ["SyntheticDataType", "SyntheticDataLabelType", "SyntheticBatchPairDat
 
 
 class SyntheticDataType(StringEnum):
-    """Defines the distribution of the synthetic data. 
-    
+    """Defines the distribution of the synthetic data.
+
     Attributes:
         GAUSSIAN: Standard Guassian distribution.
         SEPARABLE: Gaussian distributed, but classes will be mean-shifted for

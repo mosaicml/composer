@@ -10,7 +10,9 @@ Note that the GLUE diagnostic dataset, which is designed to evaluate and analyze
 performance with respect to a wide range of linguistic phenomena found in natural
 language, is not included here.
 
-Please refer to the `GLUE benchmark <https://gluebenchmark.com/>`_ for more details. 
+Please refer to the `GLUE`_ benchmark for more details.
+
+.. _GLUE: https://gluebenchmark.com/
 """
 
 import logging
