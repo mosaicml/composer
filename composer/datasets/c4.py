@@ -8,7 +8,7 @@ This dataset is a colossal, cleaned version of Common Crawl's web crawl corpus a
 import logging
 from dataclasses import dataclass
 from functools import partial
-from itertools import chain
+from itertools import chain, cycle
 from typing import List
 
 import yahp as hp
@@ -209,18 +209,18 @@ class C4Dataset(IterableDataset):
             )
             self.max_samples = new_max_samples
 
-        # Try and detect if max_samples is too large
-        # TODO: For safety, repeat original dataset if max_samples is larger than original size
-        original_approx_samples = self.num_shards * self.approx_samples_per_shard
-        if self.max_samples > original_approx_samples and self.group_method == "truncate":
-            raise ValueError(
-                f"Max samples was set to {self.max_samples} with group_method 'truncate' but split '{split}' has only {original_approx_samples}.)"
-            )
-        if self.group_method == "concat":
-            log.warning(
-                f"When using group_method 'concat', sequential token samples are concatenated and chunked into fixed-length samples of size max_seq_len={self.max_seq_len}. "
-                f"In general we cannot detect ahead-of-time if your setting of max_samples={self.max_samples} is safe, "
-                f"so please be cautious to not request more tokens than the size of the original dataset.")
+        # # Try and detect if max_samples is too large
+        # # TODO: For safety, repeat original dataset if max_samples is larger than original size
+        # original_approx_samples = self.num_shards * self.approx_samples_per_shard
+        # if self.max_samples > original_approx_samples and self.group_method == "truncate":
+        #     raise ValueError(
+        #         f"Max samples was set to {self.max_samples} with group_method 'truncate' but split '{split}' has only {original_approx_samples}.)"
+        #     )
+        # if self.group_method == "concat":
+        #     log.warning(
+        #         f"When using group_method 'concat', sequential token samples are concatenated and chunked into fixed-length samples of size max_seq_len={self.max_seq_len}. "
+        #         f"In general we cannot detect ahead-of-time if your setting of max_samples={self.max_samples} is safe, "
+        #         f"so please be cautious to not request more tokens than the size of the original dataset.")
 
         # Build tokenizer
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
@@ -256,6 +256,10 @@ class C4Dataset(IterableDataset):
             batch_size=token_sample_batch_size,
         )
 
+        # Cycle over the dataset
+        # This functionality should eventually be upstreamed to HF
+        cycle_token_dataset = self._cycle(token_dataset)
+
         # Limit the number of post-processed token samples
         sized_token_dataset = token_dataset.take(self.max_samples_per_device)
 
@@ -275,6 +279,29 @@ class C4Dataset(IterableDataset):
 
     def __len__(self):
         return self.max_samples_per_device
+
+    def _cycle(self, hf_iterable):
+
+        class RepeatExamplesIterable(datasets.iterable_dataset._BaseExamplesIterable):
+
+            def __init__(self, ex_iterable):
+                self.ex_iterable = ex_iterable
+
+            def __iter__(self):
+                yield from cycle(self.ex_iterable)
+
+            @property
+            def n_shards(self):
+                return self.ex_iterable.n_shards
+
+        ex_iterable = RepeatExamplesIterable(hf_iterable._ex_iterable)
+        return datasets.iterable_dataset.iterable_dataset(
+            ex_iterable=ex_iterable,
+            info=hf_iterable._info.copy(),
+            split=hf_iterable._split,
+            format_type=hf_iterable._format_type,
+            shuffling=copy.deepcopy(hf_iterable._shuffling),
+        )
 
     def _subsample(self, device_offset, text_batch):
         # Only return the i-th item out of N sequential items
