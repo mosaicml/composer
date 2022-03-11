@@ -25,7 +25,7 @@ about our efficient methods and how to deploy them in your code, see :doc:`metho
 
 At `MosaicML`_, we are focused on making training ML models accessible. To do this,
 we continually productionize state-of-the-art academic research on efficient model
-training, and also study the `combinations`` of these methods in order to ensure
+training, and also study the `combinations` of these methods in order to ensure
 that model training is ✨ as efficient as possible ✨.
 
 If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or join

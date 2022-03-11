@@ -63,7 +63,7 @@ Introducing... Events, Engines, and State
 
 The core principle of the Composer trainer is to avoid the need to introduce algorithm-specific logic to the trainer
 by instead relying on callbacks tied to *events*. Events describe specific stages of the training lifecycle, such as
-``BATCH_START`` and ``BEFORE_FORWARD``. This is based on the two-way callback system from (`Howard et al, 2020`_) We could instrument our training loop with events as follows:
+``BATCH_START`` and ``BEFORE_FORWARD``. This is based on the two-way callback system from (`Howard et al, 2020`_) We could insert our training loop with events as follows:
 
 .. code-block:: python
 

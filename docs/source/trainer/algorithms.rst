@@ -19,7 +19,7 @@ Composer's trainer.
 
     {% for name, data in metadata.items() %}
     {% if data.functional %}
-    :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | :meth:`~composer.functional.{{ data.functional }}`
+    :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | :func:`~composer.functional.{{ data.functional }}`
     {% else %}
     :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | {{ data.functional }}
     {% endif %}

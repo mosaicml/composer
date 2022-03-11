@@ -22,8 +22,7 @@ even with short training times.
 .. _Segmentation: https://github.com/mosaicml/composer/blob/main/notebooks/medical_image_segmentation_composer.ipynb
 .. _Custom Algorithms: https://github.com/mosaicml/composer/blob/main/notebooks/custom_method_tutorial.ipynb
 .. |colab_functional| image:: https://colab.research.google.com/assets/colab-badge.svg
-.. _colab_functional: https://colab.research.google.com/github/mosaicml/composer/blob/main/notebooks/Composer_Functional.ipynb>
-
+.. _colab_functional: https://colab.research.google.com/github/mosaicml/composer/blob/main/notebooks/Composer_Functional.ipynb
 .. _colab_trainer: https://colab.research.google.com/github/mosaicml/composer/blob/main/notebooks/up_and_running_with_composer.ipynb
 .. |colab_trainer| image:: https://colab.research.google.com/assets/colab-badge.svg
 .. _colab_nlp: https://colab.research.google.com/github/mosaicml/composer/blob/main/notebooks/nlp_notebook_tutorial.ipynb

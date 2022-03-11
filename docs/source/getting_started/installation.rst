@@ -53,7 +53,7 @@ To simplify environment setup for the MosaicML ``Composer`` library, we provide 
 leverage, show below:
 
 ============ =============== ============ ============== ===================================================================
-Linux Distro Pytorch Version Cuda Version Python Version Docker Tag
+Linux Distro PyTorch Version CUDA Version Python Version Docker Tag
 ============ =============== ============ ============== ===================================================================
 ubuntu:20.04 1.10.0          11.3.1       3.9            ``latest``, ``mosaicml/pytorch:1.10.0_cu113-python3.9-ubuntu20.04``
 ubuntu:20.04 1.10.0          cpu          3.9            ``mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04``
@@ -97,7 +97,7 @@ Building Images locally
 |:rocket:| Quick Start
 ======================
 
-Access our library of speedup methods with the :doc:`/functional_api` methods:
+Access our library of speedup methods with the :doc:`/functional_api` API:
 
 .. testcode::
 
@@ -116,7 +116,7 @@ see :doc:`/method_cards/blurpool`. The method should log:
 
 .. code-block:: none
 
-    Applied BlurPool to model ResNet Model now has 1 BlurMaxPool2d and 6 BlurConv2D layers.
+    Applied BlurPool to model ResNet. Model now has 1 BlurMaxPool2d and 6 BlurConv2D layers.
 
 These methods are easy to integrate into your own training loop code with just a few lines.
 
@@ -150,12 +150,14 @@ is training an MNIST classifer with a recipe of methods:
     )
     trainer.fit()
 
-We handle insert and running the logic during the training, as well as many features:
+We handle inserting and running the logic during the training so that any algorithms you specify "just work."
 
-* interface to flexibly add algorithms to the training loop
-* engine that manages the ordering of algorithms for composition
-* trainer to handle boilerplate around numerics, distributed training, and others
-* integration with popular model libraries such as TIMM or HuggingFace Transformers.
+Besides easily running our built-in algorithms, Composer also features:
+
+* An interface to flexibly add algorithms to the training loop
+* An engine that manages the ordering of algorithms for composition
+* A trainer to handle boilerplate around numerics, distributed training, and others
+* Integration with popular model libraries such as TIMM and HuggingFace Transformers.
 
 Next steps
 ----------
