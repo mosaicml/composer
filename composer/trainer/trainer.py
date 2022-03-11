@@ -73,7 +73,7 @@ import itertools
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.distributed
@@ -109,9 +109,6 @@ from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_dd
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
-
-if TYPE_CHECKING:
-    import deepspeed
 
 log = logging.getLogger(__name__)
 
@@ -900,7 +897,9 @@ class Trainer:
 
         if self.state.timer.batch_in_epoch == 0 and self._checkpoint_loader:
             # only restore the rng state here if the step in the current epoch is zero.
-            self._checkpoint_loader.restore_checkpoint_rng_state(self._device)
+            if self._checkpoint_loader.checkpoint_rng_state is not None:
+                reproducibility.load_rng_state(self._checkpoint_loader.checkpoint_rng_state)
+                self._checkpoint_loader.checkpoint_rng_state = None
 
         while self.state.timer < self.state.max_duration:
             try:
@@ -919,7 +918,9 @@ class Trainer:
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.timer.batch_in_epoch:
                         if self._checkpoint_loader:
-                            self._checkpoint_loader.restore_checkpoint_rng_state(self._device)
+                            if self._checkpoint_loader.checkpoint_rng_state is not None:
+                                reproducibility.load_rng_state(self._checkpoint_loader.checkpoint_rng_state)
+                                self._checkpoint_loader.checkpoint_rng_state = None
                         continue
 
                     self.state.batch = self._device.batch_to_device(self.state.batch)
@@ -1118,7 +1119,7 @@ class Trainer:
                     self.state.loss = cast(torch.Tensor, self.state.scaler.scale(self.state.loss))
 
                 if self.deepspeed_enabled:
-                    cast("deepspeed.DeepSpeedEngine", self.state.model).backward(self.state.loss)
+                    self.state.deepspeed_model.backward(self.state.loss)
 
                     # This is the same loss scaling and reporting we skipped earlier.
                     for loss in ensure_tuple(self.state.loss):
@@ -1131,7 +1132,7 @@ class Trainer:
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
             if self.deepspeed_enabled:
-                cast("deepspeed.DeepSpeedEngine", self.state.model).step()
+                self.state.deepspeed_model.step()
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:
