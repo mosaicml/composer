@@ -22,11 +22,13 @@ __all__ = ["UNet"]
 class UNet(ComposerModel):
     """A U-Net model extending :class:`.ComposerModel`.
 
-    See `U-Net: Convolutional Networks for Biomedical Image Segmentation <https://arxiv.org/abs/1505.04597>`_ (Ronneberger et al, 2015) for details
+    See U-Net: Convolutional Networks for Biomedical Image Segmentation (`Ronneberger et al, 2015`_)
     on the U-Net architecture.
 
     Args:
         num_classes (int): The number of classes. Needed for classification tasks. Default: ``3``.
+
+    .. _Ronneberger et al, 2015: https://arxiv.org/abs/1505.04597
     """
 
     def __init__(self, num_classes: Optional[int] = 3) -> None:
