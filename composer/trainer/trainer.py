@@ -73,7 +73,7 @@ import itertools
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.distributed
@@ -109,9 +109,6 @@ from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_dd
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.object_store import ObjectStoreProvider
-
-if TYPE_CHECKING:
-    import deepspeed
 
 log = logging.getLogger(__name__)
 
@@ -489,17 +486,31 @@ class Trainer:
                 raise ValueError('device must be of class Device')
             self._device = device
 
+        if self.deepspeed_enabled or dist.get_world_size() > 1:
+            # deepspeed requires torch.distributed to be initialized, even if the world size is 1
+            # distributed is always required with multi-rank training
+            dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+
         if not seed:
             seed = reproducibility.get_random_seed()
-            log.info(f"Seed was None. Setting seed to random value: {seed}")
 
-        # Assure that each process has a different seed, necessary if a seed is passed to init
-        seed += dist.get_global_rank()
+        # Ensure that each process has a seed = rank_zero_seed + global_rank
+        # This "deterministically different" seed behavior is required to be able
+        # to restore seeds when resuming form checkpoints, since only the
+        # `rank_zero_seed` is stored on state.
+        if seed < 0 or seed > reproducibility.MAX_SEED:
+            raise ValueError(f"Invalid seed: {seed}. It must be on [0; 2**32 - 1)")
+        rank_zero_seed = self._device.tensor_to_device(torch.tensor(
+            [seed], dtype=torch.int64))  # using int64 to prevent overflow
+        dist.broadcast(rank_zero_seed, src=0)
+        rank_zero_seed = rank_zero_seed.item()
+        assert isinstance(rank_zero_seed, int)
+        seed = rank_zero_seed + dist.get_global_rank()
+        log.info(f"Setting seed to {seed}")
 
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
         reproducibility.seed_all(seed)
-        self._seed = seed
 
         if not algorithms:
             algorithms = []
@@ -509,10 +520,6 @@ class Trainer:
         find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
         self._find_unused_parameters = find_unused_parameters
 
-        if self.deepspeed_enabled or dist.get_world_size() > 1:
-            # deepspeed requires torch.distributed to be initialized, even if the world size is 1
-            # distributed is always required with multi-rank training
-            dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
         if ddp_sync_strategy is None:
             self._ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
         else:
@@ -573,6 +580,7 @@ class Trainer:
 
         self.state = State(
             max_duration=max_duration,
+            rank_zero_seed=rank_zero_seed,
             algorithms=algorithms,
             model=model,
             callbacks=callbacks,
@@ -731,9 +739,8 @@ class Trainer:
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
         # DDP.
         if self._checkpoint_loader is not None:
-            restored_seed = self._checkpoint_loader.load_checkpoint(state=self.state)
-            if restored_seed is not None:
-                self._seed = restored_seed
+            self._checkpoint_loader.load_checkpoint(state=self.state)
+            reproducibility.seed_all(self.state.seed)
 
         if not self.deepspeed_enabled:
             host_model_params = self.state.model.parameters()
@@ -890,7 +897,9 @@ class Trainer:
 
         if self.state.timer.batch_in_epoch == 0 and self._checkpoint_loader:
             # only restore the rng state here if the step in the current epoch is zero.
-            self._checkpoint_loader.restore_checkpoint_rng_state(self._device)
+            if self._checkpoint_loader.checkpoint_rng_state is not None:
+                reproducibility.load_rng_state(self._checkpoint_loader.checkpoint_rng_state)
+                self._checkpoint_loader.checkpoint_rng_state = None
 
         while self.state.timer < self.state.max_duration:
             try:
@@ -909,7 +918,9 @@ class Trainer:
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.timer.batch_in_epoch:
                         if self._checkpoint_loader:
-                            self._checkpoint_loader.restore_checkpoint_rng_state(self._device)
+                            if self._checkpoint_loader.checkpoint_rng_state is not None:
+                                reproducibility.load_rng_state(self._checkpoint_loader.checkpoint_rng_state)
+                                self._checkpoint_loader.checkpoint_rng_state = None
                         continue
 
                     self.state.batch = self._device.batch_to_device(self.state.batch)
@@ -999,9 +1010,11 @@ class Trainer:
                             self.state.timer.batch) % self._validate_every_n_batches == 0:
                         self.eval(is_batch=True)
 
+                    self.engine.run_event(Event.BATCH_CHECKPOINT)
+
                     if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=self.state,
                                                                                            event=Event.BATCH_END):
-                        self._checkpoint_saver.save_checkpoint(state=self.state, seed=self._seed, device=self._device)
+                        self._checkpoint_saver.save_checkpoint(state=self.state, device=self._device)
 
                     if self.state.timer >= self.state.max_duration:
                         # If max_duration is specified in batches, samples, or tokens, and
@@ -1023,9 +1036,11 @@ class Trainer:
             if self._validate_every_n_epochs > 0 and int(self.state.timer.epoch) % self._validate_every_n_epochs == 0:
                 self.eval(is_batch=False)
 
+            self.engine.run_event(Event.EPOCH_CHECKPOINT)
+
             if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=self.state,
                                                                                    event=Event.EPOCH_END):
-                self._checkpoint_saver.save_checkpoint(state=self.state, seed=self._seed, device=self._device)
+                self._checkpoint_saver.save_checkpoint(state=self.state, device=self._device)
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
@@ -1101,10 +1116,10 @@ class Trainer:
                 self.engine.run_event(Event.BEFORE_BACKWARD)
 
                 if use_grad_scaling:
-                    self.state.loss = self.state.scaler.scale(self.state.loss)
+                    self.state.loss = cast(torch.Tensor, self.state.scaler.scale(self.state.loss))
 
                 if self.deepspeed_enabled:
-                    cast("deepspeed.DeepSpeedEngine", self.state.model).backward(self.state.loss)
+                    self.state.deepspeed_model.backward(self.state.loss)
 
                     # This is the same loss scaling and reporting we skipped earlier.
                     for loss in ensure_tuple(self.state.loss):
@@ -1117,7 +1132,7 @@ class Trainer:
                 self.engine.run_event(Event.AFTER_BACKWARD)
 
             if self.deepspeed_enabled:
-                cast("deepspeed.DeepSpeedEngine", self.state.model).step()
+                self.state.deepspeed_model.step()
 
         # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
         if use_grad_scaling:

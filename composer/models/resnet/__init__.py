@@ -1,9 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """The ResNet model family is a set of convolutional neural networks described in `Deep Residual Learning for Image
-Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2015). ResNets can be used as the base for a variety of vision tasks.
-ImageNet ResNets are a subset of the ResNet family which were designed specifically for classification on the ImageNet
-dataset.
+Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2015). ResNets can be used as the base for a variety of
+vision tasks. ImageNet ResNets are a subset of the ResNet family which were designed specifically for classification on
+the ImageNet dataset.
 
 See the :doc:`Model Card </model_cards/resnet>` for more details.
 """
