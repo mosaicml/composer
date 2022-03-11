@@ -217,6 +217,7 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
     """
     if dist.is_available() and dist.is_initialized():
         dist.broadcast(tensor, src)
+        return
     world_size = get_world_size()
     if world_size == 1:
         return

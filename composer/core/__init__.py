@@ -7,7 +7,6 @@ Central parts of composer such as :class:`~.engine.Engine`, base class for criti
 :class:`~.logger.Logger` and :class:`~.time.Timer` are implemented under core.
 """
 
-from composer.core import types as types
 from composer.core.algorithm import Algorithm as Algorithm
 from composer.core.callback import Callback as Callback
 from composer.core.data_spec import DataSpec as DataSpec

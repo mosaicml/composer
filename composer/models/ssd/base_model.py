@@ -1,5 +1,8 @@
-"""
-SSD 300 resnet backbones in PyTorch adapted from `MLCommons <https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd>`_.
+"""SSD 300 resnet backbones in PyTorch adapted from MLCommons.
+
+Based on MLCommons Reference Implementation `here`_
+
+.. _here: https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
 """
 
 import torch
