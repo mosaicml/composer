@@ -104,12 +104,12 @@ def load_checkpoint(
 
             .. code-block::
 
-                my_model/rank_0/ep1.tar
-                my_model/rank_1/ep1.tar
-                my_model/rank_2/ep1.tar
+                my_model/ep1-rank0.tar
+                my_model/ep1-rank1.tar
+                my_model/ep1-rank2.tar
                 ...
 
-            Then, ``path_format`` should be set to ``my_model/rank_{rank}/ep1.tar``, and all ranks will load the
+            Then, ``path_format`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load the
             correct state.
 
         state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
@@ -378,8 +378,8 @@ def format_name(name_format: str, state: State):
 
         .. doctest:: composer.utils.checkpoint.format_name.deepspeed
 
-            >>> format_name("ep{epoch}-ba{batch}/rank_{rank}", state)
-            'ep1-ba42/rank_0.tar'
+            >>> format_name("ep{epoch}-ba{batch}-rank{rank}", state)
+            'ep1-ba42-rank0.tar'
         
         .. testcleanup:: composer.utils.checkpoint.format_name.deepspeed
 
@@ -407,7 +407,7 @@ def format_name(name_format: str, state: State):
 
 
 def save_checkpoint(state: State,
-                    name_format: str = "ep{epoch}-ba{batch}/rank_{rank}",
+                    name_format: str = "ep{epoch}-ba{batch}-rank{rank}",
                     *,
                     weights_only: bool = False) -> List[pathlib.Path]:
     """Checkpoint the training ``state``.
@@ -415,7 +415,7 @@ def save_checkpoint(state: State,
     Args:
         state (State): The current State of the trainer.
         name_format (str): A format string describing how to name checkpoints.
-            (default: ``'ep{epoch}-ba{batch}/rank_{rank}'``)
+            (default: ``'ep{epoch}-ba{batch}-rank{rank}'``)
 
             See :func:`.format_name` for the available format variables.
 
@@ -440,7 +440,7 @@ def save_checkpoint(state: State,
 
             Consider the following scenario, where:
 
-            *   The default ``name_format='ep{epoch}-ba{batch}/rank_{rank}'`` is used.
+            *   The default ``name_format='ep{epoch}-ba{batch}-rank{rank}'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 

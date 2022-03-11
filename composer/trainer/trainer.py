@@ -256,12 +256,12 @@ class Trainer:
 
             .. code-block::
 
-                my_model/rank_0/ep1.tar
-                my_model/rank_1/ep1.tar
-                my_model/rank_2/ep1.tar
+                my_model/ep1-rank0.tar
+                my_model/ep1-rank1.tar
+                my_model/ep1-rank2.tar
                 ...
 
-            Then, ``load_path_format`` should be set to ``my_model/rank_{rank}/ep1.tar``, and all ranks will load the
+            Then, ``load_path_format`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load the
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
@@ -327,14 +327,14 @@ class Trainer:
 
         save_name_format (str, optional): A format string describing how to name checkpoints.
             This parameter has no effect if ``save_folder`` is ``None``.
-            (default: ``"ep{epoch}-ba{batch}/rank_{rank}"``)
+            (default: ``"ep{epoch}-ba{batch}-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
         save_latest_format (str, optional): A format string for the name of a symlink
             (relative to ``checkpoint_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
-            To disable symlinking, set to ``None``. (default: ``"latest/rank_{rank}"``)
+            To disable symlinking, set to ``None``. (default: ``"latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
@@ -458,8 +458,8 @@ class Trainer:
 
         # save_checkpoint
         save_folder: Optional[str] = None,
-        save_name_format: str = "ep{epoch}-ba{batch}/rank_{rank}",
-        save_latest_format: str = "latest/rank_{rank}",
+        save_name_format: str = "ep{epoch}-ba{batch}-rank{rank}",
+        save_latest_format: str = "latest-rank{rank}",
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,
@@ -1291,7 +1291,7 @@ class Trainer:
             getattr(optimizer, "_step_supports_amp_closure", False)
             for optimizer in ensure_tuple(self.state.optimizers))
 
-    def save_checkpoint(self, name_format: str = "ep{epoch}-ba{batch}/rank_{rank}", *, weights_only: bool = False):
+    def save_checkpoint(self, name_format: str = "ep{epoch}-ba{batch}-rank{rank}", *, weights_only: bool = False):
         """Checkpoint the training :class:`~.State`.
 
         Args:

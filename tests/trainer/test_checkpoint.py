@@ -246,7 +246,7 @@ def test_load_weights(
 @pytest.mark.parametrize(
     "seed,save_interval,save_name_format,resume_file,final_checkpoint",
     [
-        [None, "1ep", "ep{epoch}", "ep1", "latest/rank_0"],  # test randomized seed saving and symlinking
+        [None, "1ep", "ep{epoch}", "ep1", "latest-rank0"],  # test randomized seed saving and symlinking
         [42, "1ep", "ep{epoch}", "ep1", "ep2"],  # test save at epoch end
         [42, "1ep", "ep{epoch}.tgz", "ep1.tgz", "ep2.tgz"],  # test tarball with compression
         [42, "2ba", "ba{batch}", "ba4", "ba8"],  # test save batch in partial epoch
