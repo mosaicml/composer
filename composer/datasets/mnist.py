@@ -1,5 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""MNIST image classification dataset.
+
+The MNIST dataset is a collection of labeled 28x28 black and white images of handwritten examples of the numbers 0-9.
+See the `wikipedia entry <https://en.wikipedia.org/wiki/MNIST_database>`_ for more details.
+"""
+
 from dataclasses import dataclass
 
 import yahp as hp
@@ -11,13 +17,16 @@ from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, Web
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 
+__all__ = ["MNISTDatasetHparams", "MNISTWebDatasetHparams"]
+
 
 @dataclass
 class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """Defines an instance of the MNIST dataset for image classification.
 
     Args:
-        download (bool): Whether to download the dataset, if needed.
+        download (bool, optional): Whether to download the dataset, if needed. Default:
+            ``True``.
     """
     download: bool = hp.optional("whether to download the dataset, if needed", default=True)
 
