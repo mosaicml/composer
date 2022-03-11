@@ -14,7 +14,7 @@ from composer.core.evaluator import Evaluator
 from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, PyTorchScheduler
 from composer.datasets import DataloaderHparams, DatasetHparams
 from composer.models import ComposerClassifier, ModelHparams
-from composer.optim import AdamHparams, ExponentialLRHparams
+from composer.optim import AdamHparams, ExponentialSchedulerHparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
 from tests.fixtures.models import (SimpleBatchPairModel, SimpleConvModel, _SimpleBatchPairModelHparams,
@@ -110,6 +110,7 @@ def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_data
         model=dummy_model,
         precision=Precision.FP32,
         grad_accum=1,
+        rank_zero_seed=0,
         train_dataloader=dummy_train_dataloader,
         evaluators=evaluators,
         optimizers=dummy_optimizer,
@@ -197,7 +198,7 @@ def composer_trainer_hparams(
     return TrainerHparams(
         algorithms=[],
         optimizer=AdamHparams(),
-        schedulers=[ExponentialLRHparams(gamma=0.1)],
+        schedulers=[ExponentialSchedulerHparams(gamma=0.1)],
         max_duration="2ep",
         precision=Precision.FP32,
         train_batch_size=dummy_train_batch_size,
@@ -232,6 +233,7 @@ def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoade
     evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(
         grad_accum=1,
+        rank_zero_seed=0,
         max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,

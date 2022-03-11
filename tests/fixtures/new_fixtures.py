@@ -16,6 +16,7 @@ def minimal_state():
     """
     return State(
         model=SimpleModel(),
+        rank_zero_seed=0,
         train_dataloader=DataLoader(RandomClassificationDataset()),
         evaluators=[],
         max_duration='100ep',
