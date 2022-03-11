@@ -87,8 +87,8 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
                 the dataloader.
 
         Returns:
-            Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of
-                custom types, a :class:`~core.data_spec.DataSpec`.
+            Dataloader or DataSpec: The :class:`~core.types.DataLoader`, or if the dataloader yields batches of custom
+                types, a :class:`~core.data_spec.DataSpec`.
         """
         pass
 
