@@ -5,10 +5,8 @@
 Primitives are tested in test_blurpool.py
 """
 import itertools
-from statistics import mode
 from typing import List
 from unittest.mock import Mock
-from black import out
 
 import pytest
 import torch

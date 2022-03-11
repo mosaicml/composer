@@ -67,7 +67,6 @@ from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite, SqueezeExcite2d, SqueezeExciteConv2d
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.swa import SWA
-from composer.algorithms.warnings import NoEffectWarning, NotIntendedUseWarning
 
 load_multiple = AlgorithmHparams.load_multiple
 load = AlgorithmHparams.load
@@ -104,8 +103,6 @@ __all__ = [
     "SqueezeExciteConv2d",
     "StochasticDepth",
     "SWA",
-    "NoEffectWarning",
-    "NotIntendedUseWarning",
 
     # hparams objects
     "AlgorithmHparams",
