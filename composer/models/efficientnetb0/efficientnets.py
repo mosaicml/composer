@@ -1,7 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""EffecientNet PyTorch architecture, adapted from `(Generic) EfficientNets for PyTorch
-<https://github.com/rwightman/gen-efficientnet-pytorch>`_."""
+"""EffecientNet PyTorch architecture, adapted from `(Generic) EfficientNets for PyTorch.
+
+<https://github.com/rwightman/gen-efficientnet-pytorch>`_.
+"""
 
 import math
 import re
@@ -17,7 +19,8 @@ __all__ = ["EfficientNet"]
 
 
 class EfficientNet(nn.Module):
-    """From `EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks
+    """From `EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks.
+
     <https://arxiv.org/abs/1905.11946>`_ (Tan et al, 2019).
 
     Args:
