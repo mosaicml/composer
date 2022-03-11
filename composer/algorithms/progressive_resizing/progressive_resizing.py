@@ -15,7 +15,7 @@ from torchvision import transforms
 
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
-from composer.models.loss import check_for_index_targets
+from composer.models.loss import _check_for_index_targets
 
 log = logging.getLogger(__name__)
 
@@ -26,30 +26,20 @@ T_ResizeTransform = Callable[[torch.Tensor], torch.Tensor]
 __all__ = ["resize_batch", "ProgressiveResizing"]
 
 
-def resize_batch(X: torch.Tensor,
-                 y: torch.Tensor,
+def resize_batch(input: torch.Tensor,
+                 target: torch.Tensor,
                  scale_factor: float,
                  mode: str = "resize",
                  resize_targets: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     """Resize inputs and optionally outputs by cropping or interpolating.
 
-    Example:
-         .. testcode::
-
-            from composer.algorithms.progressive_resizing import resize_batch
-            X_resized, y_resized = resize_batch(
-                                        X=X_example,
-                                        y=y_example,
-                                        scale_factor=0.5,
-                                        mode='resize',
-                                        resize_targets=False
-            )
-
     Args:
-        X (Tensor): input tensor of shape (N, C, H, W). Resizing will be done along
-            dimensions H and W using the constant factor ``scale_factor``.
-        y (Tensor): output tensor of shape (N, H, W) or (N, C, H, W) that will also be resized if
-            ``resize_targets`` is ``True``,
+        input (torch.Tensor): input tensor of shape ``(N, C, H, W)``.
+            Resizing will be done along dimensions H and W using the constant
+            factor ``scale_factor``.
+        target (torch.Tensor): output tensor of shape ``(N, H, W)`` or
+            ``(N, C, H, W)`` that will also be resized if ``resize_targets``
+            is ``True``,
         scale_factor (float): scaling coefficient for the height and width of the
             input/output tensor. 1.0 keeps the original size.
         mode (str, optional): type of scaling to perform. Value must be one of ``'crop'`` or
@@ -62,50 +52,60 @@ def resize_batch(X: torch.Tensor,
         y_sized: if ``resized_targets`` is ``True``, resized output tensor
             of shape ``(N, H * scale_factor, W * scale_factor)`` or  ``(N, C, H * scale_factor, W * scale_factor)``.
             Depending on the input ``y``. Otherwise returns original ``y``.
+
+    Example:
+         .. testcode::
+
+            from composer.algorithms.progressive_resizing import resize_batch
+            X_resized, y_resized = resize_batch(X_example,
+                                                y_example,
+                                                scale_factor=0.5,
+                                                mode='resize',
+                                                resize_targets=False)
     """
     # Verify dimensionalities are enough to support resizing
-    assert X.dim() > 2, "Input dimensionality not large enough for resizing"
+    assert input.dim() > 2, "Input dimensionality not large enough for resizing"
     if resize_targets is True:
-        assert y.dim() > 2, "Target dimensionality not large enough for resizing"
+        assert target.dim() > 2, "Target dimensionality not large enough for resizing"
 
     # Short-circuit if nothing should be done
     if scale_factor >= 1:
-        return X, y
+        return input, target
 
     # Prep targets for resizing if necessary
-    if check_for_index_targets(y) and resize_targets is True:
+    if _check_for_index_targets(target) and resize_targets is True:
         # Add a dimension to match shape of the input and change type for resizing
-        y_sized = y.float().unsqueeze(1)
+        y_sized = target.float().unsqueeze(1)
     else:
-        y_sized = y
+        y_sized = target
 
     if mode.lower() == "crop" and resize_targets is False:
         # Make a crop transform for X
-        resize_transform = _make_crop(tensor=X, scale_factor=scale_factor)
-        X_sized, y_sized = resize_transform(X), y
+        resize_transform = _make_crop(tensor=input, scale_factor=scale_factor)
+        X_sized, y_sized = resize_transform(input), target
     elif mode.lower() == "crop" and resize_targets is True:
         # Make a crop transform for X and y
-        resize_transform, resize_y = _make_crop_pair(X=X, y=y_sized, scale_factor=scale_factor)
-        X_sized, y_sized = resize_transform(X), resize_y(y_sized)
+        resize_transform, resize_y = _make_crop_pair(X=input, y=y_sized, scale_factor=scale_factor)
+        X_sized, y_sized = resize_transform(input), resize_y(y_sized)
     elif mode.lower() == "resize":
         # Make a resize transform (can be used for X or y)
         resize_transform = _make_resize(scale_factor=scale_factor)
-        X_sized = resize_transform(X)
+        X_sized = resize_transform(input)
         if resize_targets:
             y_sized = resize_transform(y_sized)
     else:
         raise ValueError(f"Progressive mode '{mode}' not supported.")
 
     # Revert targets to their original format if they were modified
-    if check_for_index_targets(y) and resize_targets is True:
+    if _check_for_index_targets(target) and resize_targets is True:
         # Convert back to original format for training
-        y_sized = y_sized.squeeze(dim=1).to(y.dtype)
+        y_sized = y_sized.squeeze(dim=1).to(target.dtype)
 
     # Log results
     log.info(
         textwrap.dedent(f"""\
             Applied Progressive Resizing with scale_factor={scale_factor} and mode={mode}.
-            Old input dimensions: (H,W)={X.shape[2], X.shape[3]}.
+            Old input dimensions: (H,W)={input.shape[2], input.shape[3]}.
             New input dimensions: (H,W)={X_sized.shape[2], X_sized.shape[2]}"""))
     return X_sized, y_sized
 
@@ -202,8 +202,8 @@ class ProgressiveResizing(Algorithm):
         # Linearly increase to full size at the start of the fine tuning period
         scale_factor = initial_size + (1 - initial_size) * scale_frac_elapsed
 
-        new_input, new_target = resize_batch(X=input,
-                                             y=target,
+        new_input, new_target = resize_batch(input=input,
+                                             target=target,
                                              scale_factor=scale_factor,
                                              mode=self.mode,
                                              resize_targets=self.resize_targets)

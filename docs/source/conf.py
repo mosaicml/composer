@@ -25,6 +25,7 @@ import sphinx.ext.autodoc
 import sphinx.util.logging
 from sphinx.ext.autodoc import ClassDocumenter, _
 import yahp as hp
+import torch
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -137,6 +138,7 @@ hp.Hparams.__doc__ = ""
 hp.Hparams.initialize_object.__doc__ = ""
 torch.nn.Module.forward.__doc__ = ""
 
+torch.nn.Module.forward.__doc__ = None
 pygments_style = "manni"
 pygments_dark_style = "monokai"
 
