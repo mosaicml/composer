@@ -172,7 +172,7 @@ class Engine():
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
                 else:
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP]
-                duration_marker = self.state.profiler.marker(name, actions=actions, record_instant_on_start=True)
+                duration_marker = self.state.profiler.marker(name, actions=actions)
 
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
