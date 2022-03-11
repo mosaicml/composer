@@ -143,7 +143,7 @@ is training an MNIST classifer with a recipe of methods:
         train_dataloader=train_dataloader,
         max_duration="2ep",
         algorithms=[
-            LabelSmoothing(alpha=0.1),
+            LabelSmoothing(smoothing=0.1),
             MixUp(num_classes=10, alpha=0.2),
             ChannelsLast()
             ]
