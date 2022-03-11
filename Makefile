@@ -26,10 +26,10 @@ lint:
 	PYRIGHT_PYTHON_FORCE_VERSION=$(PYRIGHT_PYTHON_FORCE_VERSION) pyright $(dirs)
 
 test:
-	$(PYTHON) -m $(PYTEST) tests/ $(EXTRA_ARGS)
+	$(PYTHON) -m $(PYTEST) $(EXTRA_ARGS)
 
 test-gpu:
-	$(PYTHON) -m $(PYTEST) tests/ -m gpu $(EXTRA_ARGS)
+	$(PYTHON) -m $(PYTEST) -m gpu $(EXTRA_ARGS)
 
 # runs tests with the launcher
 test-dist:
