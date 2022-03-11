@@ -97,18 +97,3 @@ class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
     webdataset_cache_dir: str = hp.optional('WebDataset cache directory', default='/tmp/webdataset_cache/')
     webdataset_cache_verbose: bool = hp.optional('WebDataset cache verbosity', default=False)
     shuffle_buffer: int = hp.optional('WebDataset shuffle buffer size per worker', default=256)
-
-    @abc.abstractmethod
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
-        """Creates a :class:`DataLoader` or :class:`DataloaderSpec` for this dataset.
-
-        Args:
-            batch_size (int): The size of the batch the dataloader should yield. This batch size is
-                device-specific and already incorporates the world size.
-            dataloader_hparams (DataloaderHparams): The dataset-independent hparams for the dataloader
-
-        Returns:
-            Dataloader or DataSpec: The dataloader, or if the dataloader yields batches of custom types,
-                a :class:`DataSpec`.
-        """
-        pass
