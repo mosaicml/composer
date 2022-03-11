@@ -20,6 +20,7 @@ def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, steps_
     evaluators = [Evaluator(label="dummy_label", dataloader=eval_dataloader, metrics=metric_coll)]
     return State(
         model=model,
+        rank_zero_seed=0,
         optimizers=optim.SGD(model.parameters(), lr=.001, momentum=0.0),
         max_duration="1ep",
         train_dataloader=train_dataloader,
