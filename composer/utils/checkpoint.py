@@ -444,12 +444,12 @@ def save_checkpoint(state: State,
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
-            When DeepSpeed is not being used, the rank zero process will save the checkpoint to ``'ep1-ba42/rank_0'``.
+            When DeepSpeed is not being used, the rank zero process will save the checkpoint to ``'ep1-ba42-rank0'``.
             When DeepSpeed is being used, each rank (process) will save checkpoints to::
 
-                ep1-ba42/rank_0.tar
-                ep1-ba42/rank_1.tar
-                ep1-ba42/rank_2.tar
+                ep1-ba42-rank0.tar
+                ep1-ba42-rank1.tar
+                ep1-ba42-rank2.tar
                 ...
 
         weights_only (bool, optional): If ``True``, save only the model weights instead of the entire training state.
