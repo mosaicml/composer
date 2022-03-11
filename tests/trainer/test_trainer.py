@@ -269,7 +269,7 @@ class TestTrainerEvents():
         }
 
     def test_data_augmented(self, config):
-        config['algorithms'] = [CutOut(n_holes=1, length=5)]
+        config['algorithms'] = [CutOut()]
 
         # we give the callback access to the dataset to test
         # that the images have been augmented.

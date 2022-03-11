@@ -7,33 +7,25 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-import random
 import shutil
 import tarfile
 import tempfile
 import textwrap
 import urllib.parse
-import warnings
-from typing import TYPE_CHECKING, Iterator, Optional, Tuple, Union, cast
+from typing import Iterator, Optional, Tuple, Union
 
-import numpy as np
 import requests
 import torch
 import tqdm
 
 from composer.core import Event, State
 from composer.core.time import Time, TimeUnit
-from composer.core.types import StateDict
-from composer.trainer._deepspeed import is_module_deepspeed
 from composer.trainer.devices.device import Device
 from composer.utils import ObjectStoreProvider, dist, iterate_with_pbar, reproducibility, run_directory
 
 log = logging.getLogger(__name__)
 
 __all__ = ["CheckpointLoader", "CheckpointSaver"]
-
-if TYPE_CHECKING:
-    import deepspeed
 
 _COMPOSER_STATES_FILENAME = "composer_states.pt"
 _DEEPSPEED_TAG = "deepspeed"  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
@@ -257,7 +249,7 @@ class CheckpointLoader:
         return composer_checkpoint_filepath, extracted_checkpoint_folder, extracted_rank_n
 
     def _restore_checkpoint(self, state: State, composer_checkpoint_filepath: str, extracted_rank_n: bool,
-                            extracted_checkpoint_folder: Optional[str]) -> Optional[int]:
+                            extracted_checkpoint_folder: Optional[str]):
         """Restore a checkpoint into ``state``.
 
         Args:
@@ -268,16 +260,12 @@ class CheckpointLoader:
                 where global rank is greater than 0.
             extracted_checkpoint_folder (Optional[str]): The path to the checkpoint folder, which is passed into
                 :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
-
-        Returns:
-            Optional[int]: The seed that was loaded from the checkpoint if it exists otherwise ``None``.
         """
         # Now, all ranks load the checkpoint that local rank zero downloaded
         state_dict = torch.load(composer_checkpoint_filepath, map_location='cpu')
         log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state with keys {state_dict['state'].keys()}")
-        seed_to_restore = None
 
-        if is_module_deepspeed(state.model):
+        if state.is_model_deepspeed:
             if extracted_checkpoint_folder is None:
                 raise RuntimeError("Deepspeed checkpoints require a tarball, not a weights file.")
 
@@ -285,7 +273,7 @@ class CheckpointLoader:
             if global_rank > 0 and not extracted_rank_n:
                 raise RuntimeError(f"Deepspeed checkpoint missing for rank {global_rank}")
 
-            load_path, _ = cast("deepspeed.DeepSpeedEngine", state.model).load_checkpoint(
+            load_path, _ = state.deepspeed_model.load_checkpoint(
                 extracted_checkpoint_folder,
                 tag=_DEEPSPEED_TAG,
                 load_module_only=self.load_weights_only,
@@ -298,30 +286,13 @@ class CheckpointLoader:
 
         if not self.load_weights_only:
             state.load_state_dict(state_dict["state"])
-            self.checkpoint_rng_state = self._get_checkpoint_rng_state(state_dict["rng"])
+            self.checkpoint_rng_state = state_dict["rng"]
 
-            if "seed" in state_dict:
-                world_size = dist.get_world_size()
-                checkpointed_world_size = len(state_dict["seed"])
-                if world_size != checkpointed_world_size:
-                    warnings.warn(
-                        textwrap.dedent(f"""\
-                            Current world size {world_size} does not match the checkpointed
-                            world size {checkpointed_world_size}. The seed will not be restored."""))
-                else:
-                    seed_to_restore = state_dict["seed"][dist.get_global_rank()]
-                    reproducibility.seed_all(seed_to_restore)
-
-        return seed_to_restore
-
-    def load_checkpoint(self, state: State) -> Optional[int]:
+    def load_checkpoint(self, state: State):
         """Initialize state from the loaded checkpoint's data.
 
         Args:
             state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
-
-        Returns:
-            Optional[int]: The seed that was loaded from the checkpoint if it exists otherwise ``None``.
         """
 
         # download the checkpoint to the node-local folder
@@ -331,7 +302,7 @@ class CheckpointLoader:
                 node_checkpoint_folder = self._get_node_checkpoint_download_folder(tempdir)
                 composer_checkpoint_filepath, extracted_checkpoint_folder, extracted_rank_n = self._download_checkpoint(
                     node_checkpoint_folder)
-                seed_to_restore = self._restore_checkpoint(
+                self._restore_checkpoint(
                     state,
                     composer_checkpoint_filepath,
                     extracted_rank_n,
@@ -344,40 +315,6 @@ class CheckpointLoader:
 
         log.info(f'{"Model weights" if self.load_weights_only else "Trainer checkpoint"}'
                  f' loaded from {self.path}.')
-
-        return seed_to_restore
-
-    def restore_checkpoint_rng_state(self, device: Device):
-        """Restore the state of all RNG objects in this context from the loaded checkpoint's data.
-
-        Args:
-            device (Device): The device being used for training for which to restore the state.
-        """
-
-        if self.checkpoint_rng_state is None:
-            return
-
-        assert dist.get_world_size() == len(self.checkpoint_rng_state['torch']), textwrap.dedent("""\
-            invariant violation: if the rng state is being restored, then
-            the world size should be the same as in the checkpoint.""")
-
-        torch.set_rng_state(self.checkpoint_rng_state['torch'][dist.get_global_rank()])
-        device.load_state_dict(self.checkpoint_rng_state['device'][dist.get_global_rank()])
-        random.setstate(self.checkpoint_rng_state['python'][dist.get_global_rank()])
-        np.random.set_state(self.checkpoint_rng_state['numpy'][dist.get_global_rank()])
-
-        self.checkpoint_rng_state = None
-
-    def _get_checkpoint_rng_state(self, checkpoint_rng_state: StateDict) -> Optional[StateDict]:
-        original_world_size = len(checkpoint_rng_state["torch"])
-        if original_world_size == dist.get_world_size():
-            return checkpoint_rng_state
-        else:
-            warnings.warn(
-                textwrap.dedent(f"""\
-                    The checkpoint was created with world_size({original_world_size}),
-                    which differs from the current world_size({dist.get_world_size()}).
-                    RNG state will not be restored."""))
 
 
 def _format_from_compression(compression: Optional[str]) -> Tuple[str, str]:
@@ -478,7 +415,7 @@ class CheckpointSaver:
 
         return False
 
-    def save_checkpoint(self, state: State, seed: int, device: Device) -> None:
+    def save_checkpoint(self, state: State, device: Device) -> None:
         """Save the current state to a new checkpoint file.
 
         There are 3 cases for the format in which the checkpoint is saved:
@@ -495,12 +432,14 @@ class CheckpointSaver:
 
         Args:
             state (State): The current State of the trainer.
-            seed (int): The seed used for random number generation.
             device (Device): The Device in use by this process.
         """
+
+        # Even though only rank zero saves the state dict, all states must call `.state_dict`, as individual
+        # Algorithms or callbacks may perform distributed operations in their `.state_dict` implementations
         state_dict = {
-            'rng': self._get_rng_state(device=device),  # stored across all ranks
-            'seed': dist.all_gather_object(seed),
+            'rng': reproducibility.get_rng_state(),
+            'state': state.state_dict(),
         }
 
         if self.save_event == Event.EPOCH_END:
@@ -511,9 +450,8 @@ class CheckpointSaver:
             raise ValueError(f"Invalid checkpoint event: {self.save_event}")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            if is_module_deepspeed(state.model):
-                model = cast("deepspeed.DeepSpeedEngine", state.model)
-                model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
+            if state.is_model_deepspeed:
+                state.deepspeed_model.save_checkpoint(tmpdir, _DEEPSPEED_TAG)
                 # ensure that deepspeed checkpoints are saved in an archive
                 self._file_extension, self._write_mode = _ensure_archive(file_extension=self._file_extension,
                                                                          write_mode=self._write_mode)
@@ -521,11 +459,6 @@ class CheckpointSaver:
             composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
             if dist.get_global_rank() == 0:
                 # only rank 0 saves checkpoints
-
-                # we add the state only on rank 0 since other processes don't have loggers to serialize
-                # it should be the same across all ranks. per-rank state not stored
-                state_dict['state'] = state.state_dict()
-
                 with open(composer_states_filepath, 'xb') as f:
                     torch.save(state_dict, f)
 
@@ -534,28 +467,16 @@ class CheckpointSaver:
                 # move the file out of tmpdir to the user-specified location
                 shutil.move(composer_states_filepath, checkpoint_filepath)
 
-            if is_module_deepspeed(state.model) or (not _is_pt_file(checkpoint_filepath) and
-                                                    dist.get_global_rank() == 0):
+            if state.is_model_deepspeed or (not _is_pt_file(checkpoint_filepath) and dist.get_global_rank() == 0):
                 with tarfile.open(checkpoint_filepath, self._write_mode) as tarball:
                     # add files flat to the tarball with the specified compression
                     tarball.add(tmpdir, arcname="")
 
             timestamp = state.timer.get_timestamp()
-            paths = dist.all_gather_object(checkpoint_filepath) if is_module_deepspeed(
-                state.model) else [checkpoint_filepath]
+            paths = dist.all_gather_object(checkpoint_filepath) if state.is_model_deepspeed else [checkpoint_filepath]
             self.saved_checkpoints[timestamp] = paths
 
             log.info(f'Trainer checkpoint saved to {checkpoint_filepath}')
 
         # Ensure that the non-rank 0 processes don't exit before the checkpoint is saved.
         dist.barrier()
-
-    def _get_rng_state(self, device: Device) -> StateDict:
-        rng_state = {
-            "python": dist.all_gather_object(random.getstate()),
-            "numpy": dist.all_gather_object(np.random.get_state()),
-            "torch": dist.all_gather_object(torch.random.get_rng_state()),
-            "device": dist.all_gather_object(device.state_dict()),
-        }
-        # casting the state dict as on non-rank-0, entries will be None-like
-        return rng_state
