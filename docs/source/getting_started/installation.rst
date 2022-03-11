@@ -132,7 +132,7 @@ is training an MNIST classifer with a recipe of methods:
 
     from composer import Trainer
     from composer.models import MNIST_Classifier
-    from composer.algorithms import LabelSmoothing, MixUp, ChannelsLast
+    from composer.algorithms import LabelSmoothing, CutMix, ChannelsLast
 
     transform = transforms.Compose([transforms.ToTensor()])
     dataset = datasets.MNIST("data", train=True, download=True, transform=transform)
@@ -144,8 +144,8 @@ is training an MNIST classifer with a recipe of methods:
         max_duration="2ep",
         algorithms=[
             LabelSmoothing(smoothing=0.1),
-            MixUp(num_classes=10, alpha=0.2),
-            ChannelsLast()
+            CutMix(num_classes=10),
+            ChannelsLast(),
             ]
     )
     trainer.fit()
