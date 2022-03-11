@@ -2,15 +2,15 @@
 
 """The base :class:`~composer.trainer.devices.device.Device` class."""
 
+import collections.abc
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Generator, TypeVar, Union, cast
+from typing import Callable, Generator, Sequence, TypeVar, Union, cast
 
 import torch.nn
 
 from composer.core.serializable import Serializable
-from composer.core.types import Batch, BatchPair, Optimizer, Precision, Tensor, Tensors
-from composer.utils.iter_helpers import map_collection
+from composer.core.types import Batch, BatchPair, Optimizer, Precision, Tensor
 
 __all__ = ["Device", "T_nnModule"]
 
@@ -42,7 +42,7 @@ class Device(Serializable, ABC):
         pass
 
     @abstractmethod
-    def tensor_to_device(self, tensor: Tensors) -> Tensors:
+    def tensor_to_device(self, tensor: Tensor) -> Tensor:
         """Invoked by the :class:`.Trainer` to move a tensor onto a device.
 
         Args:
@@ -64,8 +64,16 @@ class Device(Serializable, ABC):
         """
         if isinstance(batch, Tensor):
             return self.tensor_to_device(batch)
-        if isinstance(batch, (tuple, list)):  # BatchPair
-            return cast(BatchPair, type(batch)(map_collection(x, self.tensor_to_device) for x in batch))
+        if isinstance(batch, collections.abc.Sequence):  # BatchPair
+            batch_cls = type(batch)
+            ans = []
+            for x in batch:
+                if isinstance(x, Tensor):
+                    ans.append(self.tensor_to_device(x))
+                else:
+                    assert isinstance(x, (dict, Sequence))
+                    ans.append(self.batch_to_device(x))
+            return cast(Callable[..., BatchPair], batch_cls)(ans)
         if isinstance(batch, dict):  # BatchDict
             return {k: self.tensor_to_device(v) for k, v in batch.items()}
         raise TypeError(f"Unsupported type for batch: {type(batch)}")

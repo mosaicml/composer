@@ -49,6 +49,8 @@ class SSD(ComposerModel):
     def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
 
         (_, _, _, bbox, label) = batch  #type: ignore
+        if not isinstance(bbox, Tensor):
+            raise TypeError("bbox must be a singular tensor")
         trans_bbox = bbox.transpose(1, 2).contiguous()
 
         ploc, plabel = outputs

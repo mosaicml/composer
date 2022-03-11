@@ -30,7 +30,7 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Sequence, TypeVar, Union
 
 import torch
 import torch.utils.data
@@ -65,11 +65,11 @@ T = TypeVar('T')
 Many = Union[T, Sequence[T]]
 
 Tensor = torch.Tensor
-Tensors = Many[Tensor]
+Tensors = Union[Tensor, Sequence[Tensor]]
 
 # For BatchPar, if it is a list, then it should always be of length 2.
 # Pytorch's default collate_fn returns a list even when the dataset returns a tuple.
-BatchPair = Union[Tuple[Tensors, Tensors], List[Tensor]]
+BatchPair = Sequence[Union[Tensor, Sequence[Tensor]]]
 BatchDict = Dict[str, Tensor]
 Batch = Union[BatchPair, BatchDict, Tensor]
 

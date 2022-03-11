@@ -34,55 +34,8 @@ def map_collection(singleton: T, map_fn: Callable[[T], V], /) -> V:
     ...
 
 
-@overload
-def ensure_tuple(x: None) -> Tuple:
+def ensure_tuple(union_of_all_types: Union[T, Sequence[T], Dict[Any, T], None]) -> Tuple[T, ...]:
     ...
-
-
-@overload
-def ensure_tuple(x: str) -> Tuple[str]:
-    ...
-
-
-@overload
-def ensure_tuple(x: bytearray) -> Tuple[bytearray]:
-    ...
-
-
-@overload
-def ensure_tuple(x: bytes) -> Tuple[bytes]:
-    ...
-
-
-@overload
-def ensure_tuple(x: Tuple[T, ...]) -> Tuple[T, ...]:
-    ...
-
-
-@overload
-def ensure_tuple(x: List[T]) -> Tuple[T, ...]:
-    ...
-
-
-@overload
-def ensure_tuple(x: range) -> Tuple:
-    ...
-
-
-@overload
-def ensure_tuple(x: Sequence[T]) -> Tuple[T, ...]:
-    ...
-
-
-@overload
-def ensure_tuple(x: Dict[Any, T]) -> Tuple[T, ...]:
-    ...
-
-
-@overload
-def ensure_tuple(x: Union[T, None, Sequence[T], Dict[Any, T]]) -> Tuple[T, ...]:
-    ...
-
 
 def iterate_with_pbar(iterator: Iterator[TSized], progress_bar: Optional[tqdm.tqdm] = ...) -> Iterator[TSized]:
     ...

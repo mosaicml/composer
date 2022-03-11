@@ -12,6 +12,7 @@ import torch
 
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Model, Optimizers
+from composer.utils.iter_helpers import ensure_tuple
 
 log = logging.getLogger(__name__)
 
@@ -196,12 +197,8 @@ def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Optimizers)
         p (torch.nn.Parameter): The parameter being frozen.
         optimizers (Optimizers): The optimizers used during training.
     """
-    # Force optimizers to be iterable
-    if not isinstance(optimizers, (list, tuple)):
-        optimizers = [optimizers]
-
     # Search over params in the optimizers to find and remove the
     # given param. Necessary due to the way params are stored.
-    for optimizer in optimizers:
+    for optimizer in ensure_tuple(optimizers):
         for group in optimizer.param_groups:
             group['params'] = list(filter(lambda x: id(x) != id(p), group['params']))
