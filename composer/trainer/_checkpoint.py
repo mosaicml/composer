@@ -21,7 +21,7 @@ import tqdm
 from composer.core import Event, State
 from composer.core.time import Time, TimeUnit
 from composer.trainer.devices.device import Device
-from composer.utils import ObjectStoreProvider, dist, iterate_with_pbar, run_directory, reproducibility
+from composer.utils import ObjectStoreProvider, dist, iterate_with_pbar, reproducibility, run_directory
 
 log = logging.getLogger(__name__)
 
