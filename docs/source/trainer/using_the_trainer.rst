@@ -19,7 +19,7 @@ The Composer :class:`.Trainer` implements a highly-optimized PyTorch training lo
 
     We use the two-way callback system developed by (`Howard et al,
     2020 <https://arxiv.org/abs/2002.04688>`__) to flexibly add the logic of
-    our speed-up methods during training.
+    our speedup methods during training.
 
 
 Below are simple examples for getting started with the Composer Trainer
