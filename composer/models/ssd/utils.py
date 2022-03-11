@@ -1,4 +1,7 @@
-## Code adapted from https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
+"""SSD 300 utils adapted from `MLCommons.
+
+<https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd>`_.
+"""
 
 import itertools
 import random
@@ -9,6 +12,8 @@ import torch
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from PIL import Image
+
+__all__ = ["Encoder", "SSDTransformer", "dboxes300_coco"]
 
 
 # This function is from https://github.com/kuangliu/pytorch-ssd.
