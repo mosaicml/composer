@@ -7,7 +7,7 @@
 
     pip install mosaicml
 
-``Composer`` is also available via Anaconda:
+as well as with Anaconda:
 
 .. code-block::
 
@@ -36,7 +36,7 @@ For a developer install, clone directly:
 
 .. note::
 
-    For performance in image-based operations, we **highly** recommend installing
+    For fast image data loading, we **highly** recommend installing
     `Pillow-SIMD <https://github.com/uploadcare/pillow-simd>`_\.  To install, vanilla pillow must first be uninstalled.
 
     .. code-block::
@@ -56,7 +56,7 @@ PyTorch Images
 --------------
 
 ============ =============== ============ ============== ===================================================================
-Linux Distro Pytorch Version Cuda Version Python Version Docker Tag                                                     
+Linux Distro Pytorch Version Cuda Version Python Version Docker Tag
 ============ =============== ============ ============== ===================================================================
 ubuntu:20.04 1.10.0          11.3.1       3.9            ``latest``, ``mosaicml/pytorch:1.10.0_cu113-python3.9-ubuntu20.04``
 ubuntu:20.04 1.10.0          cpu          3.9            ``mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04``
@@ -72,7 +72,7 @@ Our ``latest`` image has Ubuntu 20.04, Python 3.9, PyTorch 1.10, and CUDA 11.3, 
 GPU-based instances on AWS, GCP, and Azure. ``Pillow-SIMD`` is installed by default in all images.
 
 .. note::
-    
+
     These images do not include Composer preinstalled. To install composer, once inside the image, run ``pip install mosaicml``.
 
 Pulling Images
@@ -91,12 +91,12 @@ Building Images locally
 
     # Build the default image
     make
-    
+
     # Build with composer with Python 3.8
     PYTHON_VERSION=3.8 make
 
-.. note:: 
-    
+.. note::
+
     Docker must be `installed <https://docs.docker.com/get-docker/>`_ on your local machine.
 
 
