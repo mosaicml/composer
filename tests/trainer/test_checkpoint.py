@@ -14,11 +14,12 @@ import torch.distributed
 from _pytest.monkeypatch import MonkeyPatch
 
 from composer.callbacks.callback_hparams import CallbackHparams
+from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
-from composer.core.time import TimeUnit
+from composer.core.time import Time, TimeUnit
 from composer.core.types import Logger, StateDict
 from composer.datasets import SyntheticHparamsMixin
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
@@ -26,6 +27,7 @@ from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceH
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import run_directory
+from composer.utils.checkpoint import _is_archive
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -110,7 +112,7 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> T
 
 def _load_checkpoint(checkpoint_dir: str, filename: str):
     filename = filename.format(rank=0)
-    if filename.endswith('.pt'):
+    if not _is_archive(filename):
         return torch.load(filename, map_location='cpu')
 
     with tarfile.open(filename) as tarball:
@@ -194,6 +196,7 @@ def test_load_weights(
     composer_trainer_hparams.device = device_hparams
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
+    composer_trainer_hparams.save_name_format = "ep{epoch}.pt"
     composer_trainer_hparams.save_interval = "1ep"
     composer_trainer_hparams.seed = None
     composer_trainer_hparams.validate_every_n_batches = 1
@@ -228,7 +231,7 @@ def test_load_weights(
     )
 
 
-@pytest.mark.timeout(90000)
+@pytest.mark.timeout(90)
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
@@ -241,8 +244,16 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
-    "seed,checkpoint_filename,compression",
-    [[None, "ep1", None], [42, "ep1", None], [42, "ep1", "gzip"], [42, "it4", None], [42, "it6", None]])
+    "seed,save_interval,save_name_format,resume_file,final_checkpoint",
+    [
+        [None, "1ep", "ep{epoch}", "ep1", "latest-rank{rank}"],  # test randomized seed saving and symlinking
+        [42, "1ep", "ep{epoch}", "ep1", "ep2"],  # test save at epoch end
+        [42, "1ep", "ep{epoch}.tgz", "ep1.tgz", "ep2.tgz"],  # test tarball with compression
+        [42, "2ba", "ba{batch}", "ba4", "ba8"],  # test save batch in partial epoch
+        [42, "1ba", "ba{batch}", "ba5", "ba8"],  # test save batch at epoch end
+        [42, "2ba", "ba{batch}", "ba6", "ba8"],  # test save batch after complete epoch
+    ],
+)
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
@@ -250,8 +261,10 @@ def test_checkpoint(
     deepspeed_enabled: bool,
     zero_stage: Optional[int],
     composer_trainer_hparams: TrainerHparams,
-    checkpoint_filename: str,
-    compression: Optional[str],
+    save_interval: str,
+    save_name_format: str,
+    resume_file: str,
+    final_checkpoint: str,
     seed: Optional[int],
     model_name: Optional[str],
 ):
@@ -264,6 +277,12 @@ def test_checkpoint(
 
     if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
         pytest.skip("DeepSpeed tests must be ran on GPU")
+
+    if deepspeed_enabled:
+        if not _is_archive(resume_file):
+            resume_file += ".tar"
+        if not _is_archive(final_checkpoint):
+            final_checkpoint += ".tar"
 
     if model_name is not None:
         if not isinstance(device_hparams, GPUDeviceHparams):
@@ -281,14 +300,7 @@ def test_checkpoint(
         pytest.skip("Checkpointing tests require synthetic data")
         return
 
-    checkpoint_extension = ".pt"
-    if deepspeed_enabled:
-        # deepspeed checkpoints use .tar because they store multiple files
-        checkpoint_extension = ".tar"
-    if compression == "gzip":
-        checkpoint_extension = ".tar.gz"
-    checkpoint_filename += checkpoint_extension
-
+    composer_trainer_hparams.save_name_format = save_name_format
     composer_trainer_hparams.train_dataset.use_synthetic = True
     composer_trainer_hparams.train_dataset.shuffle = False
     composer_trainer_hparams.val_dataset.use_synthetic = True
@@ -318,22 +330,25 @@ def test_checkpoint(
 
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
-    save_interval_epochs = 1
-    save_interval_batches = 2
-    composer_trainer_hparams.save_interval = f"{save_interval_epochs}ep" if checkpoint_filename.startswith(
-        "ep") else f"{save_interval_batches}ba"
-    composer_trainer_hparams.save_compression = compression
+    composer_trainer_hparams.save_interval = save_interval
     composer_trainer_hparams.seed = seed
 
-    composer_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
-    composer_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
-    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + checkpoint_extension
+    composer_trainer_hparams.validate_every_n_batches = 1 if resume_file.startswith("ba") else 0
+    composer_trainer_hparams.validate_every_n_epochs = 1 if resume_file.startswith("ep") else 0
     first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
-    expected_num_checkpoints = num_epochs / save_interval_epochs if checkpoint_filename.startswith(
-        "ep") else (composer_trainer_hparams.train_subset_num_batches + 1) / save_interval_batches * num_epochs
-    assert first_trainer._checkpoint_saver is not None
-    assert len(first_trainer.saved_checkpoints) == expected_num_checkpoints
-    checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
+    save_interval_time = Time.from_timestring(save_interval)
+    if save_interval_time.unit == TimeUnit.EPOCH:
+        expected_num_checkpoints = ((num_epochs - 1) // save_interval_time.value) + 1
+    else:
+        expected_num_checkpoints = (
+            (composer_trainer_hparams.train_subset_num_batches * num_epochs - 1) // save_interval_time.value) + 1
+    checkpoint_saver = None
+    for callback in first_trainer.state.callbacks:
+        if isinstance(callback, CheckpointSaver):
+            checkpoint_saver = callback
+    assert checkpoint_saver is not None
+    assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
+    checkpoint_a_file_path = os.path.join(checkpoint_a_folder, resume_file)
     checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}", checkpoint_a_folder,
                                           final_checkpoint)
 
