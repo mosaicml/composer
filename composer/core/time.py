@@ -236,13 +236,15 @@ class Time(Generic[TValue]):
                     To fix this warning, replace {other} with {other_parsed}."""))
             return other_parsed
 
-        raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
+        raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
 
     def _cmp(self, other: object) -> int:
         # When doing comparisions, and other is an integer (or float), we can safely infer
         # the unit from self.unit
         # E.g. calls like this should be allowed: if batch < 42: do_something()
         # This eliminates the need to call .value everywhere
+        if not isinstance(other, (int, float, Time, str)):
+            return NotImplemented
         if isinstance(other, (int, float)):
             other = type(self)(other, self.unit)
         other = self._parse(other)
@@ -495,9 +497,11 @@ class Timer(Serializable):
                     To fix this warning, replace {other} with {other_parsed}."""))
             return other_parsed
 
-        raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
+        raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
 
     def __eq__(self, other: object):
+        if not isinstance(other, (Time, Timer, str)):
+            return NotImplemented
         if isinstance(other, Timer):
             return self.state_dict() == other.state_dict()
         other = self._parse(other)
@@ -505,6 +509,8 @@ class Timer(Serializable):
         return self_counter == other
 
     def __ne__(self, other: object):
+        if not isinstance(other, (Time, Timer, str)):
+            return NotImplemented
         if isinstance(other, Timer):
             return self.state_dict() != other.state_dict()
         other = self._parse(other)
@@ -512,21 +518,29 @@ class Timer(Serializable):
         return self_counter != other
 
     def __lt__(self, other: object):
+        if not isinstance(other, (Time, str)):
+            return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter < other
 
     def __le__(self, other: object):
+        if not isinstance(other, (Time, str)):
+            return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter <= other
 
     def __gt__(self, other: object):
+        if not isinstance(other, (Time, str)):
+            return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter > other
 
     def __ge__(self, other: object):
+        if not isinstance(other, (Time, str)):
+            return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter >= other

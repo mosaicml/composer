@@ -13,7 +13,6 @@ import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
 
-import composer.core.types as types
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timer, TimeUnit
@@ -22,6 +21,7 @@ from composer.utils import dist, ensure_tuple
 if TYPE_CHECKING:
     import deepspeed
 
+    import composer.core.types as types
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.profiler import Profiler
@@ -402,7 +402,8 @@ class State(Serializable):
         Raises:
             TypeError: If the current batch is not a :attr:`~.types.BatchPair`.
         """
-        return types.as_batch_pair(self.batch)
+        from composer.core.types import as_batch_pair
+        return as_batch_pair(self.batch)
 
     @property
     def batch_dict(self) -> types.BatchDict:
@@ -411,7 +412,8 @@ class State(Serializable):
         Raises:
             TypeError: If the current batch is not a :attr:`~.types.BatchDict`.
         """
-        return types.as_batch_dict(self.batch)
+        from composer.core.types import as_batch_dict
+        return as_batch_dict(self.batch)
 
     @property
     def precision_context(self):
@@ -429,6 +431,7 @@ class State(Serializable):
 
     @property
     def is_model_ddp(self):
+        """Whether :attr:`model` is an instance of a :class:`.DistributedDataParallel`."""
         return isinstance(self.model, DistributedDataParallel)
 
     @property

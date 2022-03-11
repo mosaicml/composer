@@ -85,6 +85,7 @@ from torchmetrics.metric import Metric
 
 import composer
 from composer.algorithms import ScaleSchedule
+from composer.callbacks import CheckpointSaver
 from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
@@ -101,13 +102,13 @@ from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
-from composer.trainer._checkpoint import CheckpointSaver, load_checkpoint
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
+from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.object_store import ObjectStoreProvider
 
 log = logging.getLogger(__name__)
@@ -218,7 +219,8 @@ class Trainer:
                 not have deterministic implementations, which will result in a crash.
 
             .. note:: In order to get reproducible results, call the
-                :func:`.configure_deterministic_mode` function at the start of your script. This will ensure any initialization done before the trainer init also runs deterministically.
+                :func:`.configure_deterministic_mode` function at the start of your script.
+                This will ensure any initialization done before the trainer init also runs deterministically.
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
         loggers (Sequence[LoggerCallback], optional): The destinations to log training information to.
@@ -229,26 +231,38 @@ class Trainer:
             then no callbacks will be run. (default: ``None``).
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
-        load_path_format (str, optional):  The template path to an existing checkpoint file.
-            It can be a path to a file on local disk, a URL, or if ``load_object_store`` is set, the object name
+        load_path_format (str, optional):  The path format string to an existing checkpoint file.
+
+            It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
-            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, saved checkpoints are
-            sharded rank. To load deepspeed checkpoints, specify ``{RANK}`` in this ``load_path_format``
-            parameter, and the ``RANK`` variable will be substituted with the global rank, thus allowing the correct
-            checkpoints to be loaded per-rank.
+            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
+            Instead of hard-coding the rank in the ``path_format``, use the following format variables:
+
+            +------------------------+-------------------------------------------------------+
+            | Variable               | Description                                           |
+            +========================+=======================================================+
+            | ``{rank}``             | The global rank, as returned by                       |
+            |                        | :func:`~.dist.get_global_rank`.                       |
+            +------------------------+-------------------------------------------------------+
+            | ``{local_rank}``       | The local rank of the process, as returned by         |
+            |                        | :func:`~.dist.get_local_rank`.                        |
+            +------------------------+-------------------------------------------------------+
+            | ``{node_rank}``        | The node rank, as returned by                         |
+            |                        | :func:`~.dist.get_node_rank`.                         |
+            +------------------------+-------------------------------------------------------+
 
             For example, suppose that checkpoints are stored in the following structure:
 
             .. code-block::
 
-                my_model/rank_0/ep1.tar
-                my_model/rank_1/ep1.tar
-                my_model/rank_2/ep1.tar
+                my_model/ep1-rank0.tar
+                my_model/ep1-rank1.tar
+                my_model/ep1-rank2.tar
                 ...
 
-            Then, ``load_path_format`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks
-            will load the correct data.
+            Then, ``load_path_format`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load the
+            correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
         load_object_store (ObjectStoreProvider, optional): If the ``load_path_format`` is in an object store
@@ -299,16 +313,47 @@ class Trainer:
             Ignored if ``load_path_format`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
             Ignored if ``load_path_format`` is either ``None`` or a local file path. (default: ``True``)
-        save_folder (str, optional): The folder to store checkpoints in. If an absolute path is specified, then
-            that path will be used. Otherwise, the ``save_folder`` will be relative
-            to the folder returned by :func:`.get_run_directory`.
-            If the ``save_folder`` does not exist, it will be created. If ``None``, then no checkpoints will
-            be saved. (default: ``None``)
-        save_interval (str or int, optional): How often to save checkpoints. For example, set to ``1ep``
-            to save checkpoints every epoch, or ``10ba`` to save checkpoints every 10 batches. An integer will be
-            assumed to be epochs. Ignored if ``save_folder`` is ``None``. (default: ``1ep``)
-        save_compression (str, optional): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,
-            ``lzma``, or ``None`` for no compression. Ignored if ``save_folder`` is ``None``. (default: ``None``)
+        save_folder (str, optional): Folder where checkpoints are saved. If ``None``, checkpoints will not be saved
+            by default.
+            .. seealso:: :class:`~.CheckpointSaver`
+
+            .. note::
+
+                For fine-grained control on checkpoint saving (e.g. to save different types of checkpoints
+                at different intervals), leave this parameter as ``None``, and instead pass
+                instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
+
+            (default: ``None``)
+
+        save_name_format (str, optional): A format string describing how to name checkpoints.
+            This parameter has no effect if ``save_folder`` is ``None``.
+            (default: ``"ep{epoch}-ba{batch}-rank{rank}"``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
+        save_latest_format (str, optional): A format string for the name of a symlink
+            (relative to ``checkpoint_folder``) that points to the last saved checkpoint.
+            This parameter has no effect if ``save_folder`` is ``None``.
+            To disable symlinking, set to ``None``. (default: ``"latest-rank{rank}"``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
+        save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
+            This parameter has no effect if ``save_folder`` is None. (default: ``False``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
+        save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
+            or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
+            This parameter has no effect if ``save_folder`` is ``None``. (default: ``'1ep'``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
+        save_weights_only (bool, optional): Whether to save only the model weights instead of the entire training
+            state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
@@ -413,8 +458,11 @@ class Trainer:
 
         # save_checkpoint
         save_folder: Optional[str] = None,
-        save_interval: Union[str, int, Time] = "1ep",
-        save_compression: Optional[str] = None,
+        save_name_format: str = "ep{epoch}-ba{batch}-rank{rank}",
+        save_latest_format: str = "latest-rank{rank}",
+        save_overwrite: bool = False,
+        save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
+        save_weights_only: bool = False,
 
         # subset parameters
         train_subset_num_batches: Optional[int] = None,
@@ -671,6 +719,18 @@ class Trainer:
         self.logger = Logger(self.state, loggers)
         self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
+        self._checkpoint_saver = None
+        if save_folder is not None:
+            self._checkpoint_saver = CheckpointSaver(
+                save_folder=save_folder,
+                name_format=save_name_format,
+                save_latest_format=save_latest_format,
+                overwrite=save_overwrite,
+                weights_only=save_weights_only,
+                save_interval=save_interval,
+            )
+            self.state.callbacks.append(self._checkpoint_saver)
+
         self.engine = Engine(
             state=self.state,
             logger=self.logger,
@@ -688,16 +748,6 @@ class Trainer:
 
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
-
-        self._checkpoint_saver = None
-        if save_folder is not None:
-            if isinstance(save_interval, int):
-                save_interval = Time.from_epoch(save_interval)
-            self._checkpoint_saver = CheckpointSaver(
-                save_folder=save_folder,
-                interval=save_interval,
-                compression=save_compression,
-            )
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -772,36 +822,37 @@ class Trainer:
         """The times and paths to checkpoint files saved across all ranks during training.
 
         Returns:
+
             Dict[Timestamp, List[str]]: A dictionary mapping a save :class:`.Timestamp`. to a list of
                 filepaths, indexed by global rank, corresponding to the checkpoints saved at that time.
 
-        .. note:: When using DeepSpeed, the index of a filepath corresponds to the
+        .. note::
+
+            When using DeepSpeed, the index of a filepath corresponds to the
             global rank of the process that wrote that file. These filepaths are valid only on
             the global rank's node. Otherwise, when not using DeepSpeed, this list will contain
             only one filepath since only rank zero saves checkpoints.
         """
-        assert self._checkpoint_saver is not None, \
-            "save_folder must be provided on trainer init in order to save checkpoints"
+        if self._checkpoint_saver is None:
+            raise RuntimeError("`save_folder` was not specified, so no checkpoints were saved.")
         return self._checkpoint_saver.saved_checkpoints
 
     @property
-    def checkpoint_folder(self) -> str:
+    def checkpoint_folder(self) -> Optional[str]:
         """The folder in which checkpoints are stored.
 
-        .. seealso:: :mod:`~composer.utils.run_directory` for details on the format of the run directory
-            and how to customize it.
-
         Returns:
-            str: The checkpoint folder. If an absolute path was specified for
-                ``save_folder`` upon trainer instantiation, then that path will be used. Otherwise, this folder
-                is relative to the run directory of the training run (e.g. ``{run_directory}/{save_folder}``).
-                If no run directory is provided, then by default, it is of the form
-                ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp``
-                is the start time of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process,
-                and ``save_folder`` is the save_folder argument provided upon construction.
+            Optional[str]: The checkpoint folder, or None, if checkpoints were not saved.
+
+            If an absolute path was specified for ``save_folder`` upon trainer instantiation, then that path will be
+            used. Otherwise, this folder is relative to the :mod:`~composer.utils.run_directory` of the training run
+            (e.g. ``{run_directory}/{save_folder}``). If no run directory is provided, then by default, it is of the
+            form ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp`` is the start time of the
+            run in iso-format, ``GLOBAL_RANK`` is the global rank of the process, and ``save_folder`` is the
+            ``save_folder`` argument provided upon construction.
         """
-        assert self._checkpoint_saver is not None, \
-            "save_folder must be provided on trainer init in order to save checkpoints"
+        if self._checkpoint_saver is None:
+            raise RuntimeError("`save_folder` was not specified, so no checkpoints were saved.")
         return self._checkpoint_saver.checkpoint_folder
 
     def fit(self):
@@ -903,7 +954,7 @@ class Trainer:
             try:
                 self.state.model.train()
 
-                if self.state.timer.batch_in_epoch == 0:
+                if int(self.state.timer.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.metric_epoch({"epoch": int(self.state.timer.epoch)})
 
@@ -914,8 +965,9 @@ class Trainer:
                         itertools.islice(self.state.train_dataloader, self.state.steps_per_epoch)):
 
                     # if resuming, skip dataloader forward to the minibatch index
-                    if batch_idx < self.state.timer.batch_in_epoch:
-                        if self._rng_state is not None:
+                    if batch_idx < int(self.state.timer.batch_in_epoch):
+                        # Restore the RNG state immediately before the next batch is yielded from the dataloader
+                        if batch_idx + 1 == int(self.state.timer.batch_in_epoch) and self._rng_state is not None:
                             reproducibility.load_rng_state(self._rng_state)
                             self._rng_state = None
                         continue
@@ -1009,10 +1061,6 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
 
-                    if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=self.state,
-                                                                                           event=Event.BATCH_END):
-                        self._checkpoint_saver.save_checkpoint(state=self.state, device=self._device)
-
                     if self.state.timer >= self.state.max_duration:
                         # If max_duration is specified in batches, samples, or tokens, and
                         # and the max_duration is reached mid-epoch, then break out of the dataloader
@@ -1034,10 +1082,6 @@ class Trainer:
                 self.eval(is_batch=False)
 
             self.engine.run_event(Event.EPOCH_CHECKPOINT)
-
-            if self._checkpoint_saver and self._checkpoint_saver.should_checkpoint(state=self.state,
-                                                                                   event=Event.EPOCH_END):
-                self._checkpoint_saver.save_checkpoint(state=self.state, device=self._device)
 
     def _train_batch(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Run training on a full batch of data.
@@ -1246,3 +1290,15 @@ class Trainer:
         return all(
             getattr(optimizer, "_step_supports_amp_closure", False)
             for optimizer in ensure_tuple(self.state.optimizers))
+
+    def save_checkpoint(self, name_format: str = "ep{epoch}-ba{batch}-rank{rank}", *, weights_only: bool = False):
+        """Checkpoint the training :class:`~.State`.
+
+        Args:
+            name_format (str, optional): See :func:`.save_checkpoint`.
+            weights_only (bool, optional): See :func:`.save_checkpoint`.
+
+        Returns:
+            List[pathlib.Path]: See :func:`.save_checkpoint`.
+        """
+        return save_checkpoint(state=self.state, name_format=name_format, weights_only=weights_only)
