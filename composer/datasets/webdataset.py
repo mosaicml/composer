@@ -233,9 +233,11 @@ def _size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int,
         samples per worker = samples per shard * shards per worker
 
         If drop last,
-            samples per worker = samples per worker // batch size * batch size
+            samples per worker = (samples per worker // batch size) * batch size
 
         samples per device = samples per worker * workers per device
+
+        samples per epoch = samples per device * devices
 
     Args:
         dataset (WebDataset):
@@ -258,17 +260,17 @@ def _size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int,
     if drop_last:
         samples_per_worker = (expected_samples_per_worker // batch_size) * batch_size
         samples_per_device = samples_per_worker * workers_per_device
-        samples_total = samples_per_device * n_devices
-        expected_samples_total = n_shards * samples_per_shard
-        if samples_total != expected_samples_total:
+        samples_per_epoch = samples_per_device * n_devices
+        expected_samples_per_epoch = n_shards * samples_per_shard
+        if samples_per_epoch != expected_samples_per_epoch:
             log.warning(
                 f"Note that 'drop_last=True' with per-CPU-worker sharding will cause an incomplete batch to be dropped at the end of ** each CPU worker's sample list **. "
-                f"Given your training configuration, we have calculated this will reduce samples_per_epoch from {expected_samples_total} -> {samples_total}."
+                f"Given your training configuration, we have calculated this will reduce samples_per_epoch from {expected_samples_per_epoch} to {samples_per_epoch}."
             )
     else:
         samples_per_worker = expected_samples_per_worker
         samples_per_device = samples_per_worker * workers_per_device
-        samples_total = samples_per_device * n_devices
+        samples_per_epoch = samples_per_device * n_devices
         expected_batches_per_epoch = math.ceil(samples_per_worker * workers_per_device / batch_size)
         batches_per_epoch = math.ceil(samples_per_worker / batch_size) * workers_per_device
         if batches_per_epoch != expected_batches_per_epoch:
