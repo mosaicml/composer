@@ -17,6 +17,21 @@ __all__ = ["EMA", "ema"]
 
 
 def ema(model: Model, ema_model: Model, alpha: float = 0.9):
+    """
+    The half life of the weights for terms in the average is given by
+
+    .. math::
+        t_{1/2} = -\frac{\log(2)}{\log(\alpha)}
+
+    Therefore to set alpha to obtain a target half life, set alpha according to
+    .. math::
+        \alpha = \exp\left[- \frac{\log(2)}{t_{1/2}}\right]
+
+    Args:
+        model (Model): _description_
+        ema_model (Model): _description_
+        alpha (float, optional): _description_. Defaults to 0.9.
+    """
     model_dict = model.state_dict()
     for key, ema_param in ema_model.state_dict().items():
         model_param = model_dict[key].detach()
