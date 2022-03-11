@@ -13,9 +13,8 @@ __all__ = ["ResNet9", "CIFAR10_ResNet9"]
 # adapted from https://raw.githubusercontent.com/matthias-wright/cifar10-resnet/master/model.py
 # under the MIT license
 class ResNet9(nn.Module):
-    """A 9-layer residual network, excluding BatchNorms and activation functions, as described in the `myrtle.ai blog.
-
-    <https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/>`_.
+    """A 9-layer residual network, excluding BatchNorms and activation functions, as described in the `myrtle.ai blog
+    <https://\\ myrtle.ai/learn/how-to-train-your-resnet-4-architecture/>`_.
 
     See `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2015) for details on the residual network architecture.
 
