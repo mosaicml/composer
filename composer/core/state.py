@@ -17,9 +17,11 @@ import composer.core.types as types
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timer, TimeUnit
-from composer.utils import ensure_tuple
+from composer.utils import dist, ensure_tuple
 
 if TYPE_CHECKING:
+    import deepspeed
+
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.profiler import Profiler
@@ -47,6 +49,32 @@ def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextMan
         return null
 
 
+def _ensure_backwards_compatible_checkpointing(state_dict: types.StateDict):
+    # v0.4.1 removed the leading underscores for the keys in the state_dict
+    # It also renamed _is_model_ddp_wrapped to is_model_ddp
+    state = {}
+    for k, v in state_dict.items():
+        if k == "_is_model_ddp_wrapped":
+            k = "is_model_ddp"
+        if k.startswith("_"):
+            k = k[1:]
+        state[k] = v
+    return state
+
+
+_STATE_DICT_SERIALIZED_ATTRIBUTES = [
+    # List of attributes that are serialized with state_dict
+    # Only the attributes listed in state.serialized_attributes will actually be saved.
+    "model",
+    "optimizers",
+    "schedulers",
+    "algorithms",
+    "callbacks",
+    "scaler",
+    "timer",
+]
+
+
 class State(Serializable):
     """The state of the trainer.
 
@@ -63,6 +91,8 @@ class State(Serializable):
 
     Args:
         model (:attr:`~.types.Model`): The model, typically as a subclass of :class:`~.ComposerModel`.
+        rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
+            ``rank_zero_seed + dist.get_global_rank()``.
         grad_accum (int): The number of gradient accumulation steps to use. With this argument, micro batch size for
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         train_dataloader (types.DataLoader, DataSpec, or dict):
@@ -111,6 +141,11 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | timer                 | The timer that tracks training loop progress.               |
             +-----------------------+-------------------------------------------------------------+
+            | is_model_ddp          | Whether the model is an instance of                         |
+            |                       | :class:`~torch.nn.parallel.DistributedDataParallel`.        |
+            +-----------------------+-------------------------------------------------------------+
+            | rank_zero_seed        | The seed of the rank zero process.                          |
+            +-----------------------+-------------------------------------------------------------+
     """
 
     _max_duration: Time[int]
@@ -129,6 +164,7 @@ class State(Serializable):
 
             # stopping conditions
             max_duration: Union[str, Time[int]],
+            rank_zero_seed: int,
 
             # data configurations
             train_dataloader: types.DataLoader,
@@ -152,6 +188,7 @@ class State(Serializable):
             # steps per epoch
             steps_per_epoch: Optional[int] = None,
     ):
+        self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.grad_accum = grad_accum
         self.train_dataloader = train_dataloader
@@ -182,16 +219,24 @@ class State(Serializable):
         # as the "_optimizers" attribute, here we specify just "optimizers"
         self.serialized_attributes = [
             "model",
+            "is_model_ddp",
             "optimizers",
             "schedulers",
             "algorithms",
             "callbacks",
             "scaler",
             "timer",
+            "rank_zero_seed",
         ]
 
     @property
+    def seed(self):
+        """The seed for the current rank."""
+        return self.rank_zero_seed + dist.get_global_rank()
+
+    @property
     def max_duration(self):
+        """The maximum training duration."""
         return self._max_duration
 
     @max_duration.setter
@@ -247,32 +292,32 @@ class State(Serializable):
         """Returns the state as a :class:`dict`."""
         state_dict: types.StateDict = {}
 
-        for state_field_name, state_field_value in self.__dict__.items():
-            if state_field_name.lstrip("_") not in self.serialized_attributes:
-                continue
-            if state_field_name == "model":
+        for attribute_name in self.serialized_attributes:
+            attribute_value = getattr(self, attribute_name)
+            if attribute_name == "model":
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-                serialized_value = state_field_value.state_dict()
+                serialized_value = attribute_value.state_dict()
             else:
-                serialized_value = {
-                    obj.__class__.__qualname__: obj.state_dict()
-                    for obj in ensure_tuple(state_field_value)
-                    if obj is not None
-                }
-            state_dict[state_field_name] = serialized_value
+                if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
+                    serialized_value = {
+                        type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
+                    }
+                else:
+                    serialized_value = attribute_value
 
-        state_dict["_is_model_ddp_wrapped"] = isinstance(self.model, DistributedDataParallel)
+            state_dict[attribute_name] = serialized_value
+
         return state_dict
 
     def load_model_state(self, state_dict: types.StateDict, strict: bool):
         """Loads the model's state from a state_dict.
 
         Args:
-            state_dict (types.StateDict): object returned from call to :meth:`state_dict`.
-            strict (bool): whether the keys (i.e., model parameter names) in the ``state_dict["model"]`` should
-                perfectly match the keys in the ``self.model``.
+            state_dict (types.StateDict): The state dict, generated from a previous call to :meth:`state_dict`.
+            strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
+                perfectly match the keys in the model instance.
         """
-        if state_dict["_is_model_ddp_wrapped"] and not isinstance(self.model, DistributedDataParallel):
+        if state_dict["is_model_ddp"] and not self.is_model_ddp:
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
         missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
@@ -289,24 +334,33 @@ class State(Serializable):
                 ``self.model``. Defaults to False.
         """
 
-        for state_field_name, state_field_value in self.__dict__.items():
-            if state_field_name.lstrip("_") not in self.serialized_attributes:
-                continue
-            serialized_value = state[state_field_name]
+        state = _ensure_backwards_compatible_checkpointing(state)
 
-            if state_field_name == "model":
+        for attribute_name, serialized_value in state.items():
+            if attribute_name not in self.serialized_attributes:
+                # it's possible some attributes we removed
+                continue
+
+            if attribute_name == "model":
                 self.load_model_state(state, strict=strict)
-            else:
+                continue
+            state_field_value = getattr(self, attribute_name)
+            if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 for target in ensure_tuple(state_field_value):
-                    if target is None:
-                        continue
-                    if target.__class__.__qualname__ not in serialized_value:
+                    if type(target).__qualname__ not in serialized_value:
                         warnings.warn(
-                            f"{target.__class__.__qualname__} was not found in the state_dict. Its state will NOT be restored",
+                            f"{type(target).__qualname__} is not in the state_dict. Its state will not be restored.",
                             category=UserWarning)
                         continue
-                    source = serialized_value[target.__class__.__qualname__]
+                    source = serialized_value[type(target).__qualname__]
                     target.load_state_dict(source)
+            else:
+                # direct serialization
+                try:
+                    setattr(self, attribute_name, serialized_value)
+                except AttributeError:
+                    # ignore AttributeError for properties that have getters but not setters.
+                    pass
 
     @property
     def steps_per_epoch(self):
@@ -362,3 +416,24 @@ class State(Serializable):
     @property
     def precision_context(self):
         return self._precision_context(self.precision)
+
+    @property
+    def is_model_deepspeed(self) -> bool:
+        """Whether :attr:`model` is an instance of a :class:`~deepspeed.DeepSpeedEngine`."""
+        try:
+            import deepspeed
+        except ImportError:
+            return False
+        else:
+            return isinstance(self.model, deepspeed.DeepSpeedEngine)
+
+    @property
+    def is_model_ddp(self):
+        return isinstance(self.model, DistributedDataParallel)
+
+    @property
+    def deepspeed_model(self) -> deepspeed.DeepSpeedEngine:
+        """Cast :attr:`model` to :class:`~deepspeed.DeepSpeedEngine`."""
+        if self.is_model_deepspeed:
+            return cast("deepspeed.DeepSpeedEngine", self.model)
+        raise TypeError("state.model is not a DeepSpeed model")

@@ -75,6 +75,7 @@ eval_dataloader = torch.utils.data.DataLoader(
 )
 
 state = State(
+    rank_zero_seed=0,
     model=model,
     optimizers=optimizer,
     grad_accum=1,
