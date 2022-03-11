@@ -27,9 +27,9 @@ def training_loop(model, train_loader):
 
     for epoch in range(num_epochs):
         for X, y in train_loader:
-            X_cutout = cf.cutout_batch(X=X_example,
-                                       n_holes=1,
-                                       length=16)
+            X_cutout = cf.cutout_batch(X_example,
+                                       num_holes=1,
+                                       length=0.5)
 
             y_hat = model(X_cutout)
             loss = loss_fn(y_hat, y)
@@ -47,7 +47,7 @@ def training_loop(model, train_loader):
 from composer.algorithms import Cutout
 from composer.trainer import Trainer
 
-cutout = CutOut(n_holes=1, length=0.25)
+cutout = CutOut(num_holes=1, length=0.5)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
@@ -59,11 +59,11 @@ trainer.fit()
 
 ### Implementation Details
 
-CutMix randomly selects `n_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where a point within any hole is set to 0 and the remaining points are set to 1. This mask is then multiplied element-wise with the image in order to set the pixel value of any pixel value within a hole to 0.
+CutMix randomly selects `num_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where a point within any hole is set to 0 and the remaining points are set to 1. This mask is then multiplied element-wise with the image in order to set the pixel value of any pixel value within a hole to 0.
 
 ## Suggested Hyperparameters
 
-We found that setting `n_holes=1` (adding a single gray patch) to the image gives good results. We found that setting `length` (the size of the patch) to a number of pixels equivalent to half of the image width or height produces good results. However, in some scenarios this may be too large, obstructing a quarter of the total area of the image; if so, setting `length` to a number of pixels equivalent to a quarter of the image width or height may be better.
+We found that setting `num_holes=1` (adding a single gray patch) to the image gives good results. We found that setting `length = 0.5`, indicating that the masked region should have height and width half as large as the image, produces good results. However, in some scenarios this may be too large, obstructing a quarter of the total area of the image; if so, setting `length` to a number of pixels equivalent to a quarter of the image width or height may be better.
 
 ## Technical Details
 
