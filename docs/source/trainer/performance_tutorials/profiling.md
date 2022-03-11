@@ -171,7 +171,9 @@ All traces can be viewed using the Chrome Trace Viewer.  To launch, open a Chrom
 
 In the following example we load the `profiler_traces.json` file which contain the unified trace data.  Open the trace by clicking the ‘Load’ button and selecting the `profiler_traces.json` file.  Depending on the size of the trace, it could take a moment to load.  After the trace has been loaded, you will see a complete trace capture as follows:
 
-![Example profiler trace file](https://storage.googleapis.com/docs.mosaicml.com/images/profiler/profiler_trace_example.png)
+```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/profiler_trace_example.png 
+:alt: Example profiler trace file 
+```
 
 The Trace Viewer provides users the ability to navigate the trace and interact with individual events and analyze key attributes if the information has been recorded.  For more details on using and interacting with the Trace Viewer please see the [Chromium How-To](https://www.chromium.org/developers/how-tos/trace-event-profiling-tool/).
 
