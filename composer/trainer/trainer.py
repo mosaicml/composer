@@ -47,7 +47,7 @@ Load the checkpoint and resume training:
     ### checkpoint filenames are of the form "ep{EPOCH_NUMBER}.pt".
     checkpoint_path = os.path.join(checkpoint_folder, "ep1.pt")
 
-    ### Create a new trainer with the load_path argument set to the checkpoint path.
+    ### Create a new trainer with the load_path_format argument set to the checkpoint path.
     ### This will automatically load the checkpoint on trainer creation.
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
@@ -57,7 +57,7 @@ Load the checkpoint and resume training:
                       schedulers=scheduler,
                       device="cpu",
                       validate_every_n_epochs=1,
-                      load_path=checkpoint_path)
+                      load_path_format=checkpoint_path)
 
     ### Continue training and running evaluation where the previous trainer left off
     ### until the new max_duration is reached.
@@ -101,7 +101,7 @@ from composer.profiler import Profiler, ProfilerEventHandler
 from composer.profiler.dataloader_profiler import DataloaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
-from composer.trainer._checkpoint import CheckpointLoader, CheckpointSaver
+from composer.trainer._checkpoint import CheckpointSaver, load_checkpoint
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
@@ -229,12 +229,12 @@ class Trainer:
             then no callbacks will be run. (default: ``None``).
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
-        load_path (str, optional):  The template path to an existing checkpoint file.
+        load_path_format (str, optional):  The template path to an existing checkpoint file.
             It can be a path to a file on local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
             When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, saved checkpoints are
-            sharded rank. To load deepspeed checkpoints, specify ``{RANK}`` in this ``load_path``
+            sharded rank. To load deepspeed checkpoints, specify ``{RANK}`` in this ``load_path_format``
             parameter, and the ``RANK`` variable will be substituted with the global rank, thus allowing the correct
             checkpoints to be loaded per-rank.
 
@@ -247,22 +247,22 @@ class Trainer:
                 my_model/rank_2/ep1.tar
                 ...
 
-            Then, ``load_path`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks
+            Then, ``load_path_format`` should be set to ``my_model/rank_{RANK}/ep1.tar``, and all ranks
             will load the correct data.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (ObjectStoreProvider, optional): If the ``load_path`` is in an object store
+        load_object_store (ObjectStoreProvider, optional): If the ``load_path_format`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStoreProvider` which
             will be used to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath,
-            set to ``None``. Ignored if ``load_path`` is ``None``. (default: ``None``)
+            set to ``None``. Ignored if ``load_path_format`` is ``None``. (default: ``None``)
 
             Example:
 
             .. testsetup::
 
-                from composer.trainer._checkpoint import CheckpointLoader
+                import composer.trainer
 
-                CheckpointLoader.load_checkpoint = lambda *args, **kwargs: 0
+                composer.trainer.trainer.load_checkpoint = lambda *args, **kwargs: None
 
             .. testcode::
 
@@ -287,18 +287,18 @@ class Trainer:
                                   schedulers=scheduler,
                                   device="cpu",
                                   validate_every_n_epochs=1,
-                                  load_path=checkpoint_path,
+                                  load_path_format=checkpoint_path,
                                   load_object_store=store)
 
 
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
-            restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
+            restoring the associated state. Ignored if ``load_path_format`` is ``None``. (default: ``False``)
         load_strict (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
-            Ignored if ``load_path`` is ``None``. (default: ``False``)
+            Ignored if ``load_path_format`` is ``None``. (default: ``False``)
         load_chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
-            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
+            Ignored if ``load_path_format`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
-            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
+            Ignored if ``load_path_format`` is either ``None`` or a local file path. (default: ``True``)
         save_folder (str, optional): The folder to store checkpoints in. If an absolute path is specified, then
             that path will be used. Otherwise, the ``save_folder`` will be relative
             to the folder returned by :func:`.get_run_directory`.
@@ -404,7 +404,7 @@ class Trainer:
         callbacks: Sequence[Callback] = tuple(),
 
         # load checkpoint
-        load_path: Optional[str] = None,
+        load_path_format: Optional[str] = None,
         load_object_store: Optional[ObjectStoreProvider] = None,
         load_weights_only: bool = False,
         load_strict: bool = False,
@@ -699,15 +699,6 @@ class Trainer:
                 compression=save_compression,
             )
 
-        self._checkpoint_loader = None
-        if load_path is not None:
-            self._checkpoint_loader = CheckpointLoader(path=load_path,
-                                                       object_store=load_object_store,
-                                                       load_weights_only=load_weights_only,
-                                                       strict_model_weights=load_strict,
-                                                       chunk_size=load_chunk_size,
-                                                       progress_bar=load_progress_bar)
-
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
             try:
@@ -738,8 +729,16 @@ class Trainer:
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
         # DDP.
-        if self._checkpoint_loader is not None:
-            self._checkpoint_loader.load_checkpoint(state=self.state)
+
+        self._rng_state = None
+        if load_path_format is not None:
+            self._rng_state = load_checkpoint(state=self.state,
+                                              path_format=load_path_format,
+                                              object_store=load_object_store,
+                                              load_weights_only=load_weights_only,
+                                              strict_model_weights=load_strict,
+                                              chunk_size=load_chunk_size,
+                                              progress_bar=load_progress_bar)
             reproducibility.seed_all(self.state.seed)
 
         if not self.deepspeed_enabled:
@@ -895,11 +894,10 @@ class Trainer:
 
         self._spin_dataloaders()
 
-        if self.state.timer.batch_in_epoch == 0 and self._checkpoint_loader:
+        if self.state.timer.batch_in_epoch == 0 and self._rng_state is not None:
             # only restore the rng state here if the step in the current epoch is zero.
-            if self._checkpoint_loader.checkpoint_rng_state is not None:
-                reproducibility.load_rng_state(self._checkpoint_loader.checkpoint_rng_state)
-                self._checkpoint_loader.checkpoint_rng_state = None
+            reproducibility.load_rng_state(self._rng_state)
+            self._rng_state = None
 
         while self.state.timer < self.state.max_duration:
             try:
@@ -917,10 +915,9 @@ class Trainer:
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < self.state.timer.batch_in_epoch:
-                        if self._checkpoint_loader:
-                            if self._checkpoint_loader.checkpoint_rng_state is not None:
-                                reproducibility.load_rng_state(self._checkpoint_loader.checkpoint_rng_state)
-                                self._checkpoint_loader.checkpoint_rng_state = None
+                        if self._rng_state is not None:
+                            reproducibility.load_rng_state(self._rng_state)
+                            self._rng_state = None
                         continue
 
                     self.state.batch = self._device.batch_to_device(self.state.batch)
