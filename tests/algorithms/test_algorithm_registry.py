@@ -54,8 +54,8 @@ default_required_fields = {
         'num_classes': 1000
     },
     CutOutHparams: {
-        'n_holes': 1,
-        'length': 112
+        'num_holes': 1,
+        'length': 0.5
     },
     MixUpHparams: {
         'alpha': 0.2,
