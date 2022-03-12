@@ -162,3 +162,4 @@ package-lock.json
 
 # pycharm
 .idea/
+*.pyi

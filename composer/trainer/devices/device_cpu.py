@@ -29,10 +29,10 @@ class DeviceCPU(Device):
     dist_backend = "gloo"
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
-        return module
+        return module.to('cpu')
 
     def tensor_to_device(self, tensor: Tensor) -> Tensor:
-        return tensor
+        return tensor.to('cpu')
 
     @contextmanager
     def precision_context(self, precision: Union[str, Precision]) -> Generator[None, None, None]:

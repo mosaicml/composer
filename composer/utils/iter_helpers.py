@@ -8,6 +8,21 @@
 import contextlib
 
 
+def recursive_apply(func: callable, data):
+    """Recursively maps a function to the values of arbitrary nested lists and dictionaries.
+
+    Args:
+        func: A function to apply to each element.
+        data: Arbitrary nested lists and dictionaries.
+    """
+    if isinstance(data, dict):
+        return {k: recursive_apply(func, v) for k, v in data.items()}
+    elif isinstance(data, (list, tuple)):
+        return [recursive_apply(func, x) for x in data]
+    else:
+        return func(data)
+
+
 def map_collection(collection, map_fn):
     """Apply ``map_fn`` on each element in ``collection``.
 

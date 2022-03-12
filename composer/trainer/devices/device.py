@@ -4,13 +4,13 @@
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Generator, TypeVar, Union, cast
+from typing import Generator, TypeVar, Union, Any
 
 import torch.nn
 
 from composer.core.serializable import Serializable
-from composer.core.types import Batch, BatchPair, Optimizer, Precision, Tensor
-from composer.utils.iter_helpers import map_collection
+from composer.core.types import Optimizer, Precision, Tensor
+from composer.utils.iter_helpers import recursive_apply
 
 __all__ = ["Device", "T_nnModule"]
 
@@ -53,22 +53,21 @@ class Device(Serializable, ABC):
         """
         pass
 
-    def batch_to_device(self, batch: Batch) -> Batch:
+    def batch_to_device(self, batch: Any):
         """Invoked by the :class:`.Trainer` to move the ``batch`` onto the device.
 
         Args:
-            batch (Batch): The batch to move to the device.
+            batch (Any): The batch to move to the device.
 
         Returns:
             Batch: The batch on the device.
         """
-        if isinstance(batch, Tensor):
-            return self.tensor_to_device(batch)
-        if isinstance(batch, (tuple, list)):  # BatchPair
-            return cast(BatchPair, type(batch)(map_collection(x, self.tensor_to_device) for x in batch))
-        if isinstance(batch, dict):  # BatchDict
-            return {k: self.tensor_to_device(v) for k, v in batch.items()}
-        raise TypeError(f"Unsupported type for batch: {type(batch)}")
+
+        def _to_device(x):
+            if isinstance(x, Tensor):
+                return self.tensor_to_device(x)
+            return x
+        return recursive_apply(_to_device, batch)
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
         """Invoked by the :class:`.Trainer` to move the optimizer's state onto the device.
