@@ -13,14 +13,14 @@ Details about various events of the trainer loop such as forward pass, backward 
 :alt: Trainer Events trace
 ``` 
 
-## Dataloader 
+## DataLoader 
 
-Dataloader profiling measures the time it takes the dataloader to return a batch.  For a more detailed description of dataloader profiling, see the {class}`~.DataloaderProfiler` API reference.  
+DataLoader profiling measures the time it takes the dataloader to return a batch.  For a more detailed description of dataloader profiling, see the {class}`~.DataLoaderProfiler` API reference.  
 
 The image below shows the time taken by train dataloader (`dataloader/train` event) in loading batch 2 of epoch 0. 
 
 ```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/analyzing_traces-dataloader.png 
-:alt: Dataloader trace 
+:alt: DataLoader trace 
 ```
 
 ## System Metrics 
