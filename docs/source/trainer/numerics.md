@@ -1,6 +1,6 @@
 # 🔢 Numerics
 
-Composer supports several single and half-precision number formats including IEEE single-precision `fp32`, IEEE half-precision `fp16`, Google’s truncated `bf16` format and support for mixed precision training.  The following formats are supported per accelerator:
+Composer supports several single and half-precision number formats including IEEE single-precision `fp32`, IEEE half-precision `fp16`, Google’s truncated `bf16` format and support for mixed precision training `amp`.  The following formats are supported per accelerator:
 
 | Format | CPU | GPU - A100 | GPU - V100 | GPU - T4 |
 | --- | --- | --- | --- | --- |
