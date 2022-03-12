@@ -20,7 +20,7 @@ trainer = Trainer(model=model,
                   eval_dataloader=eval_dataloader,
                   max_duration='160ep',
                   device='gpu',
-                  precision='fp16')
+                  precision='amp')
 ```
 
 ```{note}
