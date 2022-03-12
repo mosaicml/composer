@@ -17,7 +17,7 @@ def test_c4_length(num_samples, group_method):
                         num_samples=num_samples,
                         tokenizer_name="gpt2",
                         max_seq_len=1000,
-                        group_method="truncate",
+                        group_method=group_method,
                         shuffle=False,
                         seed=1)
 
@@ -25,4 +25,4 @@ def test_c4_length(num_samples, group_method):
     for _ in dataset:
         count += 1
 
-    assert count == num_samples, f"Expected length {num_samples}, got length {c}"
+    assert count == num_samples, f"Expected length {num_samples}, got length {count}"
