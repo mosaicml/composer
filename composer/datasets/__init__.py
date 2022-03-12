@@ -9,8 +9,8 @@ of the important classes in this module are described below:
   ``shuffle``. :class:`~.DatasetHparams` returns a dataloader (a :class:`torch.utils.data.DataLoader` or a
   :class:`~.DataSpec`) for the trainer.
 
-* :class:`~.DataloaderHparams` contains the :class:`torch.utils.data.DataLoader` settings that are common across
-  both training and eval datasets. See the documentation of :class:`~.DataloaderHparams` for more details on these
+* :class:`~.DataLoaderHparams` contains the :class:`torch.utils.data.DataLoader` settings that are common across
+  both training and eval datasets. See the documentation of :class:`~.DataLoaderHparams` for more details on these
   settings.
 """
 
@@ -20,7 +20,7 @@ from composer.datasets.c4 import C4DatasetHparams
 from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHparams, CIFAR20WebDatasetHparams,
                                      CIFAR100WebDatasetHparams)
 from composer.datasets.coco import COCODatasetHparams
-from composer.datasets.dataloader import DataloaderHparams, WrappedDataLoader
+from composer.datasets.dataloader import DataLoaderHparams, WrappedDataLoader
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.datasets.glue import GLUEHparams
@@ -35,7 +35,7 @@ from composer.datasets.synthetic import (MemoryFormat, SyntheticBatchPairDataset
 __all__ = [
     "ADE20kDatasetHparams", "ADE20kWebDatasetHparams", "BratsDatasetHparams", "C4DatasetHparams",
     "CIFAR10DatasetHparams", "CIFAR10WebDatasetHparams", "CIFAR20WebDatasetHparams", "CIFAR100WebDatasetHparams",
-    "COCODatasetHparams", "DataloaderHparams", "WrappedDataLoader", "get_dataset_registry", "EvaluatorHparams",
+    "COCODatasetHparams", "DataLoaderHparams", "WrappedDataLoader", "get_dataset_registry", "EvaluatorHparams",
     "GLUEHparams", "DatasetHparams", "SyntheticHparamsMixin", "WebDatasetHparams", "Imagenet1kWebDatasetHparams",
     "ImagenetDatasetHparams", "TinyImagenet200WebDatasetHparams", "LMDatasetHparams", "MNISTDatasetHparams",
     "MNISTWebDatasetHparams", "MemoryFormat", "SyntheticBatchPairDataset", "SyntheticDataLabelType",

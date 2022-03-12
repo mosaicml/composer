@@ -1,5 +1,5 @@
 from argparse import ArgumentParser, Namespace
-from typing import Any, Dict, Generator, Tuple
+from typing import Any, Dict, Iterable, Tuple
 
 import numpy as np
 from torchvision.datasets import CIFAR10
@@ -9,7 +9,9 @@ from composer.datasets.webdataset import create_webdataset
 
 
 def parse_args() -> Namespace:
+    """Parse commandline arguments."""
     args = ArgumentParser()
+    args.add_argument('--in_root', type=str, required=True)
     args.add_argument('--out_root', type=str, required=True)
     args.add_argument('--train_shards', type=int, default=128)
     args.add_argument('--val_shards', type=int, default=128)
@@ -18,13 +20,31 @@ def parse_args() -> Namespace:
 
 
 def shuffle(dataset: CIFAR10) -> Tuple[np.ndarray, np.ndarray]:
+    """Numpy-convert and shuffle a CIFAR10 dataset.
+
+    Args:
+        dataset (CIFAR10): CIFAR10 dataset object.
+
+    Returns:
+        images (np.ndarray of np.uint8): Dataset images in NCHW.
+        classes (np.ndarray of np.int64): Dataset classes.
+    """
     indices = np.random.permutation(len(dataset))
     images = dataset.data[indices]
     classes = np.array(dataset.targets)[indices]
     return images, classes
 
 
-def each_sample(images: np.ndarray, classes: np.ndarray) -> Generator[Dict[str, Any], None, None]:
+def each_sample(images: np.ndarray, classes: np.ndarray) -> Iterable[Dict[str, Any]]:
+    """Generator over each dataset sample.
+
+    Args:
+        images (np.ndarray of np.uint8): Dataset images in NCHW.
+        classes (np.ndarray of np.int64): Dataset classes.
+
+    Yields:
+        Sample dicts.
+    """
     for idx, (img, cls) in enumerate(zip(images, classes)):
         yield {
             '__key__': f'{idx:05d}',
@@ -34,13 +54,18 @@ def each_sample(images: np.ndarray, classes: np.ndarray) -> Generator[Dict[str, 
 
 
 def main(args: Namespace) -> None:
+    """Main: create CIFAR10 webdataset.
+
+    Args:
+        args (Namespace): Commandline arguments.
+    """
     with pipes():
-        dataset = CIFAR10(root='/datasets/cifar10', train=True, download=True)
+        dataset = CIFAR10(root=args.in_root, train=True, download=True)
     images, classes = shuffle(dataset)
     create_webdataset(each_sample(images, classes), args.out_root, 'train', len(images), args.train_shards, args.tqdm)
 
     with pipes():
-        dataset = CIFAR10(root='/datasets/cifar10', train=False, download=True)
+        dataset = CIFAR10(root=args.in_root, train=False, download=True)
     images, classes = shuffle(dataset)
     create_webdataset(each_sample(images, classes), args.out_root, 'val', len(images), args.val_shards, args.tqdm)
 

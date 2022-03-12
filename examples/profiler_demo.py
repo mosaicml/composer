@@ -6,7 +6,7 @@ from torchvision import datasets, transforms
 from composer import Trainer
 from composer.models import MNIST_Classifier
 
-# Specify Dataset and Instantiate Dataloader
+# Specify Dataset and Instantiate DataLoader
 batch_size = 2048
 data_directory = "../data"
 

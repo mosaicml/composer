@@ -1,7 +1,7 @@
 import os
 from argparse import ArgumentParser, Namespace
 from random import shuffle
-from typing import Any, Dict, Generator, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 from PIL import Image
 from tqdm import tqdm
@@ -9,52 +9,8 @@ from tqdm import tqdm
 from composer.datasets.webdataset import create_webdataset
 
 
-def parse_args() -> Namespace:
-    args = ArgumentParser()
-    args.add_argument('--in_root', type=str, required=True)
-    args.add_argument('--out_root', type=str, required=True)
-    args.add_argument('--train_shards', type=int, default=128)
-    args.add_argument('--val_shards', type=int, default=128)
-    args.add_argument('--tqdm', type=int, default=1)
-    return args.parse_args()
-
-
-def get_train(in_root: str, wnids: List[str]) -> List[Tuple[str, int]]:
-    pairs = []
-    for wnid_idx, wnid in tqdm(enumerate(wnids), leave=False):
-        in_dir = os.path.join(in_root, 'train', wnid, 'images')
-        for basename in os.listdir(in_dir):
-            filename = os.path.join(in_dir, basename)
-            pairs.append((filename, wnid_idx))
-    shuffle(pairs)
-    return pairs
-
-
-def get_val(in_root: str, wnid2idx: Dict[str, int]) -> List[Tuple[str, int]]:
-    pairs = []
-    filename = os.path.join(in_root, 'val', 'val_annotations.txt')
-    lines = open(filename).read().strip().split('\n')
-    for line in tqdm(lines, leave=False):
-        basename, wnid = line.split()[:2]
-        filename = os.path.join(in_root, 'val', 'images', basename)
-        wnid_idx = wnid2idx[wnid]
-        pairs.append((filename, wnid_idx))
-    shuffle(pairs)
-    return pairs
-
-
-def each_sample(pairs: List[Tuple[str, int]]) -> Generator[Dict[str, Any], None, None]:
-    for idx, (img_file, cls) in enumerate(pairs):
-        img = Image.open(img_file)
-        yield {
-            '__key__': f'{idx:05d}',
-            'jpg': img,
-            'cls': cls,
-        }
-
-
 """
-Directory layout:
+Input directory layout:
 
     tiny-imagenet-200/
         test/
@@ -72,7 +28,83 @@ Directory layout:
 """
 
 
+def parse_args() -> Namespace:
+    """Parse commandline arguments."""
+    args = ArgumentParser()
+    args.add_argument('--in_root', type=str, required=True)
+    args.add_argument('--out_root', type=str, required=True)
+    args.add_argument('--train_shards', type=int, default=128)
+    args.add_argument('--val_shards', type=int, default=128)
+    args.add_argument('--tqdm', type=int, default=1)
+    return args.parse_args()
+
+
+def get_train(in_root: str, wnids: List[str]) -> List[Tuple[str, int]]:
+    """Get training split sample pairs.
+
+    Args:
+        in_root (str): Input dataset root directory.
+        wnids (list): Ordered list of WordNet IDs.
+
+    Returns:
+        List of pairs of (image filename, class ID).
+    """
+    pairs = []
+    for wnid_idx, wnid in tqdm(enumerate(wnids), leave=False):
+        in_dir = os.path.join(in_root, 'train', wnid, 'images')
+        for basename in os.listdir(in_dir):
+            filename = os.path.join(in_dir, basename)
+            pairs.append((filename, wnid_idx))
+    shuffle(pairs)
+    return pairs
+
+
+def get_val(in_root: str, wnid2idx: Dict[str, int]) -> List[Tuple[str, int]]:
+    """Get validation split sample pairs.
+
+    Args:
+        in_root (str): Input dataset root directory.
+        wnid2idx (dict): Mapping of WordNet ID to class ID.
+
+    Returns:
+        List of pairs of (image filename, class ID).
+    """
+    pairs = []
+    filename = os.path.join(in_root, 'val', 'val_annotations.txt')
+    lines = open(filename).read().strip().split('\n')
+    for line in tqdm(lines, leave=False):
+        basename, wnid = line.split()[:2]
+        filename = os.path.join(in_root, 'val', 'images', basename)
+        wnid_idx = wnid2idx[wnid]
+        pairs.append((filename, wnid_idx))
+    shuffle(pairs)
+    return pairs
+
+
+def each_sample(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
+    """Generator over each dataset sample.
+
+    Args:
+        pairs (list of (str, int)): List of pairs of (image filename, class ID).
+
+    Yields:
+        Sample dicts.
+    """
+    for idx, (img_file, cls) in enumerate(pairs):
+        img = Image.open(img_file)
+        yield {
+            '__key__': f'{idx:05d}',
+            'jpg': img,
+            'cls': cls,
+        }
+
+
 def main(args: Namespace) -> None:
+    """Main: create tinyimagenet200 webdataset.
+
+    Args:
+        args (Namespace): Commandline arguments.
+    """
     filename = os.path.join(args.in_root, 'wnids.txt')
     wnids = open(filename).read().split()
     wnid2idx = dict(zip(wnids, range(len(wnids))))

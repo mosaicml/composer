@@ -15,7 +15,7 @@ import yahp as hp
 from torch.utils.data import IterableDataset, get_worker_info
 
 from composer.core.types import Batch, DataSpec
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
 
@@ -47,8 +47,8 @@ class C4DatasetHparams(DatasetHparams):
 
     Args:
         split (str): What split of the dataset to use. Either ``'train'`` or ``'validation'``. Default: ``None``.
-        max_samples (int): Max number of post-processed token samples, used to set epoch size of the IterableDataset.
-            Default: ``None``.
+        max_samples (int): Max number of post-processed token samples, used to set epoch size of the
+            :class:`torch.utils.data.IterableDataset`. Default: ``None``.
         tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default: ``None``.
         max_seq_len (int): The max sequence length of each token sample. Default: ``None``.
         group_method (str): How to group text samples into token samples. Either `truncate` or `concat`.
@@ -63,7 +63,7 @@ class C4DatasetHparams(DatasetHparams):
         seed (int): If ``shuffle=True``, what seed to use for shuffling operations. Default: ``5``.
         drop_last (bool): Whether to drop the last samples for the last batch. Default: ``True``.
     Returns:
-        DataSpec: A :class:`.DataSpec` object.
+        DataSpec: A :class:`~core.data_spec.DataSpec` object.
     """
 
     split: str = hp.optional("What split of the dataset to use. Either `train` or `validation`.", default=None)
@@ -98,7 +98,7 @@ class C4DatasetHparams(DatasetHparams):
         if self.mlm and self.mlm_probability <= 0:
             raise ValueError("Must provide a positive 'mlm_probability' when using masked language modeling.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         try:
             import transformers
         except ImportError:
@@ -135,14 +135,14 @@ class C4DatasetHparams(DatasetHparams):
 
 
 class C4Dataset(IterableDataset):
-    """Builds a streaming, sharded, sized IterableDataset for the C4 (Colossal Cleaned CommonCrawl) dataset. Used for
+    """Builds a streaming, sharded, sized :class:`torch.utils.data.IterableDataset` for the C4 (Colossal Cleaned CommonCrawl) dataset. Used for
     pretraining autoregressive or masked language models. Text samples are streamed directly from the cloud using
     HuggingFace's C4 Dataset with streaming backend (See https://huggingface.co/datasets/c4 for more details). The text
     samples are then shuffled, tokenized, and grouped on-the-fly.
 
     Args:
         split (str): What split of the dataset to use. Either ``'train'`` or ``'validation'``.
-        max_samples (int): Max number of post-processed token samples, used to set epoch size of the IterableDataset.
+        max_samples (int): Max number of post-processed token samples, used to set epoch size of the :class:`torch.data.utils.IterableDataset`.
         tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with.
         max_seq_len (int): The max sequence length of each token sample.
         group_method (str): How to group text samples into token samples. Either ``'truncate'`` or ``'concat'``.
