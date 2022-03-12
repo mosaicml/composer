@@ -14,7 +14,7 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from composer.core.types import DataLoader
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
@@ -34,7 +34,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     """
     download: bool = hp.optional("whether to download the dataset, if needed", default=True)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         cifar10_mean = 0.4914, 0.4822, 0.4465
         cifar10_std = 0.247, 0.243, 0.261
 
@@ -107,7 +107,7 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0, 0, 0))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0, 0, 0))
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         from composer.datasets.webdataset import load_webdataset
 
         if self.is_train:

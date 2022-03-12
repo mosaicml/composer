@@ -20,7 +20,7 @@ else:
 import yahp as hp
 
 from composer.core.types import DataLoader, DataSpec, MemoryFormat
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
 
 __all__ = ["SyntheticHparamsMixin", "DatasetHparams"]
 
@@ -76,18 +76,18 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     datadir: Optional[str] = hp.optional("The path to the data directory", default=None)
 
     @abc.abstractmethod
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> Union[DataLoader, DataSpec]:
         """Creates a :class:`~.core.types.DataLoader` or
         :class:`~.core.data_spec.DataSpec` for this dataset.
 
         Args:
             batch_size (int): The size of the batch the dataloader should yield. This
                 batch size is device-specific and already incorporates the world size.
-            dataloader_hparams (DataloaderHparams): The dataset-independent hparams for
+            dataloader_hparams (DataLoaderHparams): The dataset-independent hparams for
                 the dataloader.
 
         Returns:
-            Dataloader or DataSpec: The :class:`~core.types.DataLoader`, or if the dataloader yields batches of custom
+            DataLoader or DataSpec: The :class:`~core.types.DataLoader`, or if the dataloader yields batches of custom
                 types, a :class:`~core.data_spec.DataSpec`.
         """
         pass

@@ -21,7 +21,7 @@ from composer.core.types import Batch, DataLoader, Dataset
 
 log = logging.getLogger(__name__)
 
-__all__ = ["WrappedDataLoader", "DataloaderHparams", "unwrap_data_loader"]
+__all__ = ["WrappedDataLoader", "DataLoaderHparams", "unwrap_data_loader"]
 
 
 class WrappedDataLoader(DataLoader):
@@ -123,7 +123,7 @@ def unwrap_data_loader(dataloader: DataLoader) -> DataLoader:
 
 
 @dataclass
-class DataloaderHparams(hp.Hparams):
+class DataLoaderHparams(hp.Hparams):
     """Hyperparameters to initialize a :class:`torch.utils.data.DataLoader`.
 
     Args:

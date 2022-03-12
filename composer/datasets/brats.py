@@ -19,7 +19,7 @@ import torchvision
 import yahp as hp
 
 from composer.core.types import DataLoader, Dataset
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
 
@@ -46,7 +46,7 @@ class BratsDatasetHparams(DatasetHparams):
 
     oversampling: float = hp.optional("oversampling", default=0.33)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
 
         oversampling = self.oversampling
 

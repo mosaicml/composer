@@ -283,14 +283,14 @@ def _size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int,
         if batches_per_epoch != expected_batches_per_epoch:
             log.warning(
                 f"Note that 'drop_last=False' with per-CPU-worker sharding will lead to multiple incomplete batches being read from each device, ** one for each CPU worker **. "
-                f"Unfortunately, the PyTorch Dataloader does not handle this situation well in its __len__ implementation, so len(dataloader) will be an underestimate of batches_per_epoch. "
+                f"Unfortunately, the PyTorch DataLoader does not handle this situation well in its __len__ implementation, so len(dataloader) will be an underestimate of batches_per_epoch. "
                 f"(See https://github.com/pytorch/pytorch/blob/3d9ec11feacd69d0ff1bffe0b25a825cdf203b87/torch/utils/data/dataloader.py#L403-L411). "
                 f"Given your training configuration, we have calculated this will increase batches_per_epoch from {expected_batches_per_epoch} -> {batches_per_epoch}."
             )
     # Set epoch boundary (per CPU worker).
     # Technically not needed if shards are constructed correctly, but used for safety
     dataset = dataset.with_epoch(samples_per_worker)
-    # Set IterableDataset length (per device), to be read by PyTorch Dataloader
+    # Set IterableDataset length (per device), to be read by PyTorch DataLoader
     return dataset.with_length(samples_per_device)
 
 
