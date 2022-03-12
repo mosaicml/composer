@@ -225,6 +225,13 @@ def _size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int,
                      workers_per_device: int, batch_size: int, drop_last: bool) -> WebDataset:
     """Set IterableDataset epoch boundary and length for DDP, PyTorch DataLoader compatability.
 
+    Note: 'drop_last=True' with per-CPU-worker sharding will cause an incomplete batch to be dropped at the end of each
+    CPU worker's sample list. Total samples dropped across all workers may sum to more than one batch.
+
+    Note: 'drop_last=False' with per-CPU-worker sharding will lead to multiple incomplete batches being read from each
+    device, one for each CPU worker. Unfortunately, the PyTorch DataLoader does not handle this situation well in its
+    __len__ implementation, so len(dataloader) will be an underestimate of batches_per_epoch.
+
     Calculation:
                                         shards
         shards per worker = ------------------------------
@@ -275,7 +282,7 @@ def _size_webdataset(dataset: WebDataset, n_shards: int, samples_per_shard: int,
         batches_per_epoch = math.ceil(samples_per_worker / batch_size) * workers_per_device
         if batches_per_epoch != expected_batches_per_epoch:
             log.warning(
-                f"Note that 'drop_last=False' with per-CPU-worker sharding will lead to multiple incomplete batches to be read from each device, ** one for each CPU worker **. "
+                f"Note that 'drop_last=False' with per-CPU-worker sharding will lead to multiple incomplete batches being read from each device, ** one for each CPU worker **. "
                 f"Unfortunately, the PyTorch Dataloader does not handle this situation well in its __len__ implementation, so len(dataloader) will be an underestimate of batches_per_epoch. "
                 f"(See https://github.com/pytorch/pytorch/blob/3d9ec11feacd69d0ff1bffe0b25a825cdf203b87/torch/utils/data/dataloader.py#L403-L411). "
                 f"Given your training configuration, we have calculated this will increase batches_per_epoch from {expected_batches_per_epoch} -> {batches_per_epoch}."
