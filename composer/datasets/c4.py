@@ -136,10 +136,11 @@ class C4DatasetHparams(DatasetHparams):
 
 
 class C4Dataset(IterableDataset):
-    """Builds a streaming, sharded, sized :class:`torch.utils.data.IterableDataset` for the C4 (Colossal Cleaned CommonCrawl) dataset. Used for
-    pretraining autoregressive or masked language models. Text samples are streamed directly from the cloud using
-    HuggingFace's C4 Dataset with streaming backend (See https://huggingface.co/datasets/c4 for more details). The text
-    samples are then shuffled, tokenized, and grouped on-the-fly.
+    """Builds a streaming, sharded, sized :class:`torch.utils.data.IterableDataset` for the C4 (Colossal Cleaned
+    CommonCrawl) dataset. Used for pretraining autoregressive or masked language models. Text samples are streamed
+    directly from the cloud using HuggingFace's C4 Dataset with streaming backend (See
+    https://huggingface.co/datasets/c4 for more details). The text samples are then shuffled, tokenized, and grouped on-
+    the-fly.
 
     Args:
         split (str): What split of the dataset to use. Either ``'train'`` or ``'validation'``.
