@@ -24,7 +24,7 @@ trainer = Trainer(model=model,
 ```
 
 ```{note}
-💡 If the `precision` argument is not specified, the `Trainer` defaults to using `fp32`.
+If the `precision` argument is not specified, the `Trainer` defaults to using `fp32`.
 ```
 
 ## Precision
@@ -56,7 +56,11 @@ The solution is to perform mixed precision training, where both single and half-
 3. To increase numerical sensitivity, convert the model to single-precision and perform the optimizer step, enabling the weight update to be done more precisely
 4. Convert the model back to half-precision
 
-The procedure above mitigates the issues with overflow and imprecise weight updates. In order to prevent gradient underflow, mixed precision training uses a technique called **Gradient Scaling** where the loss is multiplied by a scaling factor *before* backpropagation is performed (step 2 above). This trick scales the computed gradient values to a range where they cannot underflow.  Once the model has been converted to single-precision following the backward pass, the gradients are divided by the scaling factor to restore the gradient values to the original range before stepping the optimizer.
+The procedure above mitigates the issues with overflow and imprecise weight updates. 
+
+#### Gradient Scaling
+
+In order to prevent gradient underflow, mixed precision training uses a technique called **Gradient Scaling** where the loss is multiplied by a scaling factor *before* backpropagation is performed (step 2 above). This trick scales the computed gradient values to a range where they cannot underflow.  Once the model has been converted to single-precision following the backward pass, the gradients are divided by the scaling factor to restore the gradient values to the original range before stepping the optimizer.
 
 ### AMP
 
