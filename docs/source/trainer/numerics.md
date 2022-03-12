@@ -37,7 +37,7 @@ Please see the following references for additioanl details on the common number 
 
 - `fp32`: [Single-precision Floating-point](https://en.wikipedia.org/wiki/Single-precision_floating-point_format)
 - `fp16`: [Half-precision Floating-point](https://en.wikipedia.org/wiki/Half-precision_floating-point_format)
-- `bf16`: [Brain Floating Point](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format)
+- `bf16`: [Brain Floating-point](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format)
 
 ### Mixed Precision
 
