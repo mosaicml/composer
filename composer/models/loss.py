@@ -139,9 +139,20 @@ def _infer_target_type(input: Tensor, targets: Tensor) -> str:
                            'inputs.ndim == targets.ndim + 1')
 
 
-def ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
+def ensure_targets_one_hot(input: Tensor, targets: Tensor, num_classes: Optional[float] = None) -> Tensor:
     if _infer_target_type(input, targets) == 'indices':
-        targets = F.one_hot(targets, num_classes=input.shape[1])
+        # If the number of classes isn't specified, attempt to infer it from the input
+        if num_classes is None:
+            num_classes = input.shape[1]
+        if targets.min() < 0:
+            # Map all negative indicies to a class to drop, and warn they will be ignored in the loss.
+            targets[targets < 0] = num_classes
+            targets = F.one_hot(targets, num_classes=num_classes + 1)
+            targets = torch.movedim(targets, -1, 1)
+            targets = targets[:, 0:-1]
+        else:
+            targets = F.one_hot(targets, num_classes=num_classes)
+            targets = torch.movedim(targets, -1, 1)
     return targets
 
 
