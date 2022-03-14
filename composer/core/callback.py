@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 from composer.core.serializable import Serializable
 
 if TYPE_CHECKING:
-    from composer import Event, Logger, State
+    from composer import Event, State
+    from composer.loggers import Logger
 
 __all__ = ["Callback"]
 
@@ -242,6 +243,16 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
+    def batch_checkpoint(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.BATCH_CHECKPOINT` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
     def epoch_end(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~.Event.EPOCH_END` event.
 
@@ -249,6 +260,16 @@ class Callback(Serializable, abc.ABC):
 
             :class:`~.time.Timer` member variable :attr:`.Timer.epoch` is incremented immediately before
             :attr:`~.Event.EPOCH_END`.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def epoch_checkpoint(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.EPOCH_CHECKPOINT` event.
 
         Args:
             state (State): The global state.

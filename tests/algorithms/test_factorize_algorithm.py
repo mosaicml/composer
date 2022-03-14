@@ -9,9 +9,10 @@ import torch
 from composer.algorithms import Factorize
 from composer.algorithms.factorize import FactorizedConv2d, FactorizedLinear
 from composer.algorithms.factorize.factorize import LOG_NUM_CONV2D_REPLACEMENTS_KEY, LOG_NUM_LINEAR_REPLACEMENTS_KEY
-from composer.core import Event, Logger, State
+from composer.core import Event, State
 from composer.core.algorithm import Algorithm
 from composer.core.types import Tensors
+from composer.loggers import Logger
 from composer.utils import module_surgery
 from tests.common import SimpleConvModel
 

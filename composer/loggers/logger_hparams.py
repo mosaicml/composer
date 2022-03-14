@@ -6,19 +6,17 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yahp as hp
 
-from composer.core.logging import LoggerDestination, LogLevel
 from composer.core.types import JSON
+from composer.loggers import LoggerDestination, LogLevel
+from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.loggers.tqdm_logger import TQDMLogger
+from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import dist
-
-if TYPE_CHECKING:
-    from composer.loggers.file_logger import FileLogger
-    from composer.loggers.tqdm_logger import TQDMLogger
-    from composer.loggers.wandb_logger import WandBLogger
 
 __all__ = [
     "FileLoggerHparams", "InMemoryLoggerHparams", "LoggerDestinationHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
@@ -91,14 +89,14 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         project (str, optional): WandB project name.
         group (str, optional): WandB group name.
         name (str, optional): WandB run name.
-            If not specified, the :attr:`~composer.core.logging.Logger.run_name` will be used.
+            If not specified, the :attr:`~composer.loggers.logger.Logger.run_name` will be used.
         entity (str, optional): WandB entity name.
         tags (str, optional): WandB tags, comma-separated.
         log_artifacts (bool, optional): See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
         log_artifacts_every_n_batches (int, optional). See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
-        extra_init_params (JSON Dictionary, optional): See
+        extra_init_params (dict, optional): See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
     """
 
@@ -203,8 +201,6 @@ class WandBLoggerHparams(LoggerDestinationHparams):
             "tags": tags,
         }
         init_params.update(self.extra_init_params)
-
-        from composer.loggers.wandb_logger import WandBLogger
         return WandBLogger(
             log_artifacts=self.log_artifacts,
             rank_zero_only=self.rank_zero_only,
@@ -220,7 +216,6 @@ class TQDMLoggerHparams(LoggerDestinationHparams):
     """
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
-        from composer.loggers.tqdm_logger import TQDMLogger
         return TQDMLogger(config=config)
 
 

@@ -9,7 +9,8 @@ from typing import Dict, Mapping, Optional
 import torch
 
 from composer.core.time import TimeUnit
-from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
+from composer.core.types import Algorithm, Batch, Event, State, Tensor
+from composer.loggers import Logger
 from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
 

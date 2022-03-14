@@ -27,7 +27,7 @@ def run_and_measure_memory(precision: Precision) -> int:
     hparams.train_dataset.use_synthetic = True
     assert isinstance(hparams.val_dataset, SyntheticHparamsMixin)
     hparams.val_dataset.use_synthetic = True
-    hparams.logger_destinations = []
+    hparams.loggers = []
     trainer = hparams.initialize_object()
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
