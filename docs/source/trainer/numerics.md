@@ -1,6 +1,6 @@
 # 🔢 Numerics
 
-Composer supports several single and half-precision number formats including IEEE single-precision `fp32`, IEEE half-precision `fp16`, Google’s truncated `bf16` format and support for mixed precision training `amp`.  The following formats are supported per accelerator:
+Composer supports several single and half-precision number formats including IEEE single-precision `fp32`, IEEE half-precision `fp16`, Google’s truncated `bf16` format and mixed precision training `amp`.  The following formats are supported per accelerator:
 
 | Format         | CPU | GPU - A100 | GPU - V100 | GPU - T4 |
 | -------------- | --- |----------- | ---------- | -------- |
@@ -9,7 +9,7 @@ Composer supports several single and half-precision number formats including IEE
 | fp32 (default) | ✅   | ✅         | ✅         | ✅        |
 | amp            | ➖   | ✅         | ✅         | ✅        |
 
-When using the {class}`~.Trainer`, the number format can selected by specifying the `precision` argument during initialization. In the example below, we are training on a `gpu` device using [Automatic Mixed Precision](amp) (`amp`):
+When using the {class}`~.Trainer`, the number format can be selected by specifying the `precision` argument during initialization. In the example below, we are training on a `gpu` device using [Automatic Mixed Precision](amp) (`amp`):
 
 ```python
 from composer import Trainer
@@ -29,23 +29,21 @@ If the `precision` argument is not specified, the `Trainer` defaults to using `f
 
 ## Precision
 
-When discussing number formats, the precision generally refers to the number of total bits used to represent decimal digits (e.g., `fp32` represents numbers using 32-bits of computer memory).  Higher precision formats can represent a greater range of numbers and more decimal places compared to lower precision formats.  However, since lower precision formats utilize fewer bits, they occupy a smaller memory footprint.  Additionally, depending on the accelerator, lower precision formats can typically unlock more compute resulting in greater overall throughput.  Therefore it is often advantageous to use half-precision formats to accelerate training.
+When discussing number formats, the precision generally refers to the number of bits used to represent decimal digits (e.g., [IEEE Single-precision Floating-point (`fp32`)](https://en.wikipedia.org/wiki/Single-precision_floating-point_format) represents numbers using 32-bits of computer memory).  Higher precision formats can represent a greater range of numbers and more decimal places compared to lower precision formats.  However, lower precision formats require less memory and, on many accelerators, enable greater compute throughput.  Therefore it is often advantageous to use lower precision formats to accelerate training.
 
-For training, the most commonly used low precision formats are IEEE `fp16` and the Brain Floating Point `bf16` format.  While both formats utilize the same number of bits in memory, `bf16` offers a greater numerical range than `fp16` at the expense of being able to represent fewer decimal places, resulting in reduced sensitivity.
-
-Please see [Single-precision Floating-point (`fp32`)](https://en.wikipedia.org/wiki/Single-precision_floating-point_format), [Half-precision Floating-point (`fp16`)](https://en.wikipedia.org/wiki/Half-precision_floating-point_format) and [Brain Floating-point (`bf16`)](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format) for additioanl details on the common number formats.
+For training, the most commonly used low precision formats are the [IEEE Half-precision Floating-point (`fp16`)](https://en.wikipedia.org/wiki/Half-precision_floating-point_format) and the [Brain Floating-point (`bf16`)](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format) formats.  While both formats utilize the same number of bits in memory, `bf16` offers a greater numerical range than `fp16` at the expense of being able to represent fewer decimal places.
 
 (amp)=
 ## Automatic Mixed Precision (AMP) Training
 
-Using half-precision number formats can boost model throughput, though not without issue.  The reduced representable range and sensitivity of these formats can cause several problems during training such as:
+Using half-precision number formats can boost model throughput, though not necessarily for free.  The reduced representable range and increased rounding error of these formats can cause several problems during training, such as:
 
 (gradient_underflow)=
 - Gradient underflow: Very small values can get zeroed out
 - Incorrect weight updates: Small gradient values can lead to no weight updates
 - Activation/Loss overflow: Very large values can roll over to representations of [Infinity](https://en.wikipedia.org/wiki/Infinity#Computing)(`Inf`)or [Not a Number](https://en.wikipedia.org/wiki/NaN) (`NaN`)
 
-The result is reduced model accuracy.
+The result can be reduced model accuracy or training divergence.
 
 The solution is to perform mixed precision training, where both single (`fp32`) and half-precision (`fp16`) formats are utilized strategically to avoid the issues above.  Composer supports Automatic Mixed Precision (AMP) training using PyTorch’s {mod}`torch.cuda.amp` package. The Composer {class}`~.Trainer` performs all the heavy lifting and tensor conversions automatically; the user simply has to set `precision='amp'` when initializing the {class}`~.Trainer`.
 
