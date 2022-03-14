@@ -51,7 +51,7 @@ Mixed precision training is performed as follows:
 
 1. Compute the forward pass and loss in half-precision, *except* for computations that can cause activations/loss overflow, which are performed in single-precision (e.g., BatchNorm).
 2. Compute the backpropagation pass in half-precision.
-3. To increase numerical sensitivity, convert the model to single-precision and perform the optimizer step, enabling the weight update to be done more precisely.
+3. Store the weights and perform the optimizer step in single precision, enabling the weight update to be done more precisely.
 4. Convert the model back to half-precision.
 
 The procedure above mitigates the issues with overflow and imprecise weight updates.
