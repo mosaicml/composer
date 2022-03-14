@@ -54,8 +54,8 @@ class LogLevel(IntEnum):
 class Logger:
     r"""An interface to record training data.
 
-    The :class:`~composer.trainer.trainer.Trainer`, :class:`~composer.core.callback.Callback`\s, and
-    :class:`~composer.core.algorithm.Algorithm`\s invoke the logger to record data such as
+    The :class:`~composer.trainer.trainer.Trainer`, instances of :class:`~composer.core.callback.Callback`, and
+    instances of :class:`~composer.core.algorithm.Algorithm` invoke the logger to record data such as
     the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
 
     This class does not store any data itself; instead, it routes all data to the ``logger_destinations``.
@@ -69,9 +69,10 @@ class Logger:
             The logger destinations, to where logging data will be sent.
         run_name (str, optional): The name for this training run.
 
-            If not specified, the timestamp will be combined with a :doc:`coolname <coolname:index>` ike the following:
+            If not specified, the timestamp will be combined with a :doc:`coolname <coolname:index>` like the
+            following:
 
-            .. testsetup:: composer.core.logging.logger.Logger.__init__.run_name
+            .. testsetup:: composer.loggers.logger.Logger.__init__.run_name
 
                 import random
                 import coolname
@@ -81,7 +82,7 @@ class Logger:
 
                 time.time_ns = lambda: 1646931750990173286
 
-            .. doctest:: composer.core.logging.logger.Logger.__init__.run_name
+            .. doctest:: composer.loggers.logger.Logger.__init__.run_name
 
                 >>> logger = Logger(state=state, destinations=[])
                 >>> logger.run_name
@@ -89,7 +90,7 @@ class Logger:
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
-            A sequence of :class:`~.LoggerDestination`\\s to which logging calls will be sent.
+            A sequence of :class:`~.LoggerDestination` to where logging calls will be sent.
     """
 
     def __init__(

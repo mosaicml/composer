@@ -89,7 +89,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         project (str, optional): WandB project name.
         group (str, optional): WandB group name.
         name (str, optional): WandB run name.
-            If not specified, the :attr:`~composer.core.logging.Logger.run_name` will be used.
+            If not specified, the :attr:`~composer.loggers.logger.Logger.run_name` will be used.
         entity (str, optional): WandB entity name.
         tags (str, optional): WandB tags, comma-separated.
         log_artifacts (bool, optional): See
