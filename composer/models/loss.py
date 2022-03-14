@@ -216,7 +216,9 @@ def soft_cross_entropy(input: Tensor,
         assert reduction in ['sum', 'mean', 'none'], f"{reduction} reduction not supported."
         assert size_average is None, "size_average is deprecated"
         assert reduce is None, "reduce is deprecated"
-        assert ignore_index == -100, "ignore_index not supported."
+        if ignore_index != -100:
+            warnings.warn("""ignore_index not supported when using dense labels.
+                             Targets to ignore should be given 0 probability.""")
         xentropy = -1 * (target * F.log_softmax(input, dim=1))
 
         if weight is not None:
