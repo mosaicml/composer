@@ -375,7 +375,7 @@ Here's some resources actively maintained by the Composer community to help you 
 </thead>
 <tbody>
   <tr>
-    <td><a href="https://www.mosaicml.com/blog/founders-blog" target="_blank" rel="noopener noreferrer">Founder's Blog</a></td>
+    <td><a href="https://www.mosaicml.com/blog/making-ml-training-efficient-algorithmically" target="_blank" rel="noopener noreferrer">Founder's Blog</a></td>
     <td>A blog post by our founders highlighting why MosaicML exists</td>
   </tr>
   <tr>
