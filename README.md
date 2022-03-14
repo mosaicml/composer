@@ -150,7 +150,7 @@ for epoch in tqdm(range(num_epochs)):
     scheduler.step()
 ```
 
-See the official [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) for more.
+See the example [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) for more.
 
 #### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb)
 
