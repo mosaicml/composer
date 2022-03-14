@@ -3,18 +3,22 @@
 import os
 import tempfile
 import textwrap
-from typing import Any, Tuple
+from typing import TYPE_CHECKING, Any, Sequence, Tuple, Union
 
 import numpy as np
 import requests
 from torch import Tensor
 from torchmetrics import Metric
 
-from composer.core.types import BatchPair, Metrics, Tensors
+from composer.core.types import BatchPair, Tensor
 from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
+
+if TYPE_CHECKING:
+    from torchmetrics.collections import MetricCollection
+    from torchmetrics.metric import Metric
 
 __all__ = ["SSD"]
 
@@ -60,7 +64,7 @@ class SSD(ComposerModel):
         from composer.datasets.coco import COCODetection
         self.val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
 
-    def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
+    def loss(self, outputs: Any, batch: BatchPair) -> Union[Tensor, Sequence[Tensor]]:
 
         (_, _, _, bbox, label) = batch  #type: ignore
         if not isinstance(bbox, Tensor):
@@ -73,7 +77,7 @@ class SSD(ComposerModel):
         loss = self.loss_func(ploc, plabel, gloc, glabel)
         return loss
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.MAP
 
     def forward(self, batch: BatchPair) -> Tensor:

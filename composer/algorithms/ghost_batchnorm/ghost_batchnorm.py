@@ -9,7 +9,6 @@ import numpy as np
 import torch
 
 from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Optimizers
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ _TORCH_BATCHNORM_BASE_CLASS = torch.nn.modules.batchnorm._BatchNorm
 
 def apply_ghost_batchnorm(model: torch.nn.Module,
                           ghost_batch_size: int = 32,
-                          optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
+                          optimizers: Optional[torch.optim.Optimizer] = None) -> torch.nn.Module:
     """Replace batch normalization modules with ghost batch normalization modules.
 
     Ghost batch normalization modules split their input into chunks of
@@ -29,7 +28,7 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
     Args:
         model (torch.nn.Module): the model to modify in-place
         ghost_batch_size (int, optional): size of sub-batches to normalize over. Default: ``32``.
-        optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
+        optimizers (torch.optim.Optimizer, optional):  Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.

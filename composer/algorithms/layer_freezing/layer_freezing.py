@@ -11,7 +11,7 @@ from typing import List, Optional, Tuple
 import torch
 
 from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Model, Optimizers
+from composer.core.types import Model
 from composer.utils.iter_helpers import ensure_tuple
 
 log = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ __all__ = ["LayerFreezing", "freeze_layers"]
 
 def freeze_layers(
     model: Model,
-    optimizers: Optimizers,
+    optimizers: torch.optim.Optimizer,
     current_duration: float,
     freeze_start: float = 0.5,
     freeze_level: float = 1.0,
@@ -43,7 +43,7 @@ def freeze_layers(
 
     Args:
         model (Model): The model being trained.
-        optimizers (Optimizers): The optimizers used during training.
+        optimizers (torch.optim.Optimizer): The optimizers used during training.
         current_duration (float): The fraction on [0; 1) of the training process complete.
         freeze_start (float, optional): The fraction of the training process on [0; 1) to run
             before freezing begins. Default: ``0.5``.
@@ -187,7 +187,7 @@ def _get_layers(module: Model, flat_children: List[Model]):
             _get_layers(child, flat_children)
 
 
-def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Optimizers):
+def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: torch.optim.Optimizer):
     """Helper function to freeze the training of a parameter.
 
     To freeze a parameter, it must be removed from the optimizer,
@@ -195,7 +195,7 @@ def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Optimizers)
 
     Args:
         p (torch.nn.Parameter): The parameter being frozen.
-        optimizers (Optimizers): The optimizers used during training.
+        optimizers (torch.optim.Optimizer): The optimizers used during training.
     """
     # Search over params in the optimizers to find and remove the
     # given param. Necessary due to the way params are stored.

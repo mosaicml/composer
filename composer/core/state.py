@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     import composer.core.types as types
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
+    from composer.core.evaluator import Evaluator
     from composer.profiler import Profiler
 
 __all__ = ["State"]
@@ -105,7 +106,7 @@ class State(Serializable):
         precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
         optimizers (torch.optim.Optimizer, optional): The optimizer being used to train the model.
             Multiple optimizers are not currently supported.
-        schedulers (:attr:`~.types.PyTorchScheduler | Sequence[:attr:`~.types.PyTorchScheduler], optional):
+        schedulers (:attr:`~.types.PyTorchScheduler` | Sequence[:attr:`~.types.PyTorchScheduler`], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         algorithms (Sequence[Algorithm]): The algorithms used for training.
@@ -154,8 +155,8 @@ class State(Serializable):
     batch: types.Batch
     batch_num_samples: int
     batch_num_tokens: int
-    loss: types.Tensors
-    outputs: types.Tensors
+    loss: Union[types.Tensor, Sequence[types.Tensor]]
+    outputs: Union[types.Tensor, Sequence[types.Tensor]]
     _schedulers: List[types.PyTorchScheduler]
 
     def __init__(
@@ -169,7 +170,7 @@ class State(Serializable):
 
             # data configurations
             train_dataloader: types.DataLoader,
-            evaluators: types.Evaluators = [],
+            evaluators: Union[Evaluator, Sequence[Evaluator]] = [],
             grad_accum: int = 1,
 
             # precision
@@ -177,7 +178,7 @@ class State(Serializable):
             precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
 
             # optimizers
-            optimizers: Optional[types.Optimizers] = None,
+            optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]] = None,
 
             # scaler
             scaler: Optional[types.Scaler] = None,
@@ -262,7 +263,7 @@ class State(Serializable):
         return self._optimizers
 
     @optimizers.setter
-    def optimizers(self, optimizers: types.Optimizers):
+    def optimizers(self, optimizers: torch.optim.Optimizer):
         self._optimizers[:] = ensure_tuple(optimizers)
 
     @property

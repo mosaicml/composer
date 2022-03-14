@@ -4,15 +4,19 @@
 
 import logging
 import textwrap
-from typing import Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.nn as nn
 
-from composer.core.types import BatchPair, Metrics, Tensor, Tensors
+from composer.core.types import BatchPair, Tensor
 from composer.models.base import ComposerModel
 from composer.models.loss import Dice
 from composer.models.unet.model import UNet as UNetModel
+
+if TYPE_CHECKING:
+    from torchmetrics.collections import MetricCollection
+    from torchmetrics.metric import Metric
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +51,7 @@ class UNet(ComposerModel):
         self.dloss = DiceLoss(include_background=False, softmax=True, to_onehot_y=True, batch=True)
         self.closs = nn.CrossEntropyLoss()
 
-    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensors:
+    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
         _, y = batch
         y = y.squeeze(1)  # type: ignore
         loss = self.dloss(outputs, y)
@@ -58,7 +62,7 @@ class UNet(ComposerModel):
     def metric_mean(name, outputs):
         return torch.stack([out[name] for out in outputs]).mean(dim=0)
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.dice
 
     def forward(self, batch: BatchPair) -> Tensor:

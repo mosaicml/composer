@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import inspect
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
 from torch.nn import functional as F
 
-from composer.core.types import Algorithm, Event, Logger, State, Tensor, Tensors
+from composer.core.types import Algorithm, Event, Logger, State, Tensor
 from composer.models import ComposerModel
 
 
@@ -53,7 +53,7 @@ def should_selective_backprop(
 
 def select_using_loss(input: torch.Tensor,
                       target: torch.Tensor,
-                      model: Callable[[Tensors], Tensor],
+                      model: Callable[[Union[Tensor, Sequence[Tensor]]], Tensor],
                       loss_fun: Callable,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:

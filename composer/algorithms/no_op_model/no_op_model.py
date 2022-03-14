@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
 from torchmetrics.classification.accuracy import Accuracy
 
 from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Metrics, Tensor, as_batch_pair
+from composer.core.types import Tensor, as_batch_pair
 from composer.models.base import ComposerModel
 from composer.utils import module_surgery
 
 if TYPE_CHECKING:
+    from torchmetrics.collections import MetricCollection
+    from torchmetrics.metric import Metric
+
     from composer.core.types import Batch
 
 log = logging.getLogger(__name__)
@@ -45,7 +48,7 @@ class NoOpModelClass(ComposerModel):
         assert isinstance(y, Tensor)
         return y * self.weights
 
-    def metrics(self, train: bool) -> Metrics:
+    def metrics(self, train: bool) -> Union[Metric, MetricCollection]:
         return Accuracy()
 
     def validate(self, batch: Batch) -> Tuple[Any, Any]:

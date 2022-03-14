@@ -37,5 +37,6 @@ def map_collection(singleton: T, map_fn: Callable[[T], V], /) -> V:
 def ensure_tuple(union_of_all_types: Union[T, Sequence[T], Dict[Any, T], None]) -> Tuple[T, ...]:
     ...
 
+
 def iterate_with_pbar(iterator: Iterator[TSized], progress_bar: Optional[tqdm.tqdm] = ...) -> Iterator[TSized]:
     ...

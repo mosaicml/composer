@@ -13,7 +13,6 @@ from composer.algorithms.stochastic_depth.sample_stochastic_layers import Sample
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.time import Time, TimeUnit
-from composer.core.types import Optimizers
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -36,7 +35,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
                            drop_rate: float = 0.2,
                            drop_distribution: str = 'linear',
                            use_same_gpu_seed: bool = True,
-                           optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
+                           optimizers: Optional[torch.optim.Optimizer] = None) -> torch.nn.Module:
     """Applies Stochastic Depth (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_) to the specified model.
 
     The algorithm replaces the specified target layer with a stochastic version
@@ -70,7 +69,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
             across GPUs when using multi-GPU training. Set to ``False`` to
             have each GPU drop a different set of layers. Only used
             with ``"block"`` stochastic method. Default: ``True``.
-        optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
+        optimizers (torch.optim.Optimizer, optional):  Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.

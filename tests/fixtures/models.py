@@ -2,7 +2,7 @@
 
 import dataclasses
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.nn.functional as F
@@ -10,11 +10,15 @@ import torch.utils.data
 import torchmetrics
 import yahp as hp
 
-from composer.core.types import BatchPair, DataLoader, Metrics, Tensor, Tensors
+from composer.core.types import BatchPair, DataLoader, Tensor
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticPILDataset
 from composer.models import ComposerModel, ModelHparams
+
+if TYPE_CHECKING:
+    from torchmetrics.collections import MetricCollection
+    from torchmetrics.metric import Metric
 
 
 class SimpleBatchPairModel(ComposerModel):
@@ -47,7 +51,7 @@ class SimpleBatchPairModel(ComposerModel):
             torch.nn.Softmax(dim=-1),
         )
 
-    def loss(self, outputs: Tensor, batch: BatchPair, *args, **kwargs) -> Tensors:
+    def loss(self, outputs: Tensor, batch: BatchPair, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
         _, target = batch
         assert isinstance(target, Tensor)
         return F.cross_entropy(outputs, target, *args, **kwargs)
@@ -63,7 +67,7 @@ class SimpleBatchPairModel(ComposerModel):
         x, _ = batch
         return self.net(x)
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         if train:
             return self.train_acc
         else:
@@ -155,7 +159,7 @@ class SimpleConvModel(torch.nn.Module):
         self.linear1 = torch.nn.Linear(64, 48)
         self.linear2 = torch.nn.Linear(48, 10)
 
-    def forward(self, x: Tensors) -> Tensors:
+    def forward(self, x: Union[Tensor, Sequence[Tensor]]) -> Union[Tensor, Sequence[Tensor]]:
 
         out = self.conv1(x)
         out = self.conv2(out)

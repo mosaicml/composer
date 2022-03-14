@@ -7,25 +7,18 @@ Attributes:
     ModelParameters (Iterable[torch.Tensor] | Iterable[Dict[str, torch.Tensor]]): Type alias for model parameters used to
         initialize optimizers.
     Tensor (torch.Tensor): Alias for :class:`torch.Tensor`.
-    Tensors (torch.Tensor | Sequence[torch.Tensor]): Commonly used to represent e.g. a set of inputs,
-        where it is unclear whether each input has its own tensor, or if all the inputs are concatenated in a single
-        tensor.
-    Batch (:attr:`~.types.BatchPair | :attr:`~.types.BatchDict | torch.Tensor):
+    Batch (:attr:`~.types.BatchPair` | :attr:`~.types.BatchDict` | torch.Tensor):
         Union type covering the most common representations of batches. A batch of data can be represented in several
         formats, depending on the application.
-    BatchPair (Tuple[:attr:`~.types.Tensors, :attr:`~.types.Tensors] | List[torch.Tensor]): Commonly used in computer
-        vision tasks.   The object is assumed to contain exactly two elements, where the first represents inputs and
-        the second represents targets.
+    BatchPair (Tuple[torch.Tensor | Sequence[torch.Tensor], torch.Tensor | Sequence[torch.Tensor]] | List[torch.Tensor]):
+        Commonly used in computer vision tasks. The object is assumed to contain exactly two elements, where the first
+        represents inputs and the second represents targets.
     BatchDict (Dict[str, torch.Tensor]): Commonly used in natural language processing tasks.
-    Metrics (Metric | MetricCollection): Union type covering common formats for representing metrics.
     Optimizer (torch.optim.Optimizer): Alias for :class:`torch.optim.Optimizer`
-    Optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]): Union type for indeterminate amounts of
-        optimizers.
     PyTorchScheduler (torch.optim.lr_scheduler._LRScheduler): Alias for base class of learning rate schedulers such
         as :class:`torch.optim.lr_scheduler.ConstantLR`
     Scaler (torch.cuda.amp.grad_scaler.GradScaler): Alias for :class:`torch.cuda.amp.GradScaler`.
     JSON (str | float | int | None | List['JSON'] | Dict[str, 'JSON']): JSON Data
-    Evaluators (Many[Evaluator]): Union type for indeterminate amounts of evaluators.
     StateDict (Dict[str, Any]): pickale-able dict via :func:`torch.save`
     Dataset (torch.utils.data.Dataset[types.Batch]): Alias for :class:`torch.utils.data.Dataset`
 """
@@ -36,8 +29,6 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional,
 
 import torch
 import torch.utils.data
-from torchmetrics.collections import MetricCollection
-from torchmetrics.metric import Metric
 
 from composer.core.algorithm import Algorithm as Algorithm
 from composer.core.data_spec import DataSpec as DataSpec
@@ -58,16 +49,13 @@ if TYPE_CHECKING:
     from typing import Protocol
 
 __all__ = [
-    "ModelParameters", "Tensors", "Batch", "BatchPair", "BatchDict", "Metrics", "Optimizers", "PyTorchScheduler",
-    "Scaler", "JSON", "StateDict", "Evaluators", "MemoryFormat", "as_batch_dict", "as_batch_pair", "DataLoader",
-    "BreakEpochException"
+    "ModelParameters", "Batch", "BatchPair", "BatchDict", "PyTorchScheduler", "Scaler", "JSON", "StateDict",
+    "MemoryFormat", "as_batch_dict", "as_batch_pair", "DataLoader", "BreakEpochException"
 ]
 
 T = TypeVar('T')
-Many = Union[T, Sequence[T]]
 
 Tensor = torch.Tensor
-Tensors = Union[Tensor, Sequence[Tensor]]
 
 # For BatchPar, if it is a list, then it should always be of length 2.
 # Pytorch's default collate_fn returns a list even when the dataset returns a tuple.
@@ -77,10 +65,7 @@ Batch = Union[BatchPair, BatchDict, Tensor]
 
 Dataset = torch.utils.data.Dataset[Batch]
 
-Evaluators = Many[Evaluator]
-Metrics = Union[Metric, MetricCollection]
 Optimizer = torch.optim.Optimizer
-Optimizers = Many[Optimizer]
 PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 Scaler = torch.cuda.amp.grad_scaler.GradScaler

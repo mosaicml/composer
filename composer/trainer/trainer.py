@@ -91,8 +91,7 @@ from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.time import Timestamp
-from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
-                                 Precision, PyTorchScheduler)
+from composer.core.types import Batch, BreakEpochException, DataLoader, Precision, PyTorchScheduler
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
@@ -150,8 +149,9 @@ class Trainer:
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
             .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
-        schedulers (:attr:`~.types.PyTorchScheduler or Sequence[:attr:`~.types.PyTorchScheduler], optional):
-            The learning rate schedulers. If ``[]`` or ``None``, will be set to ``[constant_scheduler]``.
+        schedulers (:attr:`~.PyTorchScheduler` | :class:`~.ComposerScheduler` |
+            Sequence[:attr:`~.PyTorchScheduler` | :class:`~.ComposerScheduler`], optional):
+            The learning rate schedulers. If ``[]`` or ``None``, the learning rate will be constant.
             (default: ``None``).
 
             .. seealso:: :mod:`composer.optim.scheduler` for the different schedulers built into Composer.
@@ -419,10 +419,10 @@ class Trainer:
         model: ComposerModel,
         train_dataloader: Union[DataLoader, DataSpec],
         max_duration: Union[int, str, Time],
-        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]] = None,
+        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
         algorithms: Optional[List[Algorithm]] = None,
-        optimizers: Optional[Optimizers] = None,
-        schedulers: Optional[Many[ComposerScheduler]] = None,
+        optimizers: Optional[torch.optim.Optimizer] = None,
+        schedulers: Optional[Union[ComposerScheduler, Sequence[ComposerScheduler]]] = None,
 
         # device
         device: Optional[Union[str, Device]] = None,
@@ -876,11 +876,16 @@ class Trainer:
 
         return metrics
 
-    def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
+    def _compute_and_log_metrics(self,
+                                 metrics: Union[Metric, MetricCollection],
+                                 *,
+                                 is_train: bool,
+                                 is_batch: bool,
+                                 logging_label: str = ''):
         """Computes metrics, logs the results, and resets the metrics.
 
         Args:
-            metrics (Metrics): The metrics to compute.
+            metrics (Metric | MetricCollection): The metrics to compute.
             is_train (bool): True for training metrics, False for evaluation metrics.
             is_batch (bool): True if logging at batch level, false for epoch level.
             logging_label (str): Should be left as empty string if called for training metrics.

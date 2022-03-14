@@ -14,7 +14,6 @@ from typing import Any, Callable, Optional, Tuple, Type, Union, cast
 import torch
 
 from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Optimizers
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ def apply_alibi(
     attr_to_replace: str,
     alibi_attention: Callable,
     mask_replacement_function: Optional[Callable[[torch.nn.Module, int], torch.nn.Module]] = None,
-    optimizers: Optional[Optimizers] = None,
+    optimizers: Optional[torch.opim.Optimizer] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
     according as per :class:`~composer.algorithms.alibi.alibi.Alibi`. Note that the
@@ -82,7 +81,7 @@ def apply_alibi(
             ``max_sequence_length``. For example,
             ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default: ``None``,
             which means no modification of the model's default attention mask.
-        optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
+        optimizers (torch.optim.Optimizer, optional): Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters. Default: ``None``.

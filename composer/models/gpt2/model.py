@@ -7,7 +7,7 @@ Implemented as a wrapper using :class:`.ComposerTrainer`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING, Mapping, Union
 
 from torchmetrics.collections import MetricCollection
 
@@ -16,8 +16,9 @@ from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
     import transformers
+    from torchmetrics.metric import Metric
 
-    from composer.core.types import Batch, Metrics, Tensors
+    from composer.core.types import Batch, Sequence, Tensor
 
 __all__ = ["GPT2Model"]
 
@@ -66,12 +67,12 @@ class GPT2Model(ComposerTransformer):
         self.train_perplexity = Perplexity()
         self.val_perplexity = Perplexity()
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
+    def loss(self, outputs: Mapping, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
         if outputs.get('loss', None) is not None:
             return outputs['loss']
         else:
             raise NotImplementedError('Calculating loss directly not supported yet.')
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return MetricCollection([self.train_loss, self.train_perplexity]) if train else MetricCollection(
             [self.val_loss, self.val_perplexity])

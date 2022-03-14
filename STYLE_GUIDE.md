@@ -119,13 +119,13 @@ The following rules apply to public APIs:
 
 1. Parameters that could take a sequence of elements should also allow `None` or a singleton.
     This simplifies the user API by not having to construct a list (or tuple) to hold a single element
-    (or no element). For example, `Tensors = Union[Tensor, Tuple[Tensor, ...], List[Tensor]]`.
+    (or no element). For example, use `Optional[Union[torch.Tensor, Sequence[torch.Tensor]]`.
 
     The `composer.utils.ensure_tuple` helper method can convert a singleton, list, or tuple into a tuple.
     For example
 
     ```python
-    def foo(x: Optional[Tensors]) -> Tuple[Tensor, ...]:
+    def foo(x: Optional[Union[Tensor, Sequence[Tensor]]) -> Tuple[Tensor, ...]:
         return ensure_tuple(x)  # ensures that the result is always a (potentially empty) tuple of tensors
     ```
 
