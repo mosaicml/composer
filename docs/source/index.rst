@@ -66,7 +66,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    trainer/logging.rst
    trainer/callbacks.rst
    trainer/distributed_training.rst
-   trainer/numerics.rst
+   trainer/numerics.md
    trainer/performance.rst
 
 
