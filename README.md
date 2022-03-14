@@ -105,8 +105,6 @@ For users who wish to integrate Composer's speedup methods into their existing t
 
 The following example highlights using [BlurPool](https://docs.mosaicml.com/en/latest/method_cards/blurpool.html), which applies an anti-aliasing filter before every downsampling operation in convolutional neural networks like ResNet.
 
-TODO(MOIN): Update the below example to make sure (a) it can run on its own and (b) it matches the MNIST example below in terms of the training setup so that the two are really equivalent. Also, both examples should use both blurpool and label smoothing.
-
 ```python
 import torchvision
 from torch.nn import CrossEntropyLoss
