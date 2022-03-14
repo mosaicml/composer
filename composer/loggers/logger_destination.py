@@ -67,7 +67,7 @@ class LoggerDestination(Callback, ABC):
         artifact_name: str,
         file_path: pathlib.Path,
         *,
-        allow_overwrite: bool,
+        overwrite: bool,
     ):
         """Handle logging of a file artifact stored at ``file_path`` to an artifact named ``artifact_name``.
 
@@ -94,8 +94,8 @@ class LoggerDestination(Callback, ABC):
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
             artifact_name (str): The name of the artifact.
             file_path (str | pathlib.Path): The file path.
-            allow_overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
+            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
                 (default: ``False``)
         """
-        del state, log_level, artifact_name, file_path, allow_overwrite  # unused
+        del state, log_level, artifact_name, file_path, overwrite  # unused
         pass

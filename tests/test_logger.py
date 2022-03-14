@@ -204,19 +204,19 @@ def test_logger_file_artifact(dummy_state: State):
     class DummyLoggerDestination(LoggerDestination):
 
         def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
-                              allow_overwrite: bool):
+                              overwrite: bool):
             nonlocal file_logged
             file_logged = True
             assert artifact_name == "foo"
             assert file_path.name == "bar"
-            assert allow_overwrite
+            assert overwrite
 
     logger = Logger(state=dummy_state, destinations=[DummyLoggerDestination()])
     logger.file_artifact(
         log_level="epoch",
         artifact_name="foo",
         file_path="bar",
-        allow_overwrite=True,
+        overwrite=True,
     )
 
     assert file_logged
