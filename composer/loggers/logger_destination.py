@@ -5,13 +5,10 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING
 
 from composer.core.callback import Callback
 from composer.core.state import State
-
-if TYPE_CHECKING:
-    from composer.core.logging.logger import LoggerDataDict, LogLevel
+from composer.loggers.logger import LoggerDataDict, LogLevel
 
 __all__ = ["LoggerDestination"]
 
@@ -29,13 +26,14 @@ class LoggerDestination(Callback, ABC):
     Example
     -------
 
-    >>> from composer.core.logging import LoggerDestination
+    >>> from composer.loggers import LoggerDestination
     >>> class MyLogger(LoggerDestination):
-    ...     def log_data(self, timestamp, log_level, data):
-    ...         print(f'Timestamp: {timestamp}: {log_level} {data}')
+    ...     def log_data(self, state, log_level, data):
+    ...         print(f'Batch {int(state.timer.batch)}: {log_level} {data}')
+    >>> logger = MyLogger()
     >>> trainer = Trainer(
     ...     ...,
-    ...     logger_destinations=[MyLogger()]
+    ...     loggers=[logger]
     ... )
     """
 

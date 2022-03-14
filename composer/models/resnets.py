@@ -1,5 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The CIFAR ResNet torch module.
+
+See the :doc:`Model Card </model_cards/resnet>` for more details.
+"""
+
 # Code below adapted from https://github.com/facebookresearch/open_lth
 # and https://github.com/pytorch/vision
 
@@ -10,6 +15,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from composer.models import Initializer
+
+__all__ = ["CIFAR_ResNet"]
 
 
 class CIFAR_ResNet(nn.Module):
@@ -88,9 +95,9 @@ class CIFAR_ResNet(nn.Module):
 
     @staticmethod
     def get_model_from_name(model_name: str, initializers: List[Initializer], outputs: int = 10):
-        """The naming scheme for a ResNet is 'cifar_resnet_D[_W]'.
+        """The naming scheme for a ResNet is ``'cifar_resnet_D[_W]'``.
 
-        D is the model depth (e.g. cifar_resnet56)
+        D is the model depth (e.g. ``'cifar_resnet56'``)
         """
 
         if not CIFAR_ResNet.is_valid_model_name(model_name):

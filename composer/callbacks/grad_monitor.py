@@ -2,8 +2,9 @@
 
 """Monitor gradient during training."""
 
-from composer.core import Logger, State
+from composer.core import State
 from composer.core.callback import Callback
+from composer.loggers import Logger
 
 __all__ = ["GradMonitor"]
 
@@ -26,7 +27,7 @@ class GradMonitor(Callback):
        ...     callbacks=[callbacks.GradMonitor()],
        ... )
 
-    The L2 norms are logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as described below.
+    The L2 norms are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as described below.
 
     +-----------------------------------+-------------------------------------------------------------+
     | Key                               | Logged data                                                 |

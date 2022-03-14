@@ -63,7 +63,7 @@ Introducing... Events, Engines, and State
 
 The core principle of the Composer trainer is to avoid the need to introduce algorithm-specific logic to the trainer
 by instead relying on callbacks tied to *events*. Events describe specific stages of the training lifecycle, such as
-``BATCH_START`` and ``BEFORE_FORWARD``. We could instrument our training loop with events as follows:
+``BATCH_START`` and ``BEFORE_FORWARD``. This is based on the two-way callback system from (`Howard et al, 2020`_) We could insert our training loop with events as follows:
 
 .. code-block:: python
 
@@ -164,6 +164,8 @@ Composer Trainer
 For advanced experimentation, we recommend using our provided trainer.
 Our trainer takes care of all the state management and event callbacks from above,
 and adds a bunch of advanced features, including hyperparameter management, gradient accumulation,
-
 and closure support.
-For more information, check out the :doc:`Trainer</trainer/using_the_trainer>` guide.
+
+For more information, check out the :doc:`/trainer/using_the_trainer` guide.
+
+.. _Howard et al, 2020: https://arxiv.org/abs/2002.04688

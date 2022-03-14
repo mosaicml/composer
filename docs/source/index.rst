@@ -3,8 +3,8 @@
 Composer
 ========
 
-Composer provides well-engineered implementations of efficient training methods
-to give the tools that help you train a better model for cheaper.
+`Composer <https://github.com/mosaicml/composer>`__ provides well-engineered implementations of efficient
+training methods to give the tools that help you train a better model for cheaper.
 
 Using Composer, you can:
 
@@ -19,14 +19,13 @@ Composer features:
 - Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
 - Strong, `reproducible` baselines to get you started as 💨 fast 💨 as possible
 
-See :doc:`Getting Started<getting_started/installation>` for
-installation an initial usage, the :doc:`Trainer<trainer/using_the_trainer>` section for an introduction
-to our trainer, and :doc:`Methods<method_cards/methods_overview>` for details about our efficiency methods
-and how to use them in your code.
+See :doc:`getting_started/installation` for quick start, and peruse our :doc:`trainer/algorithms` library.
+See :doc:`trainer/using_the_trainer` to learn how to use our (optional) Trainer. To learn more details
+about our efficient methods and how to deploy them in your code, see :doc:`method_cards/methods_overview`.
 
-At MosaicML, we are focused on making training ML models accessible. To do this,
+At `MosaicML`_, we are focused on making training ML models accessible. To do this,
 we continually productionize state-of-the-art academic research on efficient model
-training, and also study the `combinations`` of these methods in order to ensure
+training, and also study the `combinations` of these methods in order to ensure
 that model training is ✨ as efficient as possible ✨.
 
 If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or join
@@ -34,22 +33,30 @@ our `Slack`_ channel!
 
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues.
 
-Table of Contents
------------------
-
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Getting Started
 
    getting_started/installation.rst
-   getting_started/using_composer.rst
+   getting_started/notebooks.rst
    getting_started/welcome_tour.rst
 
 .. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Algorithms
+
+   trainer/algorithms.rst
+   functional_api.rst
+
+.. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Trainer
 
    trainer/using_the_trainer.rst
+   composer_model.rst
    trainer/dataloaders.rst
    trainer/evaluation.rst
    trainer/schedulers.rst
@@ -62,14 +69,9 @@ Table of Contents
    trainer/numerics.rst
    trainer/performance.rst
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Key Classes
-
-   composer_model.rst
-   trainer/algorithms.rst
 
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Methods Library
 
@@ -100,6 +102,7 @@ Table of Contents
    method_cards/swa.md
 
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Model Library
 
@@ -110,19 +113,13 @@ Table of Contents
    model_cards/unet.md
 
 .. toctree::
+   :hidden:
    :caption: API Reference
    :maxdepth: 1
 
    api_reference.rst
 
-Indices and tables
-------------------
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
-
 .. _Twitter: https://twitter.com/mosaicml
 .. _Email: mailto:community@mosaicml.com
 .. _Slack: https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg
+.. _MosaicML: www.mosaicml.com

@@ -13,9 +13,10 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 from torch import Tensor
 
-from composer.core.logging import LoggerData, LoggerDataDict, LoggerDestination, LogLevel
 from composer.core.state import State
 from composer.core.time import Timestamp
+from composer.loggers.logger import LoggerData, LoggerDataDict, LogLevel
+from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ["InMemoryLogger"]
 
@@ -27,9 +28,8 @@ class InMemoryLogger(LoggerDestination):
     Example usage:
         .. testcode::
 
-            from composer.loggers import InMemoryLogger
+            from composer.loggers import InMemoryLogger, LogLevel
             from composer.trainer import Trainer
-            from composer.core.logging import LogLevel
             logger = InMemoryLogger(
                 log_level=LogLevel.BATCH
             )
@@ -39,7 +39,7 @@ class InMemoryLogger(LoggerDestination):
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
                 optimizers=[optimizer],
-                logger_destinations=[logger]
+                loggers=[logger]
             )
             # Get data from logger. If you are using multiple loggers, be sure to confirm
             # which index in trainer.logger.destinations contains your desired logger.
@@ -55,7 +55,7 @@ class InMemoryLogger(LoggerDestination):
     Attributes:
         data (dict): Mapping of a logged key to a
             (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`,
-            :attr:`~.logger.LoggerDataDict`) tuple. This dictionary contains all logged
+            :attr:`~.LoggerDataDict`) tuple. This dictionary contains all logged
             data.
         most_recent_values (LoggerDataDict): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
@@ -102,9 +102,8 @@ class InMemoryLogger(LoggerDestination):
 
                 import matplotlib.pyplot as plt
 
-                from composer.core.logging import LogLevel
+                from composer.loggers import InMemoryLogger, LogLevel
                 from composer.core.time import Time, Timestamp
-                from composer.loggers import InMemoryLogger
 
                 in_mem_logger = InMemoryLogger(LogLevel.BATCH)
 
