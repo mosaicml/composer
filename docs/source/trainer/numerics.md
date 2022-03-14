@@ -47,10 +47,10 @@ The result can be reduced model accuracy or training divergence.
 
 The solution is to perform mixed precision training, where both single (`fp32`) and half-precision (`fp16`) formats are utilized strategically to avoid the issues above.  Composer supports Automatic Mixed Precision (AMP) training using PyTorch’s {mod}`torch.cuda.amp` package. The Composer {class}`~.Trainer` performs all the heavy lifting and tensor conversions automatically; the user simply has to set `precision='amp'` when initializing the {class}`~.Trainer`.
 
-Mixed precision training is performed as follows:
+Mixed precision training is usually performed as follows:
 
 1. Compute the forward pass and loss in half-precision, *except* for computations that can cause activations/loss overflow, which are performed in single-precision (e.g., BatchNorm).
-2. Compute the backpropagation pass in half-precision.
+2. Perform the backwards pass in half-precision.
 3. Store the weights and perform the optimizer step in single precision, enabling the weight update to be done more precisely.
 4. Convert the model back to half-precision.
 
