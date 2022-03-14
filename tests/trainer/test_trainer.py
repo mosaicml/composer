@@ -330,7 +330,7 @@ class TestTrainerAssets:
     #       with the above configuration. The fixtures below filter and
     #       create the objects to test.
 
-    @pytest.fixture(params=algorithms_registry.items(), ids=algorithms_registry.keys())
+    @pytest.fixture(params=algorithms_registry.items(), ids=tuple(algorithms_registry.keys()))
     def algorithm(self, request):
 
         name, hparams = request.param
@@ -359,7 +359,7 @@ class TestTrainerAssets:
 
         return algorithm
 
-    @pytest.fixture(params=callback_registry.items(), ids=callback_registry.keys())
+    @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
     def callback(self, request, tmpdir, monkeypatch):
         name, hparams = request.param
 
@@ -377,7 +377,7 @@ class TestTrainerAssets:
 
         return callback
 
-    @pytest.fixture(params=logger_registry.items(), ids=logger_registry.keys())
+    @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
     def logger(self, request):
 
         name, hparams = request.param
