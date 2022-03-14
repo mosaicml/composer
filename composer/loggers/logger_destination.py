@@ -17,7 +17,7 @@ __all__ = ["LoggerDestination"]
 class LoggerDestination(Callback, ABC):
     """Base class for a logger destination. This is a :class:`~.Callback` with an additional interface for logging
     data, :meth:`log_data`. Custom loggers should extend this class. Data to be logged should be of the type
-    :attr:`~.composer.loggers.logger.LoggerDataDict` (i.e. a ``{'name': value}`` mapping).
+    :attr:`~.LoggerDataDict` (i.e. a ``{'name': value}`` mapping).
 
     For example, to define a custom logger and use it in training:
 
@@ -41,7 +41,7 @@ class LoggerDestination(Callback, ABC):
     """
 
     def will_log(self, state: State, log_level: LogLevel) -> bool:
-        """Called by the :class:`~.logging.logger.Logger` to determine whether to log data given the ``log_level``.
+        """Called by the :class:`~composer.loggers.logger.Logger` to determine whether to log data given the ``log_level``.
 
         By default, it always returns ``True``, but this method
         can be overridden.
@@ -49,9 +49,7 @@ class LoggerDestination(Callback, ABC):
             state (State): The global state object.
             log_level (LogLevel): The log level
         Returns:
-            bool: Whether to log a data call, given the
-                :class:`~.core.state.State` and
-                :class:`~.logging.logger.LogLevel`.
+            bool: Whether to log a data call, given the :class:`~.core.state.State` and :class:`~.LogLevel`.
         """
         del state, log_level  # unused
         return True

@@ -53,7 +53,7 @@ class InMemoryLogger(LoggerDestination):
     Attributes:
         data (dict): Mapping of a logged key to a
             (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`,
-            :attr:`~.logger.LoggerDataDict`) tuple. This dictionary contains all logged
+            :attr:`~.LoggerDataDict`) tuple. This dictionary contains all logged
             data.
         most_recent_values (LoggerDataDict): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the

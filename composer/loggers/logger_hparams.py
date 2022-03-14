@@ -96,8 +96,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
         log_artifacts_every_n_batches (int, optional). See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
-
-        extra_init_params (JSON Dictionary, optional): See
+        extra_init_params (dict, optional): See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
     """
 

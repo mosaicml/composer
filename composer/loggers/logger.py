@@ -56,8 +56,9 @@ class Logger:
     the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
 
     This class does not store any data itself; instead, it routes all data to the ``logger_destinations``.
-    Each destination (e.g. the :class:`~composer.loggers.FileLogger`, :class:`~composer.loggers.InMemoryLogger`)
-    is responsible for storing the data itself (e.g. writing it to a file or storing it in memory).
+    Each destination (e.g. the :class:`~composer.loggers.file_logger.FileLogger`,
+    :class:`~composer.loggers.in_memory_logger.InMemoryLogger`) is responsible for storing the data itself
+    (e.g. writing it to a file or storing it in memory).
 
     Args:
         state (State): The training state.
@@ -90,8 +91,8 @@ class Logger:
             data (Union[LoggerDataDict, Callable[[], LoggerDataDict]]):
                 Can be either logging data or a callable that returns data to be logged.
                 Callables will be invoked only when
-                :meth:`~.base_backend.LoggerDestination.will_log` returns True for at least one
-                :class:`~.logging.base_backend.LoggerDestination`. Useful when it is
+                :meth:`~composer.loggers.logger_destination.LoggerDestination.will_log` returns True for at least one
+                :class:`~.composer.loggers.logger_destination.LoggerDestination`. Useful when it is
                 expensive to generate the data to be logged.
         """
         if isinstance(log_level, str):
