@@ -1,7 +1,7 @@
-|:cd:| Dataloaders
+|:cd:| DataLoaders
 ==================
 
-Dataloaders are used to pass in training or evaluation data to the
+DataLoaders are used to pass in training or evaluation data to the
 Composer :class:`.Trainer`. There are three different ways of doing so:
 
 1. Passing PyTorch :class:`torch.utils.data.DataLoader` objects directly.
@@ -13,7 +13,7 @@ Composer :class:`.Trainer`. There are three different ways of doing so:
 We walk through each of these ways in detail and provide usage examples
 below.
 
-Passing a PyTorch Dataloader
+Passing a PyTorch DataLoader
 ----------------------------
 
 Composer dataloaders have type :class:`torch.utils.data.DataLoader`

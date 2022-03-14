@@ -16,6 +16,7 @@ def _generate_state(epoch: int, max_epochs: int):
     model = SimpleConvModel()
 
     state = State(model=model,
+                  rank_zero_seed=0,
                   optimizers=torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),
                   precision=Precision.FP32,
                   grad_accum=1,

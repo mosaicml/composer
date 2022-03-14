@@ -134,7 +134,7 @@ class CutMixHparams(AlgorithmHparams):
 class CutOutHparams(AlgorithmHparams):
     """See :class:`CutOut`"""
 
-    n_holes: int = hp.optional('Number of holes to cut out', default=1)
+    num_holes: int = hp.optional('Number of holes to cut out', default=1)
     length: float = hp.optional('Relative or absolute side length of the square hole to cut out', default=0.5)
     uniform_sampling: bool = hp.optional('Mask pixels with uniform probability', default=False)
 

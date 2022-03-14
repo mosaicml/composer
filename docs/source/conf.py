@@ -25,6 +25,7 @@ import sphinx.ext.autodoc
 import sphinx.util.logging
 from sphinx.ext.autodoc import ClassDocumenter, _
 import yahp as hp
+import torch
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -57,6 +58,7 @@ extensions = [
     "sphinxarg.ext",
     'sphinx.ext.doctest',
     'sphinx_panels',
+    'sphinxcontrib.images',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -137,11 +139,16 @@ hp.Hparams.__doc__ = ""
 hp.Hparams.initialize_object.__doc__ = ""
 torch.nn.Module.forward.__doc__ = ""
 
+torch.nn.Module.forward.__doc__ = None
 pygments_style = "manni"
 pygments_dark_style = "monokai"
 
 html_permalinks = True
 html_permalinks_icon = "#"
+
+images_config = {
+    'download': False,
+}
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
