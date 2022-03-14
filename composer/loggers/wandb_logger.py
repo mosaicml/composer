@@ -11,8 +11,9 @@ import textwrap
 import warnings
 from typing import Any, Dict, Optional
 
-from composer.core.logging import LoggerDataDict, LoggerDestination, LogLevel
-from composer.core.types import Logger, State, StateDict
+from composer.core.types import State, StateDict
+from composer.loggers.logger import Logger, LoggerDataDict, LogLevel
+from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist, run_directory
 
 __all__ = ["WandBLogger"]

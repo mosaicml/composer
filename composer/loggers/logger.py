@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING, Dict, List, Sequence, Union
 import torch
 
 if TYPE_CHECKING:
-    from composer.core.logging.logger_destination import LoggerDestination
     from composer.core.state import State
+    from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ["LoggerDestination", "Logger", "LogLevel", "LoggerData", "LoggerDataDict", "format_log_data_value"]
 
@@ -50,8 +50,8 @@ class LogLevel(IntEnum):
 class Logger:
     r"""Logger routes metrics to the :class:`.LoggerDestination`. Logger is what users call from within
     algorithms/callbacks. A logger routes the calls/data to any different number of destination
-    :class:`.LoggerDestination`\\s (e.g., :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged should be
-    of the type :attr:`~.logger.LoggerDataDict` (i.e., a ``{<name>: <value>}`` mapping).
+    :class:`.LoggerDestination`\\s (e.g., :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged
+    should be of the type :attr:`~.logger.LoggerDataDict` (i.e., a ``{<name>: <value>}`` mapping).
 
     Args:
         state (State): The global :class:`~.core.state.State` object.
@@ -85,15 +85,15 @@ class Logger:
             destination.log_data(self._state, log_level, data)
 
     def data_fit(self, data: LoggerDataDict) -> None:
-        """Helper function for ``self.metric(LogLevel.FIT, data)``"""
+        """Helper function for ``self.data(LogLevel.FIT, data)``"""
         self.data(LogLevel.FIT, data)
 
     def data_epoch(self, data: LoggerDataDict) -> None:
-        """Helper function for ``self.metric(LogLevel.EPOCH, data)``"""
+        """Helper function for ``self.data(LogLevel.EPOCH, data)``"""
         self.data(LogLevel.EPOCH, data)
 
     def data_batch(self, data: LoggerDataDict) -> None:
-        """Helper function for ``self.metric(LogLevel.BATCH, data)``"""
+        """Helper function for ``self.data(LogLevel.BATCH, data)``"""
         self.data(LogLevel.BATCH, data)
 
 
