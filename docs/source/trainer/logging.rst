@@ -68,8 +68,6 @@ Each of its methods has access to the :class:`.Logger`.
        def epoch_end(state: State, logger: Logger):
            logger.data_epoch({"Epoch": state.epoch})
 
-
-
 Similarly, :class:`.Algorithm` classes are also provided the :class:`.Logger`
 to log any desired information.
 
