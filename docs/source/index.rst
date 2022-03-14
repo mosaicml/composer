@@ -81,9 +81,10 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/augmix.md
    method_cards/blurpool.md
    method_cards/channels_last.md
-   method_cards/cutmix.md
    method_cards/colout.md
+   method_cards/cutmix.md
    method_cards/cutout.md
+   method_cards/decoupled_weight_decay.md
    method_cards/factorize.md
    method_cards/ghost_batchnorm.md
    method_cards/label_smoothing.md
@@ -91,10 +92,11 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/mixup.md
    method_cards/progressive_resizing.md
    method_cards/randaugment.md
+   method_cards/sam.md
+   method_cards/scaling_laws.rst
    method_cards/scale_schedule.md
    method_cards/selective_backprop.md
    method_cards/seq_length_warmup.md
-   method_cards/sam.md
    method_cards/squeeze_excite.md
    method_cards/stochastic_depth.md
    method_cards/stochastic_depth_samplewise.md
