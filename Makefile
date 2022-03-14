@@ -23,7 +23,7 @@ lint:
 	$(PYTHON) -m isort -c --diff $(dirs)
 	$(PYTHON) -m yapf -dr $(dirs)
 	$(PYTHON) -m docformatter -r --wrap-summaries 120 --wrap-descriptions 120 $(dirs)
-	PYRIGHT_PYTHON_FORCE_VERSION=$(PYRIGHT_PYTHON_FORCE_VERSION) pyright $(dirs)
+	pyright $(dirs)
 
 test:
 	$(PYTHON) -m $(PYTEST) $(EXTRA_ARGS)
