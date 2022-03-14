@@ -48,19 +48,25 @@ class LogLevel(IntEnum):
 
 
 class Logger:
-    r"""Logger routes metrics to the :class:`.LoggerDestination`. Logger is what users call from within
-    algorithms/callbacks. A logger routes the calls/data to any different number of destination
-    :class:`.LoggerDestination`\\s (e.g., :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged
-    should be of the type :attr:`~.logger.LoggerDataDict` (i.e., a ``{<name>: <value>}`` mapping).
+    r"""An interface to record training data.
+
+    The :class:`~composer.trainer.trainer.Trainer`, :class:`~composer.core.callback.Callback`\s, and
+    :class:`~composer.core.algorithm.Algorithm`\s invoke the logger to record data such as
+    the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
+
+    This class does not store any data itself; instead, it routes all data to the ``logger_destinations``.
+    Each destination (e.g. the :class:`~composer.loggers.file_logger.FileLogger`,
+    :class:`~composer.loggers.in_memory_logger.InMemoryLogger`) is responsible for storing the data itself
+    (e.g. writing it to a file or storing it in memory).
 
     Args:
-        state (State): The global :class:`~.core.state.State` object.
-        destinations (Sequence[LoggerDestination]): A sequence of :class:`.LoggerDestination`\s to
-            which logging calls will be sent.
+        state (State): The training state.
+        destinations (Sequence[LoggerDestination]):
+            The logger destinations, to where logging data will be sent.
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
-            A sequence of :class:`~.LoggerDestination`\s to which logging calls will be sent.
+            A sequence of :class:`~.LoggerDestination`\\s to which logging calls will be sent.
     """
 
     def __init__(

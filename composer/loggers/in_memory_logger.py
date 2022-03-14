@@ -13,8 +13,8 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 from torch import Tensor
 
-from composer.core.time import Timestamp
 from composer.core.state import State
+from composer.core.time import Timestamp
 from composer.loggers.logger import LoggerData, LoggerDataDict, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 
