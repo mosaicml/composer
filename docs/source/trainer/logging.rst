@@ -90,9 +90,7 @@ Custom Logger Destinations
 --------------------------
 
 To use a custom logger destination, create a class that inherits from
-:class:`.LoggerDestination`, and implement the :meth:`~logger_destination.log_data` method.
-
-Here is an example of a :class:`.LoggerDestination` which logs all metrics
+:class:`.LoggerDestination`. Here is an example which logs all metrics
 into a dictionary:
 
 .. testcode::
