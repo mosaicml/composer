@@ -13,6 +13,11 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
 
     import os
 
+    try:
+        os.remove("log.txt")
+    except FileNotFoundError:
+        pass
+
     os.environ["WANDB_MODE"] = "disabled"
 
 .. testcode::
@@ -24,6 +29,10 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      loggers=[WandBLogger(), FileLogger(filename="log.txt")])
+
+.. testcleanup::
+
+    os.remove("log.txt")
 
 Available Loggers
 -----------------
