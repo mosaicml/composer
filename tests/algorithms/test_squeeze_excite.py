@@ -6,8 +6,9 @@ import pytest
 import torch
 
 from composer.algorithms import SqueezeExcite, SqueezeExciteConv2d, SqueezeExciteHparams
-from composer.core import Event, Logger, State
+from composer.core import Event, State
 from composer.functional import apply_squeeze_excite as apply_se
+from composer.loggers import Logger
 from composer.utils import module_surgery
 from tests.common import SimpleConvModel
 
@@ -49,7 +50,7 @@ def test_se_logging(state: State, empty_logger: Logger):
     se.apply(Event.INIT, state, logger=logger_mock)
     conv_count = module_surgery.count_module_instances(state.model, torch.nn.Conv2d)
 
-    logger_mock.metric_fit.assert_called_once_with({
+    logger_mock.data_fit.assert_called_once_with({
         'squeeze_excite/num_squeeze_excite_layers': conv_count,
     })
 

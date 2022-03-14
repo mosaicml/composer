@@ -10,8 +10,9 @@ from typing import List, Optional, Tuple
 
 import torch
 
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.types import Model, Optimizers
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
@@ -138,7 +139,7 @@ class LayerFreezing(Algorithm):
             freeze_start=self.freeze_start,
             freeze_level=self.freeze_level,
         )
-        logger.metric_epoch({
+        logger.data_epoch({
             'layer_freezing/layers_frozen': freeze_depth,
             'layer_freezing/percentage_frozen': freeze_percentage
         })

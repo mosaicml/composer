@@ -5,7 +5,6 @@ import random
 import tarfile
 import tempfile
 import textwrap
-from logging import Logger
 from typing import Dict, Optional
 
 import pytest
@@ -20,8 +19,9 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
-from composer.core.types import Logger, StateDict
+from composer.core.types import StateDict
 from composer.datasets import SyntheticHparamsMixin
+from composer.loggers import Logger
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer

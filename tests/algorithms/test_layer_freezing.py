@@ -6,8 +6,9 @@ from unittest.mock import Mock
 import torch
 
 from composer.algorithms import LayerFreezing, LayerFreezingHparams
-from composer.core import Event, Logger, State
+from composer.core import Event, State
 from composer.core.types import Precision
+from composer.loggers import Logger
 from tests.common import SimpleConvModel
 
 

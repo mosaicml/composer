@@ -17,13 +17,13 @@ def test_speed_monitor(composer_trainer_hparams: TrainerHparams):
     trainer = composer_trainer_hparams.initialize_object()
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
-    trainer.logger.backends = [log_destination]
+    trainer.logger.destinations = [log_destination]
     trainer.fit()
 
     throughput_epoch_calls = 0
     wall_clock_train_calls = 0
     throughput_step_calls = 0
-    for call_ in log_destination.log_metric.mock_calls:
+    for call_ in log_destination.log_data.mock_calls:
         metrics = call_[1][2]
         if "throughput/step" in metrics:
             throughput_step_calls += 1
