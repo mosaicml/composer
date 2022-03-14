@@ -19,8 +19,8 @@ from composer.callbacks.run_directory_uploader import RunDirectoryUploader
 from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.core.callback import Callback
 from composer.core.time import Time
-from composer.utils.object_store import ObjectStoreProviderHparams
 from composer.utils import import_object
+from composer.utils.object_store import ObjectStoreProviderHparams
 
 __all__ = [
     "CallbackHparams",
