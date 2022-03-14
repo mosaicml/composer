@@ -253,7 +253,7 @@ Name|Functional|tl;dr|Benchmark|Speed Up
 
 Name|Functional|tl;dr|Benchmark|Speed Up
 ----|----------|-----|---------|--------
-[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[Replace attention with AliBi](https://arxiv.org/abs/2108.12409v1)|GPT-2|1.6x
+[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[Replace attention with AliBi.](https://arxiv.org/abs/2108.12409v1)|GPT-2|1.6x
 [Seq Length Warmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|`cf.set_batch_`<br>`sequence_length`|[Progressively increase sequence length.](https://arxiv.org/abs/2108.06084)|GPT-2|1.5x
 **Composition** | `N/A` | **Cheapest: $150 @ 24.11 PPL** | **GPT-2** | **1.7x**
 
