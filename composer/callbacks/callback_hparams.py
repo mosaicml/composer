@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import abc
 import dataclasses
-import importlib
 import textwrap
 from dataclasses import dataclass
 from typing import Optional
@@ -21,6 +20,7 @@ from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.core.callback import Callback
 from composer.core.time import Time
 from composer.utils.object_store import ObjectStoreProviderHparams
+from composer.utils import import_object
 
 __all__ = [
     "CallbackHparams",
@@ -165,9 +165,7 @@ class CheckpointSaverHparams(CallbackHparams):
             save_interval = Time.from_timestring(self.save_interval)
         except ValueError:
             # assume it is a module path
-            module_path, function_name = self.save_interval.split(":")
-            mod = importlib.import_module(module_path)
-            save_interval = getattr(mod, function_name)
+            save_interval = import_object(self.save_interval)
         return CheckpointSaver(
             save_folder=self.save_folder,
             name_format=self.name_format,

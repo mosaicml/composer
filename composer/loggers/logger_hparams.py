@@ -249,10 +249,11 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
     Args:
         object_store_provider_hparams (ObjectStoreProviderHparams): The object store provider hparams.
         should_log_artifact (str, optional): The path to a filter function which returns whether an artifact should be
-            logged. The path should be of the format `path.to.module:filter_function_name`.
+            logged. The path should be of the format ``path.to.module:filter_function_name``.
 
-            The function should take (:class:`State`, :class:`LogLevel`, artifact name), and return a boolean indicating
-            whether the artifact should be logged.
+            The function should take (:class:`~composer.core.state.State`, :class:`.LogLevel`, ``<artifact name>``).
+            The artifact name will be a string. The function should return a boolean indicating whether the artifact
+            should be logged.
 
             .. seealso: :func:`composer.utils.dynamic_import.import_object`
 
