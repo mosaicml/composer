@@ -4,10 +4,8 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
-from composer.core.logging import Logger, LogLevel
-from composer.core.state import State
-from composer.core.time import Time, Timestamp
-from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.core import State, Time, Timestamp
+from composer.loggers import InMemoryLogger, Logger, LogLevel
 
 
 def test_in_memory_logger(dummy_state: State):

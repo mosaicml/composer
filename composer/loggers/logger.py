@@ -27,8 +27,8 @@ import torch
 from composer.utils import dist
 
 if TYPE_CHECKING:
-    from composer.core.logging.logger_destination import LoggerDestination
     from composer.core.state import State
+    from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ["LoggerDestination", "Logger", "LogLevel", "LoggerData", "LoggerDataDict", "format_log_data_value"]
 
@@ -63,20 +63,27 @@ class LogLevel(IntEnum):
 
 
 class Logger:
-    r"""Logger routes metrics to the :class:`.LoggerDestination`. Logger is what users call from within
-    algorithms/callbacks. A logger routes the calls/data to any different number of destination
-    :class:`.LoggerDestination`\\s (e.g., :class:`.FileLogger`, :class:`.InMemoryLogger`, etc.). Data to be logged
-    should be of the type :attr:`~.logger.LoggerDataDict` (i.e., a ``{<name>: <value>}`` mapping).
+    r"""An interface to record training data.
+
+    The :class:`~composer.trainer.trainer.Trainer`, instances of :class:`~composer.core.callback.Callback`, and
+    instances of :class:`~composer.core.algorithm.Algorithm` invoke the logger to record data such as
+    the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
+
+    This class does not store any data itself; instead, it routes all data to the ``logger_destinations``.
+    Each destination (e.g. the :class:`~composer.loggers.file_logger.FileLogger`,
+    :class:`~composer.loggers.in_memory_logger.InMemoryLogger`) is responsible for storing the data itself
+    (e.g. writing it to a file or storing it in memory).
 
     Args:
-        state (State): The global :class:`~.core.state.State` object.
-        destinations (Sequence[LoggerDestination]): A sequence of :class:`.LoggerDestination`\s to
-            which logging calls will be sent.
+        state (State): The training state.
+        destinations (Sequence[LoggerDestination]):
+            The logger destinations, to where logging data will be sent.
         run_name (str, optional): The name for this training run.
 
-            If not specified, the timestamp will be combined with a :doc:`coolname <coolname:index>` ike the following:
+            If not specified, the timestamp will be combined with a :doc:`coolname <coolname:index>` like the
+            following:
 
-            .. testsetup:: composer.core.logging.logger.Logger.__init__.run_name
+            .. testsetup:: composer.loggers.logger.Logger.__init__.run_name
 
                 import random
                 import coolname
@@ -84,17 +91,18 @@ class Logger:
 
                 coolname.replace_random(random.Random(0))
 
-                time.time_ns = lambda: 1646931750990173286
+                time.time = lambda: 1647293526.1849217
 
-            .. doctest:: composer.core.logging.logger.Logger.__init__.run_name
+            .. doctest:: composer.loggers.logger.Logger.__init__.run_name
 
                 >>> logger = Logger(state=state, destinations=[])
                 >>> logger.run_name
-                '1646931750990173286-electric-zebra'
+                '1647293526-electric-zebra'
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
-            A sequence of :class:`~.LoggerDestination`\s to which logging calls will be sent.
+            A sequence of :class:`~.LoggerDestination` to where logging calls will be sent.
+        run_name (str): The ``run_name``.
     """
 
     def __init__(
@@ -107,7 +115,7 @@ class Logger:
         if run_name is None:
             # prefixing with the time so experiments sorted alphabetically will
             # have the latest experiment last
-            run_name = str(time.time_ns()) + "-" + coolname.generate_slug(2)
+            run_name = str(int(time.time())) + "-" + coolname.generate_slug(2)
             run_name_list = [run_name]
             # ensure all ranks have the same experiment name
             dist.broadcast_object_list(run_name_list)

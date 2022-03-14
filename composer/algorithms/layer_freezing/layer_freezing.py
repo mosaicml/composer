@@ -10,8 +10,9 @@ from typing import List, Optional, Tuple
 
 import torch
 
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.types import Model, Optimizers
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 

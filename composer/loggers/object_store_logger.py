@@ -23,9 +23,9 @@ from libcloud.storage.types import ObjectDoesNotExistError
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
 
-from composer.core.logging import Logger, LoggerDestination
-from composer.core.logging.logger import LogLevel
 from composer.core.state import State
+from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.object_store import ObjectStoreProviderHparams
 
@@ -114,7 +114,7 @@ class ObjectStoreLogger(LoggerDestination):
         should_log_artifact ((State, LogLevel, str) -> bool, optional): A function to filter which artifacts
             are uploaded.
 
-            A function that takes the (current training state, log level, artifact name) and should return a boolean
+            The function should take the (current training state, log level, artifact name) and return a boolean
             indicating whether this file should be uploaded.
 
             By default, all artifacts will be uploaded.
@@ -285,7 +285,7 @@ class ObjectStoreLogger(LoggerDestination):
     def _format_object_name(self, artifact_name: str):
         """Format the ``artifact_name`` according to the ``object_name_format_string``."""
         if self._run_name is None:
-            raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
+            raise RuntimeError("The run name is not set. It should have been set on Event.INIT.")
         key_name = self.object_name_format.format(
             rank=dist.get_global_rank(),
             local_rank=dist.get_local_rank(),

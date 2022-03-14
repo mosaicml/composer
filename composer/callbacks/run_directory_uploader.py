@@ -21,9 +21,8 @@ from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
 
 from composer.core.callback import Callback
-from composer.core.logging import Logger
-from composer.core.logging.logger import LogLevel
 from composer.core.state import State
+from composer.loggers import Logger, LogLevel
 from composer.utils import dist, run_directory
 from composer.utils.object_store import ObjectStoreProviderHparams
 

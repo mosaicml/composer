@@ -10,10 +10,11 @@ from typing import Any, Dict, List, Optional
 
 import yahp as hp
 
-from composer.core.logging import LoggerDestination, LogLevel
 from composer.core.types import JSON
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.loggers.logger import LogLevel
+from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
@@ -95,14 +96,14 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         project (str, optional): WandB project name.
         group (str, optional): WandB group name.
         name (str, optional): WandB run name.
-            If not specified, the :attr:`~composer.core.logging.Logger.run_name` will be used.
+            If not specified, the :attr:`~composer.loggers.logger.Logger.run_name` will be used.
         entity (str, optional): WandB entity name.
         tags (str, optional): WandB tags, comma-separated.
         log_artifacts (bool, optional): See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
         log_artifacts_every_n_batches (int, optional). See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
-        extra_init_params (JSON Dictionary, optional): See
+        extra_init_params (dict, optional): See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
     """
 
@@ -207,8 +208,6 @@ class WandBLoggerHparams(LoggerDestinationHparams):
             "tags": tags,
         }
         init_params.update(self.extra_init_params)
-
-        from composer.loggers.wandb_logger import WandBLogger
         return WandBLogger(
             log_artifacts=self.log_artifacts,
             rank_zero_only=self.rank_zero_only,
@@ -224,7 +223,6 @@ class ProgressBarLoggerHparams(LoggerDestinationHparams):
     """
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> ProgressBarLogger:
-        from composer.loggers.progress_bar_logger import ProgressBarLogger
         return ProgressBarLogger(config=config)
 
 
@@ -251,10 +249,11 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
     Args:
         object_store_provider_hparams (ObjectStoreProviderHparams): The object store provider hparams.
         should_log_artifact (str, optional): The path to a filter function which returns whether an artifact should be
-            logged. The path should be of the format `path.to.module:filter_function_name`.
+            logged. The path should be of the format ``path.to.module:filter_function_name``.
 
-            The function should take (:class:`State`, :class:`LogLevel`, artifact name), and return a boolean indicating
-            whether the artifact should be logged.
+            The function should take (:class:`~composer.core.state.State`, :class:`.LogLevel`, ``<artifact name>``).
+            The artifact name will be a string. The function should return a boolean indicating whether the artifact
+            should be logged.
 
             .. seealso: :func:`composer.utils.dynamic_import.import_object`
 
