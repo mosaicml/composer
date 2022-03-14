@@ -81,7 +81,6 @@ Table of Contents
    method_cards/cutmix.md
    method_cards/colout.md
    method_cards/cutout.md
-   method_cards/decoupled_weight_decay.md
    method_cards/factorize.md
    method_cards/ghost_batchnorm.md
    method_cards/label_smoothing.md
@@ -90,9 +89,8 @@ Table of Contents
    method_cards/progressive_resizing.md
    method_cards/randaugment.md
    method_cards/scale_schedule.md
-   method_cards/scaling_laws.rst
    method_cards/selective_backprop.md
-   method_cards/seq_length_warmup.rst
+   method_cards/seq_length_warmup.md
    method_cards/sam.md
    method_cards/squeeze_excite.md
    method_cards/stochastic_depth.md

@@ -36,7 +36,6 @@ def cutmix_batch(input: Tensor,
     The position of the masked region is determined by drawing a center point
     uniformly at random from all spatial positions.
 
-<<<<<<< HEAD
     The area of the masked region is computed using either ``length`` or
     ``alpha``. If ``length`` is provided, it directly determines the size
     of the masked region. If it is not provided, the fraction of the input
@@ -53,18 +52,6 @@ def cutmix_batch(input: Tensor,
         This means that there is no padding required, but the actual region
         used may be smaller than the nominal size computed using ``length``
         or ``alpha``.
-=======
-    Example:
-         .. testcode::
-
-            from composer.algorithms.cutmix import cutmix_batch
-            X_new, y_new = cutmix_batch(
-                X=X_example,
-                y=y_example,
-                n_classes=1000,
-                alpha=1.0
-            )
->>>>>>> c416ca18edeb863f5bbfb238f9799ef9780e6ff1
 
     Args:
         input (torch.Tensor): input tensor of shape ``(N, C, H, W)``

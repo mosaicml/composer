@@ -17,23 +17,19 @@ This modification modestly reduces accuracy, but it is a worthwhile tradeoff for
 ### Functional Interface
 
 ```python
+# Run colout on a batch of images to produce a new batch
+
+from typing import Union
+
 import torch
+from PIL.Image import Image as PillowImage
 
-from composer.algorithms.colout import colout_batch
+import composer.functional as cf
+from composer.algorithms.utils import augmentation_sets
 
-def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
-
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          X = colout_batch(X=X, p_row=0.15, p_col=0.15)
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+def colout_batch(image: Union[PillowImage, torch.Tensor]):
+    colout_batch = cf.colout_batch(img=image, p_row=0.15, p_col=0.15)
+    return colout_batch
 ```
 
 ###  Torchvision Transform

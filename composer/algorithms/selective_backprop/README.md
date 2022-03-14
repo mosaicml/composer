@@ -11,7 +11,7 @@ This speeds up training with limited impact on generalization.
 |:--|
 |*Four examples are forward propagated through the network. Selective backprop only backpropagates the two examples that have the highest loss.*|
 
-## How to Use
+<!--## How to Use
 
 ### Functional Interface
 
@@ -53,7 +53,7 @@ trainer.fit()
 
 ### Implementation Details
 
-TODO(ABHI): Briefly describe what happens under the hood here.
+TODO(ABHI): Briefly describe what happens under the hood here.-->
 
 ## Suggested Hyperparameters
 
