@@ -90,7 +90,7 @@ class State(Serializable):
         not instantiate this class.
 
     Args:
-        model (:attr:`~.types.Model`): The model, typically as a subclass of :class:`~.ComposerModel`.
+        model (torch.nn.Module): The model, typically as a subclass of :class:`~.ComposerModel`.
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
         grad_accum (int): The number of gradient accumulation steps to use. With this argument, micro batch size for
@@ -103,7 +103,7 @@ class State(Serializable):
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
         precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
-        optimizers (types.Optimizer | Sequence[types.Optimizer], optional): The optimizers being used to train the model.
+        optimizers (torch.optim.Optimizer, optional): The optimizer being used to train the model.
             Multiple optimizers are not currently supported.
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional): The learning rate scheduler
             (can also be a list or tuple of schedulers).
@@ -113,13 +113,13 @@ class State(Serializable):
         profiler (Optional[Profiler]): The Composer profiler.
 
     Attributes:
-        batch (:attr:`~.types.Batch`): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
+        batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
         batch_num_samples (int): The number of samples in the :attr:`batch`.
         batch_num_tokens (int): The number of tokens in the :attr:`batch`.
 
-        loss (:attr:`~.types.Tensors`): The most recently computed loss.
-        outputs (:attr:`~.types.Tensors`): The most recently computed output from the model's forward pass.
+        loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
+        outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward pass.
         timer (Timer): The timer that tracks training loop progress.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
 

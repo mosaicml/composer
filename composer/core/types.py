@@ -7,17 +7,18 @@ Attributes:
     ModelParameters (Iterable[Tensor] | Iterable[Dict[str, Tensor]]): Type alias for model parameters used to
         initialize optimizers.
     Tensor (torch.Tensor): Alias for :class:`torch.Tensor`.
-    Tensors (Tensor | Tuple[Tensor, ...] | List[Tensor]): Commonly used to represent e.g. a set of inputs,
+    Tensors (torch.Tensor | Sequence[torch.Tensor]): Commonly used to represent e.g. a set of inputs,
         where it is unclear whether each input has its own tensor, or if all the inputs are concatenated in a single
         tensor.
-    Batch (BatchPair | BatchDict | Tensor): Union type covering the most common representations of batches.
+    Batch (types.BatchPair | types.BatchDict | torch.Tensor): Union type covering the most common representations of batches.
         A batch of data can be represented in several formats, depending on the application.
-    BatchPair (Tuple[Tensors, Tensors] | List[Tensor]): Commonly used in computer vision tasks. The object is assumed
-        to contain exactly two elements, where the first represents inputs and the second represents targets.
-    BatchDict (Dict[str, Tensor]): Commonly used in natural language processing tasks.
+    BatchPair (Tuple[types.Tensors, types.Tensors] | List[torch.Tensor]): Commonly used in computer vision tasks.
+        The object is assumed to contain exactly two elements, where the first represents inputs and the second
+        represents targets.
+    BatchDict (Dict[str, torch.Tensor]): Commonly used in natural language processing tasks.
     Metrics (Metric | MetricCollection): Union type covering common formats for representing metrics.
     Optimizer (torch.optim.Optimizer): Alias for :class:`torch.optim.Optimizer`
-    Optimizers (Optimizer | Sequence[Optimizer]): Union type for indeterminate amounts of
+    Optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]): Union type for indeterminate amounts of
         optimizers.
     PyTorchScheduler (torch.optim.lr_scheduler._LRScheduler): Alias for base class of learning rate schedulers such
         as :class:`torch.optim.lr_scheduler.ConstantLR`
@@ -25,7 +26,7 @@ Attributes:
     JSON (str | float | int | None | List['JSON'] | Dict[str, 'JSON']): JSON Data
     Evaluators (Many[Evaluator]): Union type for indeterminate amounts of evaluators.
     StateDict (Dict[str, Any]): pickale-able dict via :func:`torch.save`
-    Dataset (torch.utils.data.Dataset[Batch]): Alias for :class:`torch.utils.data.Dataset`
+    Dataset (torch.utils.data.Dataset[types.Batch]): Alias for :class:`torch.utils.data.Dataset`
 """
 
 from __future__ import annotations
