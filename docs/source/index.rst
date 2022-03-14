@@ -51,7 +51,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Algorithms
+   :caption: Adding Speedup Methods
 
    trainer/algorithms.rst
    functional_api.rst
