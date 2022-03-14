@@ -17,7 +17,7 @@ class LoggerDestination(Callback, ABC):
     """Base class for logger destination.
 
     Subclasses must implement :meth:`log_data`, which will be called by the
-    :class:`~composer.core.logging.logger.Logger` whenever there is data to log.
+    :class:`~composer.loggers.logger.Logger` whenever there is data to log.
     
     As this class extends :class:`~.callback.Callback`, logger destinations can run on any training loop
     :class:`~composer.core.event.Event`. For example, it may be helpful to run on
@@ -38,7 +38,7 @@ class LoggerDestination(Callback, ABC):
     """
 
     def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
-        """Invoked by the :class:`~composer.core.logging.logger.Logger` whenever there is a data to log.
+        """Invoked by the :class:`~composer.loggers.logger.Logger` whenever there is a data to log.
 
         The logger callback should implement this method to log the data
         (e.g. write it to a file, send it to a server, etc...).
