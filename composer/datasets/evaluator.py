@@ -15,7 +15,7 @@ import yahp as hp
 from torchmetrics import Metric, MetricCollection
 
 from composer.core.types import Evaluator
-from composer.datasets import DataloaderHparams
+from composer.datasets import DataLoaderHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.hparams import DatasetHparams
 from composer.models.base import ComposerModel
@@ -50,7 +50,7 @@ class EvaluatorHparams(hp.Hparams):
         class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model"""),
         default=None)
 
-    def initialize_object(self, model: ComposerModel, batch_size: int, dataloader_hparams: DataloaderHparams):
+    def initialize_object(self, model: ComposerModel, batch_size: int, dataloader_hparams: DataLoaderHparams):
         """Initialize an :class:`~.evaluator.Evaluator`
 
         If the Evaluator ``metric_names`` is empty or None is provided, the function
@@ -59,7 +59,7 @@ class EvaluatorHparams(hp.Hparams):
         Args:
             model (ComposerModel): The model, which is used to retrieve metric names.
             batch_size (int): The device batch size to use for the evaluation dataset.
-            dataloader_hparams (DataloaderHparams): The hparams to use to construct a dataloader for the evaluation dataset.
+            dataloader_hparams (DataLoaderHparams): The hparams to use to construct a dataloader for the evaluation dataset.
 
         Returns:
             Evaluator: The evaluator.
