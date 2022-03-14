@@ -18,7 +18,7 @@ from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
                                 RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core.types import JSON, Precision
-from composer.datasets import DataloaderHparams, DatasetHparams
+from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCallbackHparams, TQDMLoggerHparams,
@@ -128,7 +128,7 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: :mod:`composer.datasets` for datasets built into Composer.
         train_batch_size (int): The optimization batch size to use for training. This is the total batch
             size that is used to produce a gradient for the optimizer update step.
-        dataloader (DataloaderHparams): Hparams used for constructing the dataloader which will be used
+        dataloader (DataLoaderHparams): Hparams used for constructing the dataloader which will be used
             for loading the train dataset and (if provided) the validation dataset.
         max_duration (str): The maximum duration to train as a str (e.g. ``1ep``, or ``10ba``).
             Will be converted to a :class:`~composer.core.Time` object.
@@ -243,7 +243,7 @@ class TrainerHparams(hp.Hparams):
     train_dataset: DatasetHparams = hp.required(doc="Training dataset hparams")
     train_batch_size: int = hp.required(
         doc="batch size for each optimization step, across all devices and gradient accumulations.")
-    dataloader: DataloaderHparams = hp.required(doc="dataloader hparams")
+    dataloader: DataLoaderHparams = hp.required(doc="dataloader hparams")
 
     # duration
     max_duration: str = hp.required(doc="Time string for the maximum training duration (e.g., 90ep)")

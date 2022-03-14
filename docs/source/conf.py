@@ -58,6 +58,7 @@ extensions = [
     "sphinxarg.ext",
     'sphinx.ext.doctest',
     'sphinx_panels',
+    'sphinxcontrib.images',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -144,6 +145,10 @@ pygments_dark_style = "monokai"
 
 html_permalinks = True
 html_permalinks_icon = "#"
+
+images_config = {
+    'download': False,
+}
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),

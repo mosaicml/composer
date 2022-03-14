@@ -11,7 +11,7 @@ import torchmetrics
 import yahp as hp
 
 from composer.core.types import BatchPair, DataLoader, Metrics, Tensor, Tensors
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticPILDataset
 from composer.models import ComposerModel, ModelHparams
@@ -76,7 +76,7 @@ class _SimpleDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     data_shape: Optional[List[int]] = hp.optional("data shape", default=None)
     num_classes: Optional[int] = hp.optional("num_classes", default=None)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         assert self.data_shape is not None
         assert self.num_classes is not None
         dataset = SyntheticBatchPairDataset(total_dataset_size=10_000,
@@ -104,7 +104,7 @@ class _SimplePILDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     data_shape: Optional[List[int]] = hp.optional("data shape", default=None)
     num_classes: Optional[int] = hp.optional("num_classes", default=None)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         assert self.data_shape is not None
         assert self.num_classes is not None
         dataset = SyntheticPILDataset(total_dataset_size=10_000,
