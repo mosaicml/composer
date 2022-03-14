@@ -8,8 +8,9 @@ from torch import optim
 from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.collections import MetricCollection
 
-from composer import Algorithm, Engine, Event, Logger, State
+from composer import Algorithm, Engine, Event, State
 from composer.core.types import DataLoader, Evaluator, Optimizer, Precision
+from composer.loggers import Logger
 from tests.utils.model import SimpleModel
 
 

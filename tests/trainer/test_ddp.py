@@ -16,10 +16,10 @@ import composer.core.types as types
 from composer import Callback, Event
 from composer.callbacks import CallbackHparams
 from composer.core.data_spec import DataSpec
-from composer.core.logging import Logger
 from composer.core.state import State
 from composer.datasets import DataLoaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
 from composer.datasets.hparams import DatasetHparams
+from composer.loggers import Logger
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
 from composer.utils import dist, run_directory
@@ -177,7 +177,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     max_epochs = 2
     hparams.max_duration = f"{max_epochs}ep"
     hparams.precision = types.Precision.FP32
-    hparams.logger_destinations = []
+    hparams.loggers = []
     hparams.validate_every_n_batches = 0
     hparams.validate_every_n_epochs = 1
     hparams.callbacks.append(CheckBatch0Hparams())

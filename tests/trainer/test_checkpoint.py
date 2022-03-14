@@ -5,7 +5,6 @@ import random
 import tarfile
 import tempfile
 import textwrap
-from logging import Logger
 from typing import Dict, Optional
 
 import pytest
@@ -20,8 +19,9 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
-from composer.core.types import Logger, StateDict
+from composer.core.types import StateDict
 from composer.datasets import SyntheticHparamsMixin
+from composer.loggers import Logger
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
@@ -186,7 +186,7 @@ def test_load_weights(
     composer_trainer_hparams.val_dataset.use_synthetic = True
     composer_trainer_hparams.val_dataset.shuffle = False
     composer_trainer_hparams.grad_accum = 2
-    composer_trainer_hparams.logger_destinations = []
+    composer_trainer_hparams.loggers = []
     composer_trainer_hparams.train_batch_size = 8
     composer_trainer_hparams.eval_batch_size = 16
     composer_trainer_hparams.max_duration = "2ep"
@@ -306,7 +306,7 @@ def test_checkpoint(
     composer_trainer_hparams.val_dataset.use_synthetic = True
     composer_trainer_hparams.val_dataset.shuffle = False
     composer_trainer_hparams.grad_accum = 2
-    composer_trainer_hparams.logger_destinations = []
+    composer_trainer_hparams.loggers = []
     composer_trainer_hparams.train_batch_size = 8
     composer_trainer_hparams.eval_batch_size = 16
     num_epochs = 2

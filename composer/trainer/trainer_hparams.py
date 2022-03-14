@@ -174,7 +174,7 @@ class TrainerHparams(hp.Hparams):
         ddp_sync_strategy (DDPSyncStrategy, optional): See :class:`.Trainer`.
         seed (int, optional): See :class:`.Trainer`.
         deterministic_mode (bool, optional): See :class:`.Trainer`.
-        logger_destinations (List[LoggerDestinationHparams], optional): Hparams for constructing the destinations
+        loggers (List[LoggerDestinationHparams], optional): Hparams for constructing the destinations
             to log to. (default: ``[]``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
@@ -228,7 +228,7 @@ class TrainerHparams(hp.Hparams):
         "algorithms": algorithms_registry,
         "optimizer": optimizer_registry,
         "schedulers": scheduler_registry,
-        "logger_destinations": logger_registry,
+        "loggers": logger_registry,
         "model": model_registry,
         "train_dataset": dataset_registry,
         "val_dataset": dataset_registry,
@@ -303,7 +303,7 @@ class TrainerHparams(hp.Hparams):
                                            default=False)
 
     # logging and callbacks
-    logger_destinations: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
+    loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
@@ -484,7 +484,7 @@ class TrainerHparams(hp.Hparams):
 
         # callbacks, loggers, and seed
         dict_config = self.to_dict()
-        logger_destinations = [x.initialize_object(config=dict_config) for x in self.logger_destinations]
+        loggers = [x.initialize_object(config=dict_config) for x in self.loggers]
         callbacks = [x.initialize_object() for x in self.callbacks]
 
         if self.datadir is not None:
@@ -562,7 +562,7 @@ class TrainerHparams(hp.Hparams):
             deterministic_mode=self.deterministic_mode,
 
             # Callbacks and logging
-            logger_destinations=logger_destinations,
+            loggers=loggers,
             callbacks=callbacks,
 
             # Profiler

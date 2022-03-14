@@ -4,7 +4,8 @@
 import pytest
 from torch.utils.data import DataLoader
 
-from composer.core import Logger, State
+from composer.core import State
+from composer.loggers import Logger
 from tests.common import RandomClassificationDataset, SimpleModel
 
 

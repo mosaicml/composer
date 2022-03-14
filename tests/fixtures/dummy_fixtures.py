@@ -9,10 +9,11 @@ import torch.utils.data
 from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.collections import MetricCollection
 
-from composer import Logger, State
+from composer import State
 from composer.core.evaluator import Evaluator
 from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
+from composer.loggers import Logger
 from composer.models import ComposerClassifier, ModelHparams
 from composer.optim import AdamHparams, ExponentialSchedulerHparams
 from composer.trainer import TrainerHparams
@@ -212,7 +213,7 @@ def composer_trainer_hparams(
         ),
         device=CPUDeviceHparams(),
         deterministic_mode=True,
-        logger_destinations=[],
+        loggers=[],
         model=dummy_model_hparams,
         val_dataset=dummy_val_dataset_hparams,
         train_dataset=dummy_train_dataset_hparams,

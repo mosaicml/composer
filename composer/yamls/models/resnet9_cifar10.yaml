@@ -27,7 +27,7 @@ schedulers:
 model:
   resnet9_cifar10:
     num_classes: 10
-logger_destinations:
+loggers:
   - tqdm: {}
 max_duration: 160ep
 train_batch_size: 1024

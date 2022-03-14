@@ -17,7 +17,7 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
    trainer = Trainer(model=model,
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
-                     logger_destinations=[WandBLogger(), FileLogger(filename="log.txt")])
+                     loggers=[WandBLogger(), FileLogger(filename="log.txt")])
 
 Available Loggers
 -----------------
@@ -63,7 +63,7 @@ The recommended way to log additional information is to define a custom
        def epoch_end(state: State, logger: Logger):
            logger.data_epoch({"Epoch": state.epoch})
 
-:class:`.Logger` routes all the information to the ``logger_destinations`` provided
+:class:`.Logger` routes all the information to the ``loggers`` provided
 to the trainer, and has three primary methods:
 
 -  :meth:`.Logger.data_fit`
@@ -71,7 +71,7 @@ to the trainer, and has three primary methods:
 -  :meth:`.Logger.data_batch`
 
 Calls to these methods will log the data into each of the
-``logger_destinations``, but with different :class:`.LogLevel`.
+``loggers``, but with different :class:`.LogLevel`.
 
 Similarly, :class:`.Algorithm` classes are also provided the :class:`.Logger`
 to log any desired information.
@@ -110,7 +110,8 @@ into a dictionary:
 
 .. code:: python
 
-    from composer.core.logging import LoggerDestination, LogLevel, LoggerDataDict
+    from composer.loggers.logger_destination import LoggerDestination
+    from composer.loggers.logger import LoggerDataDict, LogLevel
     from composer.core.time import Timestamp
     from composer.core.types import State
 

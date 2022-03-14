@@ -16,7 +16,7 @@ from composer.utils import dist, run_directory
 if TYPE_CHECKING:
     from composer.core.state import State
     from composer.core.time import Timestamp
-    from composer.core.types import Logger
+    from composer.loggers import Logger
 
 __all__ = ["JSONTraceHandler"]
 

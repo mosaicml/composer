@@ -86,14 +86,14 @@ from torchmetrics.metric import Metric
 import composer
 from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
-from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
+from composer.core import Callback, DataSpec, Engine, Event, State, Time
 from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
-from composer.core.logging import LoggerDestination, LogLevel
 from composer.core.time import Timestamp
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
                                  Precision, PyTorchScheduler)
 from composer.datasets.dataloader import unwrap_data_loader
+from composer.loggers import Logger, LoggerDestination, LogLevel
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -223,7 +223,7 @@ class Trainer:
                 This will ensure any initialization done before the trainer init also runs deterministically.
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
-        logger_destinations (Sequence[LoggerDestination], optional): The destinations to log training information to.
+        loggers (Sequence[LoggerDestination], optional): The destinations to log training information to.
             If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
@@ -445,7 +445,7 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # logging and callbacks
-        logger_destinations: Optional[Sequence[LoggerDestination]] = None,
+        loggers: Optional[Sequence[LoggerDestination]] = None,
         callbacks: Sequence[Callback] = tuple(),
 
         # load checkpoint
@@ -714,10 +714,10 @@ class Trainer:
                                   with_stack=torch_prof_with_stack,
                                   with_flops=torch_prof_with_flops))
 
-        if logger_destinations is None:
-            logger_destinations = [TQDMLogger()]
-        self.logger = Logger(state=self.state, destinations=logger_destinations)
-        self.state.callbacks = list(cast(List[Callback], logger_destinations)) + self.state.callbacks
+        if loggers is None:
+            loggers = [TQDMLogger()]
+        self.logger = Logger(state=self.state, destinations=loggers)
+        self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
         self._checkpoint_saver = None
         if save_folder is not None:

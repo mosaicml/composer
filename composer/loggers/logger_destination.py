@@ -5,30 +5,27 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING
 
 from composer.core.callback import Callback
 from composer.core.state import State
 from composer.core.time import Timestamp
-
-if TYPE_CHECKING:
-    from composer.core.logging.logger import LoggerDataDict, LogLevel
+from composer.loggers.logger import LoggerDataDict, LogLevel
 
 __all__ = ["LoggerDestination"]
 
 
 class LoggerDestination(Callback, ABC):
-    """Base class for a logger destination. This is a :class:`~.callback.Callback` with an additional interface for logging
+    """Base class for a logger destination. This is a :class:`~.Callback` with an additional interface for logging
     data, :meth:`log_data`. Custom loggers should extend this class. Data to be logged should be of the type
-    :attr:`~.logger.LoggerDataDict` (i.e. a ``{'name': value}`` mapping).
+    :attr:`~.composer.loggers.logger.LoggerDataDict` (i.e. a ``{'name': value}`` mapping).
 
     For example, to define a custom logger and use it in training:
 
     .. code-block:: python
 
-        from composer.core.logging import LoggerCallback
+        from composer.loggers import LoggerDestination
 
-        class MyLogger(LoggerCallback)
+        class MyLogger(LoggerDestination)
 
             def log_data(self, timestamp, log_level, data):
                 print(f'Timestamp: {timestamp}: {log_level} {data}')
@@ -60,7 +57,7 @@ class LoggerDestination(Callback, ABC):
         return True
 
     def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict):
-        """Invoked by the :class:`~composer.core.logging.logger.Logger` whenever there is a data to log.
+        """Invoked by the :class:`~composer.loggers.logger.Logger` whenever there is a data to log.
 
         The logger callback should implement this method to log the data
         (e.g. write it to a file, send it to a server, etc...).

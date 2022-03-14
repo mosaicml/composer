@@ -13,8 +13,9 @@ import torch
 import torch.nn.functional as F
 from torchvision import transforms
 
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.types import Tensor
+from composer.loggers import Logger
 from composer.models.loss import _check_for_index_targets
 
 log = logging.getLogger(__name__)
