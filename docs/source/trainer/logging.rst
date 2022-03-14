@@ -38,7 +38,6 @@ Available Loggers
     ~tqdm_logger.TQDMLogger
     ~in_memory_logger.InMemoryLogger
 
-
 Automatically Logged Data
 -------------------------
 
@@ -68,16 +67,6 @@ Each of its methods has access to the :class:`.Logger`.
 
        def epoch_end(state: State, logger: Logger):
            logger.data_epoch({"Epoch": state.epoch})
-
-:class:`.Logger` routes all the information to the ``loggers`` provided
-to the trainer, and has three primary methods:
-
--  :meth:`.Logger.data_fit`
--  :meth:`.Logger.data_epoch`
--  :meth:`.Logger.data_batch`
-
-Calls to these methods will log the data into each of the
-``loggers``, but with different :class:`.LogLevel`.
 
 Similarly, :class:`.Algorithm` classes are also provided the :class:`.Logger`
 to log any desired information.
@@ -125,7 +114,7 @@ into a dictionary:
                     if k not in self.data:
                         self.data[k] = []
                     self.data[k].append((state.timer.get_timestamp(), log_level, v))
-    
+
     # Construct a trainer using this logger
     trainer = Trainer(..., loggers=[DictionaryLogger()])
 
