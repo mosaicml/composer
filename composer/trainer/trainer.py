@@ -99,7 +99,7 @@ from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
 from composer.profiler import Profiler, ProfilerEventHandler
-from composer.profiler.dataloader_profiler import DataloaderProfiler
+from composer.profiler.dataloader_profiler import DataLoaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
@@ -696,7 +696,7 @@ class Trainer:
                                            merged_trace_file=profiler_trace_file)
             self.state.callbacks.extend(self.state.profiler.event_handlers)
 
-            self.state.callbacks.append(DataloaderProfiler())
+            self.state.callbacks.append(DataLoaderProfiler())
 
             if sys_prof_cpu or sys_prof_memory or sys_prof_disk or sys_prof_net:
                 self.state.callbacks.append(

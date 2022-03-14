@@ -21,7 +21,7 @@ from composer.core.types import Batch, DataLoader, Dataset
 
 log = logging.getLogger(__name__)
 
-__all__ = ["WrappedDataLoader", "DataloaderHparams", "unwrap_data_loader"]
+__all__ = ["WrappedDataLoader", "DataLoaderHparams", "unwrap_data_loader"]
 
 
 class WrappedDataLoader(DataLoader):
@@ -53,15 +53,36 @@ class WrappedDataLoader(DataLoader):
         self.dataloader = dataloader
 
     def __len__(self) -> int:
+        """Get the length of the wrapped dataloader.
+
+        Returns:
+            int: Length of wrapped dataloader.
+        """
         return len(self.dataloader)
 
     def __iter__(self) -> Iterator[Batch]:
+        """Get an iterator over the wrapped dataloader.
+
+        Returns:
+            Iterator: Iterator over wrapped dataloader.
+        """
         return iter(self.dataloader)
 
     def __bool__(self) -> bool:
+        """Convert to bool.
+
+        Returns:
+            bool: True.
+        """
         return True
 
     def __setattr__(self, name: str, value: Any) -> None:
+        """Set attribute, if it is not a reserved keyword.
+
+        Args:
+            name (str): The attribute name.
+            value (Any): The attribute value.
+        """
         if hasattr(self, name) and name in ("dataset", "batch_size", "num_workers", "pin_memory", "drop_last",
                                             "timeout", "sampler", "prefetch_factor", "dataloader"):
             raise RuntimeError(f"Property {name} cannot be set after initialization in a DataLoader")
@@ -102,7 +123,7 @@ def unwrap_data_loader(dataloader: DataLoader) -> DataLoader:
 
 
 @dataclass
-class DataloaderHparams(hp.Hparams):
+class DataLoaderHparams(hp.Hparams):
     """Hyperparameters to initialize a :class:`torch.utils.data.DataLoader`.
 
     Args:
