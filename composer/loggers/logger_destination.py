@@ -16,7 +16,7 @@ __all__ = ["LoggerDestination"]
 
 class LoggerDestination(Callback, ABC):
     """Base class for logger destination.
-    
+
     As this class extends :class:`~.callback.Callback`, logger destinations can run on any training loop
     :class:`~composer.core.event.Event`. For example, it may be helpful to run on
     :attr:`~composer.core.event.Event.EPOCH_END` to perform any flushing at the end of every epoch.
