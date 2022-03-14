@@ -223,7 +223,9 @@ class Trainer:
                 This will ensure any initialization done before the trainer init also runs deterministically.
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
-        run_name (str, optional): A name for this training run. If not specified, TODO.
+        run_name (str, optional): A name for this training run. If not specified, one will be generated automatically.
+
+            .. seealso:: :class:`~composer.loggers.logger.Logger`
         loggers (Sequence[LoggerDestination], optional): The destinations to log training information to.
             If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
 

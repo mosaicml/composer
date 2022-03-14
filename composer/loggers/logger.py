@@ -80,17 +80,18 @@ class Logger:
 
                 coolname.replace_random(random.Random(0))
 
-                time.time_ns = lambda: 1646931750990173286
+                time.time = lambda: 1647293526.1849217
 
             .. doctest:: composer.loggers.logger.Logger.__init__.run_name
 
                 >>> logger = Logger(state=state, destinations=[])
                 >>> logger.run_name
-                '1646931750990173286-electric-zebra'
+                '1647293526-electric-zebra'
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
             A sequence of :class:`~.LoggerDestination` to where logging calls will be sent.
+        run_name (str): The ``run_name``.
     """
 
     def __init__(
@@ -103,7 +104,7 @@ class Logger:
         if run_name is None:
             # prefixing with the time so experiments sorted alphabetically will
             # have the latest experiment last
-            run_name = str(time.time_ns()) + "-" + coolname.generate_slug(2)
+            run_name = str(int(time.time())) + "-" + coolname.generate_slug(2)
             run_name_list = [run_name]
             # ensure all ranks have the same experiment name
             dist.broadcast_object_list(run_name_list)
