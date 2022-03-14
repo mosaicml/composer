@@ -5,9 +5,8 @@ import pathlib
 
 import pytest
 
-from composer.core.logging import Logger, LogLevel
-from composer.core.logging.logger_destination import LoggerDestination
 from composer.core.state import State
+from composer.loggers import Logger, LoggerDestination, LogLevel
 from composer.utils import dist, reproducibility
 
 

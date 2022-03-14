@@ -7,9 +7,8 @@ import time
 import pytest
 
 from composer.core.event import Event
-from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
-from composer.loggers import ObjectStoreLoggerHparams
+from composer.loggers import Logger, LogLevel, ObjectStoreLoggerHparams
 from composer.utils.object_store import ObjectStoreProviderHparams
 
 

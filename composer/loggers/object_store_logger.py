@@ -23,9 +23,9 @@ from libcloud.storage.types import ObjectDoesNotExistError
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
 
-from composer.core.logging import Logger, LoggerDestination
-from composer.core.logging.logger import LogLevel
 from composer.core.state import State
+from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.object_store import ObjectStoreProviderHparams
 

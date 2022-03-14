@@ -11,8 +11,14 @@ from typing import Any, Dict, List, Optional
 import yahp as hp
 
 from composer.core.types import JSON
-from composer.loggers import LoggerDestination, LogLevel, FileLogger, InMemoryLogger, TQDMLogger, WandBLogger, ObjectStoreLogger
-from composer.utils import dist, import_object, ObjectStoreProviderHparams
+from composer.loggers.file_logger import FileLogger
+from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.loggers.logger import LogLevel
+from composer.loggers.logger_destination import LoggerDestination
+from composer.loggers.object_store_logger import ObjectStoreLogger
+from composer.loggers.tqdm_logger import TQDMLogger
+from composer.loggers.wandb_logger import WandBLogger
+from composer.utils import ObjectStoreProviderHparams, dist, import_object
 
 __all__ = [
     "FileLoggerHparams",
