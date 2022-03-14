@@ -5,7 +5,7 @@ set -euxo pipefail
 # Doctests are executed on the linting worker, so they are
 # executed only once on an install with all dependencies
 
-sudo npm install -g pyright@1.1.224.post1
+sudo npm install -g pyright@1.1.224
 
 pip install .[all]
 make lint
