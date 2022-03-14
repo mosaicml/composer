@@ -12,9 +12,10 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
 .. testsetup::
 
     import os
+    from composer.utils import run_directory
 
     try:
-        os.remove("log.txt")
+        os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
     except FileNotFoundError:
         pass
 
@@ -32,7 +33,7 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
 
 .. testcleanup::
 
-    os.remove("log.txt")
+    os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
 
 Available Loggers
 -----------------
