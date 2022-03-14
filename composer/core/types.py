@@ -4,17 +4,18 @@
 
 Attributes:
     Model (torch.nn.Module): Alias for :class:`torch.nn.Module`.
-    ModelParameters (Iterable[Tensor] | Iterable[Dict[str, Tensor]]): Type alias for model parameters used to
+    ModelParameters (Iterable[torch.Tensor] | Iterable[Dict[str, torch.Tensor]]): Type alias for model parameters used to
         initialize optimizers.
     Tensor (torch.Tensor): Alias for :class:`torch.Tensor`.
     Tensors (torch.Tensor | Sequence[torch.Tensor]): Commonly used to represent e.g. a set of inputs,
         where it is unclear whether each input has its own tensor, or if all the inputs are concatenated in a single
         tensor.
-    Batch (types.BatchPair | types.BatchDict | torch.Tensor): Union type covering the most common representations of batches.
-        A batch of data can be represented in several formats, depending on the application.
-    BatchPair (Tuple[types.Tensors, types.Tensors] | List[torch.Tensor]): Commonly used in computer vision tasks.
-        The object is assumed to contain exactly two elements, where the first represents inputs and the second
-        represents targets.
+    Batch (:attr:`~.types.BatchPair | :attr:`~.types.BatchDict | torch.Tensor):
+        Union type covering the most common representations of batches. A batch of data can be represented in several
+        formats, depending on the application.
+    BatchPair (Tuple[:attr:`~.types.Tensors, :attr:`~.types.Tensors] | List[torch.Tensor]): Commonly used in computer
+        vision tasks.   The object is assumed to contain exactly two elements, where the first represents inputs and
+        the second represents targets.
     BatchDict (Dict[str, torch.Tensor]): Commonly used in natural language processing tasks.
     Metrics (Metric | MetricCollection): Union type covering common formats for representing metrics.
     Optimizer (torch.optim.Optimizer): Alias for :class:`torch.optim.Optimizer`

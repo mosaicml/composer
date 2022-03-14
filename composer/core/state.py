@@ -105,8 +105,8 @@ class State(Serializable):
         precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
         optimizers (torch.optim.Optimizer, optional): The optimizer being used to train the model.
             Multiple optimizers are not currently supported.
-        schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional): The learning rate scheduler
-            (can also be a list or tuple of schedulers).
+        schedulers (:attr:`~.types.PyTorchScheduler | Sequence[:attr:`~.types.PyTorchScheduler], optional):
+            The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         algorithms (Sequence[Algorithm]): The algorithms used for training.
         callbacks (Sequence[Callback]): The callbacks used for training.
