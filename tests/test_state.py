@@ -9,7 +9,7 @@ from torch.functional import Tensor
 
 from composer.algorithms import ChannelsLastHparams
 from composer.core import DataSpec, State, types
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.base import ComposerModel
 from tests.fixtures.models import SimpleBatchPairModel
@@ -82,7 +82,7 @@ def train_one_step(state: State, batch: types.Batch) -> None:
     state.timer.on_batch_complete(len(batch))
 
 
-def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataloaderHparams) -> types.Batch:
+def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHparams) -> types.Batch:
     dataloader = dataset_hparams.initialize_object(batch_size=2, dataloader_hparams=dataloader_hparams)
     if isinstance(dataloader, DataSpec):
         dataloader = dataloader.dataloader
@@ -91,7 +91,7 @@ def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataloaderHpa
     raise RuntimeError("No batch in dataloader")
 
 
-def test_state_serialize(tmpdir: pathlib.Path, dummy_model: ComposerModel, dummy_dataloader_hparams: DataloaderHparams,
+def test_state_serialize(tmpdir: pathlib.Path, dummy_model: ComposerModel, dummy_dataloader_hparams: DataLoaderHparams,
                          dummy_train_dataset_hparams: DatasetHparams, dummy_train_dataloader: types.DataLoader,
                          dummy_val_dataset_hparams: DatasetHparams, dummy_val_dataloader: types.DataLoader):
 
