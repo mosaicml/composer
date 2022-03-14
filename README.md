@@ -158,13 +158,13 @@ For the best experience and the most efficient possible training, we recommend u
 
 ```python
 import torch
-from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim import Adam
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 from composer import Trainer, models
-from composer.algorithms import LabelSmoothing
+from composer.algorithms import BlurPool, LabelSmoothing
 
 # Configure the train and eval datasets.
 transform = transforms.ToTensor()
@@ -182,7 +182,10 @@ model = models.MNIST_Classifier(num_classes=10)
 optimizer = Adam(model.parameters())
 
 # Create the speedup methods.
-algorithms = [LabelSmoothing(smoothing=0.1)]
+algorithms = [
+    LabelSmoothing(smoothing=0.1),
+    BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True)
+]
 
 # Create the trainer and kick off training.
 trainer = Trainer(
@@ -193,8 +196,7 @@ trainer = Trainer(
     eval_dataloader=eval_dataloader,
     optimizers=optimizer,
     schedulers=CosineAnnealingLR(optimizer, T_max=2),
-    max_duration="2ep",
-)
+    max_duration="2ep")
 trainer.fit()
 ```
 
