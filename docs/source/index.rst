@@ -3,35 +3,36 @@
 Composer
 ========
 
-`Composer <https://github.com/mosaicml/composer>`__ provides well-engineered implementations of efficient
-training methods to give the tools that help you train a better model for cheaper.
+`Composer <https://github.com/mosaicml/composer>`_ is a library for training neural networks better, faster, and cheaper. It contains many state-of-the-art methods for accelerating neural network training and improving generalization, along with an optional :doc:`Trainer<trainer/using_the_trainer>` API that makes `composing` many different enhancements easy.
+
+We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to.
 
 Using Composer, you can:
 
-- Train an ImageNet model to 76.1% accuracy for $37 (`with vanilla PyTorch`:$127)
-- Train a GPT-2 125M to a perplexity of 23.9 for $148 (`with vanilla PyTorch`: $255)
-- Use start-of-the-art implementations of methods to speed up your own training loop.
+- Train a ResNet-50 on ImageNet to `76.1% accuracy for $38 <https://app.mosaicml.com/explorer/imagenet>`_ (`with vanilla PyTorch` :$127)
+- Train a GPT-2 125M on OpenWebText to a perplexity of `23.9 for $149 <https://app.mosaicml.com/explorer/openwebtext>`_ (`with vanilla PyTorch`: $255)
+- Use high-quality implementations of start-of-the-art methods to speed up your own training
+- Easily experiment with your own dataloader, model, or training loop changes
 
 Composer features:
 
-- 20+ efficient training methods for training a better language and vision models! Don't waste hours trying to reproduce research papers when Composer has done the work for you.
-- Easy-to-use Trainer interface written to be as performant as possible, and `integrated best practices <https://www.mosaicml.com/blog/best-practices-dec-2021>`_.
-- Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
-- Strong, `reproducible` baselines to get you started as 💨 fast 💨 as possible
+- 20+ curated efficiency methods for training better language and vision models.
+- An easy-to-use Trainer interface written to be as performant as possible, with integrated multi-GPU training, mixed-precision training, and numerous `best practices <https://www.mosaicml.com/blog/5-best-practices-for-efficient-model-training>`_ implemented out of the box.
+- Standalone functional forms of training methods for easy integration into your own training loop
+- Strong, reproducible baselines to get you started as fast as possible.
 
-See :doc:`getting_started/installation` for quick start, and peruse our :doc:`trainer/algorithms` library.
-See :doc:`trainer/using_the_trainer` to learn how to use our (optional) Trainer. To learn more details
-about our efficient methods and how to deploy them in your code, see :doc:`method_cards/methods_overview`.
+See :doc:`getting_started/installation` for
+how to install and start using Composer, :doc:`trainer/using_the_trainer` for an introduction
+to our trainer, and :doc:`trainer/algorithms` for details about our efficiency methods and how to use them in your code.
 
-At `MosaicML`_, we are focused on making training ML models accessible. To do this,
+At `MosaicML <https://mosaicml.com>`_, we are focused on making fast, high-quality ML training accessible to everyone. To do this,
 we continually productionize state-of-the-art academic research on efficient model
 training, and also study the `combinations` of these methods in order to ensure
 that model training is ✨ as efficient as possible ✨.
 
-If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or join
-our `Slack`_ channel!
+If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or `Slack`_!
 
-Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues.
+Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, and issues.
 
 .. toctree::
    :hidden:
@@ -45,7 +46,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Algorithms
+   :caption: Adding Speedup Methods
 
    trainer/algorithms.rst
    functional_api.rst
@@ -122,4 +123,3 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 .. _Twitter: https://twitter.com/mosaicml
 .. _Email: mailto:community@mosaicml.com
 .. _Slack: https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg
-.. _MosaicML: www.mosaicml.com
