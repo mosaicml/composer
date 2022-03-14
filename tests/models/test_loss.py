@@ -4,7 +4,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.models.loss import MIoU
+from composer.models.loss import MIoU, ensure_targets_one_hot, soft_cross_entropy
 
 
 @pytest.fixture
@@ -15,6 +15,24 @@ def block_2D_targets():
         targets.append(torch.roll(base, i).repeat_interleave(2).view(2, 4).repeat_interleave(2, dim=0))
     targets = torch.stack(targets)
     return targets
+
+
+# (input shape)
+@pytest.fixture(params=[(3, 5), (7, 11, 13, 17)])
+def fake_input_target_pairs(request):
+    input_shape = request.param
+    num_classes = input_shape[1]
+    reduced_input_shape = list(input_shape)
+    reduced_input_shape.pop(1)
+
+    input = torch.randn(input_shape)
+    targets_idx = torch.randint(low=-1, high=num_classes, size=reduced_input_shape)
+    shifted_targets_idx = targets_idx.clone()
+    shifted_targets_idx[shifted_targets_idx < 0] = num_classes
+    targets_one_hot = F.one_hot(shifted_targets_idx, num_classes=num_classes + 1)
+    targets_one_hot = torch.movedim(targets_one_hot, -1, 1)
+    targets_one_hot = targets_one_hot[:, 0:-1]
+    return input, targets_idx, targets_one_hot
 
 
 def test_miou(block_2D_targets):
@@ -50,3 +68,16 @@ def test_miou(block_2D_targets):
     one_accurate_prediction[0] = accurate_prediction[0]
     miou.update(one_accurate_prediction, block_2D_targets)
     assert torch.isclose(miou.compute(), torch.tensor(100 / 7, dtype=torch.double))
+
+
+def test_ensure_targets_one_hot(fake_input_target_pairs):
+    input, targets_idx, targets_one_hot = fake_input_target_pairs
+    targets_one_hot_test = ensure_targets_one_hot(input, targets_idx)
+    torch.testing.assert_allclose(targets_one_hot, targets_one_hot_test)
+
+
+def test_soft_cross_entropy(fake_input_target_pairs):
+    input, targets_idx, targets_one_hot = fake_input_target_pairs
+    loss_idx = F.cross_entropy(input, targets_idx, ignore_index=-1)
+    loss_soft = soft_cross_entropy(input, targets_one_hot)
+    torch.testing.assert_allclose(loss_idx, loss_soft)
