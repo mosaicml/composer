@@ -136,7 +136,7 @@ extra_deps['webdataset'] = [
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 setup(name="mosaicml",
-      version="0.4.0",
+      version="0.4.1",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="Composer provides well-engineered implementations of efficient training methods to give "
