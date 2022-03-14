@@ -9,8 +9,8 @@ from composer.algorithms import SelectiveBackpropHparams
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.selective_backprop.selective_backprop import select_using_loss, should_selective_backprop
 from composer.core import Event
-from composer.core.logging.logger import Logger
 from composer.core.state import State
+from composer.loggers import Logger
 from composer.models import ComposerClassifier
 
 

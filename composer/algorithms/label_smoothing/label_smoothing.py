@@ -8,7 +8,8 @@ from typing import Optional
 
 import torch
 
-from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.core.types import Algorithm, Event, State, Tensor
+from composer.loggers import Logger
 from composer.models.loss import ensure_targets_one_hot
 
 __all__ = ["LabelSmoothing", "smooth_labels"]
