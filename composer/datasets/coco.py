@@ -19,7 +19,7 @@ def _isArrayLike(obj):
 
 
 from composer.core.types import Batch, DataSpec, List
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
 from composer.utils import dist
@@ -31,7 +31,7 @@ __all__ = ["COCODatasetHparams", "COCODetection"]
 class COCODatasetHparams(DatasetHparams):
     """Defines an instance of the COCO Dataset."""
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
 
         if self.datadir is None:
             raise ValueError("datadir is required.")

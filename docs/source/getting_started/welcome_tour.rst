@@ -56,12 +56,12 @@ MixUp! However, the goal of the Composer library is to be able to rapidly experi
 algorithms. Our methods library contains over 20 different methods to experiment with, and it would be unwieldy to
 have to add conditional logic to the trainer for enabling/disabling each new method. This is where the composer trainer comes in.
 
-Introducing... Events, Engines, and State
+Events, Engines, and State
 -----------------------------------------
 
 The core principle of the Composer trainer is to avoid the need to introduce algorithm-specific logic to the trainer
 by instead relying on callbacks tied to *events*. Events describe specific stages of the training lifecycle, such as
-``BATCH_START`` and ``BEFORE_FORWARD``. We could add events to our training loop as follows:
+``BATCH_START`` and ``BEFORE_FORWARD``. This is based on the two-way callback system from (`Howard et al, 2020`_) We could add events to our training loop as follows:
 
 .. code-block:: python
 
@@ -158,7 +158,8 @@ For more information on events, state, and engines, check out :class:`~composer.
 :class:`~composer.core.state.State`, and :class:`~composer.core.engine.Engine`.
 
 For advanced experimentation, we recommend using the Composer :doc:`Trainer<../trainer/using_the_trainer>`.
-The trainer takes care of all the state management and event callbacks from above,
-and various advanced features, including hyperparameter management,
-gradient accumulation, and closure support. For more information, check out
-the :doc:`Trainer</trainer/using_the_trainer>` guide.
+The trainer not only takes care of all the state management and event callbacks from above,
+but also adds advanced features like hyperparameter management,
+gradient accumulation, and closure support.
+
+.. _Howard et al, 2020: https://arxiv.org/abs/2002.04688

@@ -12,7 +12,7 @@ from torchmetrics.collections import MetricCollection
 from composer import Logger, State
 from composer.core.evaluator import Evaluator
 from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, PyTorchScheduler
-from composer.datasets import DataloaderHparams, DatasetHparams
+from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.models import ComposerClassifier, ModelHparams
 from composer.optim import AdamHparams, ExponentialSchedulerHparams
 from composer.trainer import TrainerHparams
@@ -122,8 +122,8 @@ def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_data
 
 
 @pytest.fixture
-def dummy_dataloader_hparams() -> DataloaderHparams:
-    return DataloaderHparams(
+def dummy_dataloader_hparams() -> DataLoaderHparams:
+    return DataLoaderHparams(
         num_workers=0,
         prefetch_factor=2,
         persistent_workers=False,
@@ -134,19 +134,19 @@ def dummy_dataloader_hparams() -> DataloaderHparams:
 
 @pytest.fixture
 def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
-                           dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+                           dummy_dataloader_hparams: DataLoaderHparams) -> Union[DataLoader, DataSpec]:
     return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture
 def dummy_train_pil_dataloader(dummy_train_pil_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
-                               dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+                               dummy_dataloader_hparams: DataLoaderHparams) -> Union[DataLoader, DataSpec]:
     return dummy_train_pil_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture
 def dummy_val_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_val_batch_size: int,
-                         dummy_dataloader_hparams: DataloaderHparams) -> Union[DataLoader, DataSpec]:
+                         dummy_dataloader_hparams: DataLoaderHparams) -> Union[DataLoader, DataSpec]:
     return dummy_train_dataset_hparams.initialize_object(dummy_val_batch_size, dummy_dataloader_hparams)
 
 
@@ -203,7 +203,7 @@ def composer_trainer_hparams(
         precision=Precision.FP32,
         train_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,
-        dataloader=DataloaderHparams(
+        dataloader=DataLoaderHparams(
             num_workers=0,
             prefetch_factor=2,
             persistent_workers=False,

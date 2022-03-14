@@ -18,7 +18,7 @@ from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
                                 RunDirectoryUploaderHparams, SpeedMonitorHparams)
 from composer.core.types import JSON, Precision
-from composer.datasets import DataloaderHparams, DatasetHparams
+from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCallbackHparams, TQDMLoggerHparams,
@@ -128,7 +128,7 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: :mod:`composer.datasets` for datasets built into Composer.
         train_batch_size (int): The optimization batch size to use for training. This is the total batch
             size that is used to produce a gradient for the optimizer update step.
-        dataloader (DataloaderHparams): Hparams used for constructing the dataloader which will be used
+        dataloader (DataLoaderHparams): Hparams used for constructing the dataloader which will be used
             for loading the train dataset and (if provided) the validation dataset.
         max_duration (str): The maximum duration to train as a str (e.g. ``1ep``, or ``10ba``).
             Will be converted to a :class:`~composer.core.Time` object.
@@ -190,9 +190,14 @@ class TrainerHparams(hp.Hparams):
         load_object_store (ObjectStoreProvider, optional): See :class:`.Trainer`.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
-        save_folder (str, optional): See :class:`.Trainer`.
-        save_interval (str, optional): See :class:`.Trainer`.
-        save_compression (str, optional): See :class:`.Trainer`.
+        save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_name_format (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_latest_format (str, optional): See
+            :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_interval (str, optional): See
+            :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
         train_subset_num_batches (int, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
         deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
@@ -238,7 +243,7 @@ class TrainerHparams(hp.Hparams):
     train_dataset: DatasetHparams = hp.required(doc="Training dataset hparams")
     train_batch_size: int = hp.required(
         doc="batch size for each optimization step, across all devices and gradient accumulations.")
-    dataloader: DataloaderHparams = hp.required(doc="dataloader hparams")
+    dataloader: DataLoaderHparams = hp.required(doc="dataloader hparams")
 
     # duration
     max_duration: str = hp.required(doc="Time string for the maximum training duration (e.g., 90ep)")
@@ -332,20 +337,15 @@ class TrainerHparams(hp.Hparams):
                                           default=True)
 
     # save checkpoint
-    save_folder: Optional[str] = hp.optional(doc=textwrap.dedent(f"""\
-        Folder to save checkpoint files, relative to the run directory.
-        Defaults to None, meaning checkpoints will not be saved."""),
-                                             default=None)
-    save_interval: str = hp.optional(doc=textwrap.dedent("""\
-        The time string interval representing how frequently checkpoints should be saved.
-        For example, set to "1ep" to save checkpoints every epoch, or "10ba"
-        to save checkpoints every 10 batches.
-        This parameter has no effect if `save_folder` is not specified."""),
+    save_folder: Optional[str] = hp.optional(doc="Folder where checkpoints will be saved.", default=None)
+    save_name_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
+    save_latest_format: str = hp.optional("Latest checkpoint symlink format string.", default="latest-rank{rank}")
+    save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
+    save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
+    save_interval: str = hp.optional(textwrap.dedent("""\
+        Checkpoint interval or path to a `(State, Event) -> bool` function
+        returning whether a checkpoint should be saved."""),
                                      default="1ep")
-    save_compression: Optional[str] = hp.optional(doc=textwrap.dedent("""\
-        Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
-        `lzma`, or `None` for no compression.  (default: ``None`` for no compression)."""),
-                                                  default=None)
 
     # subset parameters
     train_subset_num_batches: Optional[int] = hp.optional(
@@ -594,8 +594,10 @@ class TrainerHparams(hp.Hparams):
             load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
             save_folder=self.save_folder,
+            save_overwrite=self.save_overwrite,
+            save_name_format=self.save_name_format,
             save_interval=self.save_interval,
-            save_compression=self.save_compression,
+            save_weights_only=self.save_weights_only,
 
             # Subset parameters
             train_subset_num_batches=self.train_subset_num_batches,
