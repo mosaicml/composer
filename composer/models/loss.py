@@ -3,6 +3,7 @@
 """A collection of common torchmetrics and loss functions."""
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Optional, Tuple
 
 import torch
@@ -145,10 +146,12 @@ def ensure_targets_one_hot(input: Tensor, targets: Tensor, num_classes: Optional
         if num_classes is None:
             num_classes = input.shape[1]
         if targets.min() < 0:
-            # Map all negative indicies to a class to drop, and warn they will be ignored in the loss.
+            warnings.warn("Negative label indices are being ignored in conversion to one-hot labels")
+            # Map all negative indicies to a class to drop.
             targets[targets < 0] = num_classes
             targets = F.one_hot(targets, num_classes=num_classes + 1)
             targets = torch.movedim(targets, -1, 1)
+            # Drop any negative indices.
             targets = targets[:, 0:-1]
         else:
             targets = F.one_hot(targets, num_classes=num_classes)
@@ -214,19 +217,27 @@ def soft_cross_entropy(input: Tensor,
         assert size_average is None, "size_average is deprecated"
         assert reduce is None, "reduce is deprecated"
         assert ignore_index == -100, "ignore_index not supported."
-        probs = -1 * (target * F.log_softmax(input, dim=1))
+        xentropy = -1 * (target * F.log_softmax(input, dim=1))
 
         if weight is not None:
-            probs *= weight / weight.sum()  # allow broadcast along batch dim
+            xentropy *= weight / weight.sum()  # allow broadcast along batch dim
 
-        probs = probs.sum(dim=1)
+        xentropy = xentropy.sum(dim=1)
+        num_examples = torch.numel(xentropy)
 
         if reduction == 'sum':
-            probs = probs.sum(dim=0)
+            xentropy = xentropy.sum()
         elif reduction == 'mean':
-            probs = probs.mean(dim=0)
+            xentropy = xentropy.mean()
 
-        return probs
+        # Reweight loss to account for examples with less than 1 total probability (ignored examples)
+        total_prob = target.sum()
+        assert total_prob > 0, "No targets have nonzero probability"
+        if total_prob < num_examples:
+            warnings.warn("Some targets have less than 1 total probability")
+        xentropy *= num_examples / total_prob
+
+        return xentropy
     else:
         raise ValueError(f"Unrecognized target type {target_type}")
 
