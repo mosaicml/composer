@@ -14,8 +14,8 @@ from composer.callbacks import memory_monitor
 from composer.core.callback import Callback
 
 if TYPE_CHECKING:
-    from composer.core.logging.logger import Logger
     from composer.core.state import State
+    from composer.loggers.logger import Logger
     from composer.profiler import Profiler
 
 __all__ = ["SystemProfiler"]

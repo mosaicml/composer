@@ -59,7 +59,13 @@ trainer.fit()
 
 ### Implementation Details
 
-CutMix randomly selects `num_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where a point within any hole is set to 0 and the remaining points are set to 1. This mask is then multiplied element-wise with the image in order to set the pixel value of any pixel value within a hole to 0.
+CutOut randomly selects `num_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where a point within any hole is set to 0 and the remaining points are set to 1. 
+This mask is then multiplied element-wise with the image in order to set the pixel value of any pixel value within a hole to 0.
+
+CutOut is implemented following the [original paper](https://arxiv.org/abs/1708.04552). However, our implementation currently differs in that CutOut operates on a batch of data and runs on device to avoid potential CPU bottlenecks.
+This means the same bounding box is used for all examples in a batch, which sometimes has either a positive or negative effect on accuracy.
+
+The construction of the bounding box for the mixed region follows the [paper's implementation](https://github.com/uoguelph-mlrg/Cutout) which selects the center pixel of the bounding box uniformly at random from all locations in the image, and clips the bounding box to fit. This implies that the size of the region masked by CutOut is not always square, and the area is not always as large as suggested by the `length` parameter. It also implies that not all regions are equally likely to lie inside the bounding box.
 
 ## Suggested Hyperparameters
 

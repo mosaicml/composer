@@ -16,10 +16,10 @@ import composer.core.types as types
 from composer import Callback, Event
 from composer.callbacks import CallbackHparams
 from composer.core.data_spec import DataSpec
-from composer.core.logging import Logger
 from composer.core.state import State
 from composer.datasets import DataLoaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
 from composer.datasets.hparams import DatasetHparams
+from composer.loggers import Logger
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
 from composer.utils import dist, run_directory

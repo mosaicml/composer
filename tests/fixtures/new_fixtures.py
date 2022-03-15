@@ -4,7 +4,8 @@
 import pytest
 from torch.utils.data import DataLoader
 
-from composer.core import Logger, State
+from composer.core import State
+from composer.loggers import Logger
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
@@ -26,7 +27,7 @@ def minimal_state():
 @pytest.fixture
 def empty_logger(minimal_state: State) -> Logger:
     """Logger without any output configured."""
-    return Logger(state=minimal_state, backends=[])
+    return Logger(state=minimal_state, destinations=[])
 
 
 @pytest.fixture(autouse=True)
