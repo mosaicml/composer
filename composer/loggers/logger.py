@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """Base classes, functions, and variables for logger.
+
 Attributes:
      LoggerData: Data value(s) to be logged. Can be any of the following types:
          ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[LoggerData]``;
@@ -35,6 +36,7 @@ LoggerDataDict = Dict[str, LoggerData]
 
 class LogLevel(IntEnum):
     """LogLevel denotes when in the training loop log messages are generated.
+
     Logging destinations use the LogLevel to determine whether to record a given
     metric or state change.
     Attributes:
@@ -48,7 +50,7 @@ class LogLevel(IntEnum):
 
 
 class Logger:
-    r"""An interface to record training data.
+    """An interface to record training data.
     The :class:`~composer.trainer.trainer.Trainer`, instances of :class:`~composer.core.callback.Callback`, and
     instances of :class:`~composer.core.algorithm.Algorithm` invoke the logger to record data such as
     the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
@@ -73,6 +75,8 @@ class Logger:
 
                 coolname.replace_random(random.Random(0))
 
+                original_time = time.time
+
                 time.time = lambda: 1647293526.1849217
 
             .. doctest:: composer.loggers.logger.Logger.__init__.run_name
@@ -80,6 +84,10 @@ class Logger:
                 >>> logger = Logger(state=state, destinations=[])
                 >>> logger.run_name
                 '1647293526-electric-zebra'
+
+            .. testcleanup:: composer.loggers.logger.Logger.__init__.run_name
+
+                time.time = original_time
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
@@ -107,6 +115,7 @@ class Logger:
 
     def data(self, log_level: Union[str, LogLevel], data: LoggerDataDict) -> None:
         """Log data to the :attr:`destinations`.
+
         Args:
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
             data (LoggerDataDict): The data to log.
@@ -132,6 +141,7 @@ class Logger:
 
 def format_log_data_value(data: LoggerData) -> str:
     """Recursively formats a given log data value into a string.
+
     Args:
         data: Data to format.
     Returns:
