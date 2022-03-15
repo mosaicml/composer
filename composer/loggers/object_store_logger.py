@@ -27,7 +27,7 @@ from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
-from composer.utils.object_store import ObjectStoreProviderHparams
+from composer.utils.object_store import ObjectStoreHparams
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class ObjectStoreLogger(LoggerDestination):
 
            # For this example, we do not validate credentials
            def do_not_validate(
-               object_store_provider_hparams: ObjectStoreProviderHparams,
+               object_store_hparams: ObjectStoreHparams,
                object_name_prefix: str,
            ) -> None:
                pass
@@ -72,7 +72,7 @@ class ObjectStoreLogger(LoggerDestination):
 
         .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
 
-           >>> object_store_provider_hparams = ObjectStoreProviderHparams(
+           >>> object_store_hparams = ObjectStoreHparams(
            ...     provider="s3",
            ...     container="run-dir-test",
            ...     key_environ="OBJECT_STORE_KEY",
@@ -80,7 +80,7 @@ class ObjectStoreLogger(LoggerDestination):
            ...     region="us-west-2",
            ... )
            >>> # Construct the Trainer with this logger destination
-           >>> object_store_logger = ObjectStoreLogger(object_store_provider_hparams)
+           >>> object_store_logger = ObjectStoreLogger(object_store_hparams)
            >>> trainer = Trainer(
            ...     ...
            ...     logger_destinations=[object_store_logger],
@@ -108,8 +108,8 @@ class ObjectStoreLogger(LoggerDestination):
             be raised.
 
     Args:
-        object_store_provider_hparams (ObjectStoreProviderHparams): ObjectStoreProvider hyperparameters object.
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+        object_store_hparams (ObjectStoreHparams): ObjectStore hyperparameters object.
+            See :class:`~composer.utils.object_store.ObjectStoreHparams` for documentation.
 
         should_log_artifact ((State, LogLevel, str) -> bool, optional): A function to filter which artifacts
             are uploaded.
@@ -169,14 +169,14 @@ class ObjectStoreLogger(LoggerDestination):
 
     def __init__(
         self,
-        object_store_provider_hparams: ObjectStoreProviderHparams,
+        object_store_hparams: ObjectStoreHparams,
         should_log_artifact: Optional[Callable[[State, LogLevel, str], bool]] = None,
         object_name_format: str = '{run_name}/{artifact_name}',
         num_concurrent_uploads: int = 4,
         upload_staging_folder: Optional[str] = None,
         use_procs: bool = True,
     ) -> None:
-        self._object_store_provider_hparams = object_store_provider_hparams
+        self._object_store_hparams = object_store_hparams
         if should_log_artifact is None:
             should_log_artifact = _always_log
         self._should_log_artifact = should_log_artifact
@@ -215,7 +215,7 @@ class ObjectStoreLogger(LoggerDestination):
         self._finished = self._finished_cls()
         self._run_name = logger.run_name
         object_name_to_test = self._format_object_name(".credentials_validated_successfully")
-        _validate_credentials(self._object_store_provider_hparams, object_name_to_test)
+        _validate_credentials(self._object_store_hparams, object_name_to_test)
         assert len(self._workers) == 0, "workers should be empty if self._finished was None"
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
@@ -223,7 +223,7 @@ class ObjectStoreLogger(LoggerDestination):
                 kwargs={
                     "file_queue": self._file_upload_queue,
                     "is_finished": self._finished,
-                    "object_store_provider_hparams": self._object_store_provider_hparams,
+                    "object_store_hparams": self._object_store_hparams,
                 },
             )
             worker.start()
@@ -277,8 +277,8 @@ class ObjectStoreLogger(LoggerDestination):
             str: The uri corresponding to the uploaded location of the artifact.
         """
         obj_name = self._format_object_name(artifact_name)
-        provider_name = self._object_store_provider_hparams.provider
-        container = self._object_store_provider_hparams.container
+        provider_name = self._object_store_hparams.provider
+        container = self._object_store_hparams.container
         provider_prefix = f"{provider_name}://{container}/"
         return provider_prefix + obj_name.lstrip("/")
 
@@ -301,11 +301,11 @@ class ObjectStoreLogger(LoggerDestination):
 
 
 def _validate_credentials(
-    object_store_provider_hparams: ObjectStoreProviderHparams,
+    object_store_hparams: ObjectStoreHparams,
     object_name_to_test: str,
 ) -> None:
     # Validates the credentails by attempting to touch a file in the bucket
-    provider = object_store_provider_hparams.initialize_object()
+    provider = object_store_hparams.initialize_object()
     provider.upload_object_via_stream(
         obj=b"credentials_validated_successfully",
         object_name=object_name_to_test,
@@ -315,7 +315,7 @@ def _validate_credentials(
 def _upload_worker(
     file_queue: Union[queue.Queue[Tuple[str, str, bool]], multiprocessing.JoinableQueue[Tuple[str, str, bool]]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
-    object_store_provider_hparams: ObjectStoreProviderHparams,
+    object_store_hparams: ObjectStoreHparams,
 ):
     """A long-running function to handle uploading files.
 
@@ -326,10 +326,10 @@ def _upload_worker(
             set when training is finished and no new files will be added to the queue.
             The worker will continue to upload existing files that are in the queue.
             When the queue is empty, the worker will exit.
-        object_store_provider_hparams (ObjectStoreProviderHparams): The configuration
+        object_store_hparams (ObjectStoreHparams): The configuration
             for the underlying object store provider.
     """
-    provider = object_store_provider_hparams.initialize_object()
+    provider = object_store_hparams.initialize_object()
     while True:
         try:
             file_path_to_upload, object_name, overwrite = file_queue.get(block=True, timeout=0.5)

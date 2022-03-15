@@ -9,7 +9,7 @@ import pytest
 from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger, LogLevel, ObjectStoreLoggerHparams
-from composer.utils.object_store import ObjectStoreProviderHparams
+from composer.utils.object_store import ObjectStoreHparams
 
 
 def my_filter_func(state: State, log_level: LogLevel, artifact_name: str):
@@ -30,7 +30,7 @@ def object_store_test_helper(tmpdir: pathlib.Path,
     provider = "local"
     container = "."
     hparams = ObjectStoreLoggerHparams(
-        object_store_provider_hparams=ObjectStoreProviderHparams(
+        object_store_hparams=ObjectStoreHparams(
             provider='local',
             container=container,
             key_environ="OBJECT_STORE_KEY",

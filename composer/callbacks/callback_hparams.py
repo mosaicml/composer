@@ -20,7 +20,7 @@ from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.core.callback import Callback
 from composer.core.time import Time
 from composer.utils import import_object
-from composer.utils.object_store import ObjectStoreProviderHparams
+from composer.utils.object_store import ObjectStoreHparams
 
 __all__ = [
     "CallbackHparams",
@@ -177,26 +177,26 @@ class CheckpointSaverHparams(CallbackHparams):
 
 
 @dataclass
-class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
+class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreHparams):
     """:class:`~.RunDirectoryUploader` hyperparameters.
 
     Args:
         provider (str):
-            See :class:`~.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         container (str):
-            See :class:`~.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         key_environ (str, optional):
-            See :class:`~.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         secret_environ (str, optional):
-            See :class:`~.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         region (str, optional):
-            See :class:`~.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         host (str, optional):
-            See :class:`~.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         port (int, optional):
-            See :class:`~.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         extra_init_kwargs (Dict[str, Any], optional): Extra keyword arguments to pass into the constructor
-            See :class:`~.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         object_name_prefix (str, optional):
             See :class:`~.RunDirectoryUploader` for documentation.
         num_concurrent_uploads (int, optional):
@@ -234,8 +234,8 @@ class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
             RunDirectoryUploader: An instance of :class:`~.RunDirectoryUploader`.
         """
         return RunDirectoryUploader(
-            object_store_provider_hparams=ObjectStoreProviderHparams(
-                **{f.name: getattr(self, f.name) for f in dataclasses.fields(ObjectStoreProviderHparams)}),
+            object_store_hparams=ObjectStoreHparams(
+                **{f.name: getattr(self, f.name) for f in dataclasses.fields(ObjectStoreHparams)}),
             object_name_prefix=self.object_name_prefix,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
