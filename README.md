@@ -135,15 +135,16 @@ transform = transforms.Compose([transforms.ToTensor()])
 dataset = datasets.MNIST("data", train=True, download=True, transform=transform)
 train_dataloader = DataLoader(dataset, batch_size=128)
 
-trainer = Trainer(model=MNIST_Classifier(num_classes=10),
-                  train_dataloader=train_dataloader,
-                  max_duration="2ep",
-                  algorithms=[
-                      LabelSmoothing(smoothing=0.1),
-                      BlurPool(),
-                      CutMix(num_classes=10),
-                      ChannelsLast(),
-                  ])
+trainer = Trainer(
+    model=MNIST_Classifier(num_classes=10),
+    train_dataloader=train_dataloader,
+    max_duration="2ep",
+    algorithms=[
+        LabelSmoothing(smoothing=0.1),
+        CutMix(num_classes=10),
+        ChannelsLast(),
+        ]
+)
 trainer.fit()
 ```
 
