@@ -20,11 +20,11 @@
     <a href="https://pypi.org/project/mosaicml/">
         <img alt="PyPi Version" src="https://img.shields.io/pypi/pyversions/mosaicml">
     </a>
-    <a href="https://badge.fury.io/py/mosaicml">
-        <img alt="PyPi Package Version" src="https://badge.fury.io/py/mosaicml.svg">
+    <a href="https://pypi.org/project/mosaicml/">
+        <img alt="PyPi Package Version" src="https://img.shields.io/pypi/v/mosaicml">
     </a>
-    <a href="https://pepy.tech/project/mosaicml">
-        <img alt="PyPi Downloads" src="https://pepy.tech/badge/mosaicml">
+    <a href="https://pypi.org/project/mosaicml/">
+        <img alt="PyPi Downloads" src="https://img.shields.io/pypi/dm/mosaicml">
     </a>
     <a href="https://docs.mosaicml.com/en/stable/">
         <img alt="Documentation" src="https://readthedocs.org/projects/composer/badge/?version=stable">
