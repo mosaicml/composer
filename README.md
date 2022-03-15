@@ -124,28 +124,26 @@ For more examples, see the [Composer Functional API Colab notebook](https://cola
 For the best experience and the most efficient possible training, we recommend using Composer's built-in trainer, which automatically takes care of the low-level details of using speedup methods and provides useful abstractions that facilitate rapid experimentation.
 
 ```python
-ifrom torchvision import datasets, transforms
 from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
 
 from composer import Trainer
+from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
 from composer.models import MNIST_Classifier
-from composer.algorithms import BlurPool, CutMix, ChannelsLast, LabelSmoothing
 
 transform = transforms.Compose([transforms.ToTensor()])
 dataset = datasets.MNIST("data", train=True, download=True, transform=transform)
 train_dataloader = DataLoader(dataset, batch_size=128)
 
-trainer = Trainer(
-    model=MNIST_Classifier(num_classes=10),
-    train_dataloader=train_dataloader,
-    max_duration="2ep",
-    algorithms=[
-        LabelSmoothing(smoothing=0.1),
-        BlurPool(),
-        CutMix(num_classes=10),
-        ChannelsLast(),
-    ]
-)
+trainer = Trainer(model=MNIST_Classifier(num_classes=10),
+                  train_dataloader=train_dataloader,
+                  max_duration="2ep",
+                  algorithms=[
+                      LabelSmoothing(smoothing=0.1),
+                      BlurPool(),
+                      CutMix(num_classes=10),
+                      ChannelsLast(),
+                  ])
 trainer.fit()
 ```
 
