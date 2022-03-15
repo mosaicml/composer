@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""A collection of common torchmetrics for NLP tasks."""
 from typing import Mapping, Union
 
 import torch
@@ -8,18 +9,20 @@ from torchmetrics import Metric
 
 from composer.models.loss import soft_cross_entropy
 
+__all__ = ["Perplexity", "BinaryF1Score", "LanguageCrossEntropyLoss", "CrossEntropyLoss", "MaskedAccuracy"]
+
 
 class MaskedAccuracy(Metric):
     """Computes accuracy with support for masked indicies.
 
+    Adds metric state variables:
+        correct (float): The number of instances where the prediction masked the target.
+        total (float): The number of total instances that were predicted.
+
     Args:
         ignore_index (int): The class index to ignore.
-        dist_sync_on_step (bool): Synchronize metric state across processes at
-            each forward() before returning the value at the step.
-
-    State:
-        correct (float): the number of instances where the prediction masked the target
-        total (float): the number of total instances that were predicted.
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
     """
 
     def __init__(self, ignore_index: int, dist_sync_on_step=False):
@@ -52,15 +55,15 @@ class MaskedAccuracy(Metric):
 class CrossEntropyLoss(Metric):
     """Computes cross entropy loss.
 
-    Args:
-        vocab_size (int): the size of the tokenizer vocabulary.
-        dist_sync_on_step (bool): Synchronize metric state across processes at
-            each forward() before returning the value at the step.
-        ignore_index (int): The class index to ignore. Defaults to -100.
+    Adds metric state variables:
+        sum_loss (float): The sum of the per-example loss in the batch.
+        total_items (float): The number of batches to average across.
 
-    State:
-        sum_loss (float): the sum of the per-example loss in the batch.
-        total_items (float): the number of batches to average across.
+    Args:
+        vocab_size (int): The size of the tokenizer vocabulary.
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+        ignore_index (int, optional): The class index to ignore. Default: ``-100``.
     """
 
     def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = -100):
@@ -78,7 +81,7 @@ class CrossEntropyLoss(Metric):
         Args:
             output (Mapping): The output from the model, which must contain
                 either the Tensor or a Mapping type that contains the loss or model logits.
-            target (Tensor): A Tensor of ground-truth values to compare against.
+            target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
 
         assert isinstance(output, Tensor)
@@ -96,7 +99,7 @@ class CrossEntropyLoss(Metric):
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss (Tensor): The loss averaged across all batches.
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
         """
         # Return average loss over entire dataset
         return self.sum_loss / self.total_items  #type: ignore (third-party)
@@ -105,14 +108,14 @@ class CrossEntropyLoss(Metric):
 class BinaryF1Score(Metric):
     """Implements F1 Scores for binary classification tasks via sklearn.
 
-    Args:
-        dist_sync_on_step (bool): Synchronize metric state across processes at
-            each forward() before returning the value at the step.
+    Adds metric state variables:
+        true_positive (float): A counter of how many items were correctly classified as positives.
+        false_positive (float): A counter of how many items were incorrectly classified as positives.
+        false_negative (float): A counter of how many items were incorrectly classified as negatives.
 
-    State:
-        true_positive (float): a counter of how many items were correctly classified as positives
-        false_positive (float): a counter of how many items were incorrectly classified as positives
-        false_negative (float): a counter of how many items were incorrectly classified as negatives
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
     """
 
     def __init__(self, dist_sync_on_step=False):
@@ -128,7 +131,7 @@ class BinaryF1Score(Metric):
         Args:
             output (Mapping): The output from the model, which must contain
                 either the Tensor or a Mapping type that contains the loss or model logits.
-            target (Tensor): A Tensor of ground-truth values to compare against.
+            target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
         predictions = torch.argmax(output, dim=1)
         self.true_positive += predictions[(target == 1)].sum()
@@ -139,7 +142,7 @@ class BinaryF1Score(Metric):
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss (Tensor): The loss averaged across all batches.
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
         """
         assert isinstance(self.true_positive, Tensor)
         assert isinstance(self.false_positive, Tensor)
@@ -152,13 +155,13 @@ class BinaryF1Score(Metric):
 class LanguageCrossEntropyLoss(Metric):
     """Hugging Face compatible cross entropy loss.
 
-    Args:
-        dist_sync_on_step (bool): Synchronize metric state across processes at
-            each forward() before returning the value at the step.
+    Adds metric state variables:
+        sum_loss (float): The sum of the per-example loss in the batch.
+        total_batches (float): The number of batches to average across.
 
-    State:
-        sum_loss (float): the sum of the per-example loss in the batch.
-        total_batches (float): the number of batches to average across.
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``
     """
 
     def __init__(self, dist_sync_on_step=False):
@@ -173,7 +176,7 @@ class LanguageCrossEntropyLoss(Metric):
         Args:
             output (Mapping): The output from the model, which must contain
                 either the Tensor or a Mapping type that contains the loss or model logits.
-            target (Tensor): A Tensor of ground-truth values to compare against.
+            target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
 
         # if logit modification algorithms aren't on, we take the loss directly from the model output
@@ -199,14 +202,14 @@ class LanguageCrossEntropyLoss(Metric):
         """Aggregate the state over all processes to compute the metric.
 
         Returns:
-            loss (Tensor): The loss averaged across all batches.
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
         """
         # Return average loss over entire dataset
         return self.sum_loss / self.total_batches  #type: ignore (third-party)
 
 
 class Perplexity(LanguageCrossEntropyLoss):
-    """Subclasses :class:`LanguageCrossEntropyLoss` to implement perplexity.
+    """Subclasses :class:`~composer.models.nlp_metrics.LanguageCrossEntropyLoss` to implement perplexity.
 
     If an algorithm modifies the loss function and it is no longer directly provided in the output, then this could be
     expensive because it'll compute the loss twice.

@@ -7,9 +7,9 @@ import torch
 from composer.algorithms.channels_last import apply_channels_last
 from composer.algorithms.channels_last.channels_last import ChannelsLast
 from composer.core.event import Event
-from composer.core.logging import Logger
 from composer.core.state import State
 from composer.core.types import Tensor
+from composer.loggers import Logger
 from tests.common import SimpleConvModel
 
 

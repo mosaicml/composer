@@ -57,6 +57,9 @@ will emit a series of traces:
    ...
    [STEP=3][layer_freezing/EPOCH_END=1]  # <-- layer freezing ran on step 3 here!
 """
+
+from __future__ import annotations
+
 import contextlib
 import logging
 from collections import OrderedDict
@@ -66,9 +69,8 @@ from typing import ContextManager, Dict, Optional, Sequence, Union, cast
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
-from composer.core.logging import Logger
-from composer.core.logging.logger import LogLevel
 from composer.core.state import State
+from composer.loggers import Logger, LogLevel
 from composer.profiler import ProfilerAction
 
 log = logging.getLogger(__name__)
@@ -112,16 +114,11 @@ class Engine():
 
     Args:
         state (State): The initial :class:`~.state.State` of the trainer. ``state`` will be modified in-place.
-        logger (Optional[Logger]): A :class:`~.logger.Logger` instance to be used for logging algorithm and callback
+        logger (Logger): A :class:`~.logger.Logger` instance to be used for logging algorithm and callback
             specific metrics.
     """
 
-    def __init__(self, state: State, logger: Optional[Logger] = None):
-        if logger is None:
-            log.warning("No logger passed to the engine.  Defaulting to an empty logger")
-            logger = Logger(state=state, backends=[])
-
-        assert logger is not None
+    def __init__(self, state: State, logger: Logger):
         self.logger = logger
         self.state = state
 
@@ -172,7 +169,7 @@ class Engine():
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP, ProfilerAction.SKIP]
                 else:
                     actions = [ProfilerAction.ACTIVE, ProfilerAction.WARMUP]
-                duration_marker = self.state.profiler.marker(name, actions=actions, record_instant_on_start=True)
+                duration_marker = self.state.profiler.marker(name, actions=actions)
 
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
@@ -227,7 +224,7 @@ class Engine():
                 # batch-frequency vs epoch-frequency evaluators
                 log_level = LogLevel.BATCH
             if len(trace) > 0:
-                self.logger.metric(log_level=log_level, data={key: 1 if tr.run else 0 for key, tr in trace.items()})
+                self.logger.data(log_level=log_level, data={key: 1 if tr.run else 0 for key, tr in trace.items()})
 
         return trace
 

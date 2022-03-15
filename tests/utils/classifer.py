@@ -8,8 +8,9 @@ from torch import optim
 from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.collections import MetricCollection
 
-from composer import Algorithm, Engine, Event, Logger, State
+from composer import Algorithm, Engine, Event, State
 from composer.core.types import DataLoader, Evaluator, Optimizer, Precision
+from composer.loggers import Logger
 from tests.utils.model import SimpleModel
 
 
@@ -20,6 +21,7 @@ def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, steps_
     evaluators = [Evaluator(label="dummy_label", dataloader=eval_dataloader, metrics=metric_coll)]
     return State(
         model=model,
+        rank_zero_seed=0,
         optimizers=optim.SGD(model.parameters(), lr=.001, momentum=0.0),
         max_duration="1ep",
         train_dataloader=train_dataloader,
@@ -42,7 +44,7 @@ def test_classifier_trains(
     state = _get_state(train_dataloader=train_dataloader, eval_dataloader=eval_dataloader, steps_per_epoch=n_steps)
     model = state.model
 
-    logger = Logger(state=state, backends=[])
+    logger = Logger(state=state, destinations=[])
     engine = Engine(state=state, logger=logger)
 
     engine.run_event(Event.INIT)
