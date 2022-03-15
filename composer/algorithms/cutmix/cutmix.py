@@ -11,7 +11,8 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
-from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.core.types import Algorithm, Event, State, Tensor
+from composer.loggers import Logger
 from composer.models.loss import _check_for_index_targets
 
 log = logging.getLogger(__name__)

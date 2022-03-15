@@ -9,8 +9,9 @@ import torch
 
 from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, FactorizedLinear,
                                                              factorizing_could_speedup)
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.types import Optimizers
+from composer.loggers import Logger
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -197,12 +198,12 @@ class Factorize(Algorithm):
 
         if self.factorize_convs:
             num_factorized = module_surgery.count_module_instances(state.model, FactorizedConv2d)
-            logger.metric_fit({
+            logger.data_fit({
                 LOG_NUM_CONV2D_REPLACEMENTS_KEY: num_factorized,
             })
         if self.factorize_linears:
             num_factorized = module_surgery.count_module_instances(state.model, FactorizedLinear)
-            logger.metric_fit({
+            logger.data_fit({
                 LOG_NUM_LINEAR_REPLACEMENTS_KEY: num_factorized,
             })
 

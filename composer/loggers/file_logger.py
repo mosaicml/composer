@@ -10,23 +10,22 @@ from typing import Any, Dict, Optional, TextIO
 
 import yaml
 
-from composer.core.logging import Logger, LoggerCallback, LogLevel, TLogData, format_log_data_value
 from composer.core.state import State
-from composer.core.time import Timestamp
+from composer.loggers.logger import Logger, LoggerDataDict, LogLevel, format_log_data_value
+from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import run_directory
 
 __all__ = ["FileLogger"]
 
 
-class FileLogger(LoggerCallback):
+class FileLogger(LoggerDestination):
     """Logs to a file or to the terminal.
 
     Example usage:
         .. testcode::
 
-            from composer.loggers import FileLogger
+            from composer.loggers import FileLogger, LogLevel
             from composer.trainer import Trainer
-            from composer.core.logging import LogLevel
             logger = FileLogger(
                 filename="log.txt",
                 buffer_size=1,
@@ -114,7 +113,7 @@ class FileLogger(LoggerCallback):
         # Flush any log calls that occurred during INIT or FIT_START
         self._flush_file()
 
-    def will_log(self, state: State, log_level: LogLevel) -> bool:
+    def _will_log(self, log_level: LogLevel) -> bool:
         if log_level == LogLevel.FIT:
             return True  # fit is always logged
         if log_level == LogLevel.EPOCH:
@@ -131,11 +130,13 @@ class FileLogger(LoggerCallback):
             return self.is_batch_interval
         raise ValueError(f"Unknown log level: {log_level}")
 
-    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
+    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
+        if not self._will_log(log_level):
+            return
         data_str = format_log_data_value(data)
         if self.file is None:
             raise RuntimeError("Attempted to log before self.init() or after self.close()")
-        print(f"[{log_level.name}][step={int(timestamp.batch)}]: {data_str}", file=self.file, flush=False)
+        print(f"[{log_level.name}][step={int(state.timer.batch)}]: {data_str}", file=self.file, flush=False)
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
