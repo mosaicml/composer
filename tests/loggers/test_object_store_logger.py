@@ -41,7 +41,7 @@ def object_store_test_helper(tmpdir: pathlib.Path,
 
     destination = hparams.initialize_object()
     if should_filter:
-        destination._should_log_artifact = my_filter_func
+        destination.should_log_artifact = my_filter_func
     logger = Logger(dummy_state, [destination])
     artifact_name = "artifact_name"
     destination.run_event(Event.INIT, dummy_state, logger)
@@ -74,11 +74,11 @@ def object_store_test_helper(tmpdir: pathlib.Path,
 
     # verify upload uri is correct
     upload_uri = destination.get_uri_for_artifact(artifact_name)
-    expected_upload_uri = f"{provider}://{container}/{logger.run_name}/{artifact_name}"
+    expected_upload_uri = f"{provider}://{container}/{artifact_name}"
     assert upload_uri == expected_upload_uri
 
     # now assert that we have a dummy file in the artifact folder
-    artifact_file = os.path.join(str(remote_dir), logger.run_name, artifact_name)
+    artifact_file = os.path.join(str(remote_dir), artifact_name)
     if should_filter:
         # If the filter works, nothing should be logged
         assert not os.path.exists(artifact_file)

@@ -43,7 +43,7 @@ def _always_log(state: State, log_level: LogLevel, artifact_name: str):
 class ObjectStoreLogger(LoggerDestination):
     """Logger destination that uploads artifacts to an object store.
 
-    This logger destination handles calls to :meth:`~composer.core.logging.Logger.log_file_artifact`
+    This logger destination handles calls to :meth:`~composer.core.logging.Logger.file_artifact`
     and uploads files to an object store, such as AWS S3 or Google Cloud Storage.
 
     Example
@@ -211,8 +211,8 @@ class ObjectStoreLogger(LoggerDestination):
         upload_staging_folder: Optional[str] = None,
         use_procs: bool = True,
     ) -> None:
-        self.provider_name = provider
-        self.container_name = container
+        self.provider = provider
+        self.container = container
         self.provider_kwargs = provider_kwargs
         if should_log_artifact is None:
             should_log_artifact = _always_log
@@ -252,7 +252,7 @@ class ObjectStoreLogger(LoggerDestination):
         self._finished = self._finished_cls()
         self._run_name = logger.run_name
         object_name_to_test = self._format_object_name(".credentials_validated_successfully")
-        _validate_credentials(self.provider_name, self.container_name, self.provider_kwargs, object_name_to_test)
+        _validate_credentials(self.provider, self.container, self.provider_kwargs, object_name_to_test)
         assert len(self._workers) == 0, "workers should be empty if self._finished was None"
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
@@ -260,8 +260,8 @@ class ObjectStoreLogger(LoggerDestination):
                 kwargs={
                     "file_queue": self._file_upload_queue,
                     "is_finished": self._finished,
-                    "provider_name": self.provider_name,
-                    "container_name": self.container_name,
+                    "provider": self.provider,
+                    "container": self.container,
                     "provider_kwargs": self.provider_kwargs,
                 },
             )
@@ -316,7 +316,7 @@ class ObjectStoreLogger(LoggerDestination):
             str: The uri corresponding to the uploaded location of the artifact.
         """
         obj_name = self._format_object_name(artifact_name)
-        provider_prefix = f"{self.provider_name}://{self.container_name}/"
+        provider_prefix = f"{self.provider}://{self.container}/"
         return provider_prefix + obj_name.lstrip("/")
 
     def _format_object_name(self, artifact_name: str):

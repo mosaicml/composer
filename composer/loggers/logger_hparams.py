@@ -266,7 +266,7 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
     object_store_hparams: ObjectStoreHparams = hp.required("Object store provider hparams.")
     should_log_artifact: Optional[str] = hp.optional(
         "Path to a filter function which returns whether an artifact should be logged.", default=None)
-    object_name_format: str = hp.optional("A format string for object names", default="{run_name}/{artifact_name}")
+    object_name_format: str = hp.optional("A format string for object names", default="{artifact_name}")
     num_concurrent_uploads: int = hp.optional("Maximum number of concurrent uploads.", default=4)
     use_procs: bool = hp.optional("Whether to perform file uploads in background processes (as opposed to threads).",
                                   default=True)
