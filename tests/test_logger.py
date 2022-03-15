@@ -13,9 +13,8 @@ from tqdm import auto
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time, Timestamp
-from composer.loggers import Logger, LogLevel
-from composer.loggers.in_memory_logger import InMemoryLogger
-from composer.loggers.logger_hparams import FileLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams
+from composer.loggers import (FileLoggerHparams, InMemoryLogger, Logger, LoggerDestination, LogLevel, TQDMLoggerHparams,
+                              WandBLoggerHparams)
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, reproducibility
 
@@ -196,3 +195,28 @@ def test_logger_run_name(dummy_state: State):
     run_names = dist.all_gather_object(logger.run_name)
     assert len(run_names) == 2  # 2 ranks
     assert all(run_name == run_names[0] for run_name in run_names)
+
+
+def test_logger_file_artifact(dummy_state: State):
+
+    file_logged = False
+
+    class DummyLoggerDestination(LoggerDestination):
+
+        def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+                              overwrite: bool):
+            nonlocal file_logged
+            file_logged = True
+            assert artifact_name == "foo"
+            assert file_path.name == "bar"
+            assert overwrite
+
+    logger = Logger(state=dummy_state, destinations=[DummyLoggerDestination()])
+    logger.file_artifact(
+        log_level="epoch",
+        artifact_name="foo",
+        file_path="bar",
+        overwrite=True,
+    )
+
+    assert file_logged
