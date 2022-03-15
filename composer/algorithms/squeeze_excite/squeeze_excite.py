@@ -7,8 +7,9 @@ from typing import Optional
 
 import torch
 
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.types import Optimizers
+from composer.loggers import Logger
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -178,6 +179,6 @@ class SqueezeExcite(Algorithm):
                  f'min_channels={self.min_channels}. '
                  f'Model now has {layer_count} SqueezeExcite layers.')
 
-        logger.metric_fit({
+        logger.data_fit({
             'squeeze_excite/num_squeeze_excite_layers': layer_count,
         })

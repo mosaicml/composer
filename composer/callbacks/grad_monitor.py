@@ -2,8 +2,9 @@
 
 """Monitor gradient during training."""
 
-from composer.core import Logger, State
+from composer.core import State
 from composer.core.callback import Callback
+from composer.loggers import Logger
 
 __all__ = ["GradMonitor"]
 
@@ -26,7 +27,7 @@ class GradMonitor(Callback):
        ...     callbacks=[callbacks.GradMonitor()],
        ... )
 
-    The L2 norms are logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as described below.
+    The L2 norms are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as described below.
 
     +-----------------------------------+-------------------------------------------------------------+
     | Key                               | Logged data                                                 |
@@ -63,6 +64,6 @@ class GradMonitor(Callback):
                 norm += param_grad_norm
 
         norm = norm**0.5
-        logger.metric_batch({'grad_l2_norm/step': norm})
+        logger.data_batch({'grad_l2_norm/step': norm})
         if self.log_layer_grad_norms:
-            logger.metric_batch(layer_norms)
+            logger.data_batch(layer_norms)

@@ -7,9 +7,10 @@ import time
 from collections import deque
 from typing import Deque, Optional
 
-from composer.core import Logger, State
+from composer.core import State
 from composer.core.callback import Callback
 from composer.core.types import StateDict
+from composer.loggers import Logger
 
 __all__ = ["SpeedMonitor"]
 
@@ -33,7 +34,7 @@ class SpeedMonitor(Callback):
         ...     callbacks=[callbacks.SpeedMonitor(window_size=100)],
         ... )
 
-    The training throughput is logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as
+    The training throughput is logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
 
     +-----------------------+-------------------------------------------------------------+
@@ -123,15 +124,15 @@ class SpeedMonitor(Callback):
         self.train_examples_per_epoch += batch_num_samples
         if len(self.batch_end_times) == self.window_size + 1:
             throughput = sum(self.batch_num_samples) / (self.batch_end_times[-1] - self.batch_end_times[0])
-            logger.metric_batch({'throughput/step': throughput})
+            logger.data_batch({'throughput/step': throughput})
 
     def epoch_end(self, state: State, logger: Logger):
         del state  # unused
         epoch_time = time.time() - self.epoch_start_time
         self.wall_clock_train += epoch_time
-        logger.metric_epoch({
+        logger.data_epoch({
             "wall_clock_train": self.wall_clock_train,
         })
-        logger.metric_epoch({
+        logger.data_epoch({
             "throughput/epoch": self.train_examples_per_epoch / epoch_time,
         })

@@ -7,27 +7,25 @@ import copy
 import textwrap
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yahp as hp
 
-from composer.core.logging import LoggerCallback, LogLevel
 from composer.core.types import JSON
+from composer.loggers import LoggerDestination, LogLevel
+from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.loggers.tqdm_logger import TQDMLogger
+from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import dist
 
-if TYPE_CHECKING:
-    from composer.loggers.file_logger import FileLogger
-    from composer.loggers.tqdm_logger import TQDMLogger
-    from composer.loggers.wandb_logger import WandBLogger
-
 __all__ = [
-    "FileLoggerHparams", "InMemoryLoggerHparams", "LoggerCallbackHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
+    "FileLoggerHparams", "InMemoryLoggerHparams", "LoggerDestinationHparams", "TQDMLoggerHparams", "WandBLoggerHparams"
 ]
 
 
 @dataclass
-class LoggerCallbackHparams(hp.Hparams, ABC):
+class LoggerDestinationHparams(hp.Hparams, ABC):
     """Base class for logger callback hyperparameters.
 
     Logger parameters that are added to :class:`~.trainer_hparams.TrainerHparams` (e.g. via YAML or the CLI) are
@@ -35,7 +33,7 @@ class LoggerCallbackHparams(hp.Hparams, ABC):
     """
 
     @abstractmethod
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> LoggerCallback:
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> LoggerDestination:
         """Initializes the logger.
 
         Args:
@@ -46,7 +44,7 @@ class LoggerCallbackHparams(hp.Hparams, ABC):
 
 
 @dataclass
-class FileLoggerHparams(LoggerCallbackHparams):
+class FileLoggerHparams(LoggerDestinationHparams):
     """:class:`~composer.loggers.file_logger.FileLogger`
     hyperparameters.
 
@@ -85,7 +83,7 @@ class FileLoggerHparams(LoggerCallbackHparams):
 
 
 @dataclass
-class WandBLoggerHparams(LoggerCallbackHparams):
+class WandBLoggerHparams(LoggerDestinationHparams):
     """:class:`~composer.loggers.wandb_logger.WandBLogger` hyperparameters.
 
     Args:
@@ -98,8 +96,7 @@ class WandBLoggerHparams(LoggerCallbackHparams):
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
         log_artifacts_every_n_batches (int, optional). See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
-
-        extra_init_params (JSON Dictionary, optional): See
+        extra_init_params (dict, optional): See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
     """
 
@@ -218,8 +215,6 @@ class WandBLoggerHparams(LoggerCallbackHparams):
             "tags": tags,
         }
         init_params.update(self.extra_init_params)
-
-        from composer.loggers.wandb_logger import WandBLogger
         return WandBLogger(
             log_artifacts=self.log_artifacts,
             rank_zero_only=self.rank_zero_only,
@@ -229,18 +224,17 @@ class WandBLoggerHparams(LoggerCallbackHparams):
 
 
 @dataclass
-class TQDMLoggerHparams(LoggerCallbackHparams):
+class TQDMLoggerHparams(LoggerDestinationHparams):
     """:class:`~composer.loggers.tqdm_logger.TQDMLogger`
     hyperparameters. This class takes no parameters.
     """
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
-        from composer.loggers.tqdm_logger import TQDMLogger
         return TQDMLogger(config=config)
 
 
 @dataclass
-class InMemoryLoggerHparams(LoggerCallbackHparams):
+class InMemoryLoggerHparams(LoggerDestinationHparams):
     """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
     hyperparameters.
 
@@ -250,5 +244,5 @@ class InMemoryLoggerHparams(LoggerCallbackHparams):
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> LoggerCallback:
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> LoggerDestination:
         return InMemoryLogger(log_level=self.log_level)

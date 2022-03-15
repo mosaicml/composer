@@ -61,16 +61,16 @@ The recommended way to log additional information is to define a custom
    class EpochMonitor(Callback):
 
        def epoch_end(state: State, logger: Logger):
-           logger.metric_epoch({"Epoch": state.epoch})
+           logger.data_epoch({"Epoch": state.epoch})
 
 :class:`.Logger` routes all the information to the ``loggers`` provided
 to the trainer, and has three primary methods:
 
--  :meth:`.Logger.metric_fit`
--  :meth:`.Logger.metric_epoch`
--  :meth:`.Logger.metric_batch`
+-  :meth:`.Logger.data_fit`
+-  :meth:`.Logger.data_epoch`
+-  :meth:`.Logger.data_batch`
 
-Calls to these methods will log the data into each of the destination
+Calls to these methods will log the data into each of the
 ``loggers``, but with different :class:`.LogLevel`.
 
 Similarly, :class:`.Algorithm` classes are also provided the :class:`.Logger`
@@ -91,43 +91,46 @@ the training loop log messages are generated. The logging levels are:
 -  :attr:`.LogLevel.EPOCH`: metrics logged once per epoch.
 -  :attr:`.LogLevel.BATCH`: metrics logged once per batch.
 
-Custom Loggers
---------------
+Custom Logger Destinations
+--------------------------
 
-To use a custom destination logger, create a class that inherits from
-:class:`.LoggerCallback`. Optionally implement the two following methods:
+To use a custom logger destination, create a class that inherits from
+:class:`.LoggerDestination`, and optionally implement the following methods:
 
--  :meth:`.LoggerCallback.will_log`(:class:`.State`, :class:`.LogLevel`:
+-  :meth:`~composer.loggers.logger_destination.LoggerDestination.will_log`(:class:`.State`, :class:`.LogLevel`:
    returns a boolean to determine if a metric will be logged. This is often
    used to filter messages of a lower log level than desired. The default
    returns ``True`` (i.e. always log).
--  :meth:`.LoggerCallback.log_metric`(``TimeStamp``, ``LogLevel``, ``TLogData``):
+-  :meth:`~composer.loggers.logger_destination.LoggerDestination.log_data`(``TimeStamp``, ``LogLevel``, ``LoggerDataDict``):
    Handles the actual logging of the provided data to an end source. For example,
    write into a log file, or upload to a service.
 
-Here is an example of a :class:`.LoggerCallback` which logs all metrics
+Here is an example of a :class:`.LoggerDestination` which logs all metrics
 into a dictionary:
 
 .. code:: python
 
-   from composer.core.logging import LoggerCallback, LogLevel, TLogData
-   from composer.core.time import Timestamp
-   from composer.core.types import State
+    from composer.loggers.logger_destination import LoggerDestination
+    from composer.loggers.logger import LoggerDataDict, LogLevel
+    from composer.core.time import Timestamp
+    from composer.core.types import State
 
-   class DictionaryLogger(LoggerCallback):
-       def __init__(self):
-           # Dictionary to store logged data
-           self.data = {}
+    class DictionaryLogger(LoggerDestination):
+        def __init__(self, log_level: LogLevel):
+            self.log_level = log_level
+            # Dictionary to store logged data
+            self.data = {}
 
-       def will_log(state: State, log_level: LogLevel) -> bool:
+        def will_log(state: State, log_level: LogLevel) -> bool:
            return log_level < LogLevel.BATCH
 
-       def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
-           for k, v in data.items():
-               if k not in self.data:
-                   self.data[k] = []
-               self.data[k].append((timestamp, log_level, v))
+        def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict):
+            if log_level <= self.log_level:
+                for k, v in data.items():
+                    if k not in self.data:
+                        self.data[k] = []
+                    self.data[k].append((timestamp, log_level, v))
 
-In addition, :class:`.LoggerCallback` can also implement the typical event-based
+In addition, :class:`.LoggerDestination` can also implement the typical event-based
 hooks of typical callbacks if needed. See :doc:`Callbacks<callbacks>` for
 more information.

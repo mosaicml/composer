@@ -28,7 +28,7 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, testing_with_gpu: 
 
     log_destination = MagicMock()
     log_destination.will_log.return_value = True
-    trainer.logger.backends = [log_destination]
+    trainer.logger.destinations = [log_destination]
     trainer.fit()
 
     num_train_steps = composer_trainer_hparams.train_subset_num_batches
@@ -44,7 +44,7 @@ def test_memory_monitor_cpu(composer_trainer_hparams: TrainerHparams):
     log_destination, _ = _do_trainer_fit(composer_trainer_hparams, testing_with_gpu=False)
 
     memory_monitor_called = False
-    for log_call in log_destination.log_metric.mock_calls:
+    for log_call in log_destination.log_data.mock_calls:
         metrics = log_call[1][2]
         if "memory/alloc_requests" in metrics:
             if metrics["memory/alloc_requests"] > 0:
@@ -63,7 +63,7 @@ def test_memory_monitor_gpu(composer_trainer_hparams: TrainerHparams):
 
         num_memory_monitor_calls = 0
 
-        for log_call in log_destination.log_metric.mock_calls:
+        for log_call in log_destination.log_data.mock_calls:
             metrics = log_call[1][2]
             if "memory/alloc_requests" in metrics:
                 if metrics["memory/alloc_requests"] > 0:
