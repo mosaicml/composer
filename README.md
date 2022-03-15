@@ -129,7 +129,7 @@ from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.models import MNIST_Classifier
-from composer.algorithms import LabelSmoothing, CutMix, ChannelsLast
+from composer.algorithms import BlurPool, CutMix, ChannelsLast, LabelSmoothing
 
 transform = transforms.Compose([transforms.ToTensor()])
 dataset = datasets.MNIST("data", train=True, download=True, transform=transform)
@@ -141,6 +141,7 @@ trainer = Trainer(
     max_duration="2ep",
     algorithms=[
         LabelSmoothing(smoothing=0.1),
+        BlurPool(),
         CutMix(num_classes=10),
         ChannelsLast(),
         ]
