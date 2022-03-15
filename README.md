@@ -132,7 +132,7 @@ from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
 from composer.models import MNIST_Classifier
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = datasets.MNIST("data", train=True, download=True, transform=transform)
+dataset = datasets.MNIST("data", download=True, transform=transform)
 train_dataloader = DataLoader(dataset, batch_size=128)
 
 trainer = Trainer(
