@@ -18,7 +18,7 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.utils import ObjectStoreProviderHparams, dist, import_object
+from composer.utils import ObjectStoreHparams, dist, import_object
 
 __all__ = [
     "FileLoggerHparams",
@@ -247,7 +247,7 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
     hyperparameters.
 
     Args:
-        object_store_provider_hparams (ObjectStoreProviderHparams): The object store provider hparams.
+        object_store_hparams (ObjectStoreHparams): The object store provider hparams.
         should_log_artifact (str, optional): The path to a filter function which returns whether an artifact should be
             logged. The path should be of the format ``path.to.module:filter_function_name``.
 
@@ -263,10 +263,10 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
         upload_staging_folder (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         use_procs (bool, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
     """
-    object_store_provider_hparams: ObjectStoreProviderHparams = hp.required("Object store provider hparams.")
+    object_store_hparams: ObjectStoreHparams = hp.required("Object store provider hparams.")
     should_log_artifact: Optional[str] = hp.optional(
         "Path to a filter function which returns whether an artifact should be logged.", default=None)
-    object_name_format: str = hp.optional("A format string for object names", default="{run_name}/{artifact_name}")
+    object_name_format: str = hp.optional("A format string for object names", default="{artifact_name}")
     num_concurrent_uploads: int = hp.optional("Maximum number of concurrent uploads.", default=4)
     use_procs: bool = hp.optional("Whether to perform file uploads in background processes (as opposed to threads).",
                                   default=True)
@@ -275,7 +275,9 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> ObjectStoreLogger:
         return ObjectStoreLogger(
-            object_store_provider_hparams=self.object_store_provider_hparams,
+            provider=self.object_store_hparams.provider,
+            container=self.object_store_hparams.container,
+            provider_kwargs=self.object_store_hparams.get_provider_kwargs(),
             object_name_format=self.object_name_format,
             should_log_artifact=import_object(self.should_log_artifact)
             if self.should_log_artifact is not None else None,

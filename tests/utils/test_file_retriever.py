@@ -6,7 +6,7 @@ import pathlib
 import pytest
 
 from composer.utils.file_retriever import GetFileNotFoundException, get_file
-from composer.utils.object_store import ObjectStoreProviderHparams
+from composer.utils.object_store import ObjectStoreHparams
 
 
 def test_get_file_uri(tmpdir: pathlib.Path):
@@ -36,7 +36,7 @@ def test_get_file_object_store(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyP
     remote_dir = tmpdir / "remote_dir"
     os.makedirs(remote_dir)
     monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
-    provider = ObjectStoreProviderHparams(
+    provider = ObjectStoreHparams(
         provider='local',
         key_environ="OBJECT_STORE_KEY",
         container=".",
@@ -56,7 +56,7 @@ def test_get_file_object_store_not_found(tmpdir: pathlib.Path, monkeypatch: pyte
     remote_dir = tmpdir / "remote_dir"
     os.makedirs(remote_dir)
     monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
-    provider = ObjectStoreProviderHparams(
+    provider = ObjectStoreHparams(
         provider='local',
         key_environ="OBJECT_STORE_KEY",
         container=".",

@@ -36,7 +36,7 @@ class LoggerDestination(Callback, ABC):
     """
 
     def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
-        """Invoked by the :class:`~composer.loggers.logger.Logger` whenever there is a data to log.
+        """Log data.
 
         Subclasses should implement this method to store logged data (e.g. write it to a file, send it to a server,
         etc...). However, not all loggers need to implement this method.
@@ -47,7 +47,7 @@ class LoggerDestination(Callback, ABC):
             ``data`` (e.g. ``copy.deepcopy(data)``), and store the copied data in queue. Then, either:
 
             *   Use background thread(s) or process(s) to read from this queue to perform any I/O.
-            *   Batch multiple ``data``\\s together and flush periodically on events, such as
+            *   Batch the data together and flush periodically on events, such as
                 :attr:`~composer.core.event.Event.BATCH_END` or :attr:`~composer.core.event.Event.EPOCH_END`.
 
                 .. seealso:: :class:`~composer.loggers.file_logger.FileLogger` as an example.
@@ -70,8 +70,6 @@ class LoggerDestination(Callback, ABC):
         overwrite: bool,
     ):
         """Handle logging of a file artifact stored at ``file_path`` to an artifact named ``artifact_name``.
-
-        This method is invoked by the :class:`~composer.core.logging.logger.Logger`.
 
         Subclasses should implement this method to store logged files (e.g. copy it to another folder or upload it to
         an object store), then it should implement this method. However, not all loggers need to implement this method.
