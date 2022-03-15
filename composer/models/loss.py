@@ -170,6 +170,7 @@ def ensure_targets_one_hot(input: Tensor, targets: Tensor, num_classes: Optional
         else:
             targets = F.one_hot(targets, num_classes=num_classes)
             targets = torch.movedim(targets, -1, 1)
+        targets = targets.float()
     return targets
 
 

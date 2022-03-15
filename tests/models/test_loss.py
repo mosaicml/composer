@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import numpy as np
 import pytest
 import torch
 import torch.nn.functional as F
@@ -27,11 +28,12 @@ def fake_input_target_pairs(request):
 
     input = torch.randn(input_shape)
     targets_idx = torch.randint(low=-1, high=num_classes, size=reduced_input_shape)
-    shifted_targets_idx = targets_idx.clone()
-    shifted_targets_idx[shifted_targets_idx < 0] = num_classes
-    targets_one_hot = F.one_hot(shifted_targets_idx, num_classes=num_classes + 1)
-    targets_one_hot = torch.movedim(targets_one_hot, -1, 1)
-    targets_one_hot = targets_one_hot[:, 0:-1]
+    targets_one_hot = torch.zeros_like(input)
+    for i, value in np.ndenumerate(targets_idx):
+        i_expanded = list(i)
+        if value >= 0:
+            i_expanded.insert(1, value)
+            targets_one_hot[tuple(i_expanded)] = 1.0
     return input, targets_idx, targets_one_hot
 
 
@@ -73,6 +75,7 @@ def test_miou(block_2D_targets):
 def test_ensure_targets_one_hot(fake_input_target_pairs):
     input, targets_idx, targets_one_hot = fake_input_target_pairs
     targets_one_hot_test = ensure_targets_one_hot(input, targets_idx)
+    print(targets_one_hot.type(), targets_one_hot_test.type())
     torch.testing.assert_allclose(targets_one_hot, targets_one_hot_test)
 
 
