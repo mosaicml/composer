@@ -4,7 +4,7 @@
       <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_light.svg" width="70%"/>
     </a>
     <a href="https://github.com/mosaicml/composer#gh-dark-mode-only" class="only-dark">
-      <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_dark.svg"width="70%"/>
+      <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_dark.svg" width="70%"/>
     </a>
 </p>
 <br />
