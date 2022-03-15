@@ -144,7 +144,7 @@ trainer = Trainer(
         BlurPool(),
         CutMix(num_classes=10),
         ChannelsLast(),
-        ]
+    ]
 )
 trainer.fit()
 ```
