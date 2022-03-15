@@ -3,35 +3,8 @@
 Composer
 ========
 
-`Composer <https://github.com/mosaicml/composer>`__ provides well-engineered implementations of efficient
-training methods to give the tools that help you train a better model for cheaper.
-
-Using Composer, you can:
-
-- Train an ImageNet model to 76.1% accuracy for $37 (`with vanilla PyTorch`:$127)
-- Train a GPT-2 125M to a perplexity of 23.9 for $148 (`with vanilla PyTorch`: $255)
-- Use start-of-the-art implementations of methods to speed up your own training loop.
-
-Composer features:
-
-- 20+ efficient training methods for training a better language and vision models! Don't waste hours trying to reproduce research papers when Composer has done the work for you.
-- Easy-to-use Trainer interface written to be as performant as possible, and `integrated best practices <https://www.mosaicml.com/blog/best-practices-dec-2021>`_.
-- Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
-- Strong, `reproducible` baselines to get you started as 💨 fast 💨 as possible
-
-See :doc:`getting_started/installation` for quick start, and peruse our :doc:`trainer/algorithms` library.
-See :doc:`trainer/using_the_trainer` to learn how to use our (optional) Trainer. To learn more details
-about our efficient methods and how to deploy them in your code, see :doc:`method_cards/methods_overview`.
-
-At `MosaicML`_, we are focused on making training ML models accessible. To do this,
-we continually productionize state-of-the-art academic research on efficient model
-training, and also study the `combinations` of these methods in order to ensure
-that model training is ✨ as efficient as possible ✨.
-
-If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or join
-our `Slack`_ channel!
-
-Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues.
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
 
 .. toctree::
    :hidden:

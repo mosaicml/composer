@@ -44,6 +44,15 @@ def package_files(directory: str):
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
+# Hide the dark mode images when the images are rendered on PyPI.
+long_description = """
+<style>
+.only-dark {
+    display: none;
+}
+</style>
+""" + long_description
+
 install_requires = [
     "pyyaml>=5.4.1",
     "tqdm>=4.62.3",
@@ -78,7 +87,9 @@ extra_deps['dev'] = [
     'pytest-timeout>=1.4.2',
     'recommonmark==0.7.1',
     'sphinx>=4.4.0',
-    'docutils>=0.15',
+    # embedding md in rst require docutils>=0.17. See
+    # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
+    'docutils>=0.17',
     'sphinx_copybutton==0.5.0',
     'sphinx_markdown_tables==0.0.15',
     'sphinx-argparse==0.3.1',
@@ -127,7 +138,6 @@ extra_deps["nlp"] = [
 ]
 
 extra_deps['webdataset'] = [
-    'awscli>=1.22.60',
     'webdataset @ git+https://github.com/mosaicml/webdataset.git@dev',
     'wurlitzer>=3.0.2',
 ]
