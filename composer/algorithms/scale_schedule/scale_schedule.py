@@ -4,7 +4,8 @@ import logging
 import warnings
 from typing import Optional
 
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
@@ -21,9 +22,6 @@ class ScaleSchedule(Algorithm):
         ratio (float, optional): The factor by which to scale the duration of the schedule. E.g., 0.5
             makes the schedule take half as long and 2.0 makes it
             take twice as long. Default: ``1.0``.
-
-    See also:
-        :func:`composer.trainer.scale_schedule.scale_scheduler`
     """
 
     def __init__(self, ratio: float = 1.0):

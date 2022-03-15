@@ -16,18 +16,18 @@ import threading
 import time
 import uuid
 from multiprocessing.context import SpawnProcess
-from typing import Callable, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from libcloud.common.types import LibcloudError
 from libcloud.storage.types import ObjectDoesNotExistError
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
 
-from composer.core.logging import Logger, LoggerDestination
-from composer.core.logging.logger import LogLevel
 from composer.core.state import State
+from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
-from composer.utils.object_store import ObjectStoreProviderHparams
+from composer.utils.object_store import ObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def _always_log(state: State, log_level: LogLevel, artifact_name: str):
 class ObjectStoreLogger(LoggerDestination):
     """Logger destination that uploads artifacts to an object store.
 
-    This logger destination handles calls to :meth:`~composer.core.logging.Logger.log_file_artifact`
+    This logger destination handles calls to :meth:`~composer.core.logging.Logger.file_artifact`
     and uploads files to an object store, such as AWS S3 or Google Cloud Storage.
 
     Example
@@ -51,40 +51,39 @@ class ObjectStoreLogger(LoggerDestination):
 
            import os
            import functools
-           from composer.loggers import ObjectStoreLogger, object_store_logger
+           import composer.loggers.object_store_logger
+
+           from composer.loggers import ObjectStoreLogger
 
            # For this example, we do not validate credentials
-           def do_not_validate(
-               object_store_provider_hparams: ObjectStoreProviderHparams,
-               object_name_prefix: str,
-           ) -> None:
+           def do_not_validate(*args, **kwargs) -> None:
                pass
 
-           object_store_logger._validate_credentials = do_not_validate
+           composer.loggers.object_store_logger._validate_credentials = do_not_validate
            
-           os.environ['OBJECT_STORE_KEY'] = 'KEY'
-           os.environ['OBJECT_STORE_SECRET'] = 'SECRET'
            ObjectStoreLogger = functools.partial(
                ObjectStoreLogger,
                use_procs=False,
                num_concurrent_uploads=1,
            )
 
-        .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
+        .. testcode:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
 
-           >>> object_store_provider_hparams = ObjectStoreProviderHparams(
-           ...     provider="s3",
-           ...     container="run-dir-test",
-           ...     key_environ="OBJECT_STORE_KEY",
-           ...     secret_environ="OBJECT_STORE_SECRET",
-           ...     region="us-west-2",
-           ... )
-           >>> # Construct the Trainer with this logger destination
-           >>> object_store_logger = ObjectStoreLogger(object_store_provider_hparams)
-           >>> trainer = Trainer(
-           ...     ...
-           ...     logger_destinations=[object_store_logger],
-           ... )
+            object_store_logger = ObjectStoreLogger(
+                provider="s3",
+                container="my-bucket",
+                provider_kwargs={
+                    'key': 'AKIA...',
+                    'secret': '*********',
+                    'region': 'us-west-2',
+                }
+            )
+            
+            # Construct the trainer using this logger
+            trainer = Trainer(
+                ...
+                logger_destinations=[object_store_logger],
+            )
         
         .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
 
@@ -108,13 +107,47 @@ class ObjectStoreLogger(LoggerDestination):
             be raised.
 
     Args:
-        object_store_provider_hparams (ObjectStoreProviderHparams): ObjectStoreProvider hyperparameters object.
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+        provider (str): Cloud provider to use. Valid options are:
+
+            * :mod:`~libcloud.storage.drivers.atmos`
+            * :mod:`~libcloud.storage.drivers.auroraobjects`
+            * :mod:`~libcloud.storage.drivers.azure_blobs`
+            * :mod:`~libcloud.storage.drivers.backblaze_b2`
+            * :mod:`~libcloud.storage.drivers.cloudfiles`
+            * :mod:`~libcloud.storage.drivers.digitalocean_spaces`
+            * :mod:`~libcloud.storage.drivers.google_storage`
+            * :mod:`~libcloud.storage.drivers.ktucloud`
+            * :mod:`~libcloud.storage.drivers.local`
+            * :mod:`~libcloud.storage.drivers.minio`
+            * :mod:`~libcloud.storage.drivers.nimbus`
+            * :mod:`~libcloud.storage.drivers.ninefold`
+            * :mod:`~libcloud.storage.drivers.oss`
+            * :mod:`~libcloud.storage.drivers.rgw`
+            * :mod:`~libcloud.storage.drivers.s3`
+
+            .. seealso:: :doc:`Full list of libcloud providers <libcloud:storage/supported_providers>`
+
+        container (str): The name of the container (i.e. bucket) to use.
+        provider_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
+            for the specified provider. These arguments would usually include the cloud region
+            and credentials.
+            
+            Common keys are:
+
+            * ``key`` (str): API key or username to be used (required).
+            * ``secret`` (str): Secret password to be used (required).
+            * ``secure`` (bool): Whether to use HTTPS or HTTP. Note: Some providers only support HTTPS, and it is on by default.
+            * ``host`` (str): Override hostname used for connections.
+            * ``port`` (int): Override port used for connections.
+            * ``api_version`` (str): Optional API version. Only used by drivers which support multiple API versions.
+            * ``region`` (str): Optional driver region. Only used by drivers which support multiple regions.
+
+            .. seealso:: :class:`libcloud.storage.base.StorageDriver`
 
         should_log_artifact ((State, LogLevel, str) -> bool, optional): A function to filter which artifacts
             are uploaded.
 
-            A function that takes the (current training state, log level, artifact name) and should return a boolean
+            The function should take the (current training state, log level, artifact name) and return a boolean
             indicating whether this file should be uploaded.
 
             By default, all artifacts will be uploaded.
@@ -169,17 +202,21 @@ class ObjectStoreLogger(LoggerDestination):
 
     def __init__(
         self,
-        object_store_provider_hparams: ObjectStoreProviderHparams,
+        provider: str,
+        container: str,
+        provider_kwargs: Optional[Dict[str, Any]] = None,
         should_log_artifact: Optional[Callable[[State, LogLevel, str], bool]] = None,
-        object_name_format: str = '{run_name}/{artifact_name}',
+        object_name_format: str = '{artifact_name}',
         num_concurrent_uploads: int = 4,
         upload_staging_folder: Optional[str] = None,
         use_procs: bool = True,
     ) -> None:
-        self._object_store_provider_hparams = object_store_provider_hparams
+        self.provider = provider
+        self.container = container
+        self.provider_kwargs = provider_kwargs
         if should_log_artifact is None:
             should_log_artifact = _always_log
-        self._should_log_artifact = should_log_artifact
+        self.should_log_artifact = should_log_artifact
         self.object_name_format = object_name_format
         self._run_name = None
 
@@ -215,7 +252,7 @@ class ObjectStoreLogger(LoggerDestination):
         self._finished = self._finished_cls()
         self._run_name = logger.run_name
         object_name_to_test = self._format_object_name(".credentials_validated_successfully")
-        _validate_credentials(self._object_store_provider_hparams, object_name_to_test)
+        _validate_credentials(self.provider, self.container, self.provider_kwargs, object_name_to_test)
         assert len(self._workers) == 0, "workers should be empty if self._finished was None"
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
@@ -223,7 +260,9 @@ class ObjectStoreLogger(LoggerDestination):
                 kwargs={
                     "file_queue": self._file_upload_queue,
                     "is_finished": self._finished,
-                    "object_store_provider_hparams": self._object_store_provider_hparams,
+                    "provider": self.provider,
+                    "container": self.container,
+                    "provider_kwargs": self.provider_kwargs,
                 },
             )
             worker.start()
@@ -248,7 +287,7 @@ class ObjectStoreLogger(LoggerDestination):
 
     def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
                           overwrite: bool):
-        if not self._should_log_artifact(state, log_level, artifact_name):
+        if not self.should_log_artifact(state, log_level, artifact_name):
             return
         copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
         copied_path_dirname = os.path.dirname(copied_path)
@@ -277,15 +316,13 @@ class ObjectStoreLogger(LoggerDestination):
             str: The uri corresponding to the uploaded location of the artifact.
         """
         obj_name = self._format_object_name(artifact_name)
-        provider_name = self._object_store_provider_hparams.provider
-        container = self._object_store_provider_hparams.container
-        provider_prefix = f"{provider_name}://{container}/"
+        provider_prefix = f"{self.provider}://{self.container}/"
         return provider_prefix + obj_name.lstrip("/")
 
     def _format_object_name(self, artifact_name: str):
         """Format the ``artifact_name`` according to the ``object_name_format_string``."""
         if self._run_name is None:
-            raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
+            raise RuntimeError("The run name is not set. It should have been set on Event.INIT.")
         key_name = self.object_name_format.format(
             rank=dist.get_global_rank(),
             local_rank=dist.get_local_rank(),
@@ -301,12 +338,15 @@ class ObjectStoreLogger(LoggerDestination):
 
 
 def _validate_credentials(
-    object_store_provider_hparams: ObjectStoreProviderHparams,
+    provider: str,
+    container: str,
+    provider_kwargs: Optional[Dict[str, Any]],
     object_name_to_test: str,
 ) -> None:
     # Validates the credentails by attempting to touch a file in the bucket
-    provider = object_store_provider_hparams.initialize_object()
-    provider.upload_object_via_stream(
+    # raises a LibcloudError if there was a credentials failure.
+    object_store = ObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
+    object_store.upload_object_via_stream(
         obj=b"credentials_validated_successfully",
         object_name=object_name_to_test,
     )
@@ -315,21 +355,17 @@ def _validate_credentials(
 def _upload_worker(
     file_queue: Union[queue.Queue[Tuple[str, str, bool]], multiprocessing.JoinableQueue[Tuple[str, str, bool]]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
-    object_store_provider_hparams: ObjectStoreProviderHparams,
+    provider: str,
+    container: str,
+    provider_kwargs: Optional[Dict[str, Any]],
 ):
-    """A long-running function to handle uploading files.
+    """A long-running function to handle uploading files to the object store specified by (``provider``, ``container``,
+    ``provider_kwargs``).
 
-    Args:
-        file_queue (queue.Queue | multiprocessing.JoinableQueue): The worker will poll
-            this queue for files to upload.
-        is_finished (threading.Event or multiprocessing.Event): An event that will be
-            set when training is finished and no new files will be added to the queue.
-            The worker will continue to upload existing files that are in the queue.
-            When the queue is empty, the worker will exit.
-        object_store_provider_hparams (ObjectStoreProviderHparams): The configuration
-            for the underlying object store provider.
+    The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
+    exit once ``file_queue`` is empty.
     """
-    provider = object_store_provider_hparams.initialize_object()
+    object_store = ObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
     while True:
         try:
             file_path_to_upload, object_name, overwrite = file_queue.get(block=True, timeout=0.5)
@@ -340,7 +376,7 @@ def _upload_worker(
                 continue
         if not overwrite:
             try:
-                provider.get_object_size(object_name)
+                object_store.get_object_size(object_name)
             except ObjectDoesNotExistError:
                 # Good! It shouldn't exist.
                 pass
@@ -348,14 +384,14 @@ def _upload_worker(
                 # Exceptions will be detected on the next batch_end or epoch_end event
                 raise FileExistsError(
                     textwrap.dedent(f"""\
-                    {provider.provider_name}://{provider.container_name}/{object_name} already exists,
+                    {provider}://{container}/{object_name} already exists,
                     but allow_overwrite was set to False."""))
-        log.info("Uploading file %s to %s://%s/%s", file_path_to_upload, provider.provider_name,
-                 provider.container_name, object_name)
+        log.info("Uploading file %s to %s://%s/%s", file_path_to_upload, object_store.provider_name,
+                 object_store.container_name, object_name)
         retry_counter = 0
         while True:
             try:
-                provider.upload_object(
+                object_store.upload_object(
                     file_path=file_path_to_upload,
                     object_name=object_name,
                 )

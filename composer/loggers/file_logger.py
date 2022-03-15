@@ -11,8 +11,9 @@ from typing import Any, Callable, Dict, Optional, TextIO
 
 import yaml
 
-from composer.core.logging import Logger, LoggerDataDict, LoggerDestination, LogLevel, format_log_data_value
 from composer.core.state import State
+from composer.loggers.logger import Logger, LoggerDataDict, LogLevel, format_log_data_value
+from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import run_directory
 
 __all__ = ["FileLogger"]
@@ -24,9 +25,8 @@ class FileLogger(LoggerDestination):
     Example usage:
         .. testcode::
 
-            from composer.loggers import FileLogger
+            from composer.loggers import FileLogger, LogLevel
             from composer.trainer import Trainer
-            from composer.core.logging import LogLevel
             logger = FileLogger(
                 filename="log.txt",
                 buffer_size=1,
@@ -40,7 +40,7 @@ class FileLogger(LoggerDestination):
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
                 optimizers=[optimizer],
-                logger_destinations=[logger]
+                loggers=[logger]
             )
 
         .. testcleanup::

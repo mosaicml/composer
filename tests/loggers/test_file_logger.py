@@ -6,10 +6,8 @@ import sys
 
 import pytest
 
-from composer.core.event import Event
-from composer.core.logging import Logger, LogLevel
-from composer.core.state import State
-from composer.loggers.logger_hparams import FileLoggerHparams
+from composer import Event, State
+from composer.loggers import FileLoggerHparams, Logger, LogLevel
 
 
 @pytest.mark.parametrize("log_level", [LogLevel.EPOCH, LogLevel.BATCH])

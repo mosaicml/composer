@@ -7,19 +7,16 @@ from __future__ import annotations
 import collections.abc
 import sys
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 from tqdm import auto
 
-from composer.core.logging import LoggerDataDict, LogLevel, format_log_data_value
-from composer.core.logging.logger_destination import LoggerDestination
 from composer.core.state import State
 from composer.core.types import StateDict
+from composer.loggers.logger import Logger, LoggerDataDict, LogLevel, format_log_data_value
+from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
-
-if TYPE_CHECKING:
-    from composer.core.logging import Logger
 
 __all__ = ["ProgressBarLogger"]
 
