@@ -60,7 +60,9 @@ trainer.fit()
 
 ### Implementation Details
 
-TODO(CORY): Briefly describe how this is implemented under the hood in Composer. Need to explain the mask in particular, since it shows up a few times below.
+CutMix is implemented following the [original paper](https://arxiv.org/abs/1905.04899). This means CutMix runs immediately before the training example is provided to the model, and on the GPU if one is being used.
+
+The construction of the bounding box for the mixed region follows the [paper's implementation](https://github.com/clovaai/CutMix-PyTorch) which selects the center pixel of the bounding box uniformly at random from all locations in the image, and clips the bounding box to fit. This implies that the size of the region mixed by CutMix is not always square, and the area is not directly drawn from a beta distribution. It also implies that not all regions are equally likely to lie inside the bounding box.
 
 ## Suggested Hyperparameters
 
