@@ -1,9 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """Base classes, functions, and variables for logger.
-
 Attributes:
-
      LoggerData: Data value(s) to be logged. Can be any of the following types:
          ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[LoggerData]``;
          ``Mapping[str, LoggerData]``.
@@ -38,10 +36,8 @@ LoggerDataDict = Dict[str, LoggerData]
 
 class LogLevel(IntEnum):
     """LogLevel denotes when in the training loop log messages are generated.
-
     Logging destinations use the LogLevel to determine whether to record a given
     metric or state change.
-
     Attributes:
         FIT: Logged once per training run.
         EPOCH: Logged once per epoch.
@@ -64,16 +60,13 @@ class LogLevel(IntEnum):
 
 class Logger:
     r"""An interface to record training data.
-
     The :class:`~composer.trainer.trainer.Trainer`, instances of :class:`~composer.core.callback.Callback`, and
     instances of :class:`~composer.core.algorithm.Algorithm` invoke the logger to record data such as
     the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
-
     This class does not store any data itself; instead, it routes all data to the ``logger_destinations``.
     Each destination (e.g. the :class:`~composer.loggers.file_logger.FileLogger`,
     :class:`~composer.loggers.in_memory_logger.InMemoryLogger`) is responsible for storing the data itself
     (e.g. writing it to a file or storing it in memory).
-
     Args:
         state (State): The training state.
         destinations (Sequence[LoggerDestination]):
@@ -125,7 +118,6 @@ class Logger:
 
     def data(self, log_level: Union[str, int, LogLevel], data: LoggerDataDict) -> None:
         """Log data to the :attr:`destinations`.
-
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
                 :class:`LogLevel`.
@@ -180,10 +172,8 @@ class Logger:
 
 def format_log_data_value(data: LoggerData) -> str:
     """Recursively formats a given log data value into a string.
-
     Args:
         data: Data to format.
-
     Returns:
         str: ``data`` as a string.
     """
