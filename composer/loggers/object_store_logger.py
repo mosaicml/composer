@@ -207,7 +207,7 @@ class ObjectStoreLogger(LoggerDestination):
         container: str,
         provider_kwargs: Optional[Dict[str, Any]] = None,
         should_log_artifact: Optional[Callable[[State, LogLevel, str], bool]] = None,
-        object_name_format: str = '{run_name}/{artifact_name}',
+        object_name_format: str = '{artifact_name}',
         num_concurrent_uploads: int = 4,
         upload_staging_folder: Optional[str] = None,
         use_procs: bool = True,
