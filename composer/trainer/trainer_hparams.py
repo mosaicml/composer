@@ -174,6 +174,7 @@ class TrainerHparams(hp.Hparams):
         ddp_sync_strategy (DDPSyncStrategy, optional): See :class:`.Trainer`.
         seed (int, optional): See :class:`.Trainer`.
         deterministic_mode (bool, optional): See :class:`.Trainer`.
+        run_name (str, optional): See :class:`.Trainer`.
         loggers (List[LoggerDestinationHparams], optional): Hparams for constructing the destinations
             to log to. (default: ``[]``)
 
@@ -303,6 +304,7 @@ class TrainerHparams(hp.Hparams):
                                            default=False)
 
     # logging and callbacks
+    run_name: Optional[str] = hp.optional("Experiment name", default=None)
     loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
@@ -562,6 +564,7 @@ class TrainerHparams(hp.Hparams):
             deterministic_mode=self.deterministic_mode,
 
             # Callbacks and logging
+            run_name=self.run_name,
             loggers=loggers,
             callbacks=callbacks,
 

@@ -9,7 +9,19 @@ below logs the results to `Weights and
 Biases <https://www.wandb.com/>`__ and also saves them to the file
 ``log.txt``.
 
-.. code:: python
+.. testsetup::
+
+    import os
+    from composer.utils import run_directory
+
+    try:
+        os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
+    except FileNotFoundError:
+        pass
+
+    os.environ["WANDB_MODE"] = "disabled"
+
+.. testcode::
 
    from composer import Trainer
    from composer.loggers import WandBLogger, FileLogger
@@ -18,6 +30,10 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
                      train_dataloader=train_dataloader,
                      eval_dataloader=eval_dataloader,
                      loggers=[WandBLogger(), FileLogger(filename="log.txt")])
+
+.. testcleanup::
+
+    os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
 
 Available Loggers
 -----------------
@@ -32,11 +48,10 @@ Available Loggers
     ~tqdm_logger.TQDMLogger
     ~in_memory_logger.InMemoryLogger
 
+Automatically Logged Data
+-------------------------
 
-Default Values
---------------
-
-Several quantities are logged by default during :meth:`.Trainer.fit`:
+The :class:`~composer.trainer.trainer.Trainer` automatically logs the following data:
 
 -  ``trainer/algorithms``: a list of specified algorithms names.
 -  ``epoch``: the current epoch.
@@ -47,31 +62,21 @@ Several quantities are logged by default during :meth:`.Trainer.fit`:
 -  All the validation metrics specified in the :class:`.ComposerModel`
    object passed to :class:`.Trainer`.
 
-User Logging
-------------
+Logging Additional Data
+-----------------------
 
-The recommended way to log additional information is to define a custom
-:class:`.Callback`. Each of its methods has access to :class:`.Logger`.
+To log additional data, create a custom :class:`.Callback`.
+Each of its methods has access to the :class:`.Logger`.
 
-.. code:: python
+.. testcode::
 
-   from composer import Callback
-   from composer.typing import State, Logger
+   from composer import Callback, State
+   from composer.loggers import Logger
 
    class EpochMonitor(Callback):
 
        def epoch_end(state: State, logger: Logger):
            logger.data_epoch({"Epoch": state.epoch})
-
-:class:`.Logger` routes all the information to the ``loggers`` provided
-to the trainer, and has three primary methods:
-
--  :meth:`.Logger.data_fit`
--  :meth:`.Logger.data_epoch`
--  :meth:`.Logger.data_batch`
-
-Calls to these methods will log the data into each of the
-``loggers``, but with different :class:`.LogLevel`.
 
 Similarly, :class:`.Algorithm` classes are also provided the :class:`.Logger`
 to log any desired information.
@@ -95,20 +100,10 @@ Custom Logger Destinations
 --------------------------
 
 To use a custom logger destination, create a class that inherits from
-:class:`.LoggerDestination`, and optionally implement the following methods:
-
--  :meth:`~composer.loggers.logger_destination.LoggerDestination.will_log`(:class:`.State`, :class:`.LogLevel`:
-   returns a boolean to determine if a metric will be logged. This is often
-   used to filter messages of a lower log level than desired. The default
-   returns ``True`` (i.e. always log).
--  :meth:`~composer.loggers.logger_destination.LoggerDestination.log_data`(``TimeStamp``, ``LogLevel``, ``LoggerDataDict``):
-   Handles the actual logging of the provided data to an end source. For example,
-   write into a log file, or upload to a service.
-
-Here is an example of a :class:`.LoggerDestination` which logs all metrics
+:class:`.LoggerDestination`. Here is an example which logs all metrics
 into a dictionary:
 
-.. code:: python
+.. testcode::
 
     from composer.loggers.logger_destination import LoggerDestination
     from composer.loggers.logger import LoggerDataDict, LogLevel
@@ -116,20 +111,20 @@ into a dictionary:
     from composer.core.types import State
 
     class DictionaryLogger(LoggerDestination):
-        def __init__(self, log_level: LogLevel):
+        def __init__(self, log_level: LogLevel = LogLevel.BATCH):
             self.log_level = log_level
             # Dictionary to store logged data
             self.data = {}
 
-        def will_log(state: State, log_level: LogLevel) -> bool:
-           return log_level < LogLevel.BATCH
-
-        def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict):
+        def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
             if log_level <= self.log_level:
                 for k, v in data.items():
                     if k not in self.data:
                         self.data[k] = []
-                    self.data[k].append((timestamp, log_level, v))
+                    self.data[k].append((state.timer.get_timestamp(), log_level, v))
+
+    # Construct a trainer using this logger
+    trainer = Trainer(..., loggers=[DictionaryLogger()])
 
 In addition, :class:`.LoggerDestination` can also implement the typical event-based
 hooks of typical callbacks if needed. See :doc:`Callbacks<callbacks>` for

@@ -160,6 +160,7 @@ intersphinx_mapping = {
     'torchmetrics': ('https://torchmetrics.readthedocs.io/en/latest/', None),
     'libcloud': ('https://libcloud.readthedocs.io/en/stable/', None),
     'PIL': ('https://pillow.readthedocs.io/en/stable', None),
+    'coolname': ('https://coolname.readthedocs.io/en/latest/', None),
 }
 
 nitpicky = False  # warn on broken links

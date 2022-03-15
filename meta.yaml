@@ -34,6 +34,7 @@ requirements:
     - numpy ==1.21.5
     - apache-libcloud >=3.3.1
     - psutil >=5.8.0
+    - coolname >=1.1.0
   run_constrained:
     - wandb >=0.12.2
     - monai >=0.7.0
@@ -42,7 +43,6 @@ requirements:
     - transformers >=4.11
     - datasets >=1.14
     - pycocotools >=2.0.4
-    - coolname >=1.1.0
 
 test:
   requires:
@@ -63,7 +63,6 @@ test:
     - transformers >=4.11
     - datasets >=1.14
     - pycocotools >=2.0.4
-    - coolname >=1.1.0
   files:
     - "**/composer/**"
     - "**/tests/**"

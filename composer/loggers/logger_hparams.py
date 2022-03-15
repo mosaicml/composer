@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import copy
-import textwrap
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
@@ -90,6 +89,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         project (str, optional): WandB project name.
         group (str, optional): WandB group name.
         name (str, optional): WandB run name.
+            If not specified, the :attr:`~composer.loggers.logger.Logger.run_name` will be used.
         entity (str, optional): WandB entity name.
         tags (str, optional): WandB tags, comma-separated.
         log_artifacts (bool, optional): See
@@ -186,20 +186,6 @@ class WandBLoggerHparams(LoggerDestinationHparams):
                     f"'config' passed to WandB ``extra_init_params`` must be a dictionary. Got {type(self.extra_init_params['config'])}"
                 )
             self.extra_init_params["config"].update(config)
-
-        # If name=None, wandb.init(..) will automatically produce a unique run name
-        # But for multi-rank grouped runs, we want to provide a group name ahead of time to link the runs
-        # So let's explicitly default the run name here in a consistent way for single-rank and multi-rank
-        if self.name is None:
-            try:
-                import coolname
-            except ImportError as e:
-                raise ImportError(
-                    textwrap.dedent("""\
-                    Composer was installed without 'coolname' support which is used to configure WandB names.
-                    To use 'coolname' with Composer, run `pip install mosaicml[wandb]` if using pip
-                    or `conda install -c conda-forge coolname` if using Anaconda.""")) from e
-            self.name = coolname.generate_slug(2)
 
         if self.rank_zero_only:
             name = self.name

@@ -65,6 +65,7 @@ install_requires = [
     "numpy==1.21.5",
     "apache-libcloud>=3.3.1",
     "psutil>=5.8.0",
+    'coolname>=1.1.0',
 ]
 extra_deps = {}
 
@@ -110,7 +111,6 @@ extra_deps["deepspeed"] = [
 
 extra_deps["wandb"] = [
     'wandb==0.12.10',
-    'coolname>=1.1.0',
 ]
 
 extra_deps["unet"] = [

@@ -3,7 +3,6 @@
 """Base classes, functions, and variables for logger.
 
 Attributes:
-
      LoggerData: Data value(s) to be logged. Can be any of the following types:
          ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[LoggerData]``;
          ``Mapping[str, LoggerData]``.
@@ -15,12 +14,16 @@ from __future__ import annotations
 
 import collections.abc
 import operator
-from copy import deepcopy
+import pathlib
+import time
 from enum import IntEnum
 from functools import reduce
-from typing import TYPE_CHECKING, Callable, Dict, Generator, List, Sequence, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
 
+import coolname
 import torch
+
+from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -37,7 +40,6 @@ class LogLevel(IntEnum):
 
     Logging destinations use the LogLevel to determine whether to record a given
     metric or state change.
-
     Attributes:
         FIT: Logged once per training run.
         EPOCH: Logged once per epoch.
@@ -47,14 +49,23 @@ class LogLevel(IntEnum):
     EPOCH = 2
     BATCH = 3
 
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, LogLevel):
+            return value
+        if isinstance(value, int):
+            return LogLevel(value)
+        if isinstance(value, str):
+            return LogLevel[value.upper()]
+        return super()._missing_(value)
+
 
 class Logger:
     """An interface to record training data.
 
-    The :class:`~composer.trainer.trainer.Trainer`, :class:`~composer.core.callback.Callback`\\s, and
-    :class:`~composer.core.algorithm.Algorithm`\\s invoke the logger to record data such as
+    The :class:`~composer.trainer.trainer.Trainer`, instances of :class:`~composer.core.callback.Callback`, and
+    instances of :class:`~composer.core.algorithm.Algorithm` invoke the logger to record data such as
     the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
-
     This class does not store any data itself; instead, it routes all data to the ``logger_destinations``.
     Each destination (e.g. the :class:`~composer.loggers.file_logger.FileLogger`,
     :class:`~composer.loggers.in_memory_logger.InMemoryLogger`) is responsible for storing the data itself
@@ -64,48 +75,98 @@ class Logger:
         state (State): The training state.
         destinations (Sequence[LoggerDestination]):
             The logger destinations, to where logging data will be sent.
+        run_name (str, optional): The name for this training run.
+
+            If not specified, the timestamp will be combined with a :doc:`coolname <coolname:index>` like the
+            following:
+
+            .. testsetup:: composer.loggers.logger.Logger.__init__.run_name
+
+                import random
+                import coolname
+                import time
+
+                coolname.replace_random(random.Random(0))
+
+                original_time = time.time
+
+                time.time = lambda: 1647293526.1849217
+
+            .. doctest:: composer.loggers.logger.Logger.__init__.run_name
+
+                >>> logger = Logger(state=state, destinations=[])
+                >>> logger.run_name
+                '1647293526-electric-zebra'
+
+            .. testcleanup:: composer.loggers.logger.Logger.__init__.run_name
+
+                time.time = original_time
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
-            A sequence of :class:`~.LoggerDestination`\\s to which logging calls will be sent.
+            A sequence of :class:`~.LoggerDestination` to where logging calls will be sent.
+        run_name (str): The ``run_name``.
     """
 
     def __init__(
             self,
             state: State,
             destinations: Sequence[LoggerDestination] = tuple(),
+            run_name: Optional[str] = None,
     ):
         self.destinations = destinations
+        if run_name is None:
+            # prefixing with the time so experiments sorted alphabetically will
+            # have the latest experiment last
+            run_name = str(int(time.time())) + "-" + coolname.generate_slug(2)
+            run_name_list = [run_name]
+            # ensure all ranks have the same experiment name
+            dist.broadcast_object_list(run_name_list)
+            run_name = run_name_list[0]
+        self.run_name = run_name
         self._state = state
 
-    def _get_destinations_for_log_level(self, log_level: LogLevel) -> Generator[LoggerDestination, None, None]:
-        for destination in self.destinations:
-            if destination.will_log(self._state, log_level):
-                yield destination
-
-    def data(self, log_level: Union[str, LogLevel], data: Union[LoggerDataDict, Callable[[], LoggerDataDict]]) -> None:
-        """Log a metric to the :attr:`destinations`.
+    def data(self, log_level: Union[str, int, LogLevel], data: LoggerDataDict) -> None:
+        """Log data to the :attr:`destinations`.
 
         Args:
-            log_level (Union[str, LogLevel]): A :class:`LogLevel`.
-            data (Union[LoggerDataDict, Callable[[], LoggerDataDict]]):
-                Can be either logging data or a callable that returns data to be logged.
-                Callables will be invoked only when
-                :meth:`~composer.loggers.logger_destination.LoggerDestination.will_log` returns True for at least one
-                :class:`~.composer.loggers.logger_destination.LoggerDestination`. Useful when it is
-                expensive to generate the data to be logged.
+            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
+                :class:`LogLevel`.
+            data (LoggerDataDict): The data to log.
         """
-        if isinstance(log_level, str):
-            log_level = LogLevel[log_level.upper()]
+        log_level = LogLevel(log_level)
 
-        for destination in self._get_destinations_for_log_level(log_level):
-            if callable(data):
-                data = data()
-            # copying the data in case if a backend queues the logged data and flushes later
-            # this way, the flushed data will be the same as at the time of the logger call
-            copied_data = deepcopy(data)
-            assert isinstance(copied_data, collections.abc.Mapping)
-            destination.log_data(self._state.timer.get_timestamp(), log_level, copied_data)
+        for destination in self.destinations:
+            destination.log_data(self._state, log_level, data)
+
+    def file_artifact(
+        self,
+        log_level: Union[str, int, LogLevel],
+        artifact_name: str,
+        file_path: Union[pathlib.Path, str],
+        *,
+        overwrite: bool = False,
+    ):
+        """Log ``file_path`` as an artifact named ``artifact_name``.
+
+        Args:
+            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
+                :class:`LogLevel`.
+            artifact_name (str): The name of the artifact.
+            file_path (str | pathlib.Path): The file path.
+            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
+                (default: ``False``)
+        """
+        log_level = LogLevel(log_level)
+        file_path = pathlib.Path(file_path)
+        for destination in self.destinations:
+            destination.log_file_artifact(
+                state=self._state,
+                log_level=log_level,
+                artifact_name=artifact_name,
+                file_path=file_path,
+                overwrite=overwrite,
+            )
 
     def data_fit(self, data: LoggerDataDict) -> None:
         """Helper function for ``self.data(LogLevel.FIT, data)``"""
@@ -125,7 +186,6 @@ def format_log_data_value(data: LoggerData) -> str:
 
     Args:
         data: Data to format.
-
     Returns:
         str: ``data`` as a string.
     """
