@@ -31,7 +31,6 @@ class develop(develop_orig):
 # From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
 site.ENABLE_USER_SITE = _IS_USER
 
-
 def package_files(directory: str):
     # from https://stackoverflow.com/a/36693250
     paths = []
@@ -39,7 +38,6 @@ def package_files(directory: str):
         for filename in filenames:
             paths.append(os.path.join('..', path, filename))
     return paths
-
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -134,6 +132,10 @@ extra_deps['webdataset'] = [
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
+composer_data_files = ['py.typed']
+composer_data_files += package_files('composer/yamls')
+composer_data_files += package_files('composer/algorithms')
+
 setup(name="mosaicml",
       version="0.4.0",
       author="MosaicML",
@@ -145,9 +147,7 @@ setup(name="mosaicml",
       url="https://github.com/mosaicml/composer",
       include_package_data=True,
       package_data={
-          "composer": ['py.typed'],
-          "": package_files('composer/yamls'),
-          "": package_files('composer/algorithms')
+          "composer": composer_data_files,
       },
       packages=setuptools.find_packages(exclude=["tests*"]),
       classifiers=[
