@@ -78,7 +78,7 @@ def object_store_test_helper(tmpdir: pathlib.Path,
     assert upload_uri == expected_upload_uri
 
     # now assert that we have a dummy file in the artifact folder
-    artifact_file = os.path.join(remote_dir, logger.run_name, artifact_name)
+    artifact_file = os.path.join(str(remote_dir), logger.run_name, artifact_name)
     if should_filter:
         # If the filter works, nothing should be logged
         assert not os.path.exists(artifact_file)
