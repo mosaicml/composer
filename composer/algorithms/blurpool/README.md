@@ -31,7 +31,8 @@ def training_loop(model, train_loader):
                       optimizers=opt,
                       replace_convs=True,
                       replace_maxpools=True,
-                      blur_first=True)
+                      blur_first=True,
+                      optimizers=opt)
 
     loss_fn = F.cross_entropy
     model.train()
