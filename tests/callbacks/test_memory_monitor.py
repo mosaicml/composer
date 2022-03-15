@@ -27,7 +27,6 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, testing_with_gpu: 
         trainer._device = DeviceGPU()
 
     log_destination = MagicMock()
-    log_destination.will_log.return_value = True
     trainer.logger.destinations = [log_destination]
     trainer.fit()
 
