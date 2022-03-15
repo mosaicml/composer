@@ -51,6 +51,7 @@ class LogLevel(IntEnum):
 
 class Logger:
     """An interface to record training data.
+
     The :class:`~composer.trainer.trainer.Trainer`, instances of :class:`~composer.core.callback.Callback`, and
     instances of :class:`~composer.core.algorithm.Algorithm` invoke the logger to record data such as
     the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
@@ -58,6 +59,7 @@ class Logger:
     Each destination (e.g. the :class:`~composer.loggers.file_logger.FileLogger`,
     :class:`~composer.loggers.in_memory_logger.InMemoryLogger`) is responsible for storing the data itself
     (e.g. writing it to a file or storing it in memory).
+
     Args:
         state (State): The training state.
         destinations (Sequence[LoggerDestination]):
