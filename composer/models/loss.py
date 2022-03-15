@@ -240,19 +240,19 @@ def soft_cross_entropy(input: Tensor,
             xentropy *= weight / weight.sum()  # allow broadcast along batch dim
 
         xentropy = xentropy.sum(dim=1)
+        num_examples = torch.numel(xentropy)
 
         if reduction == 'sum':
             xentropy = xentropy.sum()
         elif reduction == 'mean':
-            # Reweight loss to account for examples with less than 1 total probability (ignored examples)
-            mask = target.sum(dim=1)
-            if mask.min() < 1:
-                warnings.warn("Some targets have less than 1 total probability.")
-            mask[mask < 1] = 0
-            num_examples = torch.numel(xentropy)
-            xentropy *= mask
             xentropy = xentropy.mean()
-            xentropy *= num_examples / mask.sum()
+
+        # Reweight loss to account for examples with less than 1 total probability (ignored examples)
+        total_prob = target.sum()
+        assert total_prob > 0, "No targets have nonzero probability"
+        if total_prob < num_examples:
+            warnings.warn("Some targets have less than 1 total probability.")
+        xentropy *= num_examples / total_prob
 
         return xentropy
     else:
