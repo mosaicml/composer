@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Type, Union, cast
+from typing import Optional, Sequence, Type, Union, cast
 
 import torch
 
 from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, FactorizedLinear,
                                                              factorizing_could_speedup)
 from composer.core import Algorithm, Event, Logger, State
+from composer.core.types import Optimizer
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ def apply_factorization(model: torch.nn.Module,
                         latent_channels: Union[int, float] = 0.25,
                         min_features: int = 512,
                         latent_features: Union[int, float] = 0.25,
-                        optimizers: Optional[torch.optim.Optimizer] = None) -> torch.nn.Module:
+                        optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
     """Replaces :class:`~torch.nn.Linear` and :class:`~torch.nn.Conv2d` modules and with
     :class:`~composer.algorithms.factorize.FactorizedLinear` and
     :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
@@ -60,8 +61,8 @@ def apply_factorization(model: torch.nn.Module,
             ``min(in_features, out_features)`` for each :class:`~torch.nn.Linear`
             module, and is converted to the equivalent integer value, with a
             minimum of 1. Default: ``0.25``.
-        optimizers (torch.optim.Optimizer, optional):  Existing optimizers bound to
-            ``model.parameters()``. All optimizers that have already been
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
+            Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so
             they will optimize the correct parameters.
 
@@ -215,7 +216,7 @@ def _python_log_surgery_result(model: torch.nn.Module, new_class: Type[torch.nn.
 def _factorize_conv2d_modules(model: torch.nn.Module,
                               min_channels: int = 512,
                               latent_channels: Union[int, float] = 0.25,
-                              optimizers: Optional[torch.optim.Optimizer] = None):
+                              optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None):
     """Replaces :class:`~torch.nn.Conv2d` modules in ``model`` with
     :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
 
@@ -239,7 +240,7 @@ def _factorize_conv2d_modules(model: torch.nn.Module,
 def _factorize_linear_modules(model: torch.nn.Module,
                               min_features: int = 512,
                               latent_features: Union[int, float] = 0.25,
-                              optimizers: Optional[torch.optim.Optimizer] = None):
+                              optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None):
     """Replaces :class:`~torch.nn.Linear` modules in ``model`` with
     :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
 

@@ -5,8 +5,8 @@ from typing import List, Optional
 import pytest
 import torch
 import torch.nn as nn
+from torchmetrics import MetricCollection
 from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics.collections import MetricCollection
 
 from composer.core.state import State
 from composer.core.types import DataLoader, Evaluator, Tensor

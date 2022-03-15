@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Optional
+from typing import Optional, Sequence, Union
 
 import numpy as np
 import torch
 
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Algorithm, Event, Logger, State
+from composer.core.types import Optimizer
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ def apply_blurpool(model: torch.nn.Module,
                    replace_convs: bool = True,
                    replace_maxpools: bool = True,
                    blur_first: bool = True,
-                   optimizers: Optional[torch.optim.Optimizer] = None) -> torch.nn.Module:
+                   optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
     """Add anti-aliasing filters to the strided :class:`torch.nn.Conv2d` and/or :class:`torch.nn.MaxPool2d` modules
     within `model`.
 
@@ -39,8 +40,8 @@ def apply_blurpool(model: torch.nn.Module,
             overhead (though more closely matching
             `the paper <http://proceedings.mlr.press/v97/zhang19a.html>`_).
             See :class:`.BlurConv2d` for further discussion. Default: ``True``.
-        optimizers (torch.optim.Optimizer, optional):  Existing optimizers bound to
-            ``model.parameters()``. All optimizers that have already been
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
+            Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so
             they will optimize the correct parameters.
 

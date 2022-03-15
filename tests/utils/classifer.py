@@ -5,8 +5,8 @@ from typing import Optional, Sequence
 import torch
 import torch.nn.functional as F
 from torch import optim
+from torchmetrics import MetricCollection
 from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics.collections import MetricCollection
 
 from composer import Algorithm, Engine, Event, Logger, State
 from composer.core.types import DataLoader, Evaluator, Optimizer, Precision

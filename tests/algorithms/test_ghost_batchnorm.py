@@ -3,11 +3,12 @@
 """Test Ghost Batch Normalization, both as an algorithm and module."""
 
 import math
-from typing import TYPE_CHECKING, Any, Sequence, Tuple, Union, cast
+from typing import Any, Sequence, Tuple, Union, cast
 from unittest.mock import MagicMock, Mock
 
 import pytest
 import torch
+from torchmetrics import Metric, MetricCollection
 
 from composer.algorithms import GhostBatchNormHparams
 from composer.algorithms import ghost_batchnorm as ghostbn
@@ -16,10 +17,6 @@ from composer.core import Event, State
 from composer.core.types import Batch, Tensor
 from composer.models.base import ComposerModel
 from composer.utils import module_surgery
-
-if TYPE_CHECKING:
-    from torchmetrics.collections import MetricCollection
-    from torchmetrics.metric import Metric
 
 _GHOSTBN_MODULE_CLASS = _GhostBatchNorm
 _GHOSTBN_CORRECT_EVENT = Event.INIT

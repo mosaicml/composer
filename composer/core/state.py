@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.core.evaluator import Evaluator
+    from composer.core.types import Optimizer
     from composer.profiler import Profiler
 
 __all__ = ["State"]
@@ -104,7 +105,7 @@ class State(Serializable):
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
         precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
-        optimizers (torch.optim.Optimizer, optional): The optimizer being used to train the model.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to train the model.
             Multiple optimizers are not currently supported.
         schedulers (:attr:`~.types.PyTorchScheduler` | Sequence[:attr:`~.types.PyTorchScheduler`], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
@@ -178,7 +179,7 @@ class State(Serializable):
             precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
 
             # optimizers
-            optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]] = None,
+            optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 
             # scaler
             scaler: Optional[types.Scaler] = None,
@@ -263,7 +264,7 @@ class State(Serializable):
         return self._optimizers
 
     @optimizers.setter
-    def optimizers(self, optimizers: torch.optim.Optimizer):
+    def optimizers(self, optimizers: Union[Optimizer, Sequence[Optimizer]]):
         self._optimizers[:] = ensure_tuple(optimizers)
 
     @property

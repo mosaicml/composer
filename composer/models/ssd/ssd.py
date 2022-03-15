@@ -3,22 +3,18 @@
 import os
 import tempfile
 import textwrap
-from typing import TYPE_CHECKING, Any, Sequence, Tuple, Union
+from typing import Any, Sequence, Tuple, Union
 
 import numpy as np
 import requests
 from torch import Tensor
-from torchmetrics import Metric
+from torchmetrics import Metric, MetricCollection
 
 from composer.core.types import BatchPair, Tensor
 from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
-
-if TYPE_CHECKING:
-    from torchmetrics.collections import MetricCollection
-    from torchmetrics.metric import Metric
 
 __all__ = ["SSD"]
 

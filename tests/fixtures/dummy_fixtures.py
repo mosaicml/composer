@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, Mock
 import pytest
 import torch
 import torch.utils.data
+from torchmetrics import MetricCollection
 from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics.collections import MetricCollection
 
 from composer import Logger, State
 from composer.core.evaluator import Evaluator

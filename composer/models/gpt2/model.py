@@ -9,14 +9,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping, Union
 
-from torchmetrics.collections import MetricCollection
+from torchmetrics import Metric, MetricCollection
 
 from composer.models.nlp_metrics import Perplexity
 from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
     import transformers
-    from torchmetrics.metric import Metric
 
     from composer.core.types import Batch, Sequence, Tensor
 

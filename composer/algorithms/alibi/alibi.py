@@ -9,11 +9,12 @@ import logging
 import math
 from operator import attrgetter
 from types import MethodType, ModuleType
-from typing import Any, Callable, Optional, Tuple, Type, Union, cast
+from typing import Any, Callable, Optional, Sequence, Tuple, Type, Union, cast
 
 import torch
 
 from composer.core import Algorithm, Event, Logger, State
+from composer.core.types import Optimizer
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ def apply_alibi(
     attr_to_replace: str,
     alibi_attention: Callable,
     mask_replacement_function: Optional[Callable[[torch.nn.Module, int], torch.nn.Module]] = None,
-    optimizers: Optional[torch.opim.Optimizer] = None,
+    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
     according as per :class:`~composer.algorithms.alibi.alibi.Alibi`. Note that the
@@ -81,10 +82,10 @@ def apply_alibi(
             ``max_sequence_length``. For example,
             ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default: ``None``,
             which means no modification of the model's default attention mask.
-        optimizers (torch.optim.Optimizer, optional): Existing optimizers bound to ``model.parameters()``.
-            All optimizers that have already been constructed with
-            ``model.parameters()`` must be specified here so they will optimize
-            the correct parameters. Default: ``None``.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
+            Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
+            constructed with ``model.parameters()`` must be specified here so
+            they will optimize the correct parameters.
 
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct

@@ -4,19 +4,16 @@
 
 import logging
 import textwrap
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.nn as nn
+from torchmetrics import Metric, MetricCollection
 
 from composer.core.types import BatchPair, Tensor
 from composer.models.base import ComposerModel
 from composer.models.loss import Dice
 from composer.models.unet.model import UNet as UNetModel
-
-if TYPE_CHECKING:
-    from torchmetrics.collections import MetricCollection
-    from torchmetrics.metric import Metric
 
 log = logging.getLogger(__name__)
 

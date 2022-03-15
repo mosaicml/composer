@@ -4,18 +4,15 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Tuple, Union
 
 import torch
 from torch import Tensor
+from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import Accuracy
-from torchmetrics.collections import MetricCollection
 
 from composer.core.types import Batch, BatchPair
 from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
-
-if TYPE_CHECKING:
-    from torchmetrics.metric import Metric
 
 __all__ = ["ComposerClassifier", "ComposerModel"]
 

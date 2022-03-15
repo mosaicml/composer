@@ -6,15 +6,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Mapping, Union
 
-from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, SpearmanCorrcoef
-from torchmetrics.collections import MetricCollection
+from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, Metric, MetricCollection, SpearmanCorrcoef
 
 from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
 from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
     import transformers
-    from torchmetrics.metric import Metric
 
     from composer.core.types import Batch, BatchDict, BatchPair, Sequence, Tensor
 

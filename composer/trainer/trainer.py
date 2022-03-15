@@ -80,8 +80,7 @@ import torch.distributed
 import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
-from torchmetrics.collections import MetricCollection
-from torchmetrics.metric import Metric
+from torchmetrics import Metric, MetricCollection
 
 import composer
 from composer.algorithms import ScaleSchedule

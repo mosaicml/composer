@@ -15,8 +15,7 @@ from composer.models.base import ComposerModel
 from composer.utils import module_surgery
 
 if TYPE_CHECKING:
-    from torchmetrics.collections import MetricCollection
-    from torchmetrics.metric import Metric
+    from torchmetrics import Metric, MetricCollection
 
     from composer.core.types import Batch
 
