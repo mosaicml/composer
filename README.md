@@ -101,102 +101,50 @@ You can use Composer's speedup methods in two ways:
 
 #### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb)
 
-For users who wish to integrate Composer's speedup methods into their existing training code, we provide stateless functional implementations of these methods.
+Integrate our speed-up methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/en/latest/method_cards/blurpool.html) and SqueezeExcite:
 
-The following example highlights using [BlurPool](https://docs.mosaicml.com/en/latest/method_cards/blurpool.html), which applies an anti-aliasing filter before every downsampling operation in convolutional neural networks like ResNet.
 
 ```python
-import torchvision
-from torch.nn import CrossEntropyLoss
-from torch.optim import Adam
-from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
-from tqdm import tqdm
+import composer.functional as cf
+from torchvision import models
 
-from composer import functional as cf
-from composer.models.classify_mnist.model import Model as MNISTModel
+my_model = models.resnet18()
 
-# Setup.
-model = MNISTModel(initializers=[], num_classes=10)
-num_epochs = 2
+# add blurpool and squeeze excite layers
+model = cf.apply_blurpool(my_model)
+model = cf.apply_squeeze_excite(my_model)
 
-# Configure the train dataset.
-transform = transforms.ToTensor()
-train_dataloader = DataLoader(
-    datasets.MNIST('.data/', transform=transform, download=True, train=True),
-    batch_size=64,
-)
-optimizer = Adam(model.parameters())
-scheduler = CosineAnnealingLR(optimizer, T_max=2)
-criterion = CrossEntropyLoss()
-
-# Replace eligible layers in the network with a BlurPool-enabled layer.
-# Uses Composer's "model surgery" functionality to do so.
-model = cf.apply_blurpool(model,
-                          replace_convs=True,
-                          replace_maxpools=True,
-                          blur_first=True)
-
-# Main training loop.
-for epoch in tqdm(range(num_epochs)):
-    for inputs, labels in train_dataloader:
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        smoothed_targets = cf.smooth_labels(outputs, labels, smoothing=0.1)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-    scheduler.step()
+# your own training code starts here
 ```
 
-See the example [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) for more.
+For more examples, see the [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) and [Functional API guide](https://docs.mosaicml.com/en/latest/functional_api.html).
 
 #### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb)
 
 For the best experience and the most efficient possible training, we recommend using Composer's built-in trainer, which automatically takes care of the low-level details of using speedup methods and provides useful abstractions that facilitate rapid experimentation.
 
 ```python
-import torch
-from torch.optim import Adam
-from torch.optim.lr_scheduler import CosineAnnealingLR
+ifrom torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
 
-from composer import Trainer, models
-from composer.algorithms import BlurPool, LabelSmoothing
+from composer import Trainer
+from composer.models import MNIST_Classifier
+from composer.algorithms import LabelSmoothing, CutMix, ChannelsLast
 
-# Configure the train and eval datasets.
-transform = transforms.ToTensor()
-train_dataloader = DataLoader(
-    datasets.MNIST('.data/', transform=transform, download=True, train=True),
-    batch_size=64,
-)
-eval_dataloader = DataLoader(
-    datasets.MNIST('.data/', transform=transform, download=True, train=False),
-    batch_size=64,
-)
+transform = transforms.Compose([transforms.ToTensor()])
+dataset = datasets.MNIST("data", train=True, download=True, transform=transform)
+train_dataloader = DataLoader(dataset, batch_size=128)
 
-# Create the model and optimizer.
-model = models.MNIST_Classifier(num_classes=10)
-optimizer = Adam(model.parameters())
-
-# Create the speedup methods.
-algorithms = [
-    LabelSmoothing(smoothing=0.1),
-    BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True)
-]
-
-# Create the trainer and kick off training.
 trainer = Trainer(
-    model=model,
-    # add algorithms below
-    algorithms=algorithms,
+    model=MNIST_Classifier(num_classes=10),
     train_dataloader=train_dataloader,
-    eval_dataloader=eval_dataloader,
-    optimizers=optimizer,
-    schedulers=CosineAnnealingLR(optimizer, T_max=2),
-    max_duration="2ep")
+    max_duration="2ep",
+    algorithms=[
+        LabelSmoothing(smoothing=0.1),
+        CutMix(num_classes=10),
+        ChannelsLast(),
+        ]
+)
 trainer.fit()
 ```
 
