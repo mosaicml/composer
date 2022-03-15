@@ -2,7 +2,7 @@
 ====================
 
 Composer has a curated collection of speedup methods ("Algorithms") that can be composed together
-to easily create efficient training recipes. We've
+to easily create efficient training recipes.
 
 Below is a brief overview of the algorithms currently in Composer.
 For more detailed information about each algorithm, see the :doc:`method cards</method_cards/methods_overview>`,
