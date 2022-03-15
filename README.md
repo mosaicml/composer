@@ -1,13 +1,12 @@
 <br /><br />
 <p align="center">
-    <img src="https://docs.mosaicml.com/en/stable/_static/header_light.svg#gh-light-mode-only" class="only-light" width="70%"/>
-    <img src="https://docs.mosaicml.com/en/stable/_static/header_dark.svg#gh-dark-mode-only" class="only-dark" width="70%"/>
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_light.svg#gh-light-mode-only" class="only-light" width="70%"/>
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_dark.svg#gh-dark-mode-only" class="only-dark" width="70%"/>
 </p>
 <br />
 
 <h1><p align="center">A PyTorch Library for Efficient Neural Network Training</p></h1>
 <h2><p align="center">Train Faster, Reduce Cost, Get Better Models</p></h2>
-
 
 <h3><p align='center'>
 <a href="https://www.mosaicml.com">[Website]</a>
@@ -45,8 +44,8 @@ Composer is a library written in PyTorch that makes it possible to <b>train neur
 It contains implementations of standard neural network benchmarks like ResNets for image classification, GPT and BERT models for language modeling, DeepLab and UNet for segmentation, and SSD for object detection.
 
 <p align="center">
-<img src="https://docs.mosaicml.com/en/stable/_static/images/cost_graph_light.svg#gh-light-mode-only" class="only-light" width="85%"/>
-<img src="https://docs.mosaicml.com/en/stable/_static/images/cost_graph_dark.svg#gh-dark-mode-only" class="only-dark" width="85%"/>
+<img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-light-mode-only" class="only-light" width="85%"/>
+<img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_dark.svg#gh-dark-mode-only" class="only-dark" width="85%"/>
 </p>
 
 Composer is designed to train these benchmarks and your custom benchmarks <b>as efficiently as possible</b>.
