@@ -10,7 +10,8 @@ from torch.utils.data import DataLoader
 
 from composer.algorithms import ColOut, ColOutHparams
 from composer.algorithms.colout.colout import ColOutTransform, colout_batch
-from composer.core import Event, Logger, State
+from composer.core import Event, State
+from composer.loggers import Logger
 from tests.common import RandomImageDataset
 
 

@@ -12,23 +12,22 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 from torch import Tensor
 
-from composer.core.logging import LoggerCallback, LogLevel, TLogData
-from composer.core.logging.logger import TLogDataValue
 from composer.core.time import Timestamp
+from composer.loggers.logger import LoggerData, LoggerDataDict, LogLevel
+from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ["InMemoryLogger"]
 
 
-class InMemoryLogger(LoggerCallback):
+class InMemoryLogger(LoggerDestination):
     """Logs metrics to dictionary objects that persist in memory throughout training. Useful for collecting and plotting
     data inside notebooks.
 
     Example usage:
         .. testcode::
 
-            from composer.loggers import InMemoryLogger
+            from composer.loggers import InMemoryLogger, LogLevel
             from composer.trainer import Trainer
-            from composer.core.logging import LogLevel
             logger = InMemoryLogger(
                 log_level=LogLevel.BATCH
             )
@@ -41,8 +40,8 @@ class InMemoryLogger(LoggerCallback):
                 loggers=[logger]
             )
             # Get data from logger. If you are using multiple loggers, be sure to confirm
-            # which index in trainer.logger.backends contains your desired logger.
-            logged_data = trainer.logger.backends[0].data
+            # which index in trainer.logger.destinations contains your desired logger.
+            logged_data = trainer.logger.destinations[0].data
 
     Args:
         log_level (str or LogLevel, optional):
@@ -54,20 +53,20 @@ class InMemoryLogger(LoggerCallback):
     Attributes:
         data (dict): Mapping of a logged key to a
             (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`,
-            :attr:`~.logger.TLogDataValue`) tuple. This dictionary contains all logged
+            :attr:`~.LoggerDataDict`) tuple. This dictionary contains all logged
             data.
-        most_recent_values (Dict[str, TLogData]): Mapping of a key to the most recent value for that key.
+        most_recent_values (LoggerDataDict): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
     """
 
     def __init__(self, log_level: Union[str, LogLevel] = LogLevel.BATCH) -> None:
         self.log_level = LogLevel(log_level)
-        self.data: Dict[str, List[Tuple[Timestamp, LogLevel, TLogDataValue]]] = {}
-        self.most_recent_values: Dict[str, TLogDataValue] = {}
+        self.data: Dict[str, List[Tuple[Timestamp, LogLevel, LoggerData]]] = {}
+        self.most_recent_values: LoggerDataDict = {}
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
 
-    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
+    def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict):
         if log_level > self.log_level:
             # the logged metric is more verbose than what we want to record.
             return
@@ -75,17 +74,17 @@ class InMemoryLogger(LoggerCallback):
             if k not in self.data:
                 self.data[k] = []
             self.data[k].append((timestamp, log_level, v))
-        self.most_recent_values.update(data)
+        self.most_recent_values.update(data.items())
         self.most_recent_timestamps.update({k: timestamp for k in data})
 
-    def get_timeseries(self, metric: str) -> Dict[str, TLogData]:
+    def get_timeseries(self, metric: str) -> Dict[str, LoggerData]:
         """Returns logged data as dict containing values of a desired metric over time.
 
         Args:
             metric (str): Metric of interest. Must be present in self.data.keys().
 
         Returns:
-            timeseries (Dict[str, TLogData]): Dictionary in which one key is ``metric``,
+            timeseries (Dict[str, LoggerData]): Dictionary in which one key is ``metric``,
                 and the associated value is a list of values of that metric. The remaining
                 keys are each a unit of time, and the associated values are each a list of
                 values of that time unit for the corresponding index of the metric. For
@@ -99,9 +98,8 @@ class InMemoryLogger(LoggerCallback):
 
                 import matplotlib.pyplot as plt
 
-                from composer.core.logging import LogLevel
+                from composer.loggers import InMemoryLogger, LogLevel
                 from composer.core.time import Time, Timestamp
-                from composer.loggers import InMemoryLogger
 
                 in_mem_logger = InMemoryLogger(LogLevel.BATCH)
 
@@ -115,7 +113,7 @@ class InMemoryLogger(LoggerCallback):
                                         sample_in_epoch=Time(0, "sp"),
                                         token=Time(0, "tok"),
                                         token_in_epoch=Time(0, "tok"))
-                    in_mem_logger.log_metric(timestamp=timestamp, 
+                    in_mem_logger.log_data(timestamp=timestamp, 
                         log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
                 timeseries = in_mem_logger.get_timeseries("accuracy/val")
                 plt.plot(timeseries["batch"], timeseries["accuracy/val"])

@@ -13,8 +13,9 @@ import torch
 import torch.nn.functional as F
 from torchvision import transforms
 
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.types import Tensor
+from composer.loggers import Logger
 from composer.models.loss import _check_for_index_targets
 
 log = logging.getLogger(__name__)
@@ -210,7 +211,7 @@ class ProgressiveResizing(Algorithm):
         state.batch = (new_input, new_target)
 
         if logger is not None:
-            logger.metric_batch({
+            logger.data_batch({
                 "progressive_resizing/height": new_input.shape[2],
                 "progressive_resizing/width": new_input.shape[3],
                 "progressive_resizing/scale_factor": scale_factor

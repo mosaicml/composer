@@ -4,7 +4,7 @@
 
 from typing import Type
 
-from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCallbackHparams,
+from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
                                              TQDMLoggerHparams, WandBLoggerHparams)
 
 __all__ = ["get_logger_hparams", "logger_registry"]
@@ -17,14 +17,14 @@ logger_registry = {
 }
 
 
-def get_logger_hparams(name: str) -> Type[LoggerCallbackHparams]:
-    """Returns LoggerCallbackHparams class for a given logger type.
+def get_logger_hparams(name: str) -> Type[LoggerDestinationHparams]:
+    """Returns LoggerDestinationHparams class for a given logger type.
 
     Args:
         name (str): Logger type of the returned hparams object.  One of
                             (``"file"``, ``"wandb"``, ``"tqdm``, ``"in_memory"``).
 
     Returns:
-        Type[LoggerCallbackHparams]: LoggerCallbackHparams of specified type.
+        Type[LoggerDestinationHparams]: LoggerDestinationHparams of specified type.
     """
     return logger_registry[name]

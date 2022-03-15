@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 from composer.core.serializable import Serializable
 
 if TYPE_CHECKING:
-    from composer import Event, Logger, State
+    from composer import Event, State
+    from composer.loggers import Logger
 
 __all__ = ["Callback"]
 
