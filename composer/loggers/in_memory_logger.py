@@ -7,11 +7,13 @@ Useful for collecting and plotting data inside notebooks.
 
 from __future__ import annotations
 
+import copy
 from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from torch import Tensor
 
+from composer.core.state import State
 from composer.core.time import Timestamp
 from composer.loggers.logger import LoggerData, LoggerDataDict, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
@@ -66,16 +68,18 @@ class InMemoryLogger(LoggerDestination):
         self.most_recent_values: LoggerDataDict = {}
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
 
-    def log_data(self, timestamp: Timestamp, log_level: LogLevel, data: LoggerDataDict):
+    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
         if log_level > self.log_level:
             # the logged metric is more verbose than what we want to record.
             return
-        for k, v in data.items():
+        timestamp = state.timer.get_timestamp()
+        copied_data = copy.deepcopy(data)
+        for k, v in copied_data.items():
             if k not in self.data:
                 self.data[k] = []
             self.data[k].append((timestamp, log_level, v))
-        self.most_recent_values.update(data.items())
-        self.most_recent_timestamps.update({k: timestamp for k in data})
+        self.most_recent_values.update(copied_data.items())
+        self.most_recent_timestamps.update({k: timestamp for k in copied_data})
 
     def get_timeseries(self, metric: str) -> Dict[str, LoggerData]:
         """Returns logged data as dict containing values of a desired metric over time.
@@ -84,7 +88,7 @@ class InMemoryLogger(LoggerDestination):
             metric (str): Metric of interest. Must be present in self.data.keys().
 
         Returns:
-            timeseries (Dict[str, LoggerData]): Dictionary in which one key is ``metric``,
+            timeseries (LoggerDataDict): Dictionary in which one key is ``metric``,
                 and the associated value is a list of values of that metric. The remaining
                 keys are each a unit of time, and the associated values are each a list of
                 values of that time unit for the corresponding index of the metric. For
@@ -106,15 +110,8 @@ class InMemoryLogger(LoggerDestination):
                 # Populate the logger with data
                 for b in range(0,3):
                     datapoint = b * 3
-                    timestamp = Timestamp(epoch=Time(0, "ep"),
-                                        batch=Time(b, "ba"),
-                                        batch_in_epoch=Time(0, "ba"),
-                                        sample=Time(0, "sp"),
-                                        sample_in_epoch=Time(0, "sp"),
-                                        token=Time(0, "tok"),
-                                        token_in_epoch=Time(0, "tok"))
-                    in_mem_logger.log_data(timestamp=timestamp, 
-                        log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+                    in_mem_logger.log_data(state=state, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+
                 timeseries = in_mem_logger.get_timeseries("accuracy/val")
                 plt.plot(timeseries["batch"], timeseries["accuracy/val"])
                 plt.xlabel("Batch")
