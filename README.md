@@ -140,10 +140,11 @@ trainer = Trainer(
     train_dataloader=train_dataloader,
     max_duration="2ep",
     algorithms=[
-        LabelSmoothing(smoothing=0.1),
-        CutMix(num_classes=10),
+        BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
         ChannelsLast(),
-        ]
+        CutMix(num_classes=10),
+        LabelSmoothing(smoothing=0.1),
+    ]
 )
 trainer.fit()
 ```
