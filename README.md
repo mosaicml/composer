@@ -63,8 +63,8 @@ In summary, Composer features:
 
 Composer offers significant reductions in training time and cost. Using Composer, you can:
 
-- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for $43 in 1 hour and 20 minutes (_with vanilla PyTorch:_ $127 in 3 hours and 53 minutes) on AWS.
-- Train a GPT-2 125M to a standard perplexity of 23.9 for $142 in 4 hours and 34 minutes (_with vanilla PyTorch_: $255 in 7 hours and 47 minutes) on AWS.
+- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for $40 in 1 hour and 20 minutes (_with vanilla PyTorch:_ $116 in 3 hours and 53 minutes) on AWS.
+- Train a GPT-2 125M to a standard perplexity of 23.9 for $145 in 4 hours and 34 minutes (_with vanilla PyTorch_: $255 in 7 hours and 47 minutes) on AWS.
 - Use these speedup methods on your own models in your own training loop.
 
 ### The Latest Research on Efficient Training
