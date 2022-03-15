@@ -1,7 +1,11 @@
 <br /><br />
 <p align="center">
-    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_light.svg#gh-light-mode-only" class="only-light" width="70%"/>
-    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_dark.svg#gh-dark-mode-only" class="only-dark" width="70%"/>
+    <a href="https://github.com/mosaicml/composer#gh-light-mode-only" class="only-light">
+      <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_light.svg" width="70%"/>
+    </a>
+    <a href="https://github.com/mosaicml/composer#gh-dark-mode-only" class="only-dark">
+      <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_dark.svg#gh-dark-mode-only" class="only-dark" width="70%"/>
+    </a>
 </p>
 <br />
 
