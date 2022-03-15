@@ -275,7 +275,9 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
 
     def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> ObjectStoreLogger:
         return ObjectStoreLogger(
-            object_store_hparams=self.object_store_hparams,
+            provider=self.object_store_hparams.provider,
+            container=self.object_store_hparams.container,
+            provider_kwargs=self.object_store_hparams.get_provider_kwargs(),
             object_name_format=self.object_name_format,
             should_log_artifact=import_object(self.should_log_artifact)
             if self.should_log_artifact is not None else None,

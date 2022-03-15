@@ -124,11 +124,11 @@ class ObjectStoreHparams(hp.Hparams):
     extra_init_kwargs: Dict[str, Any] = hp.optional(
         "Extra keyword arguments to pass into the constructor for the specified provider.", default_factory=dict)
 
-    def initialize_object(self):
-        """Returns an instance of :class:`ObjectStore`.
+    def get_provider_kwargs(self) -> Dict[str, Any]:
+        """Returns the ``provider_kwargs`` argument, which is used to construct a :class:`.ObjectStore`.
 
         Returns:
-            ObjectStore: The provider.
+            Dict[str, Any]: The ``provider_kwargs`` for use in constructing an :class:`.ObjectStore`.
         """
         init_kwargs = {}
         for key in ("host", "port", "region"):
@@ -138,10 +138,19 @@ class ObjectStoreHparams(hp.Hparams):
         init_kwargs["key"] = None if self.key_environ is None else os.environ[self.key_environ]
         init_kwargs["secret"] = None if self.secret_environ is None else os.environ[self.secret_environ]
         init_kwargs.update(self.extra_init_kwargs)
+        return init_kwargs
+
+    def initialize_object(self):
+        """Returns an instance of :class:`.ObjectStore`.
+
+        Returns:
+            ObjectStore: The object_store.
+        """
+
         return ObjectStore(
             provider=self.provider,
             container=self.container,
-            provider_init_kwargs=init_kwargs,
+            provider_kwargs=self.get_provider_kwargs(),
         )
 
 
@@ -152,15 +161,15 @@ class ObjectStore:
 
     Here's an example for an Amazon S3 bucket named ``MY_CONTAINER``:
 
-    >>> provider = ObjectStore(
+    >>> object_store = ObjectStore(
     ...     provider="s3",
     ...     container="MY_CONTAINER",
-    ...     provider_init_kwargs={
+    ...     provider_kwargs={
     ...         "key": "AKIA...",
     ...         "secret": "*********",
     ...     }
     ... )
-    >>> provider
+    >>> object_store
     <composer.utils.object_store.ObjectStore object at ...>
 
     Args:
@@ -185,7 +194,7 @@ class ObjectStore:
             .. seealso:: :doc:`Full list of libcloud providers <libcloud:storage/supported_providers>`
 
         container (str): The name of the container (i.e. bucket) to use.
-        provider_init_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
+        provider_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
             for the specified provider. These arguments would usually include the cloud region
             and credentials.
             
@@ -202,11 +211,11 @@ class ObjectStore:
             .. seealso:: :class:`libcloud.storage.base.StorageDriver`
     """
 
-    def __init__(self, provider: str, container: str, provider_init_kwargs: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, provider: str, container: str, provider_kwargs: Optional[Dict[str, Any]] = None) -> None:
         provider_cls = get_driver(provider)
-        if provider_init_kwargs is None:
-            provider_init_kwargs = {}
-        self._provider = provider_cls(**provider_init_kwargs)
+        if provider_kwargs is None:
+            provider_kwargs = {}
+        self._provider = provider_cls(**provider_kwargs)
         self._container = self._provider.get_container(container)
 
     @property

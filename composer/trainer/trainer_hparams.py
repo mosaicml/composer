@@ -319,7 +319,7 @@ class TrainerHparams(hp.Hparams):
         If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
         leave blank. This parameter has no effect if `load_path_format` is not specified."""),
-                                                                          default=None)
+                                                                  default=None)
     load_weights_only: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to only load the weights from the model.
         This parameter has no effect if `load_path_format`is not specified."""),

@@ -291,7 +291,7 @@ class Trainer:
                          "secret": "object_store_secret"}
                 store = ObjectStore(provider="s3",
                                             container="my_container",
-                                            provider_init_kwargs=creds)
+                                            provider_kwargs=creds)
 
                 checkpoint_path = "/path_to_the_checkpoint_in_object_store"
 
