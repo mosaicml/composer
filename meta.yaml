@@ -5,9 +5,7 @@ package:
   version: "0.4.0"
 
 source:
-  git_url: https://github.com/mosaicml/composer.git
-  git_rev: "v0.4.0"
-  git_depth: -1
+  git_url: ./
 
 build:
   number: 0
