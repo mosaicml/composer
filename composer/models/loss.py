@@ -141,6 +141,20 @@ def _infer_target_type(input: Tensor, targets: Tensor) -> str:
 
 
 def ensure_targets_one_hot(input: Tensor, targets: Tensor, num_classes: Optional[float] = None) -> Tensor:
+    """Ensures that the targets are in a one-hot format rather than an index format.
+
+    Args:
+        input (torch.Tensor): :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
+            in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`
+            in the case of K-dimensional loss. `input` is expected to contain unnormalized scores
+            (often referred to as logits).
+        target (torch.Tensor): If containing class indices, shape :math:`(N)` where each value is
+            :math:`0 \leq \text{targets}[i] \leq C-1`, or :math:`(N, d_1, d_2, ..., d_K)` with
+            :math:`K \geq 1` in the case of K-dimensional loss. If containing class probabilities,
+            same shape as the input.
+        num_classes (int, optional): Number of classes. If not specified, this will be inferred
+            from input. Default: ``None``
+    """
     if _infer_target_type(input, targets) == 'indices':
         # If the number of classes isn't specified, attempt to infer it from the input
         if num_classes is None:
@@ -225,18 +239,19 @@ def soft_cross_entropy(input: Tensor,
             xentropy *= weight / weight.sum()  # allow broadcast along batch dim
 
         xentropy = xentropy.sum(dim=1)
-        num_examples = torch.numel(xentropy)
 
         if reduction == 'sum':
             xentropy = xentropy.sum()
         elif reduction == 'mean':
-            xentropy = xentropy.mean()
             # Reweight loss to account for examples with less than 1 total probability (ignored examples)
-            total_prob = target.sum()
-            assert total_prob > 0, "No targets have nonzero probability"
-            if total_prob < num_examples:
+            mask = target.sum(dim=1)
+            if mask.min() < 1:
                 warnings.warn("Some targets have less than 1 total probability.")
-            xentropy *= num_examples / total_prob
+            mask[mask < 1] = 0
+            num_examples = torch.numel(xentropy)
+            xentropy *= mask
+            xentropy = xentropy.mean()
+            xentropy *= num_examples / mask.sum()
 
         return xentropy
     else:
