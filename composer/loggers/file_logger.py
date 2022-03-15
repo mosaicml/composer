@@ -64,10 +64,8 @@ class FileLogger(LoggerDestination):
 
     Args:
         filename (str): Filepath to log to, relative to the :mod:`~.composer.utils.run_directory`.
-        capture_stdout (bool, optional): If ``True`` (the default), writes to ``stdout`` will be included in
-            ``filename``.
-        capture_stderr (bool, optional): If ``True`` (the default), writes to ``stderr`` will be included in
-            ``filename``.
+        capture_stdout (bool, optional): Whether to include the ``stdout``in ``filename``. (default: ``True``)
+        capture_stderr (bool, optional): Whether to include the ``stderr``in ``filename``. (default: ``True``)
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
             Default: ``1`` for line buffering.
         log_level (LogLevel, optional):
@@ -155,10 +153,10 @@ class FileLogger(LoggerDestination):
     def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
         if not self._will_log(log_level):
             return
-        data_str = format_log_data_value(data) + "\n"
+        data_str = format_log_data_value(data)
         self.write(
             f'[{log_level.name}][batch={int(state.timer.batch)}]: ',
-            data_str,
+            data_str + "\n",
         )
 
     def init(self, state: State, logger: Logger) -> None:
