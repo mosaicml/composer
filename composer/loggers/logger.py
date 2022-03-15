@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """Base classes, functions, and variables for logger.
+
 Attributes:
      LoggerData: Data value(s) to be logged. Can be any of the following types:
          ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[LoggerData]``;
@@ -13,11 +14,15 @@ from __future__ import annotations
 
 import collections.abc
 import operator
+import time
 from enum import IntEnum
 from functools import reduce
-from typing import TYPE_CHECKING, Dict, List, Sequence, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
 
+import coolname
 import torch
+
+from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -31,6 +36,7 @@ LoggerDataDict = Dict[str, LoggerData]
 
 class LogLevel(IntEnum):
     """LogLevel denotes when in the training loop log messages are generated.
+
     Logging destinations use the LogLevel to determine whether to record a given
     metric or state change.
     Attributes:
@@ -44,7 +50,8 @@ class LogLevel(IntEnum):
 
 
 class Logger:
-    r"""An interface to record training data.
+    """An interface to record training data.
+
     The :class:`~composer.trainer.trainer.Trainer`, instances of :class:`~composer.core.callback.Callback`, and
     instances of :class:`~composer.core.algorithm.Algorithm` invoke the logger to record data such as
     the epoch, training loss, and custom metrics as provided by individual callbacks and algorithms.
@@ -52,24 +59,65 @@ class Logger:
     Each destination (e.g. the :class:`~composer.loggers.file_logger.FileLogger`,
     :class:`~composer.loggers.in_memory_logger.InMemoryLogger`) is responsible for storing the data itself
     (e.g. writing it to a file or storing it in memory).
+
     Args:
         state (State): The training state.
         destinations (Sequence[LoggerDestination]):
             The logger destinations, to where logging data will be sent.
+        run_name (str, optional): The name for this training run.
+
+            If not specified, the timestamp will be combined with a :doc:`coolname <coolname:index>` like the
+            following:
+
+            .. testsetup:: composer.loggers.logger.Logger.__init__.run_name
+
+                import random
+                import coolname
+                import time
+
+                coolname.replace_random(random.Random(0))
+
+                original_time = time.time
+
+                time.time = lambda: 1647293526.1849217
+
+            .. doctest:: composer.loggers.logger.Logger.__init__.run_name
+
+                >>> logger = Logger(state=state, destinations=[])
+                >>> logger.run_name
+                '1647293526-electric-zebra'
+
+            .. testcleanup:: composer.loggers.logger.Logger.__init__.run_name
+
+                time.time = original_time
+
     Attributes:
         destinations (Sequence[LoggerDestination]):
-            A sequence of :class:`~.LoggerDestination` to where logging calls will be sent.    """
+            A sequence of :class:`~.LoggerDestination` to where logging calls will be sent.
+        run_name (str): The ``run_name``.
+    """
 
     def __init__(
             self,
             state: State,
             destinations: Sequence[LoggerDestination] = tuple(),
+            run_name: Optional[str] = None,
     ):
         self.destinations = destinations
+        if run_name is None:
+            # prefixing with the time so experiments sorted alphabetically will
+            # have the latest experiment last
+            run_name = str(int(time.time())) + "-" + coolname.generate_slug(2)
+            run_name_list = [run_name]
+            # ensure all ranks have the same experiment name
+            dist.broadcast_object_list(run_name_list)
+            run_name = run_name_list[0]
+        self.run_name = run_name
         self._state = state
 
     def data(self, log_level: Union[str, LogLevel], data: LoggerDataDict) -> None:
         """Log data to the :attr:`destinations`.
+
         Args:
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
             data (LoggerDataDict): The data to log.
@@ -95,6 +143,7 @@ class Logger:
 
 def format_log_data_value(data: LoggerData) -> str:
     """Recursively formats a given log data value into a string.
+
     Args:
         data: Data to format.
     Returns:
