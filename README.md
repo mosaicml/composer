@@ -101,7 +101,7 @@ You can use Composer's speedup methods in two ways:
 
 #### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb)
 
-Integrate our speed-up methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/en/latest/method_cards/blurpool.html) and SqueezeExcite:
+Integrate our speed-up methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/en/stable/method_cards/blurpool.html) and SqueezeExcite:
 
 
 ```python
