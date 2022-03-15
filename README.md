@@ -52,7 +52,7 @@ It contains implementations of standard neural network benchmarks like ResNets f
     <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg" width="85%"/>
   </a>
   <!-- link to the light mode image even on dark mode, so it will be readable in a new tab -->
-  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-dark-mode-only">
+  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-dark-mode-only" class="only-dark">
     <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_dark.svg" width="85%"/>
   </a>
 </p>
