@@ -44,6 +44,15 @@ def package_files(directory: str):
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
+# Hide the dark mode images when the images are rendered on PyPI.
+long_description = """
+<style>
+.only-dark {
+    display: none;
+}
+</style>
+""" + long_description
+
 install_requires = [
     "pyyaml>=5.4.1",
     "tqdm>=4.62.3",
