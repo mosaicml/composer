@@ -51,40 +51,39 @@ class ObjectStoreLogger(LoggerDestination):
 
            import os
            import functools
-           from composer.loggers import ObjectStoreLogger, object_store_logger
+           import composer.loggers.object_store_logger
+
+           from composer.loggers import ObjectStoreLogger
 
            # For this example, we do not validate credentials
-           def do_not_validate(
-               object_store_hparams: ObjectStoreHparams,
-               object_name_prefix: str,
-           ) -> None:
+           def do_not_validate(*args, **kwargs) -> None:
                pass
 
-           object_store_logger._validate_credentials = do_not_validate
+           composer.loggers.object_store_logger._validate_credentials = do_not_validate
            
-           os.environ['OBJECT_STORE_KEY'] = 'KEY'
-           os.environ['OBJECT_STORE_SECRET'] = 'SECRET'
            ObjectStoreLogger = functools.partial(
                ObjectStoreLogger,
                use_procs=False,
                num_concurrent_uploads=1,
            )
 
-        .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
+        .. testcode:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
 
-           >>> object_store_hparams = ObjectStoreHparams(
-           ...     provider="s3",
-           ...     container="run-dir-test",
-           ...     key_environ="OBJECT_STORE_KEY",
-           ...     secret_environ="OBJECT_STORE_SECRET",
-           ...     region="us-west-2",
-           ... )
-           >>> # Construct the Trainer with this logger destination
-           >>> object_store_logger = ObjectStoreLogger(object_store_hparams)
-           >>> trainer = Trainer(
-           ...     ...
-           ...     logger_destinations=[object_store_logger],
-           ... )
+            object_store_logger = ObjectStoreLogger(
+                provider="s3",
+                container="my-bucket",
+                provider_kwargs={
+                    'key': 'AKIA...',
+                    'secret': '*********',
+                    'region': 'us-west-2',
+                }
+            )
+            
+            # Construct the trainer using this logger
+            trainer = Trainer(
+                ...
+                logger_destinations=[object_store_logger],
+            )
         
         .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
 
