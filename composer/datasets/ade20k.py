@@ -230,7 +230,7 @@ class ADE20k(VisionDataset):
     """PyTorch Dataset for ADE20k.
 
     Args:
-        root (str): the path to the ADE20k folder.
+        datadir (str): the path to the ADE20k folder.
         split (str): the dataset split to use, either 'train', 'val', or 'test'. Default: ``'train'``.
         both_transforms (torch.nn.Module): transformations to apply to the image and target simultaneously.
             Default: ``None``.
@@ -238,23 +238,23 @@ class ADE20k(VisionDataset):
         target_transforms (torch.nn.Module): transformations to apply to the target only. Default ``None``.
     """
 
-    def __init__(self, root: str, split: str = 'train', transforms: Optional[torch.nn.Module] = None):
-        super().__init__(root=root, transforms=transforms)
-        self.root = root
+    def __init__(self, datadir: str, split: str = 'train', transforms: Optional[torch.nn.Module] = None):
+        super().__init__(root=datadir, transforms=transforms)
+        self.datadir = datadir
         self.split = split
         self.transforms = transforms
 
-        # Check root value
-        if self.root is None:
-            raise ValueError("root must be specified")
-        elif not os.path.exists(self.root):
-            raise FileNotFoundError(f"root path does not exist: {self.root}")
+        # Check datadir value
+        if self.datadir is None:
+            raise ValueError("datadir must be specified")
+        elif not os.path.exists(self.datadir):
+            raise FileNotFoundError(f"datadir path does not exist: {self.datadir}")
 
         # Check split value
         if self.split not in ["train", "val", "test"]:
             raise ValueError(f"split must be one of [`train`, `val`, `test`] but is: {self.split}")
 
-        self.image_dir = os.path.join(self.root, 'images', self.split)
+        self.image_dir = os.path.join(self.datadir, 'images', self.split)
         if not os.path.exists(self.image_dir):
             raise FileNotFoundError(f"ADE20k directory structure is not as expected: {self.image_dir} does not exist")
 
@@ -279,7 +279,7 @@ class ADE20k(VisionDataset):
 
         # Load annotation target if using either train or val splits
         if self.split in ['train', 'val']:
-            target_path = os.path.join(self.root, 'annotations', self.split, image_file.split('.')[0] + '.png')
+            target_path = os.path.join(self.datadir, 'annotations', self.split, image_file.split('.')[0] + '.png')
             target = Image.open(target_path)
 
             if self.transforms:
@@ -359,7 +359,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 # Photometric distoration values come from mmsegmentation:
                 # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
                 r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
-                all_transforms = torch.nn.Sequential(
+                all_transforms = transforms.Compose([
                     RandomResizePair(min_scale=self.min_resize_scale,
                                      max_scale=self.max_resize_scale,
                                      base_size=(self.base_size, self.base_size)),
@@ -367,11 +367,13 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                         crop_size=(self.final_size, self.final_size),
                         class_max_percent=0.75,
                         num_retry=10,
-                    ), RandomHFlipPair(),
+                    ),
+                    RandomHFlipPair(),
                     PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
                     PadPair(size=(self.final_size, self.final_size),
                             input_fill=(int(r_mean), int(g_mean), int(b_mean)),
-                            target_fill=0))
+                            target_fill=0)
+                ])
 
             else:
                 all_transforms = ResizePair(size=(self.final_size, self.final_size))
@@ -384,7 +386,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.datadir is None:
                 raise ValueError("datadir must specify the path to the ADE20k dataset.")
 
-            dataset = ADE20k(root=self.datadir, split=self.split, transforms=all_transforms)
+            dataset = ADE20k(datadir=self.datadir, split=self.split, transforms=all_transforms)
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
                                                                         batch_size=batch_size,

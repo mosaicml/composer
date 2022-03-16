@@ -26,7 +26,10 @@ ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 __all__ = ["ColOut", "ColOutTransform", "colout_batch"]
 
 
-def colout_batch(input: ImgT, target: ImgT = None, p_row: float = 0.15, p_col: float = 0.15) -> Union[ImgT, Tuple[ImgT, ImgT]]:
+def colout_batch(input: ImgT,
+                 target: ImgT = None,
+                 p_row: float = 0.15,
+                 p_col: float = 0.15) -> Union[ImgT, Tuple[ImgT, ImgT]]:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 
@@ -74,11 +77,10 @@ def colout_batch(input: ImgT, target: ImgT = None, p_row: float = 0.15, p_col: f
         X_colout = X_colout.reshape(X_colout.shape[-3:])
     X_colout = image_as_type(X_colout, type(input))
 
-
     if (target is not None):
         # If a target is given and has the same spatial dimensions as the input, reshape target like the input
-        if (len(target.shape) > 2) and (target.shape[-2:] == input.shape[-2:]):
-            Y_tensor = image_as_type(target, torch.Tensor)
+        Y_tensor = image_as_type(target, torch.Tensor)
+        if (len(Y_tensor.shape) > 2) and (Y_tensor.shape[-2:] == X_tensor.shape[-2:]):
             Y_colout = Y_tensor[..., kept_row_idx, :]
             Y_colout = Y_colout[..., :, kept_col_idx]
             if not isinstance(target, torch.Tensor) or (target.ndim < Y_colout.ndim):
@@ -198,7 +200,7 @@ class ColOut(Algorithm):
                 textwrap.dedent(f"""\
                 To use {type(self).__name__}, the dataset must be a
                 {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
-        add_vision_dataset_transform(dataset, transform, is_tensor_transform=False)
+        add_vision_dataset_transform(dataset, transform, is_tensor_transform=False, is_target_transformed=True)
         self._transformed_datasets.add(dataset)
 
     def _apply_batch(self, state: State) -> None:
