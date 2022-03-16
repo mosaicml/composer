@@ -3,9 +3,11 @@
     <a href="https://github.com/mosaicml/composer#gh-light-mode-only" class="only-light">
       <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_light.svg" width="50%"/>
     </a>
+    <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->
     <a href="https://github.com/mosaicml/composer#gh-dark-mode-only" class="only-dark">
       <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_dark.svg" width="50%"/>
     </a>
+    <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->
 </p>
 
 <h2><p align="center">A PyTorch Library for Efficient Neural Network Training</p></h2>
@@ -58,9 +60,11 @@ Composer features:
     <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg" width="85%"/>
   </a>
   <!-- link to the light mode image even on dark mode, so it will be readable in a new tab -->
+  <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->
   <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-dark-mode-only" class="only-dark">
     <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_dark.svg" width="85%"/>
   </a>
+  <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->
 </p>
 
 With no additional tuning, you can apply our methods to:
