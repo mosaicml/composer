@@ -50,7 +50,7 @@ def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextMan
 
 
 def _ensure_backwards_compatible_checkpointing(state_dict: types.StateDict):
-    # v0.4.1 removed the leading underscores for the keys in the state_dict
+    # v0.5.0 removed the leading underscores for the keys in the state_dict
     # It also renamed _is_model_ddp_wrapped to is_model_ddp
     state = {}
     for k, v in state_dict.items():
