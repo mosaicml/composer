@@ -13,6 +13,7 @@ from torch.optim import Optimizer
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
+from composer.core.types import Batch
 
 __all__ = ["Device", "T_nnModule"]
 
