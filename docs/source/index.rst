@@ -11,8 +11,11 @@ We implemented dozens of papers and `trained thousands of models <https://app.mo
 and built strong baselines to rigorously measure their effect.
 
 With Composer, you can build recipes to:
-- Train ResNet-50 on ImageNet to the standard 76.6% Top-1 accuracy for $40 in 1.2 hours (`with vanilla PyTorch:` $116 in 3.8 hours) on AWS.
-- Train a GPT-2 125M to a standard perplexity of 24.11 for $145 in 4.5 hours (`with vanilla PyTorch`: $255 in 7.8 hours) on AWS.
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: Using Composer, you can:
+   :end-before: - Use these speedup methods on your own models
+
 
 Composer features:
 
