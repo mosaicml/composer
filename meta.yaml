@@ -49,7 +49,7 @@ test:
     - fasteners ==0.17.3
     - pytest ==7.1.0
     - toml ==0.10.2
-    - ipython ==8.1.1
+    - ipython ==7.29.0
     - ipykernel ==6.9.2
     - jupyter ==1.0.0
     - pytest-timeout ==2.1.0
