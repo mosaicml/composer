@@ -1,9 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from typing import cast
 from unittest.mock import MagicMock
 
 from composer.callbacks import GradMonitorHparams
+from composer.loggers import LoggerDestination
 from composer.trainer import TrainerHparams
+from composer.utils import ensure_tuple
 
 
 def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, log_layers: bool = False):
@@ -14,7 +17,8 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, log_layers: bool =
     composer_trainer_hparams.train_batch_size = 50
     trainer = composer_trainer_hparams.initialize_object()
     log_destination = MagicMock()
-    trainer.logger.destinations = [log_destination]
+    log_destination = cast(LoggerDestination, log_destination)
+    trainer.logger.destinations = ensure_tuple(log_destination)
     trainer.fit()
 
     num_train_steps = composer_trainer_hparams.train_subset_num_batches

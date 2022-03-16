@@ -11,7 +11,8 @@ from typing import List, Optional
 
 import yahp as hp
 
-from composer.core.types import Batch, DataSpec
+from composer.core import DataSpec
+from composer.core.types import Batch
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist

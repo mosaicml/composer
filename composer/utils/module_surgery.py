@@ -24,12 +24,12 @@ import collections
 import itertools
 import logging
 import textwrap
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, OrderedDict, Tuple, Type, Union
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, OrderedDict, Sequence, Tuple, Type, Union
 
 import torch
 import torch.distributed
+from torch.optim import Optimizer
 
-from composer.core.types import Optimizers
 from composer.utils.iter_helpers import ensure_tuple
 
 log = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ def _add_children_recursive(
 def replace_module_classes(
     module: torch.nn.Module,
     policies: Mapping[Type[torch.nn.Module], ReplacementFunction],
-    optimizers: Optional[Optimizers] = None,
+    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
     recurse_on_replacements: bool = False,
     indices: Optional[Dict[Any, int]] = None,
 ) -> Dict[torch.nn.Module, torch.nn.Module]:
@@ -69,7 +69,7 @@ def replace_module_classes(
 
     The following example replaces all convolution layers with linear layers, and linear layers will be replaced if
     there are 16 input features. Recursion occurs on replacement.
-    
+
     * The first replacement policy replaces the ``nn.Conv2d(1, 32, 3, 1)`` layer with a ``nn.Linear(16, 32)`` layer.
     * The second replacement policy recurses on this replaced layer. Because ``in_features == 16``, this policy
       replaces the layer with a ``nn.Linear(32, 64)``.
@@ -121,7 +121,7 @@ def replace_module_classes(
             with a module containing another :class:`~torch.nn.Conv2d`, the replacement function will
             be invoked with this new child :class:`~torch.nn.Conv2d` instance. If the replacement policies
             are not conditioned on module properties that change during replacement, infinite recursion is
-            possible. 
+            possible.
         indices (Dict[Any, int], optional): A dictionary mapping module types to the number of times
             they've occurred so far in the recursive traversal of
             ``module`` and its child modules. The value is provided to replacement functions, so they
@@ -130,8 +130,9 @@ def replace_module_classes(
             .. note::
 
                 These indices may not correspond to the order in which modules get called in the forward pass.
-    
-        optimizers (Optimizers, optional): One or more :class:`~torch.optim.Optimizer` objects. If provided,
+
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): One or more
+            :class:`~torch.optim.Optimizer` objects. If provided,
             this function will attempt to remove parameters in replaced modules
             from these optimizers, and add parameters from the newly-created
             modules. See :func:`update_params_in_optimizer` for more information.
@@ -245,7 +246,7 @@ def _tensor_in(tensor: torch.Tensor, iterable: Iterable[torch.Tensor]):
     return any(tensor is elem for elem in iterable)
 
 
-def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: torch.optim.Optimizer) -> int:
+def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: Optimizer) -> int:
     """Returns the index of the optimizer ``param_group`` containing ``param``
     Optimizers store their parameters within an iterable of ``dict``s called
     :attr:`~torch.optim.Optimizer.param_groups`.
@@ -274,7 +275,8 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: tor
 
 
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
-                               new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
+                               new_params: Iterable[torch.nn.parameter.Parameter],
+                               optimizers: Union[Optimizer, Sequence[Optimizer]]) -> None:
     """Remove ``old_params`` from the ``optimizers`` and insert ``new_params``.
 
     Newly added parameters will be added to the same :attr:`~torch.optim.Optimizer.param_group` as the removed
@@ -299,7 +301,8 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
             Parameters in this iterable should be removed if they are not present in ``new_params``.
         new_params: Parameters in this iterable should be added if they are
             not present in ``old_params``.
-        optimizers (Optimizers): One or more :class:`~torch.optim.Optimizer` objects
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]): One or more
+            :class:`~torch.optim.Optimizer` objects
 
     Raises:
         NotImplementedError: If ``optimizers`` contains more than one optimizer.
@@ -353,7 +356,8 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
 
 
 def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
-                                new_params: Iterable[torch.nn.parameter.Parameter], optimizers: Optimizers) -> None:
+                                new_params: Iterable[torch.nn.parameter.Parameter],
+                                optimizers: Union[Optimizer, Sequence[Optimizer]]) -> None:
     """Fully replaces an optimizer's parameters.
 
     This differs from :meth:`update_params_in_optimizer` in that this method is capable
@@ -366,7 +370,7 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
         old_params (Iterator[torch.nn.parameter.Parameter]): Current parameters of the optimizer.
         new_params (Iterator[torch.nn.parameter.Parameter]): New parameters of the optimizer, given in the same order as
             ``old_params``. Must be the same length as ``old_params``.
-        optimizers (Optimizers): One or more :class:`torch.optim.Optimizer` objects.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]): One or more :class:`torch.optim.Optimizer` objects.
 
     Raises:
         NotImplementedError: If ``optimizers`` contains more than one optimizer.

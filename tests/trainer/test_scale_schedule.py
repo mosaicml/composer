@@ -5,11 +5,12 @@ from typing import List
 import numpy as np
 import pytest
 import torch
+from torch.optim import Optimizer
 from torch.optim.lr_scheduler import ExponentialLR
 
 from composer.algorithms import ScaleScheduleHparams
 from composer.core.time import TimeUnit
-from composer.core.types import Optimizer, PyTorchScheduler
+from composer.core.types import PyTorchScheduler
 from composer.optim import MultiStepSchedulerHparams, SGDHparams
 from composer.trainer import TrainerHparams
 from composer.trainer._scale_schedule import scale_pytorch_scheduler

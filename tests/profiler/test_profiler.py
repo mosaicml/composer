@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from composer.core.types import State
+from composer.core import State
 from composer.profiler import Profiler, ProfilerAction
 
 
