@@ -1,4 +1,3 @@
-<br /><br />
 <p align="center">
     <a href="https://github.com/mosaicml/composer#gh-light-mode-only" class="only-light">
       <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_light.svg" width="50%"/>
@@ -7,7 +6,6 @@
       <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_dark.svg" width="50%"/>
     </a>
 </p>
-<br />
 
 <h2><p align="center">A PyTorch Library for Efficient Neural Network Training</p></h2>
 <h3><p align="center">Train Faster, Reduce Cost, Get Better Models</p></h3>
