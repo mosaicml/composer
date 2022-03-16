@@ -23,7 +23,7 @@ class FileArtifactLoggerTracker(LoggerDestination):
 
 
 @pytest.mark.parametrize("log_level", [LogLevel.EPOCH, LogLevel.BATCH])
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(10000)
 def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Path):
     log_file_name = os.path.join(tmpdir, "output.log")
     log_destination = FileLoggerHparams(
@@ -40,22 +40,27 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     dummy_state.timer.on_batch_complete()
+    log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     dummy_state.timer.on_batch_complete()
+    log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     dummy_state.timer.on_epoch_complete()
+    log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     logger.data_fit({"metric": "fit"})  # should print
     logger.data_epoch({"metric": "epoch"})  # should print on batch level, since epoch calls are always printed
     logger.data_batch({"metric": "batch"})  # should print on batch level, since we print every 3 steps
     dummy_state.timer.on_epoch_complete()
+    log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     logger.data_epoch({"metric": "epoch1"})  # should print, since we log every 3 epochs
     dummy_state.timer.on_epoch_complete()
+    log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
+    log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     dummy_state.timer.on_batch_complete()
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
-    log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     logger.data_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
     logger.data_batch({"metric": "batch1"})  # should NOT print
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
@@ -77,11 +82,13 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
             ]
 
     # Flush interval is 1, so there should be one log_file call per LogLevel
+    # Flushes also happen per each eval_start, epoch_start, and close()
     if log_level == LogLevel.EPOCH:
-        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.epoch)
+        # 
+        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.epoch) + int(dummy_state.timer.epoch) + 1
     else:
         assert log_level == LogLevel.BATCH
-        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.batch)
+        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.batch) + + int(dummy_state.timer.epoch) + 1
 
 
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmpdir: pathlib.Path):
