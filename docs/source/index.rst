@@ -14,8 +14,8 @@ With Composer, you can build recipes to:
 
 .. include:: ../../README.md
    :parser: myst_parser.sphinx_
-   :start-after: start numbers
-   :end-before: end numbers
+   :start-after: <!-- start numbers -->
+   :end-before: <!-- end numbers -->
 
 
 Composer features:
