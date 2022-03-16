@@ -31,27 +31,31 @@ class develop(develop_orig):
 # From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
 site.ENABLE_USER_SITE = _IS_USER
 
-
-def package_files(directory: str):
+def package_files(prefix: str, directory: str, extension: str):
     # from https://stackoverflow.com/a/36693250
     paths = []
-    for (path, _, filenames) in os.walk(directory):
+    for (path, _, filenames) in os.walk(os.path.join(prefix, directory)):
         for filename in filenames:
-            paths.append(os.path.join('..', path, filename))
+            if filename.endswith(extension):
+                paths.append(os.path.relpath(os.path.join(path, filename), prefix))
     return paths
-
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-# Hide the dark mode images when the images are rendered on PyPI.
-long_description = """
-<style>
-.only-dark {
-    display: none;
-}
-</style>
-""" + long_description
+# Hide the content between <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN --> and
+# <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END --> tags in the README
+while True:
+    start_tag = "<!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->"
+    end_tag = "<!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->"
+    start = long_description.find(start_tag)
+    end = long_description.find(end_tag)
+    if start == -1:
+        assert end == -1, "there should be a balanced number of start and ends"
+        break
+    else:
+        assert end != -1, "there should be a balanced number of start and ends"
+        long_description = long_description[:start] + long_description[end + len(end_tag):]
 
 install_requires = [
     "pyyaml>=5.4.1,<6",
@@ -106,6 +110,9 @@ extra_deps['dev'] = [
     'docformatter==1.4',
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
+    # need webdataset to run pyight. Including here to pass pyright.
+    # TODO Remove once https://github.com/mosaicml/composer/issues/771 is fixed.
+    'webdataset==0.1.103',
 ]
 
 extra_deps["deepspeed"] = [
@@ -139,11 +146,16 @@ extra_deps["nlp"] = [
 ]
 
 extra_deps['webdataset'] = [
-    'webdataset @ git+https://github.com/mosaicml/webdataset.git@dev',
+    # PyPI does not permit git dependencies. See https://github.com/mosaicml/composer/issues/771
+    # 'webdataset @ git+https://github.com/mosaicml/webdataset.git@dev'
     'wurlitzer>=3.0.2,<4',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
+
+composer_data_files = ['py.typed']
+composer_data_files += package_files('composer', 'yamls', ".yaml")
+composer_data_files += package_files('composer', 'algorithms', ".json")
 
 setup(name="mosaicml",
       version="0.4.1",
@@ -156,11 +168,9 @@ setup(name="mosaicml",
       url="https://github.com/mosaicml/composer",
       include_package_data=True,
       package_data={
-          "composer": ['py.typed'],
-          "": package_files('composer/yamls'),
-          "": package_files('composer/algorithms')
+          "composer": composer_data_files,
       },
-      packages=setuptools.find_packages(exclude=["tests*"]),
+      packages=setuptools.find_packages(exclude=["docker*", "notebooks*", "scripts*", "tests*"]),
       classifiers=[
           "Programming Language :: Python :: 3",
           "Programming Language :: Python :: 3.7",
