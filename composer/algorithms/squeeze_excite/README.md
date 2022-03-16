@@ -2,11 +2,11 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
-Adds a channel-wise attention operator in CNNs. Attention coefficients are produced by a small, trainable MLP that uses the channels' globally pooled activations as input.
+Adds a channel-wise attention operator in CNNs. Attention coefficients are produced by a small, trainable MLP that uses the channels' globally pooled activations as input. It requires more work on each forward pass, slowing down training and inference, but leads to higher quality models.
 
 | ![Squeeze-Excite](https://storage.googleapis.com/docs.mosaicml.com/images/methods/squeeze-and-excitation.png) |
 |:--:
-| After an activation tensor $\mathbf{X}$ is passed through Conv2d $\mathbf{F}_{tr}$ to yield a new tensor $\mathbf{U}$, a Squeeze-and-Excitation (SE) module scales the channels in a data-dependent manner. The scales are produced by a single-hidden-layer fully-connected network whose input is the global-averaged-pooled $\mathbf{U}$. This can be seen as a channel-wise attention mechanism. |
+| *After an activation tensor X is passed through Conv2d F_tr to yield a new tensor U, a Squeeze-and-Excitation (SE) module scales the channels in a data-dependent manner. The scales are produced by a single-hidden-layer fully-connected network whose input is the global-averaged-pooled U. This can be seen as a channel-wise attention mechanism.* |
 
 ## How to Use
 
