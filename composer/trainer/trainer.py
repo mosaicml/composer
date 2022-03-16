@@ -223,6 +223,9 @@ class Trainer:
                 This will ensure any initialization done before the trainer init also runs deterministically.
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
+        run_name (str, optional): A name for this training run. If not specified, one will be generated automatically.
+
+            .. seealso:: :class:`~composer.loggers.logger.Logger`
         loggers (Sequence[LoggerDestination], optional): The destinations to log training information to.
             If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
 
@@ -445,6 +448,7 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # logging and callbacks
+        run_name: Optional[str] = None,
         loggers: Optional[Sequence[LoggerDestination]] = None,
         callbacks: Sequence[Callback] = tuple(),
 
@@ -716,7 +720,7 @@ class Trainer:
 
         if loggers is None:
             loggers = [TQDMLogger()]
-        self.logger = Logger(state=self.state, destinations=loggers)
+        self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
         self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
         self._checkpoint_saver = None
