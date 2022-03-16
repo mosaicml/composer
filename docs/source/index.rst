@@ -3,8 +3,41 @@
 Composer
 ========
 
+`Composer <https://github.com/mosaicml/composer>`_ is a library for training neural networks better, faster, and cheaper.
+It contains many state-of-the-art methods for accelerating neural network training and improving generalization, along with
+an optional :doc:`Trainer<trainer/using_the_trainer>` API that makes `composing` many different enhancements easy.
+
+We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to,
+and built strong baselines to rigorously measure their effect.
+
+With Composer, you can build recipes to:
+
 .. include:: ../../README.md
    :parser: myst_parser.sphinx_
+   :start-after: <!-- start numbers -->
+   :end-before: <!-- end numbers -->
+
+
+Composer features:
+
+- 20+ curated efficiency methods for training better language and vision models.
+- An easy-to-use Trainer interface written to be as performant as possible, with integrated multi-GPU training, mixed-precision training, and numerous `best practices <https://www.mosaicml.com/blog/5-best-practices-for-efficient-model-training>`_ implemented out of the box.
+- Standalone functional forms of training methods for easy integration into your own training loop
+- Strong, reproducible baselines to get you started as fast as possible.
+
+See :doc:`getting_started/installation` for
+how to install and start using Composer, :doc:`trainer/using_the_trainer` for an introduction
+to our trainer, and :doc:`trainer/algorithms` for details about our efficiency methods and how to use them in your code.
+
+At `MosaicML <https://mosaicml.com>`_, we are focused on making fast, high-quality ML training accessible to everyone. To do this,
+we continually productionize state-of-the-art academic research on efficient model
+training, and also study the `combinations` of these methods in order to ensure
+that model training is ✨ as efficient as possible ✨.
+
+If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or `Slack`_!
+
+Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, and issues.
+
 
 .. toctree::
    :hidden:
