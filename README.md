@@ -145,20 +145,20 @@ Composer's built-in trainer makes it easy to **add multiple speedup methods in a
 Trying out new methods or combinations of methods is as easy as changing a single list.
 As we continually implement more methods, they will be easy for you to add to your code.
 
-For concrete examples of methods in Composer, here are some ([_see here for all_](https://docs.mosaicml.com/en/latest/method_cards/methods_overview.html)) speedup methods currently in Composer:
+For concrete examples of methods in Composer, here are some ([_see here for all_](https://docs.mosaicml.com/en/latest/trainer/algorithms.html)) speedup methods currently in Composer:
 
-Name|Functional|Attribution|tl;dr|Example Benchmark|Speed Up*|
-----|----------|-----------|-----|---------|---------|
-[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[Press et al, 2021](https://arxiv.org/abs/2108.12409v1)|Replace attention with AliBi.|GPT-2|1.5x
-[BlurPool](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/blurpool)|`cf.apply_blurpool`|[Zhang, 2019](https://arxiv.org/abs/1904.11486)|Applies an anti-aliasing filter before every downsampling operation.|ResNet-101|1.2x
-[ChannelsLast](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/channels_last)|`cf.apply_channels_last`|[PyTorch](https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html)|Uses channels last memory format (NHWC).|ResNet-101|1.5x
-[CutOut](https://docs.mosaicml.com/en/latest/method_cards/cutout.html)|`CF.cutout_batch`|[DeVries et al, 2017](https://arxiv.org/abs/1708.04552)|Randomly erases rectangular blocks from the image.|ResNet-101|1.2x
-[LabelSmoothing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/label_smoothing)|`cf.smooth_labels`|[Szegedy et al, 2015](https://arxiv.org/abs/1512.00567)|Smooths the labels with a uniform prior|ResNet-101|1.5x
-[MixUp](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/mixup)|`cf.mixup_batch`|[Zhang et al, 2017](https://arxiv.org/abs/1710.09412)|Blends pairs of examples and labels.|ResNet-101|1.5x
-[RandAugment](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/randaugment)|`cf.randaugment_image`|[Cubuk et al, 2020](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html)|Applies a series of random augmentations to each image.|ResNet-101|1.3x
-[SAM](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/sam)|`N/A` (Composer trainer only)|[Foret et al, 2021](https://arxiv.org/abs/2010.01412)|An optimization strategy that seeks flatter minima.|ResNet-101|1.4x
-[SeqLengthWarmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|`cf.set_batch_sequence_length`|[Li et al, 2021](https://arxiv.org/abs/2108.06084)|Progressively increase sequence length.|GPT-2|1.2x
-[Stochastic Depth](https://docs.mosaicml.com/en/latest/method_cards/stochastic_depth.html)|`CF.apply_`<br>`stochastic_depth`|[Huang et al, 2016](https://arxiv.org/abs/1603.09382)|Replaces a specified layer with a stochastic version that randomly drops the layer or samples during training|ResNet-101|1.1x
+Name|Attribution|tl;dr|Example Benchmark|Speed Up*|
+----|-----------|-----|---------|---------|
+[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|[Press et al, 2021](https://arxiv.org/abs/2108.12409v1)|Replace attention with AliBi.|GPT-2|1.5x
+[BlurPool](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/blurpool)|[Zhang, 2019](https://arxiv.org/abs/1904.11486)|Applies an anti-aliasing filter before every downsampling operation.|ResNet-101|1.2x
+[ChannelsLast](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/channels_last)|[PyTorch](https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html)|Uses channels last memory format (NHWC).|ResNet-101|1.5x
+[CutOut](https://docs.mosaicml.com/en/latest/method_cards/cutout.html)|[DeVries et al, 2017](https://arxiv.org/abs/1708.04552)|Randomly erases rectangular blocks from the image.|ResNet-101|1.2x
+[LabelSmoothing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/label_smoothing)|[Szegedy et al, 2015](https://arxiv.org/abs/1512.00567)|Smooths the labels with a uniform prior|ResNet-101|1.5x
+[MixUp](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/mixup)|[Zhang et al, 2017](https://arxiv.org/abs/1710.09412)|Blends pairs of examples and labels.|ResNet-101|1.5x
+[RandAugment](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/randaugment)|[Cubuk et al, 2020](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html)|Applies a series of random augmentations to each image.|ResNet-101|1.3x
+[SAM](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/sam)|[Foret et al, 2021](https://arxiv.org/abs/2010.01412)|An optimization strategy that seeks flatter minima.|ResNet-101|1.4x
+[SeqLengthWarmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|[Li et al, 2021](https://arxiv.org/abs/2108.06084)|Progressively increase sequence length.|GPT-2|1.2x
+[Stochastic Depth](https://docs.mosaicml.com/en/latest/method_cards/stochastic_depth.html)|[Huang et al, 2016](https://arxiv.org/abs/1603.09382)|Replaces a specified layer with a stochastic version that randomly drops the layer or samples during training|ResNet-101|1.1x
 <p align="right">* = time-to-train to the same quality as the baseline.</p>
 
 ## 🛠 Building Speedup Recipes
