@@ -5,11 +5,12 @@ from typing import List, Optional
 import pytest
 import torch
 import torch.nn as nn
+from torch import Tensor
 from torchmetrics import MetricCollection
 from torchmetrics.classification.accuracy import Accuracy
 
-from composer.core.state import State
-from composer.core.types import DataLoader, Evaluator, Tensor
+from composer.core import Evaluator, State
+from composer.core.types import DataLoader
 from composer.trainer.ddp import _ddp_sync_context, _prepare_ddp_module
 from composer.utils import dist
 

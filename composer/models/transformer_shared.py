@@ -7,13 +7,15 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Mapping, Sequence, Tuple, Union
 
+from torch import Tensor
+
 from composer.models.base import ComposerModel
 from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, Tensor
+    from composer.core.types import Batch
 
 log = logging.getLogger(__name__)
 

@@ -7,13 +7,13 @@ import logging
 from typing import Optional, Sequence, Type, Union
 
 import torch
+from torch.optim import Optimizer
 from torchvision.models.resnet import Bottleneck
 
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
 from composer.core import Algorithm, Event, State
 from composer.core.time import Time, TimeUnit
-from composer.core.types import Optimizer
 from composer.loggers import Logger
 from composer.utils import module_surgery
 

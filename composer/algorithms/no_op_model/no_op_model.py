@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from torchmetrics.classification.accuracy import Accuracy
 
 from composer.core import Algorithm, Event, State
-from composer.core.types import Tensor, as_batch_pair
+from composer.core.types import as_batch_pair
 from composer.loggers import Logger
 from composer.models.base import ComposerModel
 from composer.utils import module_surgery
@@ -36,16 +36,16 @@ class NoOpModelClass(ComposerModel):
         except AttributeError:
             pass
 
-    def loss(self, outputs: Tensor, batch: Batch):
+    def loss(self, outputs: torch.Tensor, batch: Batch):
         x, y = as_batch_pair(batch)
-        assert isinstance(y, Tensor)
+        assert isinstance(y, torch.Tensor)
         del x  # unused
         return F.mse_loss(outputs, y.to(torch.float32))
 
     def forward(self, batch: Batch):
         x, y = as_batch_pair(batch)
         del x  # unused
-        assert isinstance(y, Tensor)
+        assert isinstance(y, torch.Tensor)
         return y * self.weights
 
     def metrics(self, train: bool) -> Union[Metric, MetricCollection]:

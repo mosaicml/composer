@@ -9,9 +9,9 @@ import textwrap
 from typing import List, Optional, Sequence, Tuple, Union
 
 import torch
+from torch.optim import Optimizer
 
 from composer.core import Algorithm, Event, State
-from composer.core.types import Model, Optimizer
 from composer.loggers import Logger
 from composer.utils.iter_helpers import ensure_tuple
 
@@ -21,7 +21,7 @@ __all__ = ["LayerFreezing", "freeze_layers"]
 
 
 def freeze_layers(
-    model: Model,
+    model: torch.nn.Module,
     optimizers: Union[Optimizer, Sequence[Optimizer]],
     current_duration: float,
     freeze_start: float = 0.5,
@@ -169,15 +169,15 @@ def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level:
     return freeze_level * freezing_time_elapsed_frac
 
 
-def _get_layers(module: Model, flat_children: List[Model]):
+def _get_layers(module: torch.nn.Module, flat_children: List[torch.nn.Module]):
     """Helper function to get all submodules.
 
     Does a depth first search to flatten out modules which
     contain parameters.
 
     Args:
-        module (Model): Current module to search.
-        flat_children (List[Model]): List containing modules.
+        module (torch.nn.Module): Current module to search.
+        flat_children (List[torch.nn.Module]): List containing modules.
     """
     # Check if given module has no children and parameters.
     if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):

@@ -10,7 +10,7 @@ import requests
 from torch import Tensor
 from torchmetrics import Metric, MetricCollection
 
-from composer.core.types import BatchPair, Tensor
+from composer.core.types import BatchPair
 from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300

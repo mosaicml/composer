@@ -12,7 +12,6 @@ from composer.algorithms.factorize import FactorizedConv2d, FactorizedLinear
 from composer.algorithms.factorize.factorize import LOG_NUM_CONV2D_REPLACEMENTS_KEY, LOG_NUM_LINEAR_REPLACEMENTS_KEY
 from composer.core import Event, State
 from composer.core.algorithm import Algorithm
-from composer.core.types import Tensor
 from composer.loggers import Logger
 from composer.utils import module_surgery
 from tests.common import SimpleConvModel
@@ -36,7 +35,7 @@ def algo_instance(request):
                      latent_features=2)
 
 
-def _apply_algo(state_with_model: State, simple_conv_model_input: Union[Tensor, Sequence[Tensor]],
+def _apply_algo(state_with_model: State, simple_conv_model_input: Union[torch.Tensor, Sequence[torch.Tensor]],
                 algo_instance: Algorithm, logger: Logger):
     batch = (simple_conv_model_input, None)
     original_conv_count = module_surgery.count_module_instances(state_with_model.model, torch.nn.Conv2d)

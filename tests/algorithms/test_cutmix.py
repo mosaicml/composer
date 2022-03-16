@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 from composer.algorithms import CutMix, CutMixHparams
 from composer.algorithms.cutmix.cutmix import _rand_bbox, cutmix_batch
-from composer.core.types import Event
+from composer.core import Event
 from composer.models.base import ComposerClassifier
 from tests.common import SimpleConvModel
 

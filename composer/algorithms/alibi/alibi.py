@@ -12,9 +12,9 @@ from types import MethodType, ModuleType
 from typing import Any, Callable, Optional, Sequence, Tuple, Type, Union, cast
 
 import torch
+from torch.optim import Optimizer
 
 from composer.core import Algorithm, Event, State
-from composer.core.types import Optimizer
 from composer.loggers import Logger
 from composer.utils import module_surgery
 

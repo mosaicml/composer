@@ -11,7 +11,7 @@ import torchmetrics
 import yahp as hp
 from torchmetrics import Metric, MetricCollection
 
-from composer.core.types import BatchPair, DataLoader, Tensor
+from composer.core.types import BatchPair, DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticPILDataset
@@ -48,19 +48,20 @@ class SimpleBatchPairModel(ComposerModel):
             torch.nn.Softmax(dim=-1),
         )
 
-    def loss(self, outputs: Tensor, batch: BatchPair, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
+    def loss(self, outputs: torch.Tensor, batch: BatchPair, *args,
+             **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         _, target = batch
-        assert isinstance(target, Tensor)
+        assert isinstance(target, torch.Tensor)
         return F.cross_entropy(outputs, target, *args, **kwargs)
 
-    def validate(self, batch: BatchPair) -> Tuple[Tensor, Tensor]:
+    def validate(self, batch: BatchPair) -> Tuple[torch.Tensor, torch.Tensor]:
         x, target = batch
-        assert isinstance(x, Tensor)
-        assert isinstance(target, Tensor)
+        assert isinstance(x, torch.Tensor)
+        assert isinstance(target, torch.Tensor)
         pred = self.forward(batch)
         return pred, target
 
-    def forward(self, batch: BatchPair) -> Tensor:
+    def forward(self, batch: BatchPair) -> torch.Tensor:
         x, _ = batch
         return self.net(x)
 
@@ -156,7 +157,7 @@ class SimpleConvModel(torch.nn.Module):
         self.linear1 = torch.nn.Linear(64, 48)
         self.linear2 = torch.nn.Linear(48, 10)
 
-    def forward(self, x: Union[Tensor, Sequence[Tensor]]) -> Union[Tensor, Sequence[Tensor]]:
+    def forward(self, x: Union[torch.Tensor, Sequence[torch.Tensor]]) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
 
         out = self.conv1(x)
         out = self.conv2(out)

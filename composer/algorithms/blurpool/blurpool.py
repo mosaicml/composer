@@ -8,10 +8,10 @@ from typing import Optional, Sequence, Union
 
 import numpy as np
 import torch
+from torch.optim import Optimizer
 
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Algorithm, Event, State
-from composer.core.types import Optimizer
 from composer.loggers import Logger
 from composer.utils import module_surgery
 

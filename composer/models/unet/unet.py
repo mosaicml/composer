@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from torchmetrics import Metric, MetricCollection
 
-from composer.core.types import BatchPair, Tensor
+from composer.core.types import BatchPair
 from composer.models.base import ComposerModel
 from composer.models.loss import Dice
 from composer.models.unet.model import UNet as UNetModel
@@ -48,7 +48,7 @@ class UNet(ComposerModel):
         self.dloss = DiceLoss(include_background=False, softmax=True, to_onehot_y=True, batch=True)
         self.closs = nn.CrossEntropyLoss()
 
-    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
+    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         _, y = batch
         y = y.squeeze(1)  # type: ignore
         loss = self.dloss(outputs, y)
@@ -62,7 +62,7 @@ class UNet(ComposerModel):
     def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.dice
 
-    def forward(self, batch: BatchPair) -> Tensor:
+    def forward(self, batch: BatchPair) -> torch.Tensor:
         x, _ = batch
         x = x.squeeze(1)  # type: ignore
         logits = self.module(x)

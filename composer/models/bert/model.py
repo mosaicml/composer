@@ -4,8 +4,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Union
+from typing import TYPE_CHECKING, Mapping, Sequence, Union
 
+import torch
 from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, Metric, MetricCollection, SpearmanCorrcoef
 
 from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
@@ -14,7 +15,7 @@ from composer.models.transformer_shared import ComposerTransformer
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, BatchDict, BatchPair, Sequence, Tensor
+    from composer.core.types import Batch, BatchDict, BatchPair
 
 __all__ = ["BERTModel"]
 
@@ -98,7 +99,7 @@ class BERTModel(ComposerTransformer):
             self.train_metrics.extend([self.train_loss, self.train_acc])
             self.val_metrics.extend([self.val_loss, self.val_acc])
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
+    def loss(self, outputs: Mapping, batch: Batch) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         if outputs.get('loss', None) is not None:
             return outputs['loss']
         else:

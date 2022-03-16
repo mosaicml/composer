@@ -5,7 +5,6 @@ from typing import Dict, Type
 import pytest
 import torch
 
-from composer.core.types import ModelParameters
 from composer.optim.optimizer_hparams import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams,
                                               OptimizerHparams, RAdamHparams, RMSpropHparams, SGDHparams)
 from composer.trainer.trainer_hparams import optimizer_registry
@@ -22,7 +21,7 @@ optimizer_constructors: Dict[Type[OptimizerHparams], OptimizerHparams] = {
 
 
 @pytest.fixture
-def dummy_parameters() -> ModelParameters:
+def dummy_parameters():
     sizes = [(5, 5), (10, 10)]
     parameters = [torch.rand(size) for size in sizes]
     return parameters

@@ -7,10 +7,13 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Callable, Generator, Sequence, TypeVar, Union, cast
 
+import torch
 import torch.nn
+from torch.optim import Optimizer
 
+from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.core.types import Batch, BatchPair, Optimizer, Precision, Tensor
+from composer.core.types import Batch, BatchPair
 
 __all__ = ["Device", "T_nnModule"]
 
@@ -42,7 +45,7 @@ class Device(Serializable, ABC):
         pass
 
     @abstractmethod
-    def tensor_to_device(self, tensor: Tensor) -> Tensor:
+    def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         """Invoked by the :class:`.Trainer` to move a tensor onto a device.
 
         Args:
@@ -62,13 +65,13 @@ class Device(Serializable, ABC):
         Returns:
             Batch: The batch on the device.
         """
-        if isinstance(batch, Tensor):
+        if isinstance(batch, torch.Tensor):
             return self.tensor_to_device(batch)
         if isinstance(batch, collections.abc.Sequence):  # BatchPair
             batch_cls = type(batch)
             ans = []
             for x in batch:
-                if isinstance(x, Tensor):
+                if isinstance(x, torch.Tensor):
                     ans.append(self.tensor_to_device(x))
                 else:
                     assert isinstance(x, (dict, Sequence))
@@ -89,7 +92,7 @@ class Device(Serializable, ABC):
         """
         for state in optimizer.state.values():
             for k, v in state.items():
-                if isinstance(v, Tensor):
+                if isinstance(v, torch.Tensor):
                     state[k] = self.tensor_to_device(v)
         return optimizer
 

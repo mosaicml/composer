@@ -12,7 +12,8 @@ import torch.cuda.amp
 import torch.utils.data
 from packaging import version
 
-from composer.core.types import Precision, StateDict, Tensor
+from composer.core.precision import Precision
+from composer.core.types import StateDict
 from composer.trainer.devices.device import Device, T_nnModule
 from composer.utils import dist
 
@@ -37,7 +38,7 @@ class DeviceGPU(Device):
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         return module.to(self._device)
 
-    def tensor_to_device(self, tensor: Tensor) -> Tensor:
+    def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(self._device, non_blocking=True)
 
     @contextmanager

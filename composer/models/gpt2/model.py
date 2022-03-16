@@ -7,8 +7,9 @@ Implemented as a wrapper using :class:`.ComposerTrainer`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Union
+from typing import TYPE_CHECKING, Mapping, Sequence, Union
 
+from torch import Tensor
 from torchmetrics import Metric, MetricCollection
 
 from composer.models.nlp_metrics import Perplexity
@@ -17,7 +18,7 @@ from composer.models.transformer_shared import ComposerTransformer
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, Sequence, Tensor
+    from composer.core.types import Batch
 
 __all__ = ["GPT2Model"]
 

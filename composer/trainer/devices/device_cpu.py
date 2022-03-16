@@ -10,7 +10,8 @@ from typing import Generator, TypeVar, Union
 
 import torch
 
-from composer.core.types import Precision, StateDict, Tensor
+from composer.core import Precision
+from composer.core.types import StateDict
 from composer.trainer.devices.device import Device, T_nnModule
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ class DeviceCPU(Device):
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         return module
 
-    def tensor_to_device(self, tensor: Tensor) -> Tensor:
+    def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor
 
     @contextmanager

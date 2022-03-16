@@ -85,11 +85,8 @@ from torchmetrics import Metric, MetricCollection
 import composer
 from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
-from composer.core import Callback, DataSpec, Engine, Event, State, Time
-from composer.core.algorithm import Algorithm
-from composer.core.evaluator import Evaluator
-from composer.core.time import Timestamp
-from composer.core.types import Batch, BreakEpochException, DataLoader, Precision, PyTorchScheduler
+from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
+from composer.core.types import Batch, BreakEpochException, DataLoader, PyTorchScheduler
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers import Logger, LoggerDestination, LogLevel
 from composer.loggers.tqdm_logger import TQDMLogger

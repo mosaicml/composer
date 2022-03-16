@@ -11,7 +11,8 @@ import textwrap
 import warnings
 from typing import Any, Dict, Optional
 
-from composer.core.types import State, StateDict
+from composer.core import State
+from composer.core.types import StateDict
 from composer.loggers.logger import Logger, LoggerDataDict, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist, run_directory

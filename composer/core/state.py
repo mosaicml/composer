@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequ
 import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
+from torch.optim import Optimizer
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.core.evaluator import Evaluator
-    from composer.core.types import Optimizer
     from composer.profiler import Profiler
 
 __all__ = ["State"]
@@ -107,7 +107,7 @@ class State(Serializable):
         precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to train the model.
             Multiple optimizers are not currently supported.
-        schedulers (:attr:`~.types.PyTorchScheduler` | Sequence[:attr:`~.types.PyTorchScheduler`], optional):
+        schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         algorithms (Sequence[Algorithm]): The algorithms used for training.
@@ -156,14 +156,14 @@ class State(Serializable):
     batch: types.Batch
     batch_num_samples: int
     batch_num_tokens: int
-    loss: Union[types.Tensor, Sequence[types.Tensor]]
-    outputs: Union[types.Tensor, Sequence[types.Tensor]]
+    loss: Union[torch.Tensor, Sequence[torch.Tensor]]
+    outputs: Union[torch.Tensor, Sequence[torch.Tensor]]
     _schedulers: List[types.PyTorchScheduler]
 
     def __init__(
             self,
             # model
-            model: types.Model,
+            model: torch.nn.Module,
 
             # stopping conditions
             max_duration: Union[str, Time[int]],
@@ -175,14 +175,14 @@ class State(Serializable):
             grad_accum: int = 1,
 
             # precision
-            precision: Union[str, types.Precision] = Precision.FP32,
+            precision: Union[str, Precision] = Precision.FP32,
             precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
 
             # optimizers
             optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 
             # scaler
-            scaler: Optional[types.Scaler] = None,
+            scaler: Optional[torch.cuda.amp.grad_scaler.GradScaler] = None,
 
             # algorithms and callbacks
             algorithms: Sequence[Algorithm] = tuple(),
@@ -395,7 +395,7 @@ class State(Serializable):
         return self._precision
 
     @precision.setter
-    def precision(self, precision: Union[str, types.Precision]):
+    def precision(self, precision: Union[str, Precision]):
         self._precision = Precision(precision)
 
     @property

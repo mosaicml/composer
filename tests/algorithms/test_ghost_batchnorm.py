@@ -14,7 +14,7 @@ from composer.algorithms import GhostBatchNormHparams
 from composer.algorithms import ghost_batchnorm as ghostbn
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm, _GhostBatchNorm
 from composer.core import Event, State
-from composer.core.types import Batch, Tensor
+from composer.core.types import Batch
 from composer.models.base import ComposerModel
 from composer.utils import module_surgery
 
@@ -44,7 +44,7 @@ class ModuleWithBatchnorm(ComposerModel):
     def forward(self, input: torch.Tensor):
         return self.bn(input)
 
-    def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
+    def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         raise NotImplementedError()
 
     def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:

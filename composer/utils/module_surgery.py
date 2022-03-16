@@ -28,8 +28,8 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Order
 
 import torch
 import torch.distributed
+from torch.optim import Optimizer
 
-from composer.core.types import Optimizer
 from composer.utils.iter_helpers import ensure_tuple
 
 log = logging.getLogger(__name__)

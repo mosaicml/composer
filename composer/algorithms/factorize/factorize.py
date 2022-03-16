@@ -6,11 +6,11 @@ import logging
 from typing import Optional, Sequence, Type, Union, cast
 
 import torch
+from torch.optim import Optimizer
 
 from composer.algorithms.factorize.factorize_modules import (FactorizedConv2d, FactorizedLinear,
                                                              factorizing_could_speedup)
 from composer.core import Algorithm, Event, State
-from composer.core.types import Optimizer
 from composer.loggers import Logger
 from composer.utils import module_surgery
 

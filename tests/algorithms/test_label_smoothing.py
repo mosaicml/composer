@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from composer.algorithms import LabelSmoothingHparams, label_smoothing
-from composer.core.types import Event
+from composer.core import Event
 from composer.models import loss
 
 
