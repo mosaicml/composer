@@ -145,8 +145,7 @@ class Trainer:
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
             .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
-        schedulers (:attr:`~.PyTorchScheduler` | :class:`~.ComposerScheduler` |
-            Sequence[:attr:`~.PyTorchScheduler` | :class:`~.ComposerScheduler`], optional):
+        schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional):
             The learning rate schedulers. If ``[]`` or ``None``, the learning rate will be constant.
             (default: ``None``).
 

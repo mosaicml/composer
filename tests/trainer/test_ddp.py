@@ -174,7 +174,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     )
     max_epochs = 2
     hparams.max_duration = f"{max_epochs}ep"
-    hparams.precision = Precision("fp32")
+    hparams.precision = Precision.FP32
     hparams.loggers = []
     hparams.validate_every_n_batches = 0
     hparams.validate_every_n_epochs = 1

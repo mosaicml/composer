@@ -19,13 +19,10 @@ from __future__ import annotations
 import re
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Generic, NamedTuple, TypeVar, Union, cast
+from typing import Any, Dict, Generic, NamedTuple, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils.string_enum import StringEnum
-
-if TYPE_CHECKING:
-    from composer.core.types import StateDict
 
 __all__ = ["TimeUnit", "Time", "Timer", "Timestamp"]
 
@@ -379,7 +376,7 @@ class Timer(Serializable):
         self._sample_in_epoch = Time(0, TimeUnit.SAMPLE)
         self._token_in_epoch = Time(0, TimeUnit.TOKEN)
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         return {
             "epoch": self.epoch.value,
             "batch": self.batch.value,
@@ -390,7 +387,7 @@ class Timer(Serializable):
             "token_in_epoch": self.token_in_epoch.value,
         }
 
-    def load_state_dict(self, state: StateDict) -> None:
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
         self._epoch = Time(state["epoch"], TimeUnit.EPOCH)
         self._batch = Time(state["batch"], TimeUnit.BATCH)
         self._sample = Time(state["sample"], TimeUnit.SAMPLE)

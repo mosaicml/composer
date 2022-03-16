@@ -7,7 +7,7 @@ import contextlib
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -51,7 +51,7 @@ def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextMan
         return null
 
 
-def _ensure_backwards_compatible_checkpointing(state_dict: types.StateDict):
+def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
     # v0.4.1 removed the leading underscores for the keys in the state_dict
     # It also renamed _is_model_ddp_wrapped to is_model_ddp
     state = {}
@@ -291,9 +291,9 @@ class State(Serializable):
     def algorithms(self, algorithms: Sequence[Algorithm]):
         self._algorithms[:] = algorithms
 
-    def state_dict(self) -> types.StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         """Returns the state as a :class:`dict`."""
-        state_dict: types.StateDict = {}
+        state_dict = {}
 
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
@@ -312,11 +312,11 @@ class State(Serializable):
 
         return state_dict
 
-    def load_model_state(self, state_dict: types.StateDict, strict: bool):
+    def load_model_state(self, state_dict: Dict[str, Any], strict: bool):
         """Loads the model's state from a state_dict.
 
         Args:
-            state_dict (types.StateDict): The state dict, generated from a previous call to :meth:`state_dict`.
+            state_dict (Dict[str, Any]): The state dict, generated from a previous call to :meth:`state_dict`.
             strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
                 perfectly match the keys in the model instance.
         """
@@ -328,11 +328,11 @@ class State(Serializable):
         if len(unexpected_keys) > 0:
             logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
-    def load_state_dict(self, state: types.StateDict, strict: bool = False):
+    def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         """Loads the state.
 
         Args:
-            state (types.StateDict): object returned from call to :meth:`state_dict`.
+            state (Dict[str, Any]): object returned from call to :meth:`state_dict`.
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
         """

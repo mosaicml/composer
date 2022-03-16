@@ -11,13 +11,12 @@ Attributes:
     PyTorchScheduler (torch.optim.lr_scheduler._LRScheduler): Alias for base class of learning rate schedulers such
         as :class:`torch.optim.lr_scheduler.ConstantLR`
     JSON (str | float | int | None | List['JSON'] | Dict[str, 'JSON']): JSON Data
-    StateDict (Dict[str, Any]): pickale-able dict via :func:`torch.save`
     Dataset (torch.utils.data.Dataset[Batch]): Alias for :class:`torch.utils.data.Dataset`
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Union
 
 import torch
 import torch.utils.data
@@ -33,8 +32,8 @@ if TYPE_CHECKING:
     from typing import Protocol
 
 __all__ = [
-    "Batch", "BatchPair", "BatchDict", "PyTorchScheduler", "JSON", "StateDict", "MemoryFormat", "as_batch_dict",
-    "as_batch_pair", "DataLoader", "BreakEpochException"
+    "Batch", "BatchPair", "BatchDict", "PyTorchScheduler", "JSON", "MemoryFormat", "as_batch_dict", "as_batch_pair",
+    "DataLoader", "BreakEpochException"
 ]
 
 # For BatchPar, if it is a list, then it should always be of length 2.
@@ -48,8 +47,6 @@ Dataset = torch.utils.data.Dataset[Batch]
 PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
-
-StateDict = Dict[str, Any]
 
 
 def as_batch_dict(batch: Batch) -> BatchDict:

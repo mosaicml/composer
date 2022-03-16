@@ -120,7 +120,6 @@ autodoc_type_aliases = {
     'Batch': 'composer.core.types.Batch',
     'BatchPair': 'composer.core.types.BatchPair',
     'BatchDict': 'composer.core.types.BatchDict',
-    'StateDict': 'composer.core.types.StateDict',
     'Hparams': 'yahp.hparams.Hparams',
 }
 
