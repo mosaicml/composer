@@ -6,6 +6,7 @@
 
 """Utilities for iterating over collections."""
 import contextlib
+from collections.abc import Sequence
 
 
 def map_collection(collection, map_fn):
@@ -53,9 +54,9 @@ def ensure_tuple(x):
     """
     if x is None:
         return tuple()
-    if isinstance(x, tuple):
-        return x
-    if isinstance(x, list):
+    if isinstance(x, (str, bytes, bytearray)):
+        return (x,)
+    if isinstance(x, Sequence):
         return tuple(x)
     if isinstance(x, dict):
         return tuple(x.values())

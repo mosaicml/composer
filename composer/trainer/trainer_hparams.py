@@ -17,7 +17,8 @@ import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
                                 RunDirectoryUploaderHparams, SpeedMonitorHparams)
-from composer.core.types import JSON, Precision
+from composer.core import Precision
+from composer.core.types import JSON
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
