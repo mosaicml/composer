@@ -160,7 +160,7 @@ setup(name="mosaicml",
       package_data={
           "composer": composer_data_files,
       },
-      packages=setuptools.find_packages(exclude=["tests*"]),
+      packages=setuptools.find_packages(include=["composer.*"]),
       classifiers=[
           "Programming Language :: Python :: 3",
           "Programming Language :: Python :: 3.7",
