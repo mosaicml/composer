@@ -93,7 +93,7 @@ class BlurPool(Algorithm):
             See :class:`.BlurConv2d` for further discussion. Default: ``True``.
     """
 
-    def __init__(self, replace_convs: bool, replace_maxpools: bool, blur_first: bool) -> None:
+    def __init__(self, replace_convs: bool = True, replace_maxpools: bool = True, blur_first: bool = True) -> None:
         self.replace_convs = replace_convs
         self.replace_maxpools = replace_maxpools
         self.blur_first = blur_first
