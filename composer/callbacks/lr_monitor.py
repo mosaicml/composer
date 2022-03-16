@@ -14,6 +14,7 @@ class LRMonitor(Callback):
     ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
 
     Example
+       >>> from composer.callbacks import LRMonitor
        >>> # constructing trainer object with this callback
        >>> trainer = Trainer(
        ...     model=model,
@@ -21,7 +22,7 @@ class LRMonitor(Callback):
        ...     eval_dataloader=eval_dataloader,
        ...     optimizers=optimizer,
        ...     max_duration="1ep",
-       ...     callbacks=[callbacks.LRMonitor()],
+       ...     callbacks=[LRMonitor()],
        ... )
 
     The learning rate is logged by the :class:`~composer.loggers.logger.Logger` to the following key as described

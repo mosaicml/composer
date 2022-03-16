@@ -20,13 +20,24 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import composer
 from composer import Trainer as OriginalTrainer
-from composer import *  # Make all composer imports available in doctests
 from composer.loggers import LogLevel as LogLevel
 from composer.loggers import Logger as Logger
 from composer.loggers import InMemoryLogger as InMemoryLogger
-from composer.core.time import Time as Time, Timestamp as Timestamp
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.utils import *  # Make all composer.utils imports available in doctests
+from composer.utils import ensure_tuple as ensure_tuple
+from composer.core import Algorithm as Algorithm
+from composer.core import Callback as Callback
+from composer.core import DataSpec as DataSpec
+from composer.core import Engine as Engine
+from composer.core import Evaluator as Evaluator
+from composer.core import Event as Event
+from composer.core import State as State
+from composer.core import Time as Time
+from composer.core import Timer as Timer
+from composer.core import TimeUnit as TimeUnit
+from composer.core import Timestamp as Timestamp
+from composer.core import types as types
+from composer.models import ComposerModel as ComposerModel
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory

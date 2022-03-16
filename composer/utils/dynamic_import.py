@@ -22,7 +22,7 @@ def import_object(name: str) -> Any:
 
             Example:
 
-                >>> dynamic_import('functools:partial')
+                >>> import_object('functools:partial')
                 <class 'functools.partial'>
 
             .. note::
