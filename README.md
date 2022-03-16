@@ -145,7 +145,7 @@ Composer's built-in trainer makes it easy to **add multiple speedup methods in a
 Trying out new methods or combinations of methods is as easy as changing a single list.
 As we continually implement more methods, they will be easy for you to add to your code.
 
-For concrete examples of methods in Composer, here are some ([_see here for all_](https://docs.mosaicml.com/en/latest/method_cards/methods_overview.html)) speedup methods currently in Composer:
+For concrete examples of methods in Composer, here are some ([_see here for all_](https://docs.mosaicml.com/en/latest/trainer/algorithms.html)) speedup methods currently in Composer:
 
 Name|Attribution|tl;dr|Example Benchmark|Speed Up*|
 ----|-----------|-----|---------|---------|
