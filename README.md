@@ -101,16 +101,33 @@ Integrate our speed-up methods into your training loop with just a few lines of 
 
 
 ```python
-import composer.functional as cf
-from torchvision import models
+import torchvision
+import torch
 
-my_model = models.resnet18()
+from composer import functional as cf
+from composer.models.classify_mnist.model import Model as MNISTModel
 
-# add blurpool and squeeze excite layers
-model = cf.apply_blurpool(my_model)
-model = cf.apply_squeeze_excite(my_model)
+# Setup.
+model = MNISTModel(initializers=[], num_classes=10)
+num_epochs = 2
+transform = torchvision.transforms.ToTensor()
+dataset = torchvision.datasets.MNIST('.data/', transform=transform, download=True)
+train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=128)
+optimizer = torch.optim.Adam(model.parameters())
+criterion = torch.nn.CrossEntropyLoss()
 
-# your own training code starts here
+# Replace eligible layers in the network with a BlurPool-enabled layer.
+model = cf.apply_blurpool(model)
+
+# Main training loop.
+for epoch in range(num_epochs):
+    for inputs, labels in train_dataloader:
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        smoothed_targets = cf.smooth_labels(outputs, labels, smoothing=0.1)
+        loss = criterion(outputs, smoothed_targets)
+        loss.backward()
+        optimizer.step()
 ```
 
 For more examples, see the [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) and [Functional API guide](https://docs.mosaicml.com/en/latest/functional_api.html).
@@ -128,17 +145,19 @@ from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
 from composer.models import MNIST_Classifier
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = datasets.MNIST("data", download=True, transform=transform)
-train_dataloader = DataLoader(dataset, batch_size=128)
+train_dataset = datasets.MNIST("data", download=True, transform=transform)
+val_dataset = datasets.MNIST("data", download=True, transform=transform, train=False)
+train_dataloader = DataLoader(train_dataset, batch_size=128)
+eval_dataloader = DataLoader(val_dataset, batch_size=128)
+model = MNIST_Classifier(num_classes=10) 
+optimizer = torch.optim.Adam(model.parameters())
 
 trainer = Trainer(
-    model=MNIST_Classifier(num_classes=10),
-    train_dataloader=train_dataloader,
+    model=model, optimizers=optimizer,
+    train_dataloader=train_dataloader, eval_dataloader=eval_dataloader,
     max_duration="2ep",
     algorithms=[
-        BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
-        ChannelsLast(),
-        CutMix(num_classes=10),
+        BlurPool(),
         LabelSmoothing(smoothing=0.1),
     ]
 )
