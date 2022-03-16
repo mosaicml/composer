@@ -57,7 +57,7 @@ test:
     # Including all run_constrained requirements in the test requirements, so those tests will not be import-skipped
     - pip # Since deepspeed and timm are not available on anaconda, they are installed via pip.
     - wandb >=0.12.10,<0.13
-    - monai >=0.8.1,<0.9
+    - monai >=0.8.0,<0.9
     - scikit-learn >=1.0.1,<2
     # - timm >=0.5.4 # This timm version is not available on conda; installing via pip
     - transformers >=4.11,<5
