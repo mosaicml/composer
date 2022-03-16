@@ -25,6 +25,7 @@ from composer.utils.reproducibility import seed_all
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 
+
 @pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerInit():
 
@@ -260,6 +261,7 @@ class AssertDataAugmented(Callback):
 
         assert not torch.allclose(original_outputs[0], state.outputs[0])
 
+
 @pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerEvents():
 
@@ -307,6 +309,7 @@ tests for each object, in situ of our trainer.
 We use the hparams_registry associated with our
 config management to retrieve the objects to test.
 """
+
 
 @pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerAssets:
