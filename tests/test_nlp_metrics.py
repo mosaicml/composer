@@ -11,6 +11,7 @@ from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedA
 
 @pytest.mark.parametrize("ignore_index", [-100])
 @pytest.mark.parametrize("num_classes", [2, 3, 4, 5])
+@pytest.mark.xfail(reason="Test is flaky. See https://github.com/mosaicml/composer/issues/767.")
 def test_masked_accuracy(ignore_index, num_classes):
     """Sanity check to make sure that masked accuracy has reasonable performance.
 

@@ -13,7 +13,8 @@ from typing import Optional
 import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
-from composer.core import Callback, Logger, State
+from composer.core import Callback, State
+from composer.loggers import Logger
 from composer.profiler._profiler_action import ProfilerAction
 from composer.utils import dist, run_directory
 
@@ -147,7 +148,7 @@ class TorchProfiler(Callback):
     def batch_start(self, state: State, logger: Logger) -> None:
         del state  # unused
         assert self.profiler is not None, _PROFILE_MISSING_ERROR
-        logger.metric_batch({"profiler/state": self.profiler.current_action.name})
+        logger.data_batch({"profiler/state": self.profiler.current_action.name})
 
     def close(self) -> None:
         if self.profiler is not None:

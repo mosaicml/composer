@@ -136,7 +136,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
             if self.data_type == SyntheticDataType.SEPARABLE:
                 assert self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT, \
                     "SyntheticDataType.SEPARABLE requires integer classes."
-                assert max(input_target) == 1 and min(input_target) == 0, \
+                assert torch.max(input_target) == 1 and torch.min(input_target) == 0, \
                     "SyntheticDataType.SEPARABLE only supports binary labels"
                 # Make positive examples have mean = 3 and negative examples have mean = -3
                 # so they are easier to separate with a classifier

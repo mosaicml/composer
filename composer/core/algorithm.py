@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Optional
 from composer.core.serializable import Serializable
 
 if TYPE_CHECKING:
-    from composer.core import Event, Logger, State
+    from composer.core import Event, State
+    from composer.loggers import Logger
 
 __all__ = ["Algorithm"]
 

@@ -3,16 +3,20 @@
 Composer
 ========
 
-`Composer <https://github.com/mosaicml/composer>`_ is a library for training neural networks better, faster, and cheaper. It contains many state-of-the-art methods for accelerating neural network training and improving generalization, along with an optional :doc:`Trainer<trainer/using_the_trainer>` API that makes `composing` many different enhancements easy.
+`Composer <https://github.com/mosaicml/composer>`_ is a library for training neural networks better, faster, and cheaper.
+It contains many state-of-the-art methods for accelerating neural network training and improving generalization, along with
+an optional :doc:`Trainer<trainer/using_the_trainer>` API that makes `composing` many different enhancements easy.
 
-We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to.
+We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to,
+and built strong baselines to rigorously measure their effect.
 
-Using Composer, you can:
+With Composer, you can build recipes to:
 
-- Train a ResNet-50 on ImageNet to `76.1% accuracy for $38 <https://app.mosaicml.com/explorer/imagenet>`_ (`with vanilla PyTorch` :$127)
-- Train a GPT-2 125M on OpenWebText to a perplexity of `23.9 for $149 <https://app.mosaicml.com/explorer/openwebtext>`_ (`with vanilla PyTorch`: $255)
-- Use high-quality implementations of start-of-the-art methods to speed up your own training
-- Easily experiment with your own dataloader, model, or training loop changes
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- start numbers -->
+   :end-before: <!-- end numbers -->
+
 
 Composer features:
 
@@ -33,6 +37,7 @@ that model training is ✨ as efficient as possible ✨.
 If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or `Slack`_!
 
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, and issues.
+
 
 .. toctree::
    :hidden:
@@ -81,10 +86,9 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/augmix.md
    method_cards/blurpool.md
    method_cards/channels_last.md
-   method_cards/cutmix.md
    method_cards/colout.md
+   method_cards/cutmix.md
    method_cards/cutout.md
-   method_cards/decoupled_weight_decay.md
    method_cards/factorize.md
    method_cards/ghost_batchnorm.md
    method_cards/label_smoothing.md
@@ -92,11 +96,10 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/mixup.md
    method_cards/progressive_resizing.md
    method_cards/randaugment.md
-   method_cards/scale_schedule.md
-   method_cards/scaling_laws.rst
-   method_cards/selective_backprop.md
-   method_cards/seq_length_warmup.rst
    method_cards/sam.md
+   method_cards/scale_schedule.md
+   method_cards/selective_backprop.md
+   method_cards/seq_length_warmup.md
    method_cards/squeeze_excite.md
    method_cards/stochastic_depth.md
    method_cards/stochastic_depth_samplewise.md

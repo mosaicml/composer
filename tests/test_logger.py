@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import datetime
 import os
 import pathlib
 from unittest.mock import MagicMock
@@ -10,13 +11,12 @@ from _pytest.monkeypatch import MonkeyPatch
 from tqdm import auto
 
 from composer.core.event import Event
-from composer.core.logging import Logger, LogLevel
 from composer.core.state import State
 from composer.core.time import Time, Timestamp
-from composer.loggers.in_memory_logger import InMemoryLogger
-from composer.loggers.logger_hparams import FileLoggerHparams, TQDMLoggerHparams, WandBLoggerHparams
+from composer.loggers import (FileLoggerHparams, InMemoryLogger, Logger, LoggerDestination, LogLevel, TQDMLoggerHparams,
+                              WandBLoggerHparams)
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import dist
+from composer.utils import dist, reproducibility
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str
         buffer_size=1,
         flush_interval=1,
     ).initialize_object()
-    logger = Logger(dummy_state, backends=[log_destination])
+    logger = Logger(dummy_state, destinations=[log_destination])
     log_destination.run_event(Event.INIT, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
@@ -44,19 +44,19 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     dummy_state.timer.on_epoch_complete()
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
-    logger.metric_fit({"metric": "fit"})  # should print
-    logger.metric_epoch({"metric": "epoch"})  # should print on batch level, since epoch calls are always printed
-    logger.metric_batch({"metric": "batch"})  # should print on batch level, since we print every 3 steps
+    logger.data_fit({"metric": "fit"})  # should print
+    logger.data_epoch({"metric": "epoch"})  # should print on batch level, since epoch calls are always printed
+    logger.data_batch({"metric": "batch"})  # should print on batch level, since we print every 3 steps
     dummy_state.timer.on_epoch_complete()
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
-    logger.metric_epoch({"metric": "epoch1"})  # should print, since we log every 3 epochs
+    logger.data_epoch({"metric": "epoch1"})  # should print, since we log every 3 epochs
     dummy_state.timer.on_epoch_complete()
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     dummy_state.timer.on_batch_complete()
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
-    logger.metric_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
-    logger.metric_batch({"metric": "batch1"})  # should NOT print
+    logger.data_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
+    logger.data_batch({"metric": "batch1"})  # should NOT print
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     log_destination.close()
     with open(log_file_name, 'r') as f:
@@ -130,11 +130,11 @@ def test_wandb_logger(composer_trainer_hparams: TrainerHparams, world_size: int)
 
 def test_in_memory_logger(dummy_state: State):
     in_memory_logger = InMemoryLogger(LogLevel.EPOCH)
-    logger = Logger(dummy_state, backends=[in_memory_logger])
-    logger.metric_batch({"batch": "should_be_ignored"})
-    logger.metric_epoch({"epoch": "should_be_recorded"})
+    logger = Logger(dummy_state, destinations=[in_memory_logger])
+    logger.data_batch({"batch": "should_be_ignored"})
+    logger.data_epoch({"epoch": "should_be_recorded"})
     dummy_state.timer.on_batch_complete(samples=1, tokens=1)
-    logger.metric_epoch({"epoch": "should_be_recorded_and_override"})
+    logger.data_epoch({"epoch": "should_be_recorded_and_override"})
 
     # no batch events should be logged, since the level is epoch
     assert "batch" not in in_memory_logger.data
@@ -168,8 +168,10 @@ def test_in_memory_logger_get_timeseries():
             token=Time(0, "tok"),
             token_in_epoch=Time(0, "tok"),
         )
+        state = MagicMock()
+        state.timer.get_timestamp.return_value = timestamp
         datapoint = i / 3
-        in_memory_logger.log_metric(timestamp=timestamp, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+        in_memory_logger.log_data(state=state, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
         data["accuracy/val"].append(datapoint)
         data["batch"].append(batch)
         data["batch_in_epoch"].append(batch_in_epoch)
@@ -177,3 +179,44 @@ def test_in_memory_logger_get_timeseries():
     timeseries = in_memory_logger.get_timeseries("accuracy/val")
     for k, v in data.items():
         assert np.all(timeseries[k] == np.array(v))
+
+
+@pytest.mark.world_size(2)
+def test_logger_run_name(dummy_state: State):
+    # need to manually initialize distributed if not already initialized, since this test occurs outside of the trainer
+    if not dist.is_initialized():
+        dist.initialize_dist('gloo', timeout=datetime.timedelta(seconds=5))
+    # seeding with the global rank to ensure that each rank has a different seed
+    reproducibility.seed_all(dist.get_global_rank())
+
+    logger = Logger(state=dummy_state)
+    # The run name should be the same on every rank -- it is set via a distributed reduction
+    # Manually verify that all ranks have the same run name
+    run_names = dist.all_gather_object(logger.run_name)
+    assert len(run_names) == 2  # 2 ranks
+    assert all(run_name == run_names[0] for run_name in run_names)
+
+
+def test_logger_file_artifact(dummy_state: State):
+
+    file_logged = False
+
+    class DummyLoggerDestination(LoggerDestination):
+
+        def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+                              overwrite: bool):
+            nonlocal file_logged
+            file_logged = True
+            assert artifact_name == "foo"
+            assert file_path.name == "bar"
+            assert overwrite
+
+    logger = Logger(state=dummy_state, destinations=[DummyLoggerDestination()])
+    logger.file_artifact(
+        log_level="epoch",
+        artifact_name="foo",
+        file_path="bar",
+        overwrite=True,
+    )
+
+    assert file_logged

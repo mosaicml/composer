@@ -10,8 +10,9 @@ import numpy as np
 import torch
 
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.types import Optimizers
+from composer.loggers import Logger
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ class BlurPool(Algorithm):
             See :class:`.BlurConv2d` for further discussion. Default: ``True``.
     """
 
-    def __init__(self, replace_convs: bool, replace_maxpools: bool, blur_first: bool) -> None:
+    def __init__(self, replace_convs: bool = True, replace_maxpools: bool = True, blur_first: bool = True) -> None:
         self.replace_convs = replace_convs
         self.replace_maxpools = replace_maxpools
         self.blur_first = blur_first
@@ -144,7 +145,7 @@ class BlurPool(Algorithm):
                  f'Model now has {num_blurpool_layers} BlurMaxPool2d '
                  f'and {num_blurconv_layers} BlurConv2D layers.')
 
-        logger.metric_fit({
+        logger.data_fit({
             'blurpool/num_blurpool_layers': num_blurpool_layers,
             'blurpool/num_blurconv_layers': num_blurconv_layers,
         })
