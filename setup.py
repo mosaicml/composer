@@ -138,7 +138,7 @@ extra_deps["nlp"] = [
 ]
 
 extra_deps['webdataset'] = [
-    # https://github.com/webdataset/webdataset/compare/main...mosaicml:dev?expand=1 # PyPI does not permit git dependencies.
+    # 'webdataset @ git+https://github.com/mosaicml/webdataset.git@dev' # PyPI does not permit git dependencies.
     'wurlitzer>=3.0.2,<4',
 ]
 
