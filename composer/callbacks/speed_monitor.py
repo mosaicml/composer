@@ -23,6 +23,8 @@ class SpeedMonitor(Callback):
     event.
 
     Example
+
+        >>> from composer.callbacks import SpeedMonitor
         >>> # constructing trainer object with this callback
         >>> trainer = Trainer(
         ...     model=model,
@@ -30,7 +32,7 @@ class SpeedMonitor(Callback):
         ...     eval_dataloader=eval_dataloader,
         ...     optimizers=optimizer,
         ...     max_duration="1ep",
-        ...     callbacks=[callbacks.SpeedMonitor(window_size=100)],
+        ...     callbacks=[SpeedMonitor(window_size=100)],
         ... )
 
     The training throughput is logged by the :class:`~composer.loggers.logger.Logger` to the following keys as

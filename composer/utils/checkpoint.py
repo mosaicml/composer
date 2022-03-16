@@ -17,7 +17,7 @@ import torch
 
 from composer.utils import dist, reproducibility
 from composer.utils.file_retriever import GetFileNotFoundException, get_file
-from composer.utils.object_store import ObjectStoreProvider
+from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -69,7 +69,7 @@ def _get_write_mode(name: str) -> str:
 def load_checkpoint(
     path_format: str,
     state: State,
-    object_store: Optional[ObjectStoreProvider] = None,
+    object_store: Optional[ObjectStore] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
     chunk_size: int = 1_048_576,
@@ -112,9 +112,9 @@ def load_checkpoint(
             correct state.
 
         state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
-        object_store (ObjectStoreProvider, optional): If the ``path_format`` is in an object store
+        object_store (ObjectStore, optional): If the ``path_format`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
-            :class:`~.ObjectStoreProvider` which will be used
+            :class:`~.ObjectStore` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
             (default: ``None``)
         load_weights_only (bool, optional): Whether or not to only restore the model weights from the checkpoint without
@@ -171,7 +171,7 @@ def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
 def _download_checkpoint(
     path_format: str,
     node_checkpoint_folder: str,
-    object_store: Optional[ObjectStoreProvider],
+    object_store: Optional[ObjectStore],
     chunk_size: int,
     progress_bar: bool,
 ) -> Tuple[str, Optional[str], bool]:

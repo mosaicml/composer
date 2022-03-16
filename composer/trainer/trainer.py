@@ -104,7 +104,7 @@ from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_dd
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
-from composer.utils.object_store import ObjectStoreProvider
+from composer.utils.object_store import ObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -265,8 +265,8 @@ class Trainer:
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (ObjectStoreProvider, optional): If the ``load_path_format`` is in an object store
-            (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStoreProvider` which
+        load_object_store (ObjectStore, optional): If the ``load_path_format`` is in an object store
+            (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` which
             will be used to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath,
             set to ``None``. Ignored if ``load_path_format`` is ``None``. (default: ``None``)
 
@@ -281,14 +281,14 @@ class Trainer:
             .. testcode::
 
                 from composer import Trainer
-                from composer.utils import ObjectStoreProvider
+                from composer.utils import ObjectStore
 
                 # Create the object store provider with the specified credentials
                 creds = {"key": "object_store_key",
                          "secret": "object_store_secret"}
-                store = ObjectStoreProvider(provider="s3",
+                store = ObjectStore(provider="s3",
                                             container="my_container",
-                                            provider_init_kwargs=creds)
+                                            provider_kwargs=creds)
 
                 checkpoint_path = "/path_to_the_checkpoint_in_object_store"
 
@@ -451,7 +451,7 @@ class Trainer:
 
         # load checkpoint
         load_path_format: Optional[str] = None,
-        load_object_store: Optional[ObjectStoreProvider] = None,
+        load_object_store: Optional[ObjectStore] = None,
         load_weights_only: bool = False,
         load_strict: bool = False,
         load_chunk_size: int = 1_048_576,
@@ -929,9 +929,9 @@ class Trainer:
         self.logger.data_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
         if self._compute_training_metrics:
-            log.warn('Computing model evaluation metrics during training.'
-                     ' This doubles the number of forward passes and may lead'
-                     ' to a throughput degradation.')
+            log.warning('Computing model evaluation metrics during training.'
+                        ' This doubles the number of forward passes and may lead'
+                        ' to a throughput degradation.')
             train_metrics = self._original_model.metrics(train=True)
             if isinstance(train_metrics, Metric):
                 # Forcing metrics to be a MetricCollection simplifies logging results
