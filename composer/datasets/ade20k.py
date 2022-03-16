@@ -18,6 +18,7 @@ import yahp as hp
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
+from torchvision.datasets import VisionDataset
 
 from composer.core.types import DataSpec
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
@@ -144,6 +145,35 @@ class PadToSize(torch.nn.Module):
         return image
 
 
+class PadPair(torch.nn.Module):
+
+    def __init__(self, size: Tuple[int, int], input_fill: Union[int, Tuple[int, int, int]], target_fill: int):
+        super().__init__()
+        self.pad_input = PadToSize(size=size, fill=input_fill)
+        self.pad_target = PadToSize(size=size, fill=target_fill)
+
+    def forward(self, sample: Tuple[Image.Image, Image.Image]):
+        input, target = sample
+        padded_input = self.pad_input(input)
+        padded_target = self.pad_target(target)
+        return padded_input, padded_target
+
+
+class ResizePair(torch.nn.Module):
+
+    def __init__(self, size: Tuple[int, int]):
+        super().__init__()
+        self.resize_input = transforms.Resize(size=size, interpolation=TF.InterpolationMode.BILINEAR)
+        self.resize_target = transforms.Resize(size=size, interpolation=TF.InterpolationMode.NEAREST)
+
+    def forward(self, sample: Tuple[Image.Image, Image.Image]):
+        input, target = sample
+        resized_input = self.resize_input(input)
+        resized_target = self.resize_target(target)
+
+        return resized_input, resized_target
+
+
 class PhotometricDistoration(torch.nn.Module):
     """Applies a combination of brightness, contrast, saturation, and hue jitters with random intensity.
 
@@ -164,7 +194,8 @@ class PhotometricDistoration(torch.nn.Module):
         self.saturation = saturation
         self.hue = hue
 
-    def forward(self, image: Image.Image):
+    def forward(self, sample: Tuple[Image.Image, Image.Image]):
+        image, target = sample
         if np.random.randint(2):
             brightness_factor = np.random.uniform(1 - self.brightness, 1 + self.brightness)
             image = TF.adjust_brightness(
@@ -192,14 +223,14 @@ class PhotometricDistoration(torch.nn.Module):
                 image,  # type: ignore - transform typing does not include PIL.Image
                 contrast_factor)
 
-        return image
+        return image, target
 
 
-class ADE20k(Dataset):
+class ADE20k(VisionDataset):
     """PyTorch Dataset for ADE20k.
 
     Args:
-        datadir (str): the path to the ADE20k folder.
+        root (str): the path to the ADE20k folder.
         split (str): the dataset split to use, either 'train', 'val', or 'test'. Default: ``'train'``.
         both_transforms (torch.nn.Module): transformations to apply to the image and target simultaneously.
             Default: ``None``.
@@ -207,30 +238,23 @@ class ADE20k(Dataset):
         target_transforms (torch.nn.Module): transformations to apply to the target only. Default ``None``.
     """
 
-    def __init__(self,
-                 datadir: str,
-                 split: str = 'train',
-                 both_transforms: Optional[torch.nn.Module] = None,
-                 image_transforms: Optional[torch.nn.Module] = None,
-                 target_transforms: Optional[torch.nn.Module] = None):
-        super().__init__()
-        self.datadir = datadir
+    def __init__(self, root: str, split: str = 'train', transforms: Optional[torch.nn.Module] = None):
+        super().__init__(root=root, transforms=transforms)
+        self.root = root
         self.split = split
-        self.both_transforms = both_transforms
-        self.image_transforms = image_transforms
-        self.target_transforms = target_transforms
+        self.transforms = transforms
 
-        # Check datadir value
-        if self.datadir is None:
-            raise ValueError("datadir must be specified")
-        elif not os.path.exists(self.datadir):
-            raise FileNotFoundError(f"datadir path does not exist: {self.datadir}")
+        # Check root value
+        if self.root is None:
+            raise ValueError("root must be specified")
+        elif not os.path.exists(self.root):
+            raise FileNotFoundError(f"root path does not exist: {self.root}")
 
         # Check split value
         if self.split not in ["train", "val", "test"]:
             raise ValueError(f"split must be one of [`train`, `val`, `test`] but is: {self.split}")
 
-        self.image_dir = os.path.join(self.datadir, 'images', self.split)
+        self.image_dir = os.path.join(self.root, 'images', self.split)
         if not os.path.exists(self.image_dir):
             raise FileNotFoundError(f"ADE20k directory structure is not as expected: {self.image_dir} does not exist")
 
@@ -255,19 +279,12 @@ class ADE20k(Dataset):
 
         # Load annotation target if using either train or val splits
         if self.split in ['train', 'val']:
-            target_path = os.path.join(self.datadir, 'annotations', self.split, image_file.split('.')[0] + '.png')
+            target_path = os.path.join(self.root, 'annotations', self.split, image_file.split('.')[0] + '.png')
             target = Image.open(target_path)
 
-            if self.both_transforms:
-                image, target = self.both_transforms((image, target))
+            if self.transforms:
+                image, target = self.transforms((image, target))
 
-            if self.target_transforms:
-                target = self.target_transforms(target)
-
-        if self.image_transforms:
-            image = self.image_transforms(image)
-
-        if self.split in ['train', 'val']:
             return image, target  # type: ignore
         else:
             return image
@@ -339,7 +356,10 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         else:
             # Define data transformations based on data split
             if self.split == 'train':
-                both_transforms = torch.nn.Sequential(
+                # Photometric distoration values come from mmsegmentation:
+                # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+                r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
+                all_transforms = torch.nn.Sequential(
                     RandomResizePair(min_scale=self.min_resize_scale,
                                      max_scale=self.max_resize_scale,
                                      base_size=(self.base_size, self.base_size)),
@@ -347,24 +367,14 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                         crop_size=(self.final_size, self.final_size),
                         class_max_percent=0.75,
                         num_retry=10,
-                    ),
-                    RandomHFlipPair(),
-                )
-
-                # Photometric distoration values come from mmsegmentation:
-                # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
-                r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
-                image_transforms = torch.nn.Sequential(
+                    ), RandomHFlipPair(),
                     PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                    PadToSize(size=(self.final_size, self.final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
+                    PadPair(size=(self.final_size, self.final_size),
+                            input_fill=(int(r_mean), int(g_mean), int(b_mean)),
+                            target_fill=0))
 
-                target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
             else:
-                both_transforms = None
-                image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
-                                                     interpolation=TF.InterpolationMode.BILINEAR)
-                target_transforms = transforms.Resize(size=(self.final_size, self.final_size),
-                                                      interpolation=TF.InterpolationMode.NEAREST)
+                all_transforms = ResizePair(size=(self.final_size, self.final_size))
             collate_fn = pil_image_collate
             device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
                                                   std=IMAGENET_CHANNEL_STD,
@@ -374,11 +384,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             if self.datadir is None:
                 raise ValueError("datadir must specify the path to the ADE20k dataset.")
 
-            dataset = ADE20k(datadir=self.datadir,
-                             split=self.split,
-                             both_transforms=both_transforms,
-                             image_transforms=image_transforms,
-                             target_transforms=target_transforms)
+            dataset = ADE20k(root=self.datadir, split=self.split, transforms=all_transforms)
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
                                                                         batch_size=batch_size,

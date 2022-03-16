@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from typing import TypeVar
+from typing import Sequence, Tuple, TypeVar, Union
 
 import torch
 from PIL.Image import Image as PillowImage
@@ -17,6 +17,7 @@ from composer.algorithms.utils.augmentation_common import image_as_type
 from composer.core import Algorithm, Event, Logger, State
 from composer.core.types import Tensor
 from composer.datasets.utils import add_vision_dataset_transform
+from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 __all__ = ["ColOut", "ColOutTransform", "colout_batch"]
 
 
-def colout_batch(input: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
+def colout_batch(input: ImgT, target: ImgT = None, p_row: float = 0.15, p_col: float = 0.15) -> Union[ImgT, Tuple[ImgT, ImgT]]:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 
@@ -72,6 +73,24 @@ def colout_batch(input: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
     if not isinstance(input, torch.Tensor) or (input.ndim < X_colout.ndim):
         X_colout = X_colout.reshape(X_colout.shape[-3:])
     X_colout = image_as_type(X_colout, type(input))
+
+
+    if (target is not None):
+        # If a target is given and has the same spatial dimensions as the input, reshape target like the input
+        if (len(target.shape) > 2) and (target.shape[-2:] == input.shape[-2:]):
+            Y_tensor = image_as_type(target, torch.Tensor)
+            Y_colout = Y_tensor[..., kept_row_idx, :]
+            Y_colout = Y_colout[..., :, kept_col_idx]
+            if not isinstance(target, torch.Tensor) or (target.ndim < Y_colout.ndim):
+                Y_colout = Y_colout.reshape(Y_colout.shape[-3:])
+            Y_colout = image_as_type(Y_colout, type(target))
+
+            return X_colout, Y_colout
+
+        # If target has different spatial dimensions as the input, return the original target
+        else:
+            return X_colout, target
+
     return X_colout
 
 
@@ -98,7 +117,7 @@ class ColOutTransform:
         self.p_row = p_row
         self.p_col = p_col
 
-    def __call__(self, img: ImgT) -> ImgT:
+    def __call__(self, sample: Union[ImgT, Sequence[ImgT]]) -> ImgT:
         """Drops random rows and columns from a single image.
 
         Args:
@@ -107,7 +126,14 @@ class ColOutTransform:
         Returns:
             torch.Tensor or PIL Image: A smaller image with rows and columns dropped
         """
-        return colout_batch(img, self.p_row, self.p_col)
+        sample = ensure_tuple(sample)
+        assert len(sample) < 3, "Colout supports 2 inputs at most"
+        if len(sample) == 1:
+            img = sample[0]
+            return colout_batch(img, self.p_row, self.p_col)
+        elif len(sample) == 2:
+            img, target = sample
+            return colout_batch(img, target, self.p_row, self.p_col)
 
 
 class ColOut(Algorithm):
@@ -177,11 +203,12 @@ class ColOut(Algorithm):
 
     def _apply_batch(self, state: State) -> None:
         """Transform a batch of images using the ColOut augmentation."""
-        inputs, labels = state.batch_pair
-        assert isinstance(inputs, Tensor), "Multiple Tensors not supported yet for ColOut"
-        new_inputs = colout_batch(inputs, p_row=self.p_row, p_col=self.p_col)
+        inputs, targets = state.batch_pair
+        assert isinstance(inputs, Tensor) and isinstance(targets, Tensor), \
+            "Multiple tensors not supported for this method yet."
+        new_batch = colout_batch(inputs, targets, p_row=self.p_row, p_col=self.p_col)
 
-        state.batch = (new_inputs, labels)
+        state.batch = new_batch
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         if self.batch:
