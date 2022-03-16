@@ -11,10 +11,11 @@ We implemented dozens of papers and `trained thousands of models <https://app.mo
 and built strong baselines to rigorously measure their effect.
 
 With Composer, you can build recipes to:
+
 .. include:: ../../README.md
    :parser: myst_parser.sphinx_
-   :start-after: Using Composer, you can:
-   :end-before: - Use these speedup methods on your own models
+   :start-after: start numbers
+   :end-before: end numbers
 
 
 Composer features:
