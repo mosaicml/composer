@@ -117,7 +117,7 @@ extra_deps["wandb"] = [
 ]
 
 extra_deps["unet"] = [
-    'monai>=0.8.1,<0.9',
+    'monai>=0.8.0,<0.9',
     'scikit-learn>=1.0.1,<2',
 ]
 
