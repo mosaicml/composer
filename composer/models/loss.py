@@ -71,7 +71,7 @@ class Dice(Metric):
         num_classes (int): the number of classes in the segmentation task.
     """
 
-    def __init__(self, num_classes: int):
+    def __init__(self, num_classes):
         super().__init__(dist_sync_on_step=True)
         self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
         self.add_state("dice", default=torch.zeros((num_classes,)), dist_reduce_fx="sum")
