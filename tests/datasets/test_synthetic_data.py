@@ -19,7 +19,7 @@ from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDat
 def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
     if data_type == SyntheticDataType.SEPARABLE:
         if label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
-            pytest.skip("Seperable data requires classification int labels")
+            pytest.skip("Separable data requires classification int labels")
         num_classes = 2
         label_shape = None
     else:
