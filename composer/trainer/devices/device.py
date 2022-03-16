@@ -5,7 +5,7 @@
 import collections.abc
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Callable, Generator, Sequence, TypeVar, Union, cast
+from typing import Generator, Sequence, TypeVar, Union
 
 import torch
 import torch.nn
@@ -13,7 +13,6 @@ from torch.optim import Optimizer
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.core.types import Batch, BatchPair
 
 __all__ = ["Device", "T_nnModule"]
 
@@ -68,7 +67,6 @@ class Device(Serializable, ABC):
         if isinstance(batch, torch.Tensor):
             return self.tensor_to_device(batch)
         if isinstance(batch, collections.abc.Sequence):  # BatchPair
-            batch_cls = type(batch)
             ans = []
             for x in batch:
                 if isinstance(x, torch.Tensor):
@@ -76,7 +74,7 @@ class Device(Serializable, ABC):
                 else:
                     assert isinstance(x, (dict, Sequence))
                     ans.append(self.batch_to_device(x))
-            return cast(Callable[..., BatchPair], batch_cls)(ans)
+            return list(ans)  # always returning a list, as the original batch type might not be callable
         if isinstance(batch, dict):  # BatchDict
             return {k: self.tensor_to_device(v) for k, v in batch.items()}
         raise TypeError(f"Unsupported type for batch: {type(batch)}")
