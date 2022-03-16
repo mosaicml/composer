@@ -14,8 +14,7 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, log_layers: bool =
     composer_trainer_hparams.train_batch_size = 50
     trainer = composer_trainer_hparams.initialize_object()
     log_destination = MagicMock()
-    log_destination.will_log.return_value = True
-    trainer.logger.backends = [log_destination]
+    trainer.logger.destinations = [log_destination]
     trainer.fit()
 
     num_train_steps = composer_trainer_hparams.train_subset_num_batches
@@ -26,7 +25,7 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, log_layers: bool =
 def test_grad_monitor_no_layers(composer_trainer_hparams: TrainerHparams):
     log_destination, num_train_steps = _do_trainer_fit(composer_trainer_hparams, log_layers=False)
     grad_norm_calls = 0
-    for log_call in log_destination.log_metric.mock_calls:
+    for log_call in log_destination.log_data.mock_calls:
         metrics = log_call[1][2]
         if "grad_l2_norm/step" in metrics:
             grad_norm_calls += 1
@@ -38,7 +37,7 @@ def test_grad_monitor_no_layers(composer_trainer_hparams: TrainerHparams):
 def test_grad_monitor_per_layer(composer_trainer_hparams: TrainerHparams):
     log_destination, num_train_steps = _do_trainer_fit(composer_trainer_hparams, log_layers=True)
     layer_norm_calls = 0
-    for log_call in log_destination.log_metric.mock_calls:
+    for log_call in log_destination.log_data.mock_calls:
         metrics = log_call[1][2]
         if not isinstance(metrics, dict):
             continue

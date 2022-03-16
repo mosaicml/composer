@@ -9,8 +9,9 @@ import torch
 import torch.nn.functional as F
 from torchmetrics.classification.accuracy import Accuracy
 
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.types import Tensor, as_batch_pair
+from composer.loggers import Logger
 from composer.models.base import ComposerModel
 from composer.utils import module_surgery
 

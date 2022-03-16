@@ -10,6 +10,7 @@ The output of this setup script does not show up in the documentation.
 import functools
 import os
 import sys
+from typing import Callable as Callable
 
 import numpy as np
 import torch.optim
@@ -20,7 +21,9 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 import composer
 from composer import Trainer as OriginalTrainer
 from composer import *  # Make all composer imports available in doctests
-from composer.core.logging import LogLevel as LogLevel
+from composer.loggers import LogLevel as LogLevel
+from composer.loggers import Logger as Logger
+from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.core.time import Time as Time, Timestamp as Timestamp
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import *  # Make all composer.utils imports available in doctests
@@ -103,6 +106,8 @@ def Trainer(fake_ellipses='...', *args, **kwargs):
 
 
 # bind the required arguments to the Trainer so it can be used without arguments in the doctests
+
+# Declaration "Trainer" is obscured by a declaration of the same name (reportGeneralTypeIssues)
 Trainer = functools.partial(  # type: ignore
     Trainer,
     model=model,

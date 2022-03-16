@@ -7,20 +7,16 @@ from __future__ import annotations
 import collections.abc
 import sys
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 from tqdm import auto
 
-from composer.core.logging import LogLevel, TLogData, TLogDataValue, format_log_data_value
-from composer.core.logging.base_backend import LoggerCallback
 from composer.core.state import State
-from composer.core.time import Timestamp
 from composer.core.types import StateDict
+from composer.loggers.logger import Logger, LoggerDataDict, LogLevel, format_log_data_value
+from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
-
-if TYPE_CHECKING:
-    from composer.core.logging import Logger
 
 __all__ = ["TQDMLogger"]
 
@@ -34,7 +30,7 @@ class _TQDMLoggerInstanceState:
     position: int
     keys_to_log: List[str]
     n: int
-    epoch_metrics: Dict[str, TLogDataValue]
+    epoch_metrics: LoggerDataDict
 
 
 class _TQDMLoggerInstance:
@@ -47,7 +43,7 @@ class _TQDMLoggerInstance:
                               bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}")
         self.pbar.set_postfix(state.epoch_metrics)
 
-    def log_metric(self, data: TLogData):
+    def log_data(self, data: LoggerDataDict):
         formatted_data = {k: format_log_data_value(v) for (k, v) in data.items() if k in self.state.keys_to_log}
         self.state.epoch_metrics.update(formatted_data)
         self.pbar.set_postfix(self.state.epoch_metrics)
@@ -63,7 +59,7 @@ class _TQDMLoggerInstance:
         return asdict(self.state)
 
 
-class TQDMLogger(LoggerCallback):
+class TQDMLogger(LoggerDestination):
     """Logs metrics to a `TQDM <https://github.com/tqdm/tqdm>`_ progress bar displayed in the terminal.
 
     During training, the progress bar logs the batch and training loss.
@@ -104,16 +100,12 @@ class TQDMLogger(LoggerCallback):
         self.is_train: Optional[bool] = None
         self.config = config
 
-    def will_log(self, state: State, log_level: LogLevel) -> bool:
-        del state  # Unused
-        return dist.get_global_rank() == 0 and log_level <= LogLevel.BATCH
-
-    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData) -> None:
-        del timestamp, log_level  # Unused
-        if self.is_train in self.pbars:
+    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict) -> None:
+        del state
+        if dist.get_global_rank() == 0 and log_level <= LogLevel.BATCH and self.is_train in self.pbars:
             # Logging outside an epoch
             assert self.is_train is not None
-            self.pbars[self.is_train].log_metric(data)
+            self.pbars[self.is_train].log_data(data)
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused

@@ -15,7 +15,8 @@ from composer.algorithms import BlurPool
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Event, State
-from composer.core.types import Logger, Tensor
+from composer.core.types import Tensor
+from composer.loggers import Logger
 from composer.models import ComposerClassifier
 from composer.utils import module_surgery
 
@@ -129,7 +130,7 @@ def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool):
 
     blurpool_instance.apply(Event.INIT, state, mock_logger)
 
-    mock_logger.metric_fit.assert_called_once_with({
+    mock_logger.data_fit.assert_called_once_with({
         'blurpool/num_blurpool_layers': 1 if blurpool_instance.replace_maxpools else 0,
         'blurpool/num_blurconv_layers': 1 if blurpool_instance.replace_convs else 0,
     })

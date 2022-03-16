@@ -11,9 +11,10 @@ from torchvision.models.resnet import Bottleneck
 
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.time import Time, TimeUnit
 from composer.core.types import Optimizer
+from composer.loggers import Logger
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -228,7 +229,7 @@ class StochasticDepth(Algorithm):
                                    drop_distribution=self.drop_distribution,
                                    use_same_gpu_seed=self.use_same_gpu_seed)
             num_stochastic_layers = module_surgery.count_module_instances(state.model, stochastic_layer)
-            logger.metric_epoch({'stochastic_depth/num_stochastic_layers': num_stochastic_layers})
+            logger.data_epoch({'stochastic_depth/num_stochastic_layers': num_stochastic_layers})
 
         elif event == Event.BATCH_START:
             if state.get_elapsed_duration() < self.drop_warmup:
@@ -236,7 +237,7 @@ class StochasticDepth(Algorithm):
                 _update_drop_rate(state.model, stochastic_layer, current_drop_rate, self.drop_distribution)
             else:
                 current_drop_rate = self.drop_rate
-            logger.metric_batch({'stochastic_depth/drop_rate': current_drop_rate})
+            logger.data_batch({'stochastic_depth/drop_rate': current_drop_rate})
 
 
 def _validate_stochastic_hparams(target_layer_name: str,

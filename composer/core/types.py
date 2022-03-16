@@ -34,7 +34,6 @@ from composer.core.algorithm import Algorithm as Algorithm
 from composer.core.data_spec import DataSpec as DataSpec
 from composer.core.evaluator import Evaluator as Evaluator
 from composer.core.event import Event as Event
-from composer.core.logging import Logger as Logger
 from composer.core.precision import Precision as Precision
 from composer.core.serializable import Serializable as Serializable
 from composer.core.state import State as State

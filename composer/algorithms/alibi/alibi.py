@@ -13,8 +13,9 @@ from typing import Any, Callable, Optional, Sequence, Tuple, Type, Union, cast
 
 import torch
 
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.types import Optimizer
+from composer.loggers import Logger
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)

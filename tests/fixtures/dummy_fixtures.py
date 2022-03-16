@@ -9,10 +9,11 @@ import torch.utils.data
 from torchmetrics import MetricCollection
 from torchmetrics.classification.accuracy import Accuracy
 
-from composer import Logger, State
+from composer import State
 from composer.core.evaluator import Evaluator
 from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
+from composer.loggers import Logger
 from composer.models import ComposerClassifier, ModelHparams
 from composer.optim import AdamHparams, ExponentialSchedulerHparams
 from composer.trainer import TrainerHparams

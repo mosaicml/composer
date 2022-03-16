@@ -9,7 +9,8 @@ from typing import Dict, Mapping, Optional
 import torch
 
 from composer.core.time import TimeUnit
-from composer.core.types import Algorithm, Batch, Event, Logger, State, Tensor
+from composer.core.types import Algorithm, Batch, Event, State, Tensor
+from composer.loggers import Logger
 from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
 
@@ -259,7 +260,7 @@ class SeqLengthWarmup(Algorithm):
         state.batch = set_batch_sequence_length(state.batch_dict, curr_seq_len, self.truncate)
 
         batch_size = state.batch_dict['input_ids'].shape[0]
-        logger.metric_batch({
+        logger.data_batch({
             'seq_length_warmup/curr_seq_len': curr_seq_len,
             'seq_length_warmup/curr_bs': batch_size,
         })

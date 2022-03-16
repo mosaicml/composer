@@ -12,7 +12,8 @@ from composer.datasets.dataloader import WrappedDataLoader
 
 if TYPE_CHECKING:
     from composer.core.state import State
-    from composer.core.types import Batch, DataLoader, Logger
+    from composer.core.types import Batch, DataLoader
+    from composer.loggers import Logger
     from composer.profiler import Profiler
 
 __all__ = ["DataLoaderProfiler"]

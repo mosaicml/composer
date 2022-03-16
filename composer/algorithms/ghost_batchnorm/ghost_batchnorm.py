@@ -8,8 +8,9 @@ from typing import Optional, Sequence, Union
 import numpy as np
 import torch
 
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.types import Optimizer
+from composer.loggers import Logger
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -111,7 +112,7 @@ class GhostBatchNorm(Algorithm):
                  f'Model now has {num_new_modules} {module_name} modules')
 
         if logger is not None:
-            logger.metric_fit({
+            logger.data_fit({
                 f'{classname}/num_new_modules': num_new_modules,
             })
 
