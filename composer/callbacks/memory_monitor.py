@@ -74,7 +74,7 @@ class MemoryMonitor(Callback):
         log.info(
             "Memory monitor just profiles the current GPU assuming that the memory footprint across GPUs is balanced.")
         if torch.cuda.device_count() == 0:
-            log.warn("Memory monitor only works on GPU devices.")
+            log.warning("Memory monitor only works on GPU devices.")
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}

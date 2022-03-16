@@ -195,6 +195,9 @@ with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") a
     doctest_global_setup = f.read()
 
 
+with open(os.path.join(os.path.dirname(__file__), "doctest_cleanup.py"), "r") as f:
+    doctest_global_cleanup = f.read()
+
 def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.MethodType, types.FunctionType],
                           module_name: str) -> Optional[str]:
     """Returns the path to where an item is documented.

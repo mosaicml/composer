@@ -89,7 +89,7 @@ class ObjectStoreLogger(LoggerDestination):
 
             # Shut down the uploader
             object_store_logger._check_workers()
-            object_store_logger._finished.set()
+            object_store_logger.post_close()
 
     .. note::
 
@@ -190,7 +190,6 @@ class ObjectStoreLogger(LoggerDestination):
                 import os
                 import functools
                 import composer.loggers.object_store_logger
-                import tempfile
 
                 from composer.loggers import ObjectStoreLogger as OriginalObjectStoreLogger
 
@@ -200,8 +199,6 @@ class ObjectStoreLogger(LoggerDestination):
 
                 composer.loggers.object_store_logger._validate_credentials = do_not_validate
 
-                tempdir = tempfile.TemporaryDirectory()
-
                 OriginalObjectStoreLogger.log_file_artifact = lambda *args, **kwargs: None
 
                 def ObjectStoreLogger(fake_ellipsis = ..., *args, **kwargs):
@@ -210,7 +207,7 @@ class ObjectStoreLogger(LoggerDestination):
                         num_concurrent_uploads=1,
                         provider='local',
                         container='.',
-                        provider_kwargs={'key': tempdir.name },
+                        provider_kwargs={'key': os.path.abspath(".") },
                     )
 
             .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name_format
@@ -224,8 +221,7 @@ class ObjectStoreLogger(LoggerDestination):
 
                 # Shut down the uploader
                 object_store_logger._check_workers()
-                object_store_logger._finished.set()
-                tempdir.cleanup()
+                object_store_logger.post_close()
            
             Assuming that the process's rank is ``0``, the object store would store the contents of
             ``'path/to/file.txt'`` in an object named ``'rank_0/bar.txt'``.
@@ -445,10 +441,10 @@ def _upload_worker(
                     retry_counter += 1
                     # exponential backoff
                     sleep_time = 2**(retry_counter - 1)
-                    log.warn("Request failed. Sleeping %s seconds and retrying",
-                             sleep_time,
-                             exc_info=e,
-                             stack_info=True)
+                    log.warning("Request failed. Sleeping %s seconds and retrying",
+                                sleep_time,
+                                exc_info=e,
+                                stack_info=True)
                     time.sleep(sleep_time)
                     continue
                 raise e

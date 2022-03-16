@@ -13,6 +13,9 @@
 
         import functools
         import torch.nn
+        import warnings
+
+        warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
 
         MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
 
@@ -29,6 +32,10 @@
         >>> # model will now be deterministically initialized, since the seed is set.
         >>> init_weights(model)
         >>> trainer = Trainer(model=model)
+
+    .. testcleanup::
+
+        warnings.resetwarnings()
 
 Attributes:
     MAX_SEED (int): The maximum allowed seed, which is :math:`2^{32} - 1`.
@@ -71,7 +78,19 @@ def configure_deterministic_mode():
         instead of invoking this function directly.
         For example:
 
-        >>> trainer = Trainer(deterministic_mode=True)
+        .. testsetup::
+
+            import warnings
+
+            warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
+
+        .. doctest::
+
+            >>> trainer = Trainer(deterministic_mode=True)
+
+        .. testcleanup::
+
+            warnings.resetwarnings()
 
         However, to configure deterministic mode for operations before the trainer is initialized, manually invoke this
         function at the beginning of your training script.

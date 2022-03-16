@@ -929,9 +929,9 @@ class Trainer:
         self.logger.data_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
         if self._compute_training_metrics:
-            log.warn('Computing model evaluation metrics during training.'
-                     ' This doubles the number of forward passes and may lead'
-                     ' to a throughput degradation.')
+            log.warning('Computing model evaluation metrics during training.'
+                        ' This doubles the number of forward passes and may lead'
+                        ' to a throughput degradation.')
             train_metrics = self._original_model.metrics(train=True)
             if isinstance(train_metrics, Metric):
                 # Forcing metrics to be a MetricCollection simplifies logging results
