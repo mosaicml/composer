@@ -138,7 +138,7 @@ class Trainer:
             :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
             metrics returned by ``model.metrics()`` will be used during evaluation.
             ``None`` results in no evaluation. (default: ``None``)
-        algorithms (List[Algorithm], optional): The algorithms to use during training. If ``None``, then
+        algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms to use during training. If ``None``, then
             no algorithms will be used. (default: ``None``)
 
             .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
@@ -223,11 +223,11 @@ class Trainer:
         run_name (str, optional): A name for this training run. If not specified, one will be generated automatically.
 
             .. seealso:: :class:`~composer.loggers.logger.Logger`
-        loggers (Sequence[LoggerDestination], optional): The destinations to log training information to.
+        loggers (LoggerDestination | Sequence[LoggerDestination], optional): The destinations to log training information to.
             If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        callbacks (Sequence[Callback], optional): The callbacks to run during training. If ``None``,
+        callbacks (Callback | Sequence[Callback], optional): The callbacks to run during training. If ``None``,
             then no callbacks will be run. (default: ``None``).
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
@@ -419,7 +419,7 @@ class Trainer:
         train_dataloader: Union[DataLoader, DataSpec],
         max_duration: Union[int, str, Time],
         eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
-        algorithms: Optional[List[Algorithm]] = None,
+        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         optimizers: Optional[torch.optim.Optimizer] = None,
         schedulers: Optional[Union[ComposerScheduler, Sequence[ComposerScheduler]]] = None,
 
@@ -446,8 +446,8 @@ class Trainer:
 
         # logging and callbacks
         run_name: Optional[str] = None,
-        loggers: Optional[Sequence[LoggerDestination]] = None,
-        callbacks: Sequence[Callback] = tuple(),
+        loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
+        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
 
         # load checkpoint
         load_path_format: Optional[str] = None,
@@ -498,7 +498,7 @@ class Trainer:
 
         # ScaleSchedule is a deprecated algorithm, but if it is used, updated SSR with its ratio.
         # TODO(#434): Remove this completely.
-        for algorithm in algorithms or []:
+        for algorithm in ensure_tuple(algorithms):
             if isinstance(algorithm, ScaleSchedule):
                 scale_schedule_ratio = algorithm.ratio
 
@@ -561,12 +561,9 @@ class Trainer:
         # which is okay because all runs with the hparams codepath will do this
         reproducibility.seed_all(seed)
 
-        if not algorithms:
-            algorithms = []
-
         # some algorithms require specific settings
-        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
-        find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
+        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
+        find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
         self._find_unused_parameters = find_unused_parameters
 
         if ddp_sync_strategy is None:

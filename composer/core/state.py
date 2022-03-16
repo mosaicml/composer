@@ -110,8 +110,8 @@ class State(Serializable):
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
-        algorithms (Sequence[Algorithm]): The algorithms used for training.
-        callbacks (Sequence[Callback]): The callbacks used for training.
+        algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
+        callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         profiler (Optional[Profiler]): The Composer profiler.
 
     Attributes:
@@ -161,35 +161,35 @@ class State(Serializable):
     _schedulers: List[types.PyTorchScheduler]
 
     def __init__(
-            self,
-            # model
-            model: torch.nn.Module,
+        self,
+        # model
+        model: torch.nn.Module,
 
-            # stopping conditions
-            max_duration: Union[str, Time[int]],
-            rank_zero_seed: int,
+        # stopping conditions
+        max_duration: Union[str, Time[int]],
+        rank_zero_seed: int,
 
-            # data configurations
-            train_dataloader: types.DataLoader,
-            evaluators: Union[Evaluator, Sequence[Evaluator]] = [],
-            grad_accum: int = 1,
+        # data configurations
+        train_dataloader: types.DataLoader,
+        evaluators: Optional[Union[Evaluator, Sequence[Evaluator]]] = None,
+        grad_accum: int = 1,
 
-            # precision
-            precision: Union[str, Precision] = Precision.FP32,
-            precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
+        # precision
+        precision: Union[str, Precision] = Precision.FP32,
+        precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
 
-            # optimizers
-            optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
+        # optimizers
+        optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 
-            # scaler
-            scaler: Optional[torch.cuda.amp.grad_scaler.GradScaler] = None,
+        # scaler
+        scaler: Optional[torch.cuda.amp.grad_scaler.GradScaler] = None,
 
-            # algorithms and callbacks
-            algorithms: Sequence[Algorithm] = tuple(),
-            callbacks: Sequence[Callback] = tuple(),
+        # algorithms and callbacks
+        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
+        callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
 
-            # steps per epoch
-            steps_per_epoch: Optional[int] = None,
+        # steps per epoch
+        steps_per_epoch: Optional[int] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -211,8 +211,8 @@ class State(Serializable):
         self._schedulers = []
 
         self.scaler = scaler
-        self._algorithms = list(algorithms)
-        self._callbacks = list(callbacks)
+        self._algorithms = list(ensure_tuple(algorithms))
+        self._callbacks = list(ensure_tuple(callbacks))
 
         self.profiler: Optional[Profiler] = None
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
