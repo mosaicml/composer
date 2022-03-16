@@ -131,9 +131,10 @@ class Trainer:
                 then the per-rank batch will be divided into microbatches of size ``256 / 2 = 128``.
         max_duration (int, str, or Time): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
-        eval_dataloader (DataLoader, DataSpec, or Evaluators, optional): The :class:`.DataLoader`,
-            :class:`.DataSpec`, or :class:`.Evaluators` for the evaluation data.
-            In order to evaluate one or more specific metrics across one or more datasets, pass in an
+        eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.DataLoader`,
+            :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
+
+            To evaluate one or more specific metrics across one or more datasets, pass in an
             :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
             metrics returned by ``model.metrics()`` will be used during evaluation.
             ``None`` results in no evaluation. (default: ``None``)
@@ -844,12 +845,12 @@ class Trainer:
         Returns:
             Optional[str]: The checkpoint folder, or None, if checkpoints were not saved.
 
-            If an absolute path was specified for ``save_folder`` upon trainer instantiation, then that path will be
-            used. Otherwise, this folder is relative to the :mod:`~composer.utils.run_directory` of the training run
-            (e.g. ``{run_directory}/{save_folder}``). If no run directory is provided, then by default, it is of the
-            form ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp`` is the start time of the
-            run in iso-format, ``GLOBAL_RANK`` is the global rank of the process, and ``save_folder`` is the
-            ``save_folder`` argument provided upon construction.
+                If an absolute path was specified for ``save_folder`` upon trainer instantiation, then that path will
+                be used. Otherwise, this folder is relative to the :mod:`~composer.utils.run_directory` of the training
+                run (e.g. ``{run_directory}/{save_folder}``). If no run directory is provided, then by default, it is
+                of the form ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp`` is the start time
+                of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process, and ``save_folder`` is the
+                ``save_folder`` argument provided upon construction.
         """
         if self._checkpoint_saver is None:
             raise RuntimeError("`save_folder` was not specified, so no checkpoints were saved.")

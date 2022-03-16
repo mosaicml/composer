@@ -3,15 +3,16 @@
 """Reference for common types used throughout the composer library.
 
 Attributes:
-    Batch (BatchPair | BatchDict | Tensor): Union type covering the most common representations of batches.
+    Batch (BatchPair | BatchDict | torch.Tensor): Union type covering the most common representations of batches.
         A batch of data can be represented in several formats, depending on the application.
-    BatchPair (Tuple[Tensors, Tensors] | List[Tensor]): Commonly used in computer vision tasks. The object is assumed
-        to contain exactly two elements, where the first represents inputs and the second represents targets.
+    BatchPair (Sequence[Union[torch.Tensor, Sequence[torch.Tensor]]]): Commonly used in computer vision tasks.
+        The object is assumed to contain exactly two elements, where the first represents inputs
+        and the second represents targets.
     BatchDict (Dict[str, Tensor]): Commonly used in natural language processing tasks.
     PyTorchScheduler (torch.optim.lr_scheduler._LRScheduler): Alias for base class of learning rate schedulers such
-        as :class:`torch.optim.lr_scheduler.ConstantLR`
-    JSON (str | float | int | None | List['JSON'] | Dict[str, 'JSON']): JSON Data
-    Dataset (torch.utils.data.Dataset[Batch]): Alias for :class:`torch.utils.data.Dataset`
+        as :class:`torch.optim.lr_scheduler.ConstantLR`.
+    JSON (str | float | int | None | List['JSON'] | Dict[str, 'JSON']): JSON Data.
+    Dataset (torch.utils.data.Dataset[Batch]): Alias for :class:`torch.utils.data.Dataset`.
 """
 
 from __future__ import annotations

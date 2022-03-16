@@ -36,7 +36,7 @@ class Evaluator:
     Args:
         label (str): Name of the Evaluator
         dataloader (Union[DataSpec, DataLoader]): DataLoader/DataSpec for evaluation data
-        metrics (Metrics): :class:`torchmetrics.Metric` to log. ``metrics`` will be deep-copied to ensure
+        metrics (Metric | MetricCollection): :class:`torchmetrics.Metric` to log. ``metrics`` will be deep-copied to ensure
             that each evaluator updates only its ``metrics``.
     """
 
