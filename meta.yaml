@@ -26,7 +26,7 @@ requirements:
     - pyyaml >=5.4.1,<6
     - pytorch >=1.9,<2
     - torch-optimizer >=0.1.0,<0.2
-    - torchmetrics >=0.6.0,<0.8
+    - torchmetrics >=0.6.0,<0.7
     - torchvision >=0.9.0,<0.10
     - tqdm >=4.62.3,<5
     - yahp ==0.1.0
