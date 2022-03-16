@@ -105,6 +105,9 @@ extra_deps['dev'] = [
     'docformatter==1.4',
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
+    # need webdataset to run pyight. Including here to pass pyright.
+    # TODO Remove once https://github.com/mosaicml/composer/issues/771 is fixed.
+    'webdataset==0.1.103',
 ]
 
 extra_deps["deepspeed"] = [
@@ -138,7 +141,8 @@ extra_deps["nlp"] = [
 ]
 
 extra_deps['webdataset'] = [
-    # 'webdataset @ git+https://github.com/mosaicml/webdataset.git@dev' # PyPI does not permit git dependencies.
+    # PyPI does not permit git dependencies. See https://github.com/mosaicml/composer/issues/771
+    # 'webdataset @ git+https://github.com/mosaicml/webdataset.git@dev'
     'wurlitzer>=3.0.2,<4',
 ]
 
