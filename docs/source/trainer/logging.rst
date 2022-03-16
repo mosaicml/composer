@@ -108,7 +108,7 @@ into a dictionary:
     from composer.loggers.logger_destination import LoggerDestination
     from composer.loggers.logger import LoggerDataDict, LogLevel
     from composer.core.time import Timestamp
-    from composer.core.types import State
+    from composer.core.state import State
 
     class DictionaryLogger(LoggerDestination):
         def __init__(self, log_level: LogLevel = LogLevel.BATCH):

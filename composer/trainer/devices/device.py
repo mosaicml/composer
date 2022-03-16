@@ -105,7 +105,7 @@ class Device(Serializable, ABC):
 
         .. doctest::
 
-            >>> from composer.core.types import Precision
+            >>> from composer.core.precision import Precision
             >>> from composer.trainer.devices import DeviceCPU
             >>>
             >>> device = DeviceCPU()
