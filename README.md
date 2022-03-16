@@ -54,7 +54,7 @@ Composer is a library written in PyTorch that makes it possible to <b>train neur
   </a>
 </p>
 
-Composer is designed to train your models <b>as efficiently as possible</b> though <b>carefully tuned implementations of all aspects of the training process</b>. With our speed-up methods, (1) reduce the time necessary to train models to standard _quality_ (i.e., accuracy, perplexity, or other metrics of interest) and (2) increase the quality of models trained for a standard amount of time.
+Composer is designed to train your models <b>as efficiently as possible</b> through <b>carefully tuned implementations of all aspects of the training process</b>. With our speed-up methods, (1) reduce the time necessary to train models to standard _quality_ (i.e., accuracy, perplexity, or other metrics of interest) and (2) increase the quality of models trained for a standard amount of time.
 You can use these methods through Composer's built-in training loop or apply them to your own code.
 
 Composer features:
