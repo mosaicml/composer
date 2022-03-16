@@ -83,7 +83,7 @@ extra_deps['dev'] = [
     'toml==0.10.2',
     'yapf==0.32.0',
     'isort==5.10.1',
-    'ipython==8.1.1',
+    'ipython==7.32.0',
     'ipykernel==6.9.2',
     'jupyter==1.0.0',
     'yamllint==1.26.3',
