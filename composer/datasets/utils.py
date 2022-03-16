@@ -165,10 +165,11 @@ def add_vision_dataset_transform(dataset: VisionDataset,
         if is_tensor_transform:
             insertion_index += 1
 
-        assert dataset.transforms is not None and dataset.transform is not None
         if is_target_transformed:
+            assert dataset.transforms is not None
             dataset.transforms.transforms.insert(insertion_index, transform)
         else:
+            assert dataset.transform is not None
             dataset.transform.transforms.insert(insertion_index, transform)
         log.warning(transform_added_logstring)
     else:  # transform is some other basic transform, join using Compose
