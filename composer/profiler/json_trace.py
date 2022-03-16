@@ -222,7 +222,6 @@ class JSONTraceHandler(ProfilerEventHandler):
             self._file.write("\n]")
             self._file.flush()
             self._file.close()
-            self._run_name = None
             self._file = None
 
     def _flush(self, logger: Logger):

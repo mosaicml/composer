@@ -141,9 +141,9 @@ class CheckpointSaver(Callback):
             Consider the following example when using default value of '{run_name}/checkpoints':
 
             >>> checkpoint_saver = CheckpointSaver(save_folder_format='{run_name}/checkpoints')
-            >>> trainer = Trainer(callbacks=[checkpoint_saver], run_name='foo')
+            >>> trainer = Trainer(callbacks=[checkpoint_saver], run_name='awesome-training-run')
             >>> checkpoint_saver.save_folder
-            'foo/checkpoints'
+            'awesome-training-run/checkpoints'
 
             Default: `'{run_name}/checkpoints'`
 

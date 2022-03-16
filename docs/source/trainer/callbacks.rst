@@ -42,6 +42,7 @@ components of training.
 .. autosummary::
     :nosignatures:
 
+    ~checkpoint_saver.CheckpointSaver
     ~speed_monitor.SpeedMonitor
     ~lr_monitor.LRMonitor
     ~grad_monitor.GradMonitor

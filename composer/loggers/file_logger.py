@@ -253,6 +253,7 @@ class FileLogger(LoggerDestination):
         self._run_name = logger.run_name
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
+        os.makedirs(os.path.dirname(self.filename), mode=0o755, exist_ok=True)
         self.file = open(self.filename, "x+", buffering=self.buffer_size)
         self._flush_queue()
         if self.config is not None:
@@ -326,4 +327,3 @@ class FileLogger(LoggerDestination):
             self._flush_file(logger)
             self.file.close()
             self.file = None
-            self._run_name = None

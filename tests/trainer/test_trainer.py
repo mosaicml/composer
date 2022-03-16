@@ -91,7 +91,7 @@ class TestTrainerInit():
         config.update({
             'max_duration': 1,
             'save_interval': 10,
-            'save_folder': tmpdir,
+            'save_folder_format': str(tmpdir),
         })
 
         trainer = Trainer(**config)
@@ -165,7 +165,7 @@ class TestTrainerEquivalence():
         config = deepcopy(config)  # ensure the reference model is not passed to tests
 
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
-        config.update({'save_interval': '1ep', 'save_folder': save_folder, 'save_name_format': 'ep{epoch}.pt'})
+        config.update({'save_interval': '1ep', 'save_folder_format': str(save_folder), 'save_name_format': 'ep{epoch}.pt'})
 
         trainer = Trainer(**config)
         trainer.fit()
