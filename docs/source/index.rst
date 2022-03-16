@@ -8,7 +8,7 @@ It contains many state-of-the-art methods for accelerating neural network traini
 an optional :doc:`Trainer<trainer/using_the_trainer>` API that makes `composing` many different enhancements easy.
 
 We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to,
-and build strong baselines in the process.
+and built strong baselines to rigorously measure their effect.
 
 With Composer, you can build recipes to:
 - Train ResNet-50 on ImageNet to the standard 76.6% Top-1 accuracy for $40 in 1.2 hours (`with vanilla PyTorch:` $116 in 3.8 hours) on AWS.
