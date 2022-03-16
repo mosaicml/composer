@@ -6,7 +6,7 @@ Adds a channel-wise attention operator in CNNs. Attention coefficients are produ
 
 | ![Squeeze-Excite](https://storage.googleapis.com/docs.mosaicml.com/images/methods/squeeze-and-excitation.png) |
 |:--|
-| *After an activation tensor X is passed through Conv2d F_tr to yield a new tensor U, a Squeeze-and-Excitation (SE) module scales the channels in a data-dependent manner. The scales are produced by a single-hidden-layer fully-connected network whose input is the global-averaged-pooled U. This can be seen as a channel-wise attention mechanism.* |
+| *After an activation tensor **X** is passed through Conv2d **F**<sub>tr</sub> to yield a new tensor **U**, a Squeeze-and-Excitation (SE) module scales the channels in a data-dependent manner. The scales are produced by a single-hidden-layer fully-connected network whose input is the global-averaged-pooled **U**. This can be seen as a channel-wise attention mechanism.* |
 
 ## How to Use
 
@@ -61,8 +61,6 @@ def train_model(model, train_dataloader):
 
 ## Implementation Details
 
-<!-- Squeeze-and-Excitation blocks apply channel-wise attention to an activation tensor $\mathbf{X}$. The attention coefficients are produced by a single-hidden-layer MLP (i.e., a fully-connected network). This network takes in the result of global average pooling $\mathbf{X}$ as its input vector. In short, the average activations within each channel are used to produce scalar multipliers for each channel. -->
-
 In order to be architecture-agnostic, our implementation applies the SE attention mechanism after individual Conv2d modules, rather than at particular points in particular networks. This results in more SE modules being present than in the original paper.
 
 Our implementation also allows applying the SE module after only certain Conv2d modules based on their channel count (see hyperparameter discussion).
@@ -84,13 +82,13 @@ We recommend setting `min_channels` to `512` for ImageNet-scale or larger models
 This method tends to consistently improve the accuracy of CNNs both in absolute terms and when controlling for training and inference time. This may come at the cost of a roughly 20% increase in inference latency, depending on the architecture and inference hardware.
 
 >  ✅ Squeeze-Excite Improves the Tradeoff Between Quality and Training Speed
-> 
+>
 > Squeeze-Excite slows down training, but it leads to quality improvements that make this a worthwhile tradeoff.
 > It slows down training because it adds extra computation to the model that decreases the throughput of training.
 > However, the training slowdown is a worthwhile tradeoff for the accuracy improvements that Squeeze-Excite produces.
 
 > ❗ Squeeze-Excite Slows Down Inference
-> 
+>
 > Squeeze-Excite adds extra computation to the model that decreases the throughput of inference.
 > The inference slowdown will have to be weighed against the benefits of (1) better tradeoffs between training cost and model quality and (2) overall higher attainable model quality.
 > This decision must be made in the context of the specific inference workload and the relative value of more efficient training vs. slower inference.
@@ -98,7 +96,7 @@ This method tends to consistently improve the accuracy of CNNs both in absolute 
 Because SE modules slow down the model, they compose well with methods that make the data loader slower (e.g., RandAugment) or that speed up each training step (e.g., Selective Backprop). In the former case, the slower model allows more time for the data loader to run. In the latter case, the initial slowdown allows techniques that accelerate the forward and backward passes to have a greater effect before they become limited by the data loader's speed.
 
 >  ✅ Squeeze-Excite Can Mitigate Other Bottlenecks
-> 
+>
 > Since Squeeze-Excite decreases GPU throughput, it can reduce relative load on the CPU and data loading pipeline, potentially allowing more CPU-intensive speedup methods (e.g., RandAugment) to run without bottlenecking training on the CPU.
 
 ## Attribution
