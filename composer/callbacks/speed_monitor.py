@@ -5,11 +5,10 @@ from __future__ import annotations
 
 import time
 from collections import deque
-from typing import Deque, Optional
+from typing import Any, Deque, Dict, Optional
 
 from composer.core import State
 from composer.core.callback import Callback
-from composer.core.types import StateDict
 from composer.loggers import Logger
 
 __all__ = ["SpeedMonitor"]
@@ -64,15 +63,15 @@ class SpeedMonitor(Callback):
         self.batch_end_times: Deque[float] = deque(maxlen=window_size + 1)  # rolling list of batch end times
         self.batch_num_samples: Deque[int] = deque(maxlen=window_size)  # rolling list of num samples in batch.
         self.window_size = window_size
-        self.loaded_state: Optional[StateDict] = None
+        self.loaded_state: Optional[Dict[str, Any]] = None
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         """Returns a dictionary representing the internal state of the SpeedMonitor object.
 
         The returned dictionary is pickle-able via :func:`torch.save`.
 
         Returns:
-            StateDict: The state of the SpeedMonitor object
+            Dict[str, Any]: The state of the SpeedMonitor object
         """
         current_time = time.time()
         return {
@@ -83,11 +82,11 @@ class SpeedMonitor(Callback):
             "batch_num_samples": self.batch_num_samples,
         }
 
-    def load_state_dict(self, state: StateDict) -> None:
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
         """Restores the state of SpeedMonitor object.
 
         Args:
-            state (StateDict): The state of the object,
+            state (Dict[str, Any]): The state of the object,
                 as previously returned by :meth:`.state_dict`
         """
         self.loaded_state = state

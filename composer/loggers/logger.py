@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
 import coolname
 import torch
 
-from composer.utils import dist
+from composer.utils import dist, ensure_tuple
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -73,8 +73,8 @@ class Logger:
 
     Args:
         state (State): The training state.
-        destinations (Sequence[LoggerDestination]):
-            The logger destinations, to where logging data will be sent.
+        destinations (LoggerDestination | Sequence[LoggerDestination], optional):
+            The logger destinations, to where logging data will be sent. (default: ``None``)
         run_name (str, optional): The name for this training run.
 
             If not specified, the timestamp will be combined with a :doc:`coolname <coolname:index>` like the
@@ -109,12 +109,12 @@ class Logger:
     """
 
     def __init__(
-            self,
-            state: State,
-            destinations: Sequence[LoggerDestination] = tuple(),
-            run_name: Optional[str] = None,
+        self,
+        state: State,
+        destinations: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
+        run_name: Optional[str] = None,
     ):
-        self.destinations = destinations
+        self.destinations = ensure_tuple(destinations)
         if run_name is None:
             # prefixing with the time so experiments sorted alphabetically will
             # have the latest experiment last

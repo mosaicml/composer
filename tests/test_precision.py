@@ -8,7 +8,7 @@ import torch.distributed
 from packaging import version
 
 import composer
-from composer.core.types import Precision
+from composer.core import Precision
 from composer.datasets.hparams import SyntheticHparamsMixin
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import GPUDeviceHparams
