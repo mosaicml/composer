@@ -86,6 +86,8 @@ class ObjectStoreHparams(hp.Hparams):
 
                 import os
                 import functools
+                from composer.utils import ObjectStoreHparams
+
                 original_secret = os.environ.get("OBJECT_STORE_SECRET")
                 os.environ["OBJECT_STORE_SECRET"] = "MY_SECRET"
                 ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")

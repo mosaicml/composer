@@ -75,8 +75,8 @@ class ObjectStoreLogger(LoggerDestination):
                 provider_kwargs={
                     'key': 'AKIA...',
                     'secret': '*********',
+                    'region': 'ap-northeast-1',
                 },
-                region='ap-northeast-1',
             )
             
             # Construct the trainer using this logger
@@ -84,7 +84,7 @@ class ObjectStoreLogger(LoggerDestination):
                 ...,
                 loggers=[object_store_logger],
             )
-        
+
         .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
 
             # Shut down the uploader
@@ -190,33 +190,42 @@ class ObjectStoreLogger(LoggerDestination):
                 import os
                 import functools
                 import composer.loggers.object_store_logger
+                import tempfile
 
-                from composer.loggers import ObjectStoreLogger
+                from composer.loggers import ObjectStoreLogger as OriginalObjectStoreLogger
 
                 # For this example, we do not validate credentials
                 def do_not_validate(*args, **kwargs) -> None:
                     pass
 
                 composer.loggers.object_store_logger._validate_credentials = do_not_validate
-            
-                ObjectStoreLogger = functools.partial(
-                    ObjectStoreLogger,
-                    use_procs=False,
-                    num_concurrent_uploads=1,
 
-                )
+                tempdir = tempfile.TemporaryDirectory()
+
+                OriginalObjectStoreLogger.log_file_artifact = lambda *args, **kwargs: None
+
+                def ObjectStoreLogger(fake_ellipsis = ..., *args, **kwargs):
+                    return OriginalObjectStoreLogger(
+                        use_procs=False,
+                        num_concurrent_uploads=1,
+                        provider='local',
+                        container='.',
+                        provider_kwargs={'key': tempdir.name },
+                    )
 
             .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name_format
 
                 >>> object_store_logger = ObjectStoreLogger(..., object_name_format='rank_{rank}/{artifact_name}')
                 >>> trainer = Trainer(..., run_name='foo', loggers=[object_store_logger])
-                >>> trainer.logger.file_artifact(..., artifact_name='bar.txt', file_path='path/to/file.txt')
+                >>> trainer.logger.file_artifact(log_level=LogLevel.EPOCH, artifact_name='bar.txt',
+                ... file_path='path/to/file.txt')
 
             .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name_format
 
                 # Shut down the uploader
                 object_store_logger._check_workers()
                 object_store_logger._finished.set()
+                tempdir.cleanup()
            
             Assuming that the process's rank is ``0``, the object store would store the contents of
             ``'path/to/file.txt'`` in an object named ``'rank_0/bar.txt'``.
