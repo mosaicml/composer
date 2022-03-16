@@ -10,9 +10,11 @@ from typing import Optional, TypeVar
 import numpy as np
 import torch
 from PIL.Image import Image as PillowImage
+from torch import Tensor
 
 from composer.algorithms.utils.augmentation_common import image_as_type
-from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 

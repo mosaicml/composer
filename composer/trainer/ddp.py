@@ -5,10 +5,10 @@
 from contextlib import contextmanager, nullcontext
 from typing import Callable, ContextManager, Union, cast
 
+import torch.nn
 from torch.nn.parallel import DistributedDataParallel
 
 from composer.core.state import State
-from composer.core.types import Model
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
 
@@ -91,11 +91,11 @@ def _ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Un
         raise ValueError("Unknown sync strategy", sync_strategy)
 
 
-def _prepare_ddp_module(module: Model, find_unused_parameters: bool) -> Model:
+def _prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
     """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
 
     Args:
-        module (Model): The module to wrap.
+        module (torch.nn.Module): The module to wrap.
         find_unused_parameters (bool): Whether or not to do a pass over the autograd graph
             to find parameters to not expect gradients for. This is useful if there are some
             parameters in the model that are not being trained.

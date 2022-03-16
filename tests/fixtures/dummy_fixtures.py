@@ -6,13 +6,14 @@ from unittest.mock import MagicMock, Mock
 import pytest
 import torch
 import torch.utils.data
+from torch.optim import Optimizer
+from torchmetrics import MetricCollection
 from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics.collections import MetricCollection
 
-from composer import Logger, State
-from composer.core.evaluator import Evaluator
-from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, PyTorchScheduler
+from composer.core import DataSpec, Evaluator, Precision, State
+from composer.core.types import DataLoader, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
+from composer.loggers import Logger
 from composer.models import ComposerClassifier, ModelHparams
 from composer.optim import AdamHparams, ExponentialSchedulerHparams
 from composer.trainer import TrainerHparams
@@ -228,7 +229,8 @@ def simple_conv_model_input():
 
 
 @pytest.fixture()
-def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+def state_with_model(simple_conv_model: torch.nn.Module, dummy_train_dataloader: DataLoader,
+                     dummy_val_dataloader: DataLoader):
     metric_coll = MetricCollection([Accuracy()])
     evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(

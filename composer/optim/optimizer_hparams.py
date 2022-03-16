@@ -4,13 +4,13 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-from typing import List, Type
+from typing import Dict, Iterable, List, Type, Union
 
 import torch
 import torch_optimizer
 import yahp as hp
+from torch.optim import Optimizer
 
-from composer.core.types import ModelParameters, Optimizer
 from composer.optim import DecoupledAdamW, DecoupledSGDW
 
 # Optimizer parameters and defaults match those in torch.optim
@@ -34,11 +34,13 @@ class OptimizerHparams(hp.Hparams, ABC):
     def optimizer_object(cls) -> Type[Optimizer]:
         pass
 
-    def initialize_object(self, param_group: ModelParameters) -> Optimizer:
+    def initialize_object(self, param_group: Union[Iterable[torch.Tensor], Iterable[Dict[str,
+                                                                                         torch.Tensor]]]) -> Optimizer:
         """Initializes the optimizer.
 
         Args:
-            param_group (:attr:`~composer.core.types.ModelParameters`): Parameters for this optimizer to optimize.
+            param_group (Iterable[torch.Tensor] | Iterable[Dict[str, torch.Tensor]]):
+                Parameters for this optimizer to optimize.
         """
 
         assert issubclass(self.optimizer_object, torch.optim.Optimizer)

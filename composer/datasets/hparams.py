@@ -19,7 +19,8 @@ else:
 
 import yahp as hp
 
-from composer.core.types import DataLoader, DataSpec, MemoryFormat
+from composer.core import DataSpec
+from composer.core.types import DataLoader, MemoryFormat
 from composer.datasets.dataloader import DataLoaderHparams
 
 __all__ = ["SyntheticHparamsMixin", "DatasetHparams"]
