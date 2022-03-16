@@ -13,7 +13,8 @@ from typing import Optional
 import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
-from composer.core import Callback, Logger, State
+from composer.core import Callback, State
+from composer.loggers import Logger
 from composer.profiler._profiler_action import ProfilerAction
 from composer.utils import dist
 

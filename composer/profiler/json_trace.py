@@ -10,14 +10,14 @@ import queue
 import time
 from typing import IO, TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
-from composer.core.logging.logger import LogLevel
+from composer.loggers import LogLevel
 from composer.profiler import ProfilerEventHandler
 from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core.state import State
     from composer.core.time import Timestamp
-    from composer.core.types import Logger
+    from composer.loggers import Logger
 
 __all__ = ["JSONTraceHandler"]
 

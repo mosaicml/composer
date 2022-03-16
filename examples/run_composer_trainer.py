@@ -22,7 +22,7 @@ from typing import Type
 
 import yaml
 
-from composer.core.logging.logger import LogLevel
+from composer.loggers import LogLevel
 from composer.trainer import TrainerHparams
 from composer.utils import dist
 

@@ -6,10 +6,20 @@ import sys
 
 import pytest
 
-from composer.core.event import Event
-from composer.core.logging import Logger, LogLevel
-from composer.core.state import State
-from composer.loggers.logger_hparams import FileLoggerHparams
+from composer import Event, State
+from composer.loggers import FileLoggerHparams, Logger, LogLevel
+from composer.loggers.logger_destination import LoggerDestination
+
+
+class FileArtifactLoggerTracker(LoggerDestination):
+
+    def __init__(self) -> None:
+        self.logged_artifacts = []
+
+    def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+                          overwrite: bool):
+        del state, overwrite  # unused
+        self.logged_artifacts.append((log_level, artifact_name, file_path))
 
 
 @pytest.mark.parametrize("log_level", [LogLevel.EPOCH, LogLevel.BATCH])
@@ -19,11 +29,13 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
     log_destination = FileLoggerHparams(
         log_interval=3,
         log_level=log_level,
-        filename=log_file_name,
+        filename_format=log_file_name,
+        artifact_name_format="{run_name}/ep{epoch}.log",
         buffer_size=1,
         flush_interval=1,
     ).initialize_object()
-    logger = Logger(dummy_state, destinations=[log_destination])
+    file_tracker_destination = FileArtifactLoggerTracker()
+    logger = Logger(dummy_state, destinations=[log_destination, file_tracker_destination])
     log_destination.run_event(Event.INIT, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
@@ -64,10 +76,17 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
                 '[EPOCH][batch=3]: { "metric": "epoch2", }\n',
             ]
 
+    # Flush interval is 1, so there should be one log_file call per LogLevel
+    if log_level == LogLevel.EPOCH:
+        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.epoch)
+    else:
+        assert log_level == LogLevel.BATCH
+        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.batch)
+
 
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmpdir: pathlib.Path):
     log_file_name = os.path.join(tmpdir, "output.log")
-    log_destination = FileLoggerHparams(filename=log_file_name,
+    log_destination = FileLoggerHparams(filename_format=log_file_name,
                                         buffer_size=1,
                                         flush_interval=1,
                                         capture_stderr=True,

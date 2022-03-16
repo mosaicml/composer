@@ -6,7 +6,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from tqdm import auto
 
-from composer.loggers.logger_hparams import ProgressBarLoggerHparams
+from composer.loggers import ProgressBarLoggerHparams
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 
@@ -32,7 +32,7 @@ def test_progress_bar_logger(composer_trainer_hparams: TrainerHparams, monkeypat
 
     max_epochs = 2
     composer_trainer_hparams.max_duration = f"{max_epochs}ep"
-    composer_trainer_hparams.logger_destinations = [ProgressBarLoggerHparams()]
+    composer_trainer_hparams.loggers = [ProgressBarLoggerHparams()]
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
     if dist.get_global_rank() == 1:

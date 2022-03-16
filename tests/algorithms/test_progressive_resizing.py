@@ -4,9 +4,10 @@ import pytest
 import torch
 
 from composer.algorithms.progressive_resizing import ProgressiveResizing, resize_batch
-from composer.core import Event, Logger
+from composer.core import Event
 from composer.core.state import State
 from composer.core.time import TimeUnit
+from composer.loggers import Logger
 
 
 def check_scaled_shape(orig: torch.Tensor, scaled: torch.Tensor, scale_factor: float) -> bool:

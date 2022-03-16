@@ -12,8 +12,9 @@ from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
-from composer.callbacks import LRMonitor
+from composer.callbacks import CheckpointSaver, LRMonitor
 from composer.core.callback import Callback
+from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.types import Model
 from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
@@ -44,9 +45,9 @@ class TestTrainerInit():
         should_be_ddp_wrapped = dist.get_world_size() > 1 and "deepspeed_config" not in config
         assert isinstance(trainer.state.model, DistributedDataParallel) == should_be_ddp_wrapped
 
-    def test_logger_destinations_before_callbacks(self, config):
+    def test_loggers_before_callbacks(self, config):
         config.update({
-            "logger_destinations": [ProgressBarLogger()],
+            "loggers": [ProgressBarLogger()],
             "callbacks": [LRMonitor()],
         })
 
@@ -86,7 +87,7 @@ class TestTrainerInit():
             Trainer(**config)
 
     @pytest.mark.timeout(5.0)
-    def test_init_with_integers(self, config, tmpdir):
+    def test_init_with_integers(self, config, tmpdir: pathlib.Path):
         config.update({
             'max_duration': 1,
             'save_interval': 10,
@@ -95,8 +96,13 @@ class TestTrainerInit():
 
         trainer = Trainer(**config)
         assert trainer.state.max_duration == "1ep"
-        assert trainer._checkpoint_saver is not None and \
-            trainer._checkpoint_saver._save_interval == "10ep"
+        checkpoint_saver = None
+        for callback in trainer.state.callbacks:
+            if isinstance(callback, CheckpointSaver):
+                checkpoint_saver = callback
+        assert checkpoint_saver is not None
+        trainer.state.timer.epoch._value = 10
+        assert checkpoint_saver.save_interval(trainer.state, Event.EPOCH_CHECKPOINT)
 
     @pytest.mark.timeout(5.0)
     def test_init_with_max_duration_in_batches(self, config):
@@ -150,7 +156,7 @@ class TestTrainerEquivalence():
             'device': device,
             'precision': precision,
             'deterministic_mode': True,  # testing equivalence
-            'logger_destinations': [],  # no progress bar
+            'loggers': [],  # no progress bar
         }
 
     @pytest.fixture(autouse=True)
@@ -159,7 +165,7 @@ class TestTrainerEquivalence():
         config = deepcopy(config)  # ensure the reference model is not passed to tests
 
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
-        config.update({'save_interval': '1ep', 'save_folder': save_folder})
+        config.update({'save_interval': '1ep', 'save_folder': save_folder, 'save_name_format': 'ep{epoch}.pt'})
 
         trainer = Trainer(**config)
         trainer.fit()
@@ -201,7 +207,7 @@ class TestTrainerEquivalence():
     def test_checkpoint(self, config, *args):
         # load from epoch 1 checkpoint and finish training
         checkpoint_file = os.path.join(self.reference_folder, 'ep1.pt')
-        config['load_path'] = checkpoint_file
+        config['load_path_format'] = checkpoint_file
 
         trainer = Trainer(**config)
         assert trainer.state.timer.epoch == "1ep"  # ensure checkpoint state loaded
@@ -265,11 +271,11 @@ class TestTrainerEvents():
             ),
             'eval_dataloader': None,
             'max_duration': '1ep',
-            'logger_destinations': []
+            'loggers': []
         }
 
     def test_data_augmented(self, config):
-        config['algorithms'] = [CutOut(n_holes=1, length=5)]
+        config['algorithms'] = [CutOut()]
 
         # we give the callback access to the dataset to test
         # that the images have been augmented.
@@ -316,14 +322,14 @@ class TestTrainerAssets:
                 batch_size=4,
             ),
             'max_duration': '2ep',
-            'logger_destinations': [],  # no progress bar
+            'loggers': [],  # no progress bar
         }
 
     # Note: Not all algorithms, callbacks, and loggers are compatible
     #       with the above configuration. The fixtures below filter and
     #       create the objects to test.
 
-    @pytest.fixture(params=algorithms_registry.items(), ids=algorithms_registry.keys())
+    @pytest.fixture(params=algorithms_registry.items(), ids=tuple(algorithms_registry.keys()))
     def algorithm(self, request):
 
         name, hparams = request.param
@@ -352,7 +358,7 @@ class TestTrainerAssets:
 
         return algorithm
 
-    @pytest.fixture(params=callback_registry.items(), ids=callback_registry.keys())
+    @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
     def callback(self, request):
         _, hparams = request.param
 
@@ -360,7 +366,7 @@ class TestTrainerAssets:
 
         return callback
 
-    @pytest.fixture(params=logger_registry.items(), ids=logger_registry.keys())
+    @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
     def logger(self, request, monkeypatch: pytest.MonkeyPatch, tmpdir: pathlib.Path):
 
         name, hparams = request.param
@@ -398,7 +404,7 @@ class TestTrainerAssets:
         trainer.fit()
 
     def test_loggers(self, config, logger):
-        config['logger_destinations'] = [logger]
+        config['loggers'] = [logger]
         trainer = Trainer(**config)
         trainer.fit()
 
@@ -416,8 +422,6 @@ class TestTrainerAssets:
         self._test_multiple_fits(trainer)
 
     def test_callbacks_multiple_calls(self, config, callback):
-        if isinstance(callback, RunDirectoryUploader):
-            pytest.xfail("Known idempotency issue.")
         config['callbacks'] = [callback]
         trainer = Trainer(**config)
         self._test_multiple_fits(trainer)
@@ -425,7 +429,7 @@ class TestTrainerAssets:
     def test_loggers_multiple_calls(self, config, logger):
         if isinstance(logger, (FileLogger, WandBLogger)):
             pytest.xfail("Cannot close/load multiple times yet.")
-        config['logger_destinations'] = [logger]
+        config['loggers'] = [logger]
         trainer = Trainer(**config)
         self._test_multiple_fits(trainer)
 

@@ -17,10 +17,10 @@ import composer.core.types as types
 from composer import Callback, Event
 from composer.callbacks import CallbackHparams
 from composer.core.data_spec import DataSpec
-from composer.core.logging import Logger
 from composer.core.state import State
-from composer.datasets import DataloaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
+from composer.datasets import DataLoaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
 from composer.datasets.hparams import DatasetHparams
+from composer.loggers import Logger
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
 from composer.utils import dist
@@ -68,7 +68,7 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     num_classes: Optional[int] = hp.optional("num_classes", default=None)
     data_shape: Optional[List[int]] = hp.optional("data_shape", default=None)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams,
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams,
                           rank_zero_tmpdir: pathlib.Path) -> types.DataLoader:
         assert self.num_classes is not None
         assert self.data_shape is not None
@@ -152,6 +152,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
 
     hparams = composer_trainer_hparams
     model_hparams = hparams.model
+    model_hparams.num_classes = 100
     model = model_hparams.initialize_object()
     assert isinstance(model, SimpleBatchPairModel)
 
@@ -177,7 +178,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
         num_classes=model.num_classes,
     )
     hparams.device = device
-    hparams.dataloader = DataloaderHparams(
+    hparams.dataloader = DataLoaderHparams(
         num_workers=0,
         prefetch_factor=2,
         persistent_workers=False,
@@ -187,7 +188,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     max_epochs = 2
     hparams.max_duration = f"{max_epochs}ep"
     hparams.precision = types.Precision.FP32
-    hparams.logger_destinations = []
+    hparams.loggers = []
     hparams.validate_every_n_batches = 0
     hparams.validate_every_n_epochs = 1
     hparams.callbacks.append(CheckBatch0Hparams())

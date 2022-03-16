@@ -1,13 +1,8 @@
 |:robot:| Algorithms
 ====================
 
-Under construction |:construction:|
-
-Included in the Composer library is a suite of algorithmic speedup algorithms.
-These modify the basic training procedure, and are intended to be *composed*
-together to easily create a complex and hopefully more efficient training routine.
-While other libraries may have implementations of some of these, the implementations
-in Composer are specifically written to be combined with other methods.
+Composer has a curated collection of speedup methods ("Algorithms") that can be composed together
+to easily create efficient training recipes.
 
 Below is a brief overview of the algorithms currently in Composer.
 For more detailed information about each algorithm, see the :doc:`method cards</method_cards/methods_overview>`,
@@ -22,7 +17,7 @@ Composer's trainer.
 
     {% for name, data in metadata.items() %}
     {% if data.functional %}
-    :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | ``{{ data.functional }}``
+    :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | :func:`~composer.functional.{{ data.functional }}`
     {% else %}
     :doc:`{{ data.class_name }}</method_cards/{{name}}>` | {{ data.tldr }} | {{ data.functional }}
     {% endif %}
@@ -38,9 +33,11 @@ algorithms can be grouped into three broad classes:
 - `model surgery` algorithms modify the network architecture.
 - `training loop modifications` change various properties of the training loop.
 
-Data augmentations can be inserted either into the dataloader as a transform, or after a
-batch has been loaded depending on what the augmentation acts on. Here is an example of using
-:class:`.RandAugment` with the functional API
+Data Augmentations
+~~~~~~~~~~~~~~~~~~
+
+Data augmentations can be inserted into your `dataset.transforms` similiar to Torchvision's
+transforms. For example, with :doc:`/method_cards/randaugment`:
 
 .. code-block:: python
 
@@ -59,8 +56,8 @@ batch has been loaded depending on what the augmentation acts on. Here is an exa
                             transform=c10_transforms)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1024)
 
-Other data augmentations, such as :class:`.CutMix` act on a batch of inputs. These can be
-inserted in the training loop after a batch is loaded from the dataloader as follows:
+Some augmentations, such as :doc:`/method_cards/cutmix` act on a batch of inputs. Insert
+these in your training loop after a batch is loaded from the dataloader:
 
 .. code-block:: python
 
@@ -78,57 +75,83 @@ inserted in the training loop after a batch is loaded from the dataloader as fol
     loss.backward()
     optimizer.step()
 
-Model surgery algorithms make direct modifications to the network itself. Functionally,
-these can be called as follows, using :class:`.BlurPool` as an example
+Model Surgery
+~~~~~~~~~~~~~
+
+Model surgery algorithms make direct modifications to the network itself. For example,
+For example, apply :doc:`/method_cards/blurpool`, which inserts a blur layer before strided convolution
+layers, with:
 
 .. code-block:: python
 
-    import torchvision.models as models
-
     from composer import functional as cf
+    import torchvision.models as models
 
     model = models.resnet18()
     cf.apply_blurpool(model)
 
-Each method card has a section describing how to use these methods in your own trainer loop.
+Or in NLP, swap out the attention head of a |:hugging_face:| transforms with one
+from :doc:`/method_cards/alibi`:
+
+.. code-block:: python
+
+    from composer import functional as cf
+    from composer.algorithms.alibi.gpt2_alibi import _attn
+    from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
+
+    from transformers import GPT2Model
+    from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
+
+
+    model = GPT2Model.from_pretrained("gpt2")
+
+    cf.apply_alibi(model=model,
+                   heads_per_layer=12,
+                   max_sequence_length=8192,
+                   position_embedding_attribute="module.transformer.wpe",
+                   attention_module=GPT2Attention,
+                   attr_to_replace="_attn",
+                   alibi_attention=_attn,
+                   mask_replacement_function=enlarge_mask)
+
+
+Training Loop
+~~~~~~~~~~~~~
+
+Methods such as :doc:`/method_cards/progressive_resizing` or :doc:`/method_cards/layer_freezing`
+apply changes to the training loop. See their method cards for details on how to use them
+in your own code.
+
 
 Composer Trainer
 ----------------
 
-To make full use of Composer, we recommend using our algorithms and trainer together.
-Using algorithms with the trainer is simple, just pass a list of the algorithms you want to run
-as the `algorithms` argument when initializing the trainer.
-Composer will automatically run each algorithm at the appropriate time during training,
-as well as handle any collisions and reorderings needed.
-
-Here is an example of how to call trainer with a few algorithms:
+Building training recipes require composing all these different methods together, which is
+the purpose behind our :class:`.Trainer`. Pass in a list of the algorithm classes to run
+to the trainer, and we will automatically run each one at the appropriate time during training,
+handling any collisions or reorderings needed.
 
 .. code-block:: python
 
     from composer import Trainer
-    from composer.algorithms.blurpool import BlurPool
-    from composer.algorithms.channels_last import ChannelsLast
-
-    channels_last = ChannelsLast()
-    blurpool = BlurPool(replace_convs=True,
-                                            replace_maxpools=True,
-                                            blur_first=True)
+    from composer.algorithms import BlurPool, ChannelsLast
 
     trainer = Trainer(model=model,
-                    train_dataloader=train_dataloader,
-                    eval_dataloader=test_dataloader,
-                    max_duration='90ep',
-                    device='gpu',
-                    algorithms=[channels_last, blurpool],
-                    validate_every_n_epochs=-1,
-                    seed=42)
+                      algorithms=[ChannelsLast(), BlurPool()]
+                      train_dataloader=train_dataloader,
+                      eval_dataloader=test_dataloader,
+                      max_duration='10ep',
+    )
 
-Custom algorithms
+For more information, see: :doc:`/trainer/using_the_trainer` and :doc:`/getting_started/welcome_tour`.
+
+
+Two-way callbacks
 -----------------
 
-To implement a custom algorithm, it is necessary to first understand how Composer uses `events` to
-know where in the training loop to run an algorithm, and how algorithms can modify the `state` used for
-subsequent computations.
+The way our algorithms insert themselves in our trainer is based on the two-way callbacks system developed
+by (`Howard et al, 2020 <https://arxiv.org/abs/2002.04688>`__). Algorithms interact with the
+training loop at various :class:`.Events` and effect their change by modifing the trainer :class:`.State`.
 
 .. `Events` denote locations inside the training procedure where algorithms can be run. In pseudocode,
 .. Composer’s `events` look as follows:

@@ -5,8 +5,8 @@ import pytest
 from composer.core import Event
 from composer.core.callback import Callback
 from composer.core.engine import Engine
-from composer.core.logging import Logger
 from composer.core.state import State
+from composer.loggers import Logger
 
 
 def test_callbacks_map_to_events():

@@ -21,7 +21,7 @@ The following example demonstrates how to setup and perform profiling on a simpl
 
 It is required to specify an output ``profiler_trace_file`` during :class:`.Trainer` initialization to enable profiling.
 The ``profiler_trace_file`` will contain the profiling trace data once the profiling run completes.  By default, the :class:`.Profiler`,
-:class:`.DataloaderProfiler` and :class:`.SystemProfiler` will be active.  The :class:`.TorchProfiler` is **disabled** by default.
+:class:`.DataLoaderProfiler` and :class:`.SystemProfiler` will be active.  The :class:`.TorchProfiler` is **disabled** by default.
 
 To activate the :class:`.TorchProfiler`, the ``torch_profiler_trace_dir`` must be specified *in addition* to the ``profiler_trace_file`` argument.
 The ``torch_profiler_trace_dir`` will contain the Torch Profiler traces once the profiling run completes.  The :class:`.Profiler` will

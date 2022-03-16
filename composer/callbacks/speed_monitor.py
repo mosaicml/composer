@@ -7,9 +7,10 @@ import time
 from collections import deque
 from typing import Deque, Optional
 
-from composer.core import Logger, State
+from composer.core import State
 from composer.core.callback import Callback
 from composer.core.types import StateDict
+from composer.loggers import Logger
 
 __all__ = ["SpeedMonitor"]
 
@@ -33,7 +34,7 @@ class SpeedMonitor(Callback):
         ...     callbacks=[callbacks.SpeedMonitor(window_size=100)],
         ... )
 
-    The training throughput is logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as
+    The training throughput is logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
 
     +-----------------------+-------------------------------------------------------------+

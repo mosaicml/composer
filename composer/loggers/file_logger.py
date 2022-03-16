@@ -11,8 +11,9 @@ from typing import Any, Callable, Dict, Optional, TextIO
 
 import yaml
 
-from composer.core.logging import Logger, LoggerDataDict, LoggerDestination, LogLevel, format_log_data_value
 from composer.core.state import State
+from composer.loggers.logger import Logger, LoggerDataDict, LogLevel, format_log_data_value
+from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 
 __all__ = ["FileLogger"]
@@ -24,11 +25,10 @@ class FileLogger(LoggerDestination):
     Example usage:
         .. testcode::
 
-            from composer.loggers import FileLogger
+            from composer.loggers import FileLogger, LogLevel
             from composer.trainer import Trainer
-            from composer.core.logging import LogLevel
             logger = FileLogger(
-                filename_format="{run_name}/rank_{rank}.txt",
+                filename_format="{run_name}/logs-rank{rank}.txt",
                 buffer_size=1,
                 log_level=LogLevel.BATCH,
                 log_interval=2,
@@ -40,7 +40,7 @@ class FileLogger(LoggerDestination):
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
                 optimizers=[optimizer],
-                logger_destinations=[logger]
+                loggers=[logger]
             )
 
         .. testcleanup::
@@ -90,14 +90,14 @@ class FileLogger(LoggerDestination):
                 When training with multiple devices (i.e. GPUs), ensure that ``'{rank}'`` appears in the format.
                 Otherwise, multiple processes may attempt to write to the same file.
 
-            Consider the following example when using default value of '{run_name}/rank_{rank}_log.txt':
+            Consider the following example when using default value of '{run_name}/logs-rank{rank}.txt':
 
-            >>> file_logger = FileLogger(filename_format='{run_name}/rank_{rank}_log.txt')
-            >>> trainer = Trainer(logger_destinations=[file_logger], run_name='foo')
+            >>> file_logger = FileLogger(filename_format='{run_name}/logs-rank{rank}.txt')
+            >>> trainer = Trainer(logger_destinations=[file_logger], run_name='my-awesome-run')
             >>> trainer.file_logger.filename
-            'foo/rank_0_log.txt'
+            'my-awesome-run/logs-rank0.txt'
 
-            Default: `'{run_name}/rank_{rank}_log.txt'`
+            Default: `'{run_name}/logs-rank{rank}.txt'`
 
         artifact_name_format (str, optional): Format string for the logfile's artifact name.
         
@@ -114,10 +114,8 @@ class FileLogger(LoggerDestination):
             Leading slashes (``'/'``) will be stripped.
 
             Default: ``None`` (which uses the same format string as ``filename_format``)
-        capture_stdout (bool, optional): If ``True`` (the default), writes to ``stdout`` will be included in
-            ``filename``.
-        capture_stderr (bool, optional): If ``True`` (the default), writes to ``stderr`` will be included in
-            ``filename``.
+        capture_stdout (bool, optional): Whether to include the ``stdout``in ``filename``. (default: ``True``)
+        capture_stderr (bool, optional): Whether to include the ``stderr``in ``filename``. (default: ``True``)
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
             Default: ``1`` for line buffering.
         log_level (LogLevel, optional):
@@ -138,7 +136,7 @@ class FileLogger(LoggerDestination):
 
     def __init__(
         self,
-        filename_format: str = "{run_name}/rank_{rank}.txt",
+        filename_format: str = "{run_name}/logs-rank{rank}.txt",
         artifact_name_format: Optional[str] = None,
         *,
         capture_stdout: bool = True,
@@ -244,10 +242,10 @@ class FileLogger(LoggerDestination):
     def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
         if not self._will_log(log_level):
             return
-        data_str = format_log_data_value(data) + "\n"
+        data_str = format_log_data_value(data)
         self.write(
             f'[{log_level.name}][batch={int(state.timer.batch)}]: ',
-            data_str,
+            data_str + "\n",
         )
 
     def init(self, state: State, logger: Logger) -> None:
