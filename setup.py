@@ -43,14 +43,19 @@ def package_files(prefix: str, directory: str, extension: str):
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-# Hide the dark mode images when the images are rendered on PyPI.
-long_description = """
-<style>
-.only-dark {
-    display: none;
-}
-</style>
-""" + long_description
+# Hide the content between <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN --> and
+# <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END --> tags in the README
+while True:
+    start_tag = "<!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->"
+    end_tag = "<!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->"
+    start = long_description.find(start_tag)
+    end = long_description.find(end_tag)
+    if start == -1:
+        assert end == -1, "there should be a balanced number of start and ends"
+        break
+    else:
+        assert end != -1, "there should be a balanced number of start and ends"
+        long_description = long_description[:start] + long_description[end + len(end_tag):]
 
 install_requires = [
     "pyyaml>=5.4.1,<6",
