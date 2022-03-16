@@ -31,10 +31,10 @@ class develop(develop_orig):
 # From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
 site.ENABLE_USER_SITE = _IS_USER
 
-def package_files(directory: str, extension: str):
+def package_files(prefix: str, directory: str, extension: str):
     # from https://stackoverflow.com/a/36693250
     paths = []
-    for (path, _, filenames) in os.walk(directory):
+    for (path, _, filenames) in os.walk(os.path.join(prefix, directory)):
         for filename in filenames:
             if filename.endswith(extension):
                 paths.append(os.path.join(path, filename))
@@ -144,8 +144,8 @@ extra_deps['webdataset'] = [
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ['py.typed']
-composer_data_files += package_files('composer/yamls', ".yaml")
-composer_data_files += package_files('composer/algorithms', ".yaml")
+composer_data_files += package_files('composer', 'yamls', ".yaml")
+composer_data_files += package_files('composer', 'algorithms', ".json")
 
 setup(name="mosaicml",
       version="0.4.0",
