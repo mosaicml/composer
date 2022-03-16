@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
+from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification.accuracy import Accuracy
 
 from composer.core import Algorithm, Event, State
@@ -16,8 +17,6 @@ from composer.models.base import ComposerModel
 from composer.utils import module_surgery
 
 if TYPE_CHECKING:
-    from torchmetrics import Metric, MetricCollection
-
     from composer.core.types import Batch
 
 log = logging.getLogger(__name__)
