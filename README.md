@@ -42,8 +42,7 @@
 
 # 👋 Welcome
 
-Composer is a library written in PyTorch that makes it possible to <b>train neural networks faster, at lower cost, and to higher accuracy or perplexity</b>.
-It contains implementations of standard neural network benchmarks like ResNets for image classification, GPT and BERT models for language modeling, DeepLab and UNet for segmentation, and SSD for object detection.
+Composer is a library written in PyTorch that makes it possible to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. It contains implementations of more then two dozen speedup methods, as well as standard neural network benchmarks like ResNets for image classification, GPT and BERT models for language modeling, DeepLab and UNet for segmentation, and SSD for object detection.
 
 <p align="center">
   <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-light-mode-only" class="only-light">
@@ -55,11 +54,10 @@ It contains implementations of standard neural network benchmarks like ResNets f
   </a>
 </p>
 
-Composer is designed to train these benchmarks and your custom benchmarks <b>as efficiently as possible</b>.
-In addition to <b>carefully tuned implementations of all aspects of the training process</b>, Composer includes <b>more than two dozen speedup methods</b> that modify the training algorithm to (1) reduce the time necessary to train models to standard _quality_ (i.e., accuracy, perplexity, or other metrics of interest) and (2) increase the quality of models trained for a standard amount of time.
-You can use these methods through Composer's built-in training loop or apply them to your existing codebase.
+Composer is designed to train your models <b>as efficiently as possible</b> though <b>carefully tuned implementations of all aspects of the training process</b>. With our speed-up methods, (1) reduce the time necessary to train models to standard _quality_ (i.e., accuracy, perplexity, or other metrics of interest) and (2) increase the quality of models trained for a standard amount of time.
+You can use these methods through Composer's built-in training loop or apply them to your own code.
 
-In summary, Composer features:
+Composer features:
 - 20+ methods for speeding up training networks for computer vision and language modeling. Don't waste hours trying to reproduce research papers when Composer has done the work for you.
 - An easy-to-use trainer that has been written to be as performant as possible and [integrates best practices](https://www.mosaicml.com/blog/5-best-practices-for-efficient-model-training) for efficient training.
 - Functional forms of all of our speedup methods that allow you to integrate them into your existing training loop.
@@ -69,7 +67,7 @@ In summary, Composer features:
 
 Composer offers significant reductions in training time and cost. Using Composer, you can:
 
-- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours(_with vanilla PyTorch:_ \$116 in 3.8 hours) on AWS.
+- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.8 hours) on AWS.
 - Train a GPT-2 125M to a standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
 - Use these speedup methods on your own models in your own training loop.
 
@@ -329,10 +327,6 @@ Here's some resources actively maintained by the Composer community to help you 
   </tr>
 </thead>
 <tbody>
-  <tr>
-    <td><a href="https://www.mosaicml.com/blog/making-ml-training-efficient-algorithmically" target="_blank" rel="noopener noreferrer">Founder's Blog</a></td>
-    <td>A blog post by our founders highlighting why MosaicML exists</td>
-  </tr>
   <tr>
     <td><a href="https://www.mosaicml.com/blog/methodology" target="_blank" rel="noopener noreferrer">Methodology Blog</a></td>
     <td>A blog post describing our scientific methodology for creating and evaluating speedups</td>
