@@ -54,6 +54,7 @@ Available Loggers
     ~wandb_logger.WandBLogger
     ~progress_bar_logger.ProgressBarLogger
     ~in_memory_logger.InMemoryLogger
+    ~object_store_logger.ObjectStoreLogger
 
 Automatically Logged Data
 -------------------------
