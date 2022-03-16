@@ -11,7 +11,7 @@ as well as with Anaconda:
 
 .. code-block::
 
-    conda install -c mosaicml composer
+    conda install -c mosaicml mosaicml
 
 To include non-core dependencies that are required by some algorithms, callbacks, datasets, and models,
 the following installation targets are available:
