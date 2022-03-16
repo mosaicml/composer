@@ -37,7 +37,7 @@ def package_files(prefix: str, directory: str, extension: str):
     for (path, _, filenames) in os.walk(os.path.join(prefix, directory)):
         for filename in filenames:
             if filename.endswith(extension):
-                paths.append(os.path.join(path, filename))
+                paths.append(os.path.relpath(os.path.join(path, filename), prefix))
     return paths
 
 with open("README.md", "r", encoding="utf-8") as fh:
