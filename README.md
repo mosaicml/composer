@@ -1,24 +1,24 @@
 <br /><br />
 <p align="center">
     <a href="https://github.com/mosaicml/composer#gh-light-mode-only" class="only-light">
-      <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_light.svg" width="70%"/>
+      <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_light.svg" width="50%"/>
     </a>
     <a href="https://github.com/mosaicml/composer#gh-dark-mode-only" class="only-dark">
-      <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_dark.svg" width="70%"/>
+      <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_dark.svg" width="50%"/>
     </a>
 </p>
 <br />
 
-<h1><p align="center">A PyTorch Library for Efficient Neural Network Training</p></h1>
-<h2><p align="center">Train Faster, Reduce Cost, Get Better Models</p></h2>
+<h2><p align="center">A PyTorch Library for Efficient Neural Network Training</p></h2>
+<h3><p align="center">Train Faster, Reduce Cost, Get Better Models</p></h3>
 
-<h3><p align='center'>
+<h4><p align='center'>
 <a href="https://www.mosaicml.com">[Website]</a>
 - <a href="https://docs.mosaicml.com/en/stable/getting_started/installation.html">[Getting Started]</a>
 - <a href="https://docs.mosaicml.com/">[Docs]</a>
 - <a href="https://docs.mosaicml.com/en/stable/method_cards/methods_overview.html">[Methods]</a>
 - <a href="https://www.mosaicml.com/team">[We're Hiring!]</a>
-</p></h3>
+</p></h4>
 
 <p align="center">
     <a href="https://pypi.org/project/mosaicml/">
@@ -71,8 +71,8 @@ In summary, Composer features:
 
 Composer offers significant reductions in training time and cost. Using Composer, you can:
 
-- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1 hour and 14 minutes (_with vanilla PyTorch:_ \$116 in 3 hours and 53 minutes) on AWS.
-- Train a GPT-2 125M to a standard perplexity of 24.11 for \$145 in 4 hours and 27 minutes (_with vanilla PyTorch_: \$255 in 7 hours and 47 minutes) on AWS.
+- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours(_with vanilla PyTorch:_ \$116 in 3.8 hours) on AWS.
+- Train a GPT-2 125M to a standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
 - Use these speedup methods on your own models in your own training loop.
 
 ## The Latest Research on Efficient Training
@@ -157,7 +157,7 @@ trainer = Trainer(
 trainer.fit()
 ```
 
-Composer's built-in trainer makes it easy to **add multiple speedup methods in a single line of code!** 
+Composer's built-in trainer makes it easy to **add multiple speedup methods in a single line of code!**
 Trying out new methods or combinations of methods is as easy as changing a single list.
 As we continually implement more methods, they will be easy for you to add to your code.
 
@@ -192,7 +192,7 @@ We update this data regularly as we add new methods and develop better recipes.
 <img src="https://storage.googleapis.com/docs.mosaicml.com/images/methods/explorer.png"/>
 </p>
 
-As an example, here are two performant recipes, one for ResNet-101 on ImageNet, and the other for GPT-2 on OpenWebText, on 8xA100s: 
+As an example, here are two performant recipes, one for ResNet-101 on ImageNet, and the other for GPT-2 on OpenWebText, on 8xA100s:
 
 ### ResNet-101
 
@@ -303,7 +303,7 @@ We have found that existing training libraries do not provide the capabilities n
 To fulfill this need, **we have designed Composer with the right abstractions to make it easy to use (and create new) speedup methods.**
 
 Specifically, Composer provides the ability to use **two-way callbacks** ([Howard et al, 2020](https://arxiv.org/abs/2002.04688)) that are activated when specific events take place during training.
-This makes it easy to inject speedup methods in exactly the right places without cluttering the main training loop. 
+This makes it easy to inject speedup methods in exactly the right places without cluttering the main training loop.
 Each callback has access to the **entire training state** so that it can make whatever changes are necessary for the speedup method to do its job.
 
 Composer leverages the two-way callback system to integrate our methods into the appropriate parts of the training pipeline:
