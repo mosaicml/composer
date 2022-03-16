@@ -15,8 +15,6 @@ Sequence Length Warmup linearly increases the sequence length (number of tokens 
 
 ### Functional Interface
 
-TODO(Moin): Fill this in and add comments as appropriate to describe what's happening.
-
 ```python
 from composer import functional as cf
 
@@ -24,9 +22,16 @@ def training_loop(model, train_loader):
     opt = torch.optim.Adam(model.parameters())
     loss_fn = F.cross_entropy
     model.train()
+    max_seq_length = 1024
+    curr_seq_length = 8
+    seq_length_step_size = 8
 
+    # in this example, we're going to define a warmup schedule that increases the
+    # sequence length by 8  at every step until it reaches the maximum sequence length
     for epoch in range(num_epochs):
         for X, y in train_loader:
+            curr_seq_length = max(max_seq_length, curr_seq_length + seq_length_step_size)
+            X = cf.set_batch_sequence_length(X, curr_seq_length)
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
             loss.backward()
@@ -36,15 +41,14 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-TODO(Moin): Fill this in and add comments as appropriate to describe what's happening.
-
 ```python
 from composer.trainer import Trainer
+from composer.algorithms import SeqLengthWarmup
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[])
+                  algorithms=[SeqLengthWarmup()])
 
 trainer.fit()
 ```
@@ -55,9 +59,7 @@ We implement this as a pre-processing step during the forward pass when training
 
 ## Suggested Hyperparameters
 
-We found that running Sequence Length Warmup for 30% of training (i.e., setting `duration=0.3`) provided the largest speedup that could still maintain full model quality on GPT2-52M. 
-
-TODO(Moin): Provide insights into the other hyperparameter choices.
+We found that running Sequence Length Warmup for 30% of training (i.e., setting `duration=0.3`) provided the largest speedup that could still maintain full model quality on GPT-2 125M. We also recommend to always ensure that the sequence length is a multiple of eight in order to take advantage of hardware acceleration, such as Tensor Cores.
 
 ## Technical Details
 
@@ -86,8 +88,6 @@ One of the key design decisions when performing Sequence Length Warmup is the ma
 There are two options for doing so:
 * Truncating the sentence, discarding everything beyond the desired sequence length.
 * Segmenting the sentence, breaking it up into segments of the desired sequence lenght and making all segments into separate trianing examples.
-
-Jonathan to pick up here.
 
 ## Attribution
 
