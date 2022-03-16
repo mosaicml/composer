@@ -92,6 +92,11 @@ Press et al. found that learning *m* did not lead to strong extrapolation. They 
 
 Press et al. report that models trained with ALiBi maintain similar performance even when tested on sequences 5-10x longer than they were trained on. ALiBi’s extrapolation capabilities can be leveraged to train on shorter sequences. This is desirable because the number of operations required to compute self-attention and the GPU memory usage required to store the resulting representations both increase with the square of the sequence length. In one example scenario, Press et al. reported training to equal perplexity in 90% of the time and utilizing 90% of the GPU memory compared to a baseline model with sinusoidal position embeddings. Our experiments showed that ALiBi could reduce perplexity by 0.2-0.6, train models 1.15x faster and utilize 1.2x less GPU memory compared to baseline models (see below).
 
+> ✅ ALiBi Improves the Tradeoff Between Quality and Training Speed
+> 
+> In our experiments, ALiBi improves the attainable tradeoffs between training speed and the final quality of the trained model.
+> We recommend ALiBi for training language models.
+
 We conducted experiments on the GPT-2 model family trained on OpenWebText on 8x NVIDIA A100-40GBs. We compared baseline models with learned position embeddings and training sequence length 1024 to models using ALiBi with `train_sequence_length_scaling=0.25` (i.e., train sequence length 256). We found that `train_sequence_length_scaling=0.25` (sequence length 256) provided appreciable speed and accuracy gains for models evaluated at sequence length 1024. Our results are shown in the table below.
 
 |Name|Perplexity|	&Delta;|Train Time (s)|Speedup|GPU Memory|Reduction|
