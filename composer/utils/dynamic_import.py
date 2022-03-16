@@ -22,6 +22,7 @@ def import_object(name: str) -> Any:
 
             Example:
 
+                >>> from composer.utils import import_object
                 >>> import_object('functools:partial')
                 <class 'functools.partial'>
 

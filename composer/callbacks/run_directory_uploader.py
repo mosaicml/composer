@@ -44,6 +44,7 @@ class RunDirectoryUploader(Callback):
            import os
            import functools
            from composer.callbacks import RunDirectoryUploader, run_directory_uploader
+           from composer.utils import ObjectStoreHparams
 
            # For this example, we do not validate credentials
            def do_not_validate(

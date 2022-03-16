@@ -19,6 +19,7 @@ class StringEnum(Enum):
     *   ``StringEnum(value)`` will perform a case-insensitive match on both the keys and value,
         and is a no-op if given an existing instance of the class.
 
+        >>> from composer.utils import StringEnum
         >>> class MyStringEnum(StringEnum):
         ...     KEY = "value"
         >>> MyStringEnum("KeY")  # case-insensitive match on the key
@@ -30,6 +31,7 @@ class StringEnum(Enum):
     
     *   Equality checks support case-insensitive comparisions against strings:
 
+        >>> from composer.utils import StringEnum
         >>> class MyStringEnum(StringEnum):
         ...     KEY = "value"
         >>> MyStringEnum.KEY == "KeY"  # case-insensitive match on the key
