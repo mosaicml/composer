@@ -114,6 +114,7 @@ class TestTrainerInit():
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
+@pytest.mark.timeout(5)
 class TestTrainerEquivalence():
 
     reference_model: Model
