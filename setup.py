@@ -138,7 +138,7 @@ extra_deps["nlp"] = [
 ]
 
 extra_deps['webdataset'] = [
-    'webdataset @ git+https://github.com/mosaicml/webdataset.git@dev',
+    # https://github.com/webdataset/webdataset/compare/main...mosaicml:dev?expand=1 # PyPI does not permit git dependencies.
     'wurlitzer>=3.0.2,<4',
 ]
 
@@ -161,7 +161,7 @@ setup(name="mosaicml",
       package_data={
           "composer": composer_data_files,
       },
-      packages=setuptools.find_packages(include=["composer.*"]),
+      packages=setuptools.find_packages(exclude=["docker*", "notebooks*", "scripts*", "tests*"]),
       classifiers=[
           "Programming Language :: Python :: 3",
           "Programming Language :: Python :: 3.7",
