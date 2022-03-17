@@ -20,7 +20,7 @@ from composer.core.precision import Precision
 from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
 from composer.trainer.devices.device import Device
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
-from composer.utils import dist, reproducibility
+from composer.utils import dist
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 
