@@ -1,10 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
-import random
 import tarfile
 import tempfile
 import textwrap
+import time
 from typing import Any, Dict, Optional
 
 import pytest
@@ -35,7 +35,7 @@ class DummyStatefulCallback(Callback):
 
     def __init__(self) -> None:
         super().__init__()
-        self.random_value = random.random()
+        self.random_value = time.time_ns()
 
     def state_dict(self) -> Dict[str, Any]:
         return {
