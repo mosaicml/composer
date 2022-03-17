@@ -164,6 +164,10 @@ class EMAHparams(AlgorithmHparams):
     """See :class:`EMA`"""
 
     alpha: float = hp.optional('Strength of exponential moving average.', default=0.9)
+    update_interval: str = hp.optional(doc='Time string denoting how often the averaged model is updated. For example, '
+                                       '"1ep" means the averaged model will be updated once per epoch, and '
+                                       '"10ba" means the averaged model will be updated every 10 batches.',
+                                       default="1ba")
     train_with_ema_weights: bool = hp.optional('Train using the moving average weights.', default=False)
 
     def initialize_object(self) -> EMA:

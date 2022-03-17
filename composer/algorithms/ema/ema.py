@@ -42,11 +42,19 @@ class EMA(Algorithm):
     """
     """
 
-    def __init__(self, alpha: float, train_with_ema_weights: bool):
+    def __init__(self, alpha: float, update_interval: str, train_with_ema_weights: bool):
         self.alpha = alpha
+        self.update_interval = update_interval
+        self.train_with_ema_weights = train_with_ema_weights
+
         self.ema_model = None
         self.training_model = None
-        self.train_with_ema_weights = train_with_ema_weights
+
+        # Check update_interval timestring is parsable and convert into time object
+        try:
+            self.update_interval = Time.from_timestring(update_interval)
+        except ValueError as error:
+            raise ValueError(f"Invalid time string for parameter update_interval") from error
 
     def match(self, event: Event, state: State) -> bool:
         return event in [Event.FIT_START, Event.BATCH_END, Event.EVAL_START, Event.EVAL_END]
