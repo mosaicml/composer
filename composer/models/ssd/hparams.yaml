@@ -31,8 +31,6 @@ schedulers:
         - "40ep"
         - "50ep"
       gamma: 0.1
-loggers:
-  - tqdm: {}
 train_batch_size: 1024
 eval_batch_size: 1024
 seed: 0

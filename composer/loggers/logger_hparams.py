@@ -16,7 +16,7 @@ from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.object_store_logger import ObjectStoreLogger
-from composer.loggers.tqdm_logger import TQDMLogger
+from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import ObjectStoreHparams, dist, import_object
 
@@ -24,7 +24,7 @@ __all__ = [
     "FileLoggerHparams",
     "InMemoryLoggerHparams",
     "LoggerDestinationHparams",
-    "TQDMLoggerHparams",
+    "ProgressBarLoggerHparams",
     "WandBLoggerHparams",
     "ObjectStoreLoggerHparams",
 ]
@@ -217,13 +217,13 @@ class WandBLoggerHparams(LoggerDestinationHparams):
 
 
 @dataclass
-class TQDMLoggerHparams(LoggerDestinationHparams):
-    """:class:`~composer.loggers.tqdm_logger.TQDMLogger`
+class ProgressBarLoggerHparams(LoggerDestinationHparams):
+    """:class:`~composer.loggers.progress_bar_logger.ProgressBarLogger`
     hyperparameters. This class takes no parameters.
     """
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
-        return TQDMLogger(config=config)
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> ProgressBarLogger:
+        return ProgressBarLogger(config=config)
 
 
 @dataclass

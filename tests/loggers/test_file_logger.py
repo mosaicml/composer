@@ -52,15 +52,15 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, log_file_name: str
     with open(log_file_name, 'r') as f:
         if log_level == LogLevel.EPOCH:
             assert f.readlines() == [
-                '[FIT][step=2]: { "metric": "fit", }\n',
-                '[EPOCH][step=2]: { "metric": "epoch1", }\n',
+                '[FIT][batch=2]: { "metric": "fit", }\n',
+                '[EPOCH][batch=2]: { "metric": "epoch1", }\n',
             ]
         else:
             assert log_level == LogLevel.BATCH
             assert f.readlines() == [
-                '[FIT][step=2]: { "metric": "fit", }\n',
-                '[EPOCH][step=2]: { "metric": "epoch", }\n',
-                '[BATCH][step=2]: { "metric": "batch", }\n',
-                '[EPOCH][step=2]: { "metric": "epoch1", }\n',
-                '[EPOCH][step=3]: { "metric": "epoch2", }\n',
+                '[FIT][batch=2]: { "metric": "fit", }\n',
+                '[EPOCH][batch=2]: { "metric": "epoch", }\n',
+                '[BATCH][batch=2]: { "metric": "batch", }\n',
+                '[EPOCH][batch=2]: { "metric": "epoch1", }\n',
+                '[EPOCH][batch=3]: { "metric": "epoch2", }\n',
             ]
