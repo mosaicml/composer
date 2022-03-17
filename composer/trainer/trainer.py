@@ -88,8 +88,7 @@ from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
 from composer.core.types import Batch, BreakEpochException, DataLoader, PyTorchScheduler
 from composer.datasets.dataloader import unwrap_data_loader
-from composer.loggers import Logger, LoggerDestination, LogLevel
-from composer.loggers.tqdm_logger import TQDMLogger
+from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
@@ -224,7 +223,7 @@ class Trainer:
 
             .. seealso:: :class:`~composer.loggers.logger.Logger`
         loggers (LoggerDestination | Sequence[LoggerDestination], optional): The destinations to log training information to.
-            If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
+            If ``None``, will be set to ``[ProgressBarLogger()]``. (default: ``None``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
         callbacks (Callback | Sequence[Callback], optional): The callbacks to run during training. If ``None``,
@@ -713,7 +712,7 @@ class Trainer:
                                   with_flops=torch_prof_with_flops))
 
         if loggers is None:
-            loggers = [TQDMLogger()]
+            loggers = [ProgressBarLogger()]
         self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
         self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 

@@ -16,7 +16,7 @@ from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.object_store_logger import ObjectStoreLogger
-from composer.loggers.tqdm_logger import TQDMLogger
+from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import ObjectStoreHparams, dist, import_object
 
@@ -24,7 +24,7 @@ __all__ = [
     "FileLoggerHparams",
     "InMemoryLoggerHparams",
     "LoggerDestinationHparams",
-    "TQDMLoggerHparams",
+    "ProgressBarLoggerHparams",
     "WandBLoggerHparams",
     "ObjectStoreLoggerHparams",
 ]
@@ -58,6 +58,8 @@ class FileLoggerHparams(LoggerDestinationHparams):
 
     Args:
         filename (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`
+        capture_stdout (bool, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
+        capture_stderr (bool, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
         buffer_size (int, optional): See
             :class:`~composer.loggers.file_logger.FileLogger`.
         log_level (LogLevel, optional): See
@@ -70,6 +72,8 @@ class FileLoggerHparams(LoggerDestinationHparams):
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
     filename: str = hp.optional("The path to the logfile. Can also be `stdout` or `stderr`. Default: stdout",
                                 default="stdout")
+    capture_stdout: bool = hp.optional("Whether to capture writes to `stdout`", default=True)
+    capture_stderr: bool = hp.optional("Whether to capture writes to `stderr`", default=True)
     buffer_size: int = hp.optional("Number of bytes to buffer. Defaults to 1 for line-buffering. "
                                    "See https://docs.python.org/3/library/functions.html#open",
                                    default=1)  # line buffering. Python's default is -1.
@@ -217,13 +221,13 @@ class WandBLoggerHparams(LoggerDestinationHparams):
 
 
 @dataclass
-class TQDMLoggerHparams(LoggerDestinationHparams):
-    """:class:`~composer.loggers.tqdm_logger.TQDMLogger`
+class ProgressBarLoggerHparams(LoggerDestinationHparams):
+    """:class:`~composer.loggers.progress_bar_logger.ProgressBarLogger`
     hyperparameters. This class takes no parameters.
     """
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> TQDMLogger:
-        return TQDMLogger(config=config)
+    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> ProgressBarLogger:
+        return ProgressBarLogger(config=config)
 
 
 @dataclass

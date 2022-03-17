@@ -17,13 +17,13 @@ from composer.loggers.logger import Logger, LoggerDataDict, LogLevel, format_log
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 
-__all__ = ["TQDMLogger"]
+__all__ = ["ProgressBarLogger"]
 
 _IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['accuracy/val']}
 
 
 @dataclass
-class _TQDMLoggerInstanceState:
+class _ProgressBarLoggerInstanceState:
     total: Optional[int]
     description: str
     position: int
@@ -32,9 +32,9 @@ class _TQDMLoggerInstanceState:
     epoch_metrics: LoggerDataDict
 
 
-class _TQDMLoggerInstance:
+class _ProgressBarLoggerInstance:
 
-    def __init__(self, state: _TQDMLoggerInstanceState) -> None:
+    def __init__(self, state: _ProgressBarLoggerInstanceState) -> None:
         self.state = state
         self.pbar = auto.tqdm(total=state.total,
                               desc=state.description,
@@ -58,7 +58,7 @@ class _TQDMLoggerInstance:
         return asdict(self.state)
 
 
-class TQDMLogger(LoggerDestination):
+class ProgressBarLogger(LoggerDestination):
     """Logs metrics to a `TQDM <https://github.com/tqdm/tqdm>`_ progress bar displayed in the terminal.
 
     During training, the progress bar logs the batch and training loss.
@@ -67,7 +67,7 @@ class TQDMLogger(LoggerDestination):
     Example usage:
         .. testcode::
 
-            from composer.loggers import TQDMLogger
+            from composer.loggers import ProgressBarLogger
             from composer.trainer import Trainer
             trainer = Trainer(
                 model=model,
@@ -75,7 +75,7 @@ class TQDMLogger(LoggerDestination):
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
                 optimizers=[optimizer],
-                loggers=[TQDMLogger()]
+                loggers=[ProgressBarLogger()]
             )
 
     Example output::
@@ -95,7 +95,7 @@ class TQDMLogger(LoggerDestination):
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         super().__init__()
-        self.pbars: Dict[bool, _TQDMLoggerInstance] = {}
+        self.pbars: Dict[bool, _ProgressBarLoggerInstance] = {}
         self.is_train: Optional[bool] = None
         self.config = config
 
@@ -132,13 +132,13 @@ class TQDMLogger(LoggerDestination):
         position = 0 if self.is_train else 1
         if not self.is_train:
             desc += f", Batch {int(state.timer.batch)} (val)"
-        self.pbars[self.is_train] = _TQDMLoggerInstance(
-            _TQDMLoggerInstanceState(total=total_steps,
-                                     position=position,
-                                     n=0,
-                                     keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
-                                     description=desc,
-                                     epoch_metrics={}))
+        self.pbars[self.is_train] = _ProgressBarLoggerInstance(
+            _ProgressBarLoggerInstanceState(total=total_steps,
+                                            position=position,
+                                            n=0,
+                                            keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
+                                            description=desc,
+                                            epoch_metrics={}))
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -201,5 +201,7 @@ class TQDMLogger(LoggerDestination):
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.pbars = {k: _TQDMLoggerInstance(_TQDMLoggerInstanceState(**v)) for (k, v) in state["pbars"].items()}
+        self.pbars = {
+            k: _ProgressBarLoggerInstance(_ProgressBarLoggerInstanceState(**v)) for (k, v) in state["pbars"].items()
+        }
         self.is_train = state["is_train"]

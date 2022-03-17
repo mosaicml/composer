@@ -77,7 +77,7 @@ objects.
 
    trainer.fit()
 
-In the background, we automatically add the :class:`.TQDMLogger` to log
+In the background, we automatically add the :class:`.ProgressBarLogger` to log
 training progress to the console.
 
 

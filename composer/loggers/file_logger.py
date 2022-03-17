@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 import os
+import queue
 import sys
-from typing import Any, Dict, Optional, TextIO
+from typing import Any, Callable, Dict, Optional, TextIO
 
 import yaml
 
@@ -19,7 +20,7 @@ __all__ = ["FileLogger"]
 
 
 class FileLogger(LoggerDestination):
-    """Logs to a file or to the terminal.
+    """Log data to a file.
 
     Example usage:
         .. testcode::
@@ -61,10 +62,9 @@ class FileLogger(LoggerDestination):
 
 
     Args:
-        filename (str, optional): File to log to.
-            Can be a filepath, ``"stdout"``, or ``"stderr"``. Default: ``"stdout"``.
-            Filepaths should be specified relative to the
-            :mod:`~.composer.utils.run_directory`.
+        filename (str): Filepath to log to, relative to the :mod:`~.composer.utils.run_directory`.
+        capture_stdout (bool, optional): Whether to include the ``stdout``in ``filename``. (default: ``True``)
+        capture_stderr (bool, optional): Whether to include the ``stderr``in ``filename``. (default: ``True``)
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
             Default: ``1`` for line buffering.
         log_level (LogLevel, optional):
@@ -85,8 +85,10 @@ class FileLogger(LoggerDestination):
 
     def __init__(
         self,
-        filename: str = 'stdout',
+        filename: str,
         *,
+        capture_stdout: bool = True,
+        capture_stderr: bool = True,
         buffer_size: int = 1,
         log_level: LogLevel = LogLevel.EPOCH,
         log_interval: int = 1,
@@ -103,6 +105,24 @@ class FileLogger(LoggerDestination):
         self.is_epoch_interval = False
         self.file: Optional[TextIO] = None
         self.config = config
+        self._queue: queue.Queue[str] = queue.Queue()
+        self._original_stdout_write = sys.stdout.write
+        self._original_stderr_write = sys.stderr.write
+
+        if capture_stdout:
+            sys.stdout.write = self._get_new_writer("[stdout]: ", self._original_stdout_write)
+
+        if capture_stderr:
+            sys.stderr.write = self._get_new_writer("[stderr]: ", self._original_stderr_write)
+
+    def _get_new_writer(self, prefix: str, original_writer: Callable[[str], int]):
+        """Returns a writer that intercepts calls to the ``original_writer``."""
+
+        def new_write(s: str) -> int:
+            self.write(prefix, s)
+            return original_writer(s)
+
+        return new_write
 
     def batch_start(self, state: State, logger: Logger) -> None:
         self.is_batch_interval = (int(state.timer.batch) + 1) % self.log_interval == 0
@@ -133,28 +153,24 @@ class FileLogger(LoggerDestination):
         if not self._will_log(log_level):
             return
         data_str = format_log_data_value(data)
-        if self.file is None:
-            raise RuntimeError("Attempted to log before self.init() or after self.close()")
-        print(f"[{log_level.name}][step={int(state.timer.batch)}]: {data_str}", file=self.file, flush=False)
+        self.write(
+            f'[{log_level.name}][batch={int(state.timer.batch)}]: ',
+            data_str + "\n",
+        )
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
-        if self.filename == "stdout":
-            self.file = sys.stdout
-        elif self.filename == "stderr":
-            self.file = sys.stderr
-        else:
-            self.file = open(os.path.join(run_directory.get_run_directory(), self.filename),
-                             "x+",
-                             buffering=self.buffer_size)
+        self.file = open(
+            os.path.join(run_directory.get_run_directory(), self.filename),
+            "x+",
+            buffering=self.buffer_size,
+        )
+        self._flush_queue()
         if self.config is not None:
-            print("Config", file=self.file)
-            print("-" * 30, file=self.file)
-            yaml.safe_dump(self.config, stream=self.file)
-            print("-" * 30, file=self.file)
-            print(file=self.file)
+            data = ("-" * 30) + "\n" + yaml.safe_dump(self.config) + "\n" + ("-" * 30) + "\n"
+            self.write('[config]: ', data)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -172,15 +188,54 @@ class FileLogger(LoggerDestination):
                 state.timer.epoch) % self.flush_interval == 0:
             self._flush_file()
 
+    def write(self, prefix: str, s: str):
+        """Write to the logfile.
+
+        .. note::
+
+            If the ``write`` occurs before the :attr:`~composer.core.event.Event.INIT` event,
+            the write will be enqueued, as the file is not yet open.
+
+        Args:
+            prefix (str): A prefix for each line in the logfile.
+            s (str): The string to write. Each line will be prefixed with ``prefix``.
+        """
+        formatted_lines = []
+        for line in s.splitlines(True):
+            if line == os.linesep:
+                # If it's an empty line, don't print the prefix
+                formatted_lines.append(line)
+            else:
+                formatted_lines.append(f"{prefix}{line}")
+        formatted_s = ''.join(formatted_lines)
+        if self.file is None:
+            self._queue.put_nowait(formatted_s)
+        else:
+            # Flush the queue, so all prints will be in order
+            self._flush_queue()
+            # Then, write to the file
+            print(formatted_s, file=self.file, flush=False, end='')
+
+    def _flush_queue(self):
+        while True:
+            try:
+                s = self._queue.get_nowait()
+            except queue.Empty:
+                break
+            print(s, file=self.file, flush=False, end='')
+
     def _flush_file(self) -> None:
         assert self.file is not None
-        if self.file not in (sys.stdout, sys.stderr):
-            self.file.flush()
-            os.fsync(self.file.fileno())
+
+        self._flush_queue()
+
+        self.file.flush()
+        os.fsync(self.file.fileno())
 
     def close(self) -> None:
         if self.file is not None:
-            if self.file not in (sys.stdout, sys.stderr):
-                self._flush_file()
-                self.file.close()
+            sys.stdout.write = self._original_stdout_write
+            sys.stderr.write = self._original_stderr_write
+            self._flush_file()
+            self.file.close()
             self.file = None
