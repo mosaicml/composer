@@ -84,11 +84,13 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
     # Flush interval is 1, so there should be one log_file call per LogLevel
     # Flushes also happen per each eval_start, epoch_start, and close()
     if log_level == LogLevel.EPOCH:
-        # 
-        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.epoch) + int(dummy_state.timer.epoch) + 1
+        #
+        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.epoch) + int(
+            dummy_state.timer.epoch) + 1
     else:
         assert log_level == LogLevel.BATCH
-        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.batch) + + int(dummy_state.timer.epoch) + 1
+        assert len(file_tracker_destination.logged_artifacts) == int(
+            dummy_state.timer.batch) + +int(dummy_state.timer.epoch) + 1
 
 
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmpdir: pathlib.Path):

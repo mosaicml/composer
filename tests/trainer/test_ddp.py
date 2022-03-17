@@ -14,8 +14,8 @@ import yahp as hp
 
 import composer.core.types as types
 from composer import Callback, Event
+from composer.core import Precision, State
 from composer.core.data_spec import DataSpec
-from composer.core import State, Precision
 from composer.datasets import DataLoaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
 from composer.datasets.hparams import DatasetHparams
 from composer.loggers import Logger
@@ -170,22 +170,19 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     )
     val_dataloader = val_dataset_hparams.initialize_object(eval_batch_size, dataloader_hparams)
     max_epochs = 2
-    trainer = Trainer(
-        model=model,
-        loggers=[],
-        train_dataloader=train_dataloader,
-        eval_dataloader=val_dataloader,
-        device=device_hparams.initialize_object(),
-        max_duration=f"{max_epochs}ep",
-        precision=Precision.FP32,
-        validate_every_n_batches=0,
-        validate_every_n_epochs=1,
-        eval_subset_num_batches = 3,
-        train_subset_num_batches = 3,
-        deepspeed_config={} if deepspeed else False,
-        callbacks=[CheckBatch0(rank_zero_tmpdir)]
-
-    )
+    trainer = Trainer(model=model,
+                      loggers=[],
+                      train_dataloader=train_dataloader,
+                      eval_dataloader=val_dataloader,
+                      device=device_hparams.initialize_object(),
+                      max_duration=f"{max_epochs}ep",
+                      precision=Precision.FP32,
+                      validate_every_n_batches=0,
+                      validate_every_n_epochs=1,
+                      eval_subset_num_batches=3,
+                      train_subset_num_batches=3,
+                      deepspeed_config={} if deepspeed else False,
+                      callbacks=[CheckBatch0(rank_zero_tmpdir)])
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
 
     for evaluator in trainer.evaluators:
