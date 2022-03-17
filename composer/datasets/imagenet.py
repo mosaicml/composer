@@ -17,7 +17,8 @@ import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-from composer.core.types import DataLoader, DataSpec
+from composer.core import DataSpec
+from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset

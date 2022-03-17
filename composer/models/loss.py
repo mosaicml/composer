@@ -4,16 +4,13 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
 from torch import Tensor
 from torchmetrics import Metric
 from torchmetrics.utilities.data import to_categorical
-
-if TYPE_CHECKING:
-    from composer.core.types import Tensor
 
 __all__ = ["MIoU", "Dice", "CrossEntropyLoss", "soft_cross_entropy"]
 

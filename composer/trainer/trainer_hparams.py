@@ -17,12 +17,13 @@ import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
                                 RunDirectoryUploaderHparams, SpeedMonitorHparams)
-from composer.core.types import JSON, Precision
+from composer.core import Precision
+from composer.core.types import JSON
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams, TQDMLoggerHparams,
-                              WandBLoggerHparams)
+from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
+                              ProgressBarLoggerHparams, WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
                              ResNetHparams, SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
@@ -38,7 +39,7 @@ from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
-from composer.utils.object_store import ObjectStoreProviderHparams
+from composer.utils.object_store import ObjectStoreHparams
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
@@ -101,7 +102,7 @@ callback_registry = {
 logger_registry = {
     "file": FileLoggerHparams,
     "wandb": WandBLoggerHparams,
-    "tqdm": TQDMLoggerHparams,
+    "progress_bar": ProgressBarLoggerHparams,
     "in_memory": InMemoryLoggerHparams,
 }
 
@@ -188,7 +189,7 @@ class TrainerHparams(hp.Hparams):
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
         load_path_format (str, optional): See :class:`.Trainer`.
-        load_object_store (ObjectStoreProvider, optional): See :class:`.Trainer`.
+        load_object_store (ObjectStore, optional): See :class:`.Trainer`.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -315,11 +316,11 @@ class TrainerHparams(hp.Hparams):
         (if the checkpoint is on the local disk) or the object name for the checkpoint
         (if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint."""),
                                                   default=None)
-    load_object_store: Optional[ObjectStoreProviderHparams] = hp.optional(doc=textwrap.dedent("""\
+    load_object_store: Optional[ObjectStoreHparams] = hp.optional(doc=textwrap.dedent("""\
         If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
         leave blank. This parameter has no effect if `load_path_format` is not specified."""),
-                                                                          default=None)
+                                                                  default=None)
     load_weights_only: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to only load the weights from the model.
         This parameter has no effect if `load_path_format`is not specified."""),

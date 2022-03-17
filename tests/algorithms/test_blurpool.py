@@ -5,7 +5,7 @@
 Primitives are tested in test_blurpool.py
 """
 import itertools
-from typing import List
+from typing import List, Sequence, Union
 from unittest.mock import Mock
 
 import pytest
@@ -15,7 +15,6 @@ from composer.algorithms import BlurPool
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.core import Event, State
-from composer.core.types import Tensors
 from composer.loggers import Logger
 from composer.models import ComposerClassifier
 from composer.utils import module_surgery
@@ -39,7 +38,7 @@ class ConvModel(torch.nn.Module):
         self.linear1 = torch.nn.Linear(64, 48)
         self.linear2 = torch.nn.Linear(48, 10)
 
-    def forward(self, x: Tensors) -> Tensors:
+    def forward(self, x: Union[torch.Tensor, Sequence[torch.Tensor]]) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
 
         out = self.conv1(x)
         out = self.conv2(out)

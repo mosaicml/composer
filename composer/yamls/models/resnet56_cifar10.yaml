@@ -29,8 +29,6 @@ model:
     initializers:
       - kaiming_normal
       - bn_uniform
-loggers:
-  - tqdm: {}
 max_duration: 160ep
 train_batch_size: 1024
 eval_batch_size: 1000

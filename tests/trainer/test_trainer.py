@@ -17,8 +17,7 @@ from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
-from composer.core.types import Model
-from composer.loggers import FileLogger, TQDMLogger, WandBLogger
+from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from composer.utils import dist
 from composer.utils.reproducibility import seed_all
@@ -49,12 +48,12 @@ class TestTrainerInit():
 
     def test_loggers_before_callbacks(self, config):
         config.update({
-            "loggers": [TQDMLogger()],
+            "loggers": [ProgressBarLogger()],
             "callbacks": [LRMonitor()],
         })
 
         trainer = Trainer(**config)
-        assert isinstance(trainer.state.callbacks[0], TQDMLogger)
+        assert isinstance(trainer.state.callbacks[0], ProgressBarLogger)
         assert isinstance(trainer.state.callbacks[1], LRMonitor)
 
     @device('gpu', 'cpu')
@@ -118,7 +117,7 @@ class TestTrainerInit():
 @pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerEquivalence():
 
-    reference_model: Model
+    reference_model: torch.nn.Module
     reference_folder: pathlib.Path
     default_threshold: Dict[str, float]
 
