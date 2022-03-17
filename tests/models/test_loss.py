@@ -75,7 +75,6 @@ def test_miou(block_2D_targets):
 def test_ensure_targets_one_hot(fake_input_target_pairs):
     input, targets_idx, targets_one_hot = fake_input_target_pairs
     targets_one_hot_test = ensure_targets_one_hot(input, targets_idx)
-    print(targets_one_hot.type(), targets_one_hot_test.type())
     torch.testing.assert_allclose(targets_one_hot, targets_one_hot_test)
 
 
