@@ -4,10 +4,11 @@ import contextlib
 from typing import List, Optional, Type, cast
 
 import pytest
+import torch
 
 from composer.core import State, Time
 from composer.core.time import TimeUnit
-from composer.core.types import DataLoader, Model
+from composer.core.types import DataLoader
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import (ComposerScheduler, CosineAnnealingScheduler, CosineAnnealingWarmRestartsScheduler,
                                       CosineAnnealingWithWarmupScheduler, ExponentialScheduler, LinearScheduler,
@@ -20,7 +21,7 @@ STEPS_PER_EPOCH = 1000
 
 
 @pytest.fixture
-def dummy_schedulers_state(dummy_model: Model, dummy_train_dataloader: DataLoader):
+def dummy_schedulers_state(dummy_model: torch.nn.Module, dummy_train_dataloader: DataLoader):
     return State(
         model=dummy_model,
         rank_zero_seed=0,

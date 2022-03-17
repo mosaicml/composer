@@ -44,6 +44,7 @@ class RunDirectoryUploader(Callback):
            import os
            import functools
            from composer.callbacks import RunDirectoryUploader, run_directory_uploader
+           from composer.utils import ObjectStoreHparams
 
            # For this example, we do not validate credentials
            def do_not_validate(
@@ -88,7 +89,7 @@ class RunDirectoryUploader(Callback):
         .. testcleanup:: composer.callbacks.RunDirectoryUploader.__init__
 
            # Shut down the uploader
-           run_directory_uploader._finished.set()
+           run_directory_uploader.post_close()
 
     .. note::
         This callback blocks the training loop to copy files from the :mod:`~composer.utils.run_directory` to the
@@ -323,10 +324,10 @@ def _upload_worker(
                     retry_counter += 1
                     # exponential backoff
                     sleep_time = 2**(retry_counter - 1)
-                    log.warn("Request failed. Sleeping %s seconds and retrying",
-                             sleep_time,
-                             exc_info=e,
-                             stack_info=True)
+                    log.warning("Request failed. Sleeping %s seconds and retrying",
+                                sleep_time,
+                                exc_info=e,
+                                stack_info=True)
                     time.sleep(sleep_time)
                     continue
                 raise e

@@ -13,7 +13,6 @@ import yaml
 from tqdm import auto
 
 from composer.core.state import State
-from composer.core.types import StateDict
 from composer.loggers.logger import Logger, LoggerDataDict, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
@@ -55,7 +54,7 @@ class _ProgressBarLoggerInstance:
     def close(self):
         self.pbar.close()
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         return asdict(self.state)
 
 
@@ -195,13 +194,13 @@ class ProgressBarLogger(LoggerDestination):
             return
         self._end()
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         return {
             "pbars": {k: v.state_dict() for (k, v) in self.pbars.items()},
             "is_train": self.is_train,
         }
 
-    def load_state_dict(self, state: StateDict) -> None:
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
         self.pbars = {
             k: _ProgressBarLoggerInstance(_ProgressBarLoggerInstanceState(**v)) for (k, v) in state["pbars"].items()
         }

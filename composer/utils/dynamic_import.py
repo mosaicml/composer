@@ -22,7 +22,8 @@ def import_object(name: str) -> Any:
 
             Example:
 
-                >>> dynamic_import('functools:partial')
+                >>> from composer.utils import import_object
+                >>> import_object('functools:partial')
                 <class 'functools.partial'>
 
             .. note::

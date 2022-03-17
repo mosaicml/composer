@@ -34,6 +34,7 @@ class ObjectStoreHparams(hp.Hparams):
 
     .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.s3
 
+        >>> from composer.utils import ObjectStoreHparams
         >>> provider_hparams = ObjectStoreHparams(
         ...     provider="s3",
         ...     container="MY_CONTAINER",
@@ -61,6 +62,7 @@ class ObjectStoreHparams(hp.Hparams):
 
                 import os
                 import functools
+                from composer.utils import ObjectStoreHparams
 
                 os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
                 ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")
@@ -84,6 +86,8 @@ class ObjectStoreHparams(hp.Hparams):
 
                 import os
                 import functools
+                from composer.utils import ObjectStoreHparams
+
                 original_secret = os.environ.get("OBJECT_STORE_SECRET")
                 os.environ["OBJECT_STORE_SECRET"] = "MY_SECRET"
                 ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")
@@ -161,6 +165,7 @@ class ObjectStore:
 
     Here's an example for an Amazon S3 bucket named ``MY_CONTAINER``:
 
+    >>> from composer.utils import ObjectStore
     >>> object_store = ObjectStore(
     ...     provider="s3",
     ...     container="MY_CONTAINER",

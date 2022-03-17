@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Mapping, Tuple
+from typing import TYPE_CHECKING, Mapping, Sequence, Tuple, Union
+
+from torch import Tensor
 
 from composer.models.base import ComposerModel
 from composer.models.nlp_metrics import LanguageCrossEntropyLoss
@@ -13,7 +15,7 @@ from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, Tensors
+    from composer.core.types import Batch
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +63,7 @@ class ComposerTransformer(ComposerModel):
         if gradient_checkpointing:
             self.module.gradient_checkpointing_enable()  # type: ignore
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
+    def loss(self, outputs: Mapping, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
         """Computes the loss of the tensor from the output.
 
         We don't implement this for the generic Transformer abstraction, since loss

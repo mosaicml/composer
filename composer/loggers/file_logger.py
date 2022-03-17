@@ -27,7 +27,7 @@ class FileLogger(LoggerDestination):
 
             from composer.loggers import FileLogger, LogLevel
             from composer.trainer import Trainer
-            logger = FileLogger(
+            file_logger = FileLogger(
                 filename="log.txt",
                 buffer_size=1,
                 log_level=LogLevel.BATCH,
@@ -35,17 +35,16 @@ class FileLogger(LoggerDestination):
                 flush_interval=50
             )
             trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                optimizers=[optimizer],
-                loggers=[logger]
+                ...,
+                loggers=[file_logger]
             )
 
         .. testcleanup::
 
             import os
+
+            file_logger.close()
+
             from composer.utils.run_directory import get_run_directory
 
             path = os.path.join(get_run_directory(), "log.txt")
