@@ -75,7 +75,7 @@ class ProgressBarLogger(LoggerDestination):
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
                 optimizers=[optimizer],
-                logger_destinations=[ProgressBarLogger()]
+                loggers=[ProgressBarLogger()]
             )
 
     Example output::

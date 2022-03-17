@@ -23,7 +23,7 @@ class FileArtifactLoggerTracker(LoggerDestination):
 
 
 @pytest.mark.parametrize("log_level", [LogLevel.EPOCH, LogLevel.BATCH])
-@pytest.mark.timeout(10000)
+@pytest.mark.timeout(10)
 def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Path):
     log_file_name = os.path.join(tmpdir, "output.log")
     log_destination = FileLoggerHparams(

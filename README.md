@@ -45,7 +45,7 @@
 
 # 👋 Welcome
 
-Composer is a library written in PyTorch that enabled you to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. We've implemented more than two dozen speed-up methods that can be applied to your training loop in just a few lines of code, or used with our built-in Trainer. We continually integrate the latest state-of-the-art in efficient neural network training.
+Composer is a library written in PyTorch that enables you to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. We've implemented more than two dozen speed-up methods that can be applied to your training loop in just a few lines of code, or used with our built-in Trainer. We continually integrate the latest state-of-the-art in efficient neural network training.
 
 Composer features:
 - 20+ methods for speeding up training networks for computer vision and language modeling. Don't waste hours trying to reproduce research papers when Composer has done the work for you.
@@ -69,7 +69,7 @@ Composer features:
 
 With no additional tuning, you can apply our methods to:
 <!-- start numbers -->
-- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.8 hours) on AWS.
+- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.5 hours) on AWS.
 - Train a GPT-2 125M to a standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
 <!-- end numbers -->
 
