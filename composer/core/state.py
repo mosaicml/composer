@@ -7,11 +7,12 @@ import contextlib
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Callable, ContextManager, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
 from torch.nn.parallel import DistributedDataParallel
+from torch.optim import Optimizer
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     import composer.core.types as types
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
+    from composer.core.evaluator import Evaluator
     from composer.profiler import Profiler
 
 __all__ = ["State"]
@@ -49,7 +51,7 @@ def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextMan
         return null
 
 
-def _ensure_backwards_compatible_checkpointing(state_dict: types.StateDict):
+def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
     # v0.4.1 removed the leading underscores for the keys in the state_dict
     # It also renamed _is_model_ddp_wrapped to is_model_ddp
     state = {}
@@ -90,35 +92,36 @@ class State(Serializable):
         not instantiate this class.
 
     Args:
-        model (:attr:`~.types.Model`): The model, typically as a subclass of :class:`~.ComposerModel`.
+        model (torch.nn.Module): The model, typically as a subclass of :class:`~.ComposerModel`.
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
         grad_accum (int): The number of gradient accumulation steps to use. With this argument, micro batch size for
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         train_dataloader (types.DataLoader, DataSpec, or dict):
             The :class:`~.types.DataLoader`, :class:`~.DataSpec`, or dict of :class:`~.DataSpec` kwargs to used for training.
-        evaluators (:attr:`~.types.Evaluators`):
-            The :attr:`~.types.Evaluators` contain the evaluation datasets used for evaluation with specific metrics.
+        evaluators (evaluator.Evaluator | Sequence[evaluator.Evaluator]):
+            The evaluators contain the evaluation dataset(s) used for evaluation with specific metrics.
         max_duration (str or Time): The maximum duration to train for.
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
         precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
-        optimizers (:attr:`~.types.Optimizers`, optional): The optimizers being used to train the model. Multiple optimizers are not currently supported.
-        schedulers (:attr:`~.types.PyTorchScheduler` | List[:attr:`~.types.PyTorchScheduler`] | Tuple[:attr:`~.types.PyTorchScheduler`, ...], optional):
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to train the model.
+            Multiple optimizers are not currently supported.
+        schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
-        algorithms (Sequence[Algorithm]): The algorithms used for training.
-        callbacks (Sequence[Callback]): The callbacks used for training.
+        algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
+        callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         profiler (Optional[Profiler]): The Composer profiler.
 
     Attributes:
-        batch (:attr:`~.types.Batch`): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
+        batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
         batch_num_samples (int): The number of samples in the :attr:`batch`.
         batch_num_tokens (int): The number of tokens in the :attr:`batch`.
 
-        loss (:attr:`~.types.Tensors`): The most recently computed loss.
-        outputs (:attr:`~.types.Tensors`): The most recently computed output from the model's forward pass.
+        loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
+        outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward pass.
         timer (Timer): The timer that tracks training loop progress.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
 
@@ -153,40 +156,40 @@ class State(Serializable):
     batch: types.Batch
     batch_num_samples: int
     batch_num_tokens: int
-    loss: types.Tensors
-    outputs: types.Tensors
+    loss: Union[torch.Tensor, Sequence[torch.Tensor]]
+    outputs: Union[torch.Tensor, Sequence[torch.Tensor]]
     _schedulers: List[types.PyTorchScheduler]
 
     def __init__(
-            self,
-            # model
-            model: types.Model,
+        self,
+        # model
+        model: torch.nn.Module,
 
-            # stopping conditions
-            max_duration: Union[str, Time[int]],
-            rank_zero_seed: int,
+        # stopping conditions
+        max_duration: Union[str, Time[int]],
+        rank_zero_seed: int,
 
-            # data configurations
-            train_dataloader: types.DataLoader,
-            evaluators: types.Evaluators = [],
-            grad_accum: int = 1,
+        # data configurations
+        train_dataloader: types.DataLoader,
+        evaluators: Optional[Union[Evaluator, Sequence[Evaluator]]] = None,
+        grad_accum: int = 1,
 
-            # precision
-            precision: Union[str, types.Precision] = Precision.FP32,
-            precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
+        # precision
+        precision: Union[str, Precision] = Precision.FP32,
+        precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
 
-            # optimizers
-            optimizers: Optional[types.Optimizers] = None,
+        # optimizers
+        optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 
-            # scaler
-            scaler: Optional[types.Scaler] = None,
+        # scaler
+        scaler: Optional[torch.cuda.amp.grad_scaler.GradScaler] = None,
 
-            # algorithms and callbacks
-            algorithms: Sequence[Algorithm] = tuple(),
-            callbacks: Sequence[Callback] = tuple(),
+        # algorithms and callbacks
+        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
+        callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
 
-            # steps per epoch
-            steps_per_epoch: Optional[int] = None,
+        # steps per epoch
+        steps_per_epoch: Optional[int] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -208,8 +211,8 @@ class State(Serializable):
         self._schedulers = []
 
         self.scaler = scaler
-        self._algorithms = list(algorithms)
-        self._callbacks = list(callbacks)
+        self._algorithms = list(ensure_tuple(algorithms))
+        self._callbacks = list(ensure_tuple(callbacks))
 
         self.profiler: Optional[Profiler] = None
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
@@ -261,7 +264,7 @@ class State(Serializable):
         return self._optimizers
 
     @optimizers.setter
-    def optimizers(self, optimizers: types.Optimizers):
+    def optimizers(self, optimizers: Union[Optimizer, Sequence[Optimizer]]):
         self._optimizers[:] = ensure_tuple(optimizers)
 
     @property
@@ -288,9 +291,9 @@ class State(Serializable):
     def algorithms(self, algorithms: Sequence[Algorithm]):
         self._algorithms[:] = algorithms
 
-    def state_dict(self) -> types.StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         """Returns the state as a :class:`dict`."""
-        state_dict: types.StateDict = {}
+        state_dict = {}
 
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
@@ -309,11 +312,11 @@ class State(Serializable):
 
         return state_dict
 
-    def load_model_state(self, state_dict: types.StateDict, strict: bool):
+    def load_model_state(self, state_dict: Dict[str, Any], strict: bool):
         """Loads the model's state from a state_dict.
 
         Args:
-            state_dict (types.StateDict): The state dict, generated from a previous call to :meth:`state_dict`.
+            state_dict (Dict[str, Any]): The state dict, generated from a previous call to :meth:`state_dict`.
             strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
                 perfectly match the keys in the model instance.
         """
@@ -325,11 +328,11 @@ class State(Serializable):
         if len(unexpected_keys) > 0:
             logger.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
-    def load_state_dict(self, state: types.StateDict, strict: bool = False):
+    def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
         """Loads the state.
 
         Args:
-            state (types.StateDict): object returned from call to :meth:`state_dict`.
+            state (Dict[str, Any]): object returned from call to :meth:`state_dict`.
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
         """
@@ -392,7 +395,7 @@ class State(Serializable):
         return self._precision
 
     @precision.setter
-    def precision(self, precision: Union[str, types.Precision]):
+    def precision(self, precision: Union[str, Precision]):
         self._precision = Precision(precision)
 
     @property

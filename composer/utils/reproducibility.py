@@ -13,6 +13,9 @@
 
         import functools
         import torch.nn
+        import warnings
+
+        warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
 
         MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
 
@@ -30,6 +33,10 @@
         >>> init_weights(model)
         >>> trainer = Trainer(model=model)
 
+    .. testcleanup::
+
+        warnings.resetwarnings()
+
 Attributes:
     MAX_SEED (int): The maximum allowed seed, which is :math:`2^{32} - 1`.
 """
@@ -41,16 +48,13 @@ import random
 import textwrap
 import time
 import warnings
-from typing import TYPE_CHECKING, List
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
 import torch.backends.cudnn
 
 from composer.utils import dist
-
-if TYPE_CHECKING:
-    from composer.core import types
 
 __all__ = [
     "configure_deterministic_mode",
@@ -74,7 +78,19 @@ def configure_deterministic_mode():
         instead of invoking this function directly.
         For example:
 
-        >>> trainer = Trainer(deterministic_mode=True)
+        .. testsetup::
+
+            import warnings
+
+            warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
+
+        .. doctest::
+
+            >>> trainer = Trainer(deterministic_mode=True)
+
+        .. testcleanup::
+
+            warnings.resetwarnings()
 
         However, to configure deterministic mode for operations before the trainer is initialized, manually invoke this
         function at the beginning of your training script.
@@ -139,11 +155,11 @@ def seed_all(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
-def get_rng_state() -> List[types.StateDict]:
+def get_rng_state() -> List[Dict[str, Any]]:
     """The state of the RNG objects.
 
     Returns:
-        List[types.StateDict]: A list of RNG State Dicts, indexed by global rank.
+        List[Dict[str, Any]]: A list of RNG State Dicts, indexed by global rank.
     """
 
     rng_state = {
@@ -158,11 +174,11 @@ def get_rng_state() -> List[types.StateDict]:
     return dist.all_gather_object(rng_state)
 
 
-def load_rng_state(rng_state_dicts: List[types.StateDict]):
+def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
     """Restore the RNG state.
 
     Args:
-        rng_state_dicts (List[types.StateDict]): The list of RNG state dicts to restore,
+        rng_state_dicts (List[Dict[str, Any]]): The list of RNG state dicts to restore,
             as returned by :func:`get_rng_state`.
     """
     if dist.get_world_size() > len(rng_state_dicts):

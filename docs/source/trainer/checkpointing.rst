@@ -157,7 +157,7 @@ will upload to the object store.
     We use :mod:`libcloud` to connect to the remote object stores, so be
     sure to have the Python package ``apache-libcloud`` installed.
 
-For this, the :class:`.ObjectStoreProvider` needs to be configured with
+For this, the :class:`.ObjectStore` needs to be configured with
 the following arguments:
 
 -  ``provider``: The name of the object store provider, as recognized by
@@ -194,13 +194,13 @@ Let's put all this together below:
 
    import uuid
    from composer.callbacks import RunDirectoryUploader
-   from composer.utils.object_store import ObjectStoreProviderHparams
+   from composer.utils.object_store import ObjectStoreHparams
 
    credentials = {"provider": "GOOGLE_STORAGE",
                   "container": "checkpoints-debugging",
                   "key_environ": "GCE_KEY",
                   "secret_environ": "GCE_SECRET"}
-   hp = ObjectStoreProviderHparams(**credentials)
+   hp = ObjectStoreHparams(**credentials)
 
    prefix = f"my-model-{str(uuid.uuid4())[:6]}"
    store_uploader = RunDirectoryUploader(hp, object_name_prefix=prefix)
@@ -222,19 +222,19 @@ Loading from Object Store
 
 Checkpoints saved to an object store can also be loaded in the
 same way as files saved on disk. Provide the
-:class:`.ObjectStoreProviderHparams` to the trainer's ``load_object_store``
+:class:`.ObjectStoreHparams` to the trainer's ``load_object_store``
 argument.  The ``load_path_format`` argument
 should be the path to the checkpoint file *within the container/bucket*.
 
 .. code:: python
 
-   from composer.utils.object_store import ObjectStoreProviderHparams
+   from composer.utils.object_store import ObjectStoreHparams
 
    credentials = {"provider": "GOOGLE_STORAGE",
                   "container": "checkpoints-debugging",
                   "key_environ": "GCS_KEY",
                   "secret_environ": "GCS_SECRET"}
-   hp = ObjectStoreProviderHparams(
+   hp = ObjectStoreHparams(
        provider="GOOGLE_STORAGE",
        container="checkpoints-debugging",
        key_environ="GCS_KEY",
@@ -270,7 +270,7 @@ Loading
 
 - ``load_path_format`` (``str``, `optional`): Path to a specific checkpoint to load. If not set (the default),
   then no checkpoint will be loaded. (default: ``None``)
-- ``load_object_store`` (:class:`.ObjectStoreProvider`, `optional`): For loading from object stores (e.g. S3),
+- ``load_object_store`` (:class:`.ObjectStore`, `optional`): For loading from object stores (e.g. S3),
   this will be used to download the checkpoint. Ignored if ``load_path_format`` is not specified. (default: ``None``)
 - ``load_weights_only`` (``bool``): Only load the model weights.  Ignored if ``load_path_format`` is not specified.
   (default: ``False``)
@@ -295,13 +295,13 @@ Saving
 Object Store API
 ----------------
 
-.. autoclass:: composer.utils.ObjectStoreProviderHparams
+.. autoclass:: composer.utils.object_store.ObjectStoreHparams
     :noindex:
 
 RunDirectoryUploader API
 ------------------------
 
-.. autoclass:: composer.callbacks.RunDirectoryUploader
+.. autoclass:: composer.callbacks.run_directory_uploader.RunDirectoryUploader
     :noindex:
 
 .. TODO: add details on what can be overridden when loading a checkpoint.

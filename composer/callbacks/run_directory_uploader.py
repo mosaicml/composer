@@ -24,7 +24,7 @@ from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers import Logger, LogLevel
 from composer.utils import dist, run_directory
-from composer.utils.object_store import ObjectStoreProviderHparams
+from composer.utils.object_store import ObjectStoreHparams
 
 log = logging.getLogger(__name__)
 
@@ -44,10 +44,11 @@ class RunDirectoryUploader(Callback):
            import os
            import functools
            from composer.callbacks import RunDirectoryUploader, run_directory_uploader
+           from composer.utils import ObjectStoreHparams
 
            # For this example, we do not validate credentials
            def do_not_validate(
-               object_store_provider_hparams: ObjectStoreProviderHparams,
+               object_store_hparams: ObjectStoreHparams,
                object_name_prefix: str,
            ) -> None:
                pass
@@ -64,7 +65,7 @@ class RunDirectoryUploader(Callback):
 
         .. doctest:: composer.callbacks.RunDirectoryUploader.__init__
 
-           >>> osphparams = ObjectStoreProviderHparams(
+           >>> osphparams = ObjectStoreHparams(
            ...     provider="s3",
            ...     container="run-dir-test",
            ...     key_environ="OBJECT_STORE_KEY",
@@ -88,7 +89,7 @@ class RunDirectoryUploader(Callback):
         .. testcleanup:: composer.callbacks.RunDirectoryUploader.__init__
 
            # Shut down the uploader
-           run_directory_uploader._finished.set()
+           run_directory_uploader.post_close()
 
     .. note::
         This callback blocks the training loop to copy files from the :mod:`~composer.utils.run_directory` to the
@@ -110,9 +111,9 @@ class RunDirectoryUploader(Callback):
           OutOfMemory errors.
 
     Args:
-        object_store_provider_hparams (ObjectStoreProviderHparams): ObjectStoreProvider hyperparameters object
+        object_store_hparams (ObjectStoreHparams): ObjectStore hyperparameters object
 
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+            See :class:`~composer.utils.object_store.ObjectStoreHparams` for documentation.
 
         object_name_prefix (str, optional): A prefix to prepend to all object keys. An object's key is this prefix combined
             with its path relative to the run directory. If the container prefix is non-empty, a trailing slash ('/') will
@@ -132,14 +133,14 @@ class RunDirectoryUploader(Callback):
 
     def __init__(
         self,
-        object_store_provider_hparams: ObjectStoreProviderHparams,
+        object_store_hparams: ObjectStoreHparams,
         object_name_prefix: Optional[str] = None,
         num_concurrent_uploads: int = 4,
         upload_staging_folder: Optional[str] = None,
         use_procs: bool = True,
         upload_every_n_batches: int = 100,
     ) -> None:
-        self._object_store_provider_hparams = object_store_provider_hparams
+        self._object_store_hparams = object_store_hparams
         self._upload_every_n_batches = upload_every_n_batches
         # get the name of the run directory, without the rank
         run_directory_name = os.path.basename(run_directory.get_node_run_directory())
@@ -179,7 +180,7 @@ class RunDirectoryUploader(Callback):
         self._finished: Union[None, multiprocessing._EventType, threading.Event] = None
         self._workers = []
 
-        _validate_credentials(object_store_provider_hparams, self._object_name_prefix)
+        _validate_credentials(object_store_hparams, self._object_name_prefix)
 
     def init(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
@@ -190,7 +191,7 @@ class RunDirectoryUploader(Callback):
                              kwargs={
                                  "file_queue": self._file_upload_queue,
                                  "is_finished": self._finished,
-                                 "object_store_provider_hparams": self._object_store_provider_hparams,
+                                 "object_store_hparams": self._object_store_hparams,
                                  "object_name_prefix": self._object_name_prefix,
                              }) for _ in range(self._num_concurrent_uploads)
         ]
@@ -255,18 +256,18 @@ class RunDirectoryUploader(Callback):
         """
         rel_to_run_dir = os.path.relpath(local_filepath, run_directory.get_run_directory())
         obj_name = self._object_name_prefix + rel_to_run_dir
-        provider_name = self._object_store_provider_hparams.provider
-        container = self._object_store_provider_hparams.container
+        provider_name = self._object_store_hparams.provider
+        container = self._object_store_hparams.container
         provider_prefix = f"{provider_name}://{container}/"
         return provider_prefix + obj_name.lstrip("/")
 
 
 def _validate_credentials(
-    object_store_provider_hparams: ObjectStoreProviderHparams,
+    object_store_hparams: ObjectStoreHparams,
     object_name_prefix: str,
 ) -> None:
     # Validates the credentails by attempting to touch a file in the bucket
-    provider = object_store_provider_hparams.initialize_object()
+    provider = object_store_hparams.initialize_object()
     provider.upload_object_via_stream(
         obj=b"credentials_validated_successfully",
         object_name=f"{object_name_prefix}.credentials_validated_successfully",
@@ -276,7 +277,7 @@ def _validate_credentials(
 def _upload_worker(
     file_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
-    object_store_provider_hparams: ObjectStoreProviderHparams,
+    object_store_hparams: ObjectStoreHparams,
     object_name_prefix: str,
 ):
     """A long-running function to handle uploading files.
@@ -288,12 +289,12 @@ def _upload_worker(
             set when training is finished and no new files will be added to the queue.
             The worker will continue to upload existing files that are in the queue.
             When the queue is empty, the worker will exit.
-        object_store_provider_hparams (ObjectStoreProviderHparams): The configuration
+        object_store_hparams (ObjectStoreHparams): The configuration
             for the underlying object store provider.
         object_name_prefix (str): Prefix to prepend to the object names
              before they are uploaded to the blob store.
     """
-    provider = object_store_provider_hparams.initialize_object()
+    provider = object_store_hparams.initialize_object()
     while True:
         try:
             file_path_to_upload, object_store_name = file_queue.get(block=True, timeout=0.5)
@@ -323,10 +324,10 @@ def _upload_worker(
                     retry_counter += 1
                     # exponential backoff
                     sleep_time = 2**(retry_counter - 1)
-                    log.warn("Request failed. Sleeping %s seconds and retrying",
-                             sleep_time,
-                             exc_info=e,
-                             stack_info=True)
+                    log.warning("Request failed. Sleeping %s seconds and retrying",
+                                sleep_time,
+                                exc_info=e,
+                                stack_info=True)
                     time.sleep(sleep_time)
                     continue
                 raise e

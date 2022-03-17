@@ -8,8 +8,8 @@ from typing import Any, Dict, Optional, cast
 
 import torch
 
-from composer.core import State
-from composer.core.types import Batch, Precision, Tensor
+from composer.core import Precision, State
+from composer.core.types import Batch
 from composer.utils import dist
 from composer.utils.iter_helpers import map_collection
 
@@ -150,7 +150,7 @@ def _parse_deepspeed_config(config: Dict[str, Any],
     return new_config
 
 
-def _convert_fp32_tensor_to_fp16(tensor: Tensor):
+def _convert_fp32_tensor_to_fp16(tensor: torch.Tensor):
     if tensor.dtype == torch.float32:
         return tensor.half()
     return tensor

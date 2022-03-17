@@ -1,7 +1,7 @@
 |:wood:| Logging
 ================
 
-By default, the trainer enables :class:`.TQDMLogger`, which logs
+By default, the trainer enables :class:`.ProgressBarLogger`, which logs
 information to a ``tqdm`` progress bar.
 
 To attach other loggers, use the ``loggers`` argument. For example, the
@@ -23,16 +23,23 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
 
 .. testcode::
 
-   from composer import Trainer
-   from composer.loggers import WandBLogger, FileLogger
+    from composer import Trainer
+    from composer.loggers import WandBLogger, FileLogger
 
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     loggers=[WandBLogger(), FileLogger(filename="log.txt")])
+    wandb_logger = WandBLogger()
+    file_logger = FileLogger(filename="log.txt")
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        loggers=[wandb_logger, file_logger],
+    )
 
 .. testcleanup::
 
+    wandb_logger.post_close()
+    file_logger.close()
     os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
 
 Available Loggers
@@ -45,8 +52,9 @@ Available Loggers
 
     ~file_logger.FileLogger
     ~wandb_logger.WandBLogger
-    ~tqdm_logger.TQDMLogger
+    ~progress_bar_logger.ProgressBarLogger
     ~in_memory_logger.InMemoryLogger
+    ~object_store_logger.ObjectStoreLogger
 
 Automatically Logged Data
 -------------------------
@@ -108,7 +116,7 @@ into a dictionary:
     from composer.loggers.logger_destination import LoggerDestination
     from composer.loggers.logger import LoggerDataDict, LogLevel
     from composer.core.time import Timestamp
-    from composer.core.types import State
+    from composer.core.state import State
 
     class DictionaryLogger(LoggerDestination):
         def __init__(self, log_level: LogLevel = LogLevel.BATCH):
