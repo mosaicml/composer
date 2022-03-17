@@ -4,7 +4,7 @@
 
 import logging
 import textwrap
-from typing import Callable, List, Tuple, Union
+from typing import Callable, List, Tuple, Union, Sequence
 
 import numpy as np
 import torch
@@ -161,3 +161,54 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
         else:
             dataset.transform = transforms.Compose([dataset.transform, transform])
             log.warning(transform_added_logstring)
+
+
+def _default_split_batch(batch, num_microbatches: int) -> Sequence:
+    """Splits batch into `num_microbatches` chunks for gradient accumulation.
+    Works with tensors, dictionaries of tensors, (x, y) tuples, and lists where batch is the first dimension.
+
+    Args:
+        batch: output from the dataloader.
+        num_microbatches (int): number of microbatches to batch into, will be set by `grad_accum`.
+
+    """
+    if num_microbatches < 1:
+        raise ValueError("num_microbatches must be at least 1")
+    if num_microbatches == 1:
+        return [batch]
+
+    if isinstance(batch, torch.Tensor):  # check for a single stack of tensors
+        return batch.chunk(num_microbatches)
+
+    if isinstance(batch, dict):  # check for dictionary (hf style)
+        chunked = {k: v.chunk(num_microbatches) for k, v in batch.items()}
+        for k, v in chunked.items():
+            if len(v) != num_microbatches:
+                raise ValueError(
+                    f"Unable to split batch into microbatches. "
+                    f"Key '{k}' has chunked list: {v} with length {len(v)}, but expected length {num_microbatches}. ")
+
+        microbatches = []
+        for idx in range(num_microbatches):
+            mb = {k: v[idx] for k, v in chunked.items()}
+            microbatches.append(mb)
+        return microbatches
+
+    if isinstance(batch, tuple):  # TODO: fragile, how to differentiate between (image, target) pairs and true sequences of len(2)?
+        x, y = batch
+        if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
+            return list(zip(x.chunk(num_microbatches), y.chunk(num_microbatches)))
+        if isinstance(x, List) and isinstance(y, List):
+            return list(
+                zip(
+                    [x[i::num_microbatches] for i in range(num_microbatches)],
+                    [y[i::num_microbatches] for i in range(num_microbatches)],
+                ))
+
+    if isinstance(batch, list):
+        return [batch[i::num_microbatches] for i in range(num_microbatches)]
+
+    raise NotImplementedError(
+        textwrap.dedent("""\
+            The default `split_fn` is unable to split the output of this
+            dataloader. To enable `grad_accum`, please and specify `split_batch` on the Trainer."""))

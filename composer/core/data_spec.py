@@ -56,11 +56,6 @@ class DataSpec:
             normalization.  It can modify the batch in-place, and it should return the modified batch. If not specified, the
             batch is not modified.
 
-        split_batch ((Batch, int) -> Sequence[Batch], optional): Function called by the :class:`~.trainer.Trainer` to
-            split a batch (the first parameter) into the number of microbatches specified (the second parameter).  By
-            default, batches of type :attr:`~.types.BatchPair` can be split automatically. If the ``dataloader`` yields
-            batches of a different type, then this function must be specified.
-
         get_num_samples_in_batch ((Batch) -> int, optional): Function that is called by the :class:`~.trainer.Trainer`
             to get the number of samples in the provided batch.
 
@@ -81,14 +76,12 @@ class DataSpec:
         num_samples: Optional[int] = None,
         num_tokens: Optional[int] = None,
         device_transforms: Optional[Callable[[Batch], Batch]] = None,
-        split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None,
         get_num_samples_in_batch: Optional[Callable[[Batch], int]] = None,
         get_num_tokens_in_batch: Optional[Callable[[Batch], int]] = None,
     ) -> None:
         self.dataloader = dataloader
         self.num_tokens = num_tokens
         self.device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
-        self.split_batch = self._default_split_batch if split_batch is None else split_batch
         self.get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
         self.get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
         if num_samples is not None:
@@ -105,27 +98,6 @@ class DataSpec:
 
     def _default_device_transforms(self, batch: Batch):
         return batch
-
-    def _default_split_batch(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
-        if num_microbatches < 1:
-            raise ValueError("num_microbatches must be at least 1")
-        if num_microbatches == 1:
-            return [batch]
-        if not isinstance(batch, Sequence):
-            raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
-        x, y = batch
-        if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
-            return list(zip(x.chunk(num_microbatches), y.chunk(num_microbatches)))
-        if isinstance(x, List) and isinstance(y, List):
-            return list(
-                zip(
-                    [x[i::num_microbatches] for i in range(num_microbatches)],
-                    [y[i::num_microbatches] for i in range(num_microbatches)],
-                ))
-        raise NotImplementedError(
-            textwrap.dedent("""\
-                The default split_fn is unable to split the output of this
-                dataloader. Please use a DataSpec and specify `split_batch`."""))
 
     def _default_get_num_samples_in_batch(self, batch: Batch) -> int:
         if isinstance(batch, torch.Tensor):

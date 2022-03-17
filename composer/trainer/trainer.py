@@ -94,6 +94,7 @@ from composer.core.time import Timestamp
 from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
                                  Precision, PyTorchScheduler)
 from composer.datasets.dataloader import unwrap_data_loader
+from composer.datasets.utils import _default_split_batch
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -163,6 +164,9 @@ class Trainer:
                 it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
                 If the batch size of the dataloader is not divisible by ``grad_accum``,
                 then the last section will be of size ``batch_size % grad_accum``.
+
+        split_batch (Callable, optional) -> Sequence[Batch], optional): Function called by the :class:`~.trainer.Trainer` to
+            split a batch (the first parameter) into the number of microbatches specified (the second parameter).
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``None`` for no gradient
             clipping. (default: ``None``)
         validate_every_n_batches (int, optional): Compute metrics on evaluation data every N batches.
@@ -428,6 +432,7 @@ class Trainer:
 
         # training hparams
         grad_accum: int = 1,
+        split_batch: Optional[Callable[[Batch, int], Sequence[Batch]]] = None,
         grad_clip_norm: Optional[float] = None,
         validate_every_n_batches: int = -1,
         validate_every_n_epochs: int = 1,
@@ -625,6 +630,8 @@ class Trainer:
         num_optimizers = len(ensure_tuple(optimizers))
         if num_optimizers != 1:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
+
+        self.split_batch = _default_split_batch if split_batch is None else split_batch
 
         self.state = State(
             max_duration=max_duration,
@@ -985,7 +992,7 @@ class Trainer:
                         assert train_metrics is not None
                         self.state.model.eval()
                         with torch.no_grad():
-                            for eval_microbatch in self._train_data_spec.split_batch(
+                            for eval_microbatch in self.split_batch(
                                     self.state.batch, self.state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
@@ -1009,7 +1016,7 @@ class Trainer:
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
                     total_loss = None
-                    microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
+                    microbatches = self.split_batch(self.state.batch, self.state.grad_accum)
                     if self.deepspeed_enabled:
                         total_loss = self._train_batch(microbatches)
                     elif self._use_closures():
