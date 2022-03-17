@@ -15,7 +15,7 @@ import yahp as hp
 import composer.core.types as types
 from composer import Callback, Event
 from composer.core.data_spec import DataSpec
-from composer.core.state import State
+from composer.core import State, Precision
 from composer.datasets import DataLoaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
 from composer.datasets.hparams import DatasetHparams
 from composer.loggers import Logger
@@ -177,7 +177,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
         eval_dataloader=val_dataloader,
         device=device_hparams.initialize_object(),
         max_duration=f"{max_epochs}ep",
-        precision=types.Precision.FP32,
+        precision=Precision.FP32,
         validate_every_n_batches=0,
         validate_every_n_epochs=1,
         eval_subset_num_batches = 3,
@@ -215,7 +215,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     assert actual_train_num_loads == expected_train_num_loads, f"actual_train_num_loads({actual_train_num_loads}) != expected_train_num_loads({expected_train_num_loads})"
     assert actual_val_num_loads == expected_val_num_loads, f"actual_val_num_loads({actual_val_num_loads}) != expected_val_num_loads({expected_val_num_loads})"
 
-    is_train_to_pickles: Dict[bool, List[Dict[str, types.Tensor]]] = {True: [], False: []}
+    is_train_to_pickles: Dict[bool, List[Dict[str, torch.Tensor]]] = {True: [], False: []}
 
     if deepspeed:
         # it is not possible to save individual batches when using deepspeed

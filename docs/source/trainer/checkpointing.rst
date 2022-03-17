@@ -295,13 +295,13 @@ Saving
 Object Store API
 ----------------
 
-.. autoclass:: composer.utils.ObjectStoreHparams
+.. autoclass:: composer.utils.object_store.ObjectStoreHparams
     :noindex:
 
 RunDirectoryUploader API
 ------------------------
 
-.. autoclass:: composer.callbacks.RunDirectoryUploader
+.. autoclass:: composer.callbacks.run_directory_uploader.RunDirectoryUploader
     :noindex:
 
 .. TODO: add details on what can be overridden when loading a checkpoint.

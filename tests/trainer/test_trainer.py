@@ -16,7 +16,6 @@ from composer.callbacks import CheckpointSaver, LRMonitor
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
-from composer.core.types import Model
 from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from composer.utils import dist
@@ -25,6 +24,7 @@ from tests.common import (RandomClassificationDataset, RandomImageDataset, Simpl
                           world_size)
 
 
+@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerInit():
 
     @pytest.fixture
@@ -113,9 +113,10 @@ class TestTrainerInit():
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
+@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerEquivalence():
 
-    reference_model: Model
+    reference_model: torch.nn.Module
     reference_folder: pathlib.Path
     default_threshold: Dict[str, float]
 
@@ -259,6 +260,7 @@ class AssertDataAugmented(Callback):
         assert not torch.allclose(original_outputs[0], state.outputs[0])
 
 
+@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerEvents():
 
     @pytest.fixture
@@ -307,6 +309,7 @@ config management to retrieve the objects to test.
 """
 
 
+@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerAssets:
 
     @pytest.fixture

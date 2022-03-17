@@ -27,7 +27,7 @@ class FileLogger(LoggerDestination):
 
             from composer.loggers import FileLogger, LogLevel
             from composer.trainer import Trainer
-            logger = FileLogger(
+            file_logger = FileLogger(
                 filename_format="{run_name}/logs-rank{rank}.txt",
                 buffer_size=1,
                 log_level=LogLevel.BATCH,
@@ -35,16 +35,17 @@ class FileLogger(LoggerDestination):
                 flush_interval=50
             )
             trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                optimizers=[optimizer],
-                loggers=[logger]
+                ...,
+                loggers=[file_logger]
             )
 
         .. testcleanup::
 
+            import os
+
+            file_logger.close()
+
+            path = os.path.join(trainer.logger.run_name, "logs-rank0.txt")
             try:
                 os.remove(logger.filename)
             except FileNotFoundError as e:

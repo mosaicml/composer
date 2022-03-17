@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 import pytest
 
@@ -68,13 +68,13 @@ def _get_world_size(item: pytest.Item):
     return item.get_closest_marker("world_size", default=_default).args[0]
 
 
-def _validate_world_size(world_size: int):
+def _validate_world_size(world_size: Optional[int]):
     if "WORLD_SIZE" in os.environ and int(os.environ["WORLD_SIZE"]) != world_size:
         raise ValueError(f'--world-size ({world_size}) and WORLD_SIZE environment'
                          f'variable ({os.environ["WORLD_SIZE"]}) do not match.')
 
 
-def _validate_duration(duration: int):
+def _validate_duration(duration: Optional[str]):
     if duration not in ('short', 'long', 'all'):
         raise ValueError(f'duration ({duration}) must be one of short, long, all.')
 
@@ -84,6 +84,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
     threshold = float(getattr(config, "_env_timeout", DEFAULT_TIMEOUT))
     duration = config.getoption("duration")
     world_size = config.getoption("world_size")
+
+    assert isinstance(duration, str)
+    assert isinstance(world_size, int)
 
     _validate_world_size(world_size)
     _validate_duration(duration)

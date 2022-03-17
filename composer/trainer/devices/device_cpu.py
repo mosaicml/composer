@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from typing import Generator, TypeVar, Union
+from typing import Any, Dict, Generator, TypeVar, Union
 
 import torch
 
-from composer.core.types import Precision, StateDict, Tensor
+from composer.core import Precision
 from composer.trainer.devices.device import Device, T_nnModule
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class DeviceCPU(Device):
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         return module
 
-    def tensor_to_device(self, tensor: Tensor) -> Tensor:
+    def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor
 
     @contextmanager
@@ -42,10 +42,10 @@ class DeviceCPU(Device):
         else:
             raise ValueError(f"Precision {precision} not supported for a CPU")
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         # CPU device has no RNG state
         return {}
 
-    def load_state_dict(self, state: StateDict) -> None:
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
         if len(state) != 0:
             raise ValueError("CPU device has no state.")

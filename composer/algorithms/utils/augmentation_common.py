@@ -2,8 +2,8 @@
 from typing import Callable, Iterable, Type, TypeVar, cast
 
 import torch
+import torchvision.transforms.functional
 from PIL.Image import Image as PillowImage
-from torchvision import transforms
 
 _InputImgT = TypeVar("_InputImgT", torch.Tensor, PillowImage)
 _OutputImgT = TypeVar("_OutputImgT", torch.Tensor, PillowImage)
@@ -42,8 +42,8 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
         raise TypeError(f"Only typ={{torch.Tensor, Image}} is supported; got {typ}")
 
     if typ is torch.Tensor:
-        return transforms.functional.to_tensor(image)  # PIL -> Tensor
-    return transforms.functional.to_pil_image(image)  # Tensor -> PIL
+        return cast(_OutputImgT, torchvision.transforms.functional.to_tensor(image))  # PIL -> Tensor
+    return cast(_OutputImgT, torchvision.transforms.functional.to_pil_image(image))  # Tensor -> PIL
 
 
 def map_pillow_function(f_pil: Callable[[PillowImage], PillowImage], imgs: _OutputImgT) -> _OutputImgT:
@@ -69,9 +69,9 @@ def map_pillow_function(f_pil: Callable[[PillowImage], PillowImage], imgs: _Outp
     imgs_out = [image_as_type(img_pil, type(imgs_as_iterable[0])) for img_pil in imgs_out_pil]
 
     if isinstance(imgs, torch.Tensor) and imgs.ndim == 4:  # batch of imgs
-        imgs_out = [torch.unsqueeze(img, 0) for img in imgs_out]
+        imgs_out = [torch.unsqueeze(cast(torch.Tensor, img), 0) for img in imgs_out]
         imgs_out = torch.cat(imgs_out, dim=0)
     if single_image_input:
         imgs_out = imgs_out[0]
-    imgs_out = cast(type(imgs_out), imgs_out)
+    imgs_out = cast(_OutputImgT, imgs_out)
     return imgs_out
