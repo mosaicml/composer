@@ -92,7 +92,7 @@ class SAMOptimizer(torch.optim.Optimizer):
 
 class SAM(Algorithm):
     """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
-    existing optimizer with a :class:`SAMOptimizer`.
+    existing optimizer with a :class:`SAMOptimizer`. SAM can improves model generalization and can provide robustness to label noise.
 
     Args:
         rho (float, optional): The neighborhood size parameter of SAM. Must be greater than 0.
@@ -102,6 +102,19 @@ class SAM(Algorithm):
         interval (int, optional): SAM will run once per ``interval`` steps. A value of 1 will
             cause SAM to run every step. Steps on which SAM runs take
             roughly twice as much time to complete. Default: ``1``.
+    
+    Example:
+        .. testcode::
+
+            from composer.algorithms import SAM
+            algorithm = SAM(rho=0.05, epsilon=1.0e-12, interval=1)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[algorithm],
+                optimizers=[optimizer]
     """
 
     def __init__(

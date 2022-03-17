@@ -25,9 +25,26 @@ def apply_channels_last(model: torch.nn.Module) -> None:
 
 
 class ChannelsLast(Algorithm):
-    """Changes the memory format of the model to ``torch.channels_last``. This usually yields improved GPU utilization.
+    """Changes the memory format of the model to ``torch.channels_last``. This usually improves GPU utilization.
 
     Runs on ``Event.INIT``, so it can set the memory format before the model is DDP wrapped. Has no hyperparameters.
+
+    Args:
+
+    Example:
+        .. testcode::
+
+            from composer.algorithms import ChannelsLast
+            algorithm = ChannelsLast()
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[algorithm],
+                optimizers=[optimizer]
+            )
+
     """
 
     def match(self, event: Event, state: State) -> bool:
