@@ -29,7 +29,7 @@ def _generate_tensors_segmentation(batch_size: int, num_classes: int, H: int, W:
 
     target_indices = torch.randint(0, C, (N, H, W))
     target_onehot = F.one_hot(target_indices, num_classes=C)  # NHWC
-    target_onehot = torch.movedim(target_onehot, -1, 1) # NCHW
+    target_onehot = torch.movedim(target_onehot, -1, 1)  # NCHW
     input = F.softmax(torch.randn((N, C, H, W)), dim=1)
 
     return (input, target_indices, target_onehot)

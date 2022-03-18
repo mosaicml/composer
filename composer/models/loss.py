@@ -233,7 +233,10 @@ def soft_cross_entropy(input: Tensor,
         xentropy = -1 * (target * F.log_softmax(input, dim=1))
 
         if weight is not None:
-            xentropy *= weight / weight.sum()  # allow broadcast along batch dim
+            # Ugly dimension shuffle to make multiplication work.
+            xentropy = torch.movedim(xentropy, 1, -1)
+            xentropy *= weight  # PyTorch doesn't normalize weights
+            xentropy = torch.movedim(xentropy, -1, 1)
 
         xentropy = xentropy.sum(dim=1)
         num_examples = torch.numel(xentropy)

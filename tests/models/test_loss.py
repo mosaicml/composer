@@ -5,7 +5,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.models.loss import MIoU, ensure_targets_one_hot, soft_cross_entropy, _infer_target_type
+from composer.models.loss import MIoU, _infer_target_type, ensure_targets_one_hot, soft_cross_entropy
 
 
 @pytest.fixture
