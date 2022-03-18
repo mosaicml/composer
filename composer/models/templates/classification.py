@@ -4,7 +4,9 @@ from typing import Any, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-from torchmetrics import Accuracy, Metric, MetricCollection
+from torchmetrics import Metric, MetricCollection
+from torchmetrics.classification import Accuracy
+
 
 from composer.core.types import BatchPair
 from composer.models import ComposerModel
