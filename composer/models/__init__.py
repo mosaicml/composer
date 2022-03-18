@@ -12,7 +12,7 @@ from composer.models.base import ComposerModel as ComposerModel
 from composer.models.base import ComposerTransformer as ComposerTransformer
 from composer.models.base_hparams import Initializer as Initializer
 from composer.models.base_hparams import ModelHparams as ModelHparams
-from composer.models.templates import ComposerClassifier as ComposerClassifier # isort:skip
+from composer.models.templates import ComposerClassifier as ComposerClassifier  # isort:skip
 from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
 from composer.models.bert import BERTHparams as BERTHparams
 from composer.models.bert import BERTModel as BERTModel
