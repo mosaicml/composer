@@ -180,4 +180,3 @@ class LossMetric(Metric):
         """Aggregate state over all processes and compute the metric."""
         # Return average loss over entire validation dataset
         return self.sum_loss / self.total_batches
-
