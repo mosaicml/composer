@@ -8,7 +8,6 @@ import torch.nn.functional as F
 
 from composer.algorithms import LabelSmoothingHparams, label_smoothing
 from composer.core import Event
-from composer.models import loss
 
 
 def _generate_tensors_classification(batch_size: int, num_classes: int):
@@ -51,34 +50,6 @@ def generate_tensors():
         _generate_tensors_segmentation(batch_size=64, num_classes=2, H=5, W=5),
         _generate_tensors_segmentation(batch_size=64, num_classes=10, H=5, W=5)
     ]
-
-
-@pytest.mark.parametrize('tensors', generate_tensors())
-class TestSoftCrossEntropy:
-
-    def test_infer_target_type(self, tensors):
-        (input, target_indices, target_onehot) = tensors
-        assert loss._infer_target_type(input, target_indices) == 'indices'
-        assert loss._infer_target_type(input, target_onehot) == 'one_hot'
-
-    @pytest.mark.parametrize('reduction', ['mean', 'sum'])
-    @pytest.mark.parametrize('use_weights', [xfail(True), False])
-    def test_soft_cross_entropy(self, tensors, use_weights, reduction):
-        (input, target_indices, target_onehot) = tensors
-        if use_weights:
-            num_classes = target_onehot.shape[-1]
-            weights = torch.randn(size=[num_classes])
-        else:
-            weights = None
-
-        loss_args = dict(weight=weights, reduction=reduction)
-
-        loss_indices = loss.soft_cross_entropy(input, target_indices, **loss_args)
-        loss_onehot = loss.soft_cross_entropy(input, target_onehot, **loss_args)
-        loss_reference = F.cross_entropy(input, target_indices, **loss_args)
-
-        torch.testing.assert_allclose(loss_indices, loss_onehot)
-        torch.testing.assert_allclose(loss_indices, loss_reference)
 
 
 @pytest.mark.parametrize('smoothing', [0, 0.1, 0.5, 0.9, 1.0])
