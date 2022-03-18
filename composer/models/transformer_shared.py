@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Mapping, Sequence, Tuple, Union
 from torch import Tensor
 
 from composer.models.base import ComposerModel
-from composer.models.nlp_metrics import LanguageCrossEntropyLoss
+from composer.metrics.nlp_metrics import LanguageCrossEntropyLoss
 
 if TYPE_CHECKING:
     import transformers

@@ -12,7 +12,7 @@ from torchmetrics import Metric, MetricCollection
 
 from composer.core.types import BatchPair
 from composer.models.base import ComposerModel
-from composer.models.loss import Dice
+from composer.metrics.metrics import Dice
 from composer.models.unet.model import UNet as UNetModel
 
 log = logging.getLogger(__name__)

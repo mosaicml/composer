@@ -13,7 +13,7 @@ from torch.nn import functional as F
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.models.loss import _check_for_index_targets
+from composer.loss.loss import _check_for_index_targets
 
 log = logging.getLogger(__name__)
 

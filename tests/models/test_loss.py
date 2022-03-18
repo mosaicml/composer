@@ -4,7 +4,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.models.loss import MIoU
+from composer.metrics.metrics import MIoU
 
 
 @pytest.fixture

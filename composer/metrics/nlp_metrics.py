@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 from torchmetrics import Metric
 
-from composer.models.loss import soft_cross_entropy
+from composer.loss.loss import soft_cross_entropy
 
 __all__ = ["Perplexity", "BinaryF1Score", "LanguageCrossEntropyLoss", "CrossEntropyLoss", "MaskedAccuracy"]
 

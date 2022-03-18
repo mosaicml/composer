@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch.nn.functional import cross_entropy
 
-from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
+from composer.metrics.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
 
 
 @pytest.mark.parametrize("ignore_index", [-100])
