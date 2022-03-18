@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Mapping, Sequence, Union
 from torch import Tensor
 from torchmetrics import Metric, MetricCollection
 
-from composer.metrics.nlp_metrics import Perplexity
+from composer.metrics.nlp import Perplexity
 from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:

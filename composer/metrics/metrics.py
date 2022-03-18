@@ -12,7 +12,7 @@ from torchmetrics.utilities.data import to_categorical
 
 __all__ = ["MIoU", "Dice", "CrossEntropyLoss", "LossMetric"]
 
-from composer.loss.loss import soft_cross_entropy
+from composer.loss import soft_cross_entropy
 
 
 class MIoU(Metric):
@@ -117,7 +117,6 @@ def _stat_scores(
     tn = ((preds != class_index) * (target != class_index)).to(torch.long).sum()
     fn = ((preds != class_index) * (target == class_index)).to(torch.long).sum()
     sup = (target == class_index).to(torch.long).sum()
-
     return tp, fp, tn, fn, sup
 
 
@@ -178,8 +177,7 @@ class LossMetric(Metric):
         self.total_batches += 1
 
     def compute(self):
-        """Aggregate state over all processes and compute the metric.
-        """
+        """Aggregate state over all processes and compute the metric."""
         # Return average loss over entire validation dataset
         return self.sum_loss / self.total_batches
 

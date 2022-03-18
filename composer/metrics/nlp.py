@@ -7,9 +7,9 @@ import torch
 from torch import Tensor
 from torchmetrics import Metric
 
-from composer.loss.loss import soft_cross_entropy
+from composer.loss import soft_cross_entropy
 
-__all__ = ["Perplexity", "BinaryF1Score", "LanguageCrossEntropyLoss", "CrossEntropyLoss", "MaskedAccuracy"]
+__all__ = ["Perplexity", "BinaryF1Score", "HFLanguageCrossEntropyLoss", "LanguageCrossEntropyLoss", "MaskedAccuracy"]
 
 
 class MaskedAccuracy(Metric):
@@ -52,7 +52,7 @@ class MaskedAccuracy(Metric):
         return self.correct.float() / self.total
 
 
-class CrossEntropyLoss(Metric):
+class LanguageCrossEntropyLoss(Metric):
     """Computes cross entropy loss.
 
     Adds metric state variables:
@@ -147,12 +147,11 @@ class BinaryF1Score(Metric):
         assert isinstance(self.true_positive, Tensor)
         assert isinstance(self.false_positive, Tensor)
         assert isinstance(self.false_negative, Tensor)
-
         f1 = (self.true_positive) / (self.true_positive + (0.5 * (self.false_negative + self.false_positive)))
         return f1
 
 
-class LanguageCrossEntropyLoss(Metric):
+class HFLanguageCrossEntropyLoss(Metric):
     """Hugging Face compatible cross entropy loss.
 
     Adds metric state variables:
@@ -208,8 +207,8 @@ class LanguageCrossEntropyLoss(Metric):
         return self.sum_loss / self.total_batches  #type: ignore (third-party)
 
 
-class Perplexity(LanguageCrossEntropyLoss):
-    """Subclasses :class:`~composer.models.nlp_metrics.LanguageCrossEntropyLoss` to implement perplexity.
+class Perplexity(HFLanguageCrossEntropyLoss):
+    """Subclasses :class:`~composer.models.nlp_metrics.HFLanguageCrossEntropyLoss` to implement perplexity.
 
     If an algorithm modifies the loss function and it is no longer directly provided in the output, then this could be
     expensive because it'll compute the loss twice.

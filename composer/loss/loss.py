@@ -5,6 +5,8 @@ from typing import Optional
 from torch import Tensor
 from torch.nn import functional as F
 
+__all__ = ["soft_cross_entropy"]
+
 
 def _infer_target_type(input: Tensor, targets: Tensor) -> str:
     """Infers whether the target is in indices format or one_hot format.

@@ -12,8 +12,8 @@ from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import Accuracy
 
 from composer.core.types import Batch, BatchPair
-from composer.metrics.metrics import CrossEntropyLoss
 from composer.loss.loss import soft_cross_entropy
+from composer.metrics.metrics import CrossEntropyLoss
 
 __all__ = ["ComposerClassifier", "ComposerModel"]
 
