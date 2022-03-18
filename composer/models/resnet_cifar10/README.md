@@ -8,9 +8,9 @@ The ResNet model family is a set of convolutional neural networks that can be us
 ## Example
 
 ```python
-  from composer.models import CIFAR10_ResNet56
+  from composer.models import CIFAR10ResNet
 
-  model = CIFAR10_ResNet56(num_classes=10)
+  model = CIFAR10ResNet(model_name='cifar_resnet_56', num_classes=10)
 ```
 
 ## Architecture

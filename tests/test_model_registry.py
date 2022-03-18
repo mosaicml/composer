@@ -19,7 +19,7 @@ def test_model_registry(model_name, request):
     requires_num_classes = set([
         "deeplabv3",
         "resnet9_cifar10",
-        "resnet56_cifar10",
+        "resnet_cifar10",
         "efficientnetb0",
         "resnet",
         "mnist_classifier",
