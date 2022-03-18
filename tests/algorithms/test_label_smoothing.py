@@ -29,7 +29,8 @@ def _generate_tensors_segmentation(batch_size: int, num_classes: int, H: int, W:
     C = num_classes
 
     target_indices = torch.randint(0, C, (N, H, W))
-    target_onehot = F.one_hot(target_indices, num_classes=C)  # NHWC?
+    target_onehot = F.one_hot(target_indices, num_classes=C)  # NHWC
+    target_onehot = torch.movedim(target_onehot, -1, 1) # NCHW
     input = F.softmax(torch.randn((N, C, H, W)), dim=1)
 
     return (input, target_indices, target_onehot)
@@ -47,8 +48,8 @@ def generate_tensors():
         # classification
         _generate_tensors_classification(batch_size=64, num_classes=10),
         # segmentation
-        xfail(_generate_tensors_segmentation(batch_size=64, num_classes=2, H=5, W=5)),
-        xfail(_generate_tensors_segmentation(batch_size=64, num_classes=10, H=5, W=5))
+        _generate_tensors_segmentation(batch_size=64, num_classes=2, H=5, W=5),
+        _generate_tensors_segmentation(batch_size=64, num_classes=10, H=5, W=5)
     ]
 
 
@@ -86,7 +87,7 @@ class TestLabelSmoothing:
 
     @staticmethod
     def reference_smooth_labels(targets, smoothing):
-        num_classes = targets.shape[-1]
+        num_classes = targets.shape[1]
         return targets * (1 - smoothing) + smoothing / num_classes
 
     def test_label_smoothing(self, tensors, smoothing):
