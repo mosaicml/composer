@@ -11,6 +11,8 @@ from composer.core.types import BatchPair
 from composer.models import ComposerModel
 from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
+__all__ = ["ComposerClassifier"]
+
 
 class ComposerClassifier(ComposerModel):
     """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a vanilla PyTorch model.
