@@ -4,8 +4,8 @@
 class NoEffectWarning(Warning):
     """Warns when an algorithm did not have an effect.
 
-    An algorithm should emit this warning when its application resulted in no changes to the trainer :class:`~.State`. For
-    example, if surgery algorithms that find and replace layers find no layers to replace.
+    An algorithm should emit this warning when its application resulted in no changes to the trainer :class:`~.State`.
+    For example, if surgery algorithms that find and replace layers find no layers to replace.
     """
     pass
 
