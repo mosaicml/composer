@@ -6,10 +6,10 @@ import dataclasses
 import textwrap
 from typing import TYPE_CHECKING
 
-from composer.models.transformer_hparams import TransformerHparams
+from composer.models.base_hparams import TransformerHparams
 
 if TYPE_CHECKING:
-    from composer.models.transformer_shared import ComposerTransformer
+    from composer.models import ComposerTransformer
 
 __all__ = ["GPT2Hparams"]
 

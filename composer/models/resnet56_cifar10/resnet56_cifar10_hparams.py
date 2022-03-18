@@ -4,7 +4,7 @@
 
 from dataclasses import asdict, dataclass
 
-from composer.models.model_hparams import ModelHparams
+from composer.models.base_hparams import ModelHparams
 
 __all__ = ["CIFARResNetHparams"]
 

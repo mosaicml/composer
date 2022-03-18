@@ -8,8 +8,11 @@ and logging to enable quick interaction with the :class:`.Trainer`.
 See :doc:`Composer Model </composer_model>` for more details.
 """
 
-from composer.models.base import ComposerClassifier as ComposerClassifier
 from composer.models.base import ComposerModel as ComposerModel
+from composer.models.base import ComposerTransformer as ComposerTransformer
+from composer.models.base_hparams import Initializer as Initializer
+from composer.models.base_hparams import ModelHparams as ModelHparams
+from composer.models.templates import ComposerClassifier as ComposerClassifier
 from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
 from composer.models.bert import BERTHparams as BERTHparams
 from composer.models.bert import BERTModel as BERTModel
@@ -21,8 +24,6 @@ from composer.models.efficientnetb0 import EfficientNetB0 as EfficientNetB0
 from composer.models.efficientnetb0 import EfficientNetB0Hparams as EfficientNetB0Hparams
 from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2 import GPT2Model as GPT2Model
-from composer.models.model_hparams import Initializer as Initializer
-from composer.models.model_hparams import ModelHparams as ModelHparams
 from composer.models.resnet import ComposerResNet as ComposerResNet
 from composer.models.resnet import ResNetHparams as ResNetHparams
 from composer.models.resnet9_cifar10 import CIFAR10_ResNet9 as CIFAR10_ResNet9
@@ -37,7 +38,6 @@ from composer.models.ssd import SSD as SSD
 from composer.models.ssd import SSDHparams as SSDHparams
 from composer.models.timm import Timm as Timm
 from composer.models.timm import TimmHparams as TimmHparams
-from composer.models.transformer_shared import ComposerTransformer as ComposerTransformer
 from composer.models.unet import UNet as UNet
 from composer.models.unet import UnetHparams as UnetHparams
 from composer.models.vit_small_patch16 import ViTSmallPatch16 as ViTSmallPatch16

@@ -12,7 +12,7 @@ from composer.core import Algorithm, Event, State
 from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
-from composer.models.transformer_shared import ComposerTransformer
+from composer.models import ComposerTransformer
 from composer.utils import ensure_tuple
 
 __all__ = ["SeqLengthWarmup", "set_batch_sequence_length"]

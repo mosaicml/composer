@@ -4,8 +4,8 @@
 
 from typing import List, Optional
 
-from composer.models.base import ComposerClassifier
-from composer.models.model_hparams import Initializer
+from composer.models import ComposerClassifier
+from composer.models.base_hparams import Initializer
 from composer.models.resnets import CIFAR_ResNet
 
 __all__ = ["CIFAR10_ResNet56"]
