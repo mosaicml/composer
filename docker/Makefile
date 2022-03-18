@@ -32,22 +32,29 @@ COMPOSER_EXTRA_DEPS ?= base
 # Resulting docker tag for the composer dockerimage
 COMPOSER_TAG ?= mosaicml/composer:$(COMPOSER_EXTRA_DEPS)
 
+# target stage to build
+TARGET ?= pytorch_stage
+
+MMCV_TORCH_VERSION ?= 'torch1.9.0'
+
 .PHONY: build pytorch composer
 
 build: composer
 
 pytorch:
 	cd pytorch && docker build -t $(PYTORCH_TAG) \
+		--target $(TARGET) \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg CUDA_VERSION_TAG=$(CUDA_VERSION_TAG) \
 		--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
 		--build-arg PYTORCH_VERSION=$(PYTORCH_VERSION) \
 		--build-arg TORCHVISION_VERSION=$(TORCHVISION_VERSION) \
+		--build-arg MMCV_TORCH_VERSION=$(MMCV_TORCH_VERSION) \
 		.
 
 composer: pytorch
-	cd .. && docker build -t $(COMPOSER_TAG) \
+	docker build -t $(COMPOSER_TAG) \
 		--build-arg BASE_IMAGE=$(PYTORCH_TAG) \
 		--build-arg COMPOSER_EXTRA_DEPS=$(COMPOSER_EXTRA_DEPS) \
-		-f docker/composer/Dockerfile \
+		-f composer/Dockerfile \
 		.
