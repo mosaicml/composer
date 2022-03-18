@@ -7,7 +7,6 @@ from torch import Tensor
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import Accuracy
 
-
 from composer.core.types import BatchPair
 from composer.models import ComposerModel
 from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
