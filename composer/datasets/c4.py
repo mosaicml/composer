@@ -5,17 +5,19 @@
 This dataset is a colossal, cleaned version of Common Crawl's web crawl corpus and it is based on the `Common Crawl
 <https://commoncrawl.org>`_ dataset.
 """
+import copy
 import logging
 from dataclasses import dataclass
 from functools import partial
-from itertools import chain
+from itertools import chain, cycle
 from typing import List
 
 import yahp as hp
 from torch.utils.data import IterableDataset, get_worker_info
 
-from composer.core.types import Batch, DataSpec
-from composer.datasets.dataloader import DataloaderHparams
+from composer.core.data_spec import DataSpec
+from composer.core.types import Batch
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
 
@@ -47,8 +49,8 @@ class C4DatasetHparams(DatasetHparams):
 
     Args:
         split (str): What split of the dataset to use. Either ``'train'`` or ``'validation'``. Default: ``None``.
-        max_samples (int): Max number of post-processed token samples, used to set epoch size of the IterableDataset.
-            Default: ``None``.
+        num_samples (int): The number of post-processed token samples, used to set epoch size of the
+            :class:`torch.utils.data.IterableDataset`. Default: ``None``.
         tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default: ``None``.
         max_seq_len (int): The max sequence length of each token sample. Default: ``None``.
         group_method (str): How to group text samples into token samples. Either `truncate` or `concat`.
@@ -63,12 +65,12 @@ class C4DatasetHparams(DatasetHparams):
         seed (int): If ``shuffle=True``, what seed to use for shuffling operations. Default: ``5``.
         drop_last (bool): Whether to drop the last samples for the last batch. Default: ``True``.
     Returns:
-        DataSpec: A :class:`.DataSpec` object.
+        DataSpec: A :class:`~core.data_spec.DataSpec` object.
     """
 
     split: str = hp.optional("What split of the dataset to use. Either `train` or `validation`.", default=None)
-    max_samples: int = hp.optional(
-        "Max number of post-processed token samples, used to set epoch size of the IterableDataset.", default=None)
+    num_samples: int = hp.optional(
+        "The number of post-processed token samples, used to set epoch size of the IterableDataset.", default=None)
     tokenizer_name: str = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.", default=None)
     max_seq_len: int = hp.optional("The max sequence length of each token sample.", default=None)
     group_method: str = hp.optional("How to group text samples into token samples. Either `truncate` or `concat`.",
@@ -87,8 +89,8 @@ class C4DatasetHparams(DatasetHparams):
     def validate(self):
         if self.split not in ["train", "validation"]:
             raise ValueError(f"Unknown split: '{self.split}'")
-        if self.max_samples is None or self.max_samples <= 0:
-            raise ValueError(f"Must provide 'max_samples' > 0")
+        if self.num_samples is None or self.num_samples <= 0:
+            raise ValueError(f"Must provide 'num_samples' > 0")
         if self.tokenizer_name is None:
             raise ValueError(f"Must provide 'tokenizer_name'")
         if self.max_seq_len is None or self.max_seq_len <= 0:
@@ -98,7 +100,7 @@ class C4DatasetHparams(DatasetHparams):
         if self.mlm and self.mlm_probability <= 0:
             raise ValueError("Must provide a positive 'mlm_probability' when using masked language modeling.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         try:
             import transformers
         except ImportError:
@@ -111,7 +113,7 @@ class C4DatasetHparams(DatasetHparams):
 
         # Get C4 dataset
         c4_dataset = C4Dataset(split=self.split,
-                               max_samples=self.max_samples,
+                               num_samples=self.num_samples,
                                tokenizer_name=self.tokenizer_name,
                                max_seq_len=self.max_seq_len,
                                group_method=self.group_method,
@@ -135,14 +137,15 @@ class C4DatasetHparams(DatasetHparams):
 
 
 class C4Dataset(IterableDataset):
-    """Builds a streaming, sharded, sized IterableDataset for the C4 (Colossal Cleaned CommonCrawl) dataset. Used for
-    pretraining autoregressive or masked language models. Text samples are streamed directly from the cloud using
-    HuggingFace's C4 Dataset with streaming backend (See https://huggingface.co/datasets/c4 for more details). The text
-    samples are then shuffled, tokenized, and grouped on-the-fly.
+    """Builds a streaming, sharded, sized :class:`torch.utils.data.IterableDataset` for the C4 (Colossal Cleaned
+    CommonCrawl) dataset. Used for pretraining autoregressive or masked language models. Text samples are streamed
+    directly from the cloud using HuggingFace's C4 Dataset with streaming backend (See
+    https://huggingface.co/datasets/c4 for more details). The text samples are then shuffled, tokenized, and grouped on-
+    the-fly.
 
     Args:
         split (str): What split of the dataset to use. Either ``'train'`` or ``'validation'``.
-        max_samples (int): Max number of post-processed token samples, used to set epoch size of the IterableDataset.
+        num_samples (int): The number of post-processed token samples, used to set epoch size of the :class:`torch.data.utils.IterableDataset`.
         tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with.
         max_seq_len (int): The max sequence length of each token sample.
         group_method (str): How to group text samples into token samples. Either ``'truncate'`` or ``'concat'``.
@@ -158,7 +161,7 @@ class C4Dataset(IterableDataset):
 
     def __init__(self,
                  split,
-                 max_samples,
+                 num_samples,
                  tokenizer_name,
                  max_seq_len,
                  group_method,
@@ -173,7 +176,7 @@ class C4Dataset(IterableDataset):
                               'Please install with `pip install composer[nlp]`')
 
         self.split = split
-        self.max_samples = max_samples
+        self.num_samples = num_samples
         self.tokenizer_name = tokenizer_name
         self.max_seq_len = max_seq_len
         self.group_method = group_method
@@ -201,26 +204,26 @@ class C4Dataset(IterableDataset):
         # Set dataset size
         self.world_size = dist.get_world_size()
         self.rank = dist.get_global_rank()
-        self.max_samples_per_device = self.max_samples // self.world_size
-        if self.max_samples % self.world_size != 0:
-            new_max_samples = self.max_samples_per_device * self.world_size
+        self.num_samples_per_device = self.num_samples // self.world_size
+        if self.num_samples % self.world_size != 0:
+            new_num_samples = self.num_samples_per_device * self.world_size
             log.warning(
-                f"Max samples will be truncated from {max_samples}->{new_max_samples} to maintain divisibility across {self.world_size} devices."
+                f"Num samples will be truncated from {num_samples}->{new_num_samples} to maintain divisibility across {self.world_size} devices."
             )
-            self.max_samples = new_max_samples
+            self.num_samples = new_num_samples
 
-        # Try and detect if max_samples is too large
-        # TODO: For safety, repeat original dataset if max_samples is larger than original size
+        # Try and detect if num_samples is larger than original dataset
         original_approx_samples = self.num_shards * self.approx_samples_per_shard
-        if self.max_samples > original_approx_samples and self.group_method == "truncate":
-            raise ValueError(
-                f"Max samples was set to {self.max_samples} with group_method 'truncate' but split '{split}' has only {original_approx_samples}.)"
-            )
+        if self.num_samples > original_approx_samples and self.group_method == "truncate":
+            log.warning(
+                f"Num samples was set to {self.num_samples} with group_method 'truncate' but split '{split}' has only {original_approx_samples}. "
+                f"The original dataset will cycle until the new nominal length of {self.num_samples}.")
         if self.group_method == "concat":
             log.warning(
                 f"When using group_method 'concat', sequential token samples are concatenated and chunked into fixed-length samples of size max_seq_len={self.max_seq_len}. "
-                f"In general we cannot detect ahead-of-time if your setting of max_samples={self.max_samples} is safe, "
-                f"so please be cautious to not request more tokens than the size of the original dataset.")
+                f"In general we cannot detect ahead-of-time if your setting of num_samples={self.num_samples} will be larger than the original dataset, "
+                f"but if it is larger, the original dataset will cycle until the new nominal length of {self.num_samples}."
+            )
 
         # Build tokenizer
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_name)
@@ -256,8 +259,12 @@ class C4Dataset(IterableDataset):
             batch_size=token_sample_batch_size,
         )
 
+        # Repeat over the dataset
+        # TODO: This functionality should eventually be upstreamed to HF as `hf_iterable_dataset.repeat()`
+        repeat_token_dataset = self._repeat(token_dataset)
+
         # Limit the number of post-processed token samples
-        sized_token_dataset = token_dataset.take(self.max_samples_per_device)
+        sized_token_dataset = repeat_token_dataset.take(self.num_samples_per_device)
 
         # Shuffle post-processed token samples
         # Samples are read into and randomly sampled from per-device shuffle buffer
@@ -274,7 +281,38 @@ class C4Dataset(IterableDataset):
         return iter(self.iterable_dataset)
 
     def __len__(self):
-        return self.max_samples_per_device
+        return self.num_samples_per_device
+
+    # Repeat a HF iterable dataset infinitely
+    # TODO: This functionality should eventually be upstreamed to HF as `hf_iterable_dataset.repeat()`
+    def _repeat(self, dataset):
+        try:
+            from datasets.iterable_dataset import _BaseExamplesIterable
+            from datasets.iterable_dataset import iterable_dataset as hf_iterable_dataset
+        except ImportError:
+            raise ImportError('HuggingFace datasets are not installed. '
+                              'Please install with `pip install composer[nlp]`')
+
+        class RepeatExamplesIterable(_BaseExamplesIterable):
+
+            def __init__(self, ex_iterable):
+                self.ex_iterable = ex_iterable
+
+            def __iter__(self):
+                yield from cycle(self.ex_iterable)
+
+            @property
+            def n_shards(self):
+                return self.ex_iterable.n_shards
+
+        ex_iterable = RepeatExamplesIterable(dataset._ex_iterable)
+        return hf_iterable_dataset(
+            ex_iterable=ex_iterable,
+            info=dataset._info.copy(),
+            split=dataset._split,
+            format_type=dataset._format_type,
+            shuffling=copy.deepcopy(dataset._shuffling),
+        )
 
     def _subsample(self, device_offset, text_batch):
         # Only return the i-th item out of N sequential items
@@ -342,7 +380,7 @@ class C4Dataset(IterableDataset):
     # If using 'concat', the batch of token samples is concatenated and chunked, such that every new token sample is exactly 'self.max_seq_len' long with no padding.
     # Using 'concat' may drop a small amount of data at the end of each batch if the total number of tokens is not divisible by 'self.max_seq_len'.
     # Using 'concat' will alter the number of token samples in the iterable dataset, and differently per-device,
-    # so we require the user to provide a 'self.max_samples' limit to ensure epoch-boundary synchronization across devices.
+    # so we require the user to provide a 'self.num_samples' limit to ensure epoch-boundary synchronization across devices.
     def _group_tokens(self, token_batch):
         if self.group_method == "truncate":
             # No processing needed, as 'self._tokenize()' has already padded / truncated each token sample to 'self.max_seq_len'

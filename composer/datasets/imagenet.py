@@ -17,8 +17,9 @@ import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
-from composer.core.types import DataLoader, DataSpec
-from composer.datasets.dataloader import DataloaderHparams
+from composer.core import DataSpec
+from composer.core.types import DataLoader
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
@@ -42,7 +43,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
 
         if self.use_synthetic:
             total_dataset_size = 1_281_167 if self.is_train else 50_000
@@ -125,7 +126,7 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0.485, 0.456, 0.406))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.229, 0.224, 0.225))
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         from composer.datasets.webdataset import load_webdataset
 
         if self.is_train:
@@ -169,7 +170,7 @@ class Imagenet1kWebDatasetHparams(WebDatasetHparams):
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         from composer.datasets.webdataset import load_webdataset
 
         if self.is_train:

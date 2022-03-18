@@ -15,9 +15,9 @@ from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils import augmentation_sets
 from composer.algorithms.utils.augmentation_common import map_pillow_function
-from composer.core.event import Event
-from composer.core.types import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.datasets.utils import add_vision_dataset_transform
+from composer.loggers import Logger
 
 __all__ = ["AugMix", "AugmentAndMixTransform", "augmix_image"]
 

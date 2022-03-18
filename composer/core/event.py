@@ -38,10 +38,27 @@ class Event(StringEnum):
                 optimizer.step()
 
                 # <BATCH_END>
+
+                if should_eval(batch=True):
+                    # <EVAL_START>
+                    # <EVAL_BATCH_START>
+                    # <EVAL_BEFORE_FORWARD>
+                    # <EVAL_AFTER_FORWARD>
+                    # <EVAL_BATCH_END>
+                    # <EVAL_END>
+
+                # <BATCH_CHECKPOINT>
             # <EPOCH_END>
 
+            if should_eval(batch=False):
+                # <EVAL_START>
+                # <EVAL_BATCH_START>
+                # <EVAL_BEFORE_FORWARD>
+                # <EVAL_AFTER_FORWARD>
+                # <EVAL_BATCH_END>
+                # <EVAL_END>
 
-
+            # <EPOCH_CHECKPOINT>
 
     Attributes:
         INIT: Invoked in the constructor of :class:`~.trainer.Trainer`. Model surgery (see
@@ -62,7 +79,13 @@ class Event(StringEnum):
         AFTER_TRAIN_BATCH: After the forward-loss-backward computation for a training batch. When using gradient
             accumulation, this event still fires only once.
         BATCH_END: End of a batch, which occurs after the optimizer step and any gradient scaling.
+        BATCH_CHECKPOINT: After :attr:`.Event.BATCH_END` and any batch-wise evaluation. Saving checkpoints at this
+            event allows the checkpoint saver to use the results from any batch-wise evaluation to determine whether
+            a checkpoint should be saved.
         EPOCH_END: End of an epoch.
+        EPOCH_CHECKPOINT: After :attr:`.Event.EPOCH_END` and any epoch-wise evaluation. Saving checkpoints at this event allows
+            event allows the checkpoint saver to use the results from any epoch-wise evaluation to determine whether
+            a checkpointshould be saved.
 
         EVAL_START: Start of evaluation through the validation dataset.
         EVAL_BATCH_START: Before the call to ``model.validate(batch)``
@@ -94,7 +117,10 @@ class Event(StringEnum):
     AFTER_TRAIN_BATCH = "after_train_batch"
 
     BATCH_END = "batch_end"
+    BATCH_CHECKPOINT = "batch_checkpoint"
+
     EPOCH_END = "epoch_end"
+    EPOCH_CHECKPOINT = "epoch_checkpoint"
 
     EVAL_START = "eval_start"
     EVAL_BATCH_START = "eval_batch_start"

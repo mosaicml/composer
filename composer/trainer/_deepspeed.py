@@ -8,12 +8,12 @@ from typing import Any, Dict, Optional, cast
 
 import torch
 
-from composer.core import State
-from composer.core.types import Batch, Precision, Tensor
+from composer.core import Precision, State
+from composer.core.types import Batch
 from composer.utils import dist
 from composer.utils.iter_helpers import map_collection
 
-__all__ = ["_fix_batch_precision_for_deepspeed", "is_module_deepspeed", "_parse_deepspeed_config"]
+__all__ = ["_fix_batch_precision_for_deepspeed", "_parse_deepspeed_config"]
 
 
 def _add_batch_config(config: Dict[str, Any], state: State):
@@ -150,7 +150,7 @@ def _parse_deepspeed_config(config: Dict[str, Any],
     return new_config
 
 
-def _convert_fp32_tensor_to_fp16(tensor: Tensor):
+def _convert_fp32_tensor_to_fp16(tensor: torch.Tensor):
     if tensor.dtype == torch.float32:
         return tensor.half()
     return tensor
@@ -176,20 +176,3 @@ def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Ba
         return batch
 
     return map_collection(batch, _convert_fp32_tensor_to_fp16)  # type: ignore
-
-
-def is_module_deepspeed(module: torch.nn.Module) -> bool:
-    """Returns whether the module is an instance of a deepspeed module.
-
-    Args:
-        module (torch.nn.Module): The module to check.
-
-    Returns:
-        bool: Whether the module is a deepspeed module.
-    """
-    try:
-        import deepspeed
-    except ImportError:
-        return False
-    else:
-        return isinstance(module, deepspeed.DeepSpeedEngine)

@@ -4,10 +4,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Tuple
+from typing import TYPE_CHECKING, Mapping, Sequence, Union
 
-from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, SpearmanCorrcoef
-from torchmetrics.collections import MetricCollection
+import torch
+from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, Metric, MetricCollection, SpearmanCorrcoef
 
 from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
 from composer.models.transformer_shared import ComposerTransformer
@@ -15,14 +15,15 @@ from composer.models.transformer_shared import ComposerTransformer
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, BatchDict, Metrics, Tensors
+    from composer.core.types import Batch, BatchDict, BatchPair
 
 __all__ = ["BERTModel"]
 
 
 class BERTModel(ComposerTransformer):
-    """Implements a BERT wrapper around a :class:`.ComposerTransformer`. Works with
-    `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
+    """BERT model based on |:hugging_face:| Transformers.
+
+    For more information, see `Transformers <https://huggingface.co/transformers/>`_.
 
     Args:
         module (transformers.BertModel): An instance of BertModel that
@@ -98,13 +99,13 @@ class BERTModel(ComposerTransformer):
             self.train_metrics.extend([self.train_loss, self.train_acc])
             self.val_metrics.extend([self.val_loss, self.val_acc])
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
+    def loss(self, outputs: Mapping, batch: Batch) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         if outputs.get('loss', None) is not None:
             return outputs['loss']
         else:
             raise NotImplementedError('Calculating loss directly not supported yet.')
 
-    def validate(self, batch: BatchDict) -> Tuple[Tensors, Tensors]:
+    def validate(self, batch: BatchDict) -> BatchPair:
         """Runs the validation step.
 
         Args:
@@ -128,5 +129,5 @@ class BERTModel(ComposerTransformer):
 
         return output, labels
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return MetricCollection(self.train_metrics) if train else MetricCollection(self.val_metrics)

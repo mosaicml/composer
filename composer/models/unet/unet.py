@@ -4,12 +4,13 @@
 
 import logging
 import textwrap
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.nn as nn
+from torchmetrics import Metric, MetricCollection
 
-from composer.core.types import BatchPair, Metrics, Tensor, Tensors
+from composer.core.types import BatchPair
 from composer.models.base import ComposerModel
 from composer.models.loss import Dice
 from composer.models.unet.model import UNet as UNetModel
@@ -22,11 +23,13 @@ __all__ = ["UNet"]
 class UNet(ComposerModel):
     """A U-Net model extending :class:`.ComposerModel`.
 
-    See `U-Net: Convolutional Networks for Biomedical Image Segmentation <https://arxiv.org/abs/1505.04597>`_ (Ronneberger et al, 2015) for details
+    See U-Net: Convolutional Networks for Biomedical Image Segmentation (`Ronneberger et al, 2015`_)
     on the U-Net architecture.
 
     Args:
         num_classes (int): The number of classes. Needed for classification tasks. Default: ``3``.
+
+    .. _Ronneberger et al, 2015: https://arxiv.org/abs/1505.04597
     """
 
     def __init__(self, num_classes: Optional[int] = 3) -> None:
@@ -45,7 +48,7 @@ class UNet(ComposerModel):
         self.dloss = DiceLoss(include_background=False, softmax=True, to_onehot_y=True, batch=True)
         self.closs = nn.CrossEntropyLoss()
 
-    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensors:
+    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         _, y = batch
         y = y.squeeze(1)  # type: ignore
         loss = self.dloss(outputs, y)
@@ -56,10 +59,10 @@ class UNet(ComposerModel):
     def metric_mean(name, outputs):
         return torch.stack([out[name] for out in outputs]).mean(dim=0)
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.dice
 
-    def forward(self, batch: BatchPair) -> Tensor:
+    def forward(self, batch: BatchPair) -> torch.Tensor:
         x, _ = batch
         x = x.squeeze(1)  # type: ignore
         logits = self.module(x)

@@ -58,6 +58,7 @@ extensions = [
     "sphinxarg.ext",
     'sphinx.ext.doctest',
     'sphinx_panels',
+    'sphinxcontrib.images',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -67,7 +68,7 @@ source_suffix = ['.rst', '.md']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'tables/algorithms_table.md']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 napoleon_custom_sections = [('Returns', 'params_style')]
 
@@ -88,7 +89,7 @@ autosummary_generate = True
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-html_title = " "
+html_title = " Composer"
 
 # Customize CSS
 html_css_files = ['css/custom.css']
@@ -116,13 +117,9 @@ html_favicon = 'https://mosaic-ml-staging.cdn.prismic.io/mosaic-ml-staging/b1f1a
 
 # Don't unfold our common type aliases
 autodoc_type_aliases = {
-    'Tensor': 'composer.core.types.Tensor',
-    'Tensors': 'composer.core.types.Tensors',
     'Batch': 'composer.core.types.Batch',
     'BatchPair': 'composer.core.types.BatchPair',
     'BatchDict': 'composer.core.types.BatchDict',
-    'StateDict': 'composer.core.types.StateDict',
-    'TDeviceTransformFn': 'composer.core.types.TDeviceTransformFn',
     'Hparams': 'yahp.hparams.Hparams',
 }
 
@@ -145,6 +142,10 @@ pygments_dark_style = "monokai"
 html_permalinks = True
 html_permalinks_icon = "#"
 
+images_config = {
+    'download': False,
+}
+
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
@@ -155,6 +156,7 @@ intersphinx_mapping = {
     'torchmetrics': ('https://torchmetrics.readthedocs.io/en/latest/', None),
     'libcloud': ('https://libcloud.readthedocs.io/en/stable/', None),
     'PIL': ('https://pillow.readthedocs.io/en/stable', None),
+    'coolname': ('https://coolname.readthedocs.io/en/latest/', None),
 }
 
 nitpicky = False  # warn on broken links
@@ -167,8 +169,6 @@ nitpick_ignore = [
     ('py:attr', 'wandb.run.tags'),
     ('py:meth', 'torch.save'),
     ('py:meth', 'torch.load'),
-    ('py:class', 'TLogDataValue'),
-    ('py:class', 'TLogData'),
     ('py:class', 'T_nnModule'),
 ]
 
@@ -194,6 +194,9 @@ def skip_redundant_namedtuple_attributes(
 with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") as f:
     doctest_global_setup = f.read()
 
+
+with open(os.path.join(os.path.dirname(__file__), "doctest_cleanup.py"), "r") as f:
+    doctest_global_cleanup = f.read()
 
 def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.MethodType, types.FunctionType],
                           module_name: str) -> Optional[str]:

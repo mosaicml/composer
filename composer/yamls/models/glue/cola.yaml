@@ -31,8 +31,6 @@ optimizer:
 schedulers:
   - linear_decay_with_warmup:
       t_warmup: 0.06dur
-loggers:
-  - tqdm: {}
 max_duration: 10ep
 train_batch_size: 32
 eval_batch_size: 32
@@ -52,7 +50,7 @@ validate_every_n_batches: 250
 validate_every_n_epochs: 1
 callbacks:
   - lr_monitor: {}
-load_path: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt
+load_path_format: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt
 load_weights_only: true
 load_strict_model_weights: false
 load_chunk_size: 8192

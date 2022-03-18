@@ -19,13 +19,10 @@ from __future__ import annotations
 import re
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Generic, NamedTuple, TypeVar, Union, cast
+from typing import Any, Dict, Generic, NamedTuple, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils.string_enum import StringEnum
-
-if TYPE_CHECKING:
-    from composer.core.types import StateDict
 
 __all__ = ["TimeUnit", "Time", "Timer", "Timestamp"]
 
@@ -236,13 +233,15 @@ class Time(Generic[TValue]):
                     To fix this warning, replace {other} with {other_parsed}."""))
             return other_parsed
 
-        raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
+        raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
 
     def _cmp(self, other: object) -> int:
         # When doing comparisions, and other is an integer (or float), we can safely infer
         # the unit from self.unit
         # E.g. calls like this should be allowed: if batch < 42: do_something()
         # This eliminates the need to call .value everywhere
+        if not isinstance(other, (int, float, Time, str)):
+            return NotImplemented
         if isinstance(other, (int, float)):
             other = type(self)(other, self.unit)
         other = self._parse(other)
@@ -377,7 +376,7 @@ class Timer(Serializable):
         self._sample_in_epoch = Time(0, TimeUnit.SAMPLE)
         self._token_in_epoch = Time(0, TimeUnit.TOKEN)
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         return {
             "epoch": self.epoch.value,
             "batch": self.batch.value,
@@ -388,7 +387,7 @@ class Timer(Serializable):
             "token_in_epoch": self.token_in_epoch.value,
         }
 
-    def load_state_dict(self, state: StateDict) -> None:
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
         self._epoch = Time(state["epoch"], TimeUnit.EPOCH)
         self._batch = Time(state["batch"], TimeUnit.BATCH)
         self._sample = Time(state["sample"], TimeUnit.SAMPLE)
@@ -495,9 +494,11 @@ class Timer(Serializable):
                     To fix this warning, replace {other} with {other_parsed}."""))
             return other_parsed
 
-        raise NotImplementedError(f"Cannot convert type {other} to {self.__class__.__name__}")
+        raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
 
     def __eq__(self, other: object):
+        if not isinstance(other, (Time, Timer, str)):
+            return NotImplemented
         if isinstance(other, Timer):
             return self.state_dict() == other.state_dict()
         other = self._parse(other)
@@ -505,6 +506,8 @@ class Timer(Serializable):
         return self_counter == other
 
     def __ne__(self, other: object):
+        if not isinstance(other, (Time, Timer, str)):
+            return NotImplemented
         if isinstance(other, Timer):
             return self.state_dict() != other.state_dict()
         other = self._parse(other)
@@ -512,21 +515,29 @@ class Timer(Serializable):
         return self_counter != other
 
     def __lt__(self, other: object):
+        if not isinstance(other, (Time, str)):
+            return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter < other
 
     def __le__(self, other: object):
+        if not isinstance(other, (Time, str)):
+            return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter <= other
 
     def __gt__(self, other: object):
+        if not isinstance(other, (Time, str)):
+            return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter > other
 
     def __ge__(self, other: object):
+        if not isinstance(other, (Time, str)):
+            return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter >= other

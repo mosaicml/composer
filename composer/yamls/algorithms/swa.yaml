@@ -1,0 +1,6 @@
+swa_start: "0.7dur"
+swa_end: "0.97dur"
+update_interval: "1ep"
+schedule_swa_lr: False
+anneal_strategy: "linear"
+anneal_steps: 10

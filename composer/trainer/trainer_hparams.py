@@ -17,12 +17,13 @@ import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
                                 RunDirectoryUploaderHparams, SpeedMonitorHparams)
-from composer.core.types import JSON, Precision
-from composer.datasets import DataloaderHparams, DatasetHparams
+from composer.core import Precision
+from composer.core.types import JSON
+from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerCallbackHparams, TQDMLoggerHparams,
-                              WandBLoggerHparams)
+from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
+                              ProgressBarLoggerHparams, WandBLoggerHparams)
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
                              ResNetHparams, SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
@@ -38,7 +39,7 @@ from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
-from composer.utils.object_store import ObjectStoreProviderHparams
+from composer.utils.object_store import ObjectStoreHparams
 
 if TYPE_CHECKING:
     from composer.trainer.trainer import Trainer
@@ -101,7 +102,7 @@ callback_registry = {
 logger_registry = {
     "file": FileLoggerHparams,
     "wandb": WandBLoggerHparams,
-    "tqdm": TQDMLoggerHparams,
+    "progress_bar": ProgressBarLoggerHparams,
     "in_memory": InMemoryLoggerHparams,
 }
 
@@ -128,7 +129,7 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: :mod:`composer.datasets` for datasets built into Composer.
         train_batch_size (int): The optimization batch size to use for training. This is the total batch
             size that is used to produce a gradient for the optimizer update step.
-        dataloader (DataloaderHparams): Hparams used for constructing the dataloader which will be used
+        dataloader (DataLoaderHparams): Hparams used for constructing the dataloader which will be used
             for loading the train dataset and (if provided) the validation dataset.
         max_duration (str): The maximum duration to train as a str (e.g. ``1ep``, or ``10ba``).
             Will be converted to a :class:`~composer.core.Time` object.
@@ -174,7 +175,8 @@ class TrainerHparams(hp.Hparams):
         ddp_sync_strategy (DDPSyncStrategy, optional): See :class:`.Trainer`.
         seed (int, optional): See :class:`.Trainer`.
         deterministic_mode (bool, optional): See :class:`.Trainer`.
-        loggers (List[LoggerCallbackHparams], optional): Hparams for constructing the destinations
+        run_name (str, optional): See :class:`.Trainer`.
+        loggers (List[LoggerDestinationHparams], optional): Hparams for constructing the destinations
             to log to. (default: ``[]``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
@@ -186,13 +188,18 @@ class TrainerHparams(hp.Hparams):
             run during training. (default: ``[]``)
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
-        load_path (str, optional): See :class:`.Trainer`.
-        load_object_store (ObjectStoreProvider, optional): See :class:`.Trainer`.
+        load_path_format (str, optional): See :class:`.Trainer`.
+        load_object_store (ObjectStore, optional): See :class:`.Trainer`.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
-        save_folder (str, optional): See :class:`.Trainer`.
-        save_interval (str, optional): See :class:`.Trainer`.
-        save_compression (str, optional): See :class:`.Trainer`.
+        save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_name_format (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_latest_format (str, optional): See
+            :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_interval (str, optional): See
+            :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
         train_subset_num_batches (int, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
         deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
@@ -238,7 +245,7 @@ class TrainerHparams(hp.Hparams):
     train_dataset: DatasetHparams = hp.required(doc="Training dataset hparams")
     train_batch_size: int = hp.required(
         doc="batch size for each optimization step, across all devices and gradient accumulations.")
-    dataloader: DataloaderHparams = hp.required(doc="dataloader hparams")
+    dataloader: DataLoaderHparams = hp.required(doc="dataloader hparams")
 
     # duration
     max_duration: str = hp.required(doc="Time string for the maximum training duration (e.g., 90ep)")
@@ -298,54 +305,50 @@ class TrainerHparams(hp.Hparams):
                                            default=False)
 
     # logging and callbacks
-    loggers: List[LoggerCallbackHparams] = hp.optional(doc="loggers to use", default_factory=list)
+    run_name: Optional[str] = hp.optional("Experiment name", default=None)
+    loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
     log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
     # load checkpoint
-    load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
+    load_path_format: Optional[str] = hp.optional(doc=textwrap.dedent("""\
         If specified, the path to an existing checkpoint file
         (if the checkpoint is on the local disk) or the object name for the checkpoint
         (if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint."""),
-                                           default=None)
-    load_object_store: Optional[ObjectStoreProviderHparams] = hp.optional(doc=textwrap.dedent("""\
+                                                  default=None)
+    load_object_store: Optional[ObjectStoreHparams] = hp.optional(doc=textwrap.dedent("""\
         If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
-        leave blank. This parameter has no effect if `load_path` is not specified."""),
-                                                                          default=None)
+        leave blank. This parameter has no effect if `load_path_format` is not specified."""),
+                                                                  default=None)
     load_weights_only: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to only load the weights from the model.
-        This parameter has no effect if `load_path`is not specified."""),
+        This parameter has no effect if `load_path_format`is not specified."""),
                                           default=False)
     load_strict_model_weights: bool = hp.optional(doc=textwrap.dedent("""\
         Ensure that the set of checkpoint weights in the checkpoint and model must exactly match.
-        This parameter has no effect if `load_path` is not specified."""),
+        This parameter has no effect if `load_path_format` is not specified."""),
                                                   default=False)
 
     load_chunk_size: int = hp.optional(doc=textwrap.dedent("""\
         Chunk size (in bytes) to use when downloading checkpoints.
-        This parameter has no effect if `load_path` is not specified or it is a local file path."""),
+        This parameter has no effect if `load_path_format` is not specified or it is a local file path."""),
                                        default=1_048_576)
     load_progress_bar: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to show a progress bar when downloading checkpoints.
-        This parameter has no effect if `load_path` is not specified or it is a local file path."""),
+        This parameter has no effect if `load_path_format` is not specified or it is a local file path."""),
                                           default=True)
 
     # save checkpoint
-    save_folder: Optional[str] = hp.optional(doc=textwrap.dedent(f"""\
-        Folder to save checkpoint files, relative to the run directory.
-        Defaults to None, meaning checkpoints will not be saved."""),
-                                             default=None)
-    save_interval: str = hp.optional(doc=textwrap.dedent("""\
-        The time string interval representing how frequently checkpoints should be saved.
-        For example, set to "1ep" to save checkpoints every epoch, or "10ba"
-        to save checkpoints every 10 batches.
-        This parameter has no effect if `save_folder` is not specified."""),
+    save_folder: Optional[str] = hp.optional(doc="Folder where checkpoints will be saved.", default=None)
+    save_name_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
+    save_latest_format: str = hp.optional("Latest checkpoint symlink format string.", default="latest-rank{rank}")
+    save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
+    save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
+    save_interval: str = hp.optional(textwrap.dedent("""\
+        Checkpoint interval or path to a `(State, Event) -> bool` function
+        returning whether a checkpoint should be saved."""),
                                      default="1ep")
-    save_compression: Optional[str] = hp.optional(doc=textwrap.dedent("""\
-        Compression algorithm to run on checkpoints. Can be `gzip`, `bzip2`,
-        `lzma`, or `None` for no compression.  (default: ``None`` for no compression)."""),
-                                                  default=None)
 
     # subset parameters
     train_subset_num_batches: Optional[int] = hp.optional(
@@ -562,6 +565,7 @@ class TrainerHparams(hp.Hparams):
             deterministic_mode=self.deterministic_mode,
 
             # Callbacks and logging
+            run_name=self.run_name,
             loggers=loggers,
             callbacks=callbacks,
 
@@ -586,7 +590,7 @@ class TrainerHparams(hp.Hparams):
             torch_prof_with_flops=self.torch_prof_with_flops,
 
             # Checkpoint parameters
-            load_path=self.load_path,
+            load_path_format=self.load_path_format,
             load_object_store=self.load_object_store.initialize_object()
             if self.load_object_store is not None else None,
             load_weights_only=self.load_weights_only,
@@ -594,8 +598,10 @@ class TrainerHparams(hp.Hparams):
             load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
             save_folder=self.save_folder,
+            save_overwrite=self.save_overwrite,
+            save_name_format=self.save_name_format,
             save_interval=self.save_interval,
-            save_compression=self.save_compression,
+            save_weights_only=self.save_weights_only,
 
             # Subset parameters
             train_subset_num_batches=self.train_subset_num_batches,

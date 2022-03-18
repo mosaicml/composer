@@ -24,12 +24,12 @@ Multiple Datasets
 -----------------
 
 If there are multiple validation datasets that may have different metrics,
-use :class:`.Evaluator` to specific each pair of dataloader and metrics.
+use :class:`.Evaluator` to specify each pair of dataloader and metrics.
 This class is just a container for a few attributes:
 
 - ``label``: a user-specified name for the metric.
 - ``dataloader``: PyTorch :class:`~torch.utils.data.DataLoader` or our :class:`.DataSpec`.
-    See :doc:`Dataloaders</trainer/dataloaders>` for more details.
+    See :doc:`DataLoaders</trainer/dataloaders>` for more details.
 - ``metrics``: :class:`torchmetrics.Metric` or :class:`torchmetrics.MetricCollection`.
 
 For example, the `GLUE <https://gluebenchmark.com>`__ tasks for language models

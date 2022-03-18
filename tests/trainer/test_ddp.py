@@ -13,13 +13,11 @@ import yahp as hp
 from _pytest.monkeypatch import MonkeyPatch
 
 import composer.core.types as types
-from composer import Callback, Event
 from composer.callbacks import CallbackHparams
-from composer.core.data_spec import DataSpec
-from composer.core.logging import Logger
-from composer.core.state import State
-from composer.datasets import DataloaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
+from composer.core import Callback, DataSpec, Event, Precision, State
+from composer.datasets import DataLoaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
 from composer.datasets.hparams import DatasetHparams
+from composer.loggers import Logger
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry, dataset_registry
 from composer.utils import dist, run_directory
@@ -63,7 +61,7 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     num_classes: Optional[int] = hp.optional("num_classes", default=None)
     data_shape: Optional[List[int]] = hp.optional("data_shape", default=None)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> types.DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> types.DataLoader:
         assert self.num_classes is not None
         assert self.data_shape is not None
         synthetic_dataset = SyntheticBatchPairDataset(
@@ -141,6 +139,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
 
     hparams = composer_trainer_hparams
     model_hparams = hparams.model
+    model_hparams.num_classes = 100
     model = model_hparams.initialize_object()
     assert isinstance(model, SimpleBatchPairModel)
 
@@ -166,7 +165,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
         num_classes=model.num_classes,
     )
     hparams.device = device
-    hparams.dataloader = DataloaderHparams(
+    hparams.dataloader = DataLoaderHparams(
         num_workers=0,
         prefetch_factor=2,
         persistent_workers=False,
@@ -175,7 +174,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     )
     max_epochs = 2
     hparams.max_duration = f"{max_epochs}ep"
-    hparams.precision = types.Precision.FP32
+    hparams.precision = Precision.FP32
     hparams.loggers = []
     hparams.validate_every_n_batches = 0
     hparams.validate_every_n_epochs = 1
@@ -212,7 +211,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     assert actual_train_num_loads == expected_train_num_loads, f"actual_train_num_loads({actual_train_num_loads}) != expected_train_num_loads({expected_train_num_loads})"
     assert actual_val_num_loads == expected_val_num_loads, f"actual_val_num_loads({actual_val_num_loads}) != expected_val_num_loads({expected_val_num_loads})"
 
-    is_train_to_pickles: Dict[bool, List[Dict[str, types.Tensor]]] = {True: [], False: []}
+    is_train_to_pickles: Dict[bool, List[Dict[str, torch.Tensor]]] = {True: [], False: []}
 
     if deepspeed:
         # it is not possible to save individual batches when using deepspeed
@@ -222,7 +221,7 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
         for local_rank in range(dist.get_local_world_size()):
             for is_train in (True, False):
                 real_epoch = epoch if is_train else epoch + 1  # validation is 1 ahead of training
-                data: Dict[str, types.Tensor] = torch.load(  # type: ignore
+                data: Dict[str, torch.Tensor] = torch.load(  # type: ignore
                     get_batch_file_path(rank=local_rank, epoch=real_epoch, is_train=is_train),
                     map_location='cpu',
                 )

@@ -18,8 +18,9 @@ def _isArrayLike(obj):
     return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
 
 
-from composer.core.types import Batch, DataSpec, List
-from composer.datasets.dataloader import DataloaderHparams
+from composer.core import DataSpec
+from composer.core.types import Batch
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
 from composer.utils import dist
@@ -31,7 +32,7 @@ __all__ = ["COCODatasetHparams", "COCODetection"]
 class COCODatasetHparams(DatasetHparams):
     """Defines an instance of the COCO Dataset."""
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams):
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
 
         if self.datadir is None:
             raise ValueError("datadir is required.")
@@ -171,8 +172,8 @@ def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #typ
         return list(
             zip(img.chunk(nm), img_id.chunk(nm), (img_size[i:i + nm] for i in range(0, len(img_size), nm)),
                 bbox_sizes.chunk(nm), bbox_labels.chunk(nm)))  #type: ignore
-    if isinstance(img, List) and isinstance(img_id, List) and isinstance(img_size, List) and isinstance(
-            bbox_sizes, List) and isinstance(bbox_labels, List):
+    if isinstance(img, list) and isinstance(img_id, list) and isinstance(img_size, list) and isinstance(
+            bbox_sizes, list) and isinstance(bbox_labels, list):
         return list(
             zip(
                 [img[i::nm] for i in range(nm)],

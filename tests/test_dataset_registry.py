@@ -5,7 +5,7 @@ from typing import Callable, Dict, Type
 import pytest
 
 from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, C4DatasetHparams, CIFAR10DatasetHparams,
-                               COCODatasetHparams, DataloaderHparams, DatasetHparams, GLUEHparams,
+                               COCODatasetHparams, DataLoaderHparams, DatasetHparams, GLUEHparams,
                                ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, SyntheticHparamsMixin,
                                WebDatasetHparams)
 from composer.trainer.trainer_hparams import dataset_registry
@@ -56,7 +56,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
     C4DatasetHparams:
         lambda: C4DatasetHparams(
             split="train",
-            max_samples=1000,
+            num_samples=1000,
             max_seq_len=100,
             tokenizer_name="gpt2",
             group_method="concat",
@@ -65,7 +65,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
 
 
 @pytest.mark.parametrize("dataset_name", dataset_registry.keys())
-def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataloaderHparams) -> None:
+def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataLoaderHparams) -> None:
     # Skip WebDatasets.
     hparams_cls = dataset_registry[dataset_name]
     if issubclass(hparams_cls, WebDatasetHparams):

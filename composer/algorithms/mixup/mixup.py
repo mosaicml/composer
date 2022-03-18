@@ -11,7 +11,8 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
-from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 from composer.models.loss import _check_for_index_targets
 
 log = logging.getLogger(__name__)
@@ -19,8 +20,8 @@ log = logging.getLogger(__name__)
 __all__ = ["MixUp", "mixup_batch"]
 
 
-def mixup_batch(input: Tensor,
-                target: Tensor,
+def mixup_batch(input: torch.Tensor,
+                target: torch.Tensor,
                 num_classes: int,
                 mixing: Optional[float] = None,
                 alpha: float = 0.2,
@@ -153,7 +154,7 @@ class MixUp(Algorithm):
         """
 
         input, target = state.batch_pair
-        assert isinstance(input, Tensor) and isinstance(target, Tensor), \
+        assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
 
         self.mixing = _gen_mixing_coef(self.alpha)

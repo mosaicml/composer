@@ -19,7 +19,7 @@ import torchvision
 import yahp as hp
 
 from composer.core.types import DataLoader, Dataset
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
 
@@ -46,7 +46,7 @@ class BratsDatasetHparams(DatasetHparams):
 
     oversampling: float = hp.optional("oversampling", default=0.33)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
 
         oversampling = self.oversampling
 
@@ -99,7 +99,7 @@ class Crop(object):
 
         def rand_foreg_cropd(image, label):
 
-            import scipy
+            import scipy.ndimage
             cl = np.random.choice(np.unique(label[label > 0]))
             foreg_slices = scipy.ndimage.find_objects(scipy.ndimage.measurements.label(label == cl)[0])
             foreg_slices = [x for x in foreg_slices if x is not None]
