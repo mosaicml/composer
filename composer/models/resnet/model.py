@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from torchvision.models import resnet
 
-from composer.models import ComposerClassifier
+from composer.models.templates import ComposerClassifier
 from composer.models.base_hparams import Initializer
 
 __all__ = ["ComposerResNet"]

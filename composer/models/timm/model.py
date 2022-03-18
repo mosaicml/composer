@@ -6,7 +6,7 @@ used to create :class:`.ComposerClassifier`."""
 import textwrap
 from typing import Optional
 
-from composer.models import ComposerClassifier
+from composer.models.templates import ComposerClassifier
 
 __all__ = ["Timm"]
 

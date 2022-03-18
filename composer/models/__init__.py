@@ -12,7 +12,6 @@ from composer.models.base import ComposerModel as ComposerModel
 from composer.models.base import ComposerTransformer as ComposerTransformer
 from composer.models.base_hparams import Initializer as Initializer
 from composer.models.base_hparams import ModelHparams as ModelHparams
-from composer.models.templates import ComposerClassifier as ComposerClassifier  # isort:skip
 from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
 from composer.models.bert import BERTHparams as BERTHparams
 from composer.models.bert import BERTModel as BERTModel
@@ -36,6 +35,7 @@ from composer.models.resnet.model import ComposerResNet as ComposerResNet
 from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
 from composer.models.ssd import SSD as SSD
 from composer.models.ssd import SSDHparams as SSDHparams
+from composer.models.templates import ComposerClassifier as ComposerClassifier
 from composer.models.timm import Timm as Timm
 from composer.models.timm import TimmHparams as TimmHparams
 from composer.models.unet import UNet as UNet

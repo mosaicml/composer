@@ -5,7 +5,7 @@
 import torch.nn as nn
 from torchvision.models.resnet import BasicBlock
 
-from composer.models import ComposerClassifier
+from composer.models.templates import ComposerClassifier
 
 __all__ = ["ResNet9", "CIFAR10_ResNet9"]
 
