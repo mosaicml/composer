@@ -9,7 +9,7 @@ from torchmetrics import Metric
 
 from composer.loss import soft_cross_entropy
 
-__all__ = ["Perplexity", "BinaryF1Score", "HFLanguageCrossEntropyLoss", "LanguageCrossEntropyLoss", "MaskedAccuracy"]
+__all__ = ["Perplexity", "BinaryF1Score", "HFCrossEntropyLoss", "LanguageCrossEntropyLoss", "MaskedAccuracy"]
 
 
 class MaskedAccuracy(Metric):
@@ -151,7 +151,7 @@ class BinaryF1Score(Metric):
         return f1
 
 
-class HFLanguageCrossEntropyLoss(Metric):
+class HFCrossEntropyLoss(Metric):
     """Hugging Face compatible cross entropy loss.
 
     Adds metric state variables:
@@ -207,7 +207,7 @@ class HFLanguageCrossEntropyLoss(Metric):
         return self.sum_loss / self.total_batches  #type: ignore (third-party)
 
 
-class Perplexity(HFLanguageCrossEntropyLoss):
+class Perplexity(HFCrossEntropyLoss):
     """Subclasses :class:`~composer.models.nlp_metrics.HFLanguageCrossEntropyLoss` to implement perplexity.
 
     If an algorithm modifies the loss function and it is no longer directly provided in the output, then this could be
