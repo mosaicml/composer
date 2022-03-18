@@ -342,7 +342,7 @@ Here's some resources actively maintained by the Composer community to help you 
 </tbody>
 </table>
 
-If you have any questions, please feel free to reach out to us on [Twiter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
+If you have any questions, please feel free to reach out to us on [Twitter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
 
 # 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!
