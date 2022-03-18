@@ -14,7 +14,6 @@ from torch.optim import Optimizer
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, State
-from composer.core.types import Optimizers
 from composer.loggers import Logger
 from composer.utils import module_surgery
 
