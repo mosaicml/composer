@@ -39,7 +39,10 @@ def generate_tensors():
         # Binary classification
         fake_input_target_pairs((64, 2)),
         # Classification
-        fake_input_target_pairs((64, 10))
+        fake_input_target_pairs((64, 10)),
+        # Segmentation
+        fake_input_target_pairs((64, 2, 5, 5)),
+        fake_input_target_pairs((64, 10, 5, 5))
     ]
 
 
