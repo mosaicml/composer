@@ -7,23 +7,29 @@ import abc
 import dataclasses
 import textwrap
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import yahp as hp
 
+from composer.callbacks.checkpoint_saver import CheckpointSaver
+from composer.callbacks.grad_monitor import GradMonitor
+from composer.callbacks.lr_monitor import LRMonitor
+from composer.callbacks.memory_monitor import MemoryMonitor
+from composer.callbacks.run_directory_uploader import RunDirectoryUploader
+from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.core.callback import Callback
-from composer.utils.object_store import ObjectStoreProviderHparams
-
-if TYPE_CHECKING:
-    from composer.callbacks.grad_monitor import GradMonitor
-    from composer.callbacks.lr_monitor import LRMonitor
-    from composer.callbacks.memory_monitor import MemoryMonitor
-    from composer.callbacks.run_directory_uploader import RunDirectoryUploader
-    from composer.callbacks.speed_monitor import SpeedMonitor
+from composer.core.time import Time
+from composer.utils import import_object
+from composer.utils.object_store import ObjectStoreHparams
 
 __all__ = [
-    "CallbackHparams", "GradMonitorHparams", "MemoryMonitorHparams", "LRMonitorHparams", "SpeedMonitorHparams",
-    "RunDirectoryUploaderHparams"
+    "CallbackHparams",
+    "GradMonitorHparams",
+    "MemoryMonitorHparams",
+    "LRMonitorHparams",
+    "SpeedMonitorHparams",
+    "RunDirectoryUploaderHparams",
+    "CheckpointSaverHparams",
 ]
 
 
@@ -48,11 +54,11 @@ class CallbackHparams(hp.Hparams, abc.ABC):
 
 @dataclass
 class GradMonitorHparams(CallbackHparams):
-    """:class:`~composer.callbacks.grad_monitor.GradMonitor` hyperparamters.
+    """:class:`~.GradMonitor` hyperparamters.
 
     Args:
         log_layer_grad_norms (bool, optional): 
-            See :class:`~composer.callbacks.grad_monitor.GradMonitor` for documentation.
+            See :class:`~.GradMonitor` for documentation.
     """
 
     log_layer_grad_norms: bool = hp.optional(
@@ -64,53 +70,49 @@ class GradMonitorHparams(CallbackHparams):
         """Initialize the GradMonitor callback.
 
         Returns:
-            GradMonitor: An instance of :mod:`~composer.callbacks.grad_monitor.GradMonitor`.
+            GradMonitor: An instance of :class:`~.GradMonitor`.
         """
-        from composer.callbacks.grad_monitor import GradMonitor
         return GradMonitor(log_layer_grad_norms=self.log_layer_grad_norms)
 
 
 @dataclass
 class MemoryMonitorHparams(CallbackHparams):
-    """:class:`~composer.callbacks.memory_monitor.MemoryMonitor` hyperparameters.
+    """:class:`~.MemoryMonitor` hyperparameters.
 
-    There are no parameters as :class:`~composer.callbacks.memory_monitor.MemoryMonitor` does not take any parameters.
+    There are no parameters as :class:`~.MemoryMonitor` does not take any parameters.
     """
 
     def initialize_object(self) -> MemoryMonitor:
         """Initialize the MemoryMonitor callback.
 
         Returns:
-            MemoryMonitor: An instance of :mod:`~composer.callbacks.memory_monitor.MemoryMonitor`.
+            MemoryMonitor: An instance of :class:`~.MemoryMonitor`.
         """
-        from composer.callbacks.memory_monitor import MemoryMonitor
         return MemoryMonitor()
 
 
 @dataclass
 class LRMonitorHparams(CallbackHparams):
-    """:class:`~composer.callbacks.lr_monitor.LRMonitor` hyperparameters.
+    """:class:`~.LRMonitor` hyperparameters.
 
-    There are no parameters as :class:`~composer.callbacks.lr_monitor.LRMonitor` does not take any parameters.
+    There are no parameters as :class:`~.LRMonitor` does not take any parameters.
     """
 
     def initialize_object(self) -> LRMonitor:
         """Initialize the LRMonitor callback.
 
         Returns:
-            LRMonitor: An instance of :mod:`~composer.callbacks.lr_monitor.LRMonitor`.
+            LRMonitor: An instance of :class:`~.LRMonitor`.
         """
-        from composer.callbacks.lr_monitor import LRMonitor
         return LRMonitor()
 
 
 @dataclass
 class SpeedMonitorHparams(CallbackHparams):
-    """:class:`~composer.callbacks.speed_monitor.SpeedMonitor` hyperparameters.
+    """:class:`~.SpeedMonitor` hyperparameters.
 
     Args:
-        window_size (int, optional):
-            See :class:`~composer.callbacks.speed_monitor.SpeedMonitor` for documentation.
+        window_size (int, optional): See :class:`~.SpeedMonitor` for documentation.
     """
     window_size: int = hp.optional(
         doc="Number of batchs to use for a rolling average of throughput.",
@@ -121,43 +123,90 @@ class SpeedMonitorHparams(CallbackHparams):
         """Initialize the SpeedMonitor callback.
 
         Returns:
-            SpeedMonitor: An instance of :mod:`~composer.callbacks.speed_monitor.SpeedMonitor`.
+            SpeedMonitor: An instance of :class:`~.SpeedMonitor`.
         """
-        from composer.callbacks.speed_monitor import SpeedMonitor
         return SpeedMonitor(window_size=self.window_size)
 
 
 @dataclass
-class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
-    """:class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` hyperparameters.
+class CheckpointSaverHparams(CallbackHparams):
+    """:class:`~.CheckpointSaver` hyperparameters.
+    
+    Args:
+        save_folder (str, optional): See :class:`~.CheckpointSaver`.
+        name_format (str, optional): See :class:`~.CheckpointSaver`.
+        save_latest_format (str, optional): See :class:`~.CheckpointSaver`.
+        overwrite (str, optional): See :class:`~.CheckpointSaver`.
+        weights_only (bool, optional): See :class:`~.CheckpointSaver`.
+
+        save_interval (str, optional): Either a :doc:`time-string </trainer/time>` or a path to a function.
+
+            If a :doc:`time-string </trainer/time>`, checkpoints will be saved according to this interval.
+
+            If a path to a function, it should be of the format ``'path.to.function:function_name'``. The function
+            should take (:class:`~.State`, :class:`~.Event`) and return a
+            boolean indicating whether a checkpoint should be saved given the current state and event. The event will
+            be either :attr:`~composer.core.event.Event.BATCH_CHECKPOINT` or
+            :attr:`~composer.core.event.Event.EPOCH_CHECKPOINT`.
+    """
+    save_folder: str = hp.optional(doc="Folder where checkpoints will be saved.", default="checkpoints")
+    name_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}/rank_{rank}")
+    save_latest_format: Optional[str] = hp.optional("Latest checkpoint symlink format string.",
+                                                    default="latest/rank_{rank}")
+    overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
+    weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
+    save_interval: str = hp.optional(textwrap.dedent("""\
+        Checkpoint interval or path to a `(State, Event) -> bool` function
+        returning whether a checkpoint should be saved."""),
+                                     default="1ep")
+
+    def initialize_object(self) -> CheckpointSaver:
+        try:
+            save_interval = Time.from_timestring(self.save_interval)
+        except ValueError:
+            # assume it is a module path
+            save_interval = import_object(self.save_interval)
+        return CheckpointSaver(
+            save_folder=self.save_folder,
+            name_format=self.name_format,
+            save_latest_format=self.save_latest_format,
+            overwrite=self.overwrite,
+            save_interval=save_interval,
+            weights_only=self.weights_only,
+        )
+
+
+@dataclass
+class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreHparams):
+    """:class:`~.RunDirectoryUploader` hyperparameters.
 
     Args:
         provider (str):
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         container (str):
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         key_environ (str, optional):
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         secret_environ (str, optional):
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         region (str, optional):
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         host (str, optional):
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         port (int, optional):
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         extra_init_kwargs (Dict[str, Any], optional): Extra keyword arguments to pass into the constructor
-            See :class:`~composer.utils.object_store.ObjectStoreProviderHparams` for documentation.
+            See :class:`~.ObjectStoreHparams` for documentation.
         object_name_prefix (str, optional):
-            See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
+            See :class:`~.RunDirectoryUploader` for documentation.
         num_concurrent_uploads (int, optional):
-            See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
+            See :class:`~.RunDirectoryUploader` for documentation.
         upload_staging_folder (str, optional):
-            See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
+            See :class:`~.RunDirectoryUploader` for documentation.
         use_procs (bool, optional):
-            See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
+            See :class:`~.RunDirectoryUploader` for documentation.
         upload_every_n_batches (int, optional):
-            See :class:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader` for documentation.
+            See :class:`~.RunDirectoryUploader` for documentation.
     """
 
     object_name_prefix: Optional[str] = hp.optional(textwrap.dedent("""\
@@ -182,12 +231,11 @@ class RunDirectoryUploaderHparams(CallbackHparams, ObjectStoreProviderHparams):
         """Initialize the RunDirectoryUploader callback.
 
         Returns:
-            RunDirectoryUploader: An instance of :mod:`~composer.callbacks.run_directory_uploader.RunDirectoryUploader`.
+            RunDirectoryUploader: An instance of :class:`~.RunDirectoryUploader`.
         """
-        from composer.callbacks.run_directory_uploader import RunDirectoryUploader
         return RunDirectoryUploader(
-            object_store_provider_hparams=ObjectStoreProviderHparams(
-                **{f.name: getattr(self, f.name) for f in dataclasses.fields(ObjectStoreProviderHparams)}),
+            object_store_hparams=ObjectStoreHparams(
+                **{f.name: getattr(self, f.name) for f in dataclasses.fields(ObjectStoreHparams)}),
             object_name_prefix=self.object_name_prefix,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,

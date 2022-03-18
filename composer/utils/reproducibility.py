@@ -13,6 +13,9 @@
 
         import functools
         import torch.nn
+        import warnings
+
+        warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
 
         MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
 
@@ -29,20 +32,41 @@
         >>> # model will now be deterministically initialized, since the seed is set.
         >>> init_weights(model)
         >>> trainer = Trainer(model=model)
+
+    .. testcleanup::
+
+        warnings.resetwarnings()
+
+Attributes:
+    MAX_SEED (int): The maximum allowed seed, which is :math:`2^{32} - 1`.
 """
+
+from __future__ import annotations
+
 import os
 import random
+import textwrap
+import time
 import warnings
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
 import torch.backends.cudnn
 
+from composer.utils import dist
+
 __all__ = [
     "configure_deterministic_mode",
     "get_random_seed",
     "seed_all",
+    "get_rng_state",
+    "load_rng_state",
+    "MAX_SEED",
 ]
+
+# seeds must be 32-bit unsigned integers
+MAX_SEED = 2**32 - 1
 
 
 def configure_deterministic_mode():
@@ -54,7 +78,19 @@ def configure_deterministic_mode():
         instead of invoking this function directly.
         For example:
 
-        >>> trainer = Trainer(deterministic_mode=True)
+        .. testsetup::
+
+            import warnings
+
+            warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
+
+        .. doctest::
+
+            >>> trainer = Trainer(deterministic_mode=True)
+
+        .. testcleanup::
+
+            warnings.resetwarnings()
 
         However, to configure deterministic mode for operations before the trainer is initialized, manually invoke this
         function at the beginning of your training script.
@@ -86,7 +122,9 @@ def get_random_seed() -> int:
     Returns:
         int: A random seed.
     """
-    seed = int(torch.empty((), dtype=torch.int64).random_(to=2**32).item())
+    rng = random.Random(int(time.time_ns()))  # get a new RNG does not respect the current seed
+    seed = rng.randint(0, MAX_SEED)
+    assert seed >= 0 and seed <= MAX_SEED, "seed should be on this range"
     return seed
 
 
@@ -107,10 +145,74 @@ def seed_all(seed: int):
     Args:
         seed (int): The random seed
     """
-
+    if seed < 0 or seed > MAX_SEED:
+        raise ValueError(f"Seed {seed} is invalid. It must be on [0; 2^32 - 1]")
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     # torch.manual_seed may call manual_seed_all but calling it again here
     # to make sure it gets called at least once
     torch.cuda.manual_seed_all(seed)
+
+
+def get_rng_state() -> List[Dict[str, Any]]:
+    """The state of the RNG objects.
+
+    Returns:
+        List[Dict[str, Any]]: A list of RNG State Dicts, indexed by global rank.
+    """
+
+    rng_state = {
+        "python": random.getstate(),
+        "numpy": np.random.get_state(),
+        "torch": torch.random.get_rng_state(),
+    }
+    if torch.cuda.is_available() and torch.cuda.is_initialized():
+        # This will not be compatible with model parallelism
+        rng_state['cuda'] = torch.cuda.get_rng_state()
+
+    return dist.all_gather_object(rng_state)
+
+
+def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
+    """Restore the RNG state.
+
+    Args:
+        rng_state_dicts (List[Dict[str, Any]]): The list of RNG state dicts to restore,
+            as returned by :func:`get_rng_state`.
+    """
+    if dist.get_world_size() > len(rng_state_dicts):
+        warnings.warn(
+            textwrap.dedent(f"""\
+                The current world size ({dist.get_world_size()} is greater than the number of RNG state(s) serialized
+                ({len(rng_state_dicts)}). Only the first {len(rng_state_dicts)} rank(s) will have their RNG restored.
+                """))
+    if dist.get_world_size() < len(rng_state_dicts):
+        warnings.warn(
+            textwrap.dedent(f"""\
+            The current world size ({dist.get_world_size()} is less than the number of RNG state(s) serialized
+            ({len(rng_state_dicts)}). Only the first {dist.get_world_size()} RNG state(s) will be consumed;
+            the remaining will be ignored."""))
+
+    if dist.get_global_rank() < len(rng_state_dicts):
+        rng_state_dict = rng_state_dicts[dist.get_global_rank()]
+        torch.set_rng_state(rng_state_dict['torch'])
+        random.setstate(rng_state_dict['python'])
+        np.random.set_state(rng_state_dict['numpy'])
+
+        is_cuda_available = torch.cuda.is_available() and torch.cuda.is_initialized()
+        has_cuda_rng_state = "cuda" in rng_state_dict
+
+        if is_cuda_available and has_cuda_rng_state:
+            torch.cuda.set_rng_state(rng_state_dict['cuda'])
+
+        if is_cuda_available and not has_cuda_rng_state:
+            warnings.warn(
+                textwrap.dedent(f"""\
+                The checkpoint did not include the CUDA RNG state. The CUDA RNG will have a
+                non-deterministic state."""))
+        if not is_cuda_available and has_cuda_rng_state:
+            warnings.warn(
+                textwrap.dedent(f"""\
+                The checkpoint included CUDA RNG state, but CUDA is not being used.
+                As such, the CUDA RNG state will be ignored."""))

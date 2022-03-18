@@ -7,10 +7,10 @@ The script is run before any doctests are executed,
 so all imports and variables are available in any doctest.
 The output of this setup script does not show up in the documentation.
 """
-import functools
 import os
 import sys
-from typing import Callable
+import tempfile
+from typing import Any, Callable as Callable
 
 import numpy as np
 import torch.optim
@@ -19,13 +19,28 @@ from PIL import Image
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import composer
+import composer.trainer
+import composer.trainer.trainer
 from composer import Trainer as OriginalTrainer
-from composer import *  # Make all composer imports available in doctests
-from composer.core.logging import LogLevel
-from composer.core.time import Time, Timestamp
+from composer.loggers import LogLevel as LogLevel
+from composer.loggers import Logger as Logger
+from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.loggers import InMemoryLogger
-from composer.utils import *  # Make all composer.utils imports available in doctests
+from composer.optim.scheduler import ConstantScheduler
+from composer.utils import ensure_tuple as ensure_tuple
+from composer.core import Algorithm as Algorithm
+from composer.core import Callback as Callback
+from composer.core import DataSpec as DataSpec
+from composer.core import Engine as Engine
+from composer.core import Evaluator as Evaluator
+from composer.core import Event as Event
+from composer.core import State as State
+from composer.core import Time as Time
+from composer.core import Timer as Timer
+from composer.core import TimeUnit as TimeUnit
+from composer.core import Timestamp as Timestamp
+from composer.core import types as types
+from composer.models import ComposerModel as ComposerModel
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory
@@ -35,6 +50,11 @@ if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
 from tests.fixtures.models import SimpleBatchPairModel
+
+# Change the cwd to be the tempfile, so we don't pollute the documentation source folder
+tmpdir = tempfile.TemporaryDirectory()
+cwd = os.path.abspath(".")
+os.chdir(tmpdir.name)
 
 num_channels = 3
 num_classes = 10
@@ -75,6 +95,7 @@ eval_dataloader = torch.utils.data.DataLoader(
 )
 
 state = State(
+    rank_zero_seed=0,
     model=model,
     optimizers=optimizer,
     grad_accum=1,
@@ -98,19 +119,27 @@ logits = torch.randn(batch_size, num_classes)  # type: ignore
 y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
 
-# patch the Trainer to accept ellipses
-def Trainer(fake_ellipses='...', *args, **kwargs):
-    return OriginalTrainer(*args, **kwargs)
-
-
-# bind the required arguments to the Trainer so it can be used without arguments in the doctests
-Trainer = functools.partial(
-    Trainer,
-    model=model,
-    max_duration="1ep",
-    train_dataloader=train_dataloader,
-    eval_dataloader=eval_dataloader,
-)
+# patch the Trainer to accept ellipses and bind the required arguments to the Trainer
+# so it can be used without arguments in the doctests
+def Trainer(fake_ellipses: None = None, **kwargs: Any):
+    del fake_ellipses  # unused
+    if "model" not in kwargs:
+        kwargs["model"] = model
+    if "optimizers" not in kwargs:
+        kwargs["optimizers"] = torch.optim.SGD(kwargs["model"].parameters(), lr=0.01)
+    if "schedulers" not in kwargs:
+        kwargs["schedulers"] = ConstantScheduler()
+    if "max_duration" not in kwargs:
+        kwargs["max_duration"] = "1ep"
+    if "train_dataloader" not in kwargs:
+        kwargs["train_dataloader"] = train_dataloader
+    if "eval_dataloader" not in kwargs:
+        kwargs["eval_dataloader"] = eval_dataloader
+    if "loggers" not in kwargs:
+        kwargs["loggers"] = []  # hide tqdm logging
+    return OriginalTrainer(**kwargs)
 
 # patch composer so that 'from composer import Trainer' calls do not override change above
 composer.Trainer = Trainer
+composer.trainer.Trainer = Trainer
+composer.trainer.trainer.Trainer = Trainer

@@ -1,23 +1,32 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""A ResNet-20 model extending :class:`.ComposerClassifier`."""
+
 from typing import List, Optional
 
 from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
 from composer.models.resnets import CIFAR_ResNet
 
+__all__ = ["CIFAR10_ResNet20"]
+
 
 class CIFAR10_ResNet20(ComposerClassifier):
-    """A ResNet-20 model extending :class:`ComposerClassifier`.
+    """A ResNet-20 model extending :class:`.ComposerClassifier`.
 
-    See this `paper <https://arxiv.org/abs/1512.03385>`_ for details
-    on the residual network architecture.
+    From `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2015).
 
     Args:
-        num_classes (int): The number of classes for the model. Default = 10.
-        initializers (List[Initializer], optional): Initializers
-            for the model. ``None`` for no initialization.
-            (default: ``None``)
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
+        initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
+
+    Example:
+
+    .. testcode::
+
+        from composer.models import CIFAR10_ResNet20
+
+        model = CIFAR10_ResNet20()  # creates a resnet20 for cifar image classification
     """
 
     def __init__(

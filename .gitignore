@@ -159,3 +159,6 @@ runs/
 node_modules/
 package.json
 package-lock.json
+
+# pycharm
+.idea/

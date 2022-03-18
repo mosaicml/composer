@@ -1,10 +1,16 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""GPT-2 model based on `Hugging Face GPT-2 <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2>`_.
+
+Implemented as a wrapper using :class:`.ComposerTrainer`.
+"""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING, Mapping, Sequence, Union
 
-from torchmetrics.collections import MetricCollection
+from torch import Tensor
+from torchmetrics import Metric, MetricCollection
 
 from composer.models.nlp_metrics import Perplexity
 from composer.models.transformer_shared import ComposerTransformer
@@ -12,20 +18,35 @@ from composer.models.transformer_shared import ComposerTransformer
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, Metrics, Tensors
+    from composer.core.types import Batch
+
+__all__ = ["GPT2Model"]
 
 
 class GPT2Model(ComposerTransformer):
-    """Implements a GPT-2 wrapper around a :class:`ComposerTransformer`.
+    """Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap `Hugging Face GPT-2
+    transformers <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_. Logs training and
+    validation perplexity.
 
-    See this `paper <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_
-    for details on the GPT-2 architecutre.
+    From `Language Models are Unsupervised Multitask Learners <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_ (Radford et al, 2018).
 
     Args:
         module (transformers.GPT2Model): The model to wrap with this module.
         config (transformers.GPT2Config): The config for the model.
-        tokenizer (transformers.GPT2Tokenizer): The tokenizer used for this model,
-            necessary to assert required model inputs.
+        tokenizer (transformers.GPT2Tokenizer): The tokenizer used for this model. Necessary to process model inputs.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: ``False``.
+
+    To create a GPT-2 model for language modeling pretraining:
+
+    .. testcode::
+
+        from composer.models import GPT2Model
+        import transformers
+
+        config = transformers.GPT2Config()
+        hf_model = transformers.GPT2LMHeadModel(config=config) # gpt2-small model from huggingface
+        tokenizer = transformers.GPT2Tokenizer.from_pretrained("gpt2")
+        model = GPT2Model(module=hf_model, config=config, tokenizer=tokenizer)
     """
 
     def __init__(self,
@@ -46,12 +67,12 @@ class GPT2Model(ComposerTransformer):
         self.train_perplexity = Perplexity()
         self.val_perplexity = Perplexity()
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
+    def loss(self, outputs: Mapping, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
         if outputs.get('loss', None) is not None:
             return outputs['loss']
         else:
             raise NotImplementedError('Calculating loss directly not supported yet.')
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return MetricCollection([self.train_loss, self.train_perplexity]) if train else MetricCollection(
             [self.val_loss, self.val_perplexity])

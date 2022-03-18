@@ -1,20 +1,34 @@
+"""Single Shot Object Detection model with pretrained ResNet34 backbone extending :class:`.ComposerModel`."""
+
 import os
 import tempfile
 import textwrap
-from typing import Any, Tuple
+from typing import Any, Sequence, Tuple, Union
 
 import numpy as np
 import requests
-from torchmetrics import Metric
+from torch import Tensor
+from torchmetrics import Metric, MetricCollection
 
-from composer.core.types import BatchPair, Metrics, Tensor, Tensors
+from composer.core.types import BatchPair
 from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
 
+__all__ = ["SSD"]
+
 
 class SSD(ComposerModel):
+    """Single Shot Object detection Model with pretrained ResNet34 backbone extending :class:`.ComposerModel`.
+
+    Args:
+        input_size (int, optional): input image size. Default: ``300``.
+        num_classes (int, optional): The number of classes to detect. Default: ``80``.
+        overlap_threshold (float, optional): Minimum IOU threshold for NMS. Default: ``0.5``.
+        nms_max_detections (int, optional): Max number of boxes after NMS. Default: ``200``.
+        data (str, optional): path to coco dataset. Default: ``"/localdisk/coco"``.
+    """
 
     def __init__(self, input_size: int, overlap_threshold: float, nms_max_detections: int, num_classes: int, data: str):
         super().__init__()
@@ -46,9 +60,11 @@ class SSD(ComposerModel):
         from composer.datasets.coco import COCODetection
         self.val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
 
-    def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
+    def loss(self, outputs: Any, batch: BatchPair) -> Union[Tensor, Sequence[Tensor]]:
 
         (_, _, _, bbox, label) = batch  #type: ignore
+        if not isinstance(bbox, Tensor):
+            raise TypeError("bbox must be a singular tensor")
         trans_bbox = bbox.transpose(1, 2).contiguous()
 
         ploc, plabel = outputs
@@ -57,13 +73,12 @@ class SSD(ComposerModel):
         loss = self.loss_func(ploc, plabel, gloc, glabel)
         return loss
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.MAP
 
     def forward(self, batch: BatchPair) -> Tensor:
         (img, _, _, _, _) = batch  #type: ignore
         ploc, plabel = self.module(img)
-
         return ploc, plabel  #type: ignore
 
     def validate(self, batch: BatchPair) -> Tuple[Any, Any]:

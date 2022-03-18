@@ -1,7 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """Monitor learning rate during training."""
-from composer.core import Callback, Logger, State
+from composer.core import Callback, State
+from composer.loggers import Logger
 
 __all__ = ["LRMonitor"]
 
@@ -13,17 +14,19 @@ class LRMonitor(Callback):
     ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
 
     Example
-       >>> # constructing trainer object with this callback
-       >>> trainer = Trainer(
-       ...     model=model,
-       ...     train_dataloader=train_dataloader,
-       ...     eval_dataloader=eval_dataloader,
-       ...     optimizers=optimizer,
-       ...     max_duration="1ep",
-       ...     callbacks=[callbacks.LRMonitor()],
-       ... )
 
-    The learning rate is logged by the :class:`~composer.core.logging.logger.Logger` to the following key as described
+        >>> from composer.callbacks import LRMonitor
+        >>> # constructing trainer object with this callback
+        >>> trainer = Trainer(
+        ...     model=model,
+        ...     train_dataloader=train_dataloader,
+        ...     eval_dataloader=eval_dataloader,
+        ...     optimizers=optimizer,
+        ...     max_duration="1ep",
+        ...     callbacks=[LRMonitor()],
+        ... )
+
+    The learning rate is logged by the :class:`~composer.loggers.logger.Logger` to the following key as described
     below.
 
     +---------------------------------------------+---------------------------------------+
@@ -45,4 +48,4 @@ class LRMonitor(Callback):
             name = optimizer.__class__.__name__
             for lr in lrs:
                 for idx, lr in enumerate(lrs):
-                    logger.metric_batch({f'lr-{name}/group{idx}': lr})
+                    logger.data_batch({f'lr-{name}/group{idx}': lr})

@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from composer.models.efficientnets import EfficientNet
+from composer.models.efficientnetb0.efficientnets import EfficientNet
 
 
 @pytest.mark.timeout(15)

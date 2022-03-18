@@ -5,13 +5,13 @@ from typing import List
 import numpy as np
 import pytest
 import torch
+from torch.optim import Optimizer
 from torch.optim.lr_scheduler import ExponentialLR
 
 from composer.algorithms import ScaleScheduleHparams
 from composer.core.time import TimeUnit
-from composer.core.types import Optimizer, PyTorchScheduler
-from composer.optim.optimizer_hparams import SGDHparams
-from composer.optim.scheduler import MultiStepLRHparams
+from composer.core.types import PyTorchScheduler
+from composer.optim import MultiStepSchedulerHparams, SGDHparams
 from composer.trainer import TrainerHparams
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from tests.common import SimpleModel
@@ -85,7 +85,7 @@ class TestScaleScheduleTrainer():
 
         composer_trainer_hparams.optimizer = SGDHparams(lr=1.0)
         composer_trainer_hparams.max_duration = '10ep'
-        composer_trainer_hparams.schedulers = [MultiStepLRHparams(milestones=['30ba', '50ba'], gamma=0.1)]
+        composer_trainer_hparams.schedulers = [MultiStepSchedulerHparams(milestones=['30ba', '50ba'], gamma=0.1)]
 
         if use_algorithm:
             composer_trainer_hparams.algorithms = [ScaleScheduleHparams(ratio=ssr)]

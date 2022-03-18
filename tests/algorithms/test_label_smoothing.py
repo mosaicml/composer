@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from composer.algorithms import LabelSmoothingHparams, label_smoothing
-from composer.core.types import Event
+from composer.core import Event
 from composer.models import loss
 
 
@@ -80,39 +80,39 @@ class TestSoftCrossEntropy:
         torch.testing.assert_allclose(loss_indices, loss_reference)
 
 
-@pytest.mark.parametrize('alpha', [0, 0.1, 0.5, 0.9, 1.0])
+@pytest.mark.parametrize('smoothing', [0, 0.1, 0.5, 0.9, 1.0])
 @pytest.mark.parametrize('tensors', generate_tensors())
 class TestLabelSmoothing:
 
     @staticmethod
-    def reference_smooth_labels(targets, alpha):
+    def reference_smooth_labels(targets, smoothing):
         num_classes = targets.shape[-1]
-        return targets * (1 - alpha) + alpha / num_classes
+        return targets * (1 - smoothing) + smoothing / num_classes
 
-    def test_label_smoothing(self, tensors, alpha):
+    def test_label_smoothing(self, tensors, smoothing):
         (input, target_indices, target_onehot) = tensors
 
-        labels_onehot = label_smoothing.smooth_labels(input, target_onehot, alpha)
-        labels_indices = label_smoothing.smooth_labels(input, target_indices, alpha)
-        labels_ref = self.reference_smooth_labels(target_onehot, alpha)
+        labels_onehot = label_smoothing.smooth_labels(input, target_onehot, smoothing)
+        labels_indices = label_smoothing.smooth_labels(input, target_indices, smoothing)
+        labels_ref = self.reference_smooth_labels(target_onehot, smoothing)
 
         torch.testing.assert_allclose(labels_onehot, labels_ref)
         torch.testing.assert_allclose(labels_indices, labels_ref)
 
     @pytest.mark.parametrize('target_type', ['onehot', 'indices'])
-    def test_label_smoothing_algorithm(self, tensors, alpha, target_type, empty_logger, minimal_state):
+    def test_label_smoothing_algorithm(self, tensors, smoothing, target_type, empty_logger, minimal_state):
         (outputs, target_indices, target_onehot) = tensors
 
         target = target_indices if target_type == 'indices' else target_onehot
 
-        algorithm = LabelSmoothingHparams(alpha=alpha).initialize_object()
+        algorithm = LabelSmoothingHparams(smoothing=smoothing).initialize_object()
         state = minimal_state
         state.batch = (torch.Tensor(), target)
         state.outputs = outputs
 
         # BEFORE_LOSS should smooth the labels
         algorithm.apply(Event.BEFORE_LOSS, state, empty_logger)
-        smoothed_reference = self.reference_smooth_labels(target_onehot, alpha)
+        smoothed_reference = self.reference_smooth_labels(target_onehot, smoothing)
 
         _, labels = state.batch
         torch.testing.assert_allclose(labels, smoothed_reference)
@@ -125,6 +125,6 @@ class TestLabelSmoothing:
 
 
 def test_label_smoothing_match():
-    algorithm = LabelSmoothingHparams(alpha=0.1).initialize_object()
+    algorithm = LabelSmoothingHparams(smoothing=0.1).initialize_object()
     assert algorithm.match(Event.BEFORE_LOSS, Mock())
     assert algorithm.match(Event.AFTER_LOSS, Mock())

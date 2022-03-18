@@ -1,12 +1,32 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-## Code adapted from https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/Segmentation/nnUNet/
+"""The Unet architecture used in image segmentation. The example we are using is for BRATS medical brain tumor dataset.
+
+See the :doc:`Model Card </model_cards/unet>` for more details.
+"""
+
 import torch.nn as nn
 
-from .layers import ConvBlock, OutputBlock, ResidBlock, UpsampleBlock
+from composer.models.unet._layers import ConvBlock, OutputBlock, ResidBlock, UpsampleBlock
+
+__all__ = ["UNet"]
 
 
 class UNet(nn.Module):
+    """Unet Architecture adapted from NVidia `Deep Learning Examples`_.
+
+    .. _Deep Learning Examples: https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/Segmentation/nnUNet/
+
+    Args:
+        in_channels (int): Number of input channels.
+        n_class (int): Number of output layers.
+        kernels (list): Conv layer kernel sizes.
+        strides (list): Conv layer strides.
+        normalization_layer (str): Normalization layer type, one of (``"batch"``, ``"instance"``).
+        negative_slope (float): Leaky relu negative slope.
+        residual (bool): Use residual connections.
+        dimension (int): Filter dimensions.
+    """
 
     def __init__(
         self,

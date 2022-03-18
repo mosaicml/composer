@@ -1,23 +1,30 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import List, Optional
+"""A ResNet-9 model extending :class:`.ComposerClassifier` and ResNet-9 architecture."""
 
 import torch.nn as nn
 from torchvision.models.resnet import BasicBlock
 
 from composer.models.base import ComposerClassifier
-from composer.models.model_hparams import Initializer
+
+__all__ = ["ResNet9", "CIFAR10_ResNet9"]
 
 
 # adapted from https://raw.githubusercontent.com/matthias-wright/cifar10-resnet/master/model.py
 # under the MIT license
 class ResNet9(nn.Module):
-    """A 9-layer residual network, excluding BatchNorms and activation functions, as described in this blog post:
+    """A 9-layer residual network, excluding BatchNorms and activation functions.
 
-    https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
+    Based on the myrtle.ai `blog`_ and Deep Residual Learning for Image Recognition (`He et al, 2015`_).
+
+    Args:
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
+
+    .. _blog: https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
+    .. _He et al, 2015: https://arxiv.org/abs/1512.03385
     """
 
-    def __init__(self, num_classes: int):
+    def __init__(self, num_classes: int = 10):
         super().__init__()
 
         self.body = nn.Sequential(
@@ -51,25 +58,22 @@ class ResNet9(nn.Module):
 
 
 class CIFAR10_ResNet9(ComposerClassifier):
-    """A ResNet-9 model extending :class:`ComposerClassifier`.
+    """A ResNet-9 model extending :class:`.ComposerClassifier`.
 
-    See this blog post for details regarding the architecture:
-    https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
+    See `myrtle.ai blog <https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/>`_ for more details.
 
     Args:
-        num_classes (int): The number of classes for the model.
-        initializers (List[Initializer], optional): Initializers
-            for the model. ``None`` for no initialization.
-            (default: ``None``)
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
+
+    Example:
+
+    .. testcode::
+
+        from composer.models import CIFAR10_ResNet9
+
+        model = CIFAR10_ResNet9()  # creates a resnet9 for cifar image classification
     """
 
-    def __init__(
-        self,
-        num_classes: int,
-        initializers: Optional[List[Initializer]] = None,
-    ) -> None:
-        if initializers is None:
-            initializers = []
-
+    def __init__(self, num_classes: int = 10) -> None:
         model = ResNet9(num_classes)
         super().__init__(module=model)

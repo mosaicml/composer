@@ -134,7 +134,7 @@ class CutMixHparams(AlgorithmHparams):
 class CutOutHparams(AlgorithmHparams):
     """See :class:`CutOut`"""
 
-    n_holes: int = hp.optional('Number of holes to cut out', default=1)
+    num_holes: int = hp.optional('Number of holes to cut out', default=1)
     length: float = hp.optional('Relative or absolute side length of the square hole to cut out', default=0.5)
     uniform_sampling: bool = hp.optional('Mask pixels with uniform probability', default=False)
 
@@ -188,7 +188,7 @@ class GhostBatchNormHparams(AlgorithmHparams):
 class LabelSmoothingHparams(AlgorithmHparams):
     """See :class:`LabelSmoothing`"""
 
-    alpha: float = hp.optional(doc='smoothing factor', default=0.1)
+    smoothing: float = hp.optional(doc='smoothing factor between 0 and 1', default=0.1)
 
     def initialize_object(self) -> LabelSmoothing:
         return LabelSmoothing(**asdict(self))

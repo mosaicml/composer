@@ -4,23 +4,28 @@ from typing import Optional, Sequence
 
 import torch
 import torch.nn.functional as F
-from torch import optim
+from torch.optim import SGD, Optimizer
+from torchmetrics import MetricCollection
 from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics.collections import MetricCollection
 
-from composer import Algorithm, Engine, Event, Logger, State
-from composer.core.types import DataLoader, Evaluator, Optimizer, Precision
+from composer.core import Algorithm, Engine, Evaluator, Event, Precision, State
+from composer.core.types import DataLoader
+from composer.loggers import Logger
 from tests.utils.model import SimpleModel
 
 
-def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, steps_per_epoch: int = 1):
+def _get_state(train_dataloader: DataLoader,
+               eval_dataloader: DataLoader,
+               rank_zero_seed: int,
+               steps_per_epoch: int = 1):
     model = SimpleModel()
     steps_per_epoch = steps_per_epoch
     metric_coll = MetricCollection([Accuracy()])
     evaluators = [Evaluator(label="dummy_label", dataloader=eval_dataloader, metrics=metric_coll)]
     return State(
         model=model,
-        optimizers=optim.SGD(model.parameters(), lr=.001, momentum=0.0),
+        rank_zero_seed=rank_zero_seed,
+        optimizers=SGD(model.parameters(), lr=.001, momentum=0.0),
         max_duration="1ep",
         train_dataloader=train_dataloader,
         evaluators=evaluators,
@@ -32,6 +37,7 @@ def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, steps_
 def test_classifier_trains(
     train_dataloader: DataLoader,
     eval_dataloader: DataLoader,
+    rank_zero_seed: int,
     algorithms: Sequence[Algorithm],
     n_steps: int = 1,
     check_steps: Optional[Sequence[int]] = None,
@@ -39,10 +45,13 @@ def test_classifier_trains(
     if check_steps is None:
         check_steps = list(range(n_steps))
 
-    state = _get_state(train_dataloader=train_dataloader, eval_dataloader=eval_dataloader, steps_per_epoch=n_steps)
+    state = _get_state(train_dataloader=train_dataloader,
+                       eval_dataloader=eval_dataloader,
+                       steps_per_epoch=n_steps,
+                       rank_zero_seed=rank_zero_seed)
     model = state.model
 
-    logger = Logger(state=state, backends=[])
+    logger = Logger(state=state, destinations=[])
     engine = Engine(state=state, logger=logger)
 
     engine.run_event(Event.INIT)

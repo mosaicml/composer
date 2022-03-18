@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import time
 from collections import deque
-from typing import Deque, Optional
+from typing import Any, Deque, Dict, Optional
 
-from composer.core import Logger, State
+from composer.core import State
 from composer.core.callback import Callback
-from composer.core.types import StateDict
+from composer.loggers import Logger
 
 __all__ = ["SpeedMonitor"]
 
@@ -23,6 +23,8 @@ class SpeedMonitor(Callback):
     event.
 
     Example
+
+        >>> from composer.callbacks import SpeedMonitor
         >>> # constructing trainer object with this callback
         >>> trainer = Trainer(
         ...     model=model,
@@ -30,10 +32,10 @@ class SpeedMonitor(Callback):
         ...     eval_dataloader=eval_dataloader,
         ...     optimizers=optimizer,
         ...     max_duration="1ep",
-        ...     callbacks=[callbacks.SpeedMonitor(window_size=100)],
+        ...     callbacks=[SpeedMonitor(window_size=100)],
         ... )
 
-    The training throughput is logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as
+    The training throughput is logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
 
     +-----------------------+-------------------------------------------------------------+
@@ -63,15 +65,15 @@ class SpeedMonitor(Callback):
         self.batch_end_times: Deque[float] = deque(maxlen=window_size + 1)  # rolling list of batch end times
         self.batch_num_samples: Deque[int] = deque(maxlen=window_size)  # rolling list of num samples in batch.
         self.window_size = window_size
-        self.loaded_state: Optional[StateDict] = None
+        self.loaded_state: Optional[Dict[str, Any]] = None
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         """Returns a dictionary representing the internal state of the SpeedMonitor object.
 
         The returned dictionary is pickle-able via :func:`torch.save`.
 
         Returns:
-            StateDict: The state of the SpeedMonitor object
+            Dict[str, Any]: The state of the SpeedMonitor object
         """
         current_time = time.time()
         return {
@@ -82,11 +84,11 @@ class SpeedMonitor(Callback):
             "batch_num_samples": self.batch_num_samples,
         }
 
-    def load_state_dict(self, state: StateDict) -> None:
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
         """Restores the state of SpeedMonitor object.
 
         Args:
-            state (StateDict): The state of the object,
+            state (Dict[str, Any]): The state of the object,
                 as previously returned by :meth:`.state_dict`
         """
         self.loaded_state = state
@@ -123,15 +125,15 @@ class SpeedMonitor(Callback):
         self.train_examples_per_epoch += batch_num_samples
         if len(self.batch_end_times) == self.window_size + 1:
             throughput = sum(self.batch_num_samples) / (self.batch_end_times[-1] - self.batch_end_times[0])
-            logger.metric_batch({'throughput/step': throughput})
+            logger.data_batch({'throughput/step': throughput})
 
     def epoch_end(self, state: State, logger: Logger):
         del state  # unused
         epoch_time = time.time() - self.epoch_start_time
         self.wall_clock_train += epoch_time
-        logger.metric_epoch({
+        logger.data_epoch({
             "wall_clock_train": self.wall_clock_train,
         })
-        logger.metric_epoch({
+        logger.data_epoch({
             "throughput/epoch": self.train_examples_per_epoch / epoch_time,
         })

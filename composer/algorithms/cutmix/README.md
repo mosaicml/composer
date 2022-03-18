@@ -27,9 +27,9 @@ def training_loop(model, train_loader):
 
     for epoch in range(num_epochs):
         for X, y in train_loader:
-            X_cutmix, y_cutmix = cf.cutmix_batch(X=X,
-                                                 y=y_example,
-                                                 n_classes=1000,
+            X_cutmix, y_cutmix = cf.cutmix_batch(X,
+                                                 y_example,
+                                                 num_classes=1000,
                                                  alpha=1.0)
 
             y_hat = model(X_cutmix)
@@ -60,17 +60,19 @@ trainer.fit()
 
 ### Implementation Details
 
-TODO(CORY): Briefly describe how this is implemented under the hood in Composer. Need to explain the mask in particular, since it shows up a few times below.
+CutMix is implemented following the [original paper](https://arxiv.org/abs/1905.04899). This means CutMix runs immediately before the training example is provided to the model, and on the GPU if one is being used.
+
+The construction of the bounding box for the mixed region follows the [paper's implementation](https://github.com/clovaai/CutMix-PyTorch) which selects the center pixel of the bounding box uniformly at random from all locations in the image, and clips the bounding box to fit. This implies that the size of the region mixed by CutMix is not always square, and the area is not directly drawn from a beta distribution. It also implies that not all regions are equally likely to lie inside the bounding box.
 
 ## Suggested Hyperparameters
 
-Setting `alpha=1` is a standard choice. This produces a uniform distribution, meaning `lambda` (the interpolation between the labels of the two sets of examples) is selected uniformly between 0 and 1.
+Setting `alpha=1` is a standard choice. This produces a uniform distribution, meaning the interpolation between the labels of the two sets of examples is selected uniformly between 0 and 1.
 
 ## Technical Details
 
 CutMix works by creating a new mini-batch of inputs to the network by operating on a batch `(X1, y1)` of (inputs, targets) together with version `(X2, y2)` with the same examples but where the ordering of examples has been shuffled.
 The final set of inputs `X` is created by choosing a rectangular box within each example `x1` in `X1` and filling it with the data from the same region from the corresponding example `x2` in `X2`.
-The final set of targets `y` is created by sampling a value `lambda` (between 0.0 and 1.0) from the Beta distribution parameterized by `alpha` and interpolating between the targets `y1` and `y2`.
+The final set of targets `y` is created by sampling a value `interpolation` (between 0.0 and 1.0) from the Beta distribution parameterized by `alpha` and interpolating between the targets `y1` and `y2`.
 
 
 > ❗ CutMix Produces a Full Distribution, Not a Target Index
@@ -89,7 +91,7 @@ CutMix is intended to improve generalization performance, and we empirically fou
 > As general rule, composing regularization methods may lead to diminishing returns in quality improvements. CutMix is one such regularization method.
 
 Data augmentation techniques can sometimes put additional load on the CPU, potentially reaching the point where the CPU becomes a bottleneck for training.
-To prevent this from happening for CutMix, our implementation of CutMix (1) occurs on the GPU and (2) uses the same patch and value of `lambda` for all examples in the minibatch.
+To prevent this from happening for CutMix, our implementation of CutMix (1) occurs on the GPU and (2) uses the same patch and interpolation for all examples in the minibatch.
 Doing so avoids putting additional work on the CPU (since augmentation occurs on the GPU) and minimizes additional work on the GPU (since all images are handled uniformly within a batch).
 
 > 🚧 CutMix Requires a Small Amount of Additional GPU Compute and Memory

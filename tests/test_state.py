@@ -8,11 +8,11 @@ import torch.nn.functional as F
 from torch.functional import Tensor
 
 from composer.algorithms import ChannelsLastHparams
-from composer.core import DataSpec, State, types
-from composer.datasets.dataloader import DataloaderHparams
+from composer.core import DataSpec, Evaluator, Precision, State
+from composer.core.types import Batch, DataLoader
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.base import ComposerModel
-from composer.trainer import _deepspeed
 from tests.fixtures.models import SimpleBatchPairModel
 
 
@@ -20,13 +20,14 @@ def random_tensor(size=(4, 10)):
     return torch.rand(*size)
 
 
-def get_dummy_state(model: ComposerModel, train_dataloader: types.DataLoader, val_dataloader: types.DataLoader):
+def get_dummy_state(model: ComposerModel, train_dataloader: DataLoader, val_dataloader: DataLoader):
     optimizers = torch.optim.Adadelta(model.parameters())
 
-    evaluators = [types.Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=model.metrics(train=False))]
+    evaluators = [Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=model.metrics(train=False))]
     state = State(model=model,
                   grad_accum=random.randint(0, 100),
-                  precision=types.Precision.AMP,
+                  rank_zero_seed=random.randint(0, 100),
+                  precision=Precision.AMP,
                   max_duration=f"{random.randint(0, 100)}ep",
                   train_dataloader=train_dataloader,
                   evaluators=evaluators,
@@ -57,17 +58,16 @@ def assert_state_equivalent(state1: State, state2: State):
         var2 = getattr(state2, field_name)
 
         if field_name == "model":
-            if _deepspeed.is_module_deepspeed(state1.model):
-                assert _deepspeed.is_module_deepspeed(state2.model)
+            assert state1.is_model_deepspeed == state2.is_model_deepspeed
             for p, q in zip(state1.model.parameters(), state2.model.parameters()):
                 torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
-        elif isinstance(var1, types.Tensor):
+        elif isinstance(var1, torch.Tensor):
             assert (var1 == var2).all()
         else:
             assert var1 == var2
 
 
-def train_one_step(state: State, batch: types.Batch) -> None:
+def train_one_step(state: State, batch: Batch) -> None:
     _, y = batch
     state.batch = batch
 
@@ -83,7 +83,7 @@ def train_one_step(state: State, batch: types.Batch) -> None:
     state.timer.on_batch_complete(len(batch))
 
 
-def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataloaderHparams) -> types.Batch:
+def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHparams) -> Batch:
     dataloader = dataset_hparams.initialize_object(batch_size=2, dataloader_hparams=dataloader_hparams)
     if isinstance(dataloader, DataSpec):
         dataloader = dataloader.dataloader
@@ -92,9 +92,9 @@ def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataloaderHpa
     raise RuntimeError("No batch in dataloader")
 
 
-def test_state_serialize(tmpdir: pathlib.Path, dummy_model: ComposerModel, dummy_dataloader_hparams: DataloaderHparams,
-                         dummy_train_dataset_hparams: DatasetHparams, dummy_train_dataloader: types.DataLoader,
-                         dummy_val_dataset_hparams: DatasetHparams, dummy_val_dataloader: types.DataLoader):
+def test_state_serialize(tmpdir: pathlib.Path, dummy_model: ComposerModel, dummy_dataloader_hparams: DataLoaderHparams,
+                         dummy_train_dataset_hparams: DatasetHparams, dummy_train_dataloader: DataLoader,
+                         dummy_val_dataset_hparams: DatasetHparams, dummy_val_dataloader: DataLoader):
 
     assert isinstance(dummy_model, SimpleBatchPairModel)
 

@@ -12,10 +12,11 @@ from composer.datasets.dataloader import WrappedDataLoader
 
 if TYPE_CHECKING:
     from composer.core.state import State
-    from composer.core.types import Batch, DataLoader, Logger
+    from composer.core.types import Batch, DataLoader
+    from composer.loggers import Logger
     from composer.profiler import Profiler
 
-__all__ = ["DataloaderProfiler"]
+__all__ = ["DataLoaderProfiler"]
 
 
 class _ProfiledDataLoader(WrappedDataLoader):
@@ -46,7 +47,7 @@ class _ProfiledDataLoader(WrappedDataLoader):
             self._marker.finish()
 
 
-class DataloaderProfiler(Callback):
+class DataLoaderProfiler(Callback):
     """Records the time it takes the data loader to return a batch.
 
     When used with the Composer :class:`.Trainer`\\, the data loader profiler is enabled if profiling is enabled.

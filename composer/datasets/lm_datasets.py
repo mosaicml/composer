@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Generic dataset class for self-supervised training of autoregressive and masked language models."""
+
 import logging
 import tempfile
 import textwrap
@@ -9,10 +11,13 @@ from typing import List, Optional
 
 import yahp as hp
 
-from composer.core.types import Batch, DataSpec
-from composer.datasets.dataloader import DataloaderHparams
+from composer.core import DataSpec
+from composer.core.types import Batch
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
+
+__all__ = ["LMDatasetHparams"]
 
 log = logging.getLogger(__name__)
 
@@ -28,17 +33,39 @@ def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
 
 @dataclass
 class LMDatasetHparams(DatasetHparams):
-    """Defines a generic dataset class for autoregressive and masked language models trained with self-supervised
-    learning."""
+    """Defines a generic dataset class for self-supervised training of autoregressive and masked language models.
+
+    Args:
+        datadir (list): List containing the string of the path to the HuggingFace
+            Datasets directory.
+        split (str): Whether to use ``'train'``, ``'test'``, or
+            ``'validation'`` split.
+        tokenizer_name (str): The name of the HuggingFace tokenizer to
+            preprocess text with. See `HuggingFace documentation
+            <https://huggingface.co/models>`_.
+        use_masked_lm (bool): Whether the dataset should be encoded with masked
+            language modeling or not.
+        num_tokens (int, optional): Number of tokens to train on. ``0``
+            will train on all tokens in the dataset. Default: ``0``.
+        mlm_probability (float, optional): If using masked language modeling, the
+            probability with which tokens will be masked. Default: ``0.15``.
+        seed (int, optional): Random seed for generating train and validation splits.
+            Default: ``5``.
+        subsample_ratio (float, optional): Proportion of the dataset to use. Default:
+            ``1.0``.
+        train_sequence_length (int, optional): Sequence length for training dataset.
+            Default: ``1024``.
+        val_sequence_length (int, optional): Sequence length for validation dataset.
+            Default: ``1024``.
+    """
 
     # TODO(moin): Switch datadir to be a string, rather than a list of strings, to be similar to the
     # other datasets
     datadir: List[str] = hp.optional(  # type: ignore
         "Path to the Huggingface Datasets directory.", default_factory=list)
-
     split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     tokenizer_name: Optional[str] = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
-    use_masked_lm: bool = hp.optional("Whether the dataset shoud be encoded with masked language modeling or not.",
+    use_masked_lm: bool = hp.optional("Whether the dataset should be encoded with masked language modeling or not.",
                                       default=None)
     num_tokens: int = hp.optional(doc='If desired, the number of tokens to truncate the dataset to.', default=0)
     mlm_probability: float = hp.optional("If using masked language modeling, the probability to mask tokens with.",
@@ -74,7 +101,7 @@ class LMDatasetHparams(DatasetHparams):
         if (self.train_sequence_length % 8 != 0) or (self.val_sequence_length % 8 != 0):
             log.warning("For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         try:
             import datasets
             import transformers

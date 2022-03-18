@@ -11,12 +11,13 @@ from typing import TypeVar
 
 import torch
 from PIL.Image import Image as PillowImage
+from torch import Tensor
 from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils.augmentation_common import image_as_type
-from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Tensor
+from composer.core import Algorithm, Event, State
 from composer.datasets.utils import add_vision_dataset_transform
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 __all__ = ["ColOut", "ColOutTransform", "colout_batch"]
 
 
-def colout_batch(X: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
+def colout_batch(input: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 
@@ -35,14 +36,10 @@ def colout_batch(X: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
          .. testcode::
 
             from composer.algorithms.colout import colout_batch
-            new_X = colout_batch(
-                X=X_example,
-                p_row=0.15,
-                p_col=0.15
-            )
+            new_X = colout_batch(X_example, p_row=0.15, p_col=0.15)
 
     Args:
-        X: :class:`PIL.Image.Image` or :class:`torch.Tensor` of image data. In
+        input: :class:`PIL.Image.Image` or :class:`torch.Tensor` of image data. In
             the latter case, must be a single image of shape ``CHW`` or a batch
             of images of shape ``NCHW``.
         p_row: Fraction of rows to drop (drop along H). Default: ``0.15``.
@@ -53,7 +50,7 @@ def colout_batch(X: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
     """
 
     # Convert image to Tensor if needed
-    X_tensor = image_as_type(X, torch.Tensor)
+    X_tensor = image_as_type(input, torch.Tensor)
 
     # Get the dimensions of the image
     row_size = X_tensor.shape[-2]
@@ -73,9 +70,9 @@ def colout_batch(X: ImgT, p_row: float = 0.15, p_col: float = 0.15) -> ImgT:
 
     # convert back to same type as input, and strip added batch dim if needed;
     # we can't just reshape to input shape because we've reduced the spatial size
-    if not isinstance(X, torch.Tensor) or (X.ndim < X_colout.ndim):
+    if not isinstance(input, torch.Tensor) or (input.ndim < X_colout.ndim):
         X_colout = X_colout.reshape(X_colout.shape[-3:])
-    X_colout = image_as_type(X_colout, type(X))
+    X_colout = image_as_type(X_colout, type(input))
     return X_colout
 
 

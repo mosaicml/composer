@@ -7,17 +7,16 @@ import torch
 from composer.algorithms.channels_last import apply_channels_last
 from composer.algorithms.channels_last.channels_last import ChannelsLast
 from composer.core.event import Event
-from composer.core.logging import Logger
 from composer.core.state import State
-from composer.core.types import Tensor
+from composer.loggers import Logger
 from tests.common import SimpleConvModel
 
 
-def _has_singleton_dimension(tensor: Tensor) -> bool:
+def _has_singleton_dimension(tensor: torch.Tensor) -> bool:
     return any(s == 1 for s in tensor.shape)
 
 
-def _infer_memory_format(tensor: Tensor) -> str:
+def _infer_memory_format(tensor: torch.Tensor) -> str:
     if _has_singleton_dimension(tensor):
         raise ValueError(f'Tensor of shape {tensor.shape} has singleton dimensions, '
                          'memory format cannot be infered from strides.')
@@ -75,7 +74,7 @@ Test helper utility _infer_memory_format
 
 
 @pytest.fixture(params=[True, False])
-def tensor(request) -> Tensor:
+def tensor(request) -> torch.Tensor:
     strided = request.param
     tensor = torch.randn((16, 32, 32, 64))
     if strided:
