@@ -91,14 +91,6 @@ def test_ensure_targets_one_hot(tensors):
 
 
 @pytest.mark.parametrize('tensors', generate_tensors())
-def test_soft_cross_entropy(tensors):
-    input, targets_idx, targets_one_hot = tensors
-    loss_idx = F.cross_entropy(input, targets_idx, ignore_index=-1)
-    loss_soft = soft_cross_entropy(input, targets_one_hot)
-    torch.testing.assert_allclose(loss_idx, loss_soft)
-
-
-@pytest.mark.parametrize('tensors', generate_tensors())
 class TestSoftCrossEntropy:
 
     def test_infer_target_type(self, tensors):
