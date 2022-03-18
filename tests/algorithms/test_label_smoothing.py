@@ -57,8 +57,8 @@ class TestSoftCrossEntropy:
 
     def test_infer_target_type(self, tensors):
         (input, target_indices, target_onehot) = tensors
-        assert composer.loss._infer_target_type(input, target_indices) == 'indices'
-        assert composer.loss._infer_target_type(input, target_onehot) == 'one_hot'
+        assert composer.loss.loss._infer_target_type(input, target_indices) == 'indices'
+        assert composer.loss.loss._infer_target_type(input, target_onehot) == 'one_hot'
 
     @pytest.mark.parametrize('reduction', ['mean', 'sum'])
     @pytest.mark.parametrize('use_weights', [xfail(True), False])
