@@ -11,7 +11,7 @@ import textwrap
 import warnings
 from typing import Any, Dict, Optional
 
-from composer.core.types import State, StateDict
+from composer.core.state import State
 from composer.loggers.logger import Logger, LoggerDataDict, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist, run_directory
@@ -76,7 +76,7 @@ class WandBLogger(LoggerDestination):
         if self._enabled:
             wandb.log(data, step=int(state.timer.batch))
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         import wandb
 
         # Storing these fields in the state dict to support run resuming in the future.
@@ -95,7 +95,11 @@ class WandBLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         import wandb
-        del state, logger  # unused
+        del state  # unused
+        if "name" not in self._init_params:
+            # Use the logger run name if the name is not set.
+            self._init_params["name"] = logger.run_name
+
         if self._enabled:
             wandb.init(**self._init_params)
 

@@ -1,14 +1,17 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
 from torch.cuda import device_count
 
 from composer.callbacks import MemoryMonitorHparams
+from composer.loggers import LoggerDestination
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import DeviceGPU
 from composer.trainer.devices.device_hparams import GPUDeviceHparams
+from composer.utils import ensure_tuple
 
 
 def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, testing_with_gpu: bool = False):
@@ -27,7 +30,8 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, testing_with_gpu: 
         trainer._device = DeviceGPU()
 
     log_destination = MagicMock()
-    trainer.logger.destinations = [log_destination]
+    log_destination = cast(LoggerDestination, log_destination)
+    trainer.logger.destinations = ensure_tuple(log_destination)
     trainer.fit()
 
     num_train_steps = composer_trainer_hparams.train_subset_num_batches

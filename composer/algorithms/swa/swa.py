@@ -10,8 +10,7 @@ from typing import Optional
 import torch
 from torch.optim.swa_utils import SWALR, AveragedModel
 
-from composer.core.time import Time, TimeUnit
-from composer.core.types import Algorithm, Event, State
+from composer.core import Algorithm, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 
 log = logging.getLogger(__name__)

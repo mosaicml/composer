@@ -4,14 +4,14 @@
 from __future__ import annotations
 
 import abc
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Sequence, Tuple, Union
 
 import torch
 from torch import Tensor
+from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import Accuracy
-from torchmetrics.collections import MetricCollection
 
-from composer.core.types import Batch, BatchPair, Metrics, Tensors
+from composer.core.types import Batch, BatchPair
 from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
 __all__ = ["ComposerClassifier", "ComposerModel"]
@@ -53,14 +53,14 @@ class ComposerModel(torch.nn.Module, abc.ABC):
     """
 
     @abc.abstractmethod
-    def forward(self, batch: Batch) -> Tensors:
+    def forward(self, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
         """Compute model output given a batch from the dataloader.
 
         Args:
             batch (~composer.core.types.Batch): The output batch from dataloader.
 
         Returns:
-            Tensors:
+            Tensor | Sequence[Tensor]:
                 The result that is passed to :meth:`loss` as the parameter :attr:`outputs`.
 
         .. warning:: This method is different from vanilla PyTorch ``model.forward(x)`` or ``model(x)`` as it takes a
@@ -87,7 +87,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         pass
 
     @abc.abstractmethod
-    def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:
+    def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
         """Compute the loss of the model given ``outputs`` from :meth:`forward` and a
         :class:`~composer.core.types.Batch` of data from the dataloader. The :class:`.Trainer`
         will call ``.backward()`` on the returned loss.
@@ -97,7 +97,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
             batch (~composer.core.types.Batch): The output batch from dataloader.
 
         Returns:
-            Tensors: The loss as a :class:`torch.Tensor`.
+            Tensor | Sequence[Tensor]: The loss as a :class:`torch.Tensor`.
 
         Example:
 
@@ -122,7 +122,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         """
         pass
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         """Get metrics for evaluating the model. Metrics should be instances of :class:`torchmetrics.Metric` defined in
         :meth:`__init__`. This format enables accurate distributed logging. Metrics consume the outputs of
         :meth:`validate`. To track multiple metrics, return a list of metrics in a :ref:`MetricCollection
@@ -240,7 +240,7 @@ class ComposerClassifier(ComposerModel):
             raise ValueError("Loss does not support multiple target Tensors")
         return soft_cross_entropy(outputs, targets, *args, **kwargs)
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])
 
     def forward(self, batch: BatchPair) -> Tensor:
