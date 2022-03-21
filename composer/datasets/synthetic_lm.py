@@ -102,7 +102,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     Args:
         tokenizer_family (str): Which tokenizer family to emulate. One of ['gpt2', 'bert'].
         dataset (Optional[datasets.Dataset]): Optionally, the dataset to train the tokenzier off of.
-            If not specified, a SyntheticHFDataset will be generated.
+            If ``None``, a :class:`~SyntheticHFDataset` will be generated. Default: ``None``.
         vocab_size (int): The size of the tokenizer vocabulary. Defaults to 256.
     """
 
