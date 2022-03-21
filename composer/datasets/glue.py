@@ -27,7 +27,7 @@ from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.datasets.lm_datasets import _split_dict_fn
 from composer.utils import dist
-from composer.utils.dynamic_import import MissingConditionalImportError
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["GLUEHparams"]
 

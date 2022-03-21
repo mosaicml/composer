@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import yahp as hp
 
 from composer.models.transformer_hparams import TransformerHparams
-from composer.utils.dynamic_import import MissingConditionalImportError
+from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     from composer.models.bert import BERTModel
