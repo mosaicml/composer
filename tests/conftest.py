@@ -9,7 +9,7 @@ import pytest
 from pytest import MonkeyPatch
 
 import composer
-from composer.utils import run_directory
+from composer.utils import dist, reproducibility, run_directory
 
 # Allowed options for pytest.mark.world_size()
 # Important: when updating this list, make sure to also up ./.ci/test.sh
@@ -42,6 +42,12 @@ if _include_deprecated_fixtures:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--seed",
+                     default=0,
+                     type=int,
+                     help="""\
+        Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
+        before each test.""")
     parser.addoption("--duration",
                      default="all",
                      choices=["short", "long", "all"],
@@ -123,6 +129,21 @@ def set_loglevels():
     """Ensures all log levels are set to DEBUG."""
     logging.basicConfig()
     logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
+
+
+@pytest.fixture
+def rank_zero_seed(request: pytest.FixtureRequest) -> int:
+    """Read the rank_zero_seed from the CLI option."""
+    seed = request.config.getoption("seed")
+    assert isinstance(seed, int)
+    return seed
+
+
+@pytest.fixture(autouse=True)
+def seed_all(rank_zero_seed: int):
+    """Set the random seed before each test to ensure consistent test results, which and limit flakiness due to random
+    initializations."""
+    reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
 
 
 @pytest.fixture(autouse=True)

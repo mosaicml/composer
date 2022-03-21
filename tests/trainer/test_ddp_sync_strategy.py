@@ -49,14 +49,14 @@ class MinimalConditionalModel(nn.Module):
 ])
 @pytest.mark.world_size(2)
 def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]],
-                           dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+                           dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader, rank_zero_seed: int):
     original_model = MinimalConditionalModel()
     # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
     metric_coll = MetricCollection([Accuracy()])
     evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(model=original_model,
-                  rank_zero_seed=0,
+                  rank_zero_seed=rank_zero_seed,
                   optimizers=optimizer,
                   grad_accum=2,
                   max_duration="1ep",

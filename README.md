@@ -69,7 +69,7 @@ Composer features:
 
 With no additional tuning, you can apply our methods to:
 <!-- start numbers -->
-- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.8 hours) on AWS.
+- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.5 hours) on AWS.
 - Train a GPT-2 125M to a standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
 <!-- end numbers -->
 
@@ -107,8 +107,8 @@ from torchvision import models
 my_model = models.resnet18()
 
 # add blurpool and squeeze excite layers
-model = cf.apply_blurpool(my_model)
-model = cf.apply_squeeze_excite(my_model)
+my_model = cf.apply_blurpool(my_model)
+my_model = cf.apply_squeeze_excite(my_model)
 
 # your own training code starts here
 ```
@@ -128,12 +128,15 @@ from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
 from composer.models import MNIST_Classifier
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = datasets.MNIST("data", download=True, transform=transform)
-train_dataloader = DataLoader(dataset, batch_size=128)
+train_dataset = datasets.MNIST("data", download=True, train=True, transform=transform)
+eval_dataset = datasets.MNIST("data", download=True, train=False, transform=transform)
+train_dataloader = DataLoader(train_dataset, batch_size=128)
+eval_dataloader = DataLoader(eval_dataset, batch_size=128)
 
 trainer = Trainer(
     model=MNIST_Classifier(num_classes=10),
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration="2ep",
     algorithms=[
         BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
@@ -339,7 +342,7 @@ Here's some resources actively maintained by the Composer community to help you 
 </tbody>
 </table>
 
-If you have any questions, please feel free to reach out to us on [Twiter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
+If you have any questions, please feel free to reach out to us on [Twitter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
 
 # 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!

@@ -88,21 +88,18 @@ def W(H) -> int:
 @pytest.fixture
 def fake_image(H: int, W: int, C: int) -> Image.Image:
     """Fake PIL Image."""
-    rng = np.random.RandomState(0)
-    return Image.fromarray((255 * rng.uniform(size=(H, W, C)).squeeze()).astype(np.uint8))
+    return Image.fromarray((255 * np.random.uniform(size=(H, W, C)).squeeze()).astype(np.uint8))
 
 
 @pytest.fixture
 def fake_image_tensor(H: int, W: int, C: int) -> torch.Tensor:
     """Fake image tensor."""
-    torch.manual_seed(0)
     return torch.rand(C, H, W)
 
 
 @pytest.fixture
 def fake_image_batch(H: int, W: int, C: int) -> torch.Tensor:
     """Fake batch of images."""
-    torch.manual_seed(0)
     return torch.rand(16, C, H, W)
 
 
