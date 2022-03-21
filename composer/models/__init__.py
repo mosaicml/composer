@@ -1,5 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The models module contains the :class:`.ComposerModel` base class along with reference
+implementations of many common models. Additionally, it includes task-specific convenience
+:class:`.ComposerModel`\\s that wrap existing Pytorch models with standard forward passes
+and logging to enable quick interaction with the :class:`.Trainer`.
+
+See :doc:`Composer Model </composer_model>` for more details.
+"""
+
 from composer.models.base import ComposerClassifier as ComposerClassifier
 from composer.models.base import ComposerModel as ComposerModel
 from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
@@ -15,6 +23,8 @@ from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2 import GPT2Model as GPT2Model
 from composer.models.model_hparams import Initializer as Initializer
 from composer.models.model_hparams import ModelHparams as ModelHparams
+from composer.models.resnet import ComposerResNet as ComposerResNet
+from composer.models.resnet import ResNetHparams as ResNetHparams
 from composer.models.resnet9_cifar10 import CIFAR10_ResNet9 as CIFAR10_ResNet9
 from composer.models.resnet9_cifar10 import CIFARResNet9Hparams as CIFARResNet9Hparams
 from composer.models.resnet20_cifar10 import CIFAR10_ResNet20 as CIFAR10_ResNet20

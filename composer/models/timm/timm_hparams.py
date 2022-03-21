@@ -1,4 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+
+"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.Timm`."""
+
 import textwrap
 from dataclasses import dataclass
 from typing import Optional
@@ -8,9 +11,25 @@ import yahp as hp
 from composer.models.model_hparams import ModelHparams
 from composer.models.timm.model import Timm
 
+__all__ = ["TimmHparams"]
+
 
 @dataclass
 class TimmHparams(ModelHparams):
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.Timm`.
+
+    Args:
+        model_name (str): timm model name e.g: ``"resnet50"``. List of models can be found at
+            `PyTorch Image Models <https://github.com/rwightman/pytorch-image-models>`_.
+        pretrained (bool, optional): Imagenet pretrained. Default: ``False``.
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``1000``.
+        drop_rate (float, optional): Dropout rate. Default: ``0.0``.
+        drop_path_rate (float, optional): Drop path rate (model default if ``None``). Default: ``None``.
+        drop_block_rate (float, optional): Drop block rate (model default if ``None``). Default: ``None``.
+        global_pool (str, optional): Global pool type, one of (``"fast"``, ``"avg"``, ``"max"``, ``"avgmax"``, ``"avgmaxc"``). Model default if ``None``. Default: ``None``.
+        bn_momentum (float, optional): BatchNorm momentum override (model default if not None). Default: ``None``.
+        bn_eps (float, optional): BatchNorm epsilon override (model default if ``None``). Default: ``None``.
+    """
 
     model_name: str = hp.optional(
         textwrap.dedent("""\

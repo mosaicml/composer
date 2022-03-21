@@ -27,9 +27,9 @@ def training_loop(model, train_loader):
 
     for epoch in range(num_epochs):
         for X, y in train_loader:
-            X_cutout = cf.cutout_batch(X=X_example,
-                                       n_holes=1,
-                                       length=16)
+            X_cutout = cf.cutout_batch(X_example,
+                                       num_holes=1,
+                                       length=0.5)
 
             y_hat = model(X_cutout)
             loss = loss_fn(y_hat, y)
@@ -47,7 +47,7 @@ def training_loop(model, train_loader):
 from composer.algorithms import Cutout
 from composer.trainer import Trainer
 
-cutout = CutOut(n_holes=1, length=0.25)
+cutout = CutOut(num_holes=1, length=0.5)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
@@ -59,11 +59,17 @@ trainer.fit()
 
 ### Implementation Details
 
-CutMix randomly selects `n_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where a point within any hole is set to 0 and the remaining points are set to 1. This mask is then multiplied element-wise with the image in order to set the pixel value of any pixel value within a hole to 0.
+CutOut randomly selects `num_holes` square regions (which are possibly overlapping) with side length `length` and uses them to generate a binary mask for the image where a point within any hole is set to 0 and the remaining points are set to 1. 
+This mask is then multiplied element-wise with the image in order to set the pixel value of any pixel value within a hole to 0.
+
+CutOut is implemented following the [original paper](https://arxiv.org/abs/1708.04552). However, our implementation currently differs in that CutOut operates on a batch of data and runs on device to avoid potential CPU bottlenecks.
+This means the same bounding box is used for all examples in a batch, which sometimes has either a positive or negative effect on accuracy.
+
+The construction of the bounding box for the mixed region follows the [paper's implementation](https://github.com/uoguelph-mlrg/Cutout) which selects the center pixel of the bounding box uniformly at random from all locations in the image, and clips the bounding box to fit. This implies that the size of the region masked by CutOut is not always square, and the area is not always as large as suggested by the `length` parameter. It also implies that not all regions are equally likely to lie inside the bounding box.
 
 ## Suggested Hyperparameters
 
-We found that setting `n_holes=1` (adding a single gray patch) to the image gives good results. We found that setting `length` (the size of the patch) to a number of pixels equivalent to half of the image width or height produces good results. However, in some scenarios this may be too large, obstructing a quarter of the total area of the image; if so, setting `length` to a number of pixels equivalent to a quarter of the image width or height may be better.
+We found that setting `num_holes=1` (adding a single gray patch) to the image gives good results. We found that setting `length = 0.5`, indicating that the masked region should have height and width half as large as the image, produces good results. However, in some scenarios this may be too large, obstructing a quarter of the total area of the image; if so, setting `length` to a number of pixels equivalent to a quarter of the image width or height may be better.
 
 ## Technical Details
 

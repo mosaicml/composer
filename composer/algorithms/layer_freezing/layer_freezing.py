@@ -6,12 +6,14 @@ from __future__ import annotations
 
 import logging
 import textwrap
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple, Union
 
 import torch
+from torch.optim import Optimizer
 
-from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Model, Optimizers
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
+from composer.utils.iter_helpers import ensure_tuple
 
 log = logging.getLogger(__name__)
 
@@ -19,8 +21,8 @@ __all__ = ["LayerFreezing", "freeze_layers"]
 
 
 def freeze_layers(
-    model: Model,
-    optimizers: Optimizers,
+    model: torch.nn.Module,
+    optimizers: Union[Optimizer, Sequence[Optimizer]],
     current_duration: float,
     freeze_start: float = 0.5,
     freeze_level: float = 1.0,
@@ -41,8 +43,8 @@ def freeze_layers(
 
 
     Args:
-        model (Model): The model being trained.
-        optimizers (Optimizers): The optimizers used during training.
+        model (torch.nn.Module): The model being trained.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]): The optimizers used during training.
         current_duration (float): The fraction on [0; 1) of the training process complete.
         freeze_start (float, optional): The fraction of the training process on [0; 1) to run
             before freezing begins. Default: ``0.5``.
@@ -138,7 +140,7 @@ class LayerFreezing(Algorithm):
             freeze_start=self.freeze_start,
             freeze_level=self.freeze_level,
         )
-        logger.metric_epoch({
+        logger.data_epoch({
             'layer_freezing/layers_frozen': freeze_depth,
             'layer_freezing/percentage_frozen': freeze_percentage
         })
@@ -167,15 +169,15 @@ def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level:
     return freeze_level * freezing_time_elapsed_frac
 
 
-def _get_layers(module: Model, flat_children: List[Model]):
+def _get_layers(module: torch.nn.Module, flat_children: List[torch.nn.Module]):
     """Helper function to get all submodules.
 
     Does a depth first search to flatten out modules which
     contain parameters.
 
     Args:
-        module (Model): Current module to search.
-        flat_children (List[Model]): List containing modules.
+        module (torch.nn.Module): Current module to search.
+        flat_children (List[torch.nn.Module]): List containing modules.
     """
     # Check if given module has no children and parameters.
     if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
@@ -186,7 +188,7 @@ def _get_layers(module: Model, flat_children: List[Model]):
             _get_layers(child, flat_children)
 
 
-def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Optimizers):
+def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Union[Optimizer, Sequence[Optimizer]]):
     """Helper function to freeze the training of a parameter.
 
     To freeze a parameter, it must be removed from the optimizer,
@@ -194,14 +196,10 @@ def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Optimizers)
 
     Args:
         p (torch.nn.Parameter): The parameter being frozen.
-        optimizers (Optimizers): The optimizers used during training.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]): The optimizers used during training.
     """
-    # Force optimizers to be iterable
-    if not isinstance(optimizers, (list, tuple)):
-        optimizers = [optimizers]
-
     # Search over params in the optimizers to find and remove the
     # given param. Necessary due to the way params are stored.
-    for optimizer in optimizers:
+    for optimizer in ensure_tuple(optimizers):
         for group in optimizer.param_groups:
             group['params'] = list(filter(lambda x: id(x) != id(p), group['params']))

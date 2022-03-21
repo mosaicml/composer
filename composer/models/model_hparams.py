@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""General `YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for ComposerModels."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Callable, List, Optional
@@ -11,8 +13,11 @@ import yahp as hp
 from composer.models.base import ComposerModel
 from composer.utils.string_enum import StringEnum
 
+__all__ = ["ModelHparams", "Initializer"]
+
 
 class Initializer(StringEnum):
+    """Sets the initialization scheme for different layers of a PyTorch model."""
     KAIMING_NORMAL = "kaiming_normal"
     KAIMING_UNIFORM = "kaiming_uniform"
     BN_UNIFORM = "bn_uniform"
@@ -57,8 +62,12 @@ class Initializer(StringEnum):
 
 @dataclass
 class ModelHparams(hp.Hparams, ABC):
-    """Model Hparams."""
+    """General `YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for ComposerModels.
 
+    Args:
+        num_classes (int): The number of classes. Needed for classification tasks. Default: ``None``.
+        initializers (List[Initializer], optional): The initialization strategy for the model. Default: ``None``.
+    """
     initializers: List[Initializer] = hp.optional(
         default_factory=lambda: [],
         doc="The initialization strategy for the model",
@@ -71,9 +80,10 @@ class ModelHparams(hp.Hparams, ABC):
 
     @abstractmethod
     def initialize_object(self) -> ComposerModel:
-        """Invoked by the :meth:`TrainerHparams.initialize_object` to construct a :class:`ComposerModel`.
+        """Invoked by the :meth:`~composer.trainer.trainer_hparams.TrainerHparams.initialize_object` to construct a
+        :class:`.ComposerModel`.
 
         Returns:
-            ComposerModel: The constructed `ComposerModel`
+            ComposerModel: The constructed :class:`.ComposerModel`
         """
         pass

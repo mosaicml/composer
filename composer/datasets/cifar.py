@@ -1,5 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""CIFAR image classification dataset.
+
+The CIFAR datasets are a collection of labeled 32x32 colour images. Please refer to the `CIFAR dataset
+<https://www.cs.toronto.edu/~kriz/cifar.html>`_ for more details.
+"""
+
 from dataclasses import dataclass
 from typing import List
 
@@ -8,22 +14,27 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from composer.core.types import DataLoader
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 
+__all__ = [
+    "CIFAR10DatasetHparams", "CIFARWebDatasetHparams", "CIFAR10WebDatasetHparams", "CIFAR20WebDatasetHparams",
+    "CIFAR100WebDatasetHparams"
+]
+
 
 @dataclass
 class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
-    """Defines an instance of the CIFAR-10 dataset for image classification.
+    """Defines an instance of the CIFAR-10 dataset for image classification from a local disk.
 
-    Parameters:
-        download (bool): Whether to download the dataset, if needed.
+    Args:
+        download (bool): Whether to download the dataset, if needed. Default: ``True``.
     """
     download: bool = hp.optional("whether to download the dataset, if needed", default=True)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         cifar10_mean = 0.4914, 0.4822, 0.4465
         cifar10_std = 0.247, 0.243, 0.261
 
@@ -73,13 +84,13 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class CIFARWebDatasetHparams(WebDatasetHparams):
     """Common functionality for CIFAR WebDatasets.
 
-    Parameters:
+    Args:
         remote (str): S3 bucket or root directory where dataset is stored.
         name (str): Key used to determine where dataset is cached on local filesystem.
         n_train_samples (int): Number of training samples.
         n_val_samples (int): Number of validation samples.
-        height (int): Sample image height in pixels.
-        width (int): Sample image width in pixels.
+        height (int): Sample image height in pixels. Default: ``32``.
+        width (int): Sample image width in pixels. Default: ``32``.
         n_classes (int): Number of output classes.
         channel_means (list of float): Channel means for normalization.
         channel_stds (list of float): Channel stds for normalization.
@@ -96,7 +107,7 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0, 0, 0))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0, 0, 0))
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         from composer.datasets.webdataset import load_webdataset
 
         if self.is_train:
@@ -125,7 +136,18 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
 
 @dataclass
 class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
-    """Defines an instance of the CIFAR-10 WebDataset for image classification."""
+    """Defines an instance of the CIFAR-10 WebDataset for image classification.
+
+    Args:
+        remote (str): S3 bucket or root directory where dataset is stored.
+            Default: ``'s3://mosaicml-internal-dataset-cifar10'``.
+        name (str): Key used to determine where dataset is cached on local filesystem. Default: ``'cifar10'``.
+        n_train_samples (int): Number of training samples. Default: ``50000``.
+        n_val_samples (int): Number of validation samples. Default: ``10000``.
+        n_classes (int): Number of output classes. Default: ``10``.
+        channel_means (list of float): Channel means for normalization. Default: ``(0.4914, 0.4822, 0.4465)``.
+        channel_stds (list of float): Channel stds for normalization. Default: ``(0.247, 0.243, 0.261)``.
+    """
 
     remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-cifar10')
     name: str = hp.optional('WebDataset local cache name', default='cifar10')
@@ -139,8 +161,18 @@ class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
 
 @dataclass
 class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
-    """Defines an instance of the CIFAR-20 WebDataset for image classification."""
+    """Defines an instance of the CIFAR-20 WebDataset for image classification.
 
+    Args:
+        remote (str): S3 bucket or root directory where dataset is stored.
+            Default: ``'s3://mosaicml-internal-dataset-cifar20'``.
+        name (str): Key used to determine where dataset is cached on local filesystem. Default: ``'cifar20'``.
+        n_train_samples (int): Number of training samples. Default: ``50000``.
+        n_val_samples (int): Number of validation samples. Default: ``10000``.
+        n_classes (int): Number of output classes. Default: ``20``.
+        channel_means (list of float): Channel means for normalization. Default: ``(0.5071, 0.4867, 0.4408)``.
+        channel_stds (list of float): Channel stds for normalization. Default: ``(0.2675, 0.2565, 0.2761)``.
+    """
     remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-cifar20')
     name: str = hp.optional('WebDataset local cache name', default='cifar20')
 
@@ -153,8 +185,18 @@ class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
 
 @dataclass
 class CIFAR100WebDatasetHparams(CIFARWebDatasetHparams):
-    """Defines an instance of the CIFAR-100 WebDataset for image classification."""
+    """Defines an instance of the CIFAR-100 WebDataset for image classification.
 
+    Args:
+        remote (str): S3 bucket or root directory where dataset is stored.
+            Default: ``'s3://mosaicml-internal-dataset-cifar100'``.
+        name (str): Key used to determine where dataset is cached on local filesystem. Default: ``'cifar100'``.
+        n_train_samples (int): Number of training samples. Default: ``50000``.
+        n_val_samples (int): Number of validation samples. Default: ``10000``.
+        n_classes (int): Number of output classes. Default: ``100``.
+        channel_means (list of float): Channel means for normalization. Default: ``(0.5071, 0.4867, 0.4408)``.
+        channel_stds (list of float): Channel stds for normalization. Default: ``(0.2675, 0.2565, 0.2761)``.
+    """
     remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-cifar100')
     name: str = hp.optional('WebDataset local cache name', default='cifar100')
 

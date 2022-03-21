@@ -1,9 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""The ComposerModel base interface for Transformers."""
+
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Mapping, Tuple
+from typing import TYPE_CHECKING, Mapping, Sequence, Tuple, Union
+
+from torch import Tensor
 
 from composer.models.base import ComposerModel
 from composer.models.nlp_metrics import LanguageCrossEntropyLoss
@@ -11,13 +15,15 @@ from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, Metrics, Tensors
+    from composer.core.types import Batch
 
 log = logging.getLogger(__name__)
 
+__all__ = ["ComposerTransformer"]
+
 
 class ComposerTransformer(ComposerModel):
-    """Implements the base logic that all Transformers can build on top of.
+    """The ComposerModel base interface for Transformers.
 
     Works with `Hugging Face Transformers <https://huggingface.co/transformers/>`_.
 
@@ -28,6 +34,7 @@ class ComposerTransformer(ComposerModel):
             stores information about the model hyperparameters.
         tokenizer (transformers.PreTrainedTokenizer): The tokenizer used for this model,
             necessary to assert required model inputs.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
     """
 
     def __init__(self,
@@ -56,7 +63,7 @@ class ComposerTransformer(ComposerModel):
         if gradient_checkpointing:
             self.module.gradient_checkpointing_enable()  # type: ignore
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
+    def loss(self, outputs: Mapping, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
         """Computes the loss of the tensor from the output.
 
         We don't implement this for the generic Transformer abstraction, since loss
@@ -68,27 +75,22 @@ class ComposerTransformer(ComposerModel):
                 It could contain the loss as computed by Hugging Face,
                 or algorithms can pop the labels from the input in case
                 they modify the loss function.
-            batch (Batch): The set of ground truth labels to use to compute the loss against.
-
-        Returns:
-            The loss as a ``Tensors`` object.
+            batch (:class:`~composer.core.types.Batch`): The set of ground truth labels to use to compute the loss against.
 
         Raises:
             NotImplementedError: A model-specific and task-specific loss function must be written.
         """
-
         raise NotImplementedError("A model-specific loss function must be written.")
 
     def forward(self, batch: Batch) -> Mapping:
         """Runs the forward pass of the model.
 
         Args:
-            batch (Batch): A dictionary of Dict[str, Tensor] of inputs that the
-                model expects, as found in ComposerTransformer.get_model_inputs().
+            batch (~composer.core.types.Batch): A dictionary of Dict[str, Tensor] of inputs that the
+                model expects, as found in :meth:`.ComposerTransformer.get_model_inputs`.
 
         Returns:
-            A dictionary of model outputs as a ``Mapping``. It will include the loss
-            if `labels` is passed as an input.
+            output: A dictionary of model outputs as a ``Mapping``. It will include the loss if `labels` is passed as an input.
         """
         if not isinstance(batch, dict):
             raise ValueError(f'Model expects batch to be a dict, got {type(batch)}')
@@ -100,41 +102,20 @@ class ComposerTransformer(ComposerModel):
         output = self.module(**batch)  # type: ignore (thirdparty)
         return output
 
-    def metrics(self, train: bool = False) -> Metrics:
-        """Get metrics for evaluating the model.
-
-        Downstream models should override this method if they would like to
-        add task-specific metrics.
-
-        Args:
-            train (bool): a boolean flag to indicate whether to return
-                training or validation metrics.
-
-        .. warning:: If train=True, then it might calculate the training loss twice if
-                     algorithms are overriding the loss fn. This could be expensive due
-                     to the computational cost of softmax; it is worth exploring caching strategies.
-
-        Returns:
-            A  Metrics object that can be used to calculate task performance.
-        """
-        return self.train_loss if train else self.val_loss
-
     def validate(self, batch: Batch) -> Tuple[Mapping, None]:
         """Runs the validation step.
 
         Args:
-            batch (Batch): a dictionary of Dict[str, Tensor] of inputs
-                that the model expects, as found in ComposerTransformer.get_model_inputs().
+            batch (~composer.core.types.Batch): a dictionary of Dict[str, Tensor] of inputs
+                that the model expects, as found in :meth:`.ComposerTransformer.get_model_inputs`.
 
         Returns:
             Tuple[Mapping, None]: A tuple containing the output from the forward pass.
-                This is fed into directly into the output of :meth:`metrics`.
+                This is fed into directly into the output of :meth:`.ComposerModel.metrics`.
         """
-
         assert self.training is False, "For validation, model must be in eval mode"
         output = self.forward(batch)
-
-        return (output, None)
+        return output, None
 
     def get_model_inputs(self):
         """Returns a set of inputs that the model expects in the forward pass.
@@ -144,7 +125,7 @@ class ComposerTransformer(ComposerModel):
         for head pruning, it must access self.set_model_inputs().
 
         Returns:
-            The set of keys that are expected in the Mapping used to compute the forward pass.
+            model_inputs: The set of keys that are expected in the Mapping used to compute the forward pass.
         """
 
         return self.model_inputs

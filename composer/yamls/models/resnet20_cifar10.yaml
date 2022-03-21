@@ -19,7 +19,7 @@ optimizer:
     weight_decay: 2.0e-3
 schedulers:
   - multistep_with_warmup:
-      warmup_time: "5ep"
+      t_warmup: "5ep"
       milestones:
         - "80ep"
         - "120ep"
@@ -29,8 +29,6 @@ model:
     initializers:
       - kaiming_normal
       - bn_uniform
-loggers:
-  - tqdm: {}
 max_duration: 160ep
 train_batch_size: 1024
 eval_batch_size: 1000

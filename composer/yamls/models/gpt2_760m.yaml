@@ -63,9 +63,7 @@ optimizer:
     weight_decay: 0.0
 schedulers:
   - cosine_decay_with_warmup:
-      warmup_time: 140ba
-loggers:
-  - tqdm: {}
+      t_warmup: 140ba
 max_duration: 1ep
 train_batch_size: 512
 eval_batch_size: 8

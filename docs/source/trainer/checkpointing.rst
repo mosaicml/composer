@@ -46,8 +46,8 @@ Opening one of those checkpoints, you'll see:
    print(f"Top level keys: {list(state_dict.keys())}")
    print(f"state keys: {list(state_dict['state'].keys())}")
 
-   >>> Top level keys: ['rng', 'seed', 'state']
-   >>> state keys: ['model', 'grad_accum', '_max_duration', 'timer', '_precision', '_optimizers', '_schedulers', 'scaler', '_algorithms', '_callbacks', '_is_model_ddp_wrapped']
+   >>> Top level keys: ['rng', 'state']
+   >>> Keys: ['model', 'timer', 'optimizers', 'schedulers', 'scaler', 'algorithms', 'callbacks', 'rng', 'rank_zero_seed', 'is_model_ddp']
 
 At the top level, we see details on the current RNG state and the
 ``trainer.state``.
@@ -68,7 +68,7 @@ Resume training
 
 To resume training from a previous checkpoint, pass the
 checkpoint file path to the :class:`.Trainer` with the
-``load_path`` argument. This should be an absolute path.
+``load_path_format`` argument. This should be an absolute path.
 
 When the :class:`.Trainer` is initialized, all the state
 information will be restored from the checkpoint and
@@ -80,7 +80,7 @@ information will be restored from the checkpoint and
                      train_dataloader=dataloader,
                      eval_dataloader=None,
                      max_duration="90ep",
-                     load_path="/path/to/checkpoint/ep25.pt")
+                     load_path_format="/path/to/checkpoint/ep25.pt")
    trainer.fit()
 
 The above code will load the checkpoint from epoch 25, and continue training
@@ -124,7 +124,7 @@ since the rest of the trainer's state no longer applies.
                         train_dataloader=finetune_dataloader,
                         eval_dataloader=None,
                         max_duration="10ep",
-                        load_path="/path/to/checkpoint/ep50.pt",
+                        load_path_format="/path/to/checkpoint/ep50.pt",
                         load_weights_only=True)
 
 This example will load only the model weights from epoch 50, and then continue
@@ -157,7 +157,7 @@ will upload to the object store.
     We use :mod:`libcloud` to connect to the remote object stores, so be
     sure to have the Python package ``apache-libcloud`` installed.
 
-For this, the :class:`.ObjectStoreProvider` needs to be configured with
+For this, the :class:`.ObjectStore` needs to be configured with
 the following arguments:
 
 -  ``provider``: The name of the object store provider, as recognized by
@@ -194,13 +194,13 @@ Let's put all this together below:
 
    import uuid
    from composer.callbacks import RunDirectoryUploader
-   from composer.utils.object_store import ObjectStoreProviderHparams
+   from composer.utils.object_store import ObjectStoreHparams
 
    credentials = {"provider": "GOOGLE_STORAGE",
                   "container": "checkpoints-debugging",
                   "key_environ": "GCE_KEY",
                   "secret_environ": "GCE_SECRET"}
-   hp = ObjectStoreProviderHparams(**credentials)
+   hp = ObjectStoreHparams(**credentials)
 
    prefix = f"my-model-{str(uuid.uuid4())[:6]}"
    store_uploader = RunDirectoryUploader(hp, object_name_prefix=prefix)
@@ -222,19 +222,19 @@ Loading from Object Store
 
 Checkpoints saved to an object store can also be loaded in the
 same way as files saved on disk. Provide the
-:class:`.ObjectStoreProviderHparams` to the trainer's ``load_object_store``
-argument.  The ``load_path`` argument
+:class:`.ObjectStoreHparams` to the trainer's ``load_object_store``
+argument.  The ``load_path_format`` argument
 should be the path to the checkpoint file *within the container/bucket*.
 
 .. code:: python
 
-   from composer.utils.object_store import ObjectStoreProviderHparams
+   from composer.utils.object_store import ObjectStoreHparams
 
    credentials = {"provider": "GOOGLE_STORAGE",
                   "container": "checkpoints-debugging",
                   "key_environ": "GCS_KEY",
                   "secret_environ": "GCS_SECRET"}
-   hp = ObjectStoreProviderHparams(
+   hp = ObjectStoreHparams(
        provider="GOOGLE_STORAGE",
        container="checkpoints-debugging",
        key_environ="GCS_KEY",
@@ -250,7 +250,7 @@ From there we can fine-tune with:
                          train_dataloader=finetune_dataloader,
                          eval_dataloader=None,
                          max_duration="10ep",
-                         load_path="simple/rank_0/checkpoints/ep1.tar",
+                         load_path_format="simple/rank_0/checkpoints/ep1.tar",
                          load_object_store=object_store,
                          load_weights_only=True)
    new_trainer.fit()
@@ -268,18 +268,18 @@ for the arguments that are specific to checkpoint loading and saving:
 Loading
 ~~~~~~~
 
-- ``load_path`` (``str``, `optional`): Path to a specific checkpoint to load. If not set (the default),
+- ``load_path_format`` (``str``, `optional`): Path to a specific checkpoint to load. If not set (the default),
   then no checkpoint will be loaded. (default: ``None``)
-- ``load_object_store`` (:class:`.ObjectStoreProvider`, `optional`): For loading from object stores (e.g. S3),
-  this will be used to download the checkpoint. Ignored if ``load_path`` is not specified. (default: ``None``)
-- ``load_weights_only`` (``bool``): Only load the model weights.  Ignored if ``load_path`` is not specified.
+- ``load_object_store`` (:class:`.ObjectStore`, `optional`): For loading from object stores (e.g. S3),
+  this will be used to download the checkpoint. Ignored if ``load_path_format`` is not specified. (default: ``None``)
+- ``load_weights_only`` (``bool``): Only load the model weights.  Ignored if ``load_path_format`` is not specified.
   (default: ``False``)
 - ``load_strict`` (``bool``): Ensure that the set of weights in the checkpoint and model must exactly match. Ignored if
-  ``load_path`` is not specified. (default: ``False``)
+  ``load_path_format`` is not specified. (default: ``False``)
 - ``load_chunk_size`` (``int``): Chunk size (in bytes) to use when downloading checkpoints.
-  Ignored if the ``load_path`` is not specified or it is a local file path. (default: ``1,048,675``)
+  Ignored if the ``load_path_format`` is not specified or it is a local file path. (default: ``1,048,675``)
 - ``load_progress_bar`` (``bool``): Display the progress bar for downloading the checkpoint. Ignored if
-  ``load_path`` is not specified or if it is a local file path. (default: ``True``)
+  ``load_path_format`` is not specified or if it is a local file path. (default: ``True``)
 
 Saving
 ~~~~~~
@@ -295,13 +295,13 @@ Saving
 Object Store API
 ----------------
 
-.. autoclass:: composer.utils.ObjectStoreProviderHparams
+.. autoclass:: composer.utils.object_store.ObjectStoreHparams
     :noindex:
 
 RunDirectoryUploader API
 ------------------------
 
-.. autoclass:: composer.callbacks.RunDirectoryUploader
+.. autoclass:: composer.callbacks.run_directory_uploader.RunDirectoryUploader
     :noindex:
 
 .. TODO: add details on what can be overridden when loading a checkpoint.

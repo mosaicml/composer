@@ -6,7 +6,7 @@ from torchvision import datasets, transforms
 from composer import Trainer
 from composer.models import MNIST_Classifier
 
-# Specify Dataset and Instantiate Dataloader
+# Specify Dataset and Instantiate DataLoader
 batch_size = 2048
 data_directory = "../data"
 
@@ -31,12 +31,12 @@ torch_trace_dir = "torch_profiler"
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=train_dataloader,
-                  max_duration=8,
+                  max_duration=2,
                   device="gpu",
                   validate_every_n_batches=-1,
                   validate_every_n_epochs=-1,
                   precision="amp",
-                  train_subset_num_batches=8,
+                  train_subset_num_batches=16,
                   profiler_trace_file=profiler_trace_file,
                   prof_skip_first=0,
                   prof_wait=0,

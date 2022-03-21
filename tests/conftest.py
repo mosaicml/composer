@@ -3,13 +3,13 @@
 import logging
 import os
 import pathlib
-from typing import List
+from typing import List, Optional
 
 import pytest
 from pytest import MonkeyPatch
 
 import composer
-from composer.utils import run_directory
+from composer.utils import dist, reproducibility, run_directory
 
 # Allowed options for pytest.mark.world_size()
 # Important: when updating this list, make sure to also up ./.ci/test.sh
@@ -42,6 +42,12 @@ if _include_deprecated_fixtures:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--seed",
+                     default=0,
+                     type=int,
+                     help="""\
+        Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
+        before each test.""")
     parser.addoption("--duration",
                      default="all",
                      choices=["short", "long", "all"],
@@ -71,13 +77,13 @@ def _get_world_size(item: pytest.Item):
     return item.get_closest_marker("world_size", default=_default).args[0]
 
 
-def _validate_world_size(world_size: int):
+def _validate_world_size(world_size: Optional[int]):
     if "WORLD_SIZE" in os.environ and int(os.environ["WORLD_SIZE"]) != world_size:
         raise ValueError(f'--world-size ({world_size}) and WORLD_SIZE environment'
                          f'variable ({os.environ["WORLD_SIZE"]}) do not match.')
 
 
-def _validate_duration(duration: int):
+def _validate_duration(duration: Optional[str]):
     if duration not in ('short', 'long', 'all'):
         raise ValueError(f'duration ({duration}) must be one of short, long, all.')
 
@@ -87,6 +93,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
     threshold = float(getattr(config, "_env_timeout", DEFAULT_TIMEOUT))
     duration = config.getoption("duration")
     world_size = config.getoption("world_size")
+
+    assert isinstance(duration, str)
+    assert isinstance(world_size, int)
 
     _validate_world_size(world_size)
     _validate_duration(duration)
@@ -120,6 +129,21 @@ def set_loglevels():
     """Ensures all log levels are set to DEBUG."""
     logging.basicConfig()
     logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
+
+
+@pytest.fixture
+def rank_zero_seed(request: pytest.FixtureRequest) -> int:
+    """Read the rank_zero_seed from the CLI option."""
+    seed = request.config.getoption("seed")
+    assert isinstance(seed, int)
+    return seed
+
+
+@pytest.fixture(autouse=True)
+def seed_all(rank_zero_seed: int):
+    """Set the random seed before each test to ensure consistent test results, which and limit flakiness due to random
+    initializations."""
+    reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
 
 
 @pytest.fixture(autouse=True)

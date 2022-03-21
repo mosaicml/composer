@@ -1,32 +1,36 @@
-## Code adapted from https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
+"""SSD 300 architecture in PyTorch adapted from MLCommons.
+
+Based on MLCommons Reference Implementation `here`_
+
+.. _here: https://github.com/mlcommons/training/tree/master/single_stage_detector/ssd
+"""
 
 import torch
 import torch.nn as nn
 
 from composer.models.ssd.base_model import ResNet34
 
+__all__ = ["SSD300"]
+
 
 class SSD300(nn.Module):
     """Build a SSD module to take 300x300 image input, and output 8732 per class bounding boxes.
 
-    label_num: number of classes (including background 0)
+    Args:
+        num_classes (int, optional): The number of classes to detect. Default: ``80``.
+        model_path (str, optional): Path to ``ResNet34`` pretrained model weights. Default: ``None``.
     """
 
-    def __init__(self, label_num, backbone='resnet34', model_path=None):
+    def __init__(self, num_classes, model_path=None):
 
         super(SSD300, self).__init__()
 
-        self.label_num = label_num
+        self.num_classes = num_classes
 
-        if backbone == 'resnet34':
-            print('MP', model_path)
-            self.model = ResNet34(model_path=model_path)
-            out_channels = 256
-            out_size = 38
-            self.out_chan = [out_channels, 512, 512, 256, 256, 256]
-        else:
-            raise ValueError('Invalid backbone chosen')
-
+        self.model = ResNet34(model_path=model_path)
+        out_channels = 256
+        out_size = 38
+        self.out_chan = [out_channels, 512, 512, 256, 256, 256]
         self._build_additional_features(out_size, self.out_chan)
 
         # after l2norm, conv7, conv8_2, conv9_2, conv10_2, conv11_2
@@ -38,7 +42,7 @@ class SSD300(nn.Module):
 
         for nd, oc in zip(self.num_defaults, self.out_chan):
             self.loc.append(nn.Conv2d(oc, nd * 4, kernel_size=3, padding=1))
-            self.conf.append(nn.Conv2d(oc, nd * label_num, kernel_size=3, padding=1))
+            self.conf.append(nn.Conv2d(oc, nd * num_classes, kernel_size=3, padding=1))
 
         self.loc = nn.ModuleList(self.loc)
         self.conf = nn.ModuleList(self.conf)
@@ -121,7 +125,7 @@ class SSD300(nn.Module):
     def bbox_view(self, src, loc, conf):
         ret = []
         for s, l, c in zip(src, loc, conf):
-            ret.append((l(s).view(s.size(0), 4, -1), c(s).view(s.size(0), self.label_num, -1)))
+            ret.append((l(s).view(s.size(0), 4, -1), c(s).view(s.size(0), self.num_classes, -1)))
 
         locs, confs = list(zip(*ret))
         locs, confs = torch.cat(locs, 2).contiguous(), torch.cat(confs, 2).contiguous()
