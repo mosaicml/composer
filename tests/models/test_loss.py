@@ -42,7 +42,10 @@ def generate_tensors():
         fake_input_target_pairs((64, 10)),
         # Segmentation
         fake_input_target_pairs((64, 2, 5, 5)),
-        fake_input_target_pairs((64, 10, 5, 5))
+        fake_input_target_pairs((64, 10, 5, 5)),
+        # 3D inputs
+        fake_input_target_pairs((64, 2, 5, 7, 11)),
+        fake_input_target_pairs((64, 10, 5, 7, 11))
     ]
 
 
