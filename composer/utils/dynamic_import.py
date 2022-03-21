@@ -3,9 +3,14 @@
 """Dynamically import a Python object (e.g. module, class, function, ...)."""
 
 import importlib
+import textwrap
 from typing import Any
 
-__all__ = ["import_object"]
+__all__ = ["import_object", "NLP_IMPORT_MESSAGE"]
+
+NLP_IMPORT_MESSAGE = textwrap.dedent("""\
+	Composer was installed without NLP support. To use NLP-related packages, with Composer, run `pip install mosaicml[nlp]`
+	if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")
 
 
 def import_object(name: str) -> Any:

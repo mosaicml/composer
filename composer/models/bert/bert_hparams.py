@@ -3,13 +3,13 @@
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ general and classification interfaces for
 :class:`.BERTModel`."""
 
-import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import yahp as hp
 
 from composer.models.transformer_hparams import TransformerHparams
+from composer.utils.dynamic_import import NLP_IMPORT_MESSAGE
 
 if TYPE_CHECKING:
     from composer.models.bert import BERTModel
@@ -41,10 +41,7 @@ class BERTForClassificationHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
+            raise ImportError(NLP_IMPORT_MESSAGE) from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -94,10 +91,7 @@ class BERTHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
+            raise ImportError(NLP_IMPORT_MESSAGE) from e
 
         from composer.models.bert.model import BERTModel
         self.validate()

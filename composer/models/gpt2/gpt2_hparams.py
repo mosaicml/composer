@@ -3,10 +3,10 @@
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.GPT2Model`."""
 
 import dataclasses
-import textwrap
 from typing import TYPE_CHECKING
 
 from composer.models.transformer_hparams import TransformerHparams
+from composer.utils.dynamic_import import NLP_IMPORT_MESSAGE
 
 if TYPE_CHECKING:
     from composer.models.transformer_shared import ComposerTransformer
@@ -31,10 +31,8 @@ class GPT2Hparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
+            raise ImportError(NLP_IMPORT_MESSAGE) from e
+
         from composer.models.gpt2.model import GPT2Model
         self.validate()
 

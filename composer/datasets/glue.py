@@ -16,7 +16,6 @@ Please refer to the `GLUE`_ benchmark for more details.
 """
 
 import logging
-import textwrap
 from dataclasses import dataclass
 from typing import cast
 
@@ -28,6 +27,7 @@ from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.datasets.lm_datasets import _split_dict_fn
 from composer.utils import dist
+from composer.utils.dynamic_import import NLP_IMPORT_MESSAGE
 
 __all__ = ["GLUEHparams"]
 
@@ -96,10 +96,7 @@ class GLUEHparams(DatasetHparams):
             import datasets
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")) from e
+            raise ImportError(NLP_IMPORT_MESSAGE) from e
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
