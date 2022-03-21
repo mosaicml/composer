@@ -129,24 +129,11 @@ class SAM(Algorithm):
         self.interval = interval
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now
-        """
+        """Run on Event.INIT."""
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
-        """Applies SAM by wrapping the base optimizer with the SAM optimizer.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
+        """Applies SAM by wrapping the base optimizer with the SAM optimizer."""
         assert state.optimizers is not None
 
         state.optimizers = tuple(

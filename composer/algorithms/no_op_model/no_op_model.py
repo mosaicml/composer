@@ -69,14 +69,7 @@ class NoOpModel(Algorithm):
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Replace model with dummy model of type NoOpModelClass
-        
-        Args:
-            Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
+        """Replace model with dummy model of type NoOpModelClass"""
         new_model = NoOpModelClass(state.model)
         module_surgery.update_params_in_optimizer(old_params=state.model.parameters(),
                                                   new_params=new_model.parameters(),

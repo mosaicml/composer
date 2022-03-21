@@ -29,8 +29,6 @@ class ChannelsLast(Algorithm):
 
     Runs on ``Event.INIT``, so it can set the memory format before the model is DDP wrapped. Has no hyperparameters.
 
-    Args:
-
     Example:
         .. testcode::
 

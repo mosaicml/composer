@@ -86,14 +86,15 @@ def select_using_loss(input: torch.Tensor,
         TypeError: If ``loss_fun > 1`` has the wrong signature or is not callable
 
     .. note::
+
         This function runs an extra forward pass through the model on the batch of data.
         If you are using a non-default precision, ensure that this forward pass
         runs in your desired precision. For example:
 
-        .. code-block:: python
+    .. testcode::
 
-            with torch.cuda.amp.autocast(True):
-                X_new, y_new = selective_backprop(X, y, model, loss_fun, keep, scale_factor)
+        with torch.cuda.amp.autocast(True):
+            X_new, y_new = selective_backprop(X, y, model, loss_fun, keep, scale_factor)
     """
     INTERPOLATE_MODES = {3: "linear", 4: "bilinear", 5: "trilinear"}
 
@@ -200,16 +201,7 @@ class SelectiveBackprop(Algorithm):
         self._loss_fn = None  # set on Event.INIT
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT and Event.AFTER_DATALOADER. On Event.INIT 
-        gets the loss function before the model is wrapped. On Event.AFTER_DATALOADER,
-        applies the selective backprop if time is between ``self.start`` and ``self.end``.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
+        """Runs on Event.INIT and Event.AFTER_DATALOADER."""
         if event == Event.INIT:
             return True
         if event != Event.AFTER_DATALOADER:
@@ -229,13 +221,7 @@ class SelectiveBackprop(Algorithm):
         return is_chosen
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-        """Applies SelectiveBackprop to the current batch.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
+        """Applies SelectiveBackprop to the current batch."""
         if event == Event.INIT:
             if self._loss_fn is None:
                 if not isinstance(state.model, ComposerModel):
