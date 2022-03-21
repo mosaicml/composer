@@ -27,7 +27,7 @@ from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.datasets.lm_datasets import _split_dict_fn
 from composer.utils import dist
-from composer.utils.dynamic_import import NLP_IMPORT_MESSAGE
+from composer.utils.dynamic_import import MissingConditionalImportError
 
 __all__ = ["GLUEHparams"]
 
@@ -96,7 +96,7 @@ class GLUEHparams(DatasetHparams):
             import datasets
             import transformers
         except ImportError as e:
-            raise ImportError(NLP_IMPORT_MESSAGE) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)

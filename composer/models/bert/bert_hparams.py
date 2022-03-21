@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import yahp as hp
 
 from composer.models.transformer_hparams import TransformerHparams
-from composer.utils.dynamic_import import NLP_IMPORT_MESSAGE
+from composer.utils.dynamic_import import MissingConditionalImportError
 
 if TYPE_CHECKING:
     from composer.models.bert import BERTModel
@@ -41,7 +41,7 @@ class BERTForClassificationHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError(NLP_IMPORT_MESSAGE) from e
+            raise ImportError(NLP_IMPORT_ERROR_MESSAGE) from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -91,7 +91,7 @@ class BERTHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError(NLP_IMPORT_MESSAGE) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
