@@ -14,6 +14,7 @@ from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.run_directory_uploader import RunDirectoryUploader
 from composer.callbacks.speed_monitor import SpeedMonitor
+from composer.callbacks.mlperf import MLPerfCallback
 
 __all__ = [
     "GradMonitor",
@@ -22,6 +23,7 @@ __all__ = [
     "RunDirectoryUploader",
     "SpeedMonitor",
     "CheckpointSaver",
+    "MLPerfCallback",
     # hparams objects
     "CallbackHparams",
     "CheckpointSaverHparams",
