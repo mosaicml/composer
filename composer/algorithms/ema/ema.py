@@ -8,15 +8,16 @@ from typing import List, Optional, Tuple
 
 import torch
 
-from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Model, Optimizers
+from composer.core import Algorithm, Event, State, Time, TimeUnit
+from composer.loggers import Logger
 
+import pdb
 log = logging.getLogger(__name__)
 
 __all__ = ["EMA", "ema"]
 
 
-def ema(model: Model, ema_model: Model, alpha: float = 0.9):
+def ema(model: torch.nn.Module, ema_model: torch.nn.Module, alpha: float = 0.9):
     """
     The half life of the weights for terms in the average is given by
 
@@ -42,22 +43,46 @@ class EMA(Algorithm):
     """
     """
 
-    def __init__(self, alpha: float, update_interval: str, train_with_ema_weights: bool):
-        self.alpha = alpha
+    def __init__(self, half_life: str, update_interval: str, train_with_ema_weights: bool):
+        self.half_life = half_life
         self.update_interval = update_interval
         self.train_with_ema_weights = train_with_ema_weights
 
         self.ema_model = None
         self.training_model = None
 
-        # Check update_interval timestring is parsable and convert into time object
+        # Check timestrings are parsable and convert into time object
+        try:
+            self.half_life = Time.from_timestring(half_life)
+        except ValueError as error:
+            raise ValueError(f"Invalid time string for parameter half_life") from error
+
         try:
             self.update_interval = Time.from_timestring(update_interval)
         except ValueError as error:
             raise ValueError(f"Invalid time string for parameter update_interval") from error
 
+        # Verify that the units of half_life and update_interval are compatible
+        if self.half_life.unit != self.update_interval.unit:
+            raise ValueError(f"Units of half_life and update_interval must match.")
+
+        # Verify that the time strings have supported units.
+        if self.half_life.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
+            raise ValueError(f"Invalid unit string for parameter half_life: "
+                             f"{self.update_interval.unit}")
+
+        # Calculate the appropriate weighting for the moving average
+        self.alpha = 2 ** (-(self.update_interval.value/self.half_life.value))
+
+        # Construct the appropriate matching events
+        self.match_events = [Event.FIT_START, Event.EVAL_START, Event.EVAL_END]
+        if self.half_life.unit == TimeUnit.EPOCH:
+            self.match_events.append(Event.EPOCH_END)
+        if self.half_life.unit == TimeUnit.BATCH:
+            self.match_events.append(Event.BATCH_END)
+
     def match(self, event: Event, state: State) -> bool:
-        return event in [Event.FIT_START, Event.BATCH_END, Event.EVAL_START, Event.EVAL_END]
+        return event in self.match_events
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         if event == Event.FIT_START:
@@ -66,13 +91,20 @@ class EMA(Algorithm):
             self.training_model = copy.deepcopy(state.model)
 
         if self.train_with_ema_weights:
-            if event == Event.BATCH_END:
-                ema(state.model, self.ema_model, alpha=self.alpha)
-                state.model.load_state_dict(self.ema_model.state_dict())
+            if event in [Event.BATCH_END, Event.EPOCH_END]:
+                # Check if an update should happen
+                if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
+                    # Update the ema model
+                    ema(state.model, self.ema_model, alpha=self.alpha)
+                    # Use the ema weights for further training
+                    state.model.load_state_dict(self.ema_model.state_dict())
         else:
-            if event == Event.BATCH_END:
-                # Update the ema model
-                ema(state.model, self.ema_model, alpha=self.alpha)
+            if event in [Event.BATCH_END, Event.EPOCH_END]:
+                # Check if an update should happen
+                if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
+                    print(state.timer.get(self.update_interval.unit), "Updating", self.alpha)
+                    # Update the ema model
+                    ema(state.model, self.ema_model, alpha=self.alpha)
             if event == Event.EVAL_START:
                 # Swap out the training model for the ema model in state
                 self.training_model.load_state_dict(state.model.state_dict())

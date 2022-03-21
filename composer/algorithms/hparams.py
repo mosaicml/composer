@@ -163,10 +163,13 @@ class CutOutHparams(AlgorithmHparams):
 class EMAHparams(AlgorithmHparams):
     """See :class:`EMA`"""
 
-    alpha: float = hp.optional('Strength of exponential moving average.', default=0.9)
-    update_interval: str = hp.optional(doc='Time string denoting how often the averaged model is updated. For example, '
-                                       '"1ep" means the averaged model will be updated once per epoch, and '
-                                       '"10ba" means the averaged model will be updated every 10 batches.',
+    half_life: str = hp.required(doc='Time string specifying the time scale (half-life) on which old information is '
+                                 'forgotten. For example, "10ba" means old information decays with a half-life of 10 '
+                                 'batches.')
+    update_interval: str = hp.optional(doc='Time string denoting how often the averaged model is updated. For example,'
+                                       '"10ba" means the averaged model will be updated every 10 batches. Time unit '
+                                       'must match that of time_scale. If not specified, defaults to an interval of 1 '
+                                       'in the units of half_life.',
                                        default="1ba")
     train_with_ema_weights: bool = hp.optional('Train using the moving average weights.', default=False)
 
