@@ -460,8 +460,18 @@ The random seed can be provided to the trainer directly, e.g.
 If no seed is provided, a random seed will be generated from system time.
 
 Since the model and dataloaders are initialized outside of the Trainer, for complete
-determinism, we recommend calling :meth:`~.reproducibility.seed_all` and/or
-:meth:`~.configure_deterministic_mode` before creating any objects. For example:
+determinism, we recommend calling :meth:`~composer.reproducibility.seed_all` and/or
+:meth:`~composer.reproducibility.configure_deterministic_mode` before creating any objects. For example:
+
+.. testsetup::
+
+    import functools
+    import torch.nn
+    import warnings
+
+    warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
+
+    MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
 
 .. testcode::
 
