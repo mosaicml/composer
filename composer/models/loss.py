@@ -247,7 +247,8 @@ def soft_cross_entropy(input: Tensor,
             xentropy = xentropy.mean()
             # Reweight loss to account for examples with less than 1 total probability (ignored examples)
             total_prob = target.sum()
-            assert total_prob > 0, "No targets have nonzero probability"
+            if total_prob <= 0:
+                raise ValueError("No targets have nonzero probability")
             if total_prob < num_examples:
                 warnings.warn("Some targets have less than 1 total probability.")
             xentropy *= num_examples / total_prob
