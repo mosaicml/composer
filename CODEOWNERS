@@ -1,0 +1,8 @@
+# Require admin approval to modify all files in the root of the repository
+/* @mosaicml/composer-team-admins
+
+# Require admin approval to change the CI build configuration
+/.ci/ @mosaicml/composer-team-admins
+
+# Require admin approval to change the Dockerfile configuration
+/docker/ @mosaicml/composer-team-admins
