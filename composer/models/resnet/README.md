@@ -38,7 +38,7 @@ ResNet family members are defined by their number of layers. Parameter count, ac
 | ResNet-152           | 60.2M           | TBA          | TBA                      |
 
 
-> ❗ **Note**: Please see the :doc:`/model_cards/cifar_resnet` model card for the differences between CIFAR and ImageNet ResNets.
+> ❗ **Note**: Please see the [CIFAR ResNet model card](https://docs.mosaicml.com/en/stable/model_cards/cifar_resnet.html#architecture) for the differences between CIFAR and ImageNet ResNets.
 
 ## Default Training Hyperparameters
 
