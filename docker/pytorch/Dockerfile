@@ -1,6 +1,6 @@
 ARG BASE_IMAGE
 
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE} AS pytorch_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
 # remove a bad symlink from the base composer image
@@ -149,3 +149,35 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
 WORKDIR /home/mosaicml
 
 USER mosaicml
+
+
+FROM pytorch_stage AS vision_stage
+ARG DEBIAN_FRONTEND=noninteractive
+
+ARG PYTORCH_VERSION
+ARG CUDA_VERSION_TAG
+ARG MMCV_TORCH_VERSION
+
+##############################
+# MosaicML Vision Dependencies
+##############################
+
+RUN sudo apt-get update && \
+    sudo apt-get install -y --no-install-recommends \
+    # For FFCV:
+    pkg-config \
+    libturbojpeg-dev \
+    libopencv-dev \
+    # For deeplabv3:
+    ffmpeg \
+    libsm6 \
+    libxext6 && \
+    sudo apt-get autoclean && \
+    sudo apt-get clean && \
+    sudo rm -rf /var/lib/apt/lists/*
+
+RUN sudo pip3 install --no-cache-dir ffcv opencv-python numba 
+
+RUN sudo pip3 install --no-cache-dir mmcv-full==1.4.4 -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html
+
+RUN sudo pip3 install --no-cache-dir mmsegmentation
