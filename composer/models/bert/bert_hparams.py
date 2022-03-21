@@ -41,7 +41,7 @@ class BERTForClassificationHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError(NLP_IMPORT_ERROR_MESSAGE) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
