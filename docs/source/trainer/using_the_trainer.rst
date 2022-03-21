@@ -448,7 +448,7 @@ Reproducibility
 
 The random seed can be provided to the trainer directly, e.g.
 
-.. code:: python
+.. testcode::
 
     from composer import Trainer
 
@@ -463,10 +463,11 @@ Since the model and dataloaders are initialized outside of the Trainer, for comp
 determinism, we recommend calling :meth:`~.reproducibility.seed_all` and/or
 :meth:`~.configure_deterministic_mode` before creating any objects. For example:
 
-.. code:: python
+.. testcode::
 
    import torch.nn
    from composer.utils import reproducibility
+
    reproducibility.configure_deterministic_mode()
    reproducibility.seed_all(42)
 
