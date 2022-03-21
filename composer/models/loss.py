@@ -230,7 +230,7 @@ def soft_cross_entropy(input: Tensor,
         assert reduce is None, "reduce is deprecated"
         if ignore_index != -100:
             warnings.warn("ignore_index not supported when using dense labels. Ignoring targets with 0 probability.")
-        xentropy = -1 * (target * F.log_softmax(input, dim=1))
+        xentropy = -(target * F.log_softmax(input, dim=1))
 
         if weight is not None:
             # Ugly dimension shuffle to make multiplication work.
