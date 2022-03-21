@@ -32,8 +32,8 @@ model:
 loggers:
   - tqdm: {}
 max_duration: 160ep
-train_batch_size: 1024
-eval_batch_size: 1000
+train_batch_size: 256
+eval_batch_size: 256
 train_subset_num_batches: 10
 eval_subset_num_batches: 10
 seed: 17
@@ -47,4 +47,4 @@ dataloader:
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
-precision: amp
+precision: fp32
