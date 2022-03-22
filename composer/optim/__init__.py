@@ -36,6 +36,10 @@ from composer.optim.scheduler import PolynomialScheduler as PolynomialScheduler
 from composer.optim.scheduler import StepScheduler as StepScheduler
 from composer.optim.scheduler_hparams import ConstantSchedulerHparams as ConstantSchedulerHparams
 from composer.optim.scheduler_hparams import CosineAnnealingSchedulerHparams as CosineAnnealingSchedulerHparams
+from composer.optim.scheduler_hparams import \
+    CosineAnnealingWarmRestartsSchedulerHparams as CosineAnnealingWarmRestartsSchedulerHparams
+from composer.optim.scheduler_hparams import \
+    CosineAnnealingWithWarmupSchedulerHparams as CosineAnnealingWithWarmupSchedulerHparams
 from composer.optim.scheduler_hparams import ExponentialSchedulerHparams as ExponentialSchedulerHparams
 from composer.optim.scheduler_hparams import LinearSchedulerHparams as LinearSchedulerHparams
 from composer.optim.scheduler_hparams import LinearWithWarmupSchedulerHparams as LinearWithWarmupSchedulerHparams
@@ -44,7 +48,3 @@ from composer.optim.scheduler_hparams import MultiStepWithWarmupSchedulerHparams
 from composer.optim.scheduler_hparams import PolynomialSchedulerHparams as PolynomialSchedulerHparams
 from composer.optim.scheduler_hparams import SchedulerHparams as SchedulerHparams
 from composer.optim.scheduler_hparams import StepSchedulerHparams as StepSchedulerHparams
-from composer.optim.scheduler_hparams import \
-    rrrCosineAnnealingWarmRestartsSchedulerHparams as CosineAnnealingWarmRestartsSchedulerHparams
-from composer.optim.scheduler_hparams import \
-    rrrCosineAnnealingWithWarmupSchedulerHparams as CosineAnnealingWithWarmupSchedulerHparams
