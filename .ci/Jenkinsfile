@@ -71,7 +71,7 @@ def getDockerImageName(baseImage, pythonVersion, gpu) {
 }
 
 lintImage = getDockerImageName("mosaicml/pytorch", "3.9", false)
-visionImage = getDockerImageName("mosaicml/pytorch_vision", "3.7", true)
+visionImage = getDockerImageName("mosaicml/pytorch_vision", "3.9", true)
 
 def runLint(pDockerImage) {
     trackBuild(
