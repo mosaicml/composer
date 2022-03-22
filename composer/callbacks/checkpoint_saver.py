@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 import os
 import textwrap
+from collections import OrderedDict
 from typing import Callable, Optional, Union
 
 from composer.core import Event, State
@@ -249,6 +250,18 @@ class CheckpointSaver(Callback):
         weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
             This parmeter must be ``False`` when using DeepSpeed. (default: ``False``)
 
+
+        num_checkpoints_to_persist (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
+            are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
+
+            Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
+            is used in conjunction with the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`, set this
+            parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
+            the object store.
+            
+            This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
+            artifact stores.
+
     Attributes:
         checkpoint_folder (str): The folder in which checkpoints are stored. If an absolute path was specified for
             ``save_folder`` upon instantiation, then that path will be used. Otherwise, this folder is relative to
@@ -261,7 +274,8 @@ class CheckpointSaver(Callback):
             .. seealso:: :mod:`~.run_directory` for details on the format of the run directory
                 and how to customize it.
         saved_checkpoints (Dict[Timestamp, List[str]]): A dictionary mapping a save timestamp
-            to a list of filepaths corresponding to the checkpoints saved at that time.
+            to a list of filepaths corresponding to the checkpoints saved at that time. This dictionary
+            will contain at most ``num_checkpoints_to_persist`` entries.
 
             .. note:: When using DeepSpeed, the index of a filepath in each list corresponds to the
                 global rank of the process that wrote that file. These filepaths are valid only on
@@ -276,6 +290,7 @@ class CheckpointSaver(Callback):
         save_latest_format: Optional[str] = "latest-rank{rank}",
         overwrite: bool = False,
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
+        num_checkpoints_to_persist: int = -1,
         weights_only: bool = False,
     ):
         if not callable(save_interval):
@@ -287,7 +302,8 @@ class CheckpointSaver(Callback):
         self.overwrite = overwrite
 
         self.save_interval = save_interval
-        self.saved_checkpoints = {}
+        self.saved_checkpoints = OrderedDict()
+        self.num_checkpoints_to_persist = num_checkpoints_to_persist
         self.weights_only = weights_only
         self._run_name = None
 
@@ -370,3 +386,12 @@ class CheckpointSaver(Callback):
         timestamp = state.timer.get_timestamp()
 
         self.saved_checkpoints[timestamp] = checkpoint_filepaths
+        if self.num_checkpoints_to_persist >= 0:
+            while len(self.saved_checkpoints) > self.num_checkpoints_to_persist:
+
+                # self.saved_checkpoints is an ordered dict, so the zeroth item will be the oldest checkpoint
+                timestamp, checkpoint_filepaths = next(iter(self.saved_checkpoints.items()))
+                if dist.get_global_rank() < len(checkpoint_filepaths):
+                    # Remove this rank's checkpoint
+                    os.remove(checkpoint_filepaths[dist.get_global_rank()])
+                del self.saved_checkpoints[timestamp]

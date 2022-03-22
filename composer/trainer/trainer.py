@@ -347,6 +347,16 @@ class Trainer:
 
             .. seealso:: :class:`~.CheckpointSaver`
 
+        save_num_checkpoints_to_persist (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
+            are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
+
+            Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
+            is used in conjunction with the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`, set this
+            parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
+            the object store.
+
+            This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
+            artifact stores.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
@@ -457,6 +467,7 @@ class Trainer:
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,
+        save_num_checkpoints_to_persist: int = -1,
 
         # subset parameters
         train_subset_num_batches: Optional[int] = None,
@@ -719,6 +730,7 @@ class Trainer:
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
+                num_checkpoints_to_persist=save_num_checkpoints_to_persist,
             )
             self.state.callbacks.append(self._checkpoint_saver)
 

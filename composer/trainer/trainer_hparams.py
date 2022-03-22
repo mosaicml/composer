@@ -191,6 +191,7 @@ class TrainerHparams(hp.Hparams):
         save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
+        save_num_checkpoints_to_persist (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         train_subset_num_batches (int, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
         deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
@@ -340,6 +341,10 @@ class TrainerHparams(hp.Hparams):
         Checkpoint interval or path to a `(State, Event) -> bool` function
         returning whether a checkpoint should be saved."""),
                                      default="1ep")
+    save_num_checkpoints_to_persist: int = hp.optional(
+        "Number of checkpoints to persist locally. Set to -1 to never delete checkpoints.",
+        default=-1,
+    )
 
     # subset parameters
     train_subset_num_batches: Optional[int] = hp.optional(
@@ -592,6 +597,7 @@ class TrainerHparams(hp.Hparams):
             save_name_format=self.save_name_format,
             save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
+            save_num_checkpoints_to_persist=self.save_num_checkpoints_to_persist,
 
             # Subset parameters
             train_subset_num_batches=self.train_subset_num_batches,

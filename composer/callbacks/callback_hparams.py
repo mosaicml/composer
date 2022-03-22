@@ -134,6 +134,7 @@ class CheckpointSaverHparams(CallbackHparams):
         save_latest_format (str, optional): See :class:`~.CheckpointSaver`.
         overwrite (str, optional): See :class:`~.CheckpointSaver`.
         weights_only (bool, optional): See :class:`~.CheckpointSaver`.
+        num_checkpoints_to_persist (int, optional): See :class:`~.CheckpointSaver`.
 
         save_interval (str, optional): Either a :doc:`time-string </trainer/time>` or a path to a function.
 
@@ -156,6 +157,10 @@ class CheckpointSaverHparams(CallbackHparams):
         Checkpoint interval or path to a `(State, Event) -> bool` function
         returning whether a checkpoint should be saved."""),
                                      default="1ep")
+    num_checkpoints_to_persist: int = hp.optional(
+        "Number of checkpoints to persist locally. Set to -1 to never delete checkpoints.",
+        default=-1,
+    )
 
     def initialize_object(self) -> CheckpointSaver:
         try:
@@ -170,4 +175,5 @@ class CheckpointSaverHparams(CallbackHparams):
             overwrite=self.overwrite,
             save_interval=save_interval,
             weights_only=self.weights_only,
+            num_checkpoints_to_persist=self.num_checkpoints_to_persist,
         )
