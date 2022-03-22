@@ -14,7 +14,7 @@ class MissingConditionalImportError(ImportError):
     def __init__(self, extra_deps_group: str, conda_package: str, conda_channel: str = 'conda-forge'):
         super().__init__(
             textwrap.dedent(f"""\
-            Composer was installed without {extra_deps_group} support. To use {extra_deps_group}-related packages, with Composer, run `pip install mosaicml[{extra_deps_group}]`
+            Composer was installed without {extra_deps_group} support. To use {extra_deps_group} related packages, with Composer, run `pip install mosaicml[{extra_deps_group}]`
             if using pip or `conda install -c {conda_channel} {conda_package} if using Anaconda."""))
 
 
