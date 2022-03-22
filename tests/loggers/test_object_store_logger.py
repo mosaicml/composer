@@ -4,7 +4,6 @@ import dataclasses
 import os
 import pathlib
 import time
-from typing import Optional
 
 import pytest
 import yahp as hp

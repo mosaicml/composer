@@ -8,7 +8,7 @@ Useful for collecting and plotting data inside notebooks.
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 from torch import Tensor
@@ -54,7 +54,6 @@ class InMemoryLogger(LoggerDestination):
         config (Dict[str, Any], optional): Configuration to store.
 
     Attributes:
-        config (Dict[str, Any], optional): The ``config`` argument.
         data (dict): Mapping of a logged key to a (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`, data dictionary) tuple.
             This dictionary contains all logged data.
         most_recent_values (Dict[str, Any]): Mapping of a key to the most recent value for that key.
@@ -63,13 +62,11 @@ class InMemoryLogger(LoggerDestination):
     """
 
     def __init__(self,
-                 log_level: Union[str, int, LogLevel] = LogLevel.BATCH,
-                 config: Optional[Dict[str, Any]] = None) -> None:
+                 log_level: Union[str, int, LogLevel] = LogLevel.BATCH) -> None:
         self.log_level = LogLevel(log_level)
         self.data: Dict[str, List[Tuple[Timestamp, LogLevel, Dict[str, Any]]]] = {}
         self.most_recent_values = {}
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
-        self.config = config
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         if log_level > self.log_level:

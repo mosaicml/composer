@@ -8,7 +8,6 @@ import collections.abc
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 
-import yaml
 from tqdm import auto
 
 from composer.core.state import State
@@ -79,21 +78,15 @@ class ProgressBarLogger(LoggerDestination):
         Epoch 1: 100%|██████████| 64/64 [00:01<00:00, 53.17it/s, loss/train=2.3023]
         Epoch 1 (val): 100%|██████████| 20/20 [00:00<00:00, 100.96it/s, accuracy/val=0.0995]
 
-    Args:
-        config (Dict[str, Any], optional): Configuration to print in yaml format in the terminal.
-
     .. note::
 
         It is currently not possible to show additional metrics.
         Custom metrics for the TQDM progress bar will be supported in a future version.
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self) -> None:
         self.pbars: Dict[bool, _ProgressBarLoggerInstance] = {}
         self.is_train: Optional[bool] = None
-        if config is not None:
-            data = ("-" * 30) + "\nConfig:\n" + yaml.safe_dump(config) + "\n" + ("-" * 30) + "\n"
-            print(data)
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
         del state

@@ -281,6 +281,7 @@ class ObjectStoreLogger(LoggerDestination):
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
 
     def init(self, state: State, logger: Logger) -> None:
+        del state  # unused
         if self._finished is not None:
             raise RuntimeError("The ObjectStoreLogger is already initialized.")
         self._finished = self._finished_cls()
