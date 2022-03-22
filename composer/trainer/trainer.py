@@ -1154,7 +1154,7 @@ class Trainer:
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.bool))
-            dist.all_reduce(should_handle_cuda_oom, reduce_operation="BOR")
+            dist.all_reduce(should_handle_cuda_oom, reduce_operation="MAX")
             if should_handle_cuda_oom:
                 # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_error since it is
                 # likely transient, e.g. timeout because certain ranks failed and didn't sync.
