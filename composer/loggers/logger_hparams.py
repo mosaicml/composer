@@ -27,6 +27,7 @@ __all__ = [
     "ProgressBarLoggerHparams",
     "WandBLoggerHparams",
     "ObjectStoreLoggerHparams",
+    "logger_registry",
 ]
 
 
@@ -289,3 +290,13 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,
         )
+
+
+logger_registry = {
+    "file": FileLoggerHparams,
+    "wandb": WandBLoggerHparams,
+    "progress_bar": ProgressBarLoggerHparams,
+    "in_memory": InMemoryLoggerHparams,
+    "object_store": ObjectStoreLoggerHparams,
+}
+"""The registry of all known :class:`.LoggerDestinationHparams`."""
