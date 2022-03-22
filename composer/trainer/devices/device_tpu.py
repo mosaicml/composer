@@ -12,6 +12,7 @@ import torch
 
 from composer.core.types import Precision, StateDict, Tensor
 from composer.trainer.devices.device import Device, T_nnModule
+import torch_xla
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,16 @@ class DeviceTPU(Device):
     This class takes no arguments.
     """
 
-    dist_backend = "gloo"
+    #dist_backend = "gloo"
+    def __init__(self):
+        import torch_xla.core.xla_model as xm
 
+        self._device = xm.xla_device()
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
-        return module
+        return module.to(self._device)
 
     def tensor_to_device(self, tensor: Tensor) -> Tensor:
-        return tensor
+        return tensor.to(self._device)
 
     @contextmanager
     def precision_context(self, precision: Union[str, Precision]) -> Generator[None, None, None]:
