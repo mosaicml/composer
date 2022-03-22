@@ -8,7 +8,6 @@ from tqdm import tqdm
 
 from composer.datasets.webdataset import create_webdataset
 
-
 """
 Input directory layout:
 

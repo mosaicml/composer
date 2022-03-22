@@ -1089,7 +1089,8 @@ class Trainer:
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
         # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
         if self.state.grad_accum == self.state.batch_num_samples:
-            raise RuntimeError(textwrap.dededent("""CUDA out of memory. Train loop failed with an internal microbatch of size 1.
+            raise RuntimeError(
+                textwrap.dededent("""CUDA out of memory. Train loop failed with an internal microbatch of size 1.
                                This means the GPU does not have enough memory to process even 1"""))
         else:
             self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
@@ -1133,8 +1134,7 @@ class Trainer:
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             total_loss = self.state.scaler.step(
-                                optimizer,
-                                closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
+                                optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
                             total_loss = optimizer.step(
                                 closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
@@ -1150,12 +1150,13 @@ class Trainer:
                     should_handle_cuda_oom = True
                 else:
                     caught_error = e
-                    
+
             # Propagate across all ranks if any rank hit CUDA OOM
-            should_handle_cuda_oom = self._device.tensor_to_device(torch.tensor([should_handle_cuda_oom], dtype=torch.bool))
+            should_handle_cuda_oom = self._device.tensor_to_device(
+                torch.tensor([should_handle_cuda_oom], dtype=torch.bool))
             dist.all_reduce(should_handle_cuda_oom, reduce_operation="BOR")
             if should_handle_cuda_oom:
-                # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_error since it is 
+                # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_error since it is
                 # likely transient, e.g. timeout because certain ranks failed and didn't sync.
                 self._handle_cuda_oom()
             elif caught_error:

@@ -10,7 +10,8 @@ The output of this setup script does not show up in the documentation.
 import os
 import sys
 import tempfile
-from typing import Any, Callable as Callable
+from typing import Any
+from typing import Callable as Callable
 
 import numpy as np
 import torch.optim
@@ -22,12 +23,6 @@ import composer
 import composer.trainer
 import composer.trainer.trainer
 from composer import Trainer as OriginalTrainer
-from composer.loggers import LogLevel as LogLevel
-from composer.loggers import Logger as Logger
-from composer.loggers import InMemoryLogger as InMemoryLogger
-from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.optim.scheduler import ConstantScheduler
-from composer.utils import ensure_tuple as ensure_tuple
 from composer.core import Algorithm as Algorithm
 from composer.core import Callback as Callback
 from composer.core import DataSpec as DataSpec
@@ -37,10 +32,16 @@ from composer.core import Event as Event
 from composer.core import State as State
 from composer.core import Time as Time
 from composer.core import Timer as Timer
-from composer.core import TimeUnit as TimeUnit
 from composer.core import Timestamp as Timestamp
+from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
+from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.loggers import InMemoryLogger as InMemoryLogger
+from composer.loggers import Logger as Logger
+from composer.loggers import LogLevel as LogLevel
 from composer.models import ComposerModel as ComposerModel
+from composer.optim.scheduler import ConstantScheduler
+from composer.utils import ensure_tuple as ensure_tuple
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory
@@ -138,6 +139,7 @@ def Trainer(fake_ellipses: None = None, **kwargs: Any):
     if "loggers" not in kwargs:
         kwargs["loggers"] = []  # hide tqdm logging
     return OriginalTrainer(**kwargs)
+
 
 # patch composer so that 'from composer import Trainer' calls do not override change above
 composer.Trainer = Trainer

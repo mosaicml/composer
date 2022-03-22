@@ -7,7 +7,6 @@ from PIL import Image
 
 from composer.datasets.webdataset import create_webdataset
 
-
 """
 Directory layout:
 
