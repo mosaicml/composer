@@ -97,13 +97,11 @@ def runPytest(pDockerImage, markers, extraDeps) {
     def nGpus = "0"
     def memLimit = "4Gi"
     def cpuLimit = "2"
-    def markers = "not notebooks and not gpu"
 
     if (pDockerImage.contains('_cu11')){  // if it is a gpu image
         nGpus = "2"
         cpuLimit = "16" // 8 cpu per gpu
         memLimit = "15Gi"  // 7.5Gb per gpu
-        markers = "not notebooks and gpu"
     }
 
     def name = "$pDockerImage: gpu=$gpu; extraDeps=$extraDeps"
