@@ -625,12 +625,12 @@ class Trainer:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
 
         # Set initial grad_accum to 1 if using adaptive
-        self.adaptive_grad_accum = isinstance(grad_accum, str) and grad_accum == "auto"
+        self.adaptive_grad_accum = grad_accum == "auto"
         if self.adaptive_grad_accum:
             grad_accum = 1
-            warnings.warn(textwrap.dedent("""Auto grad_accum is enabled. This is an experimental feature
+            warnings.warn(textwrap.dedent("""Setting `grad_accum='auto'` is an experimental feature
                 which may cause uncaught Cuda Out of Memory errors. In this case, please manually
-                set grad_accum instead.
+                set grad_accum explicitly to an integer instead.
                 """),
                           category=UserWarning)
         # Cannot use adaptive grad accum on CPU
@@ -1211,11 +1211,11 @@ class Trainer:
 
     def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int, total_loss: torch.Tensor,
                           is_final_microbatch: bool):
-        """Train and compute the loss for a single microbatch.
+        """Train and compute the loss of ``state.batch``, which is assumed to be a single microbatch.
 
         Args:
             use_grad_scaling (bool): Whether to use gradient scaling.
-            current_batch_size (int): Size of current batch.
+            minibatch_num_samples (int): Number of samples in the minibatch.
             total_loss (torch.Tensor): Total loss aggregated across all microbatches.
             is_final_microbatch (bool): If current microbatch is the last one.
         """
@@ -1272,7 +1272,7 @@ class Trainer:
             self.engine.run_event(Event.AFTER_BACKWARD)
 
         if self.deepspeed_enabled:
-            cast("deepspeed.DeepSpeedEngine", self.state.model).step()
+            self.state.deepspeed_model.step()
 
     def eval(self, is_batch: bool):
         """Evaluate the model on the provided evaluation data and log appropriate metrics.
