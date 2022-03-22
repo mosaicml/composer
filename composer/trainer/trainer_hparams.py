@@ -22,8 +22,7 @@ from composer.core.types import JSON
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
-                              ProgressBarLoggerHparams, WandBLoggerHparams)
+from composer.loggers import LoggerDestinationHparams, logger_registry
 from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
                              DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
                              ResNetHparams, SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
@@ -96,13 +95,6 @@ callback_registry = {
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
-}
-
-logger_registry = {
-    "file": FileLoggerHparams,
-    "wandb": WandBLoggerHparams,
-    "progress_bar": ProgressBarLoggerHparams,
-    "in_memory": InMemoryLoggerHparams,
 }
 
 device_registry = {
@@ -485,8 +477,7 @@ class TrainerHparams(hp.Hparams):
         algorithms = [x.initialize_object() for x in self.algorithms]
 
         # callbacks, loggers, and seed
-        dict_config = self.to_dict()
-        loggers = [x.initialize_object(config=dict_config) for x in self.loggers]
+        loggers = [x.initialize_object() for x in self.loggers]
         callbacks = [x.initialize_object() for x in self.callbacks]
 
         if self.datadir is not None:

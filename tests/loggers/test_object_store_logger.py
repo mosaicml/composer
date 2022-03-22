@@ -93,6 +93,7 @@ def test_object_store_logger_use_procs(tmpdir: pathlib.Path, dummy_state: State,
 
 
 @pytest.mark.timeout(5)
+@pytest.mark.filterwarnings(r"ignore:((.|\n)*)FileExistsError((.|\n)*):pytest.PytestUnhandledThreadExceptionWarning")
 def test_object_store_logger_no_overwrite(tmpdir: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
     object_store_test_helper(tmpdir=tmpdir, dummy_state=dummy_state, monkeypatch=monkeypatch, overwrite=False)
 

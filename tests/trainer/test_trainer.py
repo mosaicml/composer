@@ -17,9 +17,10 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
+from composer.trainer.devices.device import Device
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from composer.utils import dist
-from composer.utils.reproducibility import seed_all
+from composer.utils.object_store import ObjectStoreHparams
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 
@@ -28,12 +29,13 @@ from tests.common import (RandomClassificationDataset, RandomImageDataset, Simpl
 class TestTrainerInit():
 
     @pytest.fixture
-    def config(self):
+    def config(self, rank_zero_seed: int):
         return {
             'model': SimpleModel(),
             'train_dataloader': DataLoader(dataset=RandomClassificationDataset()),
             'eval_dataloader': DataLoader(dataset=RandomClassificationDataset()),
             'max_duration': '2ep',
+            'seed': rank_zero_seed,
         }
 
     def test_init(self, config):
@@ -137,10 +139,9 @@ class TestTrainerEquivalence():
         self.default_threshold = {'atol': 0, 'rtol': 0}
 
     @pytest.fixture
-    def config(self, device, precision, world_size):
+    def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
         """Returns the reference config."""
 
-        seed_all(seed=0)
         return {
             'model': SimpleModel(),
             'train_dataloader': DataLoader(
@@ -153,7 +154,7 @@ class TestTrainerEquivalence():
                 shuffle=False,
             ),
             'max_duration': '2ep',
-            'seed': 0,
+            'seed': rank_zero_seed,
             'device': device,
             'precision': precision,
             'deterministic_mode': True,  # testing equivalence
@@ -268,7 +269,7 @@ class AssertDataAugmented(Callback):
 class TestTrainerEvents():
 
     @pytest.fixture
-    def config(self):
+    def config(self, rank_zero_seed: int):
         return {
             'model': SimpleConvModel(),
             'train_dataloader': DataLoader(
@@ -277,7 +278,8 @@ class TestTrainerEvents():
             ),
             'eval_dataloader': None,
             'max_duration': '1ep',
-            'loggers': []
+            'loggers': [],
+            'seed': rank_zero_seed,
         }
 
     def test_data_augmented(self, config):
@@ -317,7 +319,7 @@ config management to retrieve the objects to test.
 class TestTrainerAssets:
 
     @pytest.fixture
-    def config(self):
+    def config(self, rank_zero_seed: int):
         return {
             'model': SimpleConvModel(),
             'train_dataloader': DataLoader(
@@ -330,6 +332,7 @@ class TestTrainerAssets:
             ),
             'max_duration': '2ep',
             'loggers': [],  # no progress bar
+            'seed': rank_zero_seed,
         }
 
     # Note: Not all algorithms, callbacks, and loggers are compatible
@@ -374,13 +377,26 @@ class TestTrainerAssets:
         return callback
 
     @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
-    def logger(self, request, monkeypatch: pytest.MonkeyPatch, tmpdir: pathlib.Path):
+    def logger(self, request, tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
 
         name, hparams = request.param
+
+        remote_dir = str(tmpdir / "remote_dir")
+        os.makedirs(remote_dir)
+        local_dir = str(tmpdir / "local_dir")
+        os.makedirs(local_dir)
+        monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
+        provider_hparams = ObjectStoreHparams(
+            provider='local',
+            key_environ="OBJECT_STORE_KEY",
+            container=".",
+        )
 
         required_args = {}
         if name == 'wandb':
             pytest.importorskip('wandb', reason='Required wandb')
+        if name == 'object_store':
+            required_args['object_store_hparams'] = provider_hparams
 
         if name == 'object_store_logger':
             monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))

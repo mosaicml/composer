@@ -3,14 +3,12 @@
 """Logger Hyperparameter classes."""
 from __future__ import annotations
 
-import copy
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 
 import yahp as hp
 
-from composer.core.types import JSON
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import LogLevel
@@ -27,6 +25,7 @@ __all__ = [
     "ProgressBarLoggerHparams",
     "WandBLoggerHparams",
     "ObjectStoreLoggerHparams",
+    "logger_registry",
 ]
 
 
@@ -39,13 +38,8 @@ class LoggerDestinationHparams(hp.Hparams, ABC):
     """
 
     @abstractmethod
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> LoggerDestination:
-        """Initializes the logger.
-
-        Args:
-            config (dict): The configuration used by the trainer.
-                The logger can optionally save this configuration.
-        """
+    def initialize_object(self) -> LoggerDestination:
+        """Initializes the logger."""
         pass
 
 
@@ -88,10 +82,8 @@ class FileLoggerHparams(LoggerDestinationHparams):
         "Defaults to 1 (record all messages).",
         default=1)
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> FileLogger:
-
-        from composer.loggers.file_logger import FileLogger
-        return FileLogger(**asdict(self), config=config)
+    def initialize_object(self) -> FileLogger:
+        return FileLogger(**asdict(self))
 
 
 @dataclass
@@ -105,8 +97,10 @@ class WandBLoggerHparams(LoggerDestinationHparams):
             If not specified, the :attr:`~composer.loggers.logger.Logger.run_name` will be used.
         entity (str, optional): WandB entity name.
         tags (str, optional): WandB tags, comma-separated.
-        log_artifacts (bool, optional): See
-            :class:`~composer.loggers.wandb_logger.WandBLogger`.
+        config (Dict[str, Any], optional): WandB run configuration.
+        flatten_config (bool, optional): Whether to flatten the run config. (default: ``False``)
+        log_artifacts (bool, optional): See :class:`~composer.loggers.wandb_logger.WandBLogger`.
+        rank_zero_only (bool, optional): See :class:`~composer.loggers.wandb_logger.WandBLogger`.
         extra_init_params (dict, optional): See
             :class:`~composer.loggers.wandb_logger.WandBLogger`.
     """
@@ -118,84 +112,21 @@ class WandBLoggerHparams(LoggerDestinationHparams):
     tags: str = hp.optional(doc="wandb tags comma separated", default="")
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
     rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=True)
-    extra_init_params: Dict[str, JSON] = hp.optional(doc="wandb parameters", default_factory=dict)
+    extra_init_params: Dict[str, Any] = hp.optional(doc="wandb parameters", default_factory=dict)
+    config: Dict[str, Any] = hp.optional(doc="Wandb run configuration", default_factory=dict)
     flatten_hparams: bool = hp.optional(
-        doc=
-        "Whether the hparams dictionary should be flattened before uploading to WandB. This can make nested fields easier to visualize and query",
-        default=False)
+        doc="Whether to flatten the config, which can make nested fields easier to visualize and query.", default=False)
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> WandBLogger:
-        """Initializes the logger.
-
-        The ``config`` is flattened and stored as :attr:`wandb.run.config`.
-        The list of algorithms in the ``config`` are appended to :attr:`wandb.run.tags`.
-
-        Args:
-            config (Optional[Dict[str, Any]], optional):
-                The configuration used by the trainer.
-
-        Returns:
-            WandBLogger: An instance of :class:`~composer.loggers.wandb_logger.WandBLogger`.
-        """
+    def initialize_object(self) -> WandBLogger:
         tags = list(set([x.strip() for x in self.tags.split(",") if x.strip() != ""]))
 
-        if config is not None:
+        config_dict = self.config
 
-            def get_flattened_dict(data: Dict[str, Any], _prefix: List[str] = []) -> Dict[str, Any]:
-                """Flattens a dictionary with list or sub dicts to have dot syntax.
+        if "config" in self.extra_init_params:
+            config_dict = self.extra_init_params["config"]
 
-                i.e. {
-                  "sub_dict":{
-                    "sub_list":[
-                      "sub_sub_dict":{
-                        "field1": 12,
-                        "field2": "tomatoes"
-                      }
-                    ]
-                  },
-                  "field3": "potatoes"
-                }
-
-                returns:
-                {
-                  "sub_dict.sub_list.sub_sub_dict.field1": 12,
-                  "sub_dict.sub_list.sub_sub_dict.field2": "tomatoes,
-                  "field3": "potatoes",
-                }
-                """
-                all_items = dict()
-                for key, val in data.items():
-                    key_items = _prefix + [key]
-                    key_name = ".".join(key_items)
-                    if isinstance(val, dict):
-                        all_items.update(get_flattened_dict(val, key_items))
-                    elif isinstance(val, list):
-                        found_sub_dicts = False
-                        for item in val:
-                            if isinstance(item, dict):
-                                found_sub_dicts = True
-                                for sub_key, sub_val in item.items():
-                                    if isinstance(sub_val, dict):
-                                        all_items.update(get_flattened_dict(sub_val, key_items + [sub_key]))
-                                    else:
-                                        all_items.update({sub_key: sub_val})
-                        if not found_sub_dicts:
-                            all_items[key_name] = val
-                    else:
-                        all_items[key_name] = val
-                return all_items
-
-            # extra_init_params may be in ``config`` already. Copy it so we don't get recursive dicts.
-            self.extra_init_params = copy.deepcopy(self.extra_init_params)
-            if self.flatten_hparams:
-                config = get_flattened_dict(data=config)
-            if "config" not in self.extra_init_params:
-                self.extra_init_params["config"] = {}
-            if not isinstance(self.extra_init_params["config"], dict):
-                raise TypeError(
-                    f"'config' passed to WandB ``extra_init_params`` must be a dictionary. Got {type(self.extra_init_params['config'])}"
-                )
-            self.extra_init_params["config"].update(config)
+        if self.flatten_hparams:
+            config_dict = self._flatten_dict(config_dict)
 
         if self.rank_zero_only:
             name = self.name
@@ -209,6 +140,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
             "group": group,
             "entity": self.entity,
             "tags": tags,
+            "config": config_dict,
         }
         init_params.update(self.extra_init_params)
         return WandBLogger(
@@ -217,6 +149,52 @@ class WandBLoggerHparams(LoggerDestinationHparams):
             init_params=init_params,
         )
 
+    @classmethod
+    def _flatten_dict(cls, data: Dict[str, Any], _prefix: List[str] = []) -> Dict[str, Any]:
+        """Flattens a dictionary with list or sub dicts to have dot syntax.
+
+        .. testcode::
+
+            >>> config = {
+            ...     "sub_dict":{
+            ...         "sub_list":[
+            ...             "sub_sub_dict":{
+            ...                 "foo": 0,
+            ...                 "bar": "baz"
+            ...             }
+            ...          ]
+            ...     },
+            ...     "hello": "world"
+            ... }
+            >>> _flatten_dict(config)
+            {
+                'sub_dict.sub_list.sub_sub_dict.foo': 0,
+                'sub_dict.sub_list.sub_sub_dict.bar': 'baz',
+                'hello': 'world',
+            }
+        """
+        all_items = {}
+        for key, val in data.items():
+            key_items = _prefix + [key]
+            key_name = ".".join(key_items)
+            if isinstance(val, dict):
+                all_items.update(cls._flatten_dict(val, key_items))
+            elif isinstance(val, list):
+                found_sub_dicts = False
+                for item in val:
+                    if isinstance(item, dict):
+                        found_sub_dicts = True
+                        for sub_key, sub_val in item.items():
+                            if isinstance(sub_val, dict):
+                                all_items.update(cls._flatten_dict(sub_val, key_items + [sub_key]))
+                            else:
+                                all_items.update({sub_key: sub_val})
+                if not found_sub_dicts:
+                    all_items[key_name] = val
+            else:
+                all_items[key_name] = val
+        return all_items
+
 
 @dataclass
 class ProgressBarLoggerHparams(LoggerDestinationHparams):
@@ -224,8 +202,8 @@ class ProgressBarLoggerHparams(LoggerDestinationHparams):
     hyperparameters. This class takes no parameters.
     """
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> ProgressBarLogger:
-        return ProgressBarLogger(config=config)
+    def initialize_object(self) -> ProgressBarLogger:
+        return ProgressBarLogger()
 
 
 @dataclass
@@ -239,7 +217,7 @@ class InMemoryLoggerHparams(LoggerDestinationHparams):
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> LoggerDestination:
+    def initialize_object(self) -> LoggerDestination:
         return InMemoryLogger(log_level=self.log_level)
 
 
@@ -257,10 +235,11 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
             The artifact name will be a string. The function should return a boolean indicating whether the artifact
             should be logged.
 
-            .. seealso: :func:`composer.utils.dynamic_import.import_object`
+            .. seealso: :func:`composer.utils.import_helpers.import_object`
 
             Setting this parameter to ``None`` (the default) will log all artifacts.
         object_name_format (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
+        config_artifact_name_format (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         num_concurrent_uploads (int, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         upload_staging_folder (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         use_procs (bool, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
@@ -269,13 +248,15 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
     should_log_artifact: Optional[str] = hp.optional(
         "Path to a filter function which returns whether an artifact should be logged.", default=None)
     object_name_format: str = hp.optional("A format string for object names", default="{artifact_name}")
+    config_artifact_name_format: Optional[str] = hp.optional(
+        "Format string to describe how to store the training configuration.", default="{run_name}/config.yaml")
     num_concurrent_uploads: int = hp.optional("Maximum number of concurrent uploads.", default=4)
     use_procs: bool = hp.optional("Whether to perform file uploads in background processes (as opposed to threads).",
                                   default=True)
     upload_staging_folder: Optional[str] = hp.optional(
         "Staging folder for uploads. If not specified, will use a temporary directory.", default=None)
 
-    def initialize_object(self, config: Optional[Dict[str, Any]] = None) -> ObjectStoreLogger:
+    def initialize_object(self) -> ObjectStoreLogger:
         return ObjectStoreLogger(
             provider=self.object_store_hparams.provider,
             container=self.object_store_hparams.container,
@@ -287,3 +268,13 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,
         )
+
+
+logger_registry = {
+    "file": FileLoggerHparams,
+    "wandb": WandBLoggerHparams,
+    "progress_bar": ProgressBarLoggerHparams,
+    "in_memory": InMemoryLoggerHparams,
+    "object_store": ObjectStoreLoggerHparams,
+}
+"""The registry of all known :class:`.LoggerDestinationHparams`."""

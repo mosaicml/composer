@@ -107,8 +107,8 @@ from torchvision import models
 my_model = models.resnet18()
 
 # add blurpool and squeeze excite layers
-model = cf.apply_blurpool(my_model)
-model = cf.apply_squeeze_excite(my_model)
+my_model = cf.apply_blurpool(my_model)
+my_model = cf.apply_squeeze_excite(my_model)
 
 # your own training code starts here
 ```
@@ -128,12 +128,15 @@ from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
 from composer.models import MNIST_Classifier
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = datasets.MNIST("data", download=True, transform=transform)
-train_dataloader = DataLoader(dataset, batch_size=128)
+train_dataset = datasets.MNIST("data", download=True, train=True, transform=transform)
+eval_dataset = datasets.MNIST("data", download=True, train=False, transform=transform)
+train_dataloader = DataLoader(train_dataset, batch_size=128)
+eval_dataloader = DataLoader(eval_dataset, batch_size=128)
 
 trainer = Trainer(
     model=MNIST_Classifier(num_classes=10),
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration="2ep",
     algorithms=[
         BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
@@ -145,7 +148,7 @@ trainer = Trainer(
 trainer.fit()
 ```
 
-Composer's built-in trainer makes it easy to **add multiple speedup methods in a single line of code!**
+Composer's built-in [trainer](https://docs.mosaicml.com/en/stable/trainer/using_the_trainer.html) makes it easy to **add multiple speedup methods in a single line of code!**
 Trying out new methods or combinations of methods is as easy as changing a single list.
 As we continually implement more methods, they will be easy for you to add to your code.
 
@@ -339,7 +342,7 @@ Here's some resources actively maintained by the Composer community to help you 
 </tbody>
 </table>
 
-If you have any questions, please feel free to reach out to us on [Twiter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
+If you have any questions, please feel free to reach out to us on [Twitter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
 
 # 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!
