@@ -112,6 +112,7 @@ To use a custom logger destination, create a class that inherits from
 into a dictionary:
 
 .. testcode::
+
     from typing import Any, Dict
 
     from composer.loggers.logger_destination import LoggerDestination
