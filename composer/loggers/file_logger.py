@@ -9,8 +9,6 @@ import queue
 import sys
 from typing import Any, Callable, Dict, Optional, TextIO
 
-import yaml
-
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
@@ -81,7 +79,6 @@ class FileLogger(LoggerDestination):
             :attr:`~.LogLevel.EPOCH`, then the logfile will be flushed every n epochs.  If
             the ``log_level`` is :attr:`~.LogLevel.BATCH`, then the logfile will be
             flushed every n batches. Default: ``100``.
-        config (Dict[str, Any], optional): Configuration to print in yaml format in the logfile.
     """
 
     def __init__(
@@ -94,7 +91,6 @@ class FileLogger(LoggerDestination):
         log_level: LogLevel = LogLevel.EPOCH,
         log_interval: int = 1,
         flush_interval: int = 100,
-        config: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
         self.filename = filename
@@ -114,10 +110,6 @@ class FileLogger(LoggerDestination):
 
         if capture_stderr:
             sys.stderr.write = self._get_new_writer("[stderr]: ", self._original_stderr_write)
-
-        if config is not None:
-            data = ("-" * 30) + "\n" + yaml.safe_dump(config) + "\n" + ("-" * 30) + "\n"
-            self.write('[config]: ', data)
 
     def _get_new_writer(self, prefix: str, original_writer: Callable[[str], int]):
         """Returns a writer that intercepts calls to the ``original_writer``."""

@@ -38,13 +38,8 @@ class LoggerDestinationHparams(hp.Hparams, ABC):
     """
 
     @abstractmethod
-    def initialize_object(self, config: Optional[hp.Hparams] = None) -> LoggerDestination:
-        """Initializes the logger.
-
-        Args:
-            config (hp.Hparams, optional): The configuration used by the trainer.
-                The logger can optionally save this configuration.
-        """
+    def initialize_object(self) -> LoggerDestination:
+        """Initializes the logger."""
         pass
 
 
@@ -85,8 +80,8 @@ class FileLoggerHparams(LoggerDestinationHparams):
         "Defaults to 1 (record all messages).",
         default=1)
 
-    def initialize_object(self, config: Optional[hp.Hparams] = None) -> FileLogger:
-        return FileLogger(**asdict(self), config=config.to_dict() if config is not None else None)
+    def initialize_object(self) -> FileLogger:
+        return FileLogger(**asdict(self))
 
 
 @dataclass
@@ -100,6 +95,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
             If not specified, the :attr:`~composer.loggers.logger.Logger.run_name` will be used.
         entity (str, optional): WandB entity name.
         tags (str, optional): WandB tags, comma-separated.
+        config (Dict[str, Any], optional): WandB run configuration.
         flatten_config (bool, optional): Whether to flatten the run config. (default: ``False``)
         log_artifacts (bool, optional): See :class:`~composer.loggers.wandb_logger.WandBLogger`.
         log_artifacts_every_n_batches (int, optional). See
@@ -118,13 +114,14 @@ class WandBLoggerHparams(LoggerDestinationHparams):
     log_artifacts_every_n_batches: int = hp.optional(doc="interval, in batches, to log artifacts", default=100)
     rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=True)
     extra_init_params: Dict[str, Any] = hp.optional(doc="wandb parameters", default_factory=dict)
+    config: Dict[str, Any] = hp.optional(doc="Wandb run configuration", default_factory=dict)
     flatten_hparams: bool = hp.optional(
         doc="Whether to flatten the config, which can make nested fields easier to visualize and query.", default=False)
 
-    def initialize_object(self, config: Optional[hp.Hparams] = None) -> WandBLogger:
+    def initialize_object(self) -> WandBLogger:
         tags = list(set([x.strip() for x in self.tags.split(",") if x.strip() != ""]))
 
-        config_dict = {} if config is None else config.to_dict()
+        config_dict = self.config
 
         if "config" in self.extra_init_params:
             config_dict = self.extra_init_params["config"]
@@ -207,8 +204,8 @@ class ProgressBarLoggerHparams(LoggerDestinationHparams):
     hyperparameters. This class takes no parameters.
     """
 
-    def initialize_object(self, config: Optional[hp.Hparams] = None) -> ProgressBarLogger:
-        return ProgressBarLogger(config=config.to_dict() if config is not None else None)
+    def initialize_object(self) -> ProgressBarLogger:
+        return ProgressBarLogger()
 
 
 @dataclass
@@ -222,8 +219,8 @@ class InMemoryLoggerHparams(LoggerDestinationHparams):
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)
 
-    def initialize_object(self, config: Optional[hp.Hparams] = None) -> LoggerDestination:
-        return InMemoryLogger(log_level=self.log_level, config=config.to_dict() if config is not None else None)
+    def initialize_object(self) -> LoggerDestination:
+        return InMemoryLogger(log_level=self.log_level)
 
 
 @dataclass
@@ -261,7 +258,7 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
     upload_staging_folder: Optional[str] = hp.optional(
         "Staging folder for uploads. If not specified, will use a temporary directory.", default=None)
 
-    def initialize_object(self, config: Optional[hp.Hparams] = None) -> ObjectStoreLogger:
+    def initialize_object(self) -> ObjectStoreLogger:
         return ObjectStoreLogger(
             provider=self.object_store_hparams.provider,
             container=self.object_store_hparams.container,
@@ -272,8 +269,6 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,
-            config_artifact_name_format=self.config_artifact_name_format,
-            config=config.to_dict() if config is not None else None,
         )
 
 

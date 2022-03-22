@@ -18,7 +18,6 @@ import uuid
 from multiprocessing.context import SpawnProcess
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-import yaml
 from libcloud.common.types import LibcloudError
 from libcloud.storage.types import ObjectDoesNotExistError
 from requests.exceptions import ConnectionError
@@ -234,17 +233,6 @@ class ObjectStoreLogger(LoggerDestination):
             If not specified, defaults to using a :func:`~tempfile.TemporaryDirectory`.
         use_procs (bool, optional): Whether to perform file uploads in background processes (as opposed to threads).
             Defaults to True.
-        config_artifact_name_format (str, optional): A format string describing the artifact name for the 
-            ``config`` object, in yaml format. (default: ``{run_name}/config.yaml``)
-
-            The same format variables as for ``object_name_format`` are available.
-
-            If ``config`` is not specified, then this parameter has no effect. To always skip saving ``config``,
-            set this parameter to ``None``.
-
-        config (Dict[str, Any], optional): Configuration to store in an artifact with the name
-            given by ``config_artifact_name_format``. This object will be serialized as yaml.
-            If ``config_artifact_name_format`` or ``config`` is None, then no config artifact will be created.
     """
 
     def __init__(
@@ -257,8 +245,6 @@ class ObjectStoreLogger(LoggerDestination):
         num_concurrent_uploads: int = 4,
         upload_staging_folder: Optional[str] = None,
         use_procs: bool = True,
-        config_artifact_name_format: Optional[str] = "{run_name}/config.yaml",
-        config: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.provider = provider
         self.container = container
@@ -267,8 +253,6 @@ class ObjectStoreLogger(LoggerDestination):
             should_log_artifact = _always_log
         self.should_log_artifact = should_log_artifact
         self.object_name_format = object_name_format
-        self.config_artifact_name_format = config_artifact_name_format
-        self.config = config
         self._run_name = None
 
         if upload_staging_folder is None:
@@ -317,17 +301,6 @@ class ObjectStoreLogger(LoggerDestination):
             )
             worker.start()
             self._workers.append(worker)
-
-        if self.config is not None and self.config_artifact_name_format is not None:
-            with tempfile.NamedTemporaryFile('x+') as f:
-                f.write(yaml.safe_dump(self.config))
-            self.log_file_artifact(
-                state,
-                LogLevel.FIT,
-                artifact_name=self.config_artifact_name_format,
-                file_path=pathlib.Path(f.name),
-                overwrite=True,
-            )
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
