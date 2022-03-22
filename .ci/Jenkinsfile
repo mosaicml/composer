@@ -71,7 +71,7 @@ def getDockerImageName(baseImage, pythonVersion, gpu) {
 }
 
 lintImage = getDockerImageName("mosaicml/pytorch", "3.9", false)
-visionImage = getDockerImageName("mosaicml/pytorch_vision", "3.7", false)
+visionImage = getDockerImageName("mosaicml/pytorch_vision", "3.7", true)
 
 def runLint(pDockerImage) {
     trackBuild(
@@ -250,13 +250,55 @@ stage('Build') {
         // tests on merge commits, as the PR must have passed these checks already
         // to have been merged.
         jobs << [
-            'Python 3.7': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.7", false), "not notebooks and not gpu and not vision", 'all', false) },
-            'Python 3.8': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.8", false), "not notebooks and not gpu and not vision", 'all', false) },
-            'Python 3.9': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.9", false), "not notebooks and not gpu and not vision", 'all', false) },
-            'Python 3.7 - GPU': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.7", true), "not notebooks and gpu and not vision", 'all', true) },
-            'Python 3.7 - Vision': { -> runPytest(getDockerImageName("mosaicml/pytorch_vision", "3.7", true), "not notebooks and vision", 'all', true) },
+            'Python 3.7': { ->
+                runPytest(
+                    getDockerImageName("mosaicml/pytorch", "3.7", false),
+                    "not notebooks and not gpu and not vision", // markers
+                    'all', // extraDeps
+                    false, // gpu
+                )
+            },
+            'Python 3.8': { ->
+                runPytest(
+                    getDockerImageName("mosaicml/pytorch", "3.8", false),
+                    "not notebooks and not gpu and not vision", // markers
+                    'all', // extraDeps
+                    false, // gpu
+                )
+            },
+            'Python 3.9': { ->
+                runPytest(
+                    getDockerImageName("mosaicml/pytorch", "3.9", false),
+                    "not notebooks and not gpu and not vision", // markers
+                    'all', // extraDeps
+                    false, // gpu
+                )
+            },
+            'Python 3.7 - GPU': { ->
+                runPytest(
+                    getDockerImageName("mosaicml/pytorch", "3.7", true),
+                    "not notebooks and gpu and not vision", // markers
+                    'all', // extraDeps
+                    true, // gpu
+                )
+            },
+            'Python 3.7 - Vision': { ->
+                runPytest(
+                    visionImage,
+                    "not notebooks and vision",
+                    'all', // extraDeps
+                    true, // gpu
+                )
+            },
             'Lint': { -> runLint(lintImage) },
-            'Python 3.7 - extraDeps=dev': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.7", false), "not notebooks and not gpu and not vision", "dev", false) },
+            'Python 3.7 - extraDeps=dev': { ->
+                runPytest(
+                    getDockerImageName("mosaicml/pytorch", "3.7", false),
+                    "not notebooks and not gpu and not vision", // markers
+                    "dev", // extraDeps
+                    false, // gpu
+                )
+            },
         ]
     }
 
