@@ -1224,6 +1224,7 @@ class Trainer:
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         sync_context = contextlib.nullcontext() if self.deepspeed_enabled else _ddp_sync_context(
             self.state, is_final_microbatch, self._ddp_sync_strategy)
+
         with sync_context:
             # forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
@@ -1236,11 +1237,13 @@ class Trainer:
             # loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            if use_grad_scaling:
-                self.state.loss = cast(torch.Tensor, self.state.scaler.scale(self.state.loss))
+            with self.state.precision_context:
+                self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
-            if self.deepspeed_enabled:
-                self.state.deepspeed_model.backward(self.state.loss)
+            # We always want to scale loss by the grad_accum before the backwards pass and
+            # also for sake of metrics. Complicating matters, the DeepSpeed engine does its
+            # own scaling when we call `.backward`, but this isn't in place so we still need
+            # to scale for sake of metrics after the `.backward` call.
 
             # Loss is added to losses with clone to not scale the loss for the step printout
             # Likely need to look into the performance impact
@@ -1252,18 +1255,18 @@ class Trainer:
             assert self.state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
 
-            if self.deepspeed_enabled:
-                self.state.deepspeed_model.step()
+            # backward
+            self.engine.run_event(Event.BEFORE_BACKWARD)
 
             if use_grad_scaling:
-                self.state.loss = self.state.scaler.scale(self.state.loss)
+                self.state.loss = cast(torch.Tensor, self.state.scaler.scale(self.state.loss))
 
             if self.deepspeed_enabled:
-                cast("deepspeed.DeepSpeedEngine", self.state.model).backward(self.state.loss)
+                self.state.deepspeed_model.backward(self.state.loss)
 
                 # This is the same loss scaling and reporting we skipped earlier.
                 for loss in ensure_tuple(self.state.loss):
-                    loss.mul_(microbatch_num_samples / current_batch_size)
+                    loss.mul_(self.state.batch_num_samples / current_batch_size)
                     total_loss += loss.detach().clone()
             else:
                 for loss in ensure_tuple(self.state.loss):
