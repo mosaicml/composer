@@ -81,6 +81,7 @@ class FileLogger(LoggerDestination):
             :attr:`~.LogLevel.EPOCH`, then the logfile will be flushed every n epochs.  If
             the ``log_level`` is :attr:`~.LogLevel.BATCH`, then the logfile will be
             flushed every n batches. Default: ``100``.
+        config (Dict[str, Any], optional): Configuration to print in yaml format in the logfile.
     """
 
     def __init__(
@@ -104,7 +105,6 @@ class FileLogger(LoggerDestination):
         self.is_batch_interval = False
         self.is_epoch_interval = False
         self.file: Optional[TextIO] = None
-        self.config = config
         self._queue: queue.Queue[str] = queue.Queue()
         self._original_stdout_write = sys.stdout.write
         self._original_stderr_write = sys.stderr.write
@@ -114,6 +114,10 @@ class FileLogger(LoggerDestination):
 
         if capture_stderr:
             sys.stderr.write = self._get_new_writer("[stderr]: ", self._original_stderr_write)
+
+        if config is not None:
+            data = ("-" * 30) + "\n" + yaml.safe_dump(config) + "\n" + ("-" * 30) + "\n"
+            self.write('[config]: ', data)
 
     def _get_new_writer(self, prefix: str, original_writer: Callable[[str], int]):
         """Returns a writer that intercepts calls to the ``original_writer``."""
@@ -168,9 +172,6 @@ class FileLogger(LoggerDestination):
             buffering=self.buffer_size,
         )
         self._flush_queue()
-        if self.config is not None:
-            data = ("-" * 30) + "\n" + yaml.safe_dump(self.config) + "\n" + ("-" * 30) + "\n"
-            self.write('[config]: ', data)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
