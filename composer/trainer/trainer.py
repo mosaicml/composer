@@ -1082,7 +1082,7 @@ class Trainer:
             self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
     def _is_cuda_oom(self, e: RuntimeError):
-        """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled"""
+        """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
         return self.adaptive_grad_accum and "CUDA out of memory" in str(e)
 
     def _handle_cuda_oom(self):
