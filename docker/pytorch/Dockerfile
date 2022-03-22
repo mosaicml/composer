@@ -154,10 +154,6 @@ USER mosaicml
 FROM pytorch_stage AS vision_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
-ARG PYTORCH_VERSION
-ARG CUDA_VERSION_TAG
-ARG MMCV_TORCH_VERSION
-
 ##############################
 # MosaicML Vision Dependencies
 ##############################
@@ -175,6 +171,10 @@ RUN sudo apt-get update && \
     sudo apt-get autoclean && \
     sudo apt-get clean && \
     sudo rm -rf /var/lib/apt/lists/*
+
+ARG CUDA_VERSION_TAG
+ARG MMCV_TORCH_VERSION
+ARG PYTHON_VERSION
 
 RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
     ffcv==0.0.3 \
