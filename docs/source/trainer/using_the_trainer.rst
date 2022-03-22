@@ -460,8 +460,8 @@ The random seed can be provided to the trainer directly, e.g.
 If no seed is provided, a random seed will be generated from system time.
 
 Since the model and dataloaders are initialized outside of the Trainer, for complete
-determinism, we recommend calling :meth:`~composer.reproducibility.seed_all` and/or
-:meth:`~composer.reproducibility.configure_deterministic_mode` before creating any objects. For example:
+determinism, we recommend calling :meth:`~composer.utils.reproducibility.seed_all` and/or
+:meth:`~composer.utils.reproducibility.configure_deterministic_mode` before creating any objects. For example:
 
 .. testsetup::
 
