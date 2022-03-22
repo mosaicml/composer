@@ -104,7 +104,7 @@ def runPytest(pDockerImage, markers, extraDeps) {
         memLimit = "15Gi"  // 7.5Gb per gpu
     }
 
-    def name = "$pDockerImage: gpu=$gpu; extraDeps=$extraDeps"
+    def name = "$pDockerImage: markers='$markers'; extraDeps=$extraDeps"
 
     trackBuild(
         job: jenkinsShellJobName,
