@@ -1123,6 +1123,7 @@ class Trainer:
         while True:
             total_loss = None
             should_handle_cuda_oom = False
+            caught_error = None
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
@@ -1148,16 +1149,19 @@ class Trainer:
                 if self._is_cuda_oom(e):
                     should_handle_cuda_oom = True
                 else:
-                    # If not CUDA out of memory, raise exception to user. Note that this
-                    # truncates the call stack back only to this newly raised error
-                    raise e
-            
+                    caught_error = e
+                    
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(torch.tensor([should_handle_cuda_oom], dtype=torch.bool))
             dist.all_reduce(should_handle_cuda_oom, reduce_operation="BOR")
             if should_handle_cuda_oom:
-                # If any rank hit CUDA OOM, update grad_accum and retry
+                # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_error since it is 
+                # likely transient, e.g. timeout because certain ranks failed and didn't sync.
                 self._handle_cuda_oom()
+            elif caught_error:
+                # If not CUDA out of memory, raise exception to user. Note that this
+                # truncates the call stack back only to this newly raised error
+                raise caught_error
             else:
                 # Otherwise, return calculated loss
                 return total_loss
