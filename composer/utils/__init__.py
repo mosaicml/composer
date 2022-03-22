@@ -10,5 +10,5 @@ from composer.utils.string_enum import StringEnum
 
 __all__ = [
     'ensure_tuple', 'iterate_with_pbar', 'map_collection', 'get_file', 'ObjectStore', 'ObjectStoreHparams',
-    "import_object", 'StringEnum', "load_checkpoint", "save_checkpoint"
+    "MissingConditionalImportError", "import_object", 'StringEnum', "load_checkpoint", "save_checkpoint"
 ]

@@ -14,8 +14,7 @@ from composer.core import DataSpec
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
-from composer.utils import dist
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, dist
 
 __all__ = ["LMDatasetHparams"]
 
