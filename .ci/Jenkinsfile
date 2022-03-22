@@ -90,15 +90,16 @@ def runLint(pDockerImage) {
     )
 }
 
-def runPytest(pDockerImage, markers, extraDeps) {
+def runPytest(pDockerImage, markers, extraDeps, isGpu) {
     // pDockerImage (str): Base docker image to use.
     // extraDeps (str): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps].
     // markers (str): Pyetst markers
+    // isGpu (bool): Whether the test requires gpus
     def nGpus = "0"
     def memLimit = "4Gi"
     def cpuLimit = "2"
 
-    if (pDockerImage.contains('_cu11')){  // if it is a gpu image
+    if (isGpu) {
         nGpus = "2"
         cpuLimit = "16" // 8 cpu per gpu
         memLimit = "15Gi"  // 7.5Gb per gpu
@@ -202,6 +203,7 @@ stage('Build') {
                 def markers = "not notebooks and not gpu and not vision"
                 def isLintImage = false
                 def isVisionImage = false
+                def isGpuImage = false
                 def tag = null
                 buildConfigListOfTuples.each { item ->
                     def key = item[0]
@@ -210,6 +212,7 @@ stage('Build') {
                     if (key == 'CUDA_VERSION') {
                         if (val != 'cpu') {
                             markers = "not notebooks and gpu and not vision"
+                            isGpuImage = true
                         }
                     }
                     if (key == 'TAG') {
@@ -227,12 +230,12 @@ stage('Build') {
                 }
 
                 def subJobs = [
-                    "Pytest - ${tag}" : { -> runPytest(stagingImage, markers, extraDeps) }
+                    "Pytest - ${tag}" : { -> runPytest(stagingImage, markers, extraDeps, isGpuImage) }
                 ]
                 if (isLintImage) {
                     // and run lint and a dev install on this image
                     subJobs << [
-                        "Pytest - extraDeps=dev": { -> runPytest(stagingImage, markers, 'dev') },
+                        "Pytest - extraDeps=dev": { -> runPytest(stagingImage, markers, 'dev', false) },
                         "Lint": { -> runLint(stagingImage) },
                     ]
                 }
@@ -247,13 +250,13 @@ stage('Build') {
         // tests on merge commits, as the PR must have passed these checks already
         // to have been merged.
         jobs << [
-            'Python 3.7': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.7", false), "not notebooks and not gpu and not vision", 'all') },
-            'Python 3.8': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.8", false), "not notebooks and not gpu and not vision", 'all') },
-            'Python 3.9': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.9", false), "not notebooks and not gpu and not vision", 'all') },
-            'Python 3.7 - GPU': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.7", true), "not notebooks and gpu and not vision", 'all') },
-            'Python 3.7 - Vision': { -> runPytest(getDockerImageName("mosaicml/pytorch_vision", "3.7", true), "not notebooks and vision", 'all') },
+            'Python 3.7': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.7", false), "not notebooks and not gpu and not vision", 'all', false) },
+            'Python 3.8': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.8", false), "not notebooks and not gpu and not vision", 'all', false) },
+            'Python 3.9': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.9", false), "not notebooks and not gpu and not vision", 'all', false) },
+            'Python 3.7 - GPU': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.7", true), "not notebooks and gpu and not vision", 'all', true) },
+            'Python 3.7 - Vision': { -> runPytest(getDockerImageName("mosaicml/pytorch_vision", "3.7", true), "not notebooks and vision", 'all', true) },
             'Lint': { -> runLint(lintImage) },
-            'Python 3.7 - extraDeps=dev': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.7", false), "not notebooks and not gpu and not vision", "dev") },
+            'Python 3.7 - extraDeps=dev': { -> runPytest(getDockerImageName("mosaicml/pytorch", "3.7", false), "not notebooks and not gpu and not vision", "dev", false) },
         ]
     }
 
