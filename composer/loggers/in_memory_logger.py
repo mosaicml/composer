@@ -51,7 +51,6 @@ class InMemoryLogger(LoggerDestination):
             which to record. Defaults to
             :attr:`~.LogLevel.BATCH`, which records
             everything.
-        config (Dict[str, Any], optional): Configuration to store.
 
     Attributes:
         data (dict): Mapping of a logged key to a (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`, data dictionary) tuple.
@@ -61,8 +60,7 @@ class InMemoryLogger(LoggerDestination):
             :class:`~.time.Timestamp` of the last logging call for that key.
     """
 
-    def __init__(self,
-                 log_level: Union[str, int, LogLevel] = LogLevel.BATCH) -> None:
+    def __init__(self, log_level: Union[str, int, LogLevel] = LogLevel.BATCH) -> None:
         self.log_level = LogLevel(log_level)
         self.data: Dict[str, List[Tuple[Timestamp, LogLevel, Dict[str, Any]]]] = {}
         self.most_recent_values = {}
