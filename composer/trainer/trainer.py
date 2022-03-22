@@ -1093,7 +1093,7 @@ class Trainer:
                                This means the GPU does not have enough memory to process even 1"""))
         else:
             self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
-            self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
+            self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
 
     def _compute_metrics(self, train_metrics: Union[MetricCollection, None]):
         """Compute training metrics.
