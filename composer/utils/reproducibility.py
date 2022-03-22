@@ -4,8 +4,8 @@
 
 .. note::
 
-    For deterministic model initialization, :meth:`~composer.utils.reproducibility.seed_all` and/or
-    :meth:`~.configure_deterministic_mode` should be
+    For deterministic model initialization, :func:`~.seed_all` and/or
+    :func:`~.configure_deterministic_mode` should be
     invoked before creating and initializing a model, before creating the :class:`~.Trainer`.
     For example:
 
@@ -34,7 +34,7 @@
         >>> trainer = Trainer(model=model, seed=42)
 
     Note that the seed must also be passed to the Trainer, otherwise the Trainer
-    would generate a random seed based on the timestamp (see :meth:`~.get_random_seed`).
+    would generate a random seed based on the timestamp (see :func:`~.get_random_seed`).
 
     .. testcleanup::
 
