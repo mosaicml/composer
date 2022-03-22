@@ -1,12 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import dataclasses
 import os
 import pathlib
 import time
 
 import pytest
-import yahp as hp
 
 from composer.core.event import Event
 from composer.core.state import State
@@ -103,9 +101,3 @@ def test_object_store_logger_no_overwrite(tmpdir: pathlib.Path, dummy_state: Sta
 def test_object_store_logger_should_log_artifact_filter(tmpdir: pathlib.Path, dummy_state: State,
                                                         monkeypatch: pytest.MonkeyPatch):
     object_store_test_helper(tmpdir=tmpdir, dummy_state=dummy_state, monkeypatch=monkeypatch, should_filter=True)
-
-
-@dataclasses.dataclass
-class DummyHparams(hp.Hparams):
-    foo: str = hp.required("foo")
-    pass
