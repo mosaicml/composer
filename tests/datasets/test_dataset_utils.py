@@ -1,3 +1,5 @@
+import os
+import pathlib
 from typing import List, Tuple
 
 import numpy as np
@@ -5,7 +7,9 @@ import pytest
 import torch
 from PIL import Image
 
-from composer.datasets.utils import pil_image_collate
+from composer.datasets.hparams import DatasetHparams
+from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType
+from composer.datasets.utils import create_ffcv_dataset, pil_image_collate
 
 
 @pytest.fixture
@@ -55,3 +59,16 @@ def test_image_target_collate(pil_image_list: List[Image.Image], pil_target_list
         batch=batch)  # type: ignore "Image" is incompatible with "ndarray[Unknown, Unknown]"
 
     assert torch.all(image_tensor == correct_image_tensor) and torch.all(target_tensor == correct_image_tensor[:, 0])
+
+
+@pytest.mark.vision
+def test_create_ffcv_dataset(dummy_train_dataset_hparams: DatasetHparams, tmpdir: pathlib.Path,
+                             dummy_in_shape: List[int]):
+    dataset = SyntheticBatchPairDataset(total_dataset_size=1,
+                                        num_classes=1,
+                                        data_shape=list(dummy_in_shape),
+                                        label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
+                                        num_unique_samples_to_create=1)
+    output_file = str(tmpdir / "ffcv")
+    create_ffcv_dataset(dataset, write_path=output_file, num_workers=1)
+    assert os.path.exists(output_file)
