@@ -11,17 +11,16 @@ import pathlib
 import shutil
 import tarfile
 import tempfile
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import torch
 
 from composer.utils import dist, reproducibility
 from composer.utils.file_retriever import GetFileNotFoundException, get_file
-from composer.utils.object_store import ObjectStoreProvider
+from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.core.state import State
-    from composer.core.types import StateDict
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +69,7 @@ def _get_write_mode(name: str) -> str:
 def load_checkpoint(
     path_format: str,
     state: State,
-    object_store: Optional[ObjectStoreProvider] = None,
+    object_store: Optional[ObjectStore] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
     chunk_size: int = 1_048_576,
@@ -113,9 +112,9 @@ def load_checkpoint(
             correct state.
 
         state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
-        object_store (ObjectStoreProvider, optional): If the ``path_format`` is in an object store
+        object_store (ObjectStore, optional): If the ``path_format`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
-            :class:`~.ObjectStoreProvider` which will be used
+            :class:`~.ObjectStore` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
             (default: ``None``)
         load_weights_only (bool, optional): Whether or not to only restore the model weights from the checkpoint without
@@ -128,7 +127,7 @@ def load_checkpoint(
             Ignored if the checkpoint is a local file path. (default: ``True``)
 
     Returns:
-        Optional[List[types.StateDict]]: The RNG state dicts, indexed by global rank, if
+        Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
     # download the checkpoint to the node-local folder
@@ -172,7 +171,7 @@ def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
 def _download_checkpoint(
     path_format: str,
     node_checkpoint_folder: str,
-    object_store: Optional[ObjectStoreProvider],
+    object_store: Optional[ObjectStore],
     chunk_size: int,
     progress_bar: bool,
 ) -> Tuple[str, Optional[str], bool]:
@@ -265,7 +264,7 @@ def _restore_checkpoint(
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     strict_model_weights: bool,
-) -> Optional[List[StateDict]]:
+) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = torch.load(composer_states_filepath, map_location='cpu')

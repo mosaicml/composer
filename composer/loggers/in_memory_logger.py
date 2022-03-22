@@ -62,7 +62,7 @@ class InMemoryLogger(LoggerDestination):
             :class:`~.time.Timestamp` of the last logging call for that key.
     """
 
-    def __init__(self, log_level: Union[str, LogLevel] = LogLevel.BATCH) -> None:
+    def __init__(self, log_level: Union[str, int, LogLevel] = LogLevel.BATCH) -> None:
         self.log_level = LogLevel(log_level)
         self.data: Dict[str, List[Tuple[Timestamp, LogLevel, LoggerData]]] = {}
         self.most_recent_values: LoggerDataDict = {}

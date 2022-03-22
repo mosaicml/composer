@@ -5,6 +5,7 @@ train_dataset:
     download: false
     shuffle: true
     drop_last: true
+    use_ffcv: false
 val_dataset:
   cifar10:
     datadir: /datasets/CIFAR10
@@ -12,6 +13,7 @@ val_dataset:
     download: false
     shuffle: false
     drop_last: false
+    use_ffcv: false
 optimizer:
   decoupled_sgdw:
     lr: 1.2
@@ -27,8 +29,6 @@ schedulers:
 model:
   resnet9_cifar10:
     num_classes: 10
-loggers:
-  - tqdm: {}
 max_duration: 160ep
 train_batch_size: 1024
 eval_batch_size: 1000

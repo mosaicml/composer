@@ -1,5 +1,5 @@
 import collections.abc
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, TypeVar, Union, overload
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, TypeVar, Union, overload
 
 import tqdm
 
@@ -23,33 +23,20 @@ def map_collection(list_of_elements: List[T], map_fn: Callable[[T], V], /) -> Li
 def map_collection(dict_of_elements: Dict[KT, T], map_fn: Callable[[T], V], /) -> Dict[KT, V]:
     ...
 
+
 @overload
 def map_collection(none: None, map_fn: Callable[[Any], Any], /) -> None:
     ...
+
 
 @overload
 def map_collection(singleton: T, map_fn: Callable[[T], V], /) -> V:
     ...
 
-@overload
-def ensure_tuple(x: None) -> Tuple:
+
+def ensure_tuple(union_of_all_types: Union[T, Sequence[T], Dict[Any, T], None]) -> Tuple[T, ...]:
     ...
 
-@overload
-def ensure_tuple(x: Tuple[T, ...]) -> Tuple[T, ...]:
-    ...
-
-@overload
-def ensure_tuple(x: List[T]) -> Tuple[T, ...]:
-    ...
-
-@overload
-def ensure_tuple(x: Dict[Any, T]) -> Tuple[T, ...]:
-    ...
-
-@overload
-def ensure_tuple(x: Union[T, None, Tuple[T, ...], List[T], Dict[Any, T]]) -> Tuple[T, ...]:
-    ...
 
 def iterate_with_pbar(iterator: Iterator[TSized], progress_bar: Optional[tqdm.tqdm] = ...) -> Iterator[TSized]:
     ...

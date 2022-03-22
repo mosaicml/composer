@@ -19,25 +19,51 @@ class StringEnum(Enum):
     *   ``StringEnum(value)`` will perform a case-insensitive match on both the keys and value,
         and is a no-op if given an existing instance of the class.
 
-        >>> class MyStringEnum(StringEnum):
-        ...     KEY = "value"
-        >>> MyStringEnum("KeY")  # case-insensitive match on the key
-        <MyStringEnum.KEY: 'value'>
-        >>> MyStringEnum("VaLuE")  # case-insensitive match on the value
-        <MyStringEnum.KEY: 'value'>
-        >>> MyStringEnum(MyStringEnum.KEY)  # no-op if given an existing instance
-        <MyStringEnum.KEY: 'value'>
-    
+        .. testsetup::
+
+            import warnings
+
+            warnings.filterwarnings(action="ignore", message="Detected comparision between a string")
+
+        .. doctest::
+
+            >>> from composer.utils import StringEnum
+            >>> class MyStringEnum(StringEnum):
+            ...     KEY = "value"
+            >>> MyStringEnum("KeY")  # case-insensitive match on the key
+            <MyStringEnum.KEY: 'value'>
+            >>> MyStringEnum("VaLuE")  # case-insensitive match on the value
+            <MyStringEnum.KEY: 'value'>
+            >>> MyStringEnum(MyStringEnum.KEY)  # no-op if given an existing instance
+            <MyStringEnum.KEY: 'value'>
+
+        .. testcleanup::
+
+            warnings.resetwarnings()
+
     *   Equality checks support case-insensitive comparisions against strings:
 
-        >>> class MyStringEnum(StringEnum):
-        ...     KEY = "value"
-        >>> MyStringEnum.KEY == "KeY"  # case-insensitive match on the key
-        True
-        >>> MyStringEnum.KEY == "VaLuE"  # case-insensitive match on the value
-        True
-        >>> MyStringEnum.KEY == "something else"
-        False
+        .. testsetup::
+
+            import warnings
+
+            warnings.filterwarnings(action="ignore", message="Detected comparision between a string")
+
+        .. doctest::
+
+            >>> from composer.utils import StringEnum
+            >>> class MyStringEnum(StringEnum):
+            ...     KEY = "value"
+            >>> MyStringEnum.KEY == "KeY"  # case-insensitive match on the key
+            True
+            >>> MyStringEnum.KEY == "VaLuE"  # case-insensitive match on the value
+            True
+            >>> MyStringEnum.KEY == "something else"
+            False
+
+        .. testcleanup::
+
+            warnings.resetwarnings()
     """
     __hash__ = Enum.__hash__
 
@@ -45,8 +71,8 @@ class StringEnum(Enum):
         if isinstance(other, str):
             cls_name = self.__class__.__name__
             warnings.warn(
-                f"Detected comparision between a string and {cls_name}. Please use {cls_name}({other}) "
-                f"to convert both types to {cls_name} before comparing",
+                f"Detected comparision between a string and {cls_name}. Please use {cls_name}('{other}') "
+                f"to convert both types to {cls_name} before comparing.",
                 category=UserWarning)
             try:
                 o_enum = type(self)(other)

@@ -3,16 +3,14 @@
 """A collection of common torchmetrics and loss functions."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Tuple
+import warnings
+from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
 from torch import Tensor
 from torchmetrics import Metric
 from torchmetrics.utilities.data import to_categorical
-
-if TYPE_CHECKING:
-    from composer.core.types import Tensor
 
 __all__ = ["MIoU", "Dice", "CrossEntropyLoss", "soft_cross_entropy"]
 
@@ -75,7 +73,7 @@ class Dice(Metric):
         self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
         self.add_state("dice", default=torch.zeros((num_classes,)), dist_reduce_fx="sum")
 
-    def update(self, pred, target):
+    def update(self, pred: Tensor, target: Tensor):
         """Update the state based on new predictions and targets."""
         self.n_updates += 1  # type: ignore
         self.dice += self.compute_stats(pred, target)
@@ -88,7 +86,7 @@ class Dice(Metric):
         return top_dice
 
     @staticmethod
-    def compute_stats(pred, target):
+    def compute_stats(pred: Tensor, target: Tensor):
         num_classes = pred.shape[1]
         scores = torch.zeros(num_classes - 1, device=pred.device, dtype=torch.float32)
         for i in range(1, num_classes):
@@ -139,9 +137,37 @@ def _infer_target_type(input: Tensor, targets: Tensor) -> str:
                            'inputs.ndim == targets.ndim + 1')
 
 
-def ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
+def ensure_targets_one_hot(input: Tensor, targets: Tensor, num_classes: Optional[float] = None) -> Tensor:
+    r"""Ensures that the targets are in a one-hot format rather than an index format.
+
+    Args:
+        input (torch.Tensor): :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
+            in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`
+            in the case of K-dimensional loss. `input` is expected to contain unnormalized scores
+            (often referred to as logits).
+        target (torch.Tensor) : If containing class indices, shape :math:`(N)` where each value is
+            :math:`0 \leq \text{targets}[i] \leq C-1`, or :math:`(N, d_1, d_2, ..., d_K)` with
+            :math:`K \geq 1` in the case of K-dimensional loss. If containing class probabilities,
+            same shape as the input.
+        num_classes (int, optional): Number of classes. If not specified, this will be inferred
+            from input. Default: ``None``
+    """
     if _infer_target_type(input, targets) == 'indices':
-        targets = F.one_hot(targets, num_classes=input.shape[1])
+        # If the number of classes isn't specified, attempt to infer it from the input
+        if num_classes is None:
+            num_classes = input.shape[1]
+        if targets.min() < 0:
+            warnings.warn("Negative label indices are being ignored in conversion to one-hot labels")
+            # Map all negative indicies to a class to drop.
+            targets[targets < 0] = num_classes
+            targets = F.one_hot(targets, num_classes=num_classes + 1)
+            targets = torch.movedim(targets, -1, 1)
+            # Drop any negative indices.
+            targets = targets[:, 0:-1]
+        else:
+            targets = F.one_hot(targets, num_classes=num_classes)
+            targets = torch.movedim(targets, -1, 1)
+        targets = targets.float()
     return targets
 
 
@@ -202,20 +228,32 @@ def soft_cross_entropy(input: Tensor,
         assert reduction in ['sum', 'mean', 'none'], f"{reduction} reduction not supported."
         assert size_average is None, "size_average is deprecated"
         assert reduce is None, "reduce is deprecated"
-        assert ignore_index == -100, "ignore_index not supported."
-        probs = -1 * (target * F.log_softmax(input, dim=1))
+        if ignore_index != -100:
+            warnings.warn("ignore_index not supported when using dense labels. Ignoring targets with 0 probability.")
+        xentropy = -(target * F.log_softmax(input, dim=1))
 
         if weight is not None:
-            probs *= weight / weight.sum()  # allow broadcast along batch dim
+            # Ugly dimension shuffle to make multiplication work.
+            xentropy = torch.movedim(xentropy, 1, -1)
+            xentropy *= weight  # PyTorch doesn't normalize weights
+            xentropy = torch.movedim(xentropy, -1, 1)
 
-        probs = probs.sum(dim=1)
+        xentropy = xentropy.sum(dim=1)
+        num_examples = torch.numel(xentropy)
 
         if reduction == 'sum':
-            probs = probs.sum(dim=0)
+            xentropy = xentropy.sum()
         elif reduction == 'mean':
-            probs = probs.mean(dim=0)
+            xentropy = xentropy.mean()
+            # Reweight loss to account for examples with less than 1 total probability (ignored examples)
+            total_prob = target.sum()
+            if total_prob <= 0:
+                raise ValueError("No targets have nonzero probability")
+            if total_prob < num_examples:
+                warnings.warn("Some targets have less than 1 total probability.")
+            xentropy *= num_examples / total_prob
 
-        return probs
+        return xentropy
     else:
         raise ValueError(f"Unrecognized target type {target_type}")
 

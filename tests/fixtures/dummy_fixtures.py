@@ -1,17 +1,17 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from typing import Tuple, Type, Union
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 import torch
 import torch.utils.data
+from torch.optim import Optimizer
+from torchmetrics import MetricCollection
 from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics.collections import MetricCollection
 
-from composer import State
-from composer.core.evaluator import Evaluator
-from composer.core.types import DataLoader, DataSpec, Model, Optimizer, Precision, PyTorchScheduler
+from composer.core import DataSpec, Evaluator, Precision, State
+from composer.core.types import DataLoader, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.loggers import Logger
 from composer.models import ComposerClassifier, ModelHparams
@@ -101,9 +101,8 @@ def dummy_scheduler(dummy_optimizer: Optimizer):
 
 
 @pytest.fixture()
-def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader,
-                             dummy_optimizer: Optimizer, dummy_scheduler: PyTorchScheduler,
-                             dummy_val_dataloader: DataLoader) -> State:
+def dummy_state(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader, dummy_optimizer: Optimizer,
+                dummy_scheduler: PyTorchScheduler, dummy_val_dataloader: DataLoader, rank_zero_seed: int) -> State:
     evaluators = [
         Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=dummy_model.metrics(train=False))
     ]
@@ -111,7 +110,7 @@ def dummy_state_without_rank(dummy_model: SimpleBatchPairModel, dummy_train_data
         model=dummy_model,
         precision=Precision.FP32,
         grad_accum=1,
-        rank_zero_seed=0,
+        rank_zero_seed=rank_zero_seed,
         train_dataloader=dummy_train_dataloader,
         evaluators=evaluators,
         optimizers=dummy_optimizer,
@@ -152,18 +151,8 @@ def dummy_val_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_val_
 
 
 @pytest.fixture()
-def dummy_state(dummy_state_without_rank: State) -> State:
-    return dummy_state_without_rank
-
-
-@pytest.fixture()
 def dummy_logger(dummy_state: State):
     return Logger(dummy_state)
-
-
-@pytest.fixture
-def logger_mock():
-    return MagicMock()
 
 
 """
@@ -195,6 +184,7 @@ def composer_trainer_hparams(
     dummy_val_dataset_hparams: DatasetHparams,
     dummy_train_batch_size: int,
     dummy_val_batch_size: int,
+    rank_zero_seed: int,
 ) -> TrainerHparams:
     return TrainerHparams(
         algorithms=[],
@@ -204,6 +194,7 @@ def composer_trainer_hparams(
         precision=Precision.FP32,
         train_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,
+        seed=rank_zero_seed,
         dataloader=DataLoaderHparams(
             num_workers=0,
             prefetch_factor=2,
@@ -229,12 +220,13 @@ def simple_conv_model_input():
 
 
 @pytest.fixture()
-def state_with_model(simple_conv_model: Model, dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader):
+def state_with_model(simple_conv_model: torch.nn.Module, dummy_train_dataloader: DataLoader,
+                     dummy_val_dataloader: DataLoader, rank_zero_seed: int):
     metric_coll = MetricCollection([Accuracy()])
     evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
     state = State(
         grad_accum=1,
-        rank_zero_seed=0,
+        rank_zero_seed=rank_zero_seed,
         max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,

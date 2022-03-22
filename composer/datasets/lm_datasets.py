@@ -4,17 +4,17 @@
 
 import logging
 import tempfile
-import textwrap
 from dataclasses import dataclass
 from os.path import join
 from typing import List, Optional
 
 import yahp as hp
 
-from composer.core.types import Batch, DataSpec
+from composer.core import DataSpec
+from composer.core.types import Batch
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
-from composer.utils import dist
+from composer.utils import MissingConditionalImportError, dist
 
 __all__ = ["LMDatasetHparams"]
 
@@ -105,10 +105,7 @@ class LMDatasetHparams(DatasetHparams):
             import datasets
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         self.validate()
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)

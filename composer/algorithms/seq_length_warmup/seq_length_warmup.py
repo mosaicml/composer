@@ -8,8 +8,9 @@ from typing import Dict, Mapping, Optional
 
 import torch
 
+from composer.core import Algorithm, Event, State
 from composer.core.time import TimeUnit
-from composer.core.types import Algorithm, Batch, Event, State, Tensor
+from composer.core.types import Batch
 from composer.loggers import Logger
 from composer.models.transformer_shared import ComposerTransformer
 from composer.utils import ensure_tuple
@@ -17,7 +18,7 @@ from composer.utils import ensure_tuple
 __all__ = ["SeqLengthWarmup", "set_batch_sequence_length"]
 
 
-def set_batch_sequence_length(batch: Dict[str, Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
+def set_batch_sequence_length(batch: Dict[str, torch.Tensor], curr_seq_len: int, truncate: bool = True) -> Batch:
     """Set the sequence length of a batch.
 
     Changes the sequence length of all tensors in the provided dictionary
