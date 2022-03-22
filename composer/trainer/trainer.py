@@ -1015,11 +1015,8 @@ class Trainer:
                         torch.tensor([self.state.batch_num_samples], dtype=torch.int))
                     num_tokens_in_batch = self._device.tensor_to_device(
                         torch.tensor([self.state.batch_num_tokens], dtype=torch.int))
-                    grad_accum = self._device.tensor_to_device(torch.tensor([self.state.grad_accum], dtype=torch.int))
                     dist.all_reduce(num_samples_in_batch, reduce_operation="SUM")
                     dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
-                    dist.all_reduce(grad_accum, reduce_operation="MAX")
-                    self.state.grad_accum = int(grad_accum.item())
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.data_batch({
@@ -1084,19 +1081,19 @@ class Trainer:
 
             self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
-    def _handle_cuda_oom(self, e: RuntimeError):
+    def _is_cuda_oom(self, e: RuntimeError):
+        """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled"""
+        return self.adaptive_grad_accum and "CUDA out of memory" in str(e)
+
+    def _handle_cuda_oom(self):
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
-        if self.adaptive_grad_accum and "CUDA out of memory" in str(e):
-            # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
-            if self.state.grad_accum == self.state.batch_num_samples:
-                raise RuntimeError("CUDA out of memory. Train loop failed with an internal microbatch of size 1") from e
-            else:
-                self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
-                self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
+        # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
+        if self.state.grad_accum == self.state.batch_num_samples:
+            raise RuntimeError(textwrap.dededent("""CUDA out of memory. Train loop failed with an internal microbatch of size 1.
+                               This means the GPU does not have enough memory to process even 1"""))
         else:
-            # If not CUDA out of memory, raise exception to user. Note that this
-            # truncates the call stack back only to this newly raised error
-            raise e
+            self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
+            self.logger.metric_batch({'trainer/grad_accum': self.state.grad_accum})
 
     def _compute_metrics(self, train_metrics: Union[MetricCollection, None]):
         """Compute training metrics.
@@ -1124,9 +1121,10 @@ class Trainer:
         """
         # Retry until we successfully complete training and return loss
         while True:
+            total_loss = None
+            should_handle_cuda_oom = False
             try:
                 assert self.state.scaler is not None
-                total_loss = None
                 microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
                 if self.deepspeed_enabled:
                     total_loss = self._train_microbatches(microbatches)
@@ -1146,9 +1144,23 @@ class Trainer:
                             self.state.scaler.step(optimizer)
                         else:
                             optimizer.step()
-                return total_loss
             except RuntimeError as e:
-                self._handle_cuda_oom(e)
+                if self._is_cuda_oom(e):
+                    should_handle_cuda_oom = True
+                else:
+                    # If not CUDA out of memory, raise exception to user. Note that this
+                    # truncates the call stack back only to this newly raised error
+                    raise e
+            
+            # Propagate across all ranks if any rank hit CUDA OOM
+            should_handle_cuda_oom = self._device.tensor_to_device(torch.tensor([should_handle_cuda_oom], dtype=torch.bool))
+            dist.all_reduce(should_handle_cuda_oom, reduce_operation="BOR")
+            if should_handle_cuda_oom:
+                # If any rank hit CUDA OOM, update grad_accum and retry
+                self._handle_cuda_oom()
+            else:
+                # Otherwise, return calculated loss
+                return total_loss
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         """Iterate over microbatches and compute the loss that will be used to step the optimizer.
