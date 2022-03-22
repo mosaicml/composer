@@ -1122,37 +1122,36 @@ class Trainer:
         Args:
             use_grad_scaling (bool): Enables gradient scaling
         """
-        rerun = True
-        while rerun:
+        # Retry until we successfully complete training and return loss
+        while True:
             try:
                 assert self.state.scaler is not None
                 total_loss = None
                 microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
                 if self.deepspeed_enabled:
-                    total_loss = self._train_batch_with_context(microbatches)
+                    total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             total_loss = self.state.scaler.step(
                                 optimizer,
-                                closure=lambda **kwargs: self._train_batch_with_context(microbatches, **kwargs))
+                                closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
                             total_loss = optimizer.step(
-                                closure=lambda **kwargs: self._train_batch_with_context(microbatches, **kwargs).item())
+                                closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
                 else:
-                    total_loss = self._train_batch_with_context(microbatches)
+                    total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             self.state.scaler.step(optimizer)
                         else:
                             optimizer.step()
-                rerun = False
                 return total_loss
             except RuntimeError as e:
                 self._handle_cuda_oom(e)
 
-    def _train_batch_with_context(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
-        """Run training on a full batch of data.
+    def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
+        """Iterate over microbatches and compute the loss that will be used to step the optimizer.
 
         Args:
             microbatches (Sequence[Batch]): The microbatches which make up the batch.
@@ -1166,48 +1165,40 @@ class Trainer:
             context = cast(Callable[[], ContextManager], self.state.model.no_sync)
 
         with context():
-            return self._train_microbatches(microbatches)
+            self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
 
-    def _train_microbatches(self, microbatches: Sequence[Batch]):
-        """Iterate over microbatches and compute the loss that will be used to step the optimizer.
+            assert self.state.optimizers is not None
+            assert self.state.scaler is not None
 
-        Args:
-            microbatches (Sequence[Batch]): The microbatches which make up the batch.
-        """
-        self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
+            use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
-        assert self.state.optimizers is not None
-        assert self.state.scaler is not None
+            if not self.deepspeed_enabled:
+                for optimizer in self.state.optimizers:
+                    optimizer.zero_grad()
 
-        use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
+            # tracker for gradient accumulation
+            total_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
+            current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
 
-        if not self.deepspeed_enabled:
-            for optimizer in self.state.optimizers:
-                optimizer.zero_grad()
+            for microbatch_idx, self.state.batch in enumerate(microbatches):
+                is_final_microbatch = microbatch_idx + 1 == len(microbatches)
+                self._train_microbatch(use_grad_scaling, current_batch_size, total_loss, is_final_microbatch)
 
-        # tracker for gradient accumulation
-        total_loss = self._device.tensor_to_device(torch.zeros(size=(1,)))
-        current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
+            # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
+            if use_grad_scaling:
+                for optimizer in ensure_tuple(self.state.optimizers):
+                    self.state.scaler.unscale_(optimizer)
 
-        for microbatch_idx, self.state.batch in enumerate(microbatches):
-            is_final_microbatch = microbatch_idx + 1 == len(microbatches)
-            self._train_microbatch(use_grad_scaling, current_batch_size, total_loss, is_final_microbatch)
+            # clip gradients if the magnitude is too large
+            if not self.deepspeed_enabled and self._grad_clip_norm is not None:
+                torch.nn.utils.clip_grad_norm_(
+                    parameters=self.state.model.parameters(),
+                    max_norm=self._grad_clip_norm,
+                )
 
-        # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
-        if use_grad_scaling:
-            for optimizer in ensure_tuple(self.state.optimizers):
-                self.state.scaler.unscale_(optimizer)
+            self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
-        # clip gradients if the magnitude is too large
-        if not self.deepspeed_enabled and self._grad_clip_norm is not None:
-            torch.nn.utils.clip_grad_norm_(
-                parameters=self.state.model.parameters(),
-                max_norm=self._grad_clip_norm,
-            )
-
-        self.engine.run_event(Event.AFTER_TRAIN_BATCH)
-
-        return total_loss
+            return total_loss
 
     def _train_microbatch(self, use_grad_scaling: bool, current_batch_size: int, total_loss: torch.Tensor,
                           is_final_microbatch: bool):
