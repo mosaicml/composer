@@ -72,7 +72,7 @@ class MNISTWebDatasetHparams(WebDatasetHparams):
     name: str = hp.optional('WebDataset local cache name', default='mnist')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
-        from composer.datasets.webdataset import load_webdataset
+        from composer.datasets.webdataset_utils import load_webdataset
 
         split = 'train' if self.is_train else 'val'
         transform = transforms.Compose([
