@@ -7,19 +7,16 @@ from __future__ import annotations
 import json
 import random
 import string
-import textwrap
 from os.path import join
-from tempfile import mkdtemp
 from typing import TYPE_CHECKING, NamedTuple, Optional
 
 from composer.utils import MissingConditionalImportError
 
 if TYPE_CHECKING:
-    import tokenizers.decoders as decoders
     import tokenizers.models as tokenizers_models
-    import tokenizers.normalizers as normalizers
-    import tokenizers.pre_tokenizers as pre_tokenizers
     from datasets import Dataset
+    from tokenizers import decoders, normalizers
+    from tokenuzers import pre_tokenizers
     from transformers import PreTrainedTokenizer
 
 __all__ = ["SyntheticTokenizerParams", "generate_synthetic_tokenizer", "synthetic_hf_dataset_builder"]
@@ -39,11 +36,9 @@ class SyntheticTokenizerParams(NamedTuple):
 
 def _generate_bert_tokenizer_params(dataset) -> SyntheticTokenizerParams:
     try:
-        import tokenizers.decoders as decoders
         import tokenizers.models as tokenizers_models
-        import tokenizers.normalizers as normalizers
-        import tokenizers.pre_tokenizers as pre_tokenizers
         import tokenizers.trainers as tokenizers_trainer
+        from tokenizers import decoders, normalizers, pre_tokenizers
         from transformers import BertTokenizer
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
@@ -69,11 +64,9 @@ def _generate_bert_tokenizer_params(dataset) -> SyntheticTokenizerParams:
 
 def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
     try:
-        import tokenizers.decoders as decoders
         import tokenizers.models as tokenizers_models
-        import tokenizers.normalizers as normalizers
-        import tokenizers.pre_tokenizers as pre_tokenizers
         import tokenizers.trainers as tokenizers_trainer
+        from tokenizers import decoders, normalizers, pre_tokenizers
         from transformers import GPT2Tokenizer
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
@@ -120,7 +113,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         column_names = ['sentence']
         dataset = synthetic_hf_dataset_builder(num_samples=num_samples,
                                                chars_per_sample=chars_per_sample,
-                                               column_names=column_names).generate_dataset()
+                                               column_names=column_names)
 
     # change a columnar dataset into a list
     flattened_columns = [dataset[key] for key in dataset.column_names if key != 'idx']
