@@ -6,10 +6,10 @@ from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthet
 
 
 def generate_parameter_configs(keys, num_replicas=1):
-    """
-    Generates parameter configurations for the fixtures.
-    We cannot directly do this with `pytest.mark.parameterize(...)` since it doesn't
-    pass combinations of arguments to fixtures.
+    """Generates parameter configurations for the fixtures.
+
+    We cannot directly do this with `pytest.mark.parameterize(...)` since it doesn't pass combinations of arguments to
+    fixtures.
     """
     config_options = {
         "tokenizer_family": ['bert', 'gpt2'],
