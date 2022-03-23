@@ -4,21 +4,22 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import time
 from functools import wraps
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 from composer.profiler._profiler_action import ProfilerAction
-from composer.profiler.json_trace import JSONTraceHandler
 from composer.utils import dist
+from composer.utils.iter_helpers import ensure_tuple
 
 if TYPE_CHECKING:
     from composer.core.state import State
     from composer.core.time import Timestamp
-    from composer.profiler._event_handler import ProfilerEventHandler
+    from composer.profiler._trace_handler import TraceHandler
 
-__all__ = ["Marker", "Profiler", "ProfilerEventHandler"]
+__all__ = ["Marker", "Profiler"]
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class Profiler:
 
     Args:
         state (State): The state.
-        event_handlers (Sequence[ProfilerEventHandler]): Event handlers which record and save profiling data to traces.
+        event_handlers (Sequence[MarkerHandler]): Event handlers which record and save profiling data to traces.
         skip_first (int, optional): Number of batches to skip profiling at epoch start.  Defaults to ``0``.
         wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle.
             Defaults to ``0``.
@@ -53,28 +54,24 @@ class Profiler:
             Defaults to ``1``.
     """
 
-    def __init__(self,
-                 state: State,
-                 event_handlers: Sequence[ProfilerEventHandler] = tuple(),
-                 skip_first: int = 0,
-                 wait: int = 0,
-                 warmup: int = 1,
-                 active: int = 4,
-                 repeat: int = 1,
-                 merged_trace_file_format: str = "{run_name}/node_{node_rank}_merged_profiler_trace.json",
-                 merged_trace_artifact_name_format: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        state: State,
+        trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
+        skip_first: int = 0,
+        wait: int = 0,
+        warmup: int = 1,
+        active: int = 4,
+        repeat: int = 1,
+    ) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
-        self._event_handlers = event_handlers if event_handlers else [JSONTraceHandler()]
+        self._trace_handlers = ensure_tuple(trace_handlers)
         self.state = state
         self.skip_first = skip_first
         self.wait = wait
         self.warmup = warmup
         self.active = active
         self.repeat = repeat
-        self.merged_trace_file_format = merged_trace_file_format
-        if merged_trace_artifact_name_format is None:
-            merged_trace_artifact_name_format = merged_trace_file_format
-        self.merged_trace_artifact_name_format = merged_trace_artifact_name_format
         self._action = ProfilerAction.SKIP
 
     def get_action(self, batch_idx: int) -> ProfilerAction:
@@ -83,7 +80,7 @@ class Profiler:
 
         The profiler skips the first ``skip_first`` batches in every epoch. Then, it performs a cycle of
         skipping ``wait`` batches, warming up for ``warmup`` batches, and recording ``active`` batches.
-        It repeats this cylce up to ``repeat`` times per epoch (or for the entire epoch, if ``repeat`` is 0).
+        It repeats this cycle up to ``repeat`` times per epoch (or for the entire epoch, if ``repeat`` is 0).
         This logic repeats every epoch.
 
         Args:
@@ -105,9 +102,17 @@ class Profiler:
         return ProfilerAction.ACTIVE
 
     @property
-    def event_handlers(self):
-        """Profiler event handlers."""
-        return self._event_handlers
+    def trace_handlers(self):
+        """Profiler trace recorders."""
+        return self._trace_handlers
+
+    def collect_trace_file(self, filename: str, format: str):
+        # called by the torch profiler and
+        ...
+
+    def record_chrome_json_trace_file(self, filepath: Union[str, pathlib.Path]):
+        for recorder in self.trace_handlers:
+            recorder.process_chrome_json_trace_file(pathlib.Path(filepath))
 
     def marker(
         self,
@@ -157,105 +162,21 @@ class Profiler:
             Marker: Instance of :class:`Marker`.
         """
         if name not in self._names_to_markers:
+
+            def should_record(state: State) -> bool:
+                return self.get_action(int(state.timer.batch_in_epoch)) in actions
+
             self._names_to_markers[name] = Marker(
-                self,
-                name,
-                actions=actions,
+                state=self.state,
+                trace_handlers=self.trace_handlers,
+                name=name,
+                should_record=should_record,
                 record_instant_on_start=record_instant_on_start,
                 record_instant_on_finish=record_instant_on_finish,
                 categories=categories,
             )
         self._names_to_markers[name].categories = categories
         return self._names_to_markers[name]
-
-    def _record_duration_event(self, marker: Marker, is_start: bool, wall_clock_time_ns: int, global_rank: int,
-                               pid: int, timestamp: Timestamp):
-        """Record a duration event.
-
-        .. note::
-
-            This method should not be invoked directly. Instead, create a :class:`Marker`
-            via :meth:`marker`, and then invoke :meth:`Marker.start` or :meth:`Marker.finish`.
-
-        Args:
-            marker (Marker): The marker.
-            is_start (bool): Whether this is the start or end of the duration event.
-            wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            global_rank (int): The `global_rank` where the event was triggered
-            pid (int): The `pid` where the event was triggered
-            timestamp (Timestamp): The timestamp at which the event was triggered.
-        """
-        for handler in self._event_handlers:
-            handler.process_duration_event(
-                name=marker.name,
-                categories=marker.categories,
-                timestamp=timestamp,
-                is_start=is_start,
-                wall_clock_time_ns=wall_clock_time_ns,
-                global_rank=global_rank,
-                pid=pid,
-            )
-
-    def _record_instant_event(self, marker: Marker, wall_clock_time_ns: int, global_rank: int, pid: int,
-                              timestamp: Timestamp):
-        """Record an instant event.
-
-        .. note::
-
-            This method should not be invoked directly. Instead, create a :class:`Marker`
-            via :meth:`marker`, and then invoke :meth:`Marker.instant`.
-
-        Args:
-            marker (Marker): The marker.
-            wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            global_rank (int): The `global_rank` where the event was triggered.
-            pid (int): The `pid` where the event was triggered.
-            timestamp (Timestamp): The timestamp at which the event was triggered.
-        """
-        for handler in self._event_handlers:
-            handler.process_instant_event(
-                name=marker.name,
-                categories=marker.categories,
-                timestamp=timestamp,
-                wall_clock_time_ns=wall_clock_time_ns,
-                global_rank=global_rank,
-                pid=pid,
-            )
-
-    def _record_counter_event(
-        self,
-        marker: Marker,
-        wall_clock_time_ns: int,
-        global_rank: int,
-        pid: int,
-        values: Dict[str, Union[int, float]],
-    ) -> None:
-        """Record a counter invent.
-
-        .. note::
-
-            This method should not be invoked directly. Instead, create a :class:`Marker`
-            via :meth:`marker`, and then invoke :meth:`Marker.counter`.
-
-        Args:
-            marker (str): The name of the event.
-            categories (List[str] | Tuple[str, ...]): The categories for the event.
-            epoch (Optional[int]): The epoch, if applicable, corresponding to the event.
-            step (int): The step, if applicable, corresponding to the event.
-            wall_clock_time_ns (int): The :meth:`time.time_ns` corresponding to the event.
-            global_rank (int): The `global_rank` corresponding to the event.
-            pid (int): The `pid` corresponding to the event.
-            values (Dict[str, int | float]): The values corresponding to this counter event
-        """
-        for handler in self._event_handlers:
-            handler.process_counter_event(
-                name=marker.name,
-                categories=marker.categories,
-                wall_clock_time_ns=wall_clock_time_ns,
-                global_rank=global_rank,
-                pid=pid,
-                values=values,
-            )
 
 
 class Marker:
@@ -308,22 +229,55 @@ class Marker:
             something_to_measure
     """
 
-    def __init__(self, profiler: Profiler, name: str, actions: Sequence[ProfilerAction], record_instant_on_start: bool,
-                 record_instant_on_finish: bool, categories: Union[List[str], Tuple[str, ...]]) -> None:
-
-        self.profiler = profiler
+    def __init__(self, state: State, should_record: Callable[[State], bool], trace_handlers: Sequence[TraceHandler],
+                 name: str, record_instant_on_start: bool, record_instant_on_finish: bool,
+                 categories: Union[List[str], Tuple[str, ...]]) -> None:
+        self.state = state
+        self.trace_handlers = trace_handlers
         self.name = name
-        self.actions = actions
         self.categories = categories
         self.record_instant_on_start = record_instant_on_start
         self.record_instant_on_finish = record_instant_on_finish
-        if name in profiler._names_to_markers:
-            if profiler._names_to_markers[name] is not self:
-                raise RuntimeError(
-                    f"{self.__class__.__name__} should not be instantiated directly. Instead, use {profiler.__class__.__name__}.marker(name)"
-                )
+        self.should_record = should_record
         self._started = False
-        self._action_at_start = None
+        self._recorded_start = False
+
+    def _record_duration_event(self, is_start: bool, wall_clock_time_ns: int, timestamp: Timestamp):
+        """Record a duration event."""
+        for handler in self.trace_handlers:
+            handler.process_duration_event(
+                name=self.name,
+                categories=self.categories,
+                timestamp=timestamp,
+                is_start=is_start,
+                wall_clock_time_ns=wall_clock_time_ns,
+                global_rank=dist.get_global_rank(),
+                pid=os.getpid(),
+            )
+
+    def _record_instant_event(self, wall_clock_time_ns: int, timestamp: Timestamp):
+        """Record an instant event."""
+        for handler in self.trace_handlers:
+            handler.process_instant_event(
+                name=self.name,
+                categories=self.categories,
+                timestamp=timestamp,
+                wall_clock_time_ns=wall_clock_time_ns,
+                global_rank=dist.get_global_rank(),
+                pid=os.getpid(),
+            )
+
+    def _record_counter_event(self, wall_clock_time_ns: int, values: Dict[str, Union[int, float]]) -> None:
+        """Record a counter invent."""
+        for handler in self.trace_handlers:
+            handler.process_counter_event(
+                name=self.name,
+                categories=self.categories,
+                wall_clock_time_ns=wall_clock_time_ns,
+                global_rank=dist.get_global_rank(),
+                pid=os.getpid(),
+                values=values,
+            )
 
     def start(self) -> None:
         """Record the start of a duration event.
@@ -349,25 +303,18 @@ class Marker:
             raise RuntimeError(
                 f"Attempted to start profiler event {self.name}; however, this marker is already started")
 
-        batch_idx = self.profiler.state.timer.batch_in_epoch.value
-        self._action_at_start = self.profiler.get_action(batch_idx)
-        if self._action_at_start in self.actions:
+        self._recorded_start = self.should_record(self.state)
+        if self._recorded_start:
             wall_clock_time = time.time_ns()
-            self.profiler._record_duration_event(
-                self,
+            self._record_duration_event(
                 is_start=True,
                 wall_clock_time_ns=wall_clock_time,
-                timestamp=self.profiler.state.timer.get_timestamp(),
-                global_rank=dist.get_global_rank(),
-                pid=os.getpid(),
+                timestamp=self.state.timer.get_timestamp(),
             )
             if self.record_instant_on_start:
-                self.profiler._record_instant_event(
-                    self,
-                    timestamp=self.profiler.state.timer.get_timestamp(),
+                self._record_instant_event(
+                    timestamp=self.state.timer.get_timestamp(),
                     wall_clock_time_ns=wall_clock_time,
-                    global_rank=dist.get_global_rank(),
-                    pid=os.getpid(),
                 )
         self._started = True
 
@@ -380,24 +327,18 @@ class Marker:
             raise RuntimeError(
                 f"Attempted to finish profiler event {self.name}; however, this profiler event is not yet started")
 
-        if self._action_at_start in self.actions:
-            wall_clock_time = time.time_ns()
-            self.profiler._record_duration_event(
-                self,
-                is_start=False,
-                timestamp=self.profiler.state.timer.get_timestamp(),
+        wall_clock_time = time.time_ns()
+        self._record_duration_event(
+            is_start=False,
+            timestamp=self.state.timer.get_timestamp(),
+            wall_clock_time_ns=wall_clock_time,
+        )
+        if self.record_instant_on_finish:
+            self._record_instant_event(
                 wall_clock_time_ns=wall_clock_time,
-                global_rank=dist.get_global_rank(),
-                pid=os.getpid(),
+                timestamp=self.state.timer.get_timestamp(),
             )
-            if self.record_instant_on_finish:
-                self.profiler._record_instant_event(
-                    self,
-                    wall_clock_time_ns=wall_clock_time,
-                    timestamp=self.profiler.state.timer.get_timestamp(),
-                    global_rank=dist.get_global_rank(),
-                    pid=os.getpid(),
-                )
+
         self._started = False
 
     def instant(self) -> None:
@@ -419,14 +360,10 @@ class Marker:
             >>> something_to_measure()
             something_to_measure
         """
-        batch_idx = self.profiler.state.timer.batch_in_epoch.value
-        if self.profiler.get_action(batch_idx) in self.actions:
-            self.profiler._record_instant_event(
-                self,
+        if self.should_record(self.state):
+            self._record_instant_event(
                 wall_clock_time_ns=time.time_ns(),
-                timestamp=self.profiler.state.timer.get_timestamp(),
-                global_rank=dist.get_global_rank(),
-                pid=os.getpid(),
+                timestamp=self.state.timer.get_timestamp(),
             )
 
     def counter(self, values: Dict[str, Union[float, int]]) -> None:
@@ -447,13 +384,9 @@ class Marker:
             >>> counter_event = 10
             >>> marker.counter({"counter_event": counter_event})
         """
-        batch_idx = self.profiler.state.timer.batch_in_epoch.value
-        if self.profiler.get_action(batch_idx) in self.actions:
-            self.profiler._record_counter_event(
-                self,
+        if self.should_record(self.state):
+            self._record_counter_event(
                 wall_clock_time_ns=time.time_ns(),
-                global_rank=dist.get_global_rank(),
-                pid=os.getpid(),
                 values=values,
             )
 

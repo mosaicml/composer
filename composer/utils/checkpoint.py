@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import torch
 
-from composer.utils import dist, reproducibility
-from composer.utils.file_retriever import GetFileNotFoundException, get_file
+from composer.utils import dist, format_name_with_dist_and_time, reproducibility
+from composer.utils.file_helpers import GetFileNotFoundException, get_file, is_tar
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -47,11 +47,6 @@ def _format_path_with_current_rank(path_format: str) -> str:
         local_rank=dist.get_local_rank(),
         node_rank=dist.get_node_rank(),
     )
-
-
-def _is_archive(path: str) -> bool:
-    """Returns whether the path is a tar archive."""
-    return any(path.endswith(x) for x in (".tar", ".tgz", ".tar.gz", ".tar.bz2", ".tar.lzma"))
 
 
 def _get_write_mode(name: str) -> str:
@@ -192,7 +187,7 @@ def _download_checkpoint(
     rank_n_checkpoint_filepath = os.path.join(node_checkpoint_folder, f"rank{dist.get_global_rank()}_checkpoint")
     extracted_checkpoint_folder = None
     extracted_rank_n = False
-    if _is_archive(path_format):
+    if is_tar(path_format):
         extracted_checkpoint_folder = os.path.join(node_checkpoint_folder, "checkpoint")
         composer_states_filepath = os.path.join(extracted_checkpoint_folder, _COMPOSER_STATES_FILENAME)
     else:
@@ -295,126 +290,6 @@ def _restore_checkpoint(
         return state_dict['rng']
 
 
-def format_name(name_format: str, state: State, logger: Logger):
-    """Format a checkpoint filename according to the ``name_format`` and the training :class:`~.State`.
-
-    The following format variables are available:
-
-    +------------------------+-------------------------------------------------------+
-    | Variable               | Description                                           |
-    +========================+=======================================================+
-    | ``{run_name}``         | The name of the training run. See                     |
-    |                        | :attr:`~composer.core.logging.Logger.run_name`.       |
-    +------------------------+-------------------------------------------------------+
-    | ``{rank}``             | The global rank, as returned by                       |
-    |                        | :func:`~.dist.get_global_rank`.                       |
-    +------------------------+-------------------------------------------------------+
-    | ``{local_rank}``       | The local rank of the process, as returned by         |
-    |                        | :func:`~.dist.get_local_rank`.                        |
-    +------------------------+-------------------------------------------------------+
-    | ``{world_size}``       | The world size, as returned by                        |
-    |                        | :func:`~.dist.get_world_size`.                        |
-    +------------------------+-------------------------------------------------------+
-    | ``{local_world_size}`` | The local world size, as returned by                  |
-    |                        | :func:`~.dist.get_local_world_size`.                  |
-    +------------------------+-------------------------------------------------------+
-    | ``{node_rank}``        | The node rank, as returned by                         |
-    |                        | :func:`~.dist.get_node_rank`.                         |
-    +------------------------+-------------------------------------------------------+
-    | ``{epoch}``            | The total epoch count, as returned by                 |
-    |                        | :meth:`~composer.core.time.Timer.epoch`.              |
-    +------------------------+-------------------------------------------------------+
-    | ``{batch}``            | The total batch count, as returned by                 |
-    |                        | :meth:`~composer.core.time.Timer.batch`.              |
-    +------------------------+-------------------------------------------------------+
-    | ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by  |
-    |                        | :meth:`~composer.core.time.Timer.batch_in_epoch`.     |
-    +------------------------+-------------------------------------------------------+
-    | ``{sample}``           | The total sample count, as returned by                |
-    |                        | :meth:`~composer.core.time.Timer.sample`.             |
-    +------------------------+-------------------------------------------------------+
-    | ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by |
-    |                        | :meth:`~composer.core.time.Timer.sample_in_epoch`.    |
-    +------------------------+-------------------------------------------------------+
-    | ``{token}``            | The total token count, as returned by                 |
-    |                        | :meth:`~composer.core.time.Timer.token`.              |
-    +------------------------+-------------------------------------------------------+
-    | ``{token_in_epoch}``   | The token count in the current epoch, as returned by  |
-    |                        | :meth:`~composer.core.time.Timer.token_in_epoch`.     |
-    +------------------------+-------------------------------------------------------+
-
-    .. note::
-
-        If using DeepSpeed, and ``name_format`` does not end with an tarfile archive extension (``'.tar'``, ``'.tgz'``,
-        ``'.tar.gz'``, ``'.tar.bz2'``, or ``'.tar.lzma'``), then ``'.tar'`` will be appended. DeepSpeed uses a tarball
-        format as it saves model and optimizer states in separate files within the tarball.
-
-    Consider the following scenario, where the current epoch count is ``1`` and the current batch count is ``42``:
-    
-    *   When not using DeepSpeed, then the rank zero process will call this function:
-
-        .. testsetup:: composer.utils.checkpoint.format_name.no_deepspeed
-
-            from composer.utils.checkpoint import format_name
-
-            state.timer._batch._value = 42
-            state.timer._epoch._value = 1
-
-        .. doctest:: composer.utils.checkpoint.format_name.no_deepspeed
-
-            >>> format_name("ep{epoch}-ba{batch}", state)
-            'ep1-ba42'
-
-    *   When using DeepSpeed, each rank (process) will call this function. ``'{rank}'`` should appear within
-        ``name_format``, so each rank (process) will write to its own file. For example, on the rank zero process:
-
-        .. testsetup:: composer.utils.checkpoint.format_name.deepspeed
-
-            from composer.utils.checkpoint import format_name
-
-            original_is_model_deepspeed = State.is_model_deepspeed
-
-            setattr(State, 'is_model_deepspeed', property(lambda x: True))
-            
-            state.timer._batch._value = 42
-            state.timer._epoch._value = 1
-
-        .. doctest:: composer.utils.checkpoint.format_name.deepspeed
-
-            >>> format_name("ep{epoch}-ba{batch}-rank{rank}", state)
-            'ep1-ba42-rank0.tar'
-        
-        .. testcleanup:: composer.utils.checkpoint.format_name.deepspeed
-
-            setattr(State, 'is_model_deepspeed', original_is_model_deepspeed)
-    
-    Args:
-        name_format (str): The format string for the checkpoint filename.
-        state (State): The training state.
-        logger (Logger): The logger.
-    """
-    checkpoint_name = name_format.format(
-        run_name=logger.run_name,
-        rank=dist.get_global_rank(),
-        local_rank=dist.get_local_rank(),
-        world_size=dist.get_world_size(),
-        local_world_size=dist.get_local_world_size(),
-        node_rank=dist.get_node_rank(),
-        epoch=int(state.timer.epoch),
-        batch=int(state.timer.batch),
-        batch_in_epoch=int(state.timer.batch_in_epoch),
-        sample=int(state.timer.sample),
-        sample_in_epoch=int(state.timer.sample_in_epoch),
-        token=int(state.timer.token),
-        token_in_epoch=int(state.timer.token_in_epoch),
-    )
-    if state.is_model_deepspeed and not _is_archive(checkpoint_name):
-        # Deepspeed requires tarballs; appending `.tar`
-        checkpoint_name += ".tar"
-
-    return checkpoint_name
-
-
 def save_checkpoint(state: State,
                     logger: Logger,
                     filename_format: str = "ep{epoch}-ba{batch}-rank{rank}",
@@ -428,7 +303,50 @@ def save_checkpoint(state: State,
         filename_format (str): A format string describing how to name checkpoints.
             (default: ``'ep{epoch}-ba{batch}-rank{rank}'``)
 
-            See :func:`.format_name` for the available format variables.
+            The following format variables are available:
+
+            +------------------------+-------------------------------------------------------+
+            | Variable               | Description                                           |
+            +========================+=======================================================+
+            | ``{run_name}``         | The name of the training run. See                     |
+            |                        | :attr:`~composer.core.logging.Logger.run_name`.       |
+            +------------------------+-------------------------------------------------------+
+            | ``{rank}``             | The global rank, as returned by                       |
+            |                        | :func:`~.dist.get_global_rank`.                       |
+            +------------------------+-------------------------------------------------------+
+            | ``{local_rank}``       | The local rank of the process, as returned by         |
+            |                        | :func:`~.dist.get_local_rank`.                        |
+            +------------------------+-------------------------------------------------------+
+            | ``{world_size}``       | The world size, as returned by                        |
+            |                        | :func:`~.dist.get_world_size`.                        |
+            +------------------------+-------------------------------------------------------+
+            | ``{local_world_size}`` | The local world size, as returned by                  |
+            |                        | :func:`~.dist.get_local_world_size`.                  |
+            +------------------------+-------------------------------------------------------+
+            | ``{node_rank}``        | The node rank, as returned by                         |
+            |                        | :func:`~.dist.get_node_rank`.                         |
+            +------------------------+-------------------------------------------------------+
+            | ``{epoch}``            | The total epoch count, as returned by                 |
+            |                        | :meth:`~composer.core.time.Timer.epoch`.              |
+            +------------------------+-------------------------------------------------------+
+            | ``{batch}``            | The total batch count, as returned by                 |
+            |                        | :meth:`~composer.core.time.Timer.batch`.              |
+            +------------------------+-------------------------------------------------------+
+            | ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by  |
+            |                        | :meth:`~composer.core.time.Timer.batch_in_epoch`.     |
+            +------------------------+-------------------------------------------------------+
+            | ``{sample}``           | The total sample count, as returned by                |
+            |                        | :meth:`~composer.core.time.Timer.sample`.             |
+            +------------------------+-------------------------------------------------------+
+            | ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by |
+            |                        | :meth:`~composer.core.time.Timer.sample_in_epoch`.    |
+            +------------------------+-------------------------------------------------------+
+            | ``{token}``            | The total token count, as returned by                 |
+            |                        | :meth:`~composer.core.time.Timer.token`.              |
+            +------------------------+-------------------------------------------------------+
+            | ``{token_in_epoch}``   | The token count in the current epoch, as returned by  |
+            |                        | :meth:`~composer.core.time.Timer.token_in_epoch`.     |
+            +------------------------+-------------------------------------------------------+
 
             .. note::
 
@@ -490,7 +408,10 @@ def save_checkpoint(state: State,
     if weights_only and not state.is_model_deepspeed:
         state_dict['state'] = {"model": state_dict['state']['model']}
 
-    checkpoint_filepath = format_name(filename_format, state, logger)
+    checkpoint_filepath = format_name_with_dist_and_time(filename_format, logger.run_name, state.timer.get_timestamp())
+    if state.is_model_deepspeed and not is_tar(checkpoint_filepath):
+        # Deepspeed requires tarballs; appending `.tar`
+        checkpoint_filepath += ".tar"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
@@ -504,7 +425,7 @@ def save_checkpoint(state: State,
 
         # Move the checkpoint to the correct location
 
-        if _is_archive(checkpoint_filepath) and (state.is_model_deepspeed or dist.get_global_rank() == 0):
+        if is_tar(checkpoint_filepath) and (state.is_model_deepspeed or dist.get_global_rank() == 0):
             # Either deepspeed (and every rank needs to call this),
             # or not deepspeed (but using an archive), in which case only rank zero should call this.
             os.makedirs(os.path.dirname(checkpoint_filepath), exist_ok=True)

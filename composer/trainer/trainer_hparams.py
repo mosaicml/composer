@@ -33,7 +33,7 @@ from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams,
                             LinearSchedulerHparams, LinearWithWarmupSchedulerHparams, MultiStepSchedulerHparams,
                             MultiStepWithWarmupSchedulerHparams, OptimizerHparams, PolynomialSchedulerHparams,
                             RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
-from composer.profiler.profiler_hparams import JSONTraceHandlerHparams, ProfilerEventHandlerHparams
+from composer.profiler.profiler_hparams import TraceHandlerHparams, trace_handler_registory
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
@@ -101,8 +101,6 @@ device_registry = {
     "gpu": GPUDeviceHparams,
     "cpu": CPUDeviceHparams,
 }
-
-prof_event_handlers_registry = {"json": JSONTraceHandlerHparams}
 
 
 @dataclass
@@ -199,7 +197,7 @@ class TrainerHparams(hp.Hparams):
             to the trainer for the ``deepspeed_config`` parameter signaling that DeepSpeed will not be used
             for training.
         profiler_trace_file (str, optional): See :class:`.Trainer`.
-        prof_event_handlers (List[ProfilerEventHandlerHparams], optional): See :class:`.Trainer`.
+        prof_event_handlers (List[MarkerHandlerHparams], optional): See :class:`.Trainer`.
         prof_skip_first (int, optional): See :class:`.Trainer`.
         prof_wait (int, optional): See :class:`.Trainer`.
         prof_warmup (int, optional): See :class:`.Trainer`.
@@ -228,7 +226,7 @@ class TrainerHparams(hp.Hparams):
         "val_dataset": dataset_registry,
         "callbacks": callback_registry,
         "device": device_registry,
-        "prof_event_handlers": prof_event_handlers_registry,
+        "trace_handlers": trace_handler_registory,
     }
 
     model: ModelHparams = hp.required(doc="model")
@@ -356,69 +354,57 @@ class TrainerHparams(hp.Hparams):
     deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
     # profiling
-    profiler_trace_file: Optional[str] = hp.optional(doc=textwrap.dedent("""\
-        Name of the trace file, relative to the run directory.  Must be specified to activate the profiler."""),
-                                                     default=None)
-    prof_event_handlers: List[ProfilerEventHandlerHparams] = hp.optional(
-        doc=textwrap.dedent("""\
-        Trace event handler.  Ignored if `profiler_trace_file` is not specified."""),
-        default_factory=lambda: [JSONTraceHandlerHparams()])
+    prof_trace_handlers: List[TraceHandlerHparams] = hp.optional(doc=textwrap.dedent("""\
+        Trace event handlers. Must be specified to activate the profiler."""),
+                                                                 default_factory=list)
     prof_skip_first: int = hp.optional(doc=textwrap.dedent("""\
-        Number of batches to skip at epoch start.  Ignored if `profiler_trace_file` is not specified."""),
+        Number of batches to skip at epoch start.  Ignored if `prof_trace_handlers` is not specified."""),
                                        default=0)
     prof_wait: int = hp.optional(doc=textwrap.dedent("""\
-        Number of batches to skip at the beginning of each cycle.  Ignored if `profiler_trace_file` is not specified."""
+        Number of batches to skip at the beginning of each cycle.  Ignored if `prof_trace_handlers` is not specified."""
                                                     ),
                                  default=0)
     prof_warmup: int = hp.optional(doc=textwrap.dedent("""\
-        Number of warmup batches in a cycle.  Ignored if `profiler_trace_file` is not specified."""),
+        Number of warmup batches in a cycle.  Ignored if `prof_trace_handlers` is not specified."""),
                                    default=1)
     prof_active: int = hp.optional(doc=textwrap.dedent("""\
-        Number of batches to profile in a cycle.  Ignored if `profiler_trace_file` is not specified."""),
+        Number of batches to profile in a cycle.  Ignored if `prof_trace_handlers` is not specified."""),
                                    default=4)
     prof_repeat: int = hp.optional(doc=textwrap.dedent("""\
-        Maximum number of profiling cycle repetitions per epoch (0 for no maximum).  Ignored if `profiler_trace_file` is not specified."""
+        Maximum number of profiling cycle repetitions per epoch (0 for no maximum).  Ignored if `prof_trace_handlers` is not specified."""
                                                       ),
                                    default=1)
     sys_prof_cpu: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record cpu statistics.  Ignored if `profiler_trace_file` is not specified."""),
+        Whether to record cpu statistics.  Ignored if `prof_trace_handlers` is not specified."""),
                                      default=True)
     sys_prof_memory: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record memory statistics.  Ignored if `profiler_trace_file` is not specified."""),
+        Whether to record memory statistics.  Ignored if `prof_trace_handlers` is not specified."""),
                                         default=False)
     sys_prof_disk: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record disk statistics.  Ignored if `profiler_trace_file` is not specified."""),
+        Whether to record disk statistics.  Ignored if `prof_trace_handlers` is not specified."""),
                                       default=False)
     sys_prof_net: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record network statistics.  Ignored if `profiler_trace_file` is not specified."""),
+        Whether to record network statistics.  Ignored if `prof_trace_handlers` is not specified."""),
                                      default=False)
     sys_prof_stats_thread_interval_seconds: float = hp.optional(doc=textwrap.dedent("""\
-        Interval to record stats, in seconds.  Ignored if `profiler_trace_file` is not specified."""),
+        Interval to record stats, in seconds.  Ignored if `prof_trace_handlers` is not specified."""),
                                                                 default=0.5)
-    torch_profiler_trace_dir: Optional[str] = hp.optional(doc=textwrap.dedent("""\
-        Directory to store trace results relative to the run directory.  Must be specified to activate the Torch profiler.
-        Ignored if ``profiler_trace_file`` is not specified."""),
-                                                          default=None)
-    torch_prof_use_gzip: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to use gzip for trace.
-        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
-                                            default=False)
 
     torch_prof_record_shapes: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to record tensor shapes.
-        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
+        Ignored if `prof_trace_handlers` is not specified."""),
                                                  default=False)
     torch_prof_profile_memory: bool = hp.optional(doc=textwrap.dedent("""\
         Track tensor memory allocations and frees.
-        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
+        Ignored if `prof_trace_handlers` is not specified."""),
                                                   default=True)
     torch_prof_with_stack: bool = hp.optional(doc=textwrap.dedent("""\
         Record stack information.
-        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
+        Ignored if `prof_trace_handlers` is not specified."""),
                                               default=False)
     torch_prof_with_flops: bool = hp.optional(doc=textwrap.dedent("""\
         Estimate flops for operators.
-        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
+        Ignored if `prof_trace_handlers` is not specified."""),
                                               default=True)
 
     def validate(self):
@@ -565,8 +551,7 @@ class TrainerHparams(hp.Hparams):
             callbacks=callbacks,
 
             # Profiler
-            profiler_trace_file=self.profiler_trace_file,
-            prof_event_handlers=[x.initialize_object() for x in self.prof_event_handlers],
+            prof_trace_handlers=[x.initialize_object() for x in self.prof_trace_handlers],
             prof_skip_first=self.prof_skip_first,
             prof_wait=self.prof_wait,
             prof_warmup=self.prof_warmup,
@@ -577,8 +562,6 @@ class TrainerHparams(hp.Hparams):
             sys_prof_disk=self.sys_prof_disk,
             sys_prof_net=self.sys_prof_net,
             sys_prof_stats_thread_interval_seconds=self.sys_prof_stats_thread_interval_seconds,
-            torch_profiler_trace_dir=self.torch_profiler_trace_dir,
-            torch_prof_use_gzip=self.torch_prof_use_gzip,
             torch_prof_record_shapes=self.torch_prof_record_shapes,
             torch_prof_profile_memory=self.torch_prof_profile_memory,
             torch_prof_with_stack=self.torch_prof_with_flops,

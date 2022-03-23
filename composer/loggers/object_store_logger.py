@@ -26,7 +26,7 @@ from urllib3.exceptions import ProtocolError
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import dist
+from composer.utils import format_name_with_dist
 from composer.utils.object_store import ObjectStore
 
 log = logging.getLogger(__name__)
@@ -358,14 +358,10 @@ class ObjectStoreLogger(LoggerDestination):
         """Format the ``artifact_name`` according to the ``object_name_format_string``."""
         if self._run_name is None:
             raise RuntimeError("The run name is not set. It should have been set on Event.INIT.")
-        key_name = self.object_name_format.format(
-            rank=dist.get_global_rank(),
-            local_rank=dist.get_local_rank(),
-            world_size=dist.get_world_size(),
-            local_world_size=dist.get_local_world_size(),
-            node_rank=dist.get_node_rank(),
-            artifact_name=artifact_name,
+        key_name = format_name_with_dist(
+            self.object_name_format,
             run_name=self._run_name,
+            artifact_name=artifact_name,
         )
         key_name = key_name.lstrip('/')
 

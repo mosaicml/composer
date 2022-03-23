@@ -10,28 +10,28 @@ from typing import Optional
 
 import yahp as hp
 
-from composer.profiler import ProfilerEventHandler
-from composer.profiler.json_trace import JSONTraceHandler
+from composer.profiler._trace_handler import TraceHandler
+from composer.profiler.json_trace_handler import JSONTraceHandler
 
-__all__ = ["ProfilerEventHandler", "JSONTraceHandlerHparams"]
+__all__ = ["TraceHandlerHparams", "JSONTraceHparams"]
 
 
 @dataclasses.dataclass
-class ProfilerEventHandlerHparams(hp.Hparams, abc.ABC):
-    """Base class for profile event handler hparams."""
+class TraceHandlerHparams(hp.Hparams, abc.ABC):
+    """Base class for profiler trace destination hparams."""
 
     @abc.abstractmethod
-    def initialize_object(self) -> ProfilerEventHandler:
-        """Constructs and returns an instance of the :class:`ProfilerEventHandler`.
+    def initialize_object(self) -> TraceHandler:
+        """Constructs and returns an instance of the :class:`.TraceHandler`.
 
         Returns:
-            ProfilerEventHandler: The event handler.
+            TraceHandler: The trace destination.
         """
         pass
 
 
 @dataclasses.dataclass
-class JSONTraceHandlerHparams(ProfilerEventHandlerHparams):
+class JSONTraceHparams(TraceHandlerHparams):
     """:class:`.JSONTraceHandler` hyperparameters.
 
     See :class:`.JSONTraceHandler` for documentation.
@@ -48,11 +48,14 @@ class JSONTraceHandlerHparams(ProfilerEventHandlerHparams):
 
     """
     filename_format: str = hp.optional("Filename format string for the profile trace.",
-                                       default='{run_name}/profiler_traces/rank_{rank}.json')
+                                       default='{run_name}/traces/rank_{rank}.json')
     artifact_name_format: Optional[str] = hp.optional("Artifact name format string for the profiler trace.",
                                                       default=None)
-    flush_every_n_batches: int = hp.optional("Interval at which to flush the logfile.", default=100)
-    buffering: int = hp.optional("Buffering parameter passed to :meth:`open` when opening the logfile.", default=-1)
+    flush_every_n_batches: int = hp.optional("Interval at which to flush the trace file.", default=100)
+    buffering: int = hp.optional("Buffering parameter passed to :meth:`open` when opening the trace file.", default=-1)
 
     def initialize_object(self) -> JSONTraceHandler:
         return JSONTraceHandler(**dataclasses.asdict(self))
+
+
+trace_handler_registory = {"json": JSONTraceHparams}

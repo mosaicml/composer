@@ -26,7 +26,7 @@ from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
-from composer.utils.checkpoint import _is_archive
+from composer.utils import is_tar
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -112,7 +112,7 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams,
 
 def _load_checkpoint(checkpoint_dir: str, filename: str):
     filename = filename.format(rank=0)
-    if not _is_archive(filename):
+    if not is_tar(filename):
         return torch.load(filename, map_location='cpu')
 
     with tarfile.open(filename) as tarball:
@@ -283,9 +283,9 @@ def test_checkpoint(
         pytest.skip("DeepSpeed tests must be ran on GPU")
 
     if deepspeed_enabled:
-        if not _is_archive(resume_file):
+        if not is_tar(resume_file):
             resume_file += ".tar"
-        if not _is_archive(final_checkpoint):
+        if not is_tar(final_checkpoint):
             final_checkpoint += ".tar"
 
     if model_name is not None:

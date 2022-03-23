@@ -130,7 +130,8 @@ class CheckpointSaverHparams(CallbackHparams):
     
     Args:
         save_folder_format (str, optional): See :class:`~.CheckpointSaver`.
-        name_format (str, optional): See :class:`~.CheckpointSaver`.
+        filename_format (str, optional): See :class:`~.CheckpointSaver`.
+        artifact_name_format (str, optional): See :class:`~.CheckpointSaver`.
         save_latest_format (str, optional): See :class:`~.CheckpointSaver`.
         overwrite (str, optional): See :class:`~.CheckpointSaver`.
         weights_only (bool, optional): See :class:`~.CheckpointSaver`.
@@ -148,9 +149,11 @@ class CheckpointSaverHparams(CallbackHparams):
     """
     save_folder_format: str = hp.optional(doc="Folder where checkpoints will be saved.",
                                           default="{run_name}/checkpoints")
-    name_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
-    save_latest_format: Optional[str] = hp.optional("Latest checkpoint symlink format string.",
-                                                    default="latest-rank{rank}")
+    filename_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
+    artifact_name_format: str = hp.optional("Checkpoint artifact name format string.",
+                                            default="{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}")
+    save_latest_filename_format: Optional[str] = hp.optional("Latest checkpoint symlink format string.",
+                                                             default="latest-rank{rank}")
     overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     save_interval: str = hp.optional(textwrap.dedent("""\
@@ -170,8 +173,9 @@ class CheckpointSaverHparams(CallbackHparams):
             save_interval = import_object(self.save_interval)
         return CheckpointSaver(
             save_folder_format=self.save_folder_format,
-            name_format=self.name_format,
-            save_latest_format=self.save_latest_format,
+            filename_format=self.filename_format,
+            artifact_name_format=self.artifact_name_format,
+            save_latest_filename_format=self.save_latest_filename_format,
             overwrite=self.overwrite,
             save_interval=save_interval,
             weights_only=self.weights_only,

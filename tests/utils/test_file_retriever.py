@@ -5,7 +5,7 @@ import pathlib
 
 import pytest
 
-from composer.utils.file_retriever import GetFileNotFoundException, get_file
+from composer.utils.file_helpers import GetFileNotFoundException, get_file
 from composer.utils.object_store import ObjectStoreHparams
 
 

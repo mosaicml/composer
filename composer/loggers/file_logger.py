@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, Optional, TextIO
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import dist
+from composer.utils import format_name_with_dist
 
 __all__ = ["FileLogger"]
 
@@ -144,8 +144,8 @@ class FileLogger(LoggerDestination):
         log_level: LogLevel = LogLevel.EPOCH,
         log_interval: int = 1,
         flush_interval: int = 100,
+        overwrite: bool = False,
     ) -> None:
-        super().__init__()
         self.filename_format = filename_format
         if artifact_name_format is None:
             artifact_name_format = filename_format.replace(os.path.sep, '/')
@@ -157,6 +157,7 @@ class FileLogger(LoggerDestination):
         self.is_batch_interval = False
         self.is_epoch_interval = False
         self.file: Optional[TextIO] = None
+        self.overwrite = overwrite,
         self._queue: queue.Queue[str] = queue.Queue()
         self._original_stdout_write = sys.stdout.write
         self._original_stderr_write = sys.stderr.write
@@ -182,14 +183,7 @@ class FileLogger(LoggerDestination):
         """The filename for the logfile."""
         if self._run_name is None:
             raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
-        name = self.filename_format.format(
-            rank=dist.get_global_rank(),
-            local_rank=dist.get_local_rank(),
-            world_size=dist.get_world_size(),
-            local_world_size=dist.get_local_world_size(),
-            node_rank=dist.get_node_rank(),
-            run_name=self._run_name,
-        )
+        name = format_name_with_dist(self.filename_format, run_name=self._run_name)
 
         return name
 
@@ -198,14 +192,7 @@ class FileLogger(LoggerDestination):
         """The artifact name for the logfile."""
         if self._run_name is None:
             raise RuntimeError("The run name is not set. The engine should have been set on Event.INIT")
-        name = self.filename_format.format(
-            rank=dist.get_global_rank(),
-            local_rank=dist.get_local_rank(),
-            world_size=dist.get_world_size(),
-            local_world_size=dist.get_local_world_size(),
-            node_rank=dist.get_node_rank(),
-            run_name=self._run_name,
-        )
+        name = format_name_with_dist(self.artifact_name_format, run_name=self._run_name)
 
         name.lstrip("/")
 
@@ -250,8 +237,9 @@ class FileLogger(LoggerDestination):
         self._run_name = logger.run_name
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
-        os.makedirs(os.path.dirname(self.filename), mode=0o755, exist_ok=True)
-        self.file = open(self.filename, "x+", buffering=self.buffer_size)
+        os.makedirs(os.path.dirname(self.filename), exist_ok=True)
+        mode = 'w+' if self.overwrite else 'x+'
+        self.file = open(self.filename, mode, buffering=self.buffer_size)
         self._flush_queue()
 
     def batch_end(self, state: State, logger: Logger) -> None:

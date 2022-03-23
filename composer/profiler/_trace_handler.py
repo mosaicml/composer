@@ -3,23 +3,22 @@
 from __future__ import annotations
 
 import abc
+import pathlib
 from typing import Dict, List, Tuple, Union
 
 from composer.core.callback import Callback
 from composer.core.time import Timestamp
 
-__all__ = ["ProfilerEventHandler"]
+__all__ = ["TraceHandler"]
 
 
-class ProfilerEventHandler(Callback, abc.ABC):
-    """Base class for profiler event handlers.
+class TraceHandler(Callback, abc.ABC):
+    """Trace destination base class.
 
-    Event handlers are responsible for logging trace :class:`.Marker`\\s and saving them to a file in a given trace format for viewing.
+    Subclasses should implement :meth:`process_duration_event`, :meth:`process_instant_event`, :meth:`process_counter_event`,
+    and :meth:`process_chrome_json_trace_file` to record trace events.
 
-    Subclasses should implement :meth:`process_duration_event`, :meth:`process_instant_event` and :meth:`process_counter_event`.
-    These methods are invoked by the :class:`.Profiler` whenever there is an event to record.
-
-    Since :class:`ProfilerEventHandler` subclasses :class:`~composer.core.callback.Callback`,
+    Since :class:`TraceHandler` subclasses :class:`~composer.core.callback.Callback`,
     event handlers can run on :class:`.Event`\\s (such as on :attr:`.Event.INIT` to open files or on
     :attr:`.Event.BATCH_END` to periodically dump data to files) and use :meth:`.Callback.close`
     to perform any cleanup.
@@ -35,7 +34,7 @@ class ProfilerEventHandler(Callback, abc.ABC):
         global_rank: int,
         pid: int,
     ) -> None:
-        """Called by the :class:`~composer.profiler.profiler.Profiler` whenever there is a duration event to record.
+        """Invoked whenever there is a duration event to record.
 
         This method is called twice for each duration event -- once with ``is_start = True``,
         and then again with ``is_start = False``. Interleaving events are not permitted.
@@ -63,7 +62,7 @@ class ProfilerEventHandler(Callback, abc.ABC):
         global_rank: int,
         pid: int,
     ) -> None:
-        """Called by the :class:`~composer.profiler.profiler.Profiler` whenever there is an instant event to record.
+        """Invoked whenever there is an instant event to record.
 
         Args:
             name (str): The name of the event.
@@ -85,7 +84,7 @@ class ProfilerEventHandler(Callback, abc.ABC):
         pid: int,
         values: Dict[str, Union[int, float]],
     ) -> None:
-        """Called by the :class:`~composer.profiler.profiler.Profiler` whenever there is an counter event to record.
+        """Invoked whenever there is an counter event to record.
 
         Args:
             name (str): The name of the event.
@@ -96,4 +95,14 @@ class ProfilerEventHandler(Callback, abc.ABC):
             values (Dict[str, int | float]): The values corresponding to this counter event.
         """
         del name, categories, wall_clock_time_ns, global_rank, pid, values  # unused
+        pass
+
+    def process_chrome_json_trace_file(self, filepath: pathlib.Path) -> None:
+        """Invoked when there are events in a `Chrome JSON trace file <https://\\
+        docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_ to record.
+
+        Args:
+            filepath (pathlib.Path): The filepath to a Chrome JSON trace file.
+        """
+        del filepath  # unused
         pass
