@@ -148,7 +148,7 @@ trainer = Trainer(
 trainer.fit()
 ```
 
-Composer's built-in trainer makes it easy to **add multiple speedup methods in a single line of code!**
+Composer's built-in [trainer](https://docs.mosaicml.com/en/stable/trainer/using_the_trainer.html) makes it easy to **add multiple speedup methods in a single line of code!**
 Trying out new methods or combinations of methods is as easy as changing a single list.
 As we continually implement more methods, they will be easy for you to add to your code.
 

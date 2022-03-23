@@ -21,6 +21,7 @@ from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
 from composer.trainer.devices.device import Device
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from composer.utils import dist
+from composer.utils.object_store import ObjectStoreHparams
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 
@@ -383,13 +384,26 @@ class TestTrainerAssets:
         return callback
 
     @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
-    def logger(self, request):
+    def logger(self, request, tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
 
         name, hparams = request.param
+
+        remote_dir = str(tmpdir / "remote_dir")
+        os.makedirs(remote_dir)
+        local_dir = str(tmpdir / "local_dir")
+        os.makedirs(local_dir)
+        monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
+        provider_hparams = ObjectStoreHparams(
+            provider='local',
+            key_environ="OBJECT_STORE_KEY",
+            container=".",
+        )
 
         required_args = {}
         if name == 'wandb':
             pytest.importorskip('wandb', reason='Required wandb')
+        if name == 'object_store':
+            required_args['object_store_hparams'] = provider_hparams
 
         return hparams(**required_args).initialize_object()
 

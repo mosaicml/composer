@@ -910,14 +910,18 @@ class Trainer:
         # so it does not affect any other RNG reads
         for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
-            if isinstance(dataloader.sampler, torch.utils.data.DistributedSampler):
+            # FFCV dataloaders use their own sampling strategy
+            if isinstance(dataloader, torch.utils.data.DataLoader) and isinstance(dataloader.sampler,
+                                                                                  torch.utils.data.DistributedSampler):
                 dataloader.sampler.set_epoch(0)
             for _ in dataloader:
                 break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
         for epoch in range(int(self.state.timer.epoch)):
-            if isinstance(self.state.train_dataloader.sampler, torch.utils.data.DistributedSampler):
+            # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
+            if hasattr(self.state.train_dataloader, "sampler") and isinstance(self.state.train_dataloader.sampler,
+                                                                              torch.utils.data.DistributedSampler):
                 self.state.train_dataloader.sampler.set_epoch(epoch)
             for _ in self.state.train_dataloader:
                 break
@@ -960,7 +964,9 @@ class Trainer:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.data_epoch({"epoch": int(self.state.timer.epoch)})
 
-                if isinstance(self.state.train_dataloader.sampler, torch.utils.data.DistributedSampler):
+                # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
+                if hasattr(self.state.train_dataloader, "sampler") and isinstance(self.state.train_dataloader.sampler,
+                                                                                  torch.utils.data.DistributedSampler):
                     self.state.train_dataloader.sampler.set_epoch(int(self.state.timer.epoch))
 
                 for batch_idx, self.state.batch in enumerate(
@@ -1210,7 +1216,9 @@ class Trainer:
             for evaluator in self.state.evaluators:
                 dataloader = evaluator.dataloader.dataloader
                 metrics = self._ensure_metrics_device_and_dtype(evaluator.metrics)
-                if isinstance(dataloader.sampler, torch.utils.data.DistributedSampler):
+                # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
+                if hasattr(dataloader, "sampler") and isinstance(dataloader.sampler,
+                                                                 torch.utils.data.DistributedSampler):
                     # The distributed sampler uses `set_epoch` to set the random seed
                     # Because evaluation can run on each batch, we use the batch to seed the sampler
                     # so each evaluation will get a proper shuffle.
