@@ -6,11 +6,13 @@ from __future__ import annotations
 
 import abc
 import dataclasses
-from typing import Optional
+from typing import Callable, Optional
 
 import yahp as hp
 
+from composer.core import State
 from composer.profiler._trace_handler import TraceHandler
+from composer.profiler._profiler_action import ProfilerAction
 from composer.profiler.json_trace_handler import JSONTraceHandler
 
 __all__ = ["TraceHandlerHparams", "JSONTraceHparams"]
@@ -29,6 +31,21 @@ class TraceHandlerHparams(hp.Hparams, abc.ABC):
         """
         pass
 
+
+@dataclasses.dataclass
+class ProfilerSchedulerHparams(hp.Hparams, abc.ABC):
+    """Profiler scheduler hparams."""
+
+    @abc.abstractmethod
+    def initialize_object(self) -> Callable[[State], ProfilerAction]:
+        """Constructs and returns a profiler scheduler.
+
+        The scheduler is passed as the ``schedule`` parameter into the :class:`~composer.profiler.Profiler`.
+
+        Returns:
+            (state) -> ProfilerAction: The profiler scheduler.
+        """
+        pass
 
 @dataclasses.dataclass
 class JSONTraceHparams(TraceHandlerHparams):
@@ -56,6 +73,9 @@ class JSONTraceHparams(TraceHandlerHparams):
 
     def initialize_object(self) -> JSONTraceHandler:
         return JSONTraceHandler(**dataclasses.asdict(self))
+
+
+
 
 
 trace_handler_registory = {"json": JSONTraceHparams}

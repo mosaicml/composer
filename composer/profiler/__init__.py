@@ -36,7 +36,7 @@ Here is an example trace file:
 
 Additonal details an be found in the Profiler Guide.
 """
-from composer.profiler._profiler import Marker, Profiler
+from composer.profiler._profiler import Marker, Profiler, cyclic_scheduler
 from composer.profiler._profiler_action import ProfilerAction
 from composer.profiler._trace_handler import TraceHandler
 
@@ -46,9 +46,11 @@ __all__ = [
     "Profiler",
     "ProfilerAction",
     "TraceHandler",
+    "cyclic_scheduler",
 ]
 
 Marker.__module__ = __name__
 Profiler.__module__ = __name__
 ProfilerAction.__module__ = __name__
 TraceHandler.__module__ = __name__
+cyclic_scheduler.__module__ = __name__

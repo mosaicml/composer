@@ -8,42 +8,37 @@ import pathlib
 import time
 from functools import wraps
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
+from composer.core.state import State
+from composer.core.time import Timestamp
 from composer.profiler._profiler_action import ProfilerAction
+from composer.profiler._trace_handler import TraceHandler
+from composer.profiler.json_trace_handler import JSONTraceHandler
 from composer.utils import dist
 from composer.utils.iter_helpers import ensure_tuple
 
-if TYPE_CHECKING:
-    from composer.core.state import State
-    from composer.core.time import Timestamp
-    from composer.profiler._trace_handler import TraceHandler
-
-__all__ = ["Marker", "Profiler"]
+__all__ = ["Marker", "Profiler", "cyclic_scheduler"]
 
 log = logging.getLogger(__name__)
 
 
-class Profiler:
-    """Records the duration of Trainer :class:`.Event` using the :class:`.Marker` API.
+def cyclic_scheduler(
+    skip_first: int = 0,
+    wait: int = 0,
+    warmup: int = 1,
+    active: int = 4,
+    repeat: int = 1,
+) -> Callable[[State], ProfilerAction]:
+    """Get the current :class:`ProfilerAction` for the profiler, based upon the parameters ``skip_first``, ``wait``,
+    ``warmup``, ``active``, and ``repeat``.
 
-    Specifically, it records:
-
-    #. The duration of each section of the training loop, such as the time it takes to perform a forward pass, backward pass, batch, epoch, etc.
-
-    #. The latency of each algorithm and callback adds when executing on each event.
-
-    The ``event_handlers`` then record and save this data to a trace file.  If no ``event_handlers`` is specified, the
-    :class:`.JSONTraceHandler` is used by default.
-
-    .. note::
-
-        The Composer :class:`.Trainer` creates an instance of :class:`.Profiler` when ``merged_trace_file`` is provided.
-        The user should not create and directly register an instance of :class:`Profiler` when using the Composer :class:`.Trainer`\\.
+    The profiler skips the first ``skip_first`` batches in every epoch. Then, it performs a cycle of
+    skipping ``wait`` batches, warming up for ``warmup`` batches, and recording ``active`` batches.
+    It repeats this cycle up to ``repeat`` times per epoch (or for the entire epoch, if ``repeat`` is 0).
+    This logic repeats every epoch.
 
     Args:
-        state (State): The state.
-        event_handlers (Sequence[MarkerHandler]): Event handlers which record and save profiling data to traces.
         skip_first (int, optional): Number of batches to skip profiling at epoch start.  Defaults to ``0``.
         wait (int, optional): For each profiling cycle, number of batches to skip at the beginning of the cycle.
             Defaults to ``0``.
@@ -52,75 +47,115 @@ class Profiler:
         active (int, optional): For each profiling cycle, number of batches to record after warming up.  Defaults to ``4``.
         repeat (int, optional): Number of profiling cycles to perform per epoch. Set to ``0`` to record the entire epoch.
             Defaults to ``1``.
+
+    Returns:
+        (State -> ProfilerAction): A ``schedule_fn`` for the :class:`.Profiler`.
+    """
+
+    def scheduler_fn(state: State):
+        # do wait, then warump, then active, up to repeat times per cycle
+        cycle_len = wait + warmup + active
+        batch_idx = int(state.timer.batch_in_epoch)
+        if batch_idx < skip_first:
+            return ProfilerAction.SKIP
+        if repeat != 0 and batch_idx >= cycle_len * repeat + skip_first:
+            # exhausted the repeat
+            return ProfilerAction.SKIP
+        position_in_cycle = (batch_idx - skip_first) % cycle_len
+        if position_in_cycle < wait:
+            return ProfilerAction.SKIP
+        if position_in_cycle < wait + warmup:
+            return ProfilerAction.WARMUP
+        is_last_batch_in_epoch = state.timer.batch_in_epoch == state.steps_per_epoch
+        if position_in_cycle == cycle_len - 1 or is_last_batch_in_epoch:
+            return ProfilerAction.ACTIVE_AND_SAVE
+        return ProfilerAction.ACTIVE
+
+    return scheduler_fn
+
+
+class Profiler:
+    """Records the duration of Trainer :class:`.Event` using the :class:`.Marker` API.
+
+    Specifically, it records:
+
+    #.  The duration of each section of the training loop, such as the time it takes to perform a forward pass,
+        backward pass, batch, epoch, etc.
+
+    #.  The latency of each algorithm and callback adds when executing on each event.
+
+    The ``trace_handlers`` then record and save this data to a trace file.  If no ``trace_handlers`` are specified, the
+    :class:`.JSONTraceHandler` is used by default.
+
+    .. note::
+
+        The :class:`~composer.trainer.trainer.Trainer` creates an instance of :class:`.Profiler` when ``prof_schedule`` is provided.
+        When using the Composer :class:`~composer.trainer.trainer.Trainer`, one does not need to directly create an instance of the
+        :class:`Profiler`.
+
+    Args:
+        state (State): The training state.
+        schedule_fn ((State) -> ProfilerAction): A function that returns an :class:`.ProfilerAction` given the training :class:`.State`.
+        trace_handlers (TraceHandler | Sequence[TraceHandler], optional):
+            Trace handlers which record and save profiling data to traces (default: ``None``).
+
+            If ``None``, the :class:`.JSONTraceHandler` is used with its default parameters.
+
+    Attributes:
+        state (State): The training state.
+        get_action ((State) -> ProfilerAction): The ``schedule``.
     """
 
     def __init__(
         self,
         state: State,
+        schedule: Callable[[State], ProfilerAction],
         trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
-        skip_first: int = 0,
-        wait: int = 0,
-        warmup: int = 1,
-        active: int = 4,
-        repeat: int = 1,
     ) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
-        self._trace_handlers = ensure_tuple(trace_handlers)
+        if trace_handlers is None:
+            trace_handlers = [JSONTraceHandler()]
+        self._trace_handlers = list(ensure_tuple(trace_handlers))
         self.state = state
-        self.skip_first = skip_first
-        self.wait = wait
-        self.warmup = warmup
-        self.active = active
-        self.repeat = repeat
-        self._action = ProfilerAction.SKIP
-
-    def get_action(self, batch_idx: int) -> ProfilerAction:
-        """Get the current :class:`ProfilerAction` for the profiler, based upon the parameters ``skip_first``, ``wait``,
-        ``warmup``, ``active``, and ``repeat``.
-
-        The profiler skips the first ``skip_first`` batches in every epoch. Then, it performs a cycle of
-        skipping ``wait`` batches, warming up for ``warmup`` batches, and recording ``active`` batches.
-        It repeats this cycle up to ``repeat`` times per epoch (or for the entire epoch, if ``repeat`` is 0).
-        This logic repeats every epoch.
-
-        Args:
-            batch_idx (int): The index of the current batch.
-
-        Returns:
-            ProfilerAction: The current action.
-        """
-        # do wait, then warump, then active, up to repeat times per cycle
-        cycle_len = self.wait + self.warmup + self.active
-        if self.repeat != 0 and batch_idx >= cycle_len * self.repeat:
-            # exhausted the repeat
-            return ProfilerAction.SKIP
-        position_in_cycle = batch_idx % cycle_len
-        if position_in_cycle < self.wait:
-            return ProfilerAction.SKIP
-        if position_in_cycle < self.wait + self.warmup:
-            return ProfilerAction.WARMUP
-        return ProfilerAction.ACTIVE
+        self.get_action = schedule
 
     @property
     def trace_handlers(self):
-        """Profiler trace recorders."""
+        """Profiler trace handlers."""
         return self._trace_handlers
 
-    def collect_trace_file(self, filename: str, format: str):
-        # called by the torch profiler and
-        ...
+    @trace_handlers.setter
+    def trace_handlers(self, trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]]):
+        """Profiler trace handlers."""
+        self._trace_handlers[:] = ensure_tuple(trace_handlers)
 
     def record_chrome_json_trace_file(self, filepath: Union[str, pathlib.Path]):
+        """Record trace events in `Chrome JSON format <https://\\
+        docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_ in the trace handlers.
+
+        .. note::
+
+            For custom profiling, it is recommended to use :meth:`marker` instead of manually creating a Chrome JSON
+            trace file. By default, the Composer Profiler will automatically saving :class:`.Marker` events in Chrome
+            JSON format.
+
+            This method exists for external profilers that natively record events in Chrome JSON format (such as the
+            :class:`~composer.profiler.torch_profiler.TorchProfiler`). These profilers can use this method to route
+            their profiling traces to the Composer profiler :attr:`~trace_handlers` so events from both the Composer
+            Profiler and external profilers are recorded in the same trace file.
+        """
         for recorder in self.trace_handlers:
             recorder.process_chrome_json_trace_file(pathlib.Path(filepath))
 
     def marker(
-        self,
-        name: str,
-        actions: Sequence[ProfilerAction] = (ProfilerAction.WARMUP, ProfilerAction.ACTIVE),
-        record_instant_on_start: bool = False,
-        record_instant_on_finish: bool = False,
-        categories: Union[List[str], Tuple[str, ...]] = tuple()) -> Marker:
+            self,
+            name: str,
+            actions: Sequence[ProfilerAction] = (ProfilerAction.WARMUP, ProfilerAction.ACTIVE,
+                                                 ProfilerAction.ACTIVE_AND_SAVE),
+            record_instant_on_start: bool = False,
+            record_instant_on_finish: bool = False,
+            categories: Union[List[str], Tuple[str, ...]] = tuple(),
+    ) -> Marker:
         """Create and get an instance of a :class:`Marker`.
 
         If a :class:`Marker` with the specified ``name`` does not already exist, it will be created.
@@ -164,7 +199,7 @@ class Profiler:
         if name not in self._names_to_markers:
 
             def should_record(state: State) -> bool:
-                return self.get_action(int(state.timer.batch_in_epoch)) in actions
+                return self.get_action(state) in actions
 
             self._names_to_markers[name] = Marker(
                 state=self.state,

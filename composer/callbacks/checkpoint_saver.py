@@ -16,7 +16,7 @@ from composer.core.time import Time, TimeUnit
 from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
 from composer.utils import (checkpoint, dist, ensure_folder_is_empty, format_name_with_dist,
-                            format_name_with_dist_and_time)
+                            format_name_with_dist_and_time, is_tar)
 
 log = logging.getLogger(__name__)
 
@@ -239,7 +239,7 @@ class CheckpointSaver(Callback):
         artifact_name_format (str, optional):
 
 
-        save_latest_format (str, optional): A format string for a symlink which points to the last saved checkpoint.
+        latest_filename_format (str, optional): A format string for a symlink which points to the last saved checkpoint.
             (default: ``'latest-rank{rank}'``)
             
             Symlinks will be created approximately at ``{save_folder}/{save_latest_format.format(...)}``. 
@@ -298,7 +298,7 @@ class CheckpointSaver(Callback):
             This parmeter must be ``False`` when using DeepSpeed. (default: ``False``)
 
 
-        num_checkpoints_to_persist (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
+        num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
             Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
@@ -312,7 +312,7 @@ class CheckpointSaver(Callback):
     Attributes:
         saved_checkpoints (Dict[Timestamp, List[str]]): A dictionary mapping a save timestamp
             to a list of filepaths corresponding to the checkpoints saved at that time. This dictionary
-            will contain at most ``num_checkpoints_to_persist`` entries.
+            will contain at most ``num_checkpoints_to_keep`` entries.
 
             .. note:: When using DeepSpeed, the index of a filepath in each list corresponds to the
                 global rank of the process that wrote that file. These filepaths are valid only on
@@ -325,11 +325,11 @@ class CheckpointSaver(Callback):
         save_folder_format: str = "{run_name}/checkpoints",
         filename_format: str = "ep{epoch}-ba{batch}-rank{rank}",
         artifact_name_format: str = "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
-        save_latest_filename_format: Optional[str] = "latest-rank{rank}",
+        latest_filename_format: Optional[str] = "latest-rank{rank}",
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
         *,
         overwrite: bool = False,
-        num_checkpoints_to_persist: int = -1,
+        num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
     ):
         if not callable(save_interval):
@@ -338,12 +338,12 @@ class CheckpointSaver(Callback):
         self.save_folder_format = save_folder_format
         self.filename_format = filename_format
         self.artifact_name_format = artifact_name_format
-        self.save_latest_filename_format = save_latest_filename_format
+        self.latest_filename_format = latest_filename_format
         self.overwrite = overwrite
 
         self.save_interval = save_interval
         self.saved_checkpoints = OrderedDict()
-        self.num_checkpoints_to_persist = num_checkpoints_to_persist
+        self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
 
     def init(self, state: State, logger: Logger) -> None:
@@ -387,7 +387,7 @@ class CheckpointSaver(Callback):
             checkpoint_filepath = checkpoint_filepaths[dist.get_global_rank()]
             artifact_name = format_name_with_dist_and_time(self.artifact_name_format, logger.run_name,
                                                            state.timer.get_timestamp()).lstrip("/")
-            if state.is_model_deepspeed and not _is_archive(artifact_name):
+            if state.is_model_deepspeed and not is_tar(artifact_name):
                 # Deepspeed requires tarballs; appending `.tar`
                 artifact_name += ".tar"
             logger.file_artifact(log_level=log_level,
@@ -395,10 +395,10 @@ class CheckpointSaver(Callback):
                                  file_path=checkpoint_filepath,
                                  overwrite=self.overwrite)
 
-            if self.save_latest_filename_format is not None:
+            if self.latest_filename_format is not None:
                 symlink_name = os.path.join(
                     format_name_with_dist(self.save_folder_format, logger.run_name),
-                    format_name_with_dist_and_time(self.save_latest_filename_format, logger.run_name,
+                    format_name_with_dist_and_time(self.latest_filename_format, logger.run_name,
                                                    state.timer.get_timestamp()),
                 )
                 os.makedirs(os.path.dirname(symlink_name), exist_ok=True)
@@ -411,8 +411,8 @@ class CheckpointSaver(Callback):
         timestamp = state.timer.get_timestamp()
 
         self.saved_checkpoints[timestamp] = checkpoint_filepaths
-        if self.num_checkpoints_to_persist >= 0:
-            while len(self.saved_checkpoints) > self.num_checkpoints_to_persist:
+        if self.num_checkpoints_to_keep >= 0:
+            while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
 
                 # self.saved_checkpoints is an ordered dict, so the zeroth item will be the oldest checkpoint
                 timestamp, checkpoint_filepaths = next(iter(self.saved_checkpoints.items()))

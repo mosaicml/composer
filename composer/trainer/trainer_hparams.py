@@ -189,7 +189,7 @@ class TrainerHparams(hp.Hparams):
         save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
-        save_num_checkpoints_to_persist (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         train_subset_num_batches (int, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
         deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
@@ -331,15 +331,16 @@ class TrainerHparams(hp.Hparams):
 
     # save checkpoint
     save_folder_format: Optional[str] = hp.optional(doc="Checkpoint folder format string.", default=None)
-    save_name_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
-    save_latest_format: str = hp.optional("Latest checkpoint symlink format string.", default="latest-rank{rank}")
+    save_filename_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
+    save_artifact_name_format: str = hp.optional("Checkpoint artifact name format", default="{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}")
+    save_latest_filename_format: str = hp.optional("Latest checkpoint symlink format string.", default="latest-rank{rank}")
     save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     save_interval: str = hp.optional(textwrap.dedent("""\
         Checkpoint interval or path to a `(State, Event) -> bool` function
         returning whether a checkpoint should be saved."""),
                                      default="1ep")
-    save_num_checkpoints_to_persist: int = hp.optional(
+    save_num_checkpoints_to_keep: int = hp.optional(
         "Number of checkpoints to persist locally. Set to -1 to never delete checkpoints.",
         default=-1,
     )
@@ -552,11 +553,7 @@ class TrainerHparams(hp.Hparams):
 
             # Profiler
             prof_trace_handlers=[x.initialize_object() for x in self.prof_trace_handlers],
-            prof_skip_first=self.prof_skip_first,
-            prof_wait=self.prof_wait,
-            prof_warmup=self.prof_warmup,
-            prof_active=self.prof_active,
-            prof_repeat=self.prof_repeat,
+            prof_schedule=self.prof_scheduler.initialize_object(),
             sys_prof_cpu=self.sys_prof_cpu,
             sys_prof_memory=self.sys_prof_memory,
             sys_prof_disk=self.sys_prof_disk,
@@ -569,18 +566,20 @@ class TrainerHparams(hp.Hparams):
 
             # Checkpoint parameters
             load_path_format=self.load_path_format,
-            load_object_store=self.load_object_store.initialize_object()
-            if self.load_object_store is not None else None,
+            load_object_store=None if self.load_object_store is None else self.load_object_store.initialize_object(),
             load_weights_only=self.load_weights_only,
             load_strict=self.load_strict_model_weights,
             load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
+
             save_folder_format=self.save_folder_format,
             save_overwrite=self.save_overwrite,
-            save_name_format=self.save_name_format,
+            save_filename_format=self.save_filename_format,
+            save_latest_filename_format=self.save_latest_filename_format,
+            save_artifact_name_format=self.save_artifact_name_format,
             save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
-            save_num_checkpoints_to_persist=self.save_num_checkpoints_to_persist,
+            save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,
 
             # Subset parameters
             train_subset_num_batches=self.train_subset_num_batches,

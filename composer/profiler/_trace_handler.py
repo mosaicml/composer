@@ -98,7 +98,7 @@ class TraceHandler(Callback, abc.ABC):
         pass
 
     def process_chrome_json_trace_file(self, filepath: pathlib.Path) -> None:
-        """Invoked when there are events in a `Chrome JSON trace file <https://\\
+        """Invoked when there are events in `Chrome JSON format <https://\\
         docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_ to record.
 
         Args:

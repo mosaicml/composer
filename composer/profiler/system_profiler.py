@@ -55,7 +55,9 @@ class SystemProfiler(Callback):
 
     def init(self, state: State, logger: Logger):
         del logger  # unused
-        assert state.profiler is not None, "The trainer should have set the profiler in state"
+        if state.profiler is None:
+            raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
+                                f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
 
         # Start the stats thread
         threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()

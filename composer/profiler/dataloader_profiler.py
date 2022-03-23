@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import textwrap
 from typing import TYPE_CHECKING, Iterator, Optional
 
 from composer.core.callback import Callback
@@ -67,9 +66,8 @@ class DataLoaderProfiler(Callback):
     def fit_start(self, state: State, logger: Logger):
         del logger  # unused
         if state.profiler is None:
-            raise RuntimeError(
-                textwrap.dedent("""To use the dataloader profiler, state.profiler must be set.
-                Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
+            raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
+                                f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
 
         if not _ProfiledDataLoader.is_dataloader_already_wrapped(state.train_dataloader):
             state.train_dataloader = _ProfiledDataLoader(state.profiler, state.train_dataloader, "train")

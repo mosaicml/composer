@@ -87,7 +87,7 @@ from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLog
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
-from composer.profiler import Profiler, TraceHandler
+from composer.profiler import Profiler, TraceHandler, ProfilerAction
 from composer.profiler.dataloader_profiler import DataLoaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
@@ -318,27 +318,27 @@ class Trainer:
                 at different intervals), leave this parameter as ``None``, and instead pass
                 instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
 
-        save_name_format (str, optional): A format string describing how to name checkpoints.
-            This parameter has no effect if ``save_folder`` is ``None``.
+        save_filename_format (str, optional): A format string describing how to name checkpoints.
+            This parameter has no effect if ``save_folder_format`` is ``None``.
             (default: ``"ep{epoch}-ba{batch}-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
-        save_latest_format (str, optional): A format string for the name of a symlink
-            (relative to ``checkpoint_folder``) that points to the last saved checkpoint.
-            This parameter has no effect if ``save_folder`` is ``None``.
+        save_latest_filename_format (str, optional): A format string for the name of a symlink
+            (relative to ``save_folder_format``) that points to the last saved checkpoint.
+            This parameter has no effect if ``save_folder_format`` is ``None``.
             To disable symlinking, set to ``None``. (default: ``"latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
         save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
-            This parameter has no effect if ``save_folder`` is None. (default: ``False``)
+            This parameter has no effect if ``save_folder_format`` is None. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
         save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
-            This parameter has no effect if ``save_folder`` is ``None``. (default: ``'1ep'``)
+            This parameter has no effect if ``save_folder_format`` is ``None``. (default: ``'1ep'``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
@@ -347,7 +347,7 @@ class Trainer:
 
             .. seealso:: :class:`~.CheckpointSaver`
 
-        save_num_checkpoints_to_persist (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
+        save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
             Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
@@ -367,24 +367,35 @@ class Trainer:
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
             provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
             is provided, deepspeed will not be used. (default: ``False``)
-        profiler_trace_file (str, optional): Name of the trace file, relative to the run directory.
-            Setting this parameter activates the profiler. (default: ``None``).
+        prof_schedule ((State) -> ProfilerAction, optional): The profiler scheduler.
+
+            Specifying the profiling scheduler will enable the profiler.
+
+            For example:
+
+            .. testcode::
+
+                from composer.trainer import Trainer
+                from composer.profiler import cyclic_scheduler
+                trainer = Trainer(
+                    ...,
+                    prof_schedule=cyclic_scheduler(,
+                        skip_first=1,
+                        wait=0,
+                        warmup=1,
+                        active=4,
+                        repeat=1,
+                    )
+                )
+            )
+
+            .. seealso:: :func:`composer.profiler.cyclic_scheduler`
 
 
-        prof_trace_handlers (TraceHandler | Sequence[TraceHandler], optional): Trace handler.
-            Specifying a trace handler will enable the profiler.
+        prof_trace_handlers (TraceHandler | Sequence[TraceHandler], optional): Profiler trace handlers.
+            If not specified, the :class:`JSONTraceHandler` with its default arguments will be used.
 
             .. seealso:: :mod:`composer.profiler` for more details on profiling with the trainer.
-        prof_skip_first (int, optional): Number of batches to skip at epoch start.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``0``).
-        prof_wait (int, optional): Number of batches to skip at the beginning of each cycle.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``0``).
-        prof_warmup (int, optional): Number of warmup batches in a cycle.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``1``).
-        prof_active (int, optional): Number of batches to profile in a cycle.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``4``).
-        prof_repeat (int, optional): Maximum number of profiling cycle repetitions per epoch (0 for no maximum).
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``1``).
         sys_prof_cpu (bool, optional): Whether to record cpu statistics.
             Ignored if ``prof_trace_handlers`` is not specified. (default: ``True``).
         sys_prof_memory (bool, optional): Whether to record memory statistics.
@@ -459,12 +470,13 @@ class Trainer:
 
         # save_checkpoint
         save_folder_format: Optional[str] = None,
-        save_name_format: str = "ep{epoch}-ba{batch}-rank{rank}",
-        save_latest_format: str = "latest-rank{rank}",
+        save_filename_format: str = "ep{epoch}-ba{batch}-rank{rank}",
+        save_artifact_name_format: str = "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
+        save_latest_filename_format: str = "latest-rank{rank}",
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,
-        save_num_checkpoints_to_persist: int = -1,
+        save_num_checkpoints_to_keep: int = -1,
 
         # subset parameters
         train_subset_num_batches: Optional[int] = None,
@@ -475,11 +487,7 @@ class Trainer:
 
         # profiling
         prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
-        prof_skip_first: int = 0,
-        prof_wait: int = 0,
-        prof_warmup: int = 1,
-        prof_active: int = 4,
-        prof_repeat: int = 1,
+        prof_schedule: Optional[Callable[[State], ProfilerAction]] = None,
         sys_prof_cpu: bool = True,
         sys_prof_memory: bool = False,
         sys_prof_disk: bool = False,
@@ -680,14 +688,10 @@ class Trainer:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Configure profilers if profiling is enabled
-        if len(ensure_tuple(prof_trace_handlers)) > 0:
+        if prof_schedule is not None:
             self.state.profiler = Profiler(state=self.state,
                                            trace_handlers=prof_trace_handlers,
-                                           skip_first=prof_skip_first,
-                                           wait=prof_wait,
-                                           warmup=prof_warmup,
-                                           active=prof_active,
-                                           repeat=prof_repeat)
+                                           schedule=prof_schedule)
             self.state.callbacks.extend(self.state.profiler.trace_handlers)
 
             self.state.callbacks.append(DataLoaderProfiler())
@@ -716,12 +720,13 @@ class Trainer:
         if save_folder_format is not None:
             self._checkpoint_saver = CheckpointSaver(
                 save_folder_format=save_folder_format,
-                name_format=save_name_format,
-                save_latest_format=save_latest_format,
+                filename_format=save_filename_format,
+                artifact_name_format=save_artifact_name_format,
+                latest_filename_format=save_latest_filename_format,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
-                num_checkpoints_to_persist=save_num_checkpoints_to_persist,
+                num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )
             self.state.callbacks.append(self._checkpoint_saver)
 
@@ -830,24 +835,6 @@ class Trainer:
         if self._checkpoint_saver is None:
             return {}
         return self._checkpoint_saver.saved_checkpoints
-
-    @property
-    def checkpoint_folder(self) -> Optional[str]:
-        """The folder in which checkpoints are stored.
-
-        Returns:
-            Optional[str]: The checkpoint folder, or None, if checkpoints were not saved.
-
-                If an absolute path was specified for ``save_folder`` upon trainer instantiation, then that path will
-                be used. Otherwise, this folder is relative to the :mod:`~composer.utils.run_directory` of the training
-                run (e.g. ``{run_directory}/{save_folder}``). If no run directory is provided, then by default, it is
-                of the form ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp`` is the start time
-                of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process, and ``save_folder`` is the
-                ``save_folder`` argument provided upon construction.
-        """
-        if self._checkpoint_saver is None:
-            return None
-        return self._checkpoint_saver.save_folder
 
     def fit(self):
         """Train and evaluate the model on the provided data."""

@@ -9,7 +9,10 @@ import os
 import pathlib
 import queue
 import time
+import gzip
 from typing import Dict, List, Optional, Tuple, Union
+
+from collections import OrderedDict
 
 from composer.core.state import State
 from composer.core.time import Timestamp
@@ -30,7 +33,7 @@ class JSONTraceHandler(TraceHandler):
     To view in a Google Chrome browser, navigate to ``chrome://tracing`` and load the JSON trace file.
 
     Args:
-        trace_folder_format (str, optional): Format string for the folder containing the trace files.
+        folder_format (str, optional): Format string for the folder containing the trace files.
 
             The following format variables are available:
 
@@ -179,11 +182,13 @@ class JSONTraceHandler(TraceHandler):
         
         buffering (int, optional): Buffering parameter passed to :meth:`open` when opening the trace file.
             (Default: ``-1`` for the system default)
+
+        num_trace_cycles_to_keep (int, optional): 
     """
 
     def __init__(
         self,
-        trace_folder_format: str = '{run_name}/traces',
+        folder_format: str = '{run_name}/traces',
         filename_format: str = 'ep{epoch}-ba{batch}-rank{rank}.json',
         artifact_name_format: str = '{run_name}/traces/ep{epoch}-ba{batch}-rank{rank}.json',
         merged_trace_filename_format: Optional[str] = 'merged_trace.json',
@@ -194,20 +199,21 @@ class JSONTraceHandler(TraceHandler):
         num_trace_cycles_to_keep: int = -1,
     ):
         self.buffering = buffering
-        self.trace_folder_format = trace_folder_format
+        self.folder_format = folder_format
         self.overwrite = overwrite
         self.filename_format = filename_format
         self.artifact_name_format = artifact_name_format
         self.merged_trace_filename_format = merged_trace_filename_format
         self.merged_trace_artifact_name_format = merged_trace_artifact_name_format
-        self.saved_traces: Dict[Timestamp, List[str]] = {}
+        self.saved_traces: Dict[Timestamp, List[str]] = OrderedDict()
+        self.num_trace_cycles_to_keep = num_trace_cycles_to_keep
 
         self._queue: queue.Queue[str] = queue.Queue()
         self._is_trace_active = False
 
     def init(self, state: State, logger: Logger) -> None:
         del state  # unused
-        trace_folder = format_name_with_dist(self.trace_folder_format, run_name=logger.run_name)
+        trace_folder = format_name_with_dist(self.folder_format, run_name=logger.run_name)
 
         os.makedirs(trace_folder, exist_ok=True)
         if not self.overwrite:
@@ -216,7 +222,10 @@ class JSONTraceHandler(TraceHandler):
         dist.barrier()
 
     def batch_start(self, state: State, logger: Logger) -> None:
-        if state.profiler.get_action(state.timer.get_timestamp()) != ProfilerAction.SKIP and not self._is_trace_active:
+        if state.profiler is None:
+            raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
+                                f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
+        if state.profiler.get_action(state) != ProfilerAction.SKIP and not self._is_trace_active:
             # Starting a new profiling cycle
             wall_clock_ns = time.time_ns()
             self._record_event(
@@ -281,9 +290,10 @@ class JSONTraceHandler(TraceHandler):
             self._is_trace_active = True
 
     def batch_end(self, state: State, logger: Logger) -> None:
+        assert state.profiler is not None
         timestamp = state.timer.get_timestamp()
-        trace_folder = format_name_with_dist(self.trace_folder_format, run_name=logger.run_name)
-        if state.profiler.get_action(timestamp) == ProfilerAction.SKIP and self._is_trace_active:
+        trace_folder = format_name_with_dist(self.folder_format, run_name=logger.run_name)
+        if state.profiler.get_action(state) == ProfilerAction.SKIP and self._is_trace_active:
             # no longer active, but was previously active.
             # Epty the queue and save the trace file
             trace_filename = os.path.join(trace_folder,)
@@ -423,8 +433,8 @@ class JSONTraceHandler(TraceHandler):
         entry = json.dumps(data, indent=None)
         self._queue.put_nowait(entry)
 
-    def process_chrome_json_trace_file(self, filename: pathlib.Path) -> None:
-        with open(filename, "r") as f:
+    def process_chrome_json_trace_file(self, filepath: pathlib.Path) -> None:
+        with (gzip.open(filepath, 'rt') if str(filepath).endswith('.gz') else open(filepath, "r")) as f:
             # It may be an incomplete trace file that is missing the closing ] bracket, as is permitted
             # in the chrome json format spec
             trace_data_str = f.read().strip()
