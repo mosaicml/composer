@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.GPT2Model`."""
+
 import dataclasses
 import textwrap
 from typing import TYPE_CHECKING
@@ -9,10 +11,21 @@ from composer.models.transformer_hparams import TransformerHparams
 if TYPE_CHECKING:
     from composer.models.transformer_shared import ComposerTransformer
 
+__all__ = ["GPT2Hparams"]
+
 
 @dataclasses.dataclass
 class GPT2Hparams(TransformerHparams):
-    """Overrides TransformerHparams to create GPT-2 specific models and configs."""
+    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.GPT2Model`.
+
+    Args:
+        pretrained_model_name (str): Pretrained model name to pull from Hugging Face Model Hub.
+        model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
+        tokenizer_name (str): The tokenizer used for this model,
+            necessary to assert required model inputs.
+        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
+    """
 
     def initialize_object(self) -> "ComposerTransformer":
         try:

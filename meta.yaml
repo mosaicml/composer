@@ -5,9 +5,7 @@ package:
   version: "0.4.0"
 
 source:
-  git_url: https://github.com/mosaicml/composer.git
-  git_rev: "v0.4.0"
-  git_depth: -1
+  git_url: ./
 
 build:
   number: 0
@@ -24,48 +22,47 @@ requirements:
   build:
     - git
   run:
-    - python >=3.7
-    - pyyaml >=5.4.1
-    - pytorch >=1.9
-    - torch-optimizer ==0.1.0
-    - torchmetrics >=0.6.0
-    - torchvision >=0.9.0
-    - tqdm >=4.62.3
-    - yahp >=0.1.0
-    - requests >=2.26.0
+    - python >=3.7,<4
+    - pyyaml >=5.4.1,<6
+    - pytorch >=1.9,<2
+    - torch-optimizer >=0.1.0,<0.2
+    - torchmetrics >=0.7.0,<0.8
+    - torchvision >=0.9.0   # torchvision has strict pytorch requirements
+    - tqdm >=4.62.3,<5
+    - yahp ==0.1.0
+    - requests >=2.26.0,<3
     - numpy ==1.21.5
-    - apache-libcloud >=3.3.1
-    - psutil >=5.8.0
+    - apache-libcloud >=3.3.1,<4
+    - psutil >=5.8.0,<6
+    - coolname >=1.1.0,<2
   run_constrained:
-    - wandb >=0.12.2
-    - monai >=0.7.0
-    - scikit-learn >=1.0.1
+    - wandb >=0.12.10,<0.13
+    - monai >=0.8.0,<0.9
+    - scikit-learn >=1.0.1,<2
     # - timm >=0.5.4 # This timm version is not available on conda
-    - transformers >=4.11
-    - datasets >=1.14
-    - pycocotools >=2.0.4
-    - coolname >=1.1.0
+    - transformers >=4.11,<5
+    - datasets >=1.14,<2
+    - pycocotools >=2.0.4,<3
 
 test:
   requires:
-    - fasteners >=0.16.3
-    - pytest >=7.0.0
-    - toml >=0.10.2
-    - ipython >=7.29.0
-    - ipykernel >=6.5.0
-    - jupyter >=1.0.0
-    - pytest-timeout >=1.4.2
-    - testbook >=0.4.2
+    - fasteners ==0.17.3
+    - pytest ==7.1.0
+    - toml ==0.10.2
+    - ipython ==7.32.0
+    - ipykernel ==6.9.2
+    - jupyter ==1.0.0
+    - pytest-timeout ==2.1.0
+    - testbook ==0.4.2
     # Including all run_constrained requirements in the test requirements, so those tests will not be import-skipped
     - pip # Since deepspeed and timm are not available on anaconda, they are installed via pip.
-    - wandb >=0.12.2
-    - monai >=0.7.0
-    - scikit-learn >=1.0.1
+    - wandb >=0.12.10,<0.13
+    - monai >=0.8.0,<0.9
+    - scikit-learn >=1.0.1,<2
     # - timm >=0.5.4 # This timm version is not available on conda; installing via pip
-    - transformers >=4.11
-    - datasets >=1.14
-    - pycocotools >=2.0.4
-    - coolname >=1.1.0
+    - transformers >=4.11,<5
+    - datasets >=1.14,<2
+    - pycocotools >=2.0.4,<3
   files:
     - "**/composer/**"
     - "**/tests/**"

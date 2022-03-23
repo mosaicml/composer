@@ -7,8 +7,8 @@ import pytest
 
 from composer.callbacks import RunDirectoryUploaderHparams
 from composer.core.event import Event
-from composer.core.logging import Logger
 from composer.core.state import State
+from composer.loggers import Logger
 from composer.utils import dist, run_directory
 
 

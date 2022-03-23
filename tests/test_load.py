@@ -23,8 +23,10 @@ model_names = [os.path.basename(os.path.splitext(mn)[0]) for mn in model_names]
 def get_model_algs(model_name: str) -> List[str]:
     algs = algorithms.list_algorithms()
     algs.remove("no_op_model")
-    is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet", "timm", "vit"))
+
+    is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet", "timm", "vit", "deeplabv3"))
     is_language_model = any(x in model_name for x in ("gpt2", "bert"))
+
     if is_image_model:
         algs.remove("alibi")
         algs.remove("seq_length_warmup")
@@ -69,6 +71,7 @@ def test_load(model_name: str):
     if model_name in ['unet']:
         pytest.importorskip("monai")
     if model_name in ['deeplabv3_ade20k_unoptimized', 'deeplabv3_ade20k_optimized']:
+        pytest.importorskip("mmcv")
         pytest.skip(f"Model {model_name} requires GPU")
 
     trainer_hparams = trainer.load(model_name)

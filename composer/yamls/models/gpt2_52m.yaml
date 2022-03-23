@@ -65,9 +65,7 @@ optimizer:
     weight_decay: 0.0
 schedulers:
   - cosine_decay_with_warmup:
-      warmup_time: 90ba
-loggers:
-  - tqdm: {}
+      t_warmup: 90ba
 max_duration: 1ep
 train_batch_size: 512
 eval_batch_size: 16 # use micro_bs_per_gpu = 2 to accomodate 10GB limit

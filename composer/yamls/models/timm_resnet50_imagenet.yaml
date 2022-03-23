@@ -23,13 +23,11 @@ optimizer:
     nesterov: false
 schedulers:
   - cosine_decay_with_warmup:
-      warmup_time: "8ep"
+      t_warmup: "8ep"
 model:
   timm:
     model_name: "resnet50"
     num_classes: 1000
-loggers:
-  - tqdm: {}
 max_duration: 90ep
 train_batch_size: 2048
 eval_batch_size: 2048

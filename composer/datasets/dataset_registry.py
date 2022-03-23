@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Mapping between dataset names and corresponding HParams classes."""
+
 from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams
 from composer.datasets.brats import BratsDatasetHparams
 from composer.datasets.c4 import C4DatasetHparams
@@ -33,4 +35,14 @@ registry = {
 
 
 def get_dataset_registry():
+    """Returns a mapping between different supported datasets and their HParams classes that create an instance of the
+    dataset. An example entry in the returned dictionary: ``"imagenet": ImagenetDatasetHparams``.
+
+    Returns:
+        Dict[str, DatasetHparams]: A dictionary of mapping.
+    """
+
     return registry
+
+
+__all__ = ["get_dataset_registry"]

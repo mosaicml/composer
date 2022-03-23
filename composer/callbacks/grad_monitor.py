@@ -2,8 +2,9 @@
 
 """Monitor gradient during training."""
 
-from composer.core import Logger, State
+from composer.core import State
 from composer.core.callback import Callback
+from composer.loggers import Logger
 
 __all__ = ["GradMonitor"]
 
@@ -16,17 +17,19 @@ class GradMonitor(Callback):
     correctness of norm, this function should be called after gradient unscaling in cases where gradients are scaled.
 
     Example
-       >>> # constructing trainer object with this callback
-       >>> trainer = Trainer(
-       ...     model=model,
-       ...     train_dataloader=train_dataloader,
-       ...     eval_dataloader=eval_dataloader,
-       ...     optimizers=optimizer,
-       ...     max_duration="1ep",
-       ...     callbacks=[callbacks.GradMonitor()],
-       ... )
 
-    The L2 norms are logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as described below.
+        >>> from composer.callbacks import GradMonitor
+        >>> # constructing trainer object with this callback
+        >>> trainer = Trainer(
+        ...     model=model,
+        ...     train_dataloader=train_dataloader,
+        ...     eval_dataloader=eval_dataloader,
+        ...     optimizers=optimizer,
+        ...     max_duration="1ep",
+        ...     callbacks=[GradMonitor()],
+        ... )
+
+    The L2 norms are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as described below.
 
     +-----------------------------------+-------------------------------------------------------------+
     | Key                               | Logged data                                                 |
@@ -63,6 +66,6 @@ class GradMonitor(Callback):
                 norm += param_grad_norm
 
         norm = norm**0.5
-        logger.metric_batch({'grad_l2_norm/step': norm})
+        logger.data_batch({'grad_l2_norm/step': norm})
         if self.log_layer_grad_norms:
-            logger.metric_batch(layer_norms)
+            logger.data_batch(layer_norms)

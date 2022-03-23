@@ -23,13 +23,11 @@ optimizer:
     weight_decay: 1.0e-5
 schedulers:
   - cosine_decay_with_warmup:
-      warmup_time: "16ep"
+      t_warmup: "16ep"
 model:
   efficientnetb0:
     drop_connect_rate: 0.2
     num_classes: 1000
-loggers:
-  - tqdm: {}
 max_duration: 400ep
 train_batch_size: 4096
 eval_batch_size: 2048
