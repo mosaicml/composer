@@ -95,6 +95,7 @@ def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
 
 
 def generate_synthetic_tokenizer(tokenizer_family: str,
+                                 tmp_path,
                                  dataset: Optional[Dataset] = None,
                                  vocab_size: int = 256) -> PreTrainedTokenizer:
     """Generates a synthetic tokenizer based on a tokenizer family.
@@ -156,7 +157,8 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     tokenizer.train_from_iterator(flattened_dataset, trainer=tokenizer_trainer)
 
     # save the tokenizer config
-    tmp_tokenizer_dir = mkdtemp()
+    tmp_path.mkdir(exist_ok=True)
+    tmp_tokenizer_dir = str(tmp_path)
     tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
     tokenizer.save(tmp_tokenizer_file)
 
