@@ -27,6 +27,7 @@ __all__ = [
     "ProgressBarLoggerHparams",
     "WandBLoggerHparams",
     "ObjectStoreLoggerHparams",
+    "logger_registry",
 ]
 
 
@@ -259,7 +260,7 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
             The artifact name will be a string. The function should return a boolean indicating whether the artifact
             should be logged.
 
-            .. seealso: :func:`composer.utils.dynamic_import.import_object`
+            .. seealso: :func:`composer.utils.import_helpers.import_object`
 
             Setting this parameter to ``None`` (the default) will log all artifacts.
         object_name_format (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
@@ -289,3 +290,13 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,
         )
+
+
+logger_registry = {
+    "file": FileLoggerHparams,
+    "wandb": WandBLoggerHparams,
+    "progress_bar": ProgressBarLoggerHparams,
+    "in_memory": InMemoryLoggerHparams,
+    "object_store": ObjectStoreLoggerHparams,
+}
+"""The registry of all known :class:`.LoggerDestinationHparams`."""

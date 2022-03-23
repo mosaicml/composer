@@ -2,10 +2,15 @@ from itertools import product
 
 import pytest
 
-from composer.datasets.synthetic_lm import SyntheticHFDataset, generate_synthetic_tokenizer
+from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 
 
 def generate_parameter_configs(keys, num_replicas=1):
+    """Generates parameter configurations for the fixtures.
+
+    We cannot directly do this with `pytest.mark.parameterize(...)` since it doesn't pass combinations of arguments to
+    fixtures.
+    """
     config_options = {
         "tokenizer_family": ['bert', 'gpt2'],
         "chars_per_sample": [128],
@@ -25,33 +30,19 @@ def config(request):
 
 
 @pytest.fixture
-def dataset_generator(request):
+def dataset(request):
     print(request.param)
     pytest.importorskip("transformers")
     pytest.importorskip("datasets")
     pytest.importorskip("tokenizers")
 
-    dataset_generator = SyntheticHFDataset(num_samples=request.param['num_samples'],
+    dataset = synthetic_hf_dataset_builder(num_samples=request.param['num_samples'],
                                            chars_per_sample=request.param['chars_per_sample'],
                                            column_names=request.param['column_names'])
-    return dataset_generator
+    return dataset
 
 
-@pytest.fixture
-def dataset(dataset_generator):
-    return dataset_generator.generate_dataset()
-
-
-@pytest.mark.parametrize("dataset_generator, config",
-                         generate_parameter_configs(['num_samples', 'chars_per_sample', 'column_names'],
-                                                    num_replicas=2),
-                         indirect=True)
-def test_generator_sample(dataset_generator, config):
-    sample = dataset_generator.generate_sample()
-    assert len(sample) == config['chars_per_sample']
-
-
-@pytest.mark.parametrize("dataset_generator, config",
+@pytest.mark.parametrize("dataset, config",
                          generate_parameter_configs(['num_samples', 'chars_per_sample', 'column_names'],
                                                     num_replicas=2),
                          indirect=True)
@@ -62,9 +53,9 @@ def test_dataset_properties(dataset, config):
 
 
 @pytest.fixture
-def tokenizer(dataset, config):
+def tokenizer(dataset, config, tmp_path):
     # build the tokenizer
-    tokenizer = generate_synthetic_tokenizer(config['tokenizer_family'], dataset=dataset)
+    tokenizer = generate_synthetic_tokenizer(config['tokenizer_family'], tmp_path=tmp_path, dataset=dataset)
     # verifying the input ids are a part of the tokenizer
     assert 'input_ids' in tokenizer.model_input_names
     return tokenizer
@@ -82,7 +73,7 @@ def tokenized_dataset(tokenizer, dataset, config):
     return dataset
 
 
-@pytest.mark.parametrize("dataset_generator, config",
+@pytest.mark.parametrize("dataset, config",
                          generate_parameter_configs(
                              ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'], num_replicas=2),
                          indirect=True)

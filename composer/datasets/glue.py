@@ -16,7 +16,6 @@ Please refer to the `GLUE`_ benchmark for more details.
 """
 
 import logging
-import textwrap
 from dataclasses import dataclass
 from typing import cast
 
@@ -27,8 +26,8 @@ from composer.core.types import Dataset
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.lm_datasets import _split_dict_fn
-from composer.datasets.synthetic_lm import SyntheticHFDataset, generate_synthetic_tokenizer
-from composer.utils import dist
+from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
+from composer.utils import MissingConditionalImportError, dist
 
 __all__ = ["GLUEHparams"]
 
@@ -97,19 +96,16 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             import datasets
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         self.validate()
         if self.use_synthetic:
             column_names = [i for i in _task_to_keys[self.task] if i is not None]
 
             # we just use the max sequence length in tokens to upper bound the sequence length in characters
-            dataset = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,
-                                         chars_per_sample=self.max_seq_length,
-                                         column_names=column_names).generate_dataset()
+            dataset = synthetic_hf_dataset_builder(num_samples=self.synthetic_num_unique_samples,
+                                                   chars_per_sample=self.max_seq_length,
+                                                   column_names=column_names).generate_dataset()
 
             # flatten the columnar dataset into one column
             tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=dataset)

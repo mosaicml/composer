@@ -1,22 +1,24 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Synthetic language modeling datasets used for testing, profiling, and debugging."""
+
 from __future__ import annotations
 
 import json
 import random
 import string
-import textwrap
 from os.path import join
-from tempfile import mkdtemp
 from typing import TYPE_CHECKING, NamedTuple, Optional
 
+from composer.utils import MissingConditionalImportError
+
 if TYPE_CHECKING:
-    import tokenizers.decoders as decoders
     import tokenizers.models as tokenizers_models
-    import tokenizers.normalizers as normalizers
-    import tokenizers.pre_tokenizers as pre_tokenizers
     from datasets import Dataset
+    from tokenizers import decoders, normalizers, pre_tokenizers
     from transformers import PreTrainedTokenizer
+
+__all__ = ["SyntheticTokenizerParams", "generate_synthetic_tokenizer", "synthetic_hf_dataset_builder"]
 
 
 class SyntheticTokenizerParams(NamedTuple):
@@ -33,17 +35,12 @@ class SyntheticTokenizerParams(NamedTuple):
 
 def _generate_bert_tokenizer_params(dataset) -> SyntheticTokenizerParams:
     try:
-        import tokenizers.decoders as decoders
         import tokenizers.models as tokenizers_models
-        import tokenizers.normalizers as normalizers
-        import tokenizers.pre_tokenizers as pre_tokenizers
         import tokenizers.trainers as tokenizers_trainer
+        from tokenizers import decoders, normalizers, pre_tokenizers
         from transformers import BertTokenizer
     except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-            if using pip or `conda install -c conda-forge transformers tokenizers` if using Anaconda.""")) from e
+        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
     unk_token = "[UNK]"
     pad_token = "[PAD]"
@@ -66,17 +63,12 @@ def _generate_bert_tokenizer_params(dataset) -> SyntheticTokenizerParams:
 
 def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
     try:
-        import tokenizers.decoders as decoders
         import tokenizers.models as tokenizers_models
-        import tokenizers.normalizers as normalizers
-        import tokenizers.pre_tokenizers as pre_tokenizers
         import tokenizers.trainers as tokenizers_trainer
+        from tokenizers import decoders, normalizers, pre_tokenizers
         from transformers import GPT2Tokenizer
     except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-            if using pip or `conda install -c conda-forge tokenizers` if using Anaconda.""")) from e
+        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
     unk_token = None
     pad_token = "<pad>"
@@ -95,6 +87,7 @@ def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
 
 
 def generate_synthetic_tokenizer(tokenizer_family: str,
+                                 tmp_path,
                                  dataset: Optional[Dataset] = None,
                                  vocab_size: int = 256) -> PreTrainedTokenizer:
     """Generates a synthetic tokenizer based on a tokenizer family.
@@ -102,7 +95,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     Args:
         tokenizer_family (str): Which tokenizer family to emulate. One of ['gpt2', 'bert'].
         dataset (Optional[datasets.Dataset]): Optionally, the dataset to train the tokenzier off of.
-            If not specified, a SyntheticHFDataset will be generated.
+            If ``None``, a :class:`~SyntheticHFDataset` will be generated. Default: ``None``.
         vocab_size (int): The size of the tokenizer vocabulary. Defaults to 256.
     """
 
@@ -110,19 +103,16 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         from tokenizers import Tokenizer
         from transformers import PreTrainedTokenizer
     except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-            if using pip or `conda install -c conda-forge transformers tokenizers` if using Anaconda.""")) from e
+        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
     # generate a synthetic dataset with reasonable defaults is none is provided
     if dataset is None:
         num_samples = 100
         chars_per_sample = 128
         column_names = ['sentence']
-        dataset = SyntheticHFDataset(num_samples=num_samples,
-                                     chars_per_sample=chars_per_sample,
-                                     column_names=column_names).generate_dataset()
+        dataset = synthetic_hf_dataset_builder(num_samples=num_samples,
+                                               chars_per_sample=chars_per_sample,
+                                               column_names=column_names)
 
     # change a columnar dataset into a list
     flattened_columns = [dataset[key] for key in dataset.column_names if key != 'idx']
@@ -145,6 +135,8 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
                              pad_type_id=0,
                              pad_token=tokenizer_params.pad_token,
                              pad_to_multiple_of=8)
+    # The 'type: ignore' is because the underlying Rust package has improper type annotations. PyRight throws:
+    # Cannot assign member "normalizer" for type "Tokenizer". Property "normalizer" has no defined setter
     tokenizer.normalizer = tokenizer_params.normalizer  # type: ignore
     tokenizer.pre_tokenizer = tokenizer_params.pre_tokenizer  # type: ignore
     tokenizer.decoder = tokenizer_params.decoder  # type: ignore
@@ -156,7 +148,8 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     tokenizer.train_from_iterator(flattened_dataset, trainer=tokenizer_trainer)
 
     # save the tokenizer config
-    tmp_tokenizer_dir = mkdtemp()
+    tmp_path.mkdir(exist_ok=True)
+    tmp_tokenizer_dir = str(tmp_path)
     tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
     tokenizer.save(tmp_tokenizer_file)
 
@@ -176,56 +169,56 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     return tokenizer
 
 
-class SyntheticHFDataset:
-    """Creates a synthetic HF dataset and passes it to the preprocessing scripts."""
+def synthetic_hf_dataset_builder(num_samples: int, chars_per_sample: int, column_names: list):
+    """Creates a synthetic :class:`~datasets.Dataset` and passes it to the preprocessing scripts.
 
-    def __init__(self, num_samples: int, chars_per_sample: int, column_names: list):
-        if column_names is None or len(column_names) == 0:
-            raise ValueError("There must be at least one column name provided for the final dataset.")
-        self.num_samples = num_samples
-        self.chars_per_sample = chars_per_sample
-        self.column_names = column_names
+    Args:
+        num_samples (int): how many samples to use in the synthetic dataset.
+        chars_per_sample (int): how many characters each synthetic text sample should be.
+        column_names (list): the column names that a dataset should use
 
-    def generate_dataset(self):
-        try:
-            import datasets
-        except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
+    Returns:
+        datasets.Dataset: the synthetic HF Dataset object.
+    """
 
-        data = {}
-        for column_name in self.column_names:
-            data[column_name] = [self.generate_sample() for _ in range(self.num_samples)]
-        data['idx'] = list(range(self.num_samples))
+    try:
+        import datasets
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
-        hf_synthetic_dataset = datasets.Dataset.from_dict(data)
-        return hf_synthetic_dataset
+    if column_names is None or len(column_names) == 0:
+        raise ValueError("There must be at least one column name provided for the final dataset.")
 
-    def generate_sample(self):
-        MIN_WORD_LENGTH = 3
-        MAX_WORD_LENGTH = 10
-        character_set = {
-            "letters": {
-                "weight": 10,
-                "choices": string.ascii_letters
-            },
-            "digits": {
-                "weight": 5,
-                "choices": string.digits
-            },
-            "punctuation": {
-                "weight": 1,
-                "choices": string.punctuation
-            }
+    data = {}
+    for column_name in column_names:
+        data[column_name] = [_generate_synthetic_text_sample(chars_per_sample) for _ in range(num_samples)]
+    data['idx'] = list(range(num_samples))
+
+    hf_synthetic_dataset = datasets.Dataset.from_dict(data)
+    return hf_synthetic_dataset
+
+
+def _generate_synthetic_text_sample(chars_per_sample, min_word_length=3, max_word_length=10):
+    character_set = {
+        "letters": {
+            "weight": 10,
+            "choices": string.ascii_letters
+        },
+        "digits": {
+            "weight": 5,
+            "choices": string.digits
+        },
+        "punctuation": {
+            "weight": 1,
+            "choices": string.punctuation
         }
-        valid_chars = ''.join([(i['choices'] * i['weight']) for i in character_set.values()])
+    }
+    valid_chars = ''.join([(i['choices'] * i['weight']) for i in character_set.values()])
 
-        sample = ''
-        while len(sample) < self.chars_per_sample:
-            sample_len = random.randint(MIN_WORD_LENGTH, MAX_WORD_LENGTH)
-            sample += ''.join([random.choice(valid_chars) for _ in range(sample_len)])
-            sample += ' '
-        sample = sample[:self.chars_per_sample]
-        return sample
+    sample = ''
+    while len(sample) < chars_per_sample:
+        sample_len = random.randint(min_word_length, max_word_length)
+        sample += ''.join([random.choice(valid_chars) for _ in range(sample_len)])
+        sample += ' '
+    sample = sample[:chars_per_sample]
+    return sample

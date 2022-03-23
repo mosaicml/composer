@@ -4,7 +4,6 @@
 
 import logging
 import tempfile
-import textwrap
 from dataclasses import dataclass
 from os.path import join
 from typing import List, Optional
@@ -15,8 +14,8 @@ from composer.core import DataSpec
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
-from composer.datasets.synthetic_lm import SyntheticHFDataset, generate_synthetic_tokenizer
-from composer.utils import dist
+from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
+from composer.utils import MissingConditionalImportError, dist
 
 __all__ = ["LMDatasetHparams"]
 
@@ -106,10 +105,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             import datasets
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         self.validate()
         assert self.tokenizer_name is not None
@@ -117,9 +113,9 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             column_names = ["text"]
 
             # we just use the max sequence length in tokens to upper bound the sequence length in characters
-            lm_datasets = SyntheticHFDataset(num_samples=self.synthetic_num_unique_samples,
-                                             chars_per_sample=self.max_seq_length,
-                                             column_names=column_names).generate_dataset()
+            lm_datasets = synthetic_hf_dataset_builder(num_samples=self.synthetic_num_unique_samples,
+                                                       chars_per_sample=self.max_seq_length,
+                                                       column_names=column_names)
 
             tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=lm_datasets)
 
