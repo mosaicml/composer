@@ -2,7 +2,7 @@ from itertools import product
 
 import pytest
 
-from composer.datasets.synthetic_lm import SyntheticHFDataset, generate_synthetic_tokenizer
+from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 
 
 def generate_parameter_configs(keys, num_replicas=1):
@@ -25,33 +25,19 @@ def config(request):
 
 
 @pytest.fixture
-def dataset_generator(request):
+def dataset(request):
     print(request.param)
     pytest.importorskip("transformers")
     pytest.importorskip("datasets")
     pytest.importorskip("tokenizers")
 
-    dataset_generator = SyntheticHFDataset(num_samples=request.param['num_samples'],
+    dataset = synthetic_hf_dataset_builder(num_samples=request.param['num_samples'],
                                            chars_per_sample=request.param['chars_per_sample'],
                                            column_names=request.param['column_names'])
-    return dataset_generator
+    return dataset
 
 
-@pytest.fixture
-def dataset(dataset_generator):
-    return dataset_generator.generate_dataset()
-
-
-@pytest.mark.parametrize("dataset_generator, config",
-                         generate_parameter_configs(['num_samples', 'chars_per_sample', 'column_names'],
-                                                    num_replicas=2),
-                         indirect=True)
-def test_generator_sample(dataset_generator, config):
-    sample = dataset_generator.generate_sample()
-    assert len(sample) == config['chars_per_sample']
-
-
-@pytest.mark.parametrize("dataset_generator, config",
+@pytest.mark.parametrize("dataset, config",
                          generate_parameter_configs(['num_samples', 'chars_per_sample', 'column_names'],
                                                     num_replicas=2),
                          indirect=True)
@@ -82,7 +68,7 @@ def tokenized_dataset(tokenizer, dataset, config):
     return dataset
 
 
-@pytest.mark.parametrize("dataset_generator, config",
+@pytest.mark.parametrize("dataset, config",
                          generate_parameter_configs(
                              ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'], num_replicas=2),
                          indirect=True)
