@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     import tokenizers.models as tokenizers_models
     from datasets import Dataset
     from tokenizers import decoders, normalizers
-    from tokenuzers import pre_tokenizers
+    from tokenizers import pre_tokenizers
     from transformers import PreTrainedTokenizer
 
 __all__ = ["SyntheticTokenizerParams", "generate_synthetic_tokenizer", "synthetic_hf_dataset_builder"]
