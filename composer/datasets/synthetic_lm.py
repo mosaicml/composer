@@ -118,9 +118,9 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
         num_samples = 100
         chars_per_sample = 128
         column_names = ['sentence']
-        dataset = SyntheticHFDataset(num_samples=num_samples,
-                                     chars_per_sample=chars_per_sample,
-                                     column_names=column_names).generate_dataset()
+        dataset = synthetic_hf_dataset_builder(num_samples=num_samples,
+                                               chars_per_sample=chars_per_sample,
+                                               column_names=column_names).generate_dataset()
 
     # change a columnar dataset into a list
     flattened_columns = [dataset[key] for key in dataset.column_names if key != 'idx']
