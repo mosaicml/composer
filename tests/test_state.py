@@ -60,7 +60,7 @@ def assert_state_equivalent(state1: State, state2: State):
         if field_name == "model":
             assert state1.is_model_deepspeed == state2.is_model_deepspeed
             for p, q in zip(state1.model.parameters(), state2.model.parameters()):
-                torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
+                torch.testing.assert_allclose(p, q, atol=1e-3, rtol=1e-3)
         elif isinstance(var1, torch.Tensor):
             assert (var1 == var2).all()
         else:

@@ -24,7 +24,7 @@ from tests.fixtures.models import (SimpleBatchPairModel, SimpleConvModel, _Simpl
 
 @pytest.fixture
 def dummy_in_shape() -> Tuple[int, ...]:
-    return (1, 5, 5)
+    return (1, 25, 25)
 
 
 @pytest.fixture
@@ -41,6 +41,9 @@ def dummy_train_batch_size() -> int:
 def dummy_val_batch_size() -> int:
     return 32
 
+@pytest.fixture()
+def dummy_train_n_samples() -> int:
+    return 1000
 
 @pytest.fixture
 def dummy_model_hparams(
