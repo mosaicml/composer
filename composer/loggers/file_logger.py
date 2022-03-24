@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, Optional, TextIO
 import yaml
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LoggerDataDict, LogLevel, format_log_data_value
+from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import run_directory
 
@@ -149,7 +149,7 @@ class FileLogger(LoggerDestination):
             return self.is_batch_interval
         raise ValueError(f"Unknown log level: {log_level}")
 
-    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
+    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         if not self._will_log(log_level):
             return
         data_str = format_log_data_value(data)
