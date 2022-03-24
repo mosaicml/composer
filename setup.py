@@ -70,10 +70,6 @@ install_requires = [
     "apache-libcloud>=3.3.1,<4",
     "psutil>=5.8.0,<6",
     "coolname>=1.1.0,<2",
-    "pylint>=2.6.0,<3",
-    "yapf>=0.32.0,<0.4",
-    "docformatter>=1.4.0,<2",
-    "pyright>=1.1.232,<1.2",
 ]
 extra_deps = {}
 
