@@ -13,7 +13,7 @@ from torch.nn import functional as F
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.models.loss import _check_for_index_targets
+from composer.models.loss import ensure_targets_one_hot
 
 log = logging.getLogger(__name__)
 
@@ -22,7 +22,6 @@ __all__ = ["MixUp", "mixup_batch"]
 
 def mixup_batch(input: torch.Tensor,
                 target: torch.Tensor,
-                num_classes: int,
                 mixing: Optional[float] = None,
                 alpha: float = 0.2,
                 indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -42,7 +41,6 @@ def mixup_batch(input: torch.Tensor,
             ``...`` indicates zero or more dimensions.
         target (torch.Tensor): target tensor of shape ``(minibatch, ...)``, where
             ``...`` indicates zero or more dimensions.
-        num_classes (int): total number of classes or output variables
         mixing (float, optional): coefficient used to interpolate
             between the two examples. If provided, must be in :math:`[0, 1]`.
             If ``None``, value is drawn from a ``Beta(alpha, alpha)``
@@ -54,8 +52,9 @@ def mixup_batch(input: torch.Tensor,
 
     Returns:
         input_mixed (torch.Tensor): batch of inputs after mixup has been applied
-        target_mixed (torch.Tensor): labels after mixup has been applied
-        perm (torch.Tensor): the permutation used
+        target_orig (torch.Tensor): The original labels
+        target_perm (torch.Tensor): The labels of the mixed in examples
+        mixing (torch.Tensor): the amount of mixing used.
 
     Example:
         .. testcode::
@@ -64,11 +63,10 @@ def mixup_batch(input: torch.Tensor,
             from composer.functional import mixup_batch
 
             N, C, H, W = 2, 3, 4, 5
-            num_classes = 10
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
-            X_mixed, y_mixed, perm = mixup_batch(
-                X, y, num_classes=num_classes, alpha=0.2)
+            X_mixed, y_orig, y_perm, mixing = mixup_batch(
+                X, y, alpha=0.2)
     """
     if mixing is None:
         mixing = _gen_mixing_coef(alpha)
@@ -83,15 +81,7 @@ def mixup_batch(input: torch.Tensor,
     # Interpolate between the inputs
     x_mix = (1 - mixing) * input + mixing * x_shuffled
 
-    # First check if labels are indices. If so, convert them to onehots.
-    # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
-    if _check_for_index_targets(target):
-        y_onehot = F.one_hot(target, num_classes=num_classes)
-        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
-        y_mix = ((1. - mixing) * y_onehot + mixing * y_shuffled_onehot)
-    else:
-        y_mix = ((1. - mixing) * target + mixing * y_shuffled)
-    return x_mix, y_mix, shuffled_idx
+    return x_mix, y, y_shuffled, mixing
 
 
 class MixUp(Algorithm):
@@ -105,18 +95,19 @@ class MixUp(Algorithm):
     Training in this fashion sometimes reduces generalization error.
 
     Args:
-        num_classes (int): the number of classes in the task labels.
         alpha (float, optional): the psuedocount for the Beta distribution used to sample
             mixing parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``0.2``.
+        index_labels (bool, optional): Uses index labels and interpolates the loss rather
+            than the labels. A useful trick when using a cross entropy loss. Default: ``True``
 
     Example:
         .. testcode::
 
             from composer.algorithms import MixUp
-            algorithm = MixUp(num_classes=10, alpha=0.2)
+            algorithm = MixUp(alpha=0.2)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
@@ -127,12 +118,11 @@ class MixUp(Algorithm):
             )
     """
 
-    def __init__(self, num_classes: int, alpha: float, index_labels: bool):
-        self.num_classes = num_classes
+    def __init__(self, alpha: float = 0.2, index_labels: bool = True):
         self.alpha = alpha
         self.index_labels = index_labels
         self.mixing = 0.0
-        self.indices = torch.Tensor()
+        self.permuted_target = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER.
@@ -146,7 +136,7 @@ class MixUp(Algorithm):
         if self.index_labels:
              return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
         else:
-             return event == Event.AFTER_DATALOADER
+             return event in [Event.AFTER_DATALOADER, Event.BEFORE_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Applies MixUp augmentation on State input.
@@ -156,43 +146,43 @@ class MixUp(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        if self.index_labels:
-             if event == Event.AFTER_DATALOADER:
-                 input, target = state.batch_pair
-                 assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
-                     "Multiple tensors for inputs or targets not supported yet."
+        input, target = state.batch_pair
 
-                 self.mixing = _gen_mixing_coef(self.alpha)
+        if event == Event.AFTER_DATALOADER:
+            input, target = state.batch_pair
+            assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
+                "Multiple tensors for inputs or targets not supported yet."
 
-                 new_input, _, self.indices = mixup_batch(
-                     input,
-                     target,
-                     mixing=self.mixing,
-                     num_classes=self.num_classes,
-                 )
+            self.mixing = _gen_mixing_coef(self.alpha)
 
-                 state.batch = (new_input, target)
-             if event == Event.AFTER_LOSS:
-                 input, target = state.batch_pair
-                 modified_batch = (input, target[self.indices])
-                 new_loss = state.model.loss(state.outputs, modified_batch)
-                 state.loss *= (1 - self.mixing)
-                 state.loss += self.mixing * new_loss
-         else:
-             input, target = state.batch_pair
-             assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
-                 "Multiple tensors for inputs or targets not supported yet."
+            new_input, _, self.permuted_target, _ = mixup_batch(
+                input,
+                target,
+                mixing=self.mixing,
+            )
 
-             self.mixing = _gen_mixing_coef(self.alpha)
+            state.batch = (new_input, target)
 
-             new_input, new_target, self.indices = mixup_batch(
-                 input,
-                 target,
-                 mixing=self.mixing,
-                 num_classes=self.num_classes,
-             )
+        if self.index_labels and event == Event.AFTER_LOSS:
+            # Interpolate the loss when using index labels
+            modified_batch = (input, self.permuted_target)
+            new_loss = state.model.loss(state.outputs, modified_batch)
+            state.loss *= (1 - self.mixing)
+            state.loss += self.mixing * new_loss
 
-            state.batch = (new_input, new_target)
+        if not self.index_labels and event == Event.BEFORE_LOSS:
+            # Interpolate the targets when using dense/one-hot labels
+            input, target = state.batch_pair
+            assert isinstance(state.outputs, torch.Tensor), "Multiple output tensors not supported yet"
+            assert isinstance(target, torch.Tensor), "Multiple target tensors not supported yet"
+            # Make sure that the targets are dense/one-hot
+            target = ensure_targets_one_hot(state.outputs, target)
+            permuted_target = ensure_targets_one_hot(state.outputs, self.permuted_target)
+            # Interpolate to get the new target
+            mixed_up_target = (1 - self.mixing) * target + self.mixing * permuted_target
+            # Create the new batch
+            state.batch = (input, mixed_up_target)
+
 
 
 def _gen_mixing_coef(alpha: float) -> float:
