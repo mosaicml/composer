@@ -178,7 +178,7 @@ argument.
                      max_duration='2ep',
                      algorithms=[
                          LayerFreezing(freeze_start=0.5, freeze_level=0.1),
-                         MixUp(num_classes=10, alpha=0.1),
+                         MixUp(alpha=0.1),
                      ])
 
    # the algorithms will automatically be applied during the appropriate
