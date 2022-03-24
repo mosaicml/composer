@@ -5,6 +5,7 @@ from torchvision import datasets, transforms
 
 from composer import Trainer
 from composer.models import MNIST_Classifier
+from composer.profiler import JSONTraceHandler, cyclic_schedule
 
 # Specify Dataset and Instantiate DataLoader
 batch_size = 2048
@@ -25,7 +26,7 @@ train_dataloader = DataLoader(train_dataset,
 model = MNIST_Classifier(num_classes=10)
 
 # Instantiate the trainer
-profiler_trace_file = "profiler_traces.json"
+composer_trace_dir = "composer_profiler"
 torch_trace_dir = "torch_profiler"
 
 trainer = Trainer(model=model,
@@ -37,13 +38,15 @@ trainer = Trainer(model=model,
                   validate_every_n_epochs=-1,
                   precision="amp",
                   train_subset_num_batches=16,
-                  profiler_trace_file=profiler_trace_file,
-                  prof_skip_first=0,
-                  prof_wait=0,
-                  prof_warmup=1,
-                  prof_active=4,
-                  prof_repeat=1,
-                  torch_profiler_trace_dir=torch_trace_dir)
+                  prof_trace_handlers=JSONTraceHandler(folder_format=composer_trace_dir, overwrite=True),
+                  prof_schedule=cyclic_schedule(
+                      wait=0,
+                      warmup=1,
+                      active=4,
+                      repeat=1,
+                  ),
+                  torch_prof_folder_format=torch_trace_dir,
+                  torch_prof_overwrite=True)
 
 # Run training
 trainer.fit()

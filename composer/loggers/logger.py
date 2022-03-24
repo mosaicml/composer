@@ -112,6 +112,7 @@ class Logger:
             # ensure all ranks have the same experiment name
             dist.broadcast_object_list(run_name_list)
             run_name = run_name_list[0]
+        assert isinstance(run_name, str)
         self.run_name = run_name
         self._state = state
 

@@ -39,6 +39,10 @@ Additonal details an be found in the Profiler Guide.
 from composer.profiler._profiler import Marker, Profiler, cyclic_schedule
 from composer.profiler._profiler_action import ProfilerAction
 from composer.profiler._trace_handler import TraceHandler
+from composer.profiler.json_trace_handler import JSONTraceHandler
+from composer.profiler.profiler_hparams import (CyclicProfilerScheduleHparams, JSONTraceHparams, ProfileScheduleHparams,
+                                                TraceHandlerHparams, profiler_scheduler_registry,
+                                                trace_handler_registory)
 
 # All needs to be defined properly for sphinx autosummary
 __all__ = [
@@ -47,6 +51,13 @@ __all__ = [
     "ProfilerAction",
     "TraceHandler",
     "cyclic_schedule",
+    "JSONTraceHandler",
+    "CyclicProfilerScheduleHparams",
+    "ProfileScheduleHparams",
+    "JSONTraceHparams",
+    "TraceHandlerHparams",
+    "profiler_scheduler_registry",
+    "trace_handler_registory",
 ]
 
 Marker.__module__ = __name__

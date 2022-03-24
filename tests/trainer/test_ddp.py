@@ -154,6 +154,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     )
 
     train_batch_size = 10
+    train_dataloader_batch_size = train_batch_size // dist.get_world_size()
     train_subset_num_batches = 3
     train_dataset_hparams = TrackedDatasetHparams(
         synthetic_num_unique_samples=train_batch_size * train_subset_num_batches,
@@ -162,7 +163,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
         num_classes=model.num_classes,
         rank_zero_tmpdir=str(rank_zero_tmpdir),
     )
-    train_dataloader = train_dataset_hparams.initialize_object(train_batch_size, dataloader_hparams)
+    train_dataloader = train_dataset_hparams.initialize_object(train_dataloader_batch_size, dataloader_hparams)
     eval_batch_size = 10
     eval_subset_num_batches = 3
     val_dataset_hparams = TrackedDatasetHparams(
@@ -172,7 +173,8 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
         num_classes=model.num_classes,
         rank_zero_tmpdir=str(rank_zero_tmpdir),
     )
-    val_dataloader = val_dataset_hparams.initialize_object(eval_batch_size, dataloader_hparams)
+    eval_dataloader_batch_size = eval_batch_size // dist.get_world_size()
+    val_dataloader = val_dataset_hparams.initialize_object(eval_dataloader_batch_size, dataloader_hparams)
     max_epochs = 2
     trainer = Trainer(model=model,
                       loggers=[],
@@ -183,8 +185,8 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
                       precision=Precision.FP32,
                       validate_every_n_batches=0,
                       validate_every_n_epochs=1,
-                      eval_subset_num_batches=3,
-                      train_subset_num_batches=3,
+                      eval_subset_num_batches=eval_subset_num_batches,
+                      train_subset_num_batches=train_subset_num_batches,
                       deepspeed_config={} if deepspeed else False,
                       callbacks=[CheckBatch0(rank_zero_tmpdir)])
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
