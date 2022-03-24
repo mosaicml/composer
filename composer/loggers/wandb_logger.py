@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import re
 import sys
 import textwrap
 import warnings
@@ -96,6 +97,12 @@ class WandBLogger(LoggerDestination):
 
     def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
                           overwrite: bool):
+        del state, log_level, overwrite  # unused
+
+        # replace all unsupported characters with periods
+        # Only alpha-numeric, periods, hyphins, and underscores are supported by wandb.
+        artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
+
         if self._enabled and self._log_artifacts:
             import wandb
             extension = file_path.name.split(".")[-1]

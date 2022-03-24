@@ -28,12 +28,16 @@ from tests.fixtures.models import SimpleBatchPairModel
 
 def get_file_path(*, rank: int, is_train: bool, rank_zero_tmpdir: pathlib.Path) -> str:
     train_str = "train" if is_train else "val"
-    return os.path.join(rank_zero_tmpdir, f"rank_{rank}", f"{train_str}_num_accesses")
+    file_path = os.path.join(rank_zero_tmpdir, f"rank_{rank}", f"{train_str}_num_accesses")
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    return file_path
 
 
 def get_batch_file_path(*, rank: int, epoch: int, is_train: bool, rank_zero_tmpdir: pathlib.Path) -> str:
     train_str = "train" if is_train else "val"
-    return os.path.join(rank_zero_tmpdir, f"rank_{rank}", f"{train_str}-epoch-{epoch}-batch0.pt")
+    file_path = os.path.join(rank_zero_tmpdir, f"rank_{rank}", f"{train_str}-epoch-{epoch}-batch0.pt")
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    return file_path
 
 
 class TrackedDataset(types.Dataset):

@@ -30,7 +30,7 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
         log_interval=3,
         log_level=log_level,
         filename_format=log_file_name,
-        artifact_name_format="{run_name}/ep{epoch}.log",
+        artifact_name_format="{run_name}/rank{rank}.log",
         buffer_size=1,
         flush_interval=1,
     ).initialize_object()
@@ -45,6 +45,7 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
     dummy_state.timer.on_batch_complete()
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
+    log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     dummy_state.timer.on_epoch_complete()
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
@@ -63,7 +64,10 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     logger.data_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
     logger.data_batch({"metric": "batch1"})  # should NOT print
+    dummy_state.timer.on_batch_complete()
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
+    dummy_state.timer.on_epoch_complete()
+    log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.close(dummy_state, logger)
     with open(log_file_name, 'r') as f:
         if log_level == LogLevel.EPOCH:
@@ -83,14 +87,15 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
 
     # Flush interval is 1, so there should be one log_file call per LogLevel
     # Flushes also happen per each eval_start, epoch_start, and close()
+    # If the loglevel is batch, flushing also happens every epoch end
     if log_level == LogLevel.EPOCH:
         #
         assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.epoch) + int(
             dummy_state.timer.epoch) + 1
     else:
         assert log_level == LogLevel.BATCH
-        assert len(file_tracker_destination.logged_artifacts) == int(
-            dummy_state.timer.batch) + +int(dummy_state.timer.epoch) + 1
+        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.batch) + int(
+            dummy_state.timer.epoch) + int(dummy_state.timer.epoch) + 1
 
 
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmpdir: pathlib.Path):

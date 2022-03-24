@@ -26,7 +26,7 @@ Train a model and save a checkpoint:
                       device="cpu",
                       validate_every_n_epochs=1,
                       save_folder_format="checkpoints",
-                      save_name_format="ep{epoch}.pt"
+                      save_filename_format="ep{epoch}.pt"
                       save_interval="1ep")
 
     # Fit and run evaluation for 1 epoch.
@@ -37,11 +37,8 @@ Load the checkpoint and resume training:
 
 .. testcode::
 
-    # Get the saved checkpoint folder
-    checkpoint_folder = trainer.checkpoint_folder
-
-    # As `save_name_format` was set to 'ep{EPOCH_NUMBER}.pt', the checkpoint will be located at:
-    checkpoint_path = os.path.join(checkpoint_folder, "ep1.pt")
+    # Get the saved checkpoint filepath
+    checkpoint_path = trainer.saved_checkpoints.pop()[0]
 
     # Create a new trainer with the `load_path_format` argument set to the checkpoint path.
     trainer = Trainer(model=model,
@@ -87,7 +84,7 @@ from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLog
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
-from composer.profiler import Profiler, TraceHandler, ProfilerAction
+from composer.profiler import Profiler, ProfilerAction, TraceHandler
 from composer.profiler.dataloader_profiler import DataLoaderProfiler
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
@@ -369,17 +366,17 @@ class Trainer:
             is provided, deepspeed will not be used. (default: ``False``)
         prof_schedule ((State) -> ProfilerAction, optional): The profiler scheduler.
 
-            Specifying the profiling scheduler will enable the profiler.
+            Must be specified in conjunction with ``prof_trace_handlers`` to use the profiler.
 
             For example:
 
             .. testcode::
 
                 from composer.trainer import Trainer
-                from composer.profiler import cyclic_scheduler
+                from composer.profiler import cyclic_schedule
                 trainer = Trainer(
                     ...,
-                    prof_schedule=cyclic_scheduler(,
+                    prof_schedule=cyclic_schedule(,
                         skip_first=1,
                         wait=0,
                         warmup=1,
@@ -389,31 +386,44 @@ class Trainer:
                 )
             )
 
-            .. seealso:: :func:`composer.profiler.cyclic_scheduler`
+            .. seealso:: :func:`composer.profiler.cyclic_schedule`
 
 
         prof_trace_handlers (TraceHandler | Sequence[TraceHandler], optional): Profiler trace handlers.
-            If not specified, the :class:`JSONTraceHandler` with its default arguments will be used.
+
+            Must be specified in conjunction with ``prof_trace_handlers`` to use the profiler.
 
             .. seealso:: :mod:`composer.profiler` for more details on profiling with the trainer.
         sys_prof_cpu (bool, optional): Whether to record cpu statistics.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``True``).
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified. (default: ``True``).
         sys_prof_memory (bool, optional): Whether to record memory statistics.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``False``).
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified. (default: ``False``).
         sys_prof_disk (bool, optional): Whether to record disk statistics.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``False``).
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified. (default: ``False``).
         sys_prof_net (bool, optional): Whether to record network statistics.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``False``).
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified. (default: ``False``).
         sys_prof_stats_thread_interval_seconds (float, optional): Interval to record stats, in seconds.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``0.5``).
-        torch_prof_record_shapes (bool, optional): Whether to record tensor shapes.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``False``).
-        torch_prof_profile_memory (bool, optional): Track tensor memory allocations and frees.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``True``).
-        torch_prof_with_stack (bool, optional): Record stack info.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``False``).
-        torch_prof_with_flops (bool, optional): Estimate flops for operators.
-            Ignored if ``prof_trace_handlers`` is not specified. (default: ``True``).
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified. (default: ``0.5``).
+        torch_prof_folder_format (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_filename_format (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_artifact_name_format (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_profile_memory (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_with_stack (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_with_flops (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_num_traces_to_keep (int, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
 
     Attributes:
         state (State): The :class:`.State` object used to store training state.
@@ -493,10 +503,16 @@ class Trainer:
         sys_prof_disk: bool = False,
         sys_prof_net: bool = False,
         sys_prof_stats_thread_interval_seconds: float = 0.5,
+        torch_prof_folder_format: str = '{run_name}/torch_traces',
+        torch_prof_filename_format: str = 'ep{epoch}-ba{batch}-rank{rank}.json',
+        torch_prof_artifact_name_format: str = '{run_name}/torch_traces/ep{epoch}-ba{batch}-rank{rank}.json',
+        torch_prof_overwrite: bool = False,
+        torch_prof_use_gzip: bool = False,
         torch_prof_record_shapes: bool = False,
         torch_prof_profile_memory: bool = True,
         torch_prof_with_stack: bool = False,
         torch_prof_with_flops: bool = True,
+        torch_prof_num_traces_to_keep: int = -1,
     ):
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
@@ -688,9 +704,13 @@ class Trainer:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Configure profilers if profiling is enabled
-        if prof_schedule is not None:
+        if prof_schedule is not None or len(ensure_tuple(prof_trace_handlers)) > 0:
+            if prof_schedule is None or len(ensure_tuple(prof_trace_handlers)) == 0:
+                raise ValueError(
+                    "To use the profiler, both `prof_schedule` and `prof_trans_handlers` must be specified.")
+
             self.state.profiler = Profiler(state=self.state,
-                                           trace_handlers=prof_trace_handlers,
+                                           trace_handlers=ensure_tuple(prof_trace_handlers),
                                            schedule=prof_schedule)
             self.state.callbacks.extend(self.state.profiler.trace_handlers)
 
@@ -706,8 +726,14 @@ class Trainer:
 
             if torch_prof_record_shapes or torch_prof_profile_memory or torch_prof_with_stack or torch_prof_with_flops:
                 self.state.callbacks.append(
-                    TorchProfiler(record_shapes=torch_prof_record_shapes,
+                    TorchProfiler(filename_format=torch_prof_filename_format,
+                                  folder_format=torch_prof_folder_format,
+                                  artifact_name_format=torch_prof_artifact_name_format,
+                                  num_traces_to_keep=torch_prof_num_traces_to_keep,
+                                  overwrite=torch_prof_overwrite,
+                                  record_shapes=torch_prof_record_shapes,
                                   profile_memory=torch_prof_profile_memory,
+                                  use_gzip=torch_prof_use_gzip,
                                   with_stack=torch_prof_with_stack,
                                   with_flops=torch_prof_with_flops))
 

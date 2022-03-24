@@ -4,15 +4,14 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import pathlib
 import queue
 import time
-import gzip
-from typing import Dict, List, Optional, Tuple, Union
-
 from collections import OrderedDict
+from typing import Dict, List, Optional, Tuple, Union
 
 from composer.core.state import State
 from composer.core.time import Timestamp
@@ -33,7 +32,7 @@ class JSONTraceHandler(TraceHandler):
     To view in a Google Chrome browser, navigate to ``chrome://tracing`` and load the JSON trace file.
 
     Args:
-        folder_format (str, optional): Format string for the folder containing the trace files.
+        folder_format (str, optional): Format string for the trace file folder. Defaults to ``'{run_name}/traces'``.
 
             The following format variables are available:
 
@@ -59,15 +58,9 @@ class JSONTraceHandler(TraceHandler):
             |                        | :func:`~composer.utils.dist.get_node_rank`.           |
             +------------------------+-------------------------------------------------------+
 
-            Consider the following example when using default value of '{run_name}/traces',
-            and the rank of the current process is ``0``.
-
-            >>> json_trace_handler = JSONTraceHandler(folder_format='{run_name}/traces')
-            >>> trainer = Trainer(..., profiler_trace_handlers=[json_trace_handler], run_name='foo')
-            >>> json_trace_handler.trace_folder
-            'foo/traces'
-
-            Default: ``'{run_name}/traces'``
+            For example, if the ``run_name`` is ``'awesome_training_run'``, and the default ``folder_format`` of
+            '{run_name}/traces' is used, traces will be stored in
+            ``'awesome_training_run/traces'``.
 
         filename_format (str, optional): A format string describing how to name trace files.
             (default: ``'ep{epoch}-ba{batch}-rank{rank}.json'``)
@@ -138,7 +131,7 @@ class JSONTraceHandler(TraceHandler):
 
         artifact_name_format (str, optional): Format string for the trace file's artifact name.
             (default: ``'{run_name}/traces/ep{epoch}-ba{batch}-rank{rank}.json'``)
-        
+
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename_format`` are available.
 
@@ -146,12 +139,13 @@ class JSONTraceHandler(TraceHandler):
 
             Leading slashes (``'/'``) will be stripped.
 
+            To disable logging trace files as file artifacts, set this parameter to ``None``.
         merged_trace_filename_format (str, optional): Format string for the merged trace filename.
             (default: ``'node{node_rank}.json'``)
 
             Each rank writes a separate trace file at the end of each profiling cycle. However, when visualizing
             traces, it is generally helpful to merge traces together into a single file. This allows the traces
-            across all ranks to be shown in a single view. To 
+            across all ranks to be shown in a single view. To
 
             The same format variables as for ``filename_format`` are available. The merged trace file is saved
             approximately to ``{trace_folder}/{merged_trace_filename_format.format(...)}`` on the local rank zero
@@ -168,7 +162,7 @@ class JSONTraceHandler(TraceHandler):
                 Trace merging blocks the training loop. When profiling live training runs, it is recommended to
                 disable trace merging by setting this parameter to ``None``. Instead, traces should be merged together
                 in post-processing steps. See :mod:`composer.profiler.json_trace_merger` for additional info.
-        
+
         merged_trace_artifact_name_format (str, optional): Format string for the merged trace file's artifact name.
             (default: ``'{run_name}/traces/merged_trace.json'``)
 
@@ -176,29 +170,26 @@ class JSONTraceHandler(TraceHandler):
 
             This parameter has no effect if ``merged_trace_filename_format`` is None.
 
+            To disable logging merged trace files as file artifacts, set this parameter to ``None``.
+
         overwrite (bool, optional): Whether to overwrite existing traces. (default: ``False``)
             If ``False``, the :meth:`trace_folder` (as determined by the ``trace_folder_format`` argument)
             must be empty when training starts.
-        
-        buffering (int, optional): Buffering parameter passed to :meth:`open` when opening the trace file.
-            (Default: ``-1`` for the system default)
 
-        num_trace_cycles_to_keep (int, optional): 
+        num_trace_cycles_to_keep (int, optional):
     """
 
     def __init__(
         self,
         folder_format: str = '{run_name}/traces',
         filename_format: str = 'ep{epoch}-ba{batch}-rank{rank}.json',
-        artifact_name_format: str = '{run_name}/traces/ep{epoch}-ba{batch}-rank{rank}.json',
+        artifact_name_format: Optional[str] = '{run_name}/traces/ep{epoch}-ba{batch}-rank{rank}.json',
         merged_trace_filename_format: Optional[str] = 'merged_trace.json',
-        merged_trace_artifact_name_format: str = '{run_name}/traces/merged_trace.json',
+        merged_trace_artifact_name_format: Optional[str] = '{run_name}/traces/merged_trace.json',
         *,
         overwrite: bool = False,
-        buffering: int = -1,
         num_trace_cycles_to_keep: int = -1,
     ):
-        self.buffering = buffering
         self.folder_format = folder_format
         self.overwrite = overwrite
         self.filename_format = filename_format
@@ -210,6 +201,7 @@ class JSONTraceHandler(TraceHandler):
 
         self._queue: queue.Queue[str] = queue.Queue()
         self._is_trace_active = False
+        self._save_at_batch_end = False
 
     def init(self, state: State, logger: Logger) -> None:
         del state  # unused
@@ -289,14 +281,19 @@ class JSONTraceHandler(TraceHandler):
 
             self._is_trace_active = True
 
+        if state.profiler.get_action(state) == ProfilerAction.ACTIVE_AND_SAVE:
+            self._save_at_batch_end = True
+
     def batch_end(self, state: State, logger: Logger) -> None:
         assert state.profiler is not None
         timestamp = state.timer.get_timestamp()
         trace_folder = format_name_with_dist(self.folder_format, run_name=logger.run_name)
-        if state.profiler.get_action(state) == ProfilerAction.SKIP and self._is_trace_active:
+        if self._save_at_batch_end:
             # no longer active, but was previously active.
             # Epty the queue and save the trace file
-            trace_filename = os.path.join(trace_folder,)
+            trace_filename = os.path.join(
+                trace_folder, format_name_with_dist_and_time(self.filename_format, logger.run_name, timestamp))
+            os.makedirs(os.path.dirname(trace_filename), exist_ok=True)
             with open(trace_filename, 'w+') as f:
                 is_first_line = True
                 f.write('[\n')
@@ -310,11 +307,13 @@ class JSONTraceHandler(TraceHandler):
                     is_first_line = False
                     f.write(s)
                 f.write('\n]\n')
-            artifact_name = format_name_with_dist_and_time(self.artifact_name_format, logger.run_name, timestamp)
-            logger.file_artifact(LogLevel.BATCH,
-                                 artifact_name=artifact_name,
-                                 file_path=trace_filename,
-                                 overwrite=self.overwrite)
+
+            if self.artifact_name_format is not None:
+                artifact_name = format_name_with_dist_and_time(self.artifact_name_format, logger.run_name, timestamp)
+                logger.file_artifact(LogLevel.BATCH,
+                                     artifact_name=artifact_name,
+                                     file_path=trace_filename,
+                                     overwrite=self.overwrite)
             # Gather the filenames
             self.saved_traces[timestamp] = dist.all_gather_object(trace_filename)
 
@@ -329,15 +328,18 @@ class JSONTraceHandler(TraceHandler):
                 merged_trace_filename = os.path.join(
                     trace_folder,
                     format_name_with_dist_and_time(self.merged_trace_filename_format, logger.run_name, timestamp))
+                os.makedirs(os.path.dirname(merged_trace_filename), exist_ok=True)
                 merge_traces(merged_trace_filename, *trace_files_to_merge)
-                merged_trace_artifact_name = format_name_with_dist_and_time(self.merged_trace_artifact_name_format,
-                                                                            logger.run_name, timestamp)
-                logger.file_artifact(LogLevel.BATCH,
-                                     artifact_name=merged_trace_artifact_name,
-                                     file_path=merged_trace_artifact_name,
-                                     overwrite=True)
+                if self.merged_trace_artifact_name_format is not None:
+                    merged_trace_artifact_name = format_name_with_dist_and_time(self.merged_trace_artifact_name_format,
+                                                                                logger.run_name, timestamp)
+                    logger.file_artifact(LogLevel.BATCH,
+                                         artifact_name=merged_trace_artifact_name,
+                                         file_path=merged_trace_artifact_name,
+                                         overwrite=True)
 
             self._is_trace_active = False
+            self._save_at_batch_end = False
 
     def process_duration_event(
         self,
@@ -346,8 +348,6 @@ class JSONTraceHandler(TraceHandler):
         is_start: bool,
         timestamp: Timestamp,
         wall_clock_time_ns: int,
-        global_rank: int,
-        pid: int,
     ) -> None:
         ph = "B" if is_start else "E"
         args = {}
@@ -358,9 +358,9 @@ class JSONTraceHandler(TraceHandler):
             categories=",".join(categories),
             ph=ph,
             wall_clock_ns=wall_clock_time_ns,
-            pid=global_rank,
+            pid=dist.get_global_rank(),
             args=args,
-            tid=pid,
+            tid=os.getpid(),
         )
 
     def process_instant_event(
@@ -369,8 +369,6 @@ class JSONTraceHandler(TraceHandler):
         categories: Union[List[str], Tuple[str, ...]],
         timestamp: Timestamp,
         wall_clock_time_ns: int,
-        global_rank: int,
-        pid: int,
     ) -> None:
         args = {}
         args["epoch"] = timestamp.epoch.value
@@ -381,20 +379,20 @@ class JSONTraceHandler(TraceHandler):
             ph="i",
             wall_clock_ns=wall_clock_time_ns,
             args=args,
-            pid=global_rank,
-            tid=pid,
+            pid=dist.get_global_rank(),
+            tid=os.getpid(),
             s="p",  # mark instant event for at process level
         )
 
-    def process_counter_event(self, name: str, categories: Union[List[str], Tuple[str, ...]], wall_clock_time_ns: int,
-                              global_rank: int, pid: int, values: Dict[str, Union[int, float]]) -> None:
+    def process_counter_event(self, name: str, categories: Union[List[str], Tuple[str, ...]], timestamp: Timestamp,
+                              wall_clock_time_ns: int, values: Dict[str, Union[int, float]]) -> None:
         self._record_event(
             name=name,
             categories=",".join(categories),
             ph='C',  # counter event
             wall_clock_ns=wall_clock_time_ns,
-            pid=global_rank,
-            tid=pid,
+            pid=dist.get_global_rank(),
+            tid=os.getpid(),
             args=values)
 
     def _record_event(self, name: str, ph: str, wall_clock_ns: int, pid: int, tid: int, categories: str = "", **kwargs):

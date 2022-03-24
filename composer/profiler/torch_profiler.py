@@ -25,16 +25,16 @@ class TorchProfiler(Callback):
 
     Profiling results are stored in TensorBoard format in the directory specified by ``folder_format``.
 
-    .. note:: 
-        
+    .. note::
+
         The Composer :class:`~composer.trainer.trainer.Trainer` creates an instance of :class:`.TorchProfiler` when
         any of the PyTorch Profiler arguments (``torch_prof_record_shapes``, ``torch_prof_profile_memory``,
         ``torch_prof_with_stack``, or ``torch_prof_with_flops``) are enabled.
 
         When using the Composer :class:`~composer.trainer.trainer.Trainer`, one does not need to directly create an
         instance of the :class:`.TorchProfiler` callback.
-        
-    
+
+
     To view profiling results, run::
 
         pip install tensorbaord torch_tb_profiler
@@ -51,8 +51,8 @@ class TorchProfiler(Callback):
         may prevent certain optimizations that depend on the reference count and can introduce extra tensor copies.
 
     Args:
-        folder_format (str, optional): Format string for the folder containing the trace files.
-            (default: ``'{run_name}/traces'``)
+        folder_format (str, optional): Format string for the folder containing the Torch Profiler trace files.
+            Defaults to ``'{run_name}/torch_traces'``.
 
             The following format variables are available:
 
@@ -79,11 +79,11 @@ class TorchProfiler(Callback):
             +------------------------+-------------------------------------------------------+
 
             For example, if the ``run_name`` is ``'awesome_training_run'``, and the default ``folder_format`` of
-            '{run_name}/torch_traces' is used, torch profiler traces will be stored in
+            '{run_name}/torch_traces' is used, Torch Profiler traces will be stored in
             ``'awesome_training_run/torch_traces'``.
 
-        filename_format (str, optional): A format string describing how to name trace files.
-            (default: ``'ep{epoch}-ba{batch}-rank{rank}.json'``)
+        filename_format (str, optional): A format string describing how to name Torch Profiler trace files.
+            Defaults to ``'ep{epoch}-ba{batch}-rank{rank}.json'``.
 
             At the end of each batch where :meth:`~composer.profiler.Profiler.get_action` returns
             :attr:`~composer.profiler._profiler_action.ProfilerAction.ACTIVE_AND_SAVE`, trace files are saved
@@ -149,9 +149,9 @@ class TorchProfiler(Callback):
                 awesome-training-run/torch_traces/ep1-ba42-rank2.json
                 ...
 
-        artifact_name_format (str, optional): Format string for the trace file's artifact name.
-            (default: ``'{run_name}/torch_traces/ep{epoch}-ba{batch}-rank{rank}.json'``)
-        
+        artifact_name_format (str, optional): Format string for a Torch Profiler trace file's artifact name.
+            Defaults to ``'{run_name}/torch_traces/ep{epoch}-ba{batch}-rank{rank}.json'``.
+
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename_format`` are available.
 
@@ -160,29 +160,27 @@ class TorchProfiler(Callback):
             Leading slashes (``'/'``) will be stripped.
 
             To disable logging trace files as file artifacts, set this parameter to ``None``.
-        overwrite (bool, optional): Whether to override existing traces. (default: ``False``)
-            If ``False``, then the trace folder as determined by ``folder_format`` must be empty.
-        use_gzip (bool, optional):
-            Whether to use gzip for the trace. Defaults to False.
-        record_shapes (bool, optional): Whether to record tensor shapes.
-            Defaults to False.
-        profile_memory (bool, optional): Whether to profile memory.
-            Defaults to True.
-        with_stack (bool, optional): Whether to record stack info.
-            Defaults to False.
-        with_flops (bool, optional): Whether to estimate flops for operators.
-            Defaults to True.
-        num_traces_to_keep (int, optional): The number of trace files to keep locally. The oldest trace files
-            are removed first. Set to ``-1`` to keep all trace files locally. (default: ``-1``)
+        overwrite (bool, optional): Whether to override existing Torch Profiler traces. Defaults to False.
+
+            If False, then the trace folder as determined by ``folder_format`` must be empty.
+        use_gzip (bool, optional): Whether to use gzip for the trace. Defaults to False.
+            If True, ``'.gz'`` will be appended ``filename_format`` and ``artifact_name_format``
+            (if they do not already end in ``'.gz'``).
+        record_shapes (bool, optional): Whether to record tensor shapes. Defaults to False.
+        profile_memory (bool, optional): Whether to profile memory. Defaults to True.
+        with_stack (bool, optional): Whether to record stack info. Defaults to False.
+        with_flops (bool, optional): Whether to estimate flops for operators. Defaults to True.
+        num_traces_to_keep (int, optional): The number of trace files to keep locally. Defaults to -1.
+
+            If set to -1, then all traces files are kept locally.
 
             After a trace has been saved and logged as a file artifact, the oldest traces are removed until
-            ``num_traces_to_keep`` traces remain.  For example, when the
-            :class:`~composer.loggers.object_store_logger.ObjectStoreLogger` is used with the
-            :class:`composer.trainer.trainer.Trainer`, set this parameter to ``0`` to immediately delete traces from
-            the local disk after they have been uploaded to the object store.
-            
-            This parameter only controls how many traces are kept locally; traces are not deleted from
-            artifact stores.
+            ``num_traces_to_keep`` traces remain. This parameter only controls how many traces are kept locally;
+            traces are not deleted from artifact stores.
+
+            It can be useful to set this parameter to ``0`` when using an artifact logger such as the
+            :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`. This combination will minimize local
+            disk usage by deleting trace files immediately after they have been uploaded to the object store.
 
     Attributes:
         saved_traces (Dict[Timestamp, List[str]]): A dictionary mapping a save timestamp
@@ -190,11 +188,12 @@ class TorchProfiler(Callback):
             global rank. These filepaths are valid only on the node for the corresponding rank. This dictionary
             will contain at most ``num_traces_to_keep`` entries.
     """
+
     def __init__(
         self,
-        folder_format: str = '{run_name}/torch_profiler_traces',
+        folder_format: str = '{run_name}/torch_traces',
         filename_format: str = 'ep{epoch}-ba{batch}-rank{rank}.json',
-        artifact_name_format: Optional[str] = '{run_name}/torch_profiler_traces/ep{epoch}-ba{batch}-rank{rank}.json',
+        artifact_name_format: Optional[str] = '{run_name}/torch_traces/ep{epoch}-ba{batch}-rank{rank}.json',
         *,
         overwrite: bool = False,
         use_gzip: bool = False,
@@ -205,9 +204,12 @@ class TorchProfiler(Callback):
         num_traces_to_keep: int = -1,
     ) -> None:
         self.overwrite = overwrite
-        self.use_gzip = use_gzip
         self.folder_format = folder_format
+        if use_gzip and not filename_format.endswith('.gz'):
+            filename_format += ".gz"
         self.filename_format = filename_format
+        if use_gzip and artifact_name_format is not None and not artifact_name_format.endswith('.gz'):
+            artifact_name_format += ".gz"
         self.artifact_name_format = artifact_name_format
         self.record_shapes = record_shapes
         self.profile_memory = profile_memory
@@ -253,25 +255,19 @@ class TorchProfiler(Callback):
                 folder_name,
                 format_name_with_dist_and_time(self.filename_format, run_name=logger.run_name, timestamp=timestamp),
             )
-            if self.use_gzip:
-                if not trace_file_name.endswith(".gz"):
-                    trace_file_name += ".gz"
-
+            os.makedirs(os.path.dirname(trace_file_name), exist_ok=True)
             prof.export_chrome_trace(trace_file_name)
             state.profiler.record_chrome_json_trace_file(trace_file_name)
             if self.artifact_name_format is not None:
                 trace_artifact_name = format_name_with_dist_and_time(self.artifact_name_format,
-                                                                    run_name=logger.run_name,
-                                                                    timestamp=timestamp)
+                                                                     run_name=logger.run_name,
+                                                                     timestamp=timestamp)
                 trace_artifact_name = trace_artifact_name.lstrip('/')
-                if self.use_gzip:
-                    if not trace_artifact_name.endswith(".gz"):
-                        trace_artifact_name += ".gz"
                 logger.file_artifact(LogLevel.BATCH,
-                                    artifact_name=trace_artifact_name,
-                                    file_path=trace_file_name,
-                                    overwrite=self.overwrite)
-            
+                                     artifact_name=trace_artifact_name,
+                                     file_path=trace_file_name,
+                                     overwrite=self.overwrite)
+
             if self.num_traces_to_keep >= 0:
                 while len(self.saved_traces) > self.num_traces_to_keep:
 

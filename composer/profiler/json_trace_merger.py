@@ -80,7 +80,7 @@ def merge_traces(output_file: str, *trace_files: str):
 
     rank_zero_clock_sync = ranks_to_clock_sync[0]
 
-    with open(output_file, "x") as output_f:
+    with open(output_file, "w+") as output_f:
         is_first_line = True
         output_f.write("[")
         for trace_filename in trace_files:

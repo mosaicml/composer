@@ -33,7 +33,8 @@ from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams,
                             LinearSchedulerHparams, LinearWithWarmupSchedulerHparams, MultiStepSchedulerHparams,
                             MultiStepWithWarmupSchedulerHparams, OptimizerHparams, PolynomialSchedulerHparams,
                             RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
-from composer.profiler.profiler_hparams import TraceHandlerHparams, trace_handler_registory
+from composer.profiler.profiler_hparams import (ProfileScheduleHparams, TraceHandlerHparams,
+                                                profiler_scheduler_registry, trace_handler_registory)
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
@@ -182,8 +183,8 @@ class TrainerHparams(hp.Hparams):
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
         save_folder_format (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_name_format (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_latest_format (str, optional): See
+        save_filename_format (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_latest_filename_format (str, optional): See
             :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -197,7 +198,8 @@ class TrainerHparams(hp.Hparams):
             to the trainer for the ``deepspeed_config`` parameter signaling that DeepSpeed will not be used
             for training.
         profiler_trace_file (str, optional): See :class:`.Trainer`.
-        prof_event_handlers (List[MarkerHandlerHparams], optional): See :class:`.Trainer`.
+        prof_schedule (ProfileScheduleHparams): Profile schedule hparams.
+        prof_event_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`.
         prof_skip_first (int, optional): See :class:`.Trainer`.
         prof_wait (int, optional): See :class:`.Trainer`.
         prof_warmup (int, optional): See :class:`.Trainer`.
@@ -208,12 +210,26 @@ class TrainerHparams(hp.Hparams):
         sys_prof_disk (bool, optional): See :class:`.Trainer`.
         sys_prof_net (bool, optional): See :class:`.Trainer`.
         sys_prof_stats_thread_interval_seconds (float, optional): See :class:`.Trainer`.
-        torch_profiler_trace_dir (str, optional): See :class:`.Trainer`.
-        torch_prof_use_gzip (bool): See :class:`.Trainer`.
-        torch_prof_record_shapes (bool, optional): See :class:`.Trainer`.
-        torch_prof_profile_memory (bool, optional): See :class:`.Trainer`.
-        torch_prof_with_stack (bool, optional): See :class:`.Trainer`.
-        torch_prof_with_flops (bool, optional): See :class:`.Trainer`.
+        torch_prof_folder_format (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` is not specified.
+        torch_prof_filename_format (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` is not specified.
+        torch_prof_artifact_name_format (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` is not specified.
+        torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` is not specified.
+        torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` is not specified.
+        torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` is not specified.
+        torch_prof_profile_memory (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` is not specified.
+        torch_prof_with_stack (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` is not specified.
+        torch_prof_with_flops (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` is not specified.
+        torch_prof_num_traces_to_keep (int, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` is not specified.
     """
 
     hparams_registry = {  # type: ignore
@@ -226,7 +242,8 @@ class TrainerHparams(hp.Hparams):
         "val_dataset": dataset_registry,
         "callbacks": callback_registry,
         "device": device_registry,
-        "trace_handlers": trace_handler_registory,
+        "prof_trace_handlers": trace_handler_registory,
+        "prof_schedule": profiler_scheduler_registry,
     }
 
     model: ModelHparams = hp.required(doc="model")
@@ -332,8 +349,10 @@ class TrainerHparams(hp.Hparams):
     # save checkpoint
     save_folder_format: Optional[str] = hp.optional(doc="Checkpoint folder format string.", default=None)
     save_filename_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
-    save_artifact_name_format: str = hp.optional("Checkpoint artifact name format", default="{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}")
-    save_latest_filename_format: str = hp.optional("Latest checkpoint symlink format string.", default="latest-rank{rank}")
+    save_artifact_name_format: str = hp.optional("Checkpoint artifact name format",
+                                                 default="{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}")
+    save_latest_filename_format: str = hp.optional("Latest checkpoint symlink format string.",
+                                                   default="latest-rank{rank}")
     save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     save_interval: str = hp.optional(textwrap.dedent("""\
@@ -358,23 +377,8 @@ class TrainerHparams(hp.Hparams):
     prof_trace_handlers: List[TraceHandlerHparams] = hp.optional(doc=textwrap.dedent("""\
         Trace event handlers. Must be specified to activate the profiler."""),
                                                                  default_factory=list)
-    prof_skip_first: int = hp.optional(doc=textwrap.dedent("""\
-        Number of batches to skip at epoch start.  Ignored if `prof_trace_handlers` is not specified."""),
-                                       default=0)
-    prof_wait: int = hp.optional(doc=textwrap.dedent("""\
-        Number of batches to skip at the beginning of each cycle.  Ignored if `prof_trace_handlers` is not specified."""
-                                                    ),
-                                 default=0)
-    prof_warmup: int = hp.optional(doc=textwrap.dedent("""\
-        Number of warmup batches in a cycle.  Ignored if `prof_trace_handlers` is not specified."""),
-                                   default=1)
-    prof_active: int = hp.optional(doc=textwrap.dedent("""\
-        Number of batches to profile in a cycle.  Ignored if `prof_trace_handlers` is not specified."""),
-                                   default=4)
-    prof_repeat: int = hp.optional(doc=textwrap.dedent("""\
-        Maximum number of profiling cycle repetitions per epoch (0 for no maximum).  Ignored if `prof_trace_handlers` is not specified."""
-                                                      ),
-                                   default=1)
+    prof_schedule: Optional[ProfileScheduleHparams] = hp.optional(doc="Profile scheduler hparams", default=None)
+
     sys_prof_cpu: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to record cpu statistics.  Ignored if `prof_trace_handlers` is not specified."""),
                                      default=True)
@@ -391,6 +395,14 @@ class TrainerHparams(hp.Hparams):
         Interval to record stats, in seconds.  Ignored if `prof_trace_handlers` is not specified."""),
                                                                 default=0.5)
 
+    torch_prof_folder_format: str = hp.optional('Torch profiler folder format', default='{run_name}/torch_traces')
+    torch_prof_filename_format: str = hp.optional('Torch profiler filename format',
+                                                  default='ep{epoch}-ba{batch}-rank{rank}.json')
+    torch_prof_artifact_name_format: str = hp.optional(
+        'Torch profiler artifact name format', default='{run_name}/torch_traces/ep{epoch}-ba{batch}-rank{rank}.json')
+    torch_prof_overwrite: bool = hp.optional('Torch profiler overwrite', default=False)
+    torch_prof_use_gzip: bool = hp.optional('Torch profiler use gzip', default=False)
+    torch_prof_num_traces_to_keep: int = hp.optional('Torch profiler num traces to keep', default=-1)
     torch_prof_record_shapes: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to record tensor shapes.
         Ignored if `prof_trace_handlers` is not specified."""),
@@ -553,12 +565,22 @@ class TrainerHparams(hp.Hparams):
 
             # Profiler
             prof_trace_handlers=[x.initialize_object() for x in self.prof_trace_handlers],
-            prof_schedule=self.prof_scheduler.initialize_object(),
+            prof_schedule=None if self.prof_schedule is None else self.prof_schedule.initialize_object(),
+
+            # System profiler
             sys_prof_cpu=self.sys_prof_cpu,
             sys_prof_memory=self.sys_prof_memory,
             sys_prof_disk=self.sys_prof_disk,
             sys_prof_net=self.sys_prof_net,
             sys_prof_stats_thread_interval_seconds=self.sys_prof_stats_thread_interval_seconds,
+
+            # Torch profiler
+            torch_prof_folder_format=self.torch_prof_folder_format,
+            torch_prof_filename_format=self.torch_prof_filename_format,
+            torch_prof_artifact_name_format=self.torch_prof_artifact_name_format,
+            torch_prof_overwrite=self.torch_prof_overwrite,
+            torch_prof_use_gzip=self.torch_prof_use_gzip,
+            torch_prof_num_traces_to_keep=self.torch_prof_num_traces_to_keep,
             torch_prof_record_shapes=self.torch_prof_record_shapes,
             torch_prof_profile_memory=self.torch_prof_profile_memory,
             torch_prof_with_stack=self.torch_prof_with_flops,
@@ -571,7 +593,6 @@ class TrainerHparams(hp.Hparams):
             load_strict=self.load_strict_model_weights,
             load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
-
             save_folder_format=self.save_folder_format,
             save_overwrite=self.save_overwrite,
             save_filename_format=self.save_filename_format,

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import pathlib
 from typing import List, Optional
 
 import pytest
@@ -142,6 +143,11 @@ def seed_all(rank_zero_seed: int):
     """Set the random seed before each test to ensure consistent test results, which and limit flakiness due to random
     initializations."""
     reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
+
+
+@pytest.fixture(autouse=True)
+def chdir_to_tmpdir(tmpdir: pathlib.Path):
+    os.chdir(tmpdir)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

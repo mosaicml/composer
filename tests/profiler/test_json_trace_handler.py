@@ -6,22 +6,27 @@ import pathlib
 
 import pytest
 
-from composer.profiler.profiler_hparams import JSONTraceHandlerHparams
+from composer.profiler.profiler_hparams import CyclicProfilerScheduleHparams, JSONTraceHparams
 from composer.trainer import TrainerHparams
 
 
 @pytest.mark.timeout(10)
-def test_json_trace_profiler_hanlder(composer_trainer_hparams: TrainerHparams, tmpdir: pathlib.Path):
+def test_json_trace_profiler_handler(composer_trainer_hparams: TrainerHparams, tmpdir: pathlib.Path):
     profiler_file = os.path.join(tmpdir, 'trace.json')
-    json_trace_handler_params = JSONTraceHandlerHparams(flush_every_n_batches=1, filename_format=profiler_file)
+    json_trace_handler_params = JSONTraceHparams(folder_format=str(tmpdir), merged_trace_filename_format='trace.json')
 
-    composer_trainer_hparams.prof_event_handlers = [json_trace_handler_params]
-    composer_trainer_hparams.prof_skip_first = 0
-    composer_trainer_hparams.prof_warmup = 0
-    composer_trainer_hparams.prof_wait = 0
-    composer_trainer_hparams.prof_active = 1000
-    composer_trainer_hparams.prof_repeat = 0
+    composer_trainer_hparams.prof_trace_handlers = [json_trace_handler_params]
+    composer_trainer_hparams.prof_schedule = CyclicProfilerScheduleHparams(
+        wait=0,
+        warmup=0,
+        active=1000,
+        repeat=0,
+    )
     composer_trainer_hparams.max_duration = "2ep"
+    composer_trainer_hparams.sys_prof_cpu = False
+    composer_trainer_hparams.sys_prof_net = False
+    composer_trainer_hparams.sys_prof_disk = False
+    composer_trainer_hparams.sys_prof_memory = False
 
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()

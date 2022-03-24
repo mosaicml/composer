@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import torch
 
-from composer.utils import dist, format_name_with_dist_and_time, reproducibility
-from composer.utils.file_helpers import GetFileNotFoundException, get_file, is_tar
+from composer.utils import dist, reproducibility
+from composer.utils.file_helpers import GetFileNotFoundException, format_name_with_dist_and_time, get_file, is_tar
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:

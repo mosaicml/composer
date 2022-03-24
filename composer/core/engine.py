@@ -313,10 +313,6 @@ class Engine():
             else:
                 callback_to_has_exception[callback] = False
 
-        if self.state.profiler is not None:
-            # Merge traces after close, but before post_close, so the merged file will be uploaded
-            self.state.profiler._merge_traces(self.logger)
-
         for callback in self.state.callbacks:
             if callback_to_has_exception[callback] is False:
                 try:

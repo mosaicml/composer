@@ -86,10 +86,12 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
     original_trainer_hparams.load_path_format = new_trainer_hparams.load_path_format
     original_trainer_hparams.load_weights_only = False
     original_trainer_hparams.load_strict_model_weights = False
+    original_trainer_hparams.save_overwrite = True
 
     original_trainer = original_trainer_hparams.initialize_object()
     original_weights = original_trainer.state.model.parameters()
 
+    new_trainer_hparams.save_overwrite = True
     new_trainer = new_trainer_hparams.initialize_object()
     recovered_weights = new_trainer.state.model.parameters()
 
@@ -137,8 +139,10 @@ def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: 
     assert hparams_b.save_folder_format is not None
     hparams_a.load_path_format = hparams_b.load_path_format
     hparams_a.load_weights_only = False
+    hparams_a.save_overwrite = True
     hparams_a.load_strict_model_weights = False
     hparams_a.save_folder_format = hparams_b.save_folder_format
+    hparams_b.save_overwrite = True
 
     assert hparams_a.to_dict() == hparams_b.to_dict()
 
@@ -197,7 +201,7 @@ def test_load_weights(
     composer_trainer_hparams.device = device_hparams
     checkpoint_a_folder = str(rank_zero_tmpdir / "first")
     composer_trainer_hparams.save_folder_format = checkpoint_a_folder
-    composer_trainer_hparams.save_name_format = "ep{epoch}.pt"
+    composer_trainer_hparams.save_filename_format = "ep{epoch}.pt"
     composer_trainer_hparams.save_interval = "1ep"
     composer_trainer_hparams.seed = None
     composer_trainer_hparams.validate_every_n_batches = 1
@@ -245,7 +249,7 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
-    "seed,save_interval,save_name_format,resume_file,final_checkpoint",
+    "seed,save_interval,save_filename_format,resume_file,final_checkpoint",
     [
         [None, "1ep", "ep{epoch}-rank{rank}", "ep1-rank{rank}", "latest-rank{rank}"
         ],  # test randomized seed saving and symlinking
@@ -265,7 +269,7 @@ def test_checkpoint(
     zero_stage: Optional[int],
     composer_trainer_hparams: TrainerHparams,
     save_interval: str,
-    save_name_format: str,
+    save_filename_format: str,
     resume_file: str,
     final_checkpoint: str,
     seed: Optional[int],
@@ -304,7 +308,7 @@ def test_checkpoint(
         pytest.skip("Checkpointing tests require synthetic data")
         return
 
-    composer_trainer_hparams.save_name_format = save_name_format
+    composer_trainer_hparams.save_filename_format = save_filename_format
     composer_trainer_hparams.train_dataset.use_synthetic = True
     composer_trainer_hparams.train_dataset.shuffle = False
     composer_trainer_hparams.val_dataset.use_synthetic = True

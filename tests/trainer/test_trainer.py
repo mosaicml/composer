@@ -170,7 +170,7 @@ class TestTrainerEquivalence():
         config.update({
             'save_interval': '1ep',
             'save_folder_format': str(save_folder),
-            'save_name_format': 'ep{epoch}.pt'
+            'save_filename_format': 'ep{epoch}.pt'
         })
 
         trainer = Trainer(**config)

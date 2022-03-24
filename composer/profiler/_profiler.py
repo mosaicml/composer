@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import pathlib
 import time
 from functools import wraps
@@ -14,16 +13,14 @@ from composer.core.state import State
 from composer.core.time import Timestamp
 from composer.profiler._profiler_action import ProfilerAction
 from composer.profiler._trace_handler import TraceHandler
-from composer.profiler.json_trace_handler import JSONTraceHandler
-from composer.utils import dist
 from composer.utils.iter_helpers import ensure_tuple
 
-__all__ = ["Marker", "Profiler", "cyclic_scheduler"]
+__all__ = ["Marker", "Profiler", "cyclic_schedule"]
 
 log = logging.getLogger(__name__)
 
 
-def cyclic_scheduler(
+def cyclic_schedule(
     skip_first: int = 0,
     wait: int = 0,
     warmup: int = 1,
@@ -66,7 +63,7 @@ def cyclic_scheduler(
             return ProfilerAction.SKIP
         if position_in_cycle < wait + warmup:
             return ProfilerAction.WARMUP
-        is_last_batch_in_epoch = state.timer.batch_in_epoch == state.steps_per_epoch
+        is_last_batch_in_epoch = state.timer.batch_in_epoch == state.steps_per_epoch - 1
         if position_in_cycle == cycle_len - 1 or is_last_batch_in_epoch:
             return ProfilerAction.ACTIVE_AND_SAVE
         return ProfilerAction.ACTIVE
@@ -95,11 +92,14 @@ class Profiler:
 
     Args:
         state (State): The training state.
-        schedule_fn ((State) -> ProfilerAction): A function that returns an :class:`.ProfilerAction` given the training :class:`.State`.
-        trace_handlers (TraceHandler | Sequence[TraceHandler], optional):
-            Trace handlers which record and save profiling data to traces (default: ``None``).
+        schedule_fn ((State) -> ProfilerAction): The profiling scheduling function.
 
-            If ``None``, the :class:`.JSONTraceHandler` is used with its default parameters.
+            It takes the training state and returns a :class:`.ProfilerAction`.
+
+            If ``None`` (the default), :func:`.cyclic_schedule` with its default arguments is used.
+
+        trace_handlers (TraceHandler | Sequence[TraceHandler]):
+            Trace handlers which record and save profiling data to traces.
 
     Attributes:
         state (State): The training state.
@@ -110,11 +110,9 @@ class Profiler:
         self,
         state: State,
         schedule: Callable[[State], ProfilerAction],
-        trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
+        trace_handlers: Union[TraceHandler, Sequence[TraceHandler]],
     ) -> None:
         self._names_to_markers: Dict[str, Marker] = {}
-        if trace_handlers is None:
-            trace_handlers = [JSONTraceHandler()]
         self._trace_handlers = list(ensure_tuple(trace_handlers))
         self.state = state
         self.get_action = schedule
@@ -125,7 +123,7 @@ class Profiler:
         return self._trace_handlers
 
     @trace_handlers.setter
-    def trace_handlers(self, trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]]):
+    def trace_handlers(self, trace_handlers: Union[TraceHandler, Sequence[TraceHandler]]):
         """Profiler trace handlers."""
         self._trace_handlers[:] = ensure_tuple(trace_handlers)
 
@@ -286,8 +284,6 @@ class Marker:
                 timestamp=timestamp,
                 is_start=is_start,
                 wall_clock_time_ns=wall_clock_time_ns,
-                global_rank=dist.get_global_rank(),
-                pid=os.getpid(),
             )
 
     def _record_instant_event(self, wall_clock_time_ns: int, timestamp: Timestamp):
@@ -298,19 +294,17 @@ class Marker:
                 categories=self.categories,
                 timestamp=timestamp,
                 wall_clock_time_ns=wall_clock_time_ns,
-                global_rank=dist.get_global_rank(),
-                pid=os.getpid(),
             )
 
-    def _record_counter_event(self, wall_clock_time_ns: int, values: Dict[str, Union[int, float]]) -> None:
+    def _record_counter_event(self, wall_clock_time_ns: int, timestamp: Timestamp,
+                              values: Dict[str, Union[int, float]]) -> None:
         """Record a counter invent."""
         for handler in self.trace_handlers:
             handler.process_counter_event(
                 name=self.name,
                 categories=self.categories,
                 wall_clock_time_ns=wall_clock_time_ns,
-                global_rank=dist.get_global_rank(),
-                pid=os.getpid(),
+                timestamp=timestamp,
                 values=values,
             )
 
@@ -423,6 +417,7 @@ class Marker:
             self._record_counter_event(
                 wall_clock_time_ns=time.time_ns(),
                 values=values,
+                timestamp=self.state.timer.get_timestamp(),
             )
 
     def __enter__(self) -> Marker:
