@@ -66,10 +66,14 @@ install_requires = [
     "torch>=1.9,<2",
     "yahp==0.1.0",
     "requests>=2.26.0,<3",
-    "numpy==1.21.5",  # TODO should this be >=1.21.5.10,<2
+    "numpy>=1.21.5.10,<2",
     "apache-libcloud>=3.3.1,<4",
     "psutil>=5.8.0,<6",
     "coolname>=1.1.0,<2",
+    "pylint>=2.6.0,<3",
+    "yapf>=0.32.0,<0.4",
+    "docformatter>=1.4.0,<2",
+    "pyright>=1.1.232,<1.2",
 ]
 extra_deps = {}
 
@@ -110,7 +114,7 @@ extra_deps["dev"] = [
     "docformatter==1.4",
     "sphinx_panels==0.6.0",
     "sphinxcontrib-images==0.9.4",
-    # need webdataset to run pyight. Including here to pass pyright.
+    # need webdataset to run pyright. Including here to pass pyright.
     # TODO Remove once https://github.com/mosaicml/composer/issues/771 is fixed.
     "webdataset==0.1.103",
 ]
