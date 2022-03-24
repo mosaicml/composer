@@ -70,18 +70,18 @@ def mixup_batch(input: torch.Tensor,
     """
     if mixing is None:
         mixing = _gen_mixing_coef(alpha)
-    # Create shuffled versions of x and y in preparation for interpolation
+    # Create permuted versions of x and y in preparation for interpolation
     # Use given indices if there are any.
     if indices is None:
-        shuffled_idx = torch.randperm(input.shape[0])
+        permuted_idx = torch.randperm(input.shape[0])
     else:
-        shuffled_idx = indices
-    x_shuffled = input[shuffled_idx]
-    y_shuffled = target[shuffled_idx]
+        permuted_idx = indices
+    x_permuted = input[permuted_idx]
+    permuted_target = target[permuted_idx]
     # Interpolate between the inputs
-    x_mix = (1 - mixing) * input + mixing * x_shuffled
+    x_mixup = (1 - mixing) * input + mixing * x_permuted
 
-    return x_mix, y, y_shuffled, mixing
+    return x_mixup, target, permuted_target, mixing
 
 
 class MixUp(Algorithm):
