@@ -125,27 +125,12 @@ class MixUp(Algorithm):
         self.permuted_target = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT and Event.AFTER_DATALOADER.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
         if self.index_labels:
              return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
         else:
              return event in [Event.AFTER_DATALOADER, Event.BEFORE_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Applies MixUp augmentation on State input.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
         input, target = state.batch_pair
 
         if event == Event.AFTER_DATALOADER:
