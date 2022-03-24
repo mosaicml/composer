@@ -43,10 +43,10 @@ training loop:
     for epoch in range(NUM_EPOCHS):
         for inputs, targets in dataloader:
 
-            inputs, targets = cf.mixup_batch(inputs, targets)
+            inputs, targets, targets_perm, mixing = cf.mixup_batch(inputs, targets, alpha=0.2)
 
             outputs = model.forward(inputs)
-            loss = model.loss(outputs, targets)
+            loss = (1 - mixing) * model.loss(outputs, targets) + mixing * model.loss(outputs, targets_perm)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -112,11 +112,21 @@ simple:
     class MixUp(Algorithm):
         def match(self, event: Event, state: State) -> bool:
             """Determine whether the algorithm should run on a given event."""
-            return event == "after_dataloader"
+            return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
 
         def apply(self, event: Event, state: State, logger: Logger) -> None:
             """Run the algorithm by modifying the State."""
-            state.inputs, state.targets = mixup_batch(state.inputs, state.targets)
+            input, target = state.batch_pair
+
+            if event == Event.AFTER_DATALOADER:
+                new_input, _, self.permuted_target, self.mixing = mixup_batch(input, target, alpha=0.2)
+                state.batch = (new_input, target)
+
+            if event == Event.AFTER_LOSS:
+                modified_batch = (input, self.permuted_target)
+                new_loss = state.model.loss(state.outputs, modified_batch)
+                state.loss *= (1 - self.mixing)
+                state.loss += self.mixing * new_loss
 
 Putting all the pieces together, our trainer looks something like this:
 
@@ -153,7 +163,7 @@ Putting all the pieces together, our trainer looks something like this:
             engine.run_event("batch_end")
         engine.run_event("epoch_end")
 
-That's it! Mixup will automatically run on ``"after_dataloader"``. And thanks to all of the events being present in the training loop, we can easily start using new algorithms as well!
+That's it! Mixup will automatically run on ``"after_dataloader"`` and ``"after_loss"``. And thanks to all of the events being present in the training loop, we can easily start using new algorithms as well!
 For more information on events, state, and engines, check out :class:`~composer.core.event.Event`,
 :class:`~composer.core.state.State`, and :class:`~composer.core.engine.Engine`.
 
