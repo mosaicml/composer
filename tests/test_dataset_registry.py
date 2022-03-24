@@ -56,7 +56,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
     C4DatasetHparams:
         lambda: C4DatasetHparams(
             split="train",
-            max_samples=1000,
+            num_samples=1000,
             max_seq_len=100,
             tokenizer_name="gpt2",
             group_method="concat",

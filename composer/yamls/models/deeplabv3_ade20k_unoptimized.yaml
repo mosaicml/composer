@@ -36,8 +36,6 @@ model:
     backbone_url: https://download.pytorch.org/models/resnet101-cd907fc2.pth
     use_plus: true
     sync_bn: true
-loggers:
-  - tqdm: {}
 max_duration: 127ep
 train_batch_size: 16
 eval_batch_size: 16

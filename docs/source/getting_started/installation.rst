@@ -7,11 +7,11 @@
 
     pip install mosaicml
 
-``Composer`` is also available via Anaconda:
+as well as with Anaconda:
 
 .. code-block::
 
-    conda install -c mosaicml composer
+    conda install -c mosaicml mosaicml
 
 To include non-core dependencies that are required by some algorithms, callbacks, datasets, and models,
 the following installation targets are available:
@@ -36,7 +36,7 @@ For a developer install, clone directly:
 
 .. note::
 
-    For performance in image-based operations, we **highly** recommend installing
+    For fast image data loading, we **highly** recommend installing
     `Pillow-SIMD <https://github.com/uploadcare/pillow-simd>`_\.  To install, vanilla pillow must first be uninstalled.
 
     .. code-block::

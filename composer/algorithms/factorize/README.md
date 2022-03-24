@@ -20,6 +20,7 @@ This can be applied to models for both computer vision and natural language proc
 # Run the Factorization algorithm directly on the model using the Composer functional API
 
 import torch
+import torch.nn.functional as F
 from composer import functional as cf
 
 def training_loop(model, train_loader):
@@ -39,7 +40,7 @@ def training_loop(model, train_loader):
     loss_fn = F.cross_entropy
     model.train()
 
-    for epoch in range(num_epochs):
+    for epoch in range(10):
         for X, y in train_loader:
             y_hat = model(X)
             loss = loss_fn(y_hat, y)

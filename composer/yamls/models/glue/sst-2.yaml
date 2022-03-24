@@ -31,8 +31,6 @@ optimizer:
 schedulers:
   - linear_decay_with_warmup:
       t_warmup: 0.06dur
-loggers:
-  - tqdm: {}
 max_duration: 3ep
 train_batch_size: 16
 eval_batch_size: 16

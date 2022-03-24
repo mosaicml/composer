@@ -9,9 +9,11 @@ from typing import Optional, Tuple
 
 import numpy as np
 import torch
+from torch import Tensor
 from torch.nn import functional as F
 
-from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 from composer.models.loss import _check_for_index_targets
 
 log = logging.getLogger(__name__)

@@ -5,13 +5,12 @@
 
 The Composer :class:`.Trainer` implements a highly-optimized PyTorch training loop for neural networks. Using the trainer gives you several superpowers:
 
--  Easily insert our library of efficiency speedups methods into the
-   trainer loop and compose them to train more efficiently and build
-   better models.
+-  Easily insert our library of efficiency methods into the
+   trainer loop and compose them to train better models faster.
 -  Strong optimized baseline implementations to kick off your deep
    learning work, with reproducible results in time-to-train and
    accuracy.
--  Integrations with your favorite model hubs:
+-  Integration with your favorite model hubs:
    🤗 `Transformers`_, `TIMM`_, and `torchvision`_.
 -  Iterate faster! We take care of performance and efficiency.
 
@@ -33,9 +32,9 @@ Create a model class that meets the :class:`.ComposerModel` interface,
 minimally implementing the following methods:
 
 -  ``def forward(batch) -> outputs`` : computes the forward pass based
-   on the ``batch`` returns from the dataloader.
+   on the ``batch`` returned from the dataloader.
 -  ``def loss(batch, outputs)``: returns the loss based on the
-   ``outputs`` from the forward pass, and the dataloader.
+   ``outputs`` from the forward pass and the dataloader.
 
 For more information, see the :doc:`ComposerModel</composer_model>` guide.
 
@@ -78,20 +77,22 @@ objects.
 
    trainer.fit()
 
-In the background, we automatically add the :class:`.TQDMLogger` to log
+In the background, we automatically add the :class:`.ProgressBarLogger` to log
 training progress to the console.
 
 
 A few tips and tricks for using our Trainer:
 
 -  For time-related inputs, such as the ``max_duration`` above, we
-   support both an integer (which we assume is epochs), or as a string.
+   support both an integer (which we assume is epochs), or a string. The
+   string can have a suffix of ``"ep"`` (epochs), ``"ba"`` (batches), or
+   ``"dur"`` (full training duration), among other options.
    For example, ``"10ba"`` means 10 minibatches or steps, and ``"10ep"``
-   denotes 10 epochs. See: :class:`.Time`.
+   means 10 epochs. See: :class:`.Time` for details.
 -  If you are using gradient accumulation, the ``batch_size`` in your
    dataloaders should be the per-device macrobatch size — the batch size of your
    optimization update. For example, with ``grad_accum=2`` and
-   ``batch_size=2048`` , the train runs through two microbatches of 1024
+   ``batch_size=2048``, the trainer runs through two microbatches of 1024
    each, then performs a gradient update step.
 -  At any time, most of the relevant quantities for debugging are
    centralized into one variable: :class:`.State`.
@@ -125,7 +126,7 @@ interacts with the :class:`.ComposerModel` is as follows:
        outputs, targets = model.validate(batch)
        metrics.update(outputs, target)
 
-For the actual code, see :meth:`.Trainer.fit` and the :meth:`.Trainer.eval` methods.
+For the actual code, see the :meth:`.Trainer.fit` and :meth:`.Trainer.eval` methods.
 
 Quick Tour
 ----------
@@ -138,7 +139,7 @@ Events & State
 
 The core principle of the Composer trainer is to make it easy to inject
 custom logic to run at various points in the training loop. To do this,
-we have events that run before and after each of the lines above, e.g.
+we have events that run before and after each of the lines above, e.g.:
 
 .. code:: python
 
@@ -163,7 +164,7 @@ Algorithms
 
 The Composer trainer is designed to easily apply our library of
 algorithms to both train more efficiently and build better models. These
-can be enabled by passing the appropriate algorithm class to ``algorithms``
+can be enabled by passing the appropriate algorithm class to the ``algorithms``
 argument.
 
 .. testcode::

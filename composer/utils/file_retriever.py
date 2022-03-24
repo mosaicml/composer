@@ -9,7 +9,7 @@ import requests
 import tqdm
 
 from composer.utils.iter_helpers import iterate_with_pbar
-from composer.utils.object_store import ObjectStoreProvider
+from composer.utils.object_store import ObjectStore
 
 __all__ = ['GetFileNotFoundException', 'get_file']
 
@@ -22,7 +22,7 @@ class GetFileNotFoundException(RuntimeError):
 def get_file(
     path: str,
     destination: str,
-    object_store: Optional[ObjectStoreProvider] = None,
+    object_store: Optional[ObjectStore] = None,
     chunk_size: int = 2**20,
     progress_bar: bool = True,
 ):
@@ -44,10 +44,10 @@ def get_file(
             If ``path`` is a local filepath, then a symlink to ``path`` at ``destination`` will be created.
             Otherwise, ``path`` will be downloaded to a file at ``destination``.
 
-        object_store (ObjectStoreProvider, optional): An :class:`~.ObjectStoreProvider`, if ``path`` is located inside
+        object_store (ObjectStore, optional): An :class:`~.ObjectStore`, if ``path`` is located inside
             an object store (i.e. AWS S3 or Google Cloud Storage). (default: ``None``)
 
-            This :class:`~.ObjectStoreProvider` instance will be used to retreive the file. The ``path`` parameter
+            This :class:`~.ObjectStore` instance will be used to retreive the file. The ``path`` parameter
             should be set to the object name within the object store.
 
             Set this parameter to ``None`` (the default) if ``path`` is a URL or a local file.

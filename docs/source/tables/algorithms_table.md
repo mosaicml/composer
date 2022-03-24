@@ -1,3 +1,7 @@
+```{eval-rst}
+:orphan:
+```
+
 Name|Functional|Attribution|tl;dr
 ----|----------|-----------|-----
 [Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[(Press et al, 2021)](https://arxiv.org/abs/2108.12409v1)|Replace attention with AliBi

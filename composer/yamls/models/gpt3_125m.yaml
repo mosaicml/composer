@@ -1,7 +1,7 @@
 train_dataset:
   c4:
     split: train
-    max_samples: 5120000 # 10e9 tok ~= 256[bs] * 20000[ba] * 2048[msl] = 5120000[sa] * 2048[msl]
+    num_samples: 5120000 # 10e9 tok ~= 256[bs] * 20000[ba] * 2048[msl] = 5120000[sa] * 2048[msl]
     max_seq_len: 2048
     tokenizer_name: gpt2
     group_method: concat
@@ -11,7 +11,7 @@ train_dataset:
 val_dataset:
   c4:
     split: validation
-    max_samples: 102400 # Approx 100k samples
+    num_samples: 102400 # Approx 100k samples
     max_seq_len: 2048
     tokenizer_name: gpt2
     group_method: concat
@@ -63,8 +63,6 @@ optimizer:
 schedulers:
   - cosine_decay_with_warmup:
       t_warmup: 0.01dur
-loggers:
-  - tqdm: {}
 max_duration: 1ep
 train_batch_size: 256 # 0.5e6 tok ~= 256[bs] * 2048[msl]
 grad_accum: 8 # 256[bs] / 8[devices] / 4[per_gpu_microbatch_size] = 8[ga], assuming 8xA100-40GB

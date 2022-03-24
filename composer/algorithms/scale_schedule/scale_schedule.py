@@ -4,7 +4,8 @@ import logging
 import warnings
 from typing import Optional
 
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
