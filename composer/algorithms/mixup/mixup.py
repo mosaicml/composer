@@ -100,8 +100,8 @@ class MixUp(Algorithm):
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``0.2``.
-        index_labels (bool, optional): Uses index labels and interpolates the loss rather
-            than the labels. A useful trick when using a cross entropy loss. Default: ``True``
+        interpolate_loss (bool, optional): Interpolates the loss rather than the labels.
+            A useful trick when using a cross entropy loss. Default: ``True``
 
     Example:
         .. testcode::
@@ -118,14 +118,14 @@ class MixUp(Algorithm):
             )
     """
 
-    def __init__(self, alpha: float = 0.2, index_labels: bool = True):
+    def __init__(self, alpha: float = 0.2, interpolate_loss: bool = True):
         self.alpha = alpha
-        self.index_labels = index_labels
+        self.interpolate_loss = interpolate_loss
         self.mixing = 0.0
         self.permuted_target = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
-        if self.index_labels:
+        if self.interpolate_loss:
              return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
         else:
              return event in [Event.AFTER_DATALOADER, Event.BEFORE_LOSS]
@@ -148,15 +148,15 @@ class MixUp(Algorithm):
 
             state.batch = (new_input, target)
 
-        if self.index_labels and event == Event.AFTER_LOSS:
-            # Interpolate the loss when using index labels
+        if self.interpolate_loss and event == Event.AFTER_LOSS:
+            # Interpolate the loss
             modified_batch = (input, self.permuted_target)
             new_loss = state.model.loss(state.outputs, modified_batch)
             state.loss *= (1 - self.mixing)
             state.loss += self.mixing * new_loss
 
-        if not self.index_labels and event == Event.BEFORE_LOSS:
-            # Interpolate the targets when using dense/one-hot labels
+        if not self.interpolate_loss and event == Event.BEFORE_LOSS:
+            # Interpolate the targets
             input, target = state.batch_pair
             assert isinstance(state.outputs, torch.Tensor), "Multiple output tensors not supported yet"
             assert isinstance(target, torch.Tensor), "Multiple target tensors not supported yet"
