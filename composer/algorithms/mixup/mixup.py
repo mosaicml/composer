@@ -73,7 +73,7 @@ def mixup_batch(input: torch.Tensor,
     # Create permuted versions of x and y in preparation for interpolation
     # Use given indices if there are any.
     if indices is None:
-        permuted_idx = torch.randperm(input.shape[0])
+        permuted_idx = _gen_indices(input.shape[0])
     else:
         permuted_idx = indices
     x_permuted = input[permuted_idx]
@@ -122,6 +122,7 @@ class MixUp(Algorithm):
         self.alpha = alpha
         self.interpolate_loss = interpolate_loss
         self.mixing = 0.0
+        self.indices = torch.Tensor()
         self.permuted_target = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
@@ -139,11 +140,13 @@ class MixUp(Algorithm):
                 "Multiple tensors for inputs or targets not supported yet."
 
             self.mixing = _gen_mixing_coef(self.alpha)
+            self.indices = _gen_indices(input.shape[0])
 
             new_input, _, self.permuted_target, _ = mixup_batch(
                 input,
                 target,
                 mixing=self.mixing,
+                indices=self.indices,
             )
 
             state.batch = (new_input, target)
@@ -185,3 +188,7 @@ def _gen_mixing_coef(alpha: float) -> float:
     # this way the "main" label is always the original one, which keeps
     # the training accuracy meaningful
     return max(mixing_lambda, 1. - mixing_lambda)
+
+def _gen_indices(num_samples: int) -> torch.Tensor:
+    """Generates a random permutation of the batch indices."""
+    return torch.randperm(num_samples)
