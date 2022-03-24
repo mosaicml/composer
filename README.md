@@ -304,7 +304,7 @@ Easily [add your own methods](https://colab.research.google.com/github/mosaicml/
 
 # 🧐 Why shouldn’t I use Composer?
 
-* Composer currently supports only standard computer vision (CV) and natural language processing (NLP) use cases, and may be difficult to use with very custom data modalities. We are working on adding more flexibility around the data types.
+* Composer currently supports any computer vision (CV) and natural language processing (NLP) use case, including custom models and custom datasets. However, non-CV and non-NLP use cases (such as reinforcement learning) might be more difficult to integrate into Composer.
 * Composer currently supports NVIDIA GPUs. We are adding support for additional hardware platforms, and you should expect more soon.
 * Composer is an active and ongoing project. Since Composer is still in alpha, our API may not be stable. We recommend pegging your work to a Composer version, and we will respond quickly to issues posted to this repository.
 
