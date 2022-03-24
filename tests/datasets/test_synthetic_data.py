@@ -17,7 +17,7 @@ from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDat
     SyntheticDataLabelType.CLASSIFICATION_ONE_HOT,
     SyntheticDataLabelType.CLASSIFICATION_INT,
 ])
-def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
+def test_synthetic_batch_pair_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
     if data_type == SyntheticDataType.SEPARABLE:
         if label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
             pytest.skip("Separable data requires classification int labels")
