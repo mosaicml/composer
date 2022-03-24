@@ -127,9 +127,10 @@ class MixUp(Algorithm):
             )
     """
 
-    def __init__(self, num_classes: int, alpha: float = 0.2):
+    def __init__(self, num_classes: int, alpha: float, index_labels: bool):
         self.num_classes = num_classes
         self.alpha = alpha
+        self.index_labels = index_labels
         self.mixing = 0.0
         self.indices = torch.Tensor()
 
@@ -142,7 +143,10 @@ class MixUp(Algorithm):
         Returns:
             bool: True if this algorithm should run now.
         """
-        return event == Event.AFTER_DATALOADER
+        if self.index_labels:
+             return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
+        else:
+             return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         """Applies MixUp augmentation on State input.
@@ -152,21 +156,43 @@ class MixUp(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
+        if self.index_labels:
+             if event == Event.AFTER_DATALOADER:
+                 input, target = state.batch_pair
+                 assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
+                     "Multiple tensors for inputs or targets not supported yet."
 
-        input, target = state.batch_pair
-        assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
-            "Multiple tensors for inputs or targets not supported yet."
+                 self.mixing = _gen_mixing_coef(self.alpha)
 
-        self.mixing = _gen_mixing_coef(self.alpha)
+                 new_input, _, self.indices = mixup_batch(
+                     input,
+                     target,
+                     mixing=self.mixing,
+                     num_classes=self.num_classes,
+                 )
 
-        new_input, new_target, self.indices = mixup_batch(
-            input,
-            target,
-            mixing=self.mixing,
-            num_classes=self.num_classes,
-        )
+                 state.batch = (new_input, target)
+             if event == Event.AFTER_LOSS:
+                 input, target = state.batch_pair
+                 modified_batch = (input, target[self.indices])
+                 new_loss = state.model.loss(state.outputs, modified_batch)
+                 state.loss *= (1 - self.mixing)
+                 state.loss += self.mixing * new_loss
+         else:
+             input, target = state.batch_pair
+             assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
+                 "Multiple tensors for inputs or targets not supported yet."
 
-        state.batch = (new_input, new_target)
+             self.mixing = _gen_mixing_coef(self.alpha)
+
+             new_input, new_target, self.indices = mixup_batch(
+                 input,
+                 target,
+                 mixing=self.mixing,
+                 num_classes=self.num_classes,
+             )
+
+            state.batch = (new_input, new_target)
 
 
 def _gen_mixing_coef(alpha: float) -> float:
