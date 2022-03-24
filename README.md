@@ -347,6 +347,8 @@ If you have any questions, please feel free to reach out to us on [Twitter](http
 # 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!
 
+To start contributing, see our [Contributing](CONTRIBUTING.md) page. 
+
 # ✍️ Citation
 ```
 @misc{mosaicml2022composer,
