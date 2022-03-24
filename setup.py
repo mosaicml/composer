@@ -66,7 +66,7 @@ install_requires = [
     "torch>=1.9,<2",
     "yahp==0.1.0",
     "requests>=2.26.0,<3",
-    "numpy>=1.21.5.10,<2",
+    "numpy>=1.21.5,<2",
     "apache-libcloud>=3.3.1,<4",
     "psutil>=5.8.0,<6",
     "coolname>=1.1.0,<2",
