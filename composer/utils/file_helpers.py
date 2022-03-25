@@ -60,7 +60,7 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
                 raise FileExistsError(f"{folder_name} is not empty; {os.path.join(root, file)} exists.")
 
 
-def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: str):
+def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: object):
     """Format ``format_str`` with the ``run_name``, distributed variables, and ``extra_format_kwargs``.
 
     The following format variables are available:
@@ -101,7 +101,7 @@ def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs:
     Args:
         format_str (str): The format string for the checkpoint filename.
         run_name (str): The value for the ``{run_name}`` format variable.
-        extra_format_kwargs (str): Any additional :meth:`~str.format` kwargs.
+        extra_format_kwargs (object): Any additional :meth:`~str.format` kwargs.
     """
     formatted_str = format_str.format(
         run_name=run_name,
@@ -115,7 +115,7 @@ def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs:
     return formatted_str
 
 
-def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Timestamp, **extra_format_kwargs: str):
+def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Timestamp, **extra_format_kwargs: object):
     """Format ``format_str`` with the ``run_name``, distributed variables, ``timestamp``, and ``extra_format_kwargs``.
 
     In addition to the variables specified via ``extra_format_kwargs``, the following format variables are available:
@@ -179,7 +179,7 @@ def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Ti
         format_str (str): The format string for the checkpoint filename.
         run_name (str): The value for the ``{run_name}`` format variable.
         timestamp (Timestamp): The timestamp.
-        extra_format_kwargs (str): Any additional :meth:`~str.format` kwargs.
+        extra_format_kwargs (object): Any additional :meth:`~str.format` kwargs.
     """
     formatted_str = format_str.format(
         run_name=run_name,
