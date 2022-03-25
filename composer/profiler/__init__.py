@@ -14,6 +14,7 @@ The metrics gathered include:
 
 See the :doc:`Profiling Guide </trainer/performance_tutorials/profiling>` for additional information.
 """
+from composer.profiler.dataloader_profiler import DataLoaderProfiler
 from composer.profiler.json_trace_handler import JSONTraceHandler
 from composer.profiler.marker import Marker
 from composer.profiler.profiler import Profiler
@@ -21,6 +22,8 @@ from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.profiler_hparams import (CyclicProfilerScheduleHparams, JSONTraceHparams, ProfileScheduleHparams,
                                                 TraceHandlerHparams)
 from composer.profiler.profiler_schedule import cyclic_schedule
+from composer.profiler.system_profiler import SystemProfiler
+from composer.profiler.torch_profiler import TorchProfiler
 from composer.profiler.trace_handler import TraceHandler
 
 # All needs to be defined properly for sphinx autosummary
@@ -35,4 +38,7 @@ __all__ = [
     "ProfileScheduleHparams",
     "JSONTraceHparams",
     "TraceHandlerHparams",
+    "DataLoaderProfiler",
+    "SystemProfiler",
+    "TorchProfiler",
 ]

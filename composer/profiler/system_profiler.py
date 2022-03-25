@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Dict, cast
 
 import psutil
 
-from composer.callbacks import memory_monitor
 from composer.core.callback import Callback
 
 if TYPE_CHECKING:
@@ -69,6 +68,7 @@ class SystemProfiler(Callback):
         self.finished_event.set()
 
     def _stats_thread(self, profiler: Profiler):
+        from composer.callbacks import memory_monitor
         """Gathers requested system metrics at :attr:`SystemProfiler.stats_thread_interval_seconds` interval."""
 
         psutil.disk_io_counters.cache_clear()

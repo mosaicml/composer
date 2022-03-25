@@ -101,8 +101,6 @@ device_registry = {
     "cpu": CPUDeviceHparams,
 }
 
-prof_event_handlers_registry = {"json": JSONTraceHandlerHparams}
-
 
 @dataclass
 class TrainerHparams(hp.Hparams):
