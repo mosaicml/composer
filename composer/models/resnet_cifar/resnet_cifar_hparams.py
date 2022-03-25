@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.ComposerResNetCIFAR`."""
+"""`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for
+:class:`.ComposerResNetCIFAR`."""
 from dataclasses import dataclass
 
 import yahp as hp
@@ -8,11 +9,11 @@ import yahp as hp
 from composer.models.model_hparams import ModelHparams
 from composer.models.resnet_cifar import ComposerResNetCIFAR
 
-__all__ = ["ComposerResNetCIFARHparams"]
+__all__ = ["ResNetCIFARHparams"]
 
 
 @dataclass
-class ComposerResNetCIFARHparams(ModelHparams):
+class ResNetCIFARHparams(ModelHparams):
     """:class:`~.hp.Hparams` interface for :class:`.ComposerResNetCIFAR`.
 
     Args:

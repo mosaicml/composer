@@ -6,9 +6,9 @@ See the :doc:`Model Card </model_cards/cifar_resnet>` for more details.
 """
 
 from composer.models.resnet_cifar.model import ComposerResNetCIFAR as ComposerResNetCIFAR
-from composer.models.resnet_cifar.resnet_cifar_hparams import ComposerResNetCIFARHparams as ComposerResNetCIFARHparams
+from composer.models.resnet_cifar.resnet_cifar_hparams import ResNetCIFARHparams as ResNetCIFARHparams
 
-__all__ = ["ComposerResNetCIFAR", "ComposerResNetCIFARHparams"]
+__all__ = ["ComposerResNetCIFAR", "ResNetCIFARHparams"]
 
 _metadata = {
     'resnet9': {
