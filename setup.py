@@ -31,6 +31,7 @@ class develop(develop_orig):
 # From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
 site.ENABLE_USER_SITE = _IS_USER
 
+
 def package_files(prefix: str, directory: str, extension: str):
     # from https://stackoverflow.com/a/36693250
     paths = []
@@ -39,6 +40,7 @@ def package_files(prefix: str, directory: str, extension: str):
             if filename.endswith(extension):
                 paths.append(os.path.relpath(os.path.join(path, filename), prefix))
     return paths
+
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -151,6 +153,11 @@ extra_deps['webdataset'] = [
     'wurlitzer>=3.0.2,<4',
 ]
 
+extra_deps['mlperf'] = [
+    # TODO: switch to pip package when available: https://github.com/mlcommons/logging/issues/218
+    'git+https://github.com/mlperf/logging.git',
+    'py-cpuinfo>=8.0.0,<9',
+]
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ['py.typed']

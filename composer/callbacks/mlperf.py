@@ -1,10 +1,19 @@
 import json
 import os
+import platform
+import sys
 import warnings
-from typing import Dict
+from typing import Dict, Optional
 
+import cpuinfo
+import psutil
+import torch
+from mlperf_logging import mllog
+
+import composer
 from composer import Callback, State
 from composer.loggers import Logger
+from composer.utils import dist
 
 try:
     from mlperf_logging import mllog
@@ -13,20 +22,8 @@ try:
 except ImportError:
     mlperf_available = False
 
-import platform
-import sys
-from typing import Optional
-
-import cpuinfo
-import psutil
-import torch
-from mlperf_logging import mllog
-
-import composer
-from composer.utils import dist
-
 BENCHMARKS = ("resnet")
-DIVISIONS = ("open", "closed")
+DIVISIONS = ("open")
 STATUS = ("onprem", "cloud", "preview")
 
 
