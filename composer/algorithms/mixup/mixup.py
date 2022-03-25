@@ -132,8 +132,6 @@ class MixUp(Algorithm):
             return event in [Event.AFTER_DATALOADER, Event.BEFORE_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        input, target = state.batch_pair
-
         if event == Event.INIT:
             # Grab the loss function
             if isinstance(state.model, ComposerModel):
@@ -172,6 +170,7 @@ class MixUp(Algorithm):
             state.batch = (input, mixed_up_target)
 
         if self.interpolate_loss and event == Event.AFTER_LOSS:
+            input, target = state.batch_pair
             assert isinstance(state.loss, torch.Tensor), "Multiple losses not supported yet"
             # Interpolate the loss
             modified_batch = (input, self.permuted_target)
