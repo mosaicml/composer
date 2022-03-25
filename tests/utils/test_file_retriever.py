@@ -9,7 +9,7 @@ from composer.utils.file_retriever import GetFileNotFoundException, get_file
 from composer.utils.object_store import ObjectStoreHparams
 
 
-@pytest.mark.xfail("test is flaky")
+@pytest.mark.xfail(reason="Occassionally hits the timeout. Should refactor to use a local webserver.")
 def test_get_file_uri(tmpdir: pathlib.Path):
     get_file(
         path="https://www.mosaicml.com",
@@ -22,7 +22,7 @@ def test_get_file_uri(tmpdir: pathlib.Path):
         assert f.readline().startswith("<!")
 
 
-@pytest.mark.xfail("test is flaky")
+@pytest.mark.xfail(reason="Occassionally hits the timeout. Should refactor to use a local webserver.")
 def test_get_file_uri_not_found(tmpdir: pathlib.Path):
     with pytest.raises(GetFileNotFoundException):
         get_file(
