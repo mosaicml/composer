@@ -25,7 +25,7 @@ class MaskedAccuracy(Metric):
             each forward() before returning the value at the step. Default: ``False``.
     """
 
-    def __init__(self, ignore_index: int, dist_sync_on_step=False):
+    def __init__(self, ignore_index: int, dist_sync_on_step: bool = False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.ignore_index = ignore_index
@@ -118,7 +118,7 @@ class BinaryF1Score(Metric):
             each forward() before returning the value at the step. Default: ``False``.
     """
 
-    def __init__(self, dist_sync_on_step=False):
+    def __init__(self, dist_sync_on_step: bool = False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.add_state("true_positive", default=torch.tensor(0.), dist_reduce_fx="sum")

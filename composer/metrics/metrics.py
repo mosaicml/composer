@@ -3,14 +3,14 @@
 """A collection of common torchmetrics."""
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Tuple, Callable
 
 import torch
 from torch import Tensor
 from torchmetrics import Metric
 from torchmetrics.utilities.data import to_categorical
-from composer.loss import soft_cross_entropy
 
+from composer.loss import soft_cross_entropy
 
 __all__ = ["MIoU", "Dice", "CrossEntropyLoss", "LossMetric"]
 
@@ -54,7 +54,7 @@ class MIoU(Metric):
 
     def compute(self):
         """Aggregate state across all processes and compute final metric."""
-        return 100 * (self.total_intersect / self.total_union).mean()  # type: ignore - / unsupported for Tensor|Module]
+        return 100 * (self.total_intersect / self.total_union).mean()  #type: ignore (third-party)
 
 
 class Dice(Metric):
@@ -73,7 +73,7 @@ class Dice(Metric):
         self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
         self.add_state("dice", default=torch.zeros((num_classes,)), dist_reduce_fx="sum")
 
-    def update(self, preds, targets):
+    def update(self, preds: Tensor, targets: Tensor):
         """Update the state based on new predictions and targets."""
         self.n_updates += 1  # type: ignore
         self.dice += self.compute_stats(preds, targets)
@@ -83,7 +83,7 @@ class Dice(Metric):
         dice = 100 * self.dice / self.n_updates  # type: ignore
         best_sum_dice = dice[:]
         top_dice = round(torch.mean(best_sum_dice).item(), 2)
-        return top_dice  # type: ignore - / unsupported for Tensor|Module]
+        return top_dice
 
     @staticmethod
     def compute_stats(preds: Tensor, targets: Tensor):
@@ -153,7 +153,7 @@ class CrossEntropyLoss(Metric):
         # Return average loss over entire validation dataset
         assert isinstance(self.total_batches, Tensor)
         assert isinstance(self.sum_loss, Tensor)
-        return self.sum_loss / self.total_batches # type: ignore - / unsupported for Tensor|Module]
+        return self.sum_loss / self.total_batches
 
 
 class LossMetric(Metric):
@@ -165,7 +165,7 @@ class LossMetric(Metric):
         dist_sync_on_step (bool, optional): sync distributed metrics every step. Default: ``False``.
     """
 
-    def __init__(self, loss_function: callable, dist_sync_on_step: bool = False):
+    def __init__(self, loss_function: Callable, dist_sync_on_step: bool = False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.loss_function = loss_function
         self.add_state("sum_loss", default=torch.tensor(0.), dist_reduce_fx="sum")
@@ -175,9 +175,11 @@ class LossMetric(Metric):
         """Update the state with new predictions and targets."""
         # Loss calculated over samples/batch, accumulate loss over all batches
         self.sum_loss += self.loss_function(preds, targets)
-        self.total_batches += 1
+        self.total_batches += 1  # type: ignore
 
     def compute(self):
         """Aggregate state over all processes and compute the metric."""
         # Return average loss over entire validation dataset
-        return self.sum_loss / self.total_batches  # type: ignore - / unsupported for Tensor|Module]
+        assert isinstance(self.total_batches, Tensor)
+        assert isinstance(self.sum_loss, Tensor)
+        return self.sum_loss / self.total_batches
