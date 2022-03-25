@@ -351,14 +351,12 @@ Once you've configured your object store logger per above, all that's left is to
         save_folder='checkpoints',
         save_interval='1ep',
         save_overwrite=True,
-        save_artifact_name='checkpoints/ep{epoch}.tar',
+        save_artifact_name='checkpoints/ep{epoch}.pt',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
         loggers=[object_store_logger],
     )
 
-.. testcleanup::
-
-    trainer.engine.close()
+    trainer.fit()
 
 This will train your model, saving the checkpoints locally, upload them to the S3 Bucket,
 and delete the checkpoints from the local disk.
