@@ -3,9 +3,19 @@
 """Dynamically import a Python object (e.g. module, class, function, ...)."""
 
 import importlib
+import textwrap
 from typing import Any
 
-__all__ = ["import_object"]
+__all__ = ["import_object", "MissingConditionalImportError"]
+
+
+class MissingConditionalImportError(ImportError):
+
+    def __init__(self, extra_deps_group: str, conda_package: str, conda_channel: str = 'conda-forge'):
+        super().__init__(
+            textwrap.dedent(f"""\
+            Composer was installed without {extra_deps_group} support. To use {extra_deps_group} related packages, with Composer, run `pip install mosaicml[{extra_deps_group}]`
+            if using pip or `conda install -c {conda_channel} {conda_package} if using Anaconda."""))
 
 
 def import_object(name: str) -> Any:

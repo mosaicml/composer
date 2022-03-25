@@ -4,9 +4,9 @@
 
 .. note::
 
-    For deterministic model initialization, :meth:`~composer.utils.reproducibility.seed_all` and/or
-    :meth:`~composer.utils.configure_deterministic_mode` should be
-    invoked before creating and initializing a model, before creating the :class:`~composer.trainer.trainer.Trainer`.
+    For deterministic model initialization, :func:`~.seed_all` and/or
+    :func:`~.configure_deterministic_mode` should be
+    invoked before creating and initializing a model, before creating the :class:`~.Trainer`.
     For example:
 
     .. testsetup::
@@ -31,7 +31,10 @@
         ...         torch.nn.init.xavier_uniform(m.weight)
         >>> # model will now be deterministically initialized, since the seed is set.
         >>> init_weights(model)
-        >>> trainer = Trainer(model=model)
+        >>> trainer = Trainer(model=model, seed=42)
+
+    Note that the seed must also be passed to the Trainer, otherwise the Trainer
+    would generate a random seed based on the timestamp (see :func:`~.get_random_seed`).
 
     .. testcleanup::
 
@@ -96,7 +99,7 @@ def configure_deterministic_mode():
         function at the beginning of your training script.
 
     .. note::
-        
+
         When training on a GPU, this function must be invoked before any CUDA operations.
 
     .. note::

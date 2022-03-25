@@ -37,6 +37,7 @@ from composer.models.ssd import SSD as SSD
 from composer.models.ssd import SSDHparams as SSDHparams
 from composer.models.timm import Timm as Timm
 from composer.models.timm import TimmHparams as TimmHparams
+from composer.models.transformer_hparams import TransformerHparams as TransformerHparams
 from composer.models.transformer_shared import ComposerTransformer as ComposerTransformer
 from composer.models.unet import UNet as UNet
 from composer.models.unet import UnetHparams as UnetHparams
