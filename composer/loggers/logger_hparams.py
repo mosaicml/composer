@@ -27,6 +27,7 @@ __all__ = [
     "ProgressBarLoggerHparams",
     "WandBLoggerHparams",
     "ObjectStoreLoggerHparams",
+    "logger_registry",
 ]
 
 
@@ -58,6 +59,8 @@ class FileLoggerHparams(LoggerDestinationHparams):
 
     Args:
         filename (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`
+        capture_stdout (bool, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
+        capture_stderr (bool, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
         buffer_size (int, optional): See
             :class:`~composer.loggers.file_logger.FileLogger`.
         log_level (LogLevel, optional): See
@@ -70,6 +73,8 @@ class FileLoggerHparams(LoggerDestinationHparams):
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
     filename: str = hp.optional("The path to the logfile. Can also be `stdout` or `stderr`. Default: stdout",
                                 default="stdout")
+    capture_stdout: bool = hp.optional("Whether to capture writes to `stdout`", default=True)
+    capture_stderr: bool = hp.optional("Whether to capture writes to `stderr`", default=True)
     buffer_size: int = hp.optional("Number of bytes to buffer. Defaults to 1 for line-buffering. "
                                    "See https://docs.python.org/3/library/functions.html#open",
                                    default=1)  # line buffering. Python's default is -1.
@@ -255,7 +260,7 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
             The artifact name will be a string. The function should return a boolean indicating whether the artifact
             should be logged.
 
-            .. seealso: :func:`composer.utils.dynamic_import.import_object`
+            .. seealso: :func:`composer.utils.import_helpers.import_object`
 
             Setting this parameter to ``None`` (the default) will log all artifacts.
         object_name_format (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
@@ -285,3 +290,13 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,
         )
+
+
+logger_registry = {
+    "file": FileLoggerHparams,
+    "wandb": WandBLoggerHparams,
+    "progress_bar": ProgressBarLoggerHparams,
+    "in_memory": InMemoryLoggerHparams,
+    "object_store": ObjectStoreLoggerHparams,
+}
+"""The registry of all known :class:`.LoggerDestinationHparams`."""

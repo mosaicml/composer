@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import yahp as hp
 
-from composer.models.base_hparams import ModelHparams
+from composer.models.model_hparams import ModelHparams
 
 __all__ = ["ViTSmallPatch16Hparams"]
 

@@ -8,7 +8,7 @@ from typing import Optional
 
 import yahp as hp
 
-from composer.models.base_hparams import ModelHparams
+from composer.models.model_hparams import ModelHparams
 from composer.models.timm.model import Timm
 
 __all__ = ["TimmHparams"]

@@ -21,10 +21,10 @@ STEPS_PER_EPOCH = 1000
 
 
 @pytest.fixture
-def dummy_schedulers_state(dummy_model: torch.nn.Module, dummy_train_dataloader: DataLoader):
+def dummy_schedulers_state(dummy_model: torch.nn.Module, dummy_train_dataloader: DataLoader, rank_zero_seed: int):
     return State(
         model=dummy_model,
-        rank_zero_seed=0,
+        rank_zero_seed=rank_zero_seed,
         train_dataloader=dummy_train_dataloader,
         max_duration=MAX_DURATION,
         steps_per_epoch=STEPS_PER_EPOCH,
@@ -113,7 +113,7 @@ def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: Li
         (lambda state: 0.01, 1.5,
          ValueError),  # this should error since the ssr != 1.0 and the lambda doesn't support ssr
     ])
-def test_scheduler_trains(scheduler: ComposerScheduler, ssr: float, dummy_model: ComposerModel,
+def test_scheduler_trains(scheduler: ComposerScheduler, ssr: float, dummy_model: ComposerModel, rank_zero_seed: int,
                           dummy_train_dataloader: DataLoader, should_raise: Optional[Type[Exception]]):
     with pytest.raises(should_raise) if should_raise is not None else contextlib.nullcontext():
         trainer = Trainer(
@@ -123,5 +123,6 @@ def test_scheduler_trains(scheduler: ComposerScheduler, ssr: float, dummy_model:
             train_subset_num_batches=5,
             scale_schedule_ratio=ssr,
             schedulers=scheduler,
+            seed=rank_zero_seed,
         )
         trainer.fit()

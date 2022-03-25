@@ -10,14 +10,14 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 
 @pytest.fixture
-def minimal_state():
+def minimal_state(rank_zero_seed: int):
     """Most minimally defined state possible.
 
     Tests should configure the state for their specific needs.
     """
     return State(
         model=SimpleModel(),
-        rank_zero_seed=0,
+        rank_zero_seed=rank_zero_seed,
         train_dataloader=DataLoader(RandomClassificationDataset()),
         evaluators=[],
         max_duration='100ep',

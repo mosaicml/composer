@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Mapping, Sequence, Union
 import torch
 from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, Metric, MetricCollection, SpearmanCorrcoef
 
-from composer.models import ComposerTransformer
 from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
+from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
     import transformers

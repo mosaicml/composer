@@ -13,20 +13,21 @@ from typing import List, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision.models.resnet import BasicBlock
 
 from composer.models import Initializer
 
-__all__ = ["CIFAR_ResNet"]
+__all__ = ["ResNetCIFAR", "ResNet9"]
 
 
-class CIFAR_ResNet(nn.Module):
+class ResNetCIFAR(nn.Module):
     """A residual neural network as originally designed for CIFAR-10."""
 
     class Block(nn.Module):
         """A ResNet block."""
 
         def __init__(self, f_in: int, f_out: int, downsample: bool = False):
-            super(CIFAR_ResNet.Block, self).__init__()
+            super(ResNetCIFAR.Block, self).__init__()
 
             stride = 2 if downsample else 1
             self.conv1 = nn.Conv2d(f_in, f_out, kernel_size=3, stride=stride, padding=1, bias=False)
@@ -51,7 +52,7 @@ class CIFAR_ResNet(nn.Module):
             return self.relu(out)
 
     def __init__(self, plan: List[Tuple[int, int]], initializers: List[Initializer], outputs: int = 10):
-        super(CIFAR_ResNet, self).__init__()
+        super(ResNetCIFAR, self).__init__()
         outputs = outputs or 10
 
         self.num_classes = outputs
@@ -67,7 +68,7 @@ class CIFAR_ResNet(nn.Module):
         for segment_index, (filters, num_blocks) in enumerate(plan):
             for block_index in range(num_blocks):
                 downsample = segment_index > 0 and block_index == 0
-                blocks.append(CIFAR_ResNet.Block(current_filters, filters, downsample))
+                blocks.append(ResNetCIFAR.Block(current_filters, filters, downsample))
                 current_filters = filters
 
         self.blocks = nn.Sequential(*blocks)
@@ -90,27 +91,27 @@ class CIFAR_ResNet(nn.Module):
 
     @staticmethod
     def is_valid_model_name(model_name: str):
-        valid_model_names = [f"cifar_resnet_{layers}" for layers in (20, 56)]
+        valid_model_names = [f"resnet_{layers}" for layers in (20, 56)]
         return (model_name in valid_model_names)
 
     @staticmethod
     def get_model_from_name(model_name: str, initializers: List[Initializer], outputs: int = 10):
-        """The naming scheme for a ResNet is ``'cifar_resnet_D[_W]'``.
+        """The naming scheme for a ResNet is ``'resnet_D[_W]'``.
 
-        D is the model depth (e.g. ``'cifar_resnet56'``)
+        D is the model depth (e.g. ``'resnet_56'``)
         """
 
-        if not CIFAR_ResNet.is_valid_model_name(model_name):
+        if not ResNetCIFAR.is_valid_model_name(model_name):
             raise ValueError('Invalid model name: {}'.format(model_name))
 
-        depth = int(model_name.split('_')[2])
-        if len(model_name.split('_')) == 3:
+        depth = int(model_name.split('_')[-1])  # for resnet56, depth 56, width 16
+        if len(model_name.split('_')) == 2:
             width = 16
         else:
-            width = int(model_name.split('_')[4])
+            width = int(model_name.split('_')[3])
 
         if (depth - 2) % 3 != 0:
-            raise ValueError('Invalid CIFAR_ResNet depth: {}'.format(depth))
+            raise ValueError('Invalid ResNetCIFAR depth: {}'.format(depth))
         num_blocks = (depth - 2) // 6
 
         model_arch = {
@@ -118,4 +119,51 @@ class CIFAR_ResNet(nn.Module):
             20: [(width, num_blocks), (2 * width, num_blocks), (4 * width, num_blocks)],
         }
 
-        return CIFAR_ResNet(model_arch[depth], initializers, outputs)
+        return ResNetCIFAR(model_arch[depth], initializers, outputs)
+
+
+# adapted from https://raw.githubusercontent.com/matthias-wright/cifar10-resnet/master/model.py
+# under the MIT license
+class ResNet9(nn.Module):
+    """A 9-layer residual network, excluding BatchNorms and activation functions.
+
+    Based on the myrtle.ai `blog`_ and Deep Residual Learning for Image Recognition (`He et al, 2015`_).
+
+    Args:
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
+
+    .. _blog: https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
+    .. _He et al, 2015: https://arxiv.org/abs/1512.03385
+    """
+
+    def __init__(self, num_classes: int = 10):
+        super().__init__()
+
+        self.body = nn.Sequential(
+            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(num_features=64, momentum=0.9),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(num_features=128, momentum=0.9),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            BasicBlock(inplanes=128, planes=128, stride=1),
+            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(num_features=256, momentum=0.9),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(num_features=256, momentum=0.9),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            BasicBlock(inplanes=256, planes=256, stride=1),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
+
+        self.fc = nn.Linear(in_features=1024, out_features=num_classes, bias=True)
+
+    def forward(self, x):
+        out = self.body(x)
+        out = out.view(-1, out.shape[1] * out.shape[2] * out.shape[3])
+        out = self.fc(out)
+        return out

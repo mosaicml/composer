@@ -17,7 +17,6 @@ from tests.common import SimpleConvModel
 def fake_data(request):
     # Generate some fake data
     N, C, d1, d2, num_classes = request.param
-    torch.manual_seed(0)
     x_fake = torch.randn(N, C, d1, d2)
     y_fake = torch.randint(num_classes, size=(N,))
     indices = torch.randperm(N)

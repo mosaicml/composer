@@ -12,7 +12,7 @@ from torchvision.models import _utils, resnet
 
 from composer.core.types import BatchPair
 from composer.models.base import ComposerModel
-from composer.models.base_hparams import Initializer
+from composer.models.initializers import Initializer
 from composer.models.loss import CrossEntropyLoss, MIoU, soft_cross_entropy
 
 __all__ = ["deeplabv3_builder", "ComposerDeepLabV3"]

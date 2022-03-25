@@ -8,6 +8,7 @@ Dataset <http://image-net.org/>`_ for more details. Also includes streaming data
 """
 
 import os
+import textwrap
 from dataclasses import dataclass
 from typing import List
 
@@ -20,6 +21,7 @@ from torchvision.datasets import ImageFolder
 from composer.core import DataSpec
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
+from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
@@ -39,9 +41,24 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     Args:
         resize_size (int, optional): The resize size to use. Use ``-1`` to not resize. Default: ``-1``.
         crop size (int): The crop size to use. Default: ``224``.
+        use_ffcv (bool): Whether to use FFCV dataloaders. Default: ``False``.
+        ffcv_dir (str): A directory containing train/val <file>.ffcv files. If these files don't exist and
+            ``ffcv_write_dataset`` is ``True``, train/val <file>.ffcv files will be created in this dir. Default: ``"/tmp"``.
+        ffcv_dest_train (str): <file>.ffcv file that has training samples. Default: ``"train.ffcv"``.
+        ffcv_dest_val (str): <file>.ffcv file that has validation samples. Default: ``"val.ffcv"``.
+        ffcv_write_dataset (std): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
+        ``False``.
     """
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
+    use_ffcv: bool = hp.optional("whether to use ffcv for faster dataloading", default=False)
+    ffcv_dir: str = hp.optional(
+        "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
+        default="/tmp")
+    ffcv_dest_train: str = hp.optional("<file>.ffcv file that has training samples", default="train.ffcv")
+    ffcv_dest_val: str = hp.optional("<file>.ffcv file that has validation samples", default="val.ffcv")
+    ffcv_write_dataset: bool = hp.optional("Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
+                                           default=False)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
 
@@ -57,6 +74,77 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             )
             collate_fn = None
             device_transform_fn = None
+        elif self.use_ffcv:
+            try:
+                import ffcv  # type: ignore
+                from ffcv.fields.decoders import RandomResizedCropRGBImageDecoder  # type: ignore
+                from ffcv.fields.decoders import CenterCropRGBImageDecoder, IntDecoder  # type: ignore
+                from ffcv.pipeline.operation import Operation  # type: ignore
+            except ImportError:
+                raise ImportError(
+                    textwrap.dedent("""\
+                    Composer was installed without ffcv support.
+                    To use ffcv with Composer, please install ffcv in your environment."""))
+
+            if self.is_train:
+                dataset_file = self.ffcv_dest_train
+                split = "train"
+            else:
+                dataset_file = self.ffcv_dest_val
+                split = "val"
+            dataset_file = self.ffcv_dest_train if self.is_train else self.ffcv_dest_val
+            dataset_filepath = os.path.join(self.ffcv_dir, dataset_file)
+            # always create if ffcv_write_dataset is true
+            if self.ffcv_write_dataset:
+                if dist.get_local_rank() == 0:
+                    if self.datadir is None:
+                        raise ValueError(
+                            "datadir is required if use_synthetic is False and ffcv_write_dataset is True.")
+                    ds = ImageFolder(os.path.join(self.datadir, split))
+                    write_ffcv_dataset(dataset=ds,
+                                       write_path=dataset_filepath,
+                                       max_resolution=500,
+                                       num_workers=dataloader_hparams.num_workers,
+                                       compress_probability=0.50,
+                                       jpeg_quality=90)
+                # Wait for the local rank 0 to be done creating the dataset in ffcv format.
+                dist.barrier()
+
+            label_pipeline: List[Operation] = [IntDecoder(), ffcv.transforms.ToTensor(), ffcv.transforms.Squeeze()]
+            image_pipeline: List[Operation] = []
+            if self.is_train:
+                image_pipeline.extend([
+                    RandomResizedCropRGBImageDecoder((self.crop_size, self.crop_size)),
+                    ffcv.transforms.RandomHorizontalFlip()
+                ])
+            else:
+                image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=224 / 256)])
+            # Common transforms for train and test
+            image_pipeline.extend([
+                ffcv.transforms.ToTensor(),
+                ffcv.transforms.ToTorchImage(channels_last=False, convert_back_int16=False),
+                ffcv.transforms.Convert(torch.float32),
+                # The following doesn't work.
+                #ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD), np.float32),
+                transforms.Normalize(IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD),
+            ])
+
+            ordering = ffcv.loader.OrderOption.RANDOM if self.is_train else ffcv.loader.OrderOption.SEQUENTIAL
+
+            return ffcv.Loader(
+                dataset_filepath,
+                batch_size=batch_size,
+                num_workers=dataloader_hparams.num_workers,
+                order=ordering,
+                distributed=False,
+                pipelines={
+                    'image': image_pipeline,
+                    'label': label_pipeline
+                },
+                batches_ahead=dataloader_hparams.prefetch_factor,
+                drop_last=self.drop_last,
+            )
+
         else:
 
             if self.is_train:
@@ -127,7 +215,7 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.229, 0.224, 0.225))
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
-        from composer.datasets.webdataset import load_webdataset
+        from composer.datasets.webdataset_utils import load_webdataset
 
         if self.is_train:
             split = 'train'
@@ -171,7 +259,7 @@ class Imagenet1kWebDatasetHparams(WebDatasetHparams):
     crop_size: int = hp.optional("crop size", default=224)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
-        from composer.datasets.webdataset import load_webdataset
+        from composer.datasets.webdataset_utils import load_webdataset
 
         if self.is_train:
             # include fixed-size resize before RandomResizedCrop in training only
