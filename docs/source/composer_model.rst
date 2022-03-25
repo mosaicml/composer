@@ -6,8 +6,8 @@ Your Pytorch model and training step must be re-organized as a
 This interface helps our trainer access the necessary parts of your model
 to easily speed up training.
 
-Minimal Example
----------------
+Using your own Model
+--------------------
 
 To create a trainable torchvision ResNet-18 classifier with a cross-entropy loss,
 define the |forward| and |loss| methods.

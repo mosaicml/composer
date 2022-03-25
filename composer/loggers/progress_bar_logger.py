@@ -13,7 +13,7 @@ import yaml
 from tqdm import auto
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LoggerDataDict, LogLevel, format_log_data_value
+from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 
@@ -29,7 +29,7 @@ class _ProgressBarLoggerInstanceState:
     position: int
     keys_to_log: List[str]
     n: int
-    epoch_metrics: LoggerDataDict
+    epoch_metrics: Dict[str, Any]
 
 
 class _ProgressBarLoggerInstance:
@@ -42,7 +42,7 @@ class _ProgressBarLoggerInstance:
                               bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}")
         self.pbar.set_postfix(state.epoch_metrics)
 
-    def log_data(self, data: LoggerDataDict):
+    def log_data(self, data: Dict[str, Any]):
         formatted_data = {k: format_log_data_value(v) for (k, v) in data.items() if k in self.state.keys_to_log}
         self.state.epoch_metrics.update(formatted_data)
         self.pbar.set_postfix(self.state.epoch_metrics)
@@ -99,7 +99,7 @@ class ProgressBarLogger(LoggerDestination):
         self.is_train: Optional[bool] = None
         self.config = config
 
-    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict) -> None:
+    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
         del state
         if dist.get_global_rank() == 0 and log_level <= LogLevel.BATCH and self.is_train in self.pbars:
             # Logging outside an epoch

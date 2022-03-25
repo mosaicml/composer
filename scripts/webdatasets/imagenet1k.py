@@ -4,7 +4,7 @@ from glob import glob
 from random import shuffle
 from typing import Any, Dict, Iterable, List, Tuple
 
-from composer.datasets.webdataset import create_webdataset
+from composer.datasets.webdataset_utils import create_webdataset
 
 
 def parse_args() -> Namespace:
