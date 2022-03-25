@@ -6,14 +6,13 @@ from __future__ import annotations
 from typing import Tuple
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor
 from torchmetrics import Metric
 from torchmetrics.utilities.data import to_categorical
+from composer.loss import soft_cross_entropy
+
 
 __all__ = ["MIoU", "Dice", "CrossEntropyLoss", "LossMetric"]
-
-from composer.loss import soft_cross_entropy
 
 
 class MIoU(Metric):
@@ -55,7 +54,7 @@ class MIoU(Metric):
 
     def compute(self):
         """Aggregate state across all processes and compute final metric."""
-        return 100 * (self.total_intersect / self.total_union).mean()  # type: ignore - / unsupported for Tensor|Module
+        return 100 * (self.total_intersect / self.total_union).mean()  # type: ignore - / unsupported for Tensor|Module]
 
 
 class Dice(Metric):
@@ -84,7 +83,7 @@ class Dice(Metric):
         dice = 100 * self.dice / self.n_updates  # type: ignore
         best_sum_dice = dice[:]
         top_dice = round(torch.mean(best_sum_dice).item(), 2)
-        return top_dice
+        return top_dice  # type: ignore - / unsupported for Tensor|Module]
 
     @staticmethod
     def compute_stats(preds: Tensor, targets: Tensor):
@@ -154,7 +153,7 @@ class CrossEntropyLoss(Metric):
         # Return average loss over entire validation dataset
         assert isinstance(self.total_batches, Tensor)
         assert isinstance(self.sum_loss, Tensor)
-        return self.sum_loss / self.total_batches
+        return self.sum_loss / self.total_batches # type: ignore - / unsupported for Tensor|Module]
 
 
 class LossMetric(Metric):
@@ -181,4 +180,4 @@ class LossMetric(Metric):
     def compute(self):
         """Aggregate state over all processes and compute the metric."""
         # Return average loss over entire validation dataset
-        return self.sum_loss / self.total_batches
+        return self.sum_loss / self.total_batches  # type: ignore - / unsupported for Tensor|Module]
