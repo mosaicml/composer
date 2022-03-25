@@ -10,11 +10,11 @@ from typing import Callable, Optional
 
 import yahp as hp
 
-from composer.core import State
-from composer.profiler._profiler import cyclic_schedule
-from composer.profiler._profiler_action import ProfilerAction
-from composer.profiler._trace_handler import TraceHandler
+from composer.core.state import State
 from composer.profiler.json_trace_handler import JSONTraceHandler
+from composer.profiler.profiler_action import ProfilerAction
+from composer.profiler.profiler_schedule import cyclic_schedule
+from composer.profiler.trace_handler import TraceHandler
 
 __all__ = [
     "TraceHandlerHparams", "JSONTraceHparams", "trace_handler_registory", "ProfileScheduleHparams",
@@ -24,42 +24,39 @@ __all__ = [
 
 @dataclasses.dataclass
 class TraceHandlerHparams(hp.Hparams, abc.ABC):
-    """Base class for profiler trace destination hparams."""
+    """Base class for the :class:`.TraceHandler` hparams."""
 
     @abc.abstractmethod
     def initialize_object(self) -> TraceHandler:
-        """Constructs and returns an instance of the :class:`.TraceHandler`.
+        """Constructs and returns an instance of a :class:`.TraceHandler`.
 
         Returns:
-            TraceHandler: The trace destination.
+            TraceHandler: The trace handler.
         """
         pass
 
 
 @dataclasses.dataclass
 class JSONTraceHparams(TraceHandlerHparams):
-    """:class:`.JSONTraceHandler` hyperparameters.
+    """Hyperparameters for the :class:`.JSONTraceHandler`.
 
-    See :class:`.JSONTraceHandler` for documentation.
-    
-    Example usage with :class:`.TrainerHparams`\\:
-
-    .. code-block:: yaml
-
-        prof_trace_handlers:
-            - json:
-                folder_format: '{run_name}/traces'
-
+    Args:
+        folder (str, optional): See :class:`.JSONTraceHandler`.
+        filename (str, optional): See :class:`.JSONTraceHandler`.
+        artifact_name (str, optional): See :class:`.JSONTraceHandler`.
+        merged_trace_filename (str, optional): See :class:`.JSONTraceHandler`.
+        merged_trace_artifact_name (str, optional): See :class:`.JSONTraceHandler`.
+        overwrite (bool, optional): See :class:`.JSONTraceHandler`.
+        num_trace_cycles_to_keep (int, optional): See :class:`.JSONTraceHandler`.
     """
-    folder_format: str = hp.optional("Folder format", default='{run_name}/traces')
-    filename_format: str = hp.optional("Filename format string for the profile trace.",
-                                       default='ep{epoch}-ba{batch}-rank{rank}.json')
-    artifact_name_format: Optional[str] = hp.optional("Artifact name format string for the profiler trace.",
-                                                      default='{run_name}/traces/ep{epoch}-ba{batch}-rank{rank}.json')
-    merged_trace_filename_format: Optional[str] = hp.optional("Merged trace filename format",
-                                                              default='node{node_rank}.json')
-    merged_trace_artifact_name_format: Optional[str] = hp.optional("Merged trace file artifact name format",
-                                                                   default='{run_name}/traces/merged_trace.json')
+    folder: str = hp.optional("Folder format", default='{run_name}/traces')
+    filename: str = hp.optional("Filename format string for the profile trace.",
+                                default='ep{epoch}-ba{batch}-rank{rank}.json')
+    artifact_name: Optional[str] = hp.optional("Artifact name format string for the profiler trace.",
+                                               default='{run_name}/traces/ep{epoch}-ba{batch}-rank{rank}.json')
+    merged_trace_filename: Optional[str] = hp.optional("Merged trace filename format", default='node{node_rank}.json')
+    merged_trace_artifact_name: Optional[str] = hp.optional("Merged trace file artifact name format",
+                                                            default='{run_name}/traces/merged_trace.json')
     overwrite: bool = hp.optional("Overwrite", default=False)
     num_trace_cycles_to_keep: int = hp.optional("Num trace files to keep", default=-1)
 
@@ -68,17 +65,18 @@ class JSONTraceHparams(TraceHandlerHparams):
 
 
 trace_handler_registory = {"json": JSONTraceHparams}
+"""Trace handler registry."""
 
 
 @dataclasses.dataclass
 class ProfileScheduleHparams(hp.Hparams, abc.ABC):
-    """Profiler schedule hparams."""
+    """Base class for Composer Profiler schedule hparams."""
 
     @abc.abstractmethod
     def initialize_object(self) -> Callable[[State], ProfilerAction]:
-        """Constructs and returns a profiler scheduler.
+        """Constructs and returns a Composer Profiler scheduler.
 
-        The scheduler is passed as the ``schedule`` parameter into the :class:`~composer.profiler.Profiler`.
+        The scheduler is used ``prof_schedule`` argument for the :class:`~composer.trainer.trainer.Trainer`.
 
         Returns:
             (state) -> ProfilerAction: The profiler scheduler.
@@ -88,6 +86,15 @@ class ProfileScheduleHparams(hp.Hparams, abc.ABC):
 
 @dataclasses.dataclass
 class CyclicProfilerScheduleHparams(ProfileScheduleHparams):
+    """Hyperparameters for the :func:`.cyclic_schedule`.
+
+    Args:
+        skip_first (int, optional): See :func:`.cyclic_schedule`.
+        wait (str, optional): See :func:`.cyclic_schedule`.
+        warmup (str, optional): See :func:`.cyclic_schedule`.
+        active (str, optional): See :func:`.cyclic_schedule`.
+        repeat (str, optional): See :func:`.cyclic_schedule`.
+    """
     skip_first: int = hp.optional("skip first", default=0)
     wait: int = hp.optional("wait", default=0)
     warmup: int = hp.optional("warmup", default=1)
@@ -99,3 +106,4 @@ class CyclicProfilerScheduleHparams(ProfileScheduleHparams):
 
 
 profiler_scheduler_registry = {'cyclic': CyclicProfilerScheduleHparams}
+"""Profiler scheduler registry."""

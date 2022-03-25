@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Profiler Trace Handler."""
+
 from __future__ import annotations
 
 import abc
@@ -13,7 +15,7 @@ __all__ = ["TraceHandler"]
 
 
 class TraceHandler(Callback, abc.ABC):
-    """Trace destination base class.
+    """Base class for Composer Profiler trace handlers.
 
     Subclasses should implement :meth:`process_duration_event`, :meth:`process_instant_event`,
     :meth:`process_counter_event`, and :meth:`process_chrome_json_trace_file` to record trace events.
@@ -62,8 +64,6 @@ class TraceHandler(Callback, abc.ABC):
             categories (List[str] | Tuple[str, ...]): The categories for the event.
             timestamp (Timestamp): Snapshot of current training time.
             wall_clock_time_ns (int): The :py:func:`time.time_ns` corresponding to the event.
-            global_rank (int): The ``global_rank`` corresponding to the event.
-            pid (int): The ``pid`` corresponding to the event.
         """
         del name, categories, timestamp, wall_clock_time_ns  # unused
         pass

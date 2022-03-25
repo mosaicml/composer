@@ -51,8 +51,8 @@ class FileLoggerHparams(LoggerDestinationHparams):
     See :class:`~composer.loggers.file_logger.FileLogger` for documentation.
 
     Args:
-        filename_format (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
-        artifact_name_format (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
+        filename (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
+        artifact_name (str, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
         capture_stdout (bool, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
         capture_stderr (bool, optional): See :class:`~composer.loggers.file_logger.FileLogger`.
         buffer_size (int, optional): See
@@ -65,9 +65,8 @@ class FileLoggerHparams(LoggerDestinationHparams):
             :class:`~composer.loggers.file_logger.FileLogger`.
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: EPOCH", default=LogLevel.EPOCH)
-    filename_format: str = hp.optional("Filename format string for the logfile.",
-                                       default='{run_name}/logs-rank{rank}.txt')
-    artifact_name_format: Optional[str] = hp.optional("Artifact name format string for the logfile.", default=None)
+    filename: str = hp.optional("Filename format string for the logfile.", default='{run_name}/logs-rank{rank}.txt')
+    artifact_name: Optional[str] = hp.optional("Artifact name format string for the logfile.", default=None)
     capture_stdout: bool = hp.optional("Whether to capture writes to `stdout`", default=True)
     capture_stderr: bool = hp.optional("Whether to capture writes to `stderr`", default=True)
     buffer_size: int = hp.optional("Number of bytes to buffer. Defaults to 1 for line-buffering. "
@@ -94,7 +93,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         project (str, optional): WandB project name.
         group (str, optional): WandB group name.
         name (str, optional): WandB run name.
-            If not specified, the :attr:`~composer.loggers.logger.Logger.run_name` will be used.
+            If not specified, the :attr:`.Logger.run_name` will be used.
         entity (str, optional): WandB entity name.
         tags (str, optional): WandB tags, comma-separated.
         config (Dict[str, Any], optional): WandB run configuration.
@@ -238,8 +237,8 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
             .. seealso: :func:`composer.utils.import_helpers.import_object`
 
             Setting this parameter to ``None`` (the default) will log all artifacts.
-        object_name_format (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
-        config_artifact_name_format (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
+        object_name (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
+        config_artifact_name (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         num_concurrent_uploads (int, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         upload_staging_folder (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         use_procs (bool, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
@@ -247,8 +246,8 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
     object_store_hparams: ObjectStoreHparams = hp.required("Object store provider hparams.")
     should_log_artifact: Optional[str] = hp.optional(
         "Path to a filter function which returns whether an artifact should be logged.", default=None)
-    object_name_format: str = hp.optional("A format string for object names", default="{artifact_name}")
-    config_artifact_name_format: Optional[str] = hp.optional(
+    object_name: str = hp.optional("A format string for object names", default="{artifact_name}")
+    config_artifact_name: Optional[str] = hp.optional(
         "Format string to describe how to store the training configuration.", default="{run_name}/config.yaml")
     num_concurrent_uploads: int = hp.optional("Maximum number of concurrent uploads.", default=4)
     use_procs: bool = hp.optional("Whether to perform file uploads in background processes (as opposed to threads).",
@@ -261,7 +260,7 @@ class ObjectStoreLoggerHparams(LoggerDestinationHparams):
             provider=self.object_store_hparams.provider,
             container=self.object_store_hparams.container,
             provider_kwargs=self.object_store_hparams.get_provider_kwargs(),
-            object_name_format=self.object_name_format,
+            object_name=self.object_name,
             should_log_artifact=import_object(self.should_log_artifact)
             if self.should_log_artifact is not None else None,
             num_concurrent_uploads=self.num_concurrent_uploads,

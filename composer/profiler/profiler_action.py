@@ -12,7 +12,7 @@ class ProfilerAction(StringEnum):
         SKIP: Do not record new events to the trace.  Any events started during ``ACTIVE`` or ``WARMUP`` will be recorded upon finish.
         WARMUP: Record all events to the trace `except` those requiring a warmup period to initialize data structures (e.g., :doc:`profiler`).
         ACTIVE: Record all events to the trace.
-        ACTIVE_AND_SAVE: Record all events and save the trace, as the next action state will be :attr:`SKIP` or :attr:`WARMUP`
+        ACTIVE_AND_SAVE: Record all events and save the trace at the end of the batch.
     """
     SKIP = "skip"
     WARMUP = "warmup"

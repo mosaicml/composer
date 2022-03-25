@@ -37,7 +37,7 @@ def main() -> None:
     logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
     # Configure the Composer profiler
-    hparams.prof_trace_handlers = [JSONTraceHparams(folder_format="composer_traces")]
+    hparams.prof_trace_handlers = [JSONTraceHparams(folder="composer_traces")]
     if args.detailed:
         hparams.sys_prof_disk = True
         hparams.sys_prof_memory = True

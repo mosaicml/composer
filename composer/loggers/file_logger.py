@@ -26,7 +26,7 @@ class FileLogger(LoggerDestination):
             from composer.loggers import FileLogger, LogLevel
             from composer.trainer import Trainer
             file_logger = FileLogger(
-                filename_format="{run_name}/logs-rank{rank}.txt",
+                filename="{run_name}/logs-rank{rank}.txt",
                 buffer_size=1,
                 log_level=LogLevel.BATCH,
                 log_interval=2,
@@ -41,11 +41,11 @@ class FileLogger(LoggerDestination):
 
             import os
 
-            file_logger.close()
+            trainer.engine.close()
 
             path = os.path.join(trainer.logger.run_name, "logs-rank0.txt")
             try:
-                os.remove(logger.filename)
+                os.remove(file_logger.filename)
             except FileNotFoundError as e:
                 pass
 
@@ -58,7 +58,7 @@ class FileLogger(LoggerDestination):
 
 
     Args:
-        filename_format (str, optional): Format string for the filename.
+        filename (str, optional): Format string for the filename.
 
             The following format variables are available:
 
@@ -66,7 +66,7 @@ class FileLogger(LoggerDestination):
             | Variable               | Description                                           |
             +========================+=======================================================+
             | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`~composer.core.logging.Logger.run_name`.       |
+            |                        | :attr:`.Logger.run_name`.                             |
             +------------------------+-------------------------------------------------------+
             | ``{rank}``             | The global rank, as returned by                       |
             |                        | :func:`~composer.utils.dist.get_global_rank`.         |
@@ -91,28 +91,28 @@ class FileLogger(LoggerDestination):
 
             Consider the following example when using default value of '{run_name}/logs-rank{rank}.txt':
 
-            >>> file_logger = FileLogger(filename_format='{run_name}/logs-rank{rank}.txt')
-            >>> trainer = Trainer(logger_destinations=[file_logger], run_name='my-awesome-run')
-            >>> trainer.file_logger.filename
+            >>> file_logger = FileLogger(filename='{run_name}/logs-rank{rank}.txt')
+            >>> trainer = Trainer(loggers=[file_logger], run_name='my-awesome-run')
+            >>> file_logger.filename
             'my-awesome-run/logs-rank0.txt'
 
             Default: `'{run_name}/logs-rank{rank}.txt'`
 
-        artifact_name_format (str, optional): Format string for the logfile's artifact name.
+        artifact_name (str, optional): Format string for the logfile's artifact name.
         
             The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
             The artifact name will be determined by this format string.
 
-            .. seealso:: :meth:`~composer.core.logging.Logger.log_file_artifact` for file artifact logging.
+            .. seealso:: :meth:`~composer.loggers.logger.Logger.log_file_artifact` for file artifact logging.
 
-            The same format variables for ``filename_format`` are available. Setting this parameter to ``None``
-            (the default) will use the same format string as ``filename_format``. It is sometimes helpful to deviate
-            from this default. For example, when ``filename_format`` contains an absolute path, it is recommended to
+            The same format variables for ``filename`` are available. Setting this parameter to ``None``
+            (the default) will use the same format string as ``filename``. It is sometimes helpful to deviate
+            from this default. For example, when ``filename`` contains an absolute path, it is recommended to
             set this parameter explicitely, so the absolute path does not appear in any artifact stores.
 
             Leading slashes (``'/'``) will be stripped.
 
-            Default: ``None`` (which uses the same format string as ``filename_format``)
+            Default: ``None`` (which uses the same format string as ``filename``)
         capture_stdout (bool, optional): Whether to include the ``stdout``in ``filename``. (default: ``True``)
         capture_stderr (bool, optional): Whether to include the ``stderr``in ``filename``. (default: ``True``)
         buffer_size (int, optional): Buffer size. See :py:func:`open`.
@@ -135,8 +135,8 @@ class FileLogger(LoggerDestination):
 
     def __init__(
         self,
-        filename_format: str = "{run_name}/logs-rank{rank}.txt",
-        artifact_name_format: Optional[str] = None,
+        filename: str = "{run_name}/logs-rank{rank}.txt",
+        artifact_name: Optional[str] = None,
         *,
         capture_stdout: bool = True,
         capture_stderr: bool = True,
@@ -146,10 +146,10 @@ class FileLogger(LoggerDestination):
         flush_interval: int = 100,
         overwrite: bool = False,
     ) -> None:
-        self.filename_format = filename_format
-        if artifact_name_format is None:
-            artifact_name_format = filename_format.replace(os.path.sep, '/')
-        self.artifact_name_format = artifact_name_format
+        self.filename_format = filename
+        if artifact_name is None:
+            artifact_name = filename.replace(os.path.sep, '/')
+        self.artifact_name_format = artifact_name
         self.buffer_size = buffer_size
         self.log_level = log_level
         self.log_interval = log_interval
@@ -237,7 +237,9 @@ class FileLogger(LoggerDestination):
         self._run_name = logger.run_name
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
-        os.makedirs(os.path.dirname(self.filename), exist_ok=True)
+        file_dirname = os.path.dirname(self.filename)
+        if file_dirname:
+            os.makedirs(file_dirname, exist_ok=True)
         mode = 'w+' if self.overwrite else 'x+'
         self.file = open(self.filename, mode, buffering=self.buffer_size)
         self._flush_queue()

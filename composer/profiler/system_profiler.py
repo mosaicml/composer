@@ -22,15 +22,16 @@ __all__ = ["SystemProfiler"]
 
 
 class SystemProfiler(Callback):
-    """The SystemProfiler records system level metrics.  Implemented as a :class:`.Callback`, the profiler forks a
-    thread during :attr:`.Event.INIT` which polls and records system state.
-
-    When used with the Composer :class:`.Trainer`\\, the system profiler is enabled if profiling is enabled.
+    """The SystemProfiler records system level metrics.
 
     .. note::
 
-        The Composer :class:`.Trainer` creates an instance of :class:`.TorchProfiler` when ``tensorboard_trace_handler_dir`` is provided.
-        The user should not create and directly register an instance of :class:`.TorchProfiler` when using the Composer :class:`.Trainer`\\.
+        The Composer :class:`~composer.trainer.trainer.Trainer` automatically creates an instance of this
+        :class:`.SystemProfiler` callback whenever any of the System Profiler arguments (``sys_prof_cpu``,
+        ``sys_prof_memory``, ``sys_prof_disk``, or ``sys_prof_net``) are enabled.
+
+        When using the Composer :class:`~composer.trainer.trainer.Trainer`, one does not need to directly create an
+        instance of this :class:`.SystemProfiler` callback.
 
     Args:
         profile_cpu (bool): Whether to record cpu statistics (Default: ``True``)

@@ -13,7 +13,7 @@ from composer.trainer import TrainerHparams
 @pytest.mark.timeout(10)
 def test_json_trace_profiler_handler(composer_trainer_hparams: TrainerHparams, tmpdir: pathlib.Path):
     profiler_file = os.path.join(tmpdir, 'trace.json')
-    json_trace_handler_params = JSONTraceHparams(folder_format=str(tmpdir), merged_trace_filename_format='trace.json')
+    json_trace_handler_params = JSONTraceHparams(folder=str(tmpdir), merged_trace_filename='trace.json')
 
     composer_trainer_hparams.prof_trace_handlers = [json_trace_handler_params]
     composer_trainer_hparams.prof_schedule = CyclicProfilerScheduleHparams(

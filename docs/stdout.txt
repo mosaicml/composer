@@ -1,0 +1,1090 @@
+Running Sphinx v4.4.0
+loading pickled environment... done
+[autosummary] generating autosummary for: api_reference.rst, api_reference/composer.algorithms.algorithm_hparams.rst, api_reference/composer.algorithms.algorithm_registry.rst, api_reference/composer.algorithms.alibi.alibi.rst, api_reference/composer.algorithms.alibi.rst, api_reference/composer.algorithms.augmix.augmix.rst, api_reference/composer.algorithms.augmix.rst, api_reference/composer.algorithms.blurpool.blurpool.rst, api_reference/composer.algorithms.blurpool.blurpool_layers.rst, api_reference/composer.algorithms.blurpool.rst, ..., trainer/evaluation.rst, trainer/events.rst, trainer/logging.rst, trainer/numerics.md, trainer/performance.rst, trainer/performance_tutorials/analyzing_traces.md, trainer/performance_tutorials/profiling.md, trainer/schedulers.rst, trainer/time.rst, trainer/using_the_trainer.rst
+myst v0.16.1: MdParserConfig(renderer='sphinx', commonmark_only=False, enable_extensions=['dollarmath'], linkify_fuzzy_links=True, dmath_allow_labels=True, dmath_allow_space=True, dmath_allow_digits=True, dmath_double_inline=False, update_mathjax=True, mathjax_classes='tex2jax_process|mathjax_process|math|output_area', disable_syntax=[], url_schemes=['http', 'https', 'mailto', 'ftp'], heading_anchors=None, heading_slug_func=None, html_meta=[], footnote_transition=True, substitutions=[], sub_delimiters=['{', '}'], words_per_minute=200)
+Initiated sphinxcontrib-images backend: `sphinxcontrib_images_lightbox2.lightbox2:LightBox2`
+building [mo]: targets for 0 po files that are out of date
+building [doctest]: targets for 247 source files that are out of date
+updating environment: 0 added, 3 changed, 0 removed
+reading sources... [ 33%] api_reference/composer.trainer
+reading sources... [ 66%] api_reference/composer.trainer.trainer
+reading sources... [100%] api_reference/composer.trainer.trainer_hparams
+
+Copying static files for sphinxcontrib-images...[ 12%] lightbox2/dist/images/close.png
+Copying static files for sphinxcontrib-images...[ 25%] lightbox2/dist/images/next.png
+Copying static files for sphinxcontrib-images...[ 37%] lightbox2/dist/images/prev.png
+Copying static files for sphinxcontrib-images...[ 50%] lightbox2/dist/images/loading.gif
+Copying static files for sphinxcontrib-images...[ 62%] lightbox2/dist/js/lightbox-plus-jquery.min.js
+Copying static files for sphinxcontrib-images...[ 75%] lightbox2/dist/js/lightbox-plus-jquery.min.map
+Copying static files for sphinxcontrib-images...[ 87%] lightbox2/dist/css/lightbox.css
+Copying static files for sphinxcontrib-images...[100%] lightbox2-customize/jquery-noconflict.js
+
+looking for now-outdated files... none found
+pickling environment... done
+checking consistency... done
+running tests...
+
+Document: api_reference/composer.algorithms.cutmix.cutmix
+---------------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.models.gpt2.model
+--------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.profiler.profiler
+--------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: trainer/checkpointing
+-------------------------------
+**********************************************************************
+File "trainer/checkpointing.rst", line 88, in default
+Failed example:
+    trainer.saved_checkpoints
+Expected:
+    [ (timestamp: ['ep1.pt']) ]
+Got:
+    []
+**********************************************************************
+File "trainer/checkpointing.rst", line 95, in default
+Failed example:
+    latest_checkpoint = trainer.saved_checkpoints[-1]
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[0]>", line 1, in <module>
+        latest_checkpoint = trainer.saved_checkpoints[-1]
+    IndexError: list index out of range
+**********************************************************************
+File "trainer/checkpointing.rst", line 96, in default
+Failed example:
+    timestamp, checkpoint_filepaths = latest_checkpoint
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[1]>", line 1, in <module>
+        timestamp, checkpoint_filepaths = latest_checkpoint
+    NameError: name 'latest_checkpoint' is not defined
+**********************************************************************
+File "trainer/checkpointing.rst", line 97, in default
+Failed example:
+    checkpoint_filepath = checkpoint_filepaths[0]  # when not using DeepSpeed, there is only one checkpoint file.
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[2]>", line 1, in <module>
+        checkpoint_filepath = checkpoint_filepaths[0]  # when not using DeepSpeed, there is only one checkpoint file.
+    NameError: name 'checkpoint_filepaths' is not defined
+**********************************************************************
+File "trainer/checkpointing.rst", line 98, in default
+Failed example:
+    state_dict = torch.load(checkpoint_filepath)
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[3]>", line 1, in <module>
+        state_dict = torch.load(checkpoint_filepath)
+    NameError: name 'checkpoint_filepath' is not defined
+**********************************************************************
+File "trainer/checkpointing.rst", line 99, in default
+Failed example:
+    list(state_dict)
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[4]>", line 1, in <module>
+        list(state_dict)
+    NameError: name 'state_dict' is not defined
+**********************************************************************
+File "trainer/checkpointing.rst", line 101, in default
+Failed example:
+    list(state_dict['state'].keys())
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[5]>", line 1, in <module>
+        list(state_dict['state'].keys())
+    NameError: name 'state_dict' is not defined
+**********************************************************************
+File "trainer/checkpointing.rst", line 229, in default
+Failed example:
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=None,
+        max_duration="90ep",
+        load_path="./path/to/checkpoint/ep25.pt",
+    )
+    trainer.fit()
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[0]>", line 1, in <module>
+        trainer = Trainer(
+      File "<doctest default (setup code)[0]>", line 146, in Trainer
+      File "<doctest default (setup code)[0]>", line 146, in Trainer
+      File "<doctest default (setup code)[0]>", line 146, in Trainer
+      [Previous line repeated 1 more time]
+      File "/home/ravi/composer/composer/trainer/trainer.py", line 815, in __init__
+        self._rng_state = load_checkpoint(state=self.state,
+      File "/home/ravi/composer/composer/utils/checkpoint.py", line 134, in load_checkpoint
+        composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = _download_checkpoint(
+      File "/home/ravi/composer/composer/utils/checkpoint.py", line 202, in _download_checkpoint
+        get_file(destination=rank_zero_checkpoint_filepath,
+      File "/home/ravi/composer/composer/utils/file_helpers.py", line 285, in get_file
+        raise GetFileNotFoundException(f"Local path {path} does not exist")
+    composer.utils.file_helpers.GetFileNotFoundException: Local path ./path/to/checkpoint/ep25.pt does not exist
+**********************************************************************
+File "trainer/checkpointing.rst", line 463, in default
+Failed example:
+    ft_trainer = Trainer(
+        model=finetune_model,
+        train_dataloader=finetune_dataloader,
+        max_duration="10ep",
+        load_path="./path/to/checkpoint/ep50.pt",
+        load_weights_only=True,
+        load_strict=False,
+    )
+
+    ft_trainer.fit()
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[0]>", line 1, in <module>
+        ft_trainer = Trainer(
+      File "<doctest default (setup code)[0]>", line 146, in Trainer
+      File "<doctest default (setup code)[0]>", line 146, in Trainer
+      File "<doctest default (setup code)[0]>", line 146, in Trainer
+      [Previous line repeated 1 more time]
+      File "/home/ravi/composer/composer/trainer/trainer.py", line 815, in __init__
+        self._rng_state = load_checkpoint(state=self.state,
+      File "/home/ravi/composer/composer/utils/checkpoint.py", line 134, in load_checkpoint
+        composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = _download_checkpoint(
+      File "/home/ravi/composer/composer/utils/checkpoint.py", line 202, in _download_checkpoint
+        get_file(destination=rank_zero_checkpoint_filepath,
+      File "/home/ravi/composer/composer/utils/file_helpers.py", line 285, in get_file
+        raise GetFileNotFoundException(f"Local path {path} does not exist")
+    composer.utils.file_helpers.GetFileNotFoundException: Local path ./path/to/checkpoint/ep50.pt does not exist
+**********************************************************************
+File "trainer/checkpointing.rst", line 507, in default
+Failed example:
+    model = Model(num_channels=3, num_classes=10)
+    state_dict = torch.load("./path/to/checkpoint/ep15.pt")
+    model.load_state_dict(state_dict["state"]["model"])
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[0]>", line 2, in <module>
+        state_dict = torch.load("./path/to/checkpoint/ep15.pt")
+      File "/home/ravi/venvs/composer/lib/python3.9/site-packages/torch/serialization.py", line 594, in load
+        with _open_file_like(f, 'rb') as opened_file:
+      File "/home/ravi/venvs/composer/lib/python3.9/site-packages/torch/serialization.py", line 230, in _open_file_like
+        return _open_file(name_or_buffer, mode)
+      File "/home/ravi/venvs/composer/lib/python3.9/site-packages/torch/serialization.py", line 211, in __init__
+        super(_open_file, self).__init__(open(name, mode))
+    FileNotFoundError: [Errno 2] No such file or directory: './path/to/checkpoint/ep15.pt'
+**********************************************************************
+File "trainer/checkpointing.rst", line 671, in default
+Failed example:
+    from composer.utils.object_store import ObjectStore
+    from composer.trainer import Trainer
+
+    object_store = ObjectStore(
+        provider="s3",  # The Apache Libcloud provider name
+        container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
+        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments
+            'key': 'provider_key',  # The cloud provider key.
+            'secret': '*******',  # The cloud provider secret.
+            # Any additional arguments required for the cloud provider.
+        },
+    )
+
+    new_trainer = Trainer(
+        model=model,
+        train_dataloader=finetune_dataloader,
+        eval_dataloader=None,
+        max_duration="10ep",
+        load_path="checkpoints/ep1.tar",
+        load_object_store=object_store,
+        load_weights_only=True,
+    )
+
+    new_trainer.fit()
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[0]>", line 14, in <module>
+        new_trainer = Trainer(
+      File "<doctest default (setup code)[0]>", line 146, in Trainer
+      File "<doctest default (setup code)[0]>", line 146, in Trainer
+      File "<doctest default (setup code)[0]>", line 146, in Trainer
+      [Previous line repeated 1 more time]
+      File "/home/ravi/composer/composer/trainer/trainer.py", line 815, in __init__
+        self._rng_state = load_checkpoint(state=self.state,
+      File "/home/ravi/composer/composer/utils/checkpoint.py", line 134, in load_checkpoint
+        composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = _download_checkpoint(
+      File "/home/ravi/composer/composer/utils/checkpoint.py", line 202, in _download_checkpoint
+        get_file(destination=rank_zero_checkpoint_filepath,
+      File "/home/ravi/composer/composer/utils/file_helpers.py", line 248, in get_file
+        total_size_in_bytes = object_store.get_object_size(path)
+      File "/home/ravi/composer/composer/utils/object_store.py", line 300, in get_object_size
+        return self._get_object(object_name).size
+      File "/home/ravi/composer/composer/utils/object_store.py", line 289, in _get_object
+        return self._provider.get_object(self._container.name, object_name)
+      File "/home/ravi/venvs/composer/lib/python3.9/site-packages/libcloud/storage/drivers/s3.py", line 370, in get_object
+        response = self.connection.request(object_path, method='HEAD')
+      File "/home/ravi/venvs/composer/lib/python3.9/site-packages/libcloud/common/base.py", line 667, in request
+        response = responseCls(**kwargs)
+      File "/home/ravi/venvs/composer/lib/python3.9/site-packages/libcloud/common/base.py", line 167, in __init__
+        message=self.parse_error(),
+      File "/home/ravi/venvs/composer/lib/python3.9/site-packages/libcloud/storage/drivers/s3.py", line 138, in parse_error
+        raise InvalidCredsError(self.body)
+    libcloud.common.types.InvalidCredsError: ''
+**********************************************************************
+1 items had failures:
+  11 of  17 in default
+17 tests in 1 items.
+6 passed and 11 failed.
+***Test Failed*** 11 failures.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.core.event
+-------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.squeeze_excite.squeeze_excite
+-------------------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.core.evaluator
+-----------------------------------------------
+1 items passed all tests:
+   3 tests in default
+3 tests in 1 items.
+3 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.ghost_batchnorm.ghost_batchnorm
+---------------------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: method_cards/swa
+--------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.mixup.mixup
+-------------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.randaugment.randaugment
+-------------------------------------------------------------------
+1 items passed all tests:
+   3 tests in default
+3 tests in 1 items.
+3 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.loggers.progress_bar_logger
+------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: trainer/logging
+-------------------------
+1 items passed all tests:
+   3 tests in default
+3 tests in 1 items.
+3 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   2 tests in default (cleanup code)
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+
+Document: trainer/using_the_trainer
+-----------------------------------
+1 items passed all tests:
+   5 tests in default
+5 tests in 1 items.
+5 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.utils.import_helpers
+-----------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.models.timm.model
+--------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.models.resnet.model
+----------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.profiler.marker
+------------------------------------------------
+1 items passed all tests:
+  20 tests in default
+20 tests in 1 items.
+20 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.loggers.file_logger
+----------------------------------------------------
+1 items passed all tests:
+   4 tests in default
+4 tests in 1 items.
+4 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   2 tests in default (cleanup code)
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.utils.module_surgery
+-----------------------------------------------------
+1 items passed all tests:
+   8 tests in default
+8 tests in 1 items.
+8 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.factorize.factorize
+---------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.models.resnet20_cifar10.model
+--------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.models.resnet56_cifar10.model
+--------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.loggers.object_store_logger
+------------------------------------------------------------
+2 items passed all tests:
+   1 tests in composer.loggers.object_store_logger.ObjectStoreLogger.__init__
+   3 tests in composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name
+4 tests in 2 items.
+4 passed and 0 failed.
+Test passed.
+2 items passed all tests:
+   2 tests in composer.loggers.object_store_logger.ObjectStoreLogger.__init__ (cleanup code)
+   2 tests in composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name (cleanup code)
+4 tests in 2 items.
+4 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.loggers.in_memory_logger
+---------------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.layer_freezing.layer_freezing
+-------------------------------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.utils.reproducibility
+------------------------------------------------------
+1 items passed all tests:
+  10 tests in default
+10 tests in 1 items.
+10 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   3 tests in default (cleanup code)
+3 tests in 1 items.
+3 passed and 0 failed.
+Test passed.
+
+Document: method_cards/stochastic_depth
+---------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.models.bert.model
+--------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.swa.swa
+---------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: model_cards/resnet
+----------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.callbacks.grad_monitor
+-------------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.cutout.cutout
+---------------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.utils.object_store
+---------------------------------------------------
+4 items passed all tests:
+   4 tests in composer.utils.object_store.ObjectStoreHparams.__init__.key
+   4 tests in composer.utils.object_store.ObjectStoreHparams.__init__.s3
+   4 tests in composer.utils.object_store.ObjectStoreHparams.__init__.secret
+   3 tests in default
+15 tests in 4 items.
+15 passed and 0 failed.
+Test passed.
+4 items passed all tests:
+   1 tests in composer.utils.object_store.ObjectStoreHparams.__init__.key (cleanup code)
+   1 tests in composer.utils.object_store.ObjectStoreHparams.__init__.s3 (cleanup code)
+   1 tests in composer.utils.object_store.ObjectStoreHparams.__init__.secret (cleanup code)
+   1 tests in default (cleanup code)
+4 tests in 4 items.
+4 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.callbacks.memory_monitor
+---------------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: trainer/dataloaders
+-----------------------------
+1 items passed all tests:
+   7 tests in default
+7 tests in 1 items.
+7 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.models.classify_mnist.model
+------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.blurpool.blurpool
+-------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.stochastic_depth.stochastic_depth
+-----------------------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.callbacks.checkpoint_saver
+-----------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: trainer/schedulers
+----------------------------
+1 items passed all tests:
+   4 tests in default
+4 tests in 1 items.
+4 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.core.data_spec
+-----------------------------------------------
+1 items passed all tests:
+   7 tests in default
+7 tests in 1 items.
+7 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.models.efficientnetb0.model
+------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: getting_started/installation
+--------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.callbacks.speed_monitor
+--------------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.colout.colout
+---------------------------------------------------------
+1 items passed all tests:
+   3 tests in default
+3 tests in 1 items.
+3 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.core.time
+------------------------------------------
+1 items passed all tests:
+  12 tests in default
+12 tests in 1 items.
+12 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.loggers.logger_destination
+-----------------------------------------------------------
+1 items passed all tests:
+   4 tests in default
+4 tests in 1 items.
+4 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.trainer.devices.device
+-------------------------------------------------------
+1 items passed all tests:
+   4 tests in default
+4 tests in 1 items.
+4 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.label_smoothing.label_smoothing
+---------------------------------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.utils.string_enum
+--------------------------------------------------
+1 items passed all tests:
+  10 tests in default
+10 tests in 1 items.
+10 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   3 tests in default (cleanup code)
+3 tests in 1 items.
+3 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.loggers.logger
+-----------------------------------------------
+1 items passed all tests:
+   2 tests in composer.loggers.logger.Logger.__init__.run_name
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   2 tests in composer.loggers.logger.Logger.__init__.run_name (cleanup code)
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.progressive_resizing.progressive_resizing
+-------------------------------------------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.algorithms.augmix.augmix
+---------------------------------------------------------
+1 items passed all tests:
+   3 tests in default
+3 tests in 1 items.
+3 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.core.callback
+----------------------------------------------
+1 items passed all tests:
+   6 tests in default
+6 tests in 1 items.
+6 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.utils.file_helpers
+---------------------------------------------------
+1 items passed all tests:
+   6 tests in default
+6 tests in 1 items.
+6 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.models.base
+--------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.core.algorithm
+-----------------------------------------------
+1 items passed all tests:
+   4 tests in default
+4 tests in 1 items.
+4 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.callbacks.lr_monitor
+-----------------------------------------------------
+1 items passed all tests:
+   2 tests in default
+2 tests in 1 items.
+2 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.models.resnet9_cifar10.model
+-------------------------------------------------------------
+1 items passed all tests:
+   1 tests in default
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.trainer.trainer
+------------------------------------------------
+**********************************************************************
+File "../../composer/trainer/trainer.py", line ?, in default
+Failed example:
+    # Get the saved checkpoint filepath
+    checkpoint_path = trainer.saved_checkpoints.pop()[0]
+
+    # Create a new trainer with the `load_path` argument set to the checkpoint path.
+    trainer = Trainer(model=model,
+                      train_dataloader=train_dataloader,
+                      max_duration="2ep",
+                      eval_dataloader=eval_dataloader,
+                      optimizers=optimizer,
+                      schedulers=scheduler,
+                      device="cpu",
+                      validate_every_n_epochs=1,
+                      load_path=checkpoint_path)
+
+    # Continue training and running evaluation where the previous trainer left off
+    # until the new max_duration is reached.
+    # In this case it will be one additional epoch to reach 2 epochs total.
+    trainer.fit()
+Exception raised:
+    Traceback (most recent call last):
+      File "/usr/lib/python3.9/doctest.py", line 1336, in __run
+        exec(compile(example.source, filename, "single",
+      File "<doctest default[0]>", line 2, in <module>
+        checkpoint_path = trainer.saved_checkpoints.pop()[0]
+    IndexError: pop from empty list
+**********************************************************************
+1 items had failures:
+   1 of   4 in default
+4 tests in 1 items.
+3 passed and 1 failed.
+***Test Failed*** 1 failures.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Document: api_reference/composer.core.engine
+--------------------------------------------
+1 items passed all tests:
+   3 tests in default
+3 tests in 1 items.
+3 passed and 0 failed.
+Test passed.
+1 items passed all tests:
+   1 tests in default (cleanup code)
+1 tests in 1 items.
+1 passed and 0 failed.
+Test passed.
+
+Doctest summary
+===============
+  221 tests
+   12 failures in tests
+    0 failures in setup code
+    0 failures in cleanup code
+build finished with problems.

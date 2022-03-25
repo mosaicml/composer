@@ -83,7 +83,7 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
     """
 
     # load_weights_only is False since the original Trainer is testing full checkpoint recovery
-    original_trainer_hparams.load_path_format = new_trainer_hparams.load_path_format
+    original_trainer_hparams.load_path = new_trainer_hparams.load_path
     original_trainer_hparams.load_weights_only = False
     original_trainer_hparams.load_strict_model_weights = False
     original_trainer_hparams.save_overwrite = True
@@ -104,7 +104,7 @@ def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams,
                                   rank_zero_tmpdir: pathlib.Path) -> TrainerHparams:
     composer_trainer_hparams.grad_accum = 2
     composer_trainer_hparams.max_duration = "2ep"
-    composer_trainer_hparams.save_folder_format = str(rank_zero_tmpdir / "checkpoints")
+    composer_trainer_hparams.save_folder = str(rank_zero_tmpdir / "checkpoints")
     composer_trainer_hparams.save_interval = "1ba"
     composer_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
     composer_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
@@ -135,19 +135,19 @@ def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: 
 
         deep_compare(checkpoint_a["rng"], checkpoint_b["rng"])
 
-    assert hparams_b.load_path_format is not None
-    assert hparams_b.save_folder_format is not None
-    hparams_a.load_path_format = hparams_b.load_path_format
+    assert hparams_b.load_path is not None
+    assert hparams_b.save_folder is not None
+    hparams_a.load_path = hparams_b.load_path
     hparams_a.load_weights_only = False
     hparams_a.save_overwrite = True
     hparams_a.load_strict_model_weights = False
-    hparams_a.save_folder_format = hparams_b.save_folder_format
+    hparams_a.save_folder = hparams_b.save_folder
     hparams_b.save_overwrite = True
 
     assert hparams_a.to_dict() == hparams_b.to_dict()
 
-    hparams_a.load_path_format = checkpoint_file_a
-    hparams_b.load_path_format = checkpoint_file_b
+    hparams_a.load_path = checkpoint_file_a
+    hparams_b.load_path = checkpoint_file_b
 
     trainer_a = hparams_a.initialize_object()
     state_a = trainer_a.state
@@ -200,8 +200,8 @@ def test_load_weights(
     composer_trainer_hparams.train_subset_num_batches = 5
     composer_trainer_hparams.device = device_hparams
     checkpoint_a_folder = str(rank_zero_tmpdir / "first")
-    composer_trainer_hparams.save_folder_format = checkpoint_a_folder
-    composer_trainer_hparams.save_filename_format = "ep{epoch}.pt"
+    composer_trainer_hparams.save_folder = checkpoint_a_folder
+    composer_trainer_hparams.save_filename = "ep{epoch}.pt"
     composer_trainer_hparams.save_interval = "1ep"
     composer_trainer_hparams.seed = None
     composer_trainer_hparams.validate_every_n_batches = 1
@@ -215,7 +215,7 @@ def test_load_weights(
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, final_checkpoint)
 
     # load only model weights
-    second_trainer_hparams.load_path_format = checkpoint_a_file_path
+    second_trainer_hparams.load_path = checkpoint_a_file_path
     second_trainer_hparams.load_weights_only = True
     second_trainer_hparams.load_strict_model_weights = True
     # setup a new optimizer
@@ -249,7 +249,7 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
-    "seed,save_interval,save_filename_format,resume_file,final_checkpoint",
+    "seed,save_interval,save_filename,resume_file,final_checkpoint",
     [
         [None, "1ep", "ep{epoch}-rank{rank}", "ep1-rank{rank}", "latest-rank{rank}"
         ],  # test randomized seed saving and symlinking
@@ -269,7 +269,7 @@ def test_checkpoint(
     zero_stage: Optional[int],
     composer_trainer_hparams: TrainerHparams,
     save_interval: str,
-    save_filename_format: str,
+    save_filename: str,
     resume_file: str,
     final_checkpoint: str,
     seed: Optional[int],
@@ -308,7 +308,7 @@ def test_checkpoint(
         pytest.skip("Checkpointing tests require synthetic data")
         return
 
-    composer_trainer_hparams.save_filename_format = save_filename_format
+    composer_trainer_hparams.save_filename = save_filename
     composer_trainer_hparams.train_dataset.use_synthetic = True
     composer_trainer_hparams.train_dataset.shuffle = False
     composer_trainer_hparams.val_dataset.use_synthetic = True
@@ -337,7 +337,7 @@ def test_checkpoint(
         composer_trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
 
     checkpoint_a_folder = str(rank_zero_tmpdir / "first")
-    composer_trainer_hparams.save_folder_format = checkpoint_a_folder
+    composer_trainer_hparams.save_folder = checkpoint_a_folder
     composer_trainer_hparams.save_interval = save_interval
     composer_trainer_hparams.seed = seed
 
@@ -356,25 +356,25 @@ def test_checkpoint(
             checkpoint_saver = callback
     assert checkpoint_saver is not None
     assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
-    checkpoint_to_resume_filepath_format = os.path.join(checkpoint_a_folder, resume_file)
-    first_trainer_final_checkpoint_filepath_format = os.path.join(checkpoint_a_folder, final_checkpoint)
+    checkpoint_to_resume_filepath = os.path.join(checkpoint_a_folder, resume_file)
+    first_trainer_final_checkpoint_filepath = os.path.join(checkpoint_a_folder, final_checkpoint)
 
     second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
     checkpoint_b_folder = str(rank_zero_tmpdir / "second")
 
-    second_trainer_hparams.save_folder_format = checkpoint_b_folder
-    second_trainer_hparams.load_path_format = checkpoint_to_resume_filepath_format
+    second_trainer_hparams.save_folder = checkpoint_b_folder
+    second_trainer_hparams.load_path = checkpoint_to_resume_filepath
     second_trainer_hparams.load_weights_only = False
     second_trainer_hparams.load_strict_model_weights = False
 
     _test_checkpoint_trainer(second_trainer_hparams)
-    second_trainer_final_checkpoint_filepath_format = os.path.join(checkpoint_b_folder, final_checkpoint)
+    second_trainer_final_checkpoint_filepath = os.path.join(checkpoint_b_folder, final_checkpoint)
 
     assert_checkpoints_equivalent(
         hparams_a=composer_trainer_hparams,
-        checkpoint_file_a=first_trainer_final_checkpoint_filepath_format,
+        checkpoint_file_a=first_trainer_final_checkpoint_filepath,
         hparams_b=second_trainer_hparams,
-        checkpoint_file_b=second_trainer_final_checkpoint_filepath_format,
+        checkpoint_file_b=second_trainer_final_checkpoint_filepath,
     )
 
 

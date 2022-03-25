@@ -69,7 +69,7 @@ def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs:
     | Variable               | Description                                           |
     +========================+=======================================================+
     | ``{run_name}``         | The name of the training run. See                     |
-    |                        | :attr:`~composer.core.logging.Logger.run_name`.       |
+    |                        | :attr:`.Logger.run_name`.                             |
     +------------------------+-------------------------------------------------------+
     | ``{rank}``             | The global rank, as returned by                       |
     |                        | :func:`~.dist.get_global_rank`.                       |
@@ -124,7 +124,7 @@ def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Ti
     | Variable               | Description                                           |
     +========================+=======================================================+
     | ``{run_name}``         | The name of the training run. See                     |
-    |                        | :attr:`~composer.core.logging.Logger.run_name`.       |
+    |                        | :attr:`.Logger.run_name`.                             |
     +------------------------+-------------------------------------------------------+
     | ``{rank}``             | The global rank, as returned by                       |
     |                        | :func:`~composer.utils.dist.get_global_rank`.         |
@@ -165,11 +165,12 @@ def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Ti
 
     For example, assume that the current epoch is ``0``, batch is ``0``, and rank is ``0``. Then:
 
+    >>> from composer.utils import format_name_with_dist_and_time
     >>> format_str = '{run_name}/ep{epoch}-ba{batch}-rank{rank}.{extension}'
     >>> format_name_with_dist_and_time(
     ...     format_str,
     ...     run_name='awesome_training_run',
-    ...     timestamp=state.timer.get_timetamp(),
+    ...     timestamp=state.timer.get_timestamp(),
     ...     extension='json',
     ... )
     'awesome_training_run/ep0-ba0-rank0.json'

@@ -129,10 +129,10 @@ class CheckpointSaverHparams(CallbackHparams):
     """:class:`~.CheckpointSaver` hyperparameters.
     
     Args:
-        save_folder_format (str, optional): See :class:`~.CheckpointSaver`.
-        filename_format (str, optional): See :class:`~.CheckpointSaver`.
-        artifact_name_format (str, optional): See :class:`~.CheckpointSaver`.
-        latest_filename_format (str, optional): See :class:`~.CheckpointSaver`.
+        save_folder (str, optional): See :class:`~.CheckpointSaver`.
+        filename (str, optional): See :class:`~.CheckpointSaver`.
+        artifact_name (str, optional): See :class:`~.CheckpointSaver`.
+        latest_filename (str, optional): See :class:`~.CheckpointSaver`.
         overwrite (str, optional): See :class:`~.CheckpointSaver`.
         weights_only (bool, optional): See :class:`~.CheckpointSaver`.
         num_checkpoints_to_keep (int, optional): See :class:`~.CheckpointSaver`.
@@ -147,13 +147,12 @@ class CheckpointSaverHparams(CallbackHparams):
             be either :attr:`~composer.core.event.Event.BATCH_CHECKPOINT` or
             :attr:`~composer.core.event.Event.EPOCH_CHECKPOINT`.
     """
-    save_folder_format: str = hp.optional(doc="Folder where checkpoints will be saved.",
-                                          default="{run_name}/checkpoints")
-    filename_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
-    artifact_name_format: str = hp.optional("Checkpoint artifact name format string.",
-                                            default="{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}")
-    latest_filename_format: Optional[str] = hp.optional("Latest checkpoint symlink format string.",
-                                                        default="latest-rank{rank}")
+    save_folder: str = hp.optional(doc="Folder where checkpoints will be saved.", default="{run_name}/checkpoints")
+    filename: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
+    artifact_name: str = hp.optional("Checkpoint artifact name format string.",
+                                     default="{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}")
+    latest_filename: Optional[str] = hp.optional("Latest checkpoint symlink format string.",
+                                                 default="latest-rank{rank}")
     overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     save_interval: str = hp.optional(textwrap.dedent("""\
@@ -172,10 +171,10 @@ class CheckpointSaverHparams(CallbackHparams):
             # assume it is a function path
             save_interval = import_object(self.save_interval)
         return CheckpointSaver(
-            save_folder_format=self.save_folder_format,
-            filename_format=self.filename_format,
-            artifact_name_format=self.artifact_name_format,
-            latest_filename_format=self.latest_filename_format,
+            save_folder=self.save_folder,
+            filename=self.filename,
+            artifact_name=self.artifact_name,
+            latest_filename=self.latest_filename,
             overwrite=self.overwrite,
             save_interval=save_interval,
             weights_only=self.weights_only,

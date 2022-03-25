@@ -93,7 +93,7 @@ class TestTrainerInit():
         config.update({
             'max_duration': 1,
             'save_interval': 10,
-            'save_folder_format': str(tmpdir),
+            'save_folder': str(tmpdir),
         })
 
         trainer = Trainer(**config)
@@ -167,11 +167,7 @@ class TestTrainerEquivalence():
         config = deepcopy(config)  # ensure the reference model is not passed to tests
 
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
-        config.update({
-            'save_interval': '1ep',
-            'save_folder_format': str(save_folder),
-            'save_filename_format': 'ep{epoch}.pt'
-        })
+        config.update({'save_interval': '1ep', 'save_folder': str(save_folder), 'save_filename': 'ep{epoch}.pt'})
 
         trainer = Trainer(**config)
         trainer.fit()
@@ -213,7 +209,7 @@ class TestTrainerEquivalence():
     def test_checkpoint(self, config, *args):
         # load from epoch 1 checkpoint and finish training
         checkpoint_file = os.path.join(self.reference_folder, 'ep1.pt')
-        config['load_path_format'] = checkpoint_file
+        config['load_path'] = checkpoint_file
 
         trainer = Trainer(**config)
         assert trainer.state.timer.epoch == "1ep"  # ensure checkpoint state loaded

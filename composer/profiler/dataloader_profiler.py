@@ -47,20 +47,17 @@ class _ProfiledDataLoader(WrappedDataLoader):
 
 
 class DataLoaderProfiler(Callback):
-    """Records the time it takes the data loader to return a batch.
+    """Profile a DataLoader.
 
-    When used with the Composer :class:`.Trainer`\\, the data loader profiler is enabled if profiling is enabled.
-
-    Works by wrapping the original training and evaluation data loaders and uses the :class:`.Marker` API to record
-    the latency of the wrapped data loader.
-
-    The profiler is implemented as a :class:`.Callback` and accesses the training and evaluation data loaders through
-    :class:`.State`\\.
+    This callback measures the latency it takes for the DataLoader to yield a batch.
 
     .. note::
 
-        The Composer :class:`.Trainer` creates an instance of :class:`.TorchProfiler` when ``tensorboard_trace_handler_dir`` is provided.
-        The user should not create and directly register an instance of :class:`.TorchProfiler` when using the Composer :class:`.Trainer`\\.
+        The Composer :class:`~composer.trainer.trainer.Trainer` automatically creates an instance of this
+        :class:`.DataLoaderProfiler` callback whenever the profiler is enabled.
+
+        When using the Composer :class:`~composer.trainer.trainer.Trainer`, one does not need to directly create an
+        instance of this :class:`.DataLoaderProfiler` callback.
     """
 
     def fit_start(self, state: State, logger: Logger):
