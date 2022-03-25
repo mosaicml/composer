@@ -173,6 +173,7 @@ class MixUp(Algorithm):
         if self.interpolate_loss and event == Event.AFTER_LOSS:
             input, target = state.batch_pair
             assert isinstance(state.loss, torch.Tensor), "Multiple losses not supported yet"
+
             # Interpolate the loss
             def loss(outputs, target):
                 assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
