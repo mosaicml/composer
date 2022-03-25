@@ -11,6 +11,7 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticData
 
 
 @pytest.mark.vision
+@pytest.mark.timeout(30)
 def test_write_ffcv_dataset(tmpdir: pathlib.Path, dummy_in_shape: List[int]):
     dataset = SyntheticBatchPairDataset(total_dataset_size=1,
                                         num_classes=1,
