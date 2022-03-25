@@ -2,7 +2,6 @@
 
 """These fixtures are shared globally across the test suite."""
 import pytest
-
 from torch.utils.data import DataLoader
 
 from composer.core import Logger, State
@@ -35,4 +34,3 @@ def disable_wandb(monkeypatch):
     monkeypatch.setenv("WANDB_MODE", "disabled")
 
     yield
-

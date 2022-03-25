@@ -4,7 +4,7 @@
 
 import logging
 import textwrap
-from typing import Callable, List, Tuple, Union, Sequence, Mapping
+from typing import Callable, List, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -163,23 +163,41 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
             log.warning(transform_added_logstring)
 
 
-def _chunk_list(l, num_chunks):
-    return [l[i::num_chunks] for i in range(num_chunks)]
+def _split_list(l: List, num_microbatches: int) -> List:
+    if len(l) < num_microbatches:
+        raise ValueError(
+            textwrap.dedent(f"""\
+        Cannot split list of length {len(l)} into {num_microbatches} batches.
+         make sure `grad_accum` is less than`batch_size`."""))
+    return [l[i::num_microbatches] for i in range(num_microbatches)]
 
 
-def _chunk_mapping(m, num_chunks):
-    chunked = {k: v.chunk(num_chunks) for k, v in m.items()}
-    return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
+def _split_tensor(t: torch.Tensor, num_microbatches: int) -> List:
+    if len(t) < num_microbatches:
+        raise ValueError(
+            textwrap.dedent(f"""\
+        Cannot split tensor of length {len(t)} into {num_microbatches} batches.
+         make sure `grad_accum` is less than`batch_size`."""))
+    return t.chunk(num_microbatches)
+
+
+def _split_mapping(m, num_microbatches):
+    chunked = {}
+    for k, v in m.items():
+        if isinstance(v, torch.Tensor):
+            chunked[k] = _split_tensor(v, num_microbatches)
+        if isinstance(v, (List, Tuple)):
+            chunked[k] = _split_list(v, num_microbatches)
+    return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_microbatches)]
 
 
 def _default_split_batch(batch: Union[Mapping, List, Tuple], num_microbatches: int) -> Sequence:
-    """Splits batch into `num_microbatches` chunks for gradient accumulation.
-    Works with tensors, dictionaries of tensors, (x, y) tuples, and lists where batch is the first dimension.
+    """Splits batch into `num_microbatches` chunks for gradient accumulation. Works with tensors, dictionaries of
+    tensors, (x, y) tuples, and lists where batch is the first dimension.
 
     Args:
         batch: output from the dataloader.
         num_microbatches (int): number of microbatches to batch into, will be set by `grad_accum`.
-
     """
     if num_microbatches < 1:
         raise ValueError("num_microbatches must be at least 1")
@@ -187,21 +205,21 @@ def _default_split_batch(batch: Union[Mapping, List, Tuple], num_microbatches: i
         return [batch]
 
     if isinstance(batch, torch.Tensor):  # check for a single stack of tensors
-        return batch.chunk(num_microbatches)
+        return _split_tensor(batch, num_microbatches)
 
     if isinstance(batch, list):  # assume lists have batch dimension first
-        return _chunk_list(batch, num_microbatches)
+        return _split_list(batch, num_microbatches)
 
     if isinstance(batch, Mapping):  # check for dictionary (hf style)
-        return _chunk_mapping(batch, num_microbatches)
+        return _split_mapping(batch, num_microbatches)
 
     if isinstance(batch, tuple):  # check for batch on 2nd dimension
         result = []
         for item in batch:
             if isinstance(item, torch.Tensor):
-                result.append(item.chunk(num_microbatches))
+                result.append(_split_tensor(item, num_microbatches))
             if isinstance(item, (List, Tuple)):
-                result.append(_chunk_list(item, num_microbatches))
+                result.append(_split_list(item, num_microbatches))
         return list(zip(*result))
 
     raise NotImplementedError(

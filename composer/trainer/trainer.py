@@ -992,8 +992,7 @@ class Trainer:
                         assert train_metrics is not None
                         self.state.model.eval()
                         with torch.no_grad():
-                            for eval_microbatch in self.split_batch(
-                                    self.state.batch, self.state.grad_accum):
+                            for eval_microbatch in self.split_batch(self.state.batch, self.state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
                                 outputs, targets = self._original_model.validate(eval_microbatch)
