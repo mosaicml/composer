@@ -181,6 +181,7 @@ class MixUp(Algorithm):
 
             new_loss = loss(state.outputs, self.permuted_target)
             state.loss *= (1 - self.mixing)
+            assert isinstance(new_loss, torch.Tensor), "Multiple losses not supported yet"
             state.loss += self.mixing * new_loss
 
 
