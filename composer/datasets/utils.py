@@ -4,7 +4,7 @@
 
 import logging
 import textwrap
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -12,13 +12,12 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import Batch, Dataset
+from composer.core.types import Batch
 
 __all__ = [
     "add_vision_dataset_transform",
     "NormalizationFn",
     "pil_image_collate",
-    "create_ffcv_dataset",
 ]
 
 log = logging.getLogger(__name__)
@@ -162,45 +161,3 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
         else:
             dataset.transform = transforms.Compose([dataset.transform, transform])
             log.warning(transform_added_logstring)
-
-
-def create_ffcv_dataset(dataset: Dataset,
-                        write_path: str,
-                        max_resolution: Optional[int] = None,
-                        num_workers: int = 16,
-                        write_mode: str = 'raw',
-                        compress_probability: float = 0.50,
-                        jpeg_quality: float = 90,
-                        chunk_size: int = 100):
-    """Iterates through ``dataset`` and converts it into FFCV format at filepath ``write_path``.
-
-    Args:
-        dataset (Iterable[Sample]): A PyTorch dataset
-        write_path (str): Write results to this file.
-        max_resolution (int): Limit resolution if provided. Default: ``None``.
-        num_workers (int): Numbers of workers to use. Default: ``16``.
-        write_mode (str): Write mode for the dataset. Default: ``'raw'``.
-        compress_probability (float): Probability with which image is JPEG-compressed. Default: ``0.5``.
-        jpeg_quality (float): Quality to use for jpeg compression. Default: ``90``.
-        chunk_size (int): Size of chunks processed by each worker during conversion. Default: ``100``.
-    """
-    try:
-        import ffcv  # type: ignore
-    except ImportError:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without ffcv support.
-            To use ffcv with Composer, please install ffcv in your environment."""))
-
-    log.info(f"Writing dataset in FFCV <file>.ffcv format to {write_path}.")
-    writer = ffcv.writer.DatasetWriter(write_path, {
-        'image':
-            ffcv.fields.RGBImageField(write_mode=write_mode,
-                                      max_resolution=max_resolution,
-                                      compress_probability=compress_probability,
-                                      jpeg_quality=jpeg_quality),
-        'label':
-            ffcv.fields.IntField()
-    },
-                                       num_workers=num_workers)
-    writer.from_indexed_dataset(dataset, chunksize=chunk_size)
