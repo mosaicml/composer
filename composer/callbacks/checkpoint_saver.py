@@ -106,6 +106,10 @@ class CheckpointSaver(Callback):
         ...         weights_only=False,
         ...     )
         ... ])
+    
+    .. testcleanup::
+
+        trainer.engine.close()
 
     Args:
         folder (str, optional): Format string for the folder where checkpoints will be saved.

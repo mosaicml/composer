@@ -24,6 +24,8 @@ class SpeedMonitor(Callback):
 
     Example
 
+    .. doctest::
+
         >>> from composer.callbacks import SpeedMonitor
         >>> # constructing trainer object with this callback
         >>> trainer = Trainer(
@@ -34,6 +36,10 @@ class SpeedMonitor(Callback):
         ...     max_duration="1ep",
         ...     callbacks=[SpeedMonitor(window_size=100)],
         ... )
+
+    .. testcleanup::
+
+        trainer.engine.close()
 
     The training throughput is logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.

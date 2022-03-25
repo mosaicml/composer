@@ -32,10 +32,6 @@ For example:
 
     trainer.fit()
 
-.. testcleanup::
-
-    trainer.engine.close()
-
 Save Interval
 -------------
 
@@ -70,10 +66,6 @@ Putting this together, here's how to save checkpoints:
     )
     trainer.fit()
 
-.. testcleanup::
-
-    trainer.engine.close()
-
 The above code will train a model for 1 epoch, and then save the checkpoint.
 
 Anatomy of a Checkpoint
@@ -81,26 +73,10 @@ Anatomy of a Checkpoint
 
 The above code, when run, will produce the checkpoints below:
 
-.. testsetup::
-
-    from composer import Trainer
-
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration="1ep",
-        save_folder="./path/to/checkpoints",
-        save_overwrite=True,
-        save_interval="1ep",  # Save checkpoints every epoch
-    )
-
-    # Actually train the model
-    trainer._fit()
-
 .. doctest::
 
     >>> trainer.saved_checkpoints
-    [(Timestamp(...): [PosixPath('path/to/checkpoints/ep1.pt')])]
+    [(Timestamp(...), [PosixPath('path/to/checkpoints/ep1.pt')])]
     >>> latest_checkpoint = trainer.saved_checkpoints[-1]
     >>> timestamp, checkpoint_filepaths = latest_checkpoint
     >>> checkpoint_filepath = checkpoint_filepaths[0]  # when not using DeepSpeed, there is only one checkpoint file.
@@ -110,17 +86,37 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict['state'].keys())
     ['model', 'is_model_ddp', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timer', 'rank_zero_seed']
 
-
-.. testcleanup::
-
-    trainer.engine.close()
-
 Resume training
 ---------------
 
 To resume training from a previous checkpoint, set the ``load_path`` argument of the :class:`Trainer` to the checkpoint
 filepath.  When the :class:`.Trainer` is initialized, the checkpoint state will be restored, and :meth:`Trainer.fit`
 will continue training from where the checkpoint left off.
+
+.. testsetup::
+
+    import os
+    import shutil
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="1ep",
+        save_filename="ep{epoch}.pt",
+        save_folder="./path/to/checkpoints",
+        save_overwrite=True,
+        save_interval="1ep",  # Save checkpoints every epoch
+    )
+    trainer.fit()
+
+    assert os.path.exists("./path/to/checkpoints/ep1.pt")
+
+    if not os.path.exists("./path/to/checkpoints/ep25.pt"):
+        shutil.copy2("./path/to/checkpoints/ep1.pt", "./path/to/checkpoints/ep25.pt")
+
+    assert os.path.exists("./path/to/checkpoints/ep25.pt")
 
 .. testcode::
 
@@ -130,16 +126,12 @@ will continue training from where the checkpoint left off.
         eval_dataloader=None,
         max_duration="90ep",
         save_overwrite=True,
-        load_path="./path/to/checkpoint/ep1.pt",
+        load_path="./path/to/checkpoints/ep25.pt",
     )
     trainer.fit()
 
-.. testcleanup::
-
-    trainer.engine.close()
-
 The above code will load the checkpoint from epoch 25, and continue training
-for another 89 epochs (to reach 90 epochs total).
+for another 65 epochs (to reach 90 epochs total).
 
 Different ``model`` or ``optimizer`` objects passed into the trainer when
 resume will be respected. However, an error will be raised if the weights or
@@ -196,10 +188,6 @@ only the model weights in a checkpoint, set ``save_weights_only=True``.
 
     trainer.fit()
 
-.. testcleanup::
-
-    trainer.engine.close()
-
 Saving Multiple Checkpoint Types
 --------------------------------
 
@@ -234,10 +222,6 @@ checkpoint saving parameters directly on the trainer.
 
     trainer.fit()
 
-.. testcleanup::
-
-    trainer.engine.close()
-
 Fine-tuning
 -----------
 
@@ -252,6 +236,28 @@ with different names will ignored.
 
 .. testsetup::
 
+    import os
+    import shutil
+    from composer import Trainer
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="1ep",
+        save_filename="ep{epoch}.pt",
+        save_folder="./path/to/checkpoints",
+        save_overwrite=True,
+        save_interval="1ep",  # Save checkpoints every epoch
+    )
+    trainer.fit()
+
+    assert os.path.exists("./path/to/checkpoints/ep1.pt")
+
+    if not os.path.exists("./path/to/checkpoints/ep50.pt"):
+        shutil.copy2("./path/to/checkpoints/ep1.pt", "./path/to/checkpoints/ep50.pt")
+
+    assert os.path.exists("./path/to/checkpoints/ep50.pt")
+
     finetune_model = model
     finetune_dataloader = train_dataloader
 
@@ -261,18 +267,14 @@ with different names will ignored.
         model=finetune_model,
         train_dataloader=finetune_dataloader,
         max_duration="10ep",
-        load_path="./path/to/checkpoint/ep50.pt",
+        load_path="./path/to/checkpoints/ep50.pt",
         load_weights_only=True,
         load_strict=False,
     )
 
     ft_trainer.fit()
 
-.. testcleanup::
-
-    ft_trainer.engine.close()
-
-This example will load only the model weights from epoch 50, and then continue training on the fine-tuned dataloader
+This example will load only the model weights from epoch 1, and then continue training on the fine-tuned dataloader
 for 10 epochs.
 
 Loading Weights Externally
@@ -283,8 +285,8 @@ model outside of a :class:`.Trainer`, use :meth:`torch.load`:
 
 .. testcode::
 
-   model = Model(num_channels=3, num_classes=10)
-   state_dict = torch.load("./path/to/checkpoint/ep15.pt")
+   model = Model(num_channels, num_classes)
+   state_dict = torch.load("./path/to/checkpoints/ep1.pt")
    model.load_state_dict(state_dict["state"]["model"])
 
 Uploading to Object Store
@@ -348,6 +350,7 @@ Once you've configured your object store logger per above, all that's left is to
         max_duration='90ep',
         save_folder='checkpoints',
         save_interval='1ep',
+        save_overwrite=True,
         save_artifact_name='checkpoints/ep{epoch}.tar',
         save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
         loggers=[object_store_logger],
@@ -393,11 +396,6 @@ should be the path to the checkpoint file *within the container/bucket*.
     )
 
     new_trainer.fit()
-
-.. testcleanup::
-
-    new_trainer.engine.close()
-
 
 API Reference
 -------------

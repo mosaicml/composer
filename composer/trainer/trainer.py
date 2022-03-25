@@ -38,25 +38,6 @@ Train a model and save a checkpoint:
 
 Load the checkpoint and resume training:
 
-.. testsetup::
-
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration="1ep",
-        eval_dataloader=eval_dataloader,
-        optimizers=optimizer,
-        schedulers=scheduler,
-        device="cpu",
-        validate_every_n_epochs=1,
-        save_folder="checkpoints",
-        save_filename="ep{epoch}.pt",
-        save_interval="1ep",
-        save_overwrite=True,
-    )
-
-    trainer._fit()
-
 .. testcode::
 
     # Get the saved checkpoint filepath
@@ -322,6 +303,9 @@ class Trainer:
                     load_object_store=store,
                 )
 
+            .. testcleanup::
+
+                trainer.engine.close()
 
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
@@ -413,6 +397,10 @@ class Trainer:
                         repeat=1,
                     ),
                 )
+
+            .. testcleanup::
+
+                trainer.engine.close()
 
             .. seealso:: :mod:`composer.profiler` for more details on profiling with the trainer.
 

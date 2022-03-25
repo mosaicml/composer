@@ -53,6 +53,7 @@ class SystemProfiler(Callback):
         self.profile_memory = profile_memory
         self.profile_net = profile_net
         self.stats_thread_interval_seconds = stats_thread_interval_seconds
+        self.finished_event = threading.Event()
 
     def init(self, state: State, logger: Logger):
         del logger  # unused
@@ -61,7 +62,11 @@ class SystemProfiler(Callback):
                                 f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
 
         # Start the stats thread
+        self.finished_event.clear()
         threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()
+
+    def close(self, state: State, logger: Logger) -> None:
+        self.finished_event.set()
 
     def _stats_thread(self, profiler: Profiler):
         """Gathers requested system metrics at :attr:`SystemProfiler.stats_thread_interval_seconds` interval."""
@@ -71,7 +76,7 @@ class SystemProfiler(Callback):
         if self.profile_cpu:
             psutil.cpu_percent()  # spin it once to clear the default 0.0 value on the first call
 
-        while True:
+        while not self.finished_event.isSet():
             if self.profile_cpu:
                 cpu_percent = psutil.cpu_percent()
                 profiler.marker(name="cpu", categories=["cpu"]).counter({"cpu_percent": cpu_percent})

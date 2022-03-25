@@ -18,6 +18,8 @@ class GradMonitor(Callback):
 
     Example
 
+    .. doctest::
+
         >>> from composer.callbacks import GradMonitor
         >>> # constructing trainer object with this callback
         >>> trainer = Trainer(
@@ -28,6 +30,10 @@ class GradMonitor(Callback):
         ...     max_duration="1ep",
         ...     callbacks=[GradMonitor()],
         ... )
+    
+    .. testcleanup::
+
+        trainer.engine.close()
 
     The L2 norms are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as described below.
 

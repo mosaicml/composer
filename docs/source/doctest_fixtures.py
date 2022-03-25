@@ -30,7 +30,11 @@ from composer.loggers import Logger as Logger
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.optim.scheduler import ConstantScheduler
-from composer.utils import ensure_tuple as ensure_tuple
+import composer.utils
+import composer.utils.object_store
+import composer.utils.checkpoint
+import composer.utils.file_helpers
+from composer.utils import ensure_tuple as ensure_tuple, ObjectStore as OriginalObjectStore
 from composer.core import Algorithm as Algorithm
 from composer.core import Callback as Callback
 from composer.core import DataSpec as DataSpec
@@ -145,12 +149,6 @@ def Trainer(fake_ellipses: None = None, **kwargs: Any):
         kwargs["loggers"] = []  # hide tqdm logging
     trainer = OriginalTrainer(**kwargs)
 
-    # don't train models by default
-    # But keep the fit around if we do need to train.
-    if not hasattr(trainer, '_fit'):
-        trainer._fit = trainer.fit  # type: ignore #  Member "_fit" is unknown
-
-        trainer.fit = lambda: None
     return trainer
 
 # patch composer so that 'from composer import Trainer' calls do not override change above
@@ -173,11 +171,29 @@ def ObjectStoreLogger(fake_ellipses: None = None, **kwargs: Any):
         num_concurrent_uploads=1,
         provider='local',
         container='.',
-        provider_kwargs={'key': os.path.abspath("./object_store_logger") },
+        provider_kwargs={
+            'key': os.path.abspath("./object_store_logger"),
+        },
     )
     return OriginalObjectStoreLogger(**kwargs)
 
 
+def ObjectStore(fake_ellipses: None = None, **kwargs: Any):
+    os.makedirs("./object_store", exist_ok=True)
+    kwargs.update(provider='local',
+        container='.',
+        provider_kwargs={
+            'key': os.path.abspath("./object_store"),
+        },
+    )
+    return OriginalObjectStore(**kwargs)
+
 composer.loggers.object_store_logger.ObjectStoreLogger = ObjectStoreLogger
 composer.loggers.ObjectStoreLogger = ObjectStoreLogger
 composer.loggers.logger_hparams.ObjectStoreLogger = ObjectStoreLogger
+composer.utils.object_store.ObjectStore = ObjectStore
+composer.utils.ObjectStore = ObjectStore
+composer.utils.checkpoint.ObjectStore = ObjectStore
+composer.utils.file_helpers.ObjectStore = ObjectStore
+composer.trainer.trainer.ObjectStore = ObjectStore
+composer.loggers.object_store_logger.ObjectStore = ObjectStore

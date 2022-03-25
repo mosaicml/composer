@@ -23,6 +23,8 @@ class MemoryMonitor(Callback):
 
     Example
 
+    .. doctest::
+
         >>> from composer.callbacks import MemoryMonitor
         >>> # constructing trainer object with this callback
         >>> trainer = Trainer(
@@ -33,6 +35,10 @@ class MemoryMonitor(Callback):
         ...     max_duration="1ep",
         ...     callbacks=[MemoryMonitor()],
         ... )
+    
+    .. testcleanup::
+
+        trainer.engine.close()
 
     The memory statistics are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.

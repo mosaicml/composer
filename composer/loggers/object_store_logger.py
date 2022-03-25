@@ -66,9 +66,7 @@ class ObjectStoreLogger(LoggerDestination):
 
     .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
 
-        # Shut down the uploader
-        object_store_logger._check_workers()
-        object_store_logger.post_close()
+        trainer.engine.close()
 
     .. note::
 

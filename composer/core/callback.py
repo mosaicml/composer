@@ -26,51 +26,69 @@ class Callback(Serializable, abc.ABC):
 
     Callbacks can be implemented in two ways:
 
-    #. Override the individual methods named for each :class:`~.event.Event`.
+    #.  Override the individual methods named for each :class:`~.event.Event`.
 
-       For example,
-           >>> class MyCallback(Callback):
-           ...     def epoch_start(self, state: State, logger: Logger):
-           ...         print(f'Epoch: {int(state.timer.epoch)}')
-           >>> # construct trainer object with your callback
-           >>> trainer = Trainer(
-           ...     model=model,
-           ...     train_dataloader=train_dataloader,
-           ...     eval_dataloader=eval_dataloader,
-           ...     optimizers=optimizer,
-           ...     max_duration="1ep",
-           ...     callbacks=[MyCallback()],
-           ... )
-           >>> # trainer will run MyCallback whenever the EPOCH_START
-           >>> # is triggered, like this:
-           >>> _ = trainer.engine.run_event(Event.EPOCH_START)
-           Epoch: 0
+        For example,
 
-    #. Override :meth:`run_event` if you want a single method to handle all events.  If this method is overridden, then
-       the individual methods corresponding to each event name (such as :meth:`epoch_start`) will no longer be
-       automatically invoked. For example, if you override :meth:`run_event` then :meth:`epoch_start` will not be called
-       on the :attr:`~.Event.EPOCH_START` event, :meth:`batch_start` will not be called on the
-       :attr:`~.Event.BATCH_START` etc. However, you can invoke :meth:`epoch_start`, :meth:`batch_start` etc. in your
-       overriding implementation of :meth:`run_event`.
+        .. doctest::
 
-       For example,
-           >>> class MyCallback(Callback):
-           ...     def run_event(self, event: Event, state: State, logger: Logger):
-           ...         if event == Event.EPOCH_START:
-           ...             print(f'Epoch: {int(state.timer.epoch)}')
-           >>> # construct trainer object with your callback
-           >>> trainer = Trainer(
-           ...     model=model,
-           ...     train_dataloader=train_dataloader,
-           ...     eval_dataloader=eval_dataloader,
-           ...     optimizers=optimizer,
-           ...     max_duration="1ep",
-           ...     callbacks=[MyCallback()],
-           ... )
-           >>> # trainer will run MyCallback whenever the EPOCH_START
-           >>> # is triggered, like this:
-           >>> _ = trainer.engine.run_event(Event.EPOCH_START)
-           Epoch: 0
+            >>> class MyCallback(Callback):
+            ...     def epoch_start(self, state: State, logger: Logger):
+            ...         print(f'Epoch: {int(state.timer.epoch)}')
+            >>> # construct trainer object with your callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[MyCallback()],
+            ... )
+            >>> # trainer will run MyCallback whenever the EPOCH_START
+            >>> # is triggered, like this:
+            >>> _ = trainer.engine.run_event(Event.EPOCH_START)
+            Epoch: 0
+
+        .. testcleanup::
+
+            trainer.engine.close()
+
+    #.  Override :meth:`run_event` if you want a single method to handle all events.  If this method is overridden, then
+        the individual methods corresponding to each event name (such as :meth:`epoch_start`) will no longer be
+        automatically invoked. For example, if you override :meth:`run_event` then :meth:`epoch_start` will not be called
+        on the :attr:`~.Event.EPOCH_START` event, :meth:`batch_start` will not be called on the
+        :attr:`~.Event.BATCH_START` etc. However, you can invoke :meth:`epoch_start`, :meth:`batch_start` etc. in your
+        overriding implementation of :meth:`run_event`.
+
+        For example,
+
+        .. doctest::
+
+            >>> class MyCallback(Callback):
+            ...     def run_event(self, event: Event, state: State, logger: Logger):
+            ...         if event == Event.EPOCH_START:
+            ...             print(f'Epoch: {int(state.timer.epoch)}')
+            >>> # construct trainer object with your callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[MyCallback()],
+            ... )
+            >>> # trainer will run MyCallback whenever the EPOCH_START
+            >>> # is triggered, like this:
+            >>> _ = trainer.engine.run_event(Event.EPOCH_START)
+            Epoch: 0
+
+        .. testcleanup::
+
+            trainer.engine.close()
+
+    .. testcleanup::
+
+        trainer.engine.close()
     """
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
