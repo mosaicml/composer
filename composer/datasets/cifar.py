@@ -19,9 +19,9 @@ from torchvision.datasets import CIFAR10
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
+from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.utils import create_ffcv_dataset
 from composer.utils import dist
 
 __all__ = [
@@ -94,7 +94,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                         download=self.download,
                     )
 
-                    create_ffcv_dataset(dataset=ds, write_path=dataset_filepath)
+                    write_ffcv_dataset(dataset=ds, write_path=dataset_filepath)
 
                 # Wait for the local rank 0 to be done creating the dataset in ffcv format.
                 dist.barrier()
@@ -202,7 +202,7 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0, 0, 0))
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
-        from composer.datasets.webdataset import load_webdataset
+        from composer.datasets.webdataset_utils import load_webdataset
 
         if self.is_train:
             split = 'train'

@@ -39,6 +39,7 @@ class GPT2Hparams(TransformerHparams):
         if self.model_config:
             config = transformers.GPT2Config.from_dict(self.model_config)
         elif self.pretrained_model_name is not None:
+            # TODO (Moin): verify that the config is an appropriate instance of GPT2!
             config = transformers.GPT2Config.from_pretrained(self.pretrained_model_name)
         else:
             raise ValueError('One of pretrained_model_name or model_config needed.')
