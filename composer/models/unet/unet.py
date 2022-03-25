@@ -4,7 +4,7 @@
 
 import logging
 import textwrap
-from typing import Any, Optional, Sequence, Tuple, Union
+from typing import Any, Sequence, Tuple, Union
 
 import torch
 import torch.nn as nn
