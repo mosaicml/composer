@@ -1,3 +1,8 @@
+"""A convenience class that creates a :class:`.ComposerModel` for classification tasks from a vanilla PyTorch model.
+:class:`.ComposerClassifier` requires batches in the form: (``input``, ``target``) and includes a basic
+classification training loop with :func:`.soft_cross_entropy` loss and accuracy logging.
+"""
+
 from __future__ import annotations
 
 from typing import Any, Optional, Tuple, Union
