@@ -66,7 +66,7 @@ def test_to_device(device, batch):
 
     def assert_device(x):
         if isinstance(x, torch.Tensor):
-            assert x.device.type == device_handler._device
+            assert x.device.type == device_handler._device.type
 
     new_batch = device_handler.batch_to_device(batch)
     _map_collections(new_batch, assert_device)
