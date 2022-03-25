@@ -4,7 +4,7 @@
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Any, Generator, TypeVar, Union
+from typing import Generator, TypeVar, Union
 
 import torch
 import torch.nn
