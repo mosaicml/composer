@@ -9,11 +9,11 @@ from typing import Optional, Tuple
 
 import numpy as np
 import torch
-from torch.nn import functional as F
 from torch.nn.parallel import DistributedDataParallel
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
+from composer.models import ComposerModel
 from composer.models.loss import ensure_targets_one_hot
 
 log = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def mixup_batch(
         target: torch.Tensor,
         mixing: Optional[float] = None,
         alpha: float = 0.2,
-        indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, float]:
     """Create new samples using convex combinations of pairs of samples.
 
     This is done by taking a convex combination of ``input`` with a randomly
@@ -157,13 +157,12 @@ class MixUp(Algorithm):
             # Interpolate the loss
             modified_batch = (input, self.permuted_target)
             if isinstance(state.model, DistributedDataParallel):
-                loss_fn = state.model.module.loss
+                new_loss = state.model.module.loss(state.outputs, modified_batch)
             elif isinstance(state.model, ComposerModel):
-                loss_fn = state.model.loss
+                new_loss = state.model.loss(state.outputs, modified_batch)
             else:
                 raise RuntimeError("Model must be of type ComposerModel or DistributedDataParallel")
 
-            new_loss = loss_fn(state.outputs, modified_batch)
             state.loss *= (1 - self.mixing)
             state.loss += self.mixing * new_loss
 
@@ -195,7 +194,7 @@ def _gen_mixing_coef(alpha: float) -> float:
     # for symmetric beta distribution, can always use 0 <= lambda <= .5;
     # this way the "main" label is always the original one, which keeps
     # the training accuracy meaningful
-    return max(mixing_lambda, 1. - mixing_lambda)
+    return min(mixing_lambda, 1. - mixing_lambda)
 
 
 def _gen_indices(num_samples: int) -> torch.Tensor:
