@@ -153,16 +153,20 @@ class MixUp(Algorithm):
             state.batch = (new_input, target)
 
         if self.interpolate_loss and event == Event.AFTER_LOSS:
+            assert isinstance(state.loss, torch.Tensor), "Multiple losses not supported yet"
             # Interpolate the loss
             modified_batch = (input, self.permuted_target)
             if isinstance(state.model, DistributedDataParallel):
-                new_loss = state.model.module.loss(state.outputs, modified_batch)
+                loss_fn = state.model.module.loss
             elif isinstance(state.model, ComposerModel):
-                new_loss = state.model.loss(state.outputs, modified_batch)
+                loss_fn = state.model.loss
             else:
                 raise RuntimeError("Model must be of type ComposerModel or DistributedDataParallel")
 
-            assert isinstance(state.loss, torch.Tensor), "Multiple losses not supported yet"
+            def loss(outputs, batch):
+                return loss_fn(outputs, batch)
+
+            new_loss = loss(state.outputs, modified_batch)
             state.loss *= (1 - self.mixing)
             state.loss += self.mixing * new_loss
 
