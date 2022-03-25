@@ -27,12 +27,12 @@ class UNet(ComposerModel):
     on the U-Net architecture.
 
     Args:
-        num_classes (int): The number of classes. Needed for classification tasks. Default: ``3``.
+        num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``3``.
 
     .. _Ronneberger et al, 2015: https://arxiv.org/abs/1505.04597
     """
 
-    def __init__(self, num_classes: Optional[int] = 3) -> None:
+    def __init__(self, num_classes: int = 3) -> None:
         super().__init__()
         try:
             from monai.losses import DiceLoss
