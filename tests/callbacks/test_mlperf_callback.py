@@ -43,13 +43,12 @@ def test_mlperf_callback(config, tmpdir):
     tmpdir = 'mlperf_results'
     pytest.importorskip("mlperf_logging")
 
-    # for run in range(5):
-    run = 0
-    mlperf_callback = MLPerfCallback(root_folder=tmpdir, num_result=run)
-    config['callbacks'].append(mlperf_callback)
-    config['seed'] = np.random.randint(2e5)  # mlperf seeds are released near submission deadline
-    trainer = Trainer(**config)
-    trainer.fit()
+    for run in range(5):
+        mlperf_callback = MLPerfCallback(root_folder=tmpdir, num_result=run)
+        config['callbacks'] = [mlperf_callback]
+        config['seed'] = np.random.randint(2e5)  # mlperf seeds are released near submission deadline
+        trainer = Trainer(**config)
+        trainer.fit()
 
     # run result checker
     from mlperf_logging.package_checker.package_checker import check_training_package

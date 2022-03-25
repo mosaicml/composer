@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import platform
 import sys
@@ -52,18 +53,34 @@ class MLPerfCallback(Callback):
     checked prior to submission.
 
     Currently, only OPEN division submissions are supported with this Callback.
+
+    Args:
+        root_folder (str): The root submission folder
+        index (int): The repetition index of this run. The filename created will be
+            ``result_[index].txt``.
+        submitter (str, optional): Submitting organization. Default: MosaicML.
+        system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
+            not provided, system name will default to ``[world_size]x[device_name]_composer``,
+            e.g. ``8xNVIDIA_A100_80GB_composer.
+        benchmark (str, optional): Benchmark name. Default: ``"resnet"``.
+        division (str, optional): Division of submission. Currently only open division is
+            supported. Default: ``"open"``.
+        status (str, optional): Submission status. One of (onprem, cloud, or preview).
+            Default: ``"onprem"``.
+        target (float, optional): The target metric before the mllogger marks the stop
+            of the timing run. Default: ``0.759`` (resnet benchmark).
     """
 
     def __init__(
         self,
         root_folder: str,
-        num_result: int,
+        index: int,
         submitter: str = "MosaicML",
         system_name: Optional[str] = None,
         benchmark: str = "resnet",
         division: str = "open",
         status: str = "onprem",
-        target: float = 75.9,
+        target: float = 0.759,
     ) -> None:
 
         if benchmark not in BENCHMARKS:
@@ -96,11 +113,13 @@ class MLPerfCallback(Callback):
             with open(systems_path, 'w') as f:
                 json.dump(system_desc, f, indent=4)
 
-        filename = os.path.join(root_folder, 'results', system_name, benchmark, f'result_{num_result}.txt')
+        filename = os.path.join(root_folder, 'results', system_name, benchmark, f'result_{index}.txt')
         if os.path.exists(filename):
             raise FileExistsError(f'{filename} already exists.')
-        print(filename)
-        mllog.config(filename=filename)
+
+        self._file_handler = logging.FileHandler(filename)
+        self._file_handler.setLevel(logging.INFO)
+        self.mllogger.logger.addHandler(self._file_handler)
 
         # TODO: implement cache clearing
         self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
@@ -171,15 +190,17 @@ class MLPerfCallback(Callback):
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if rank_zero():
+            accuracy = 0.99  # TODO: retrieve accuracy from metrics
+
             self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': state.timer.epoch.value})
             self.mllogger.event(key=constants.EVAL_ACCURACY,
-                                value=0.99,
+                                value=accuracy,
                                 metadata={'epoch_num': state.timer.epoch.value})
             self.mllogger.event(key=constants.BLOCK_STOP, metadata={'first_epoch_num': state.timer.epoch.value})
 
-            accuracy = 0.99
             if accuracy > self.target:
                 self.mllogger.event(key=constants.RUN_STOP, metadata={"status": "success"})
+                self.mllogger.logger.removeHandler(self._file_handler)
 
 
 def get_system_description(
