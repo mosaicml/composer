@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterable, List, Tuple
 from PIL import Image
 from tqdm import tqdm
 
-from composer.datasets.webdataset import create_webdataset
+from composer.datasets.webdataset_utils import create_webdataset
 
 
 """

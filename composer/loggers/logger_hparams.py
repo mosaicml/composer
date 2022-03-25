@@ -113,7 +113,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
     rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=True)
     extra_init_params: Dict[str, Any] = hp.optional(doc="wandb parameters", default_factory=dict)
     config: Dict[str, Any] = hp.optional(doc="Wandb run configuration", default_factory=dict)
-    flatten_hparams: bool = hp.optional(
+    flatten_config: bool = hp.optional(
         doc="Whether to flatten the config, which can make nested fields easier to visualize and query.", default=False)
 
     def initialize_object(self) -> WandBLogger:
@@ -124,7 +124,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         if "config" in self.extra_init_params:
             config_dict = self.extra_init_params["config"]
 
-        if self.flatten_hparams:
+        if self.flatten_config:
             config_dict = self._flatten_dict(config_dict)
 
         if self.rank_zero_only:

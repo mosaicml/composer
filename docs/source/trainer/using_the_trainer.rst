@@ -448,6 +448,56 @@ points during training and (2) load them back to resume training later.
 This was just a quick tour of all the features within our trainer. Please see the other
 guides and notebooks for more information.
 
+Reproducibility
+~~~~~~~~~~~~~~~
+
+The random seed can be provided to the trainer directly, e.g.
+
+.. testcode::
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        ...,
+        seed=42,
+    )
+
+If no seed is provided, a random seed will be generated from system time.
+
+Since the model and dataloaders are initialized outside of the Trainer, for complete
+determinism, we recommend calling :func:`~composer.utils.reproducibility.seed_all` and/or
+:func:`~composer.utils.reproducibility.configure_deterministic_mode` before creating any objects. For example:
+
+.. testsetup::
+
+    import functools
+    import torch.nn
+    import warnings
+
+    warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
+
+    MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
+
+.. testcode::
+
+   import torch.nn
+   from composer.utils import reproducibility
+
+   reproducibility.configure_deterministic_mode()
+   reproducibility.seed_all(42)
+
+   model = MyModel()
+
+   def init_weights(m):
+       if isinstance(m, torch.nn.Linear):
+           torch.nn.init.xavier_uniform(m.weight)
+
+   # model will now be deterministically initialized, since the seed is set.
+   init_weights(model)
+   trainer = Trainer(model=model, seed=42)
+
+Note that the Trainer must still be seeded.
+
 Annotated Trainer Loop
 ----------------------
 
