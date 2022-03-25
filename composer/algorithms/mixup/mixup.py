@@ -124,6 +124,7 @@ class MixUp(Algorithm):
         self.mixing = 0.0
         self.indices = torch.Tensor()
         self.permuted_target = torch.Tensor()
+        self._loss_fn = None  # set on Event.INIT
 
     def match(self, event: Event, state: State) -> bool:
         if self.interpolate_loss:
@@ -177,7 +178,7 @@ class MixUp(Algorithm):
 
             new_loss = self._loss_fn(state.outputs, modified_batch)
             state.loss *= (1 - self.mixing)
-            state.loss += self.mixing * new_loss
+            state.loss += torch.mul(self.mixing, new_loss)
 
 
 def _gen_mixing_coef(alpha: float) -> float:
