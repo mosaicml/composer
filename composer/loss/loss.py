@@ -1,39 +1,17 @@
+# Custom loss functions.
+
 from __future__ import annotations
 
+import warnings
 from typing import Optional
 
+import torch
 from torch import Tensor
 from torch.nn import functional as F
 
+from composer.loss.utils import infer_target_type
+
 __all__ = ["soft_cross_entropy"]
-
-
-def _infer_target_type(input: Tensor, targets: Tensor) -> str:
-    """Infers whether the target is in indices format or one_hot format.
-
-    Example indices format: [1, 4, 7] Example one_hot format [[0, 1, 0], [1, 0, 0], ...]
-    """
-    if input.shape == targets.shape:
-        return 'one_hot'
-    elif input.ndim == targets.ndim + 1:
-        return 'indices'
-    else:
-        raise RuntimeError(f'Unable to infer indices or one_hot. Targets has shape {targets.shape}'
-                           f' and the inputs to cross entropy has shape {input.shape}. For one_hot, '
-                           'expect targets.shape == inputs.shape. For indices, expect '
-                           'inputs.ndim == targets.ndim + 1')
-
-
-def ensure_targets_one_hot(input: Tensor, targets: Tensor) -> Tensor:
-    if _infer_target_type(input, targets) == 'indices':
-        targets = F.one_hot(targets, num_classes=input.shape[1])
-    return targets
-
-
-def _check_for_index_targets(targets: Tensor) -> bool:
-    """Checks if a given set of targets are indices by looking at the type."""
-    index_types = ['torch.LongTensor', 'torch.cuda.LongTensor']
-    return targets.type() in index_types
 
 
 def soft_cross_entropy(input: Tensor,
@@ -44,7 +22,6 @@ def soft_cross_entropy(input: Tensor,
                        reduce: Optional[bool] = None,
                        reduction: str = 'mean'):
     r"""Drop-in replacement for :class:`~torch.nn.CrossEntropyLoss` that can handle class indices or one-hot labels.
-
     Args:
         input (torch.Tensor) : :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
             in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`
@@ -76,10 +53,9 @@ def soft_cross_entropy(input: Tensor,
             elements in the output, ``'sum'``: the output will be summed. Note: ``size_average``
             and ``reduce`` are in the process of being deprecated, and in the meantime,
             specifying either of those two args will override ``reduction``. Default: ``'mean'``
-
     This function will be obsolete with `this update <https://github.com/pytorch/pytorch/pull/61044>`_.
     """
-    target_type = _infer_target_type(input, target)
+    target_type = infer_target_type(input, target)
 
     if target_type == 'indices':
         return F.cross_entropy(input, target, weight, size_average, ignore_index, reduce, reduction)
@@ -87,19 +63,31 @@ def soft_cross_entropy(input: Tensor,
         assert reduction in ['sum', 'mean', 'none'], f"{reduction} reduction not supported."
         assert size_average is None, "size_average is deprecated"
         assert reduce is None, "reduce is deprecated"
-        assert ignore_index == -100, "ignore_index not supported."
-        probs = -1 * (target * F.log_softmax(input, dim=1))
+        if ignore_index != -100:
+            warnings.warn("ignore_index not supported when using dense labels. Ignoring targets with 0 probability.")
+        xentropy = -(target * F.log_softmax(input, dim=1))
 
         if weight is not None:
-            probs *= weight / weight.sum()  # allow broadcast along batch dim
+            # Ugly dimension shuffle to make multiplication work.
+            xentropy = torch.movedim(xentropy, 1, -1)
+            xentropy *= weight  # PyTorch doesn't normalize weights
+            xentropy = torch.movedim(xentropy, -1, 1)
 
-        probs = probs.sum(dim=1)
+        xentropy = xentropy.sum(dim=1)
+        num_examples = torch.numel(xentropy)
 
         if reduction == 'sum':
-            probs = probs.sum(dim=0)
+            xentropy = xentropy.sum()
         elif reduction == 'mean':
-            probs = probs.mean(dim=0)
+            xentropy = xentropy.mean()
+            # Re-weight loss to account for examples with less than 1 total probability (ignored examples)
+            total_prob = target.sum()
+            if total_prob <= 0:
+                raise ValueError("No targets have nonzero probability")
+            if total_prob < num_examples:
+                warnings.warn("Some targets have less than 1 total probability.")
+            xentropy *= num_examples / total_prob
 
-        return probs
+        return xentropy
     else:
         raise ValueError(f"Unrecognized target type {target_type}")

@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""A collection of common torchmetrics and loss functions."""
+"""A collection of common torchmetrics."""
 from __future__ import annotations
 
 from typing import Tuple
@@ -69,15 +69,15 @@ class Dice(Metric):
         num_classes (int): the number of classes in the segmentation task.
     """
 
-    def __init__(self, num_classes):
+    def __init__(self, num_classes: int):
         super().__init__(dist_sync_on_step=True)
         self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
         self.add_state("dice", default=torch.zeros((num_classes,)), dist_reduce_fx="sum")
 
-    def update(self, pred, target):
+    def update(self, preds, targets):
         """Update the state based on new predictions and targets."""
         self.n_updates += 1  # type: ignore
-        self.dice += self.compute_stats(pred, target)
+        self.dice += self.compute_stats(preds, targets)
 
     def compute(self):
         """Aggregate the state over all processes to compute the metric."""
@@ -87,16 +87,16 @@ class Dice(Metric):
         return top_dice
 
     @staticmethod
-    def compute_stats(pred, target):
-        num_classes = pred.shape[1]
-        scores = torch.zeros(num_classes - 1, device=pred.device, dtype=torch.float32)
+    def compute_stats(preds: Tensor, targets: Tensor):
+        num_classes = preds.shape[1]
+        scores = torch.zeros(num_classes - 1, device=preds.device, dtype=torch.float32)
         for i in range(1, num_classes):
-            if (target != i).all():
+            if (targets != i).all():
                 # no foreground class
-                _, _pred = torch.max(pred, 1)
+                _, _pred = torch.max(preds, 1)
                 scores[i - 1] += 1 if (_pred != i).all() else 0
                 continue
-            _tp, _fp, _tn, _fn, _ = _stat_scores(pred, target, class_index=i)  # type: ignore
+            _tp, _fp, _tn, _fn, _ = _stat_scores(preds, targets, class_index=i)  # type: ignore
             denom = (2 * _tp + _fp + _fn).to(torch.float)
             score_cls = (2 * _tp).to(torch.float) / denom if torch.is_nonzero(denom) else 0.0
             scores[i - 1] += score_cls
@@ -105,19 +105,19 @@ class Dice(Metric):
 
 def _stat_scores(
     preds: Tensor,
-    target: Tensor,
+    targets: Tensor,
     class_index: int,
     argmax_dim: int = 1,
 ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
 
-    if preds.ndim == target.ndim + 1:
+    if preds.ndim == targets.ndim + 1:
         preds = to_categorical(preds, argmax_dim=argmax_dim)
 
-    tp = ((preds == class_index) * (target == class_index)).to(torch.long).sum()
-    fp = ((preds == class_index) * (target != class_index)).to(torch.long).sum()
-    tn = ((preds != class_index) * (target != class_index)).to(torch.long).sum()
-    fn = ((preds != class_index) * (target == class_index)).to(torch.long).sum()
-    sup = (target == class_index).to(torch.long).sum()
+    tp = ((preds == class_index) * (targets == class_index)).to(torch.long).sum()
+    fp = ((preds == class_index) * (targets != class_index)).to(torch.long).sum()
+    tn = ((preds != class_index) * (targets != class_index)).to(torch.long).sum()
+    fn = ((preds != class_index) * (targets == class_index)).to(torch.long).sum()
+    sup = (targets == class_index).to(torch.long).sum()
 
     return tp, fp, tn, fn, sup
 
@@ -136,16 +136,16 @@ class CrossEntropyLoss(Metric):
         dist_sync_on_step (bool, optional): sync distributed metrics every step. Default: ``False``.
     """
 
-    def __init__(self, ignore_index: int = -100, dist_sync_on_step=False):
+    def __init__(self, ignore_index: int = -100, dist_sync_on_step: bool = False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.ignore_index = ignore_index
         self.add_state("sum_loss", default=torch.tensor(0.), dist_reduce_fx="sum")
         self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(self, preds: Tensor, target: Tensor) -> None:
+    def update(self, preds: Tensor, targets: Tensor) -> None:
         """Update the state with new predictions and targets."""
         # Loss calculated over samples/batch, accumulate loss over all batches
-        self.sum_loss += soft_cross_entropy(preds, target, ignore_index=self.ignore_index)
+        self.sum_loss += soft_cross_entropy(preds, targets, ignore_index=self.ignore_index)
         assert isinstance(self.total_batches, Tensor)
         self.total_batches += 1
 
@@ -166,16 +166,16 @@ class LossMetric(Metric):
         dist_sync_on_step (bool, optional): sync distributed metrics every step. Default: ``False``.
     """
 
-    def __init__(self, loss_function: callable, dist_sync_on_step=False):
+    def __init__(self, loss_function: callable, dist_sync_on_step: bool = False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.loss_function = loss_function
         self.add_state("sum_loss", default=torch.tensor(0.), dist_reduce_fx="sum")
         self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
 
-    def update(self, preds: Tensor, target: Tensor) -> None:
+    def update(self, preds: Tensor, targets: Tensor) -> None:
         """Update the state with new predictions and targets."""
         # Loss calculated over samples/batch, accumulate loss over all batches
-        self.sum_loss += self.loss_function(preds, target)
+        self.sum_loss += self.loss_function(preds, targets)
         self.total_batches += 1
 
     def compute(self):
