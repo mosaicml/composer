@@ -23,9 +23,9 @@ from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import LoggerDestinationHparams, logger_registry
-from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams,
-                             EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams,
-                             ResNetHparams, SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
+from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
+                             GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
+                             SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams, CosineAnnealingSchedulerHparams,
                             CosineAnnealingWarmRestartsSchedulerHparams, CosineAnnealingWithWarmupSchedulerHparams,
                             DecoupledAdamWHparams, DecoupledSGDWHparams, ExponentialSchedulerHparams,
