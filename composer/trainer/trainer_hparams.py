@@ -194,14 +194,9 @@ class TrainerHparams(hp.Hparams):
             config for training  (see :class:`.Trainer` for more details). If ``None`` will pass ``False``
             to the trainer for the ``deepspeed_config`` parameter signaling that DeepSpeed will not be used
             for training.
-        profiler_trace_file (str, optional): See :class:`.Trainer`.
         prof_schedule (ProfileScheduleHparams, optional): Profile schedule hparams. Must be specified to enable the profiler.
-        prof_event_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.
-        prof_skip_first (int, optional): See :class:`.Trainer`.
-        prof_wait (int, optional): See :class:`.Trainer`.
-        prof_warmup (int, optional): See :class:`.Trainer`.
-        prof_active (int, optional): See :class:`.Trainer`.
-        prof_repeat (int, optional): See :class:`.Trainer`.
+        prof_event_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.        prof_skip_first (int, optional): See :class:`.Trainer`.        prof_wait (int, optional): See :class:`.Trainer`.
+
         sys_prof_cpu (bool, optional): See :class:`.Trainer`.
         sys_prof_memory (bool, optional): See :class:`.Trainer`.
         sys_prof_disk (bool, optional): See :class:`.Trainer`.

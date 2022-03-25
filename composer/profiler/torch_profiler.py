@@ -11,7 +11,8 @@ from typing import Optional, OrderedDict
 import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
-from composer.core import Callback, State
+from composer.core.callback import Callback
+from composer.core.state import State
 from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
 from composer.profiler.profiler_action import ProfilerAction
