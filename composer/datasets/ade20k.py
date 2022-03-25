@@ -19,7 +19,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from composer.core.types import DataSpec
+from composer.core import DataSpec
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
@@ -428,7 +428,7 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
             raise ValueError("max_resize_scale cannot be less than min_resize_scale")
 
     def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
-        from composer.datasets.webdataset import load_webdataset
+        from composer.datasets.webdataset_utils import load_webdataset
 
         self.validate()
         # Define data transformations based on data split

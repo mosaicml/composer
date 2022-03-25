@@ -11,12 +11,13 @@ from typing import TypeVar
 
 import torch
 from PIL.Image import Image as PillowImage
+from torch import Tensor
 from torchvision.datasets import VisionDataset
 
 from composer.algorithms.utils.augmentation_common import image_as_type
-from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Tensor
+from composer.core import Algorithm, Event, State
 from composer.datasets.utils import add_vision_dataset_transform
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 

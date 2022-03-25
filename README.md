@@ -1,28 +1,35 @@
+<br />
 <p align="center">
-    <img src="docs/images/header_light.svg#gh-light-mode-only" width="80%"/>
-    <img src="docs/images/header_dark.svg#gh-dark-mode-only" width="80%"/>
+    <a href="https://github.com/mosaicml/composer#gh-light-mode-only" class="only-light">
+      <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_light.svg" width="50%"/>
+    </a>
+    <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->
+    <a href="https://github.com/mosaicml/composer#gh-dark-mode-only" class="only-dark">
+      <img src="https://storage.googleapis.com/docs.mosaicml.com/images/header_dark.svg" width="50%"/>
+    </a>
+    <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->
 </p>
 
-<h3><p align="center"><b>Reproducible State-Of-The-Art Training Efficiency:</b><br />Giving You Lower Cost and Better Accuracy</p></h3>
-<!--<center><h3><b>Bring state-of-the-art efficiency research to you</h3></center>-->
+<h2><p align="center">A PyTorch Library for Efficient Neural Network Training</p></h2>
+<h3><p align="center">Train Faster, Reduce Cost, Get Better Models</p></h3>
 
-<p align='center'>
+<h4><p align='center'>
 <a href="https://www.mosaicml.com">[Website]</a>
 - <a href="https://docs.mosaicml.com/en/stable/getting_started/installation.html">[Getting Started]</a>
 - <a href="https://docs.mosaicml.com/">[Docs]</a>
 - <a href="https://docs.mosaicml.com/en/stable/method_cards/methods_overview.html">[Methods]</a>
 - <a href="https://www.mosaicml.com/team">[We're Hiring!]</a>
-</p>
+</p></h4>
 
 <p align="center">
     <a href="https://pypi.org/project/mosaicml/">
         <img alt="PyPi Version" src="https://img.shields.io/pypi/pyversions/mosaicml">
     </a>
-    <a href="https://badge.fury.io/py/mosaicml">
-        <img alt="PyPi Package Version" src="https://badge.fury.io/py/mosaicml.svg">
+    <a href="https://pypi.org/project/mosaicml/">
+        <img alt="PyPi Package Version" src="https://img.shields.io/pypi/v/mosaicml">
     </a>
-    <a href="https://pepy.tech/project/mosaicml">
-        <img alt="PyPi Downloads" src="https://pepy.tech/badge/mosaicml">
+    <a href="https://pypi.org/project/mosaicml/">
+        <img alt="PyPi Downloads" src="https://img.shields.io/pypi/dm/mosaicml">
     </a>
     <a href="https://docs.mosaicml.com/en/stable/">
         <img alt="Documentation" src="https://readthedocs.org/projects/composer/badge/?version=stable">
@@ -34,157 +41,175 @@
         <img alt="License" src="https://img.shields.io/badge/License-Apache%202.0-green.svg?logo=slack">
     </a>
 </p>
+<br />
 
-<hr />
+# 👋 Welcome
 
-<p align="center">Composer provides well-engineered implementations of efficient training methods to give the tools that help you train <b>a better model for cheaper</b>.</p>
-
-<p align="center">
-<img src="docs/images/cost_graph_light.svg#gh-light-mode-only" width="100%"/>
-<img src="docs/images/cost_graph_dark.svg#gh-dark-mode-only" width="100%"/>
-</p>
-
-Using Composer, you can:
-
-- Train an ImageNet model to 76.1% accuracy for $37 (_with vanilla PyTorch:_ $127)
-- Train a GPT-2 125M to a perplexity of 23.9 for $148 (_with vanilla PyTorch_: $255)
-- Use start-of-the-art implementations of methods to speed up your own training loop.
-
-At MosaicML, we are focused on making training ML models accessible. To do this, we continually productionize state-of-the-art academic research on efficient model training, and also study the _combinations_ of these methods in order to ensure that model training is ✨ as efficient as possible ✨.
-
-Everyone has their own priorities: best accuracy, cheapest cost, and somewhere in between.  Composer provides novel recipes that push the boundary of both cost and accuracy. Composer allows you to choose **the best model for your real-world constraints**.
+Composer is a library written in PyTorch that enables you to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. We've implemented more than two dozen speed-up methods that can be applied to your training loop in just a few lines of code, or used with our built-in Trainer. We continually integrate the latest state-of-the-art in efficient neural network training.
 
 Composer features:
-- 20+ efficient training methods for training a better language and vision models! Don't waste hours trying to reproduce research papers when Composer has done the work for you.
-- Easy-to-use (optional) Trainer interface written to be as performant as possible, and [integrated best practices](https://www.mosaicml.com/blog/5-best-practices-for-efficient-model-training).
-- Easy-to-use Functional forms that allow you to integrate efficient training methods into your training loop!
-- Strong, _reproducible_ baselines to get you started as 💨 fast 💨 as possible
+- 20+ methods for speeding up training networks for computer vision and language modeling. Don't waste hours trying to reproduce research papers when Composer has done the work for you.
+- An easy-to-use trainer that has been written to be as performant as possible and [integrates best practices](https://www.mosaicml.com/blog/5-best-practices-for-efficient-model-training) for efficient training.
+- Functional forms of all of our speedup methods that allow you to integrate them into your existing training loop.
+- Strong, _reproducible_ baselines to get you started as quickly as possible.
 
-## Quickstart
+## Benefits
 
-### Installation
-Composer is available with Pip
+<p align="center">
+  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-light-mode-only" class="only-light">
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg" width="85%"/>
+  </a>
+  <!-- link to the light mode image even on dark mode, so it will be readable in a new tab -->
+  <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_BEGIN -->
+  <a href="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_light.svg#gh-dark-mode-only" class="only-dark">
+    <img src="https://storage.googleapis.com/docs.mosaicml.com/images/cost_graph_dark.svg" width="85%"/>
+  </a>
+  <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->
+</p>
+
+With no additional tuning, you can apply our methods to:
+<!-- start numbers -->
+- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.5 hours) on AWS.
+- Train a GPT-2 125M to a standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
+<!-- end numbers -->
+
+# 🚀 Quickstart
+
+## 💾 Installation
+Composer is available with Pip:
 
 ```bash
 pip install mosaicml
 ```
-Alternatively install Composer with Conda
+Alternatively, install Composer with Conda:
+
 ```bash
 conda install -c mosaicml mosaicml
 ```
 ---
 
-### Usage
+## 🚌 Usage
 
-Composer provides both a **Functional API** (similar to `torch.nn.functional`) and a **Trainer** (that abstracts away the training loop) to provide flexibility to users.
+You can use Composer's speedup methods in two ways:
 
-#### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb)
+* Through a standalone **Functional API** (similar to `torch.nn.functional`) that allows you to integrate them into your existing training code.
+* Using Composer's built-in **Trainer**, which is designed to be performant and automatically takes care of many of the low-level details of using speedup methods.
 
-For users who choose to use their own training loop, we provide state-less functional implementations of our algorithms for a end-user to integrate.
+### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb)
 
-The following example highlights using [BlurPool](https://arxiv.org/abs/1904.11486), which applies an anti-aliasing filter before every downsampling operation.
+Integrate our speed-up methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/en/stable/method_cards/blurpool.html) and SqueezeExcite:
+
 
 ```python
-from composer import functional as cf
-import torchvision
+import composer.functional as cf
+from torchvision import models
 
-model = torchvision.models.resnet50()
+my_model = models.resnet18()
 
-# Apply model surgery before training by replacing eligible layers
-# with a BlurPool-enabled layer (Zhang, 2019)
-model = cf.apply_blurpool(model)
+# add blurpool and squeeze excite layers
+my_model = cf.apply_blurpool(my_model)
+my_model = cf.apply_squeeze_excite(my_model)
 
-# Start your training loop here
-for epoch in range(NUM_EPOCHS):
-    for input, labels in dataloader:
-        optimizer.zero_grad()
-        outputs = net(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+# your own training code starts here
 ```
 
-See the official [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) for more.
+For more examples, see the [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) and [Functional API guide](https://docs.mosaicml.com/en/latest/functional_api.html).
 
-#### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb)
+### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb)
 
-For maximal speedups, we recommend using our Trainer, which manages handling user state, performant algorithm implementations, and provides useful engineering abstractions to permit rapid experimentation.
+For the best experience and the most efficient possible training, we recommend using Composer's built-in trainer, which automatically takes care of the low-level details of using speedup methods and provides useful abstractions that facilitate rapid experimentation.
 
 ```python
-import torch
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.optim import Adam
 from torchvision import datasets, transforms
 
-from composer import Trainer, models
-from composer.algorithms import LabelSmoothing
+from composer import Trainer
+from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
+from composer.models import MNIST_Classifier
 
-transform = transforms.ToTensor()
-
-train_dataloader = DataLoader(
-    datasets.MNIST('.data/', transform=transform, download=True, train=True),
-    batch_size=64,
-)
-
-eval_dataloader = DataLoader(
-    datasets.MNIST('.data/', transform=transform, download=True, train=False),
-    batch_size=64,
-)
-
-model = models.MNIST_Classifier(num_classes=10)
-optimizer = Adam(model.parameters())
+transform = transforms.Compose([transforms.ToTensor()])
+train_dataset = datasets.MNIST("data", download=True, train=True, transform=transform)
+eval_dataset = datasets.MNIST("data", download=True, train=False, transform=transform)
+train_dataloader = DataLoader(train_dataset, batch_size=128)
+eval_dataloader = DataLoader(eval_dataset, batch_size=128)
 
 trainer = Trainer(
-    model=model,
-    # add algorithms below
-    algorithms=[LabelSmoothing(alpha=0.1)],
+    model=MNIST_Classifier(num_classes=10),
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
-    optimizers=optimizer,
-    schedulers=CosineAnnealingLR(optimizer, T_max=2),
     max_duration="2ep",
+    algorithms=[
+        BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
+        ChannelsLast(),
+        CutMix(num_classes=10),
+        LabelSmoothing(smoothing=0.1),
+    ]
 )
-
-# Starting training!
 trainer.fit()
 ```
-Using the Composer Trainer allows you to **add multiple efficient training methods in a single line of code!**  Trying out new methods or combinations of methods is as easy as adding another line! As Composer gets better and we implement more methods and quality of life improvements, the savings are directly passed to you.
 
-For concrete examples of methods in Composer, here's some (_see [here](https://docs.mosaicml.com) for all_) efficiency methods currently in Composer:
+Composer's built-in [trainer](https://docs.mosaicml.com/en/stable/trainer/using_the_trainer.html) makes it easy to **add multiple speedup methods in a single line of code!**
+Trying out new methods or combinations of methods is as easy as changing a single list.
+As we continually implement more methods, they will be easy for you to add to your code.
 
-Name|Functional|Attribution|tl;dr
-----|----------|-----------|-----
-[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[(Press et al, 2021)](https://arxiv.org/abs/2108.12409v1)|Replace attention with AliBi
-[AugMix](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/augmix)|`cf.augmix_image`|[(Hendrycks et al, 2020)](http://arxiv.org/abs/1912.02781)|Image-perserving data augmentations
-[BlurPool](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/blurpool)|`cf.apply_blurpool`|[(Zhang, 2019)](https://arxiv.org/abs/1904.11486)|applies blur before pooling
-[ChannelsLast](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/channels_last)|`cf.apply_channels_last`|[PyTorch](https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html)|Uses channels last memory format (NHWC)
-[ColOut](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/colout)|`cf.colout_batch`|[Many](https://www.mosaicml.com)|Removes columns and rows from the image for augmentation and efficiency.
-[CutMix](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/cutmix)|`cf.cutmix_batch`|[(Yun et al, 2019)](https://arxiv.org/abs/1905.04899)|Combines pairs of examples in non-overlapping regions and mixes labels
-[CutOut](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/cutout)|`cf.cutout_batch`|[(DeVries et al, 2017)](https://arxiv.org/abs/1708.04552)|Randomly erases rectangular blocks from the image.
-[Factorize](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/factorize)|`cf.apply_factorization`|[MosaicML](https://www.mosaicml.com)|Factorize GEMMs into smaller GEMMs
-[GhostBatchNorm](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/ghost_batchnorm)|`cf.apply_ghost_batchnorm`|[(Dimitriou et al, 2020)](https://arxiv.org/abs/2007.08554)|Use smaller samples to compute batchnorm
-[LabelSmoothing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/label_smoothing)|`cf.smooth_labels`|[(Szegedy et al, 2015)](https://arxiv.org/abs/1512.00567)|Smooths the labels with a uniform prior
-[LayerFreezing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/layer_freezing)|`cf.freeze_layers`|[Many (Raghu et al, 2017)](https://arxiv.org/abs/1706.05806)|Progressively freezes layers during training.
-[MixUp](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/mixup)|`cf.mixup_batch`|[(Zhang et al, 2017)](https://arxiv.org/abs/1710.09412)|Blends pairs of examples and labels
-[ProgressiveResizing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/progressive_resizing)|`cf.resize_batch`|[Fast AI](https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb)|Increases the input image size during training
-[RandAugment](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/randaugment)|`cf.randaugment_image`|[(Cubuk et al, 2020)](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html)|Applies a series of random augmentations
-[SAM](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/sam)|`N/A`|[(Foret et al, 2021)](https://arxiv.org/abs/2010.01412)|SAM optimizer measures sharpness of optimization space
-[ScaleSchedule](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/scale_schedule)|`N/A`|[Many](https://www.mosaicml.com)|Scale the learning rate schedule by a factor
-[SelectiveBackprop](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/selective_backprop)|`cf.selective_backprop`|[(Jiang et al, 2019)](https://arxiv.org/abs/1910.00762)|Drops examples with small loss contributions.
-[SeqLengthWarmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|`cf.set_batch_sequence_length`|[(Li et al, 2021)](https://arxiv.org/abs/2108.06084)|Progressively increase sequence length.
-[SqueezeExcite](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/squeeze_excite)|`cf.apply_squeeze_excite`|[Hu et al, 2017](https://arxiv.org/abs/1709.01507)|Replaces eligible layers with Squeeze-Excite layers
-[StochasticDepth](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/stochastic_depth)|`cf.apply_stochastic_depth`|[(Huang et al, 2016)](https://arxiv.org/abs/1603.09382)|Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training
-[SWA](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/swa)|`N/A`|[(Izmailov et al, 2018)](https://arxiv.org/abs/1803.05407)|Computes running average of model weights.
+For concrete examples of methods in Composer, here are some ([_see here for all_](https://docs.mosaicml.com/en/latest/trainer/algorithms.html)) speedup methods currently in Composer:
 
+Name|Attribution|tl;dr|Example Benchmark|Speed Up*|
+----|-----------|-----|---------|---------|
+[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|[Press et al, 2021](https://arxiv.org/abs/2108.12409v1)|Replace attention with AliBi.|GPT-2|1.5x
+[BlurPool](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/blurpool)|[Zhang, 2019](https://arxiv.org/abs/1904.11486)|Applies an anti-aliasing filter before every downsampling operation.|ResNet-101|1.2x
+[ChannelsLast](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/channels_last)|[PyTorch](https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html)|Uses channels last memory format (NHWC).|ResNet-101|1.5x
+[CutOut](https://docs.mosaicml.com/en/latest/method_cards/cutout.html)|[DeVries et al, 2017](https://arxiv.org/abs/1708.04552)|Randomly erases rectangular blocks from the image.|ResNet-101|1.2x
+[LabelSmoothing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/label_smoothing)|[Szegedy et al, 2015](https://arxiv.org/abs/1512.00567)|Smooths the labels with a uniform prior|ResNet-101|1.5x
+[MixUp](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/mixup)|[Zhang et al, 2017](https://arxiv.org/abs/1710.09412)|Blends pairs of examples and labels.|ResNet-101|1.5x
+[RandAugment](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/randaugment)|[Cubuk et al, 2020](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html)|Applies a series of random augmentations to each image.|ResNet-101|1.3x
+[SAM](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/sam)|[Foret et al, 2021](https://arxiv.org/abs/2010.01412)|An optimization strategy that seeks flatter minima.|ResNet-101|1.4x
+[SeqLengthWarmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|[Li et al, 2021](https://arxiv.org/abs/2108.06084)|Progressively increase sequence length.|GPT-2|1.2x
+[Stochastic Depth](https://docs.mosaicml.com/en/latest/method_cards/stochastic_depth.html)|[Huang et al, 2016](https://arxiv.org/abs/1603.09382)|Replaces a specified layer with a stochastic version that randomly drops the layer or samples during training|ResNet-101|1.1x
+<p align="right">* = time-to-train to the same quality as the baseline.</p>
 
-Speedups are measured based on time to train to iso-accuracy.
+## 🛠 Building Speedup Recipes
 
-## What benchmarks does Composer support?
+Given two methods that speed up training by 1.5x each, do they combine to provide a 2.25x (1.5x * 1.5x) speedup? Not necessarily.
+They may optimize the [same part of the training process](https://en.wikipedia.org/wiki/Amdahl's_law) and lead to diminishing returns, or they may even interact in ways that prove detrimental.
+Determining which methods to compose together isn't as simple as assembling a set of methods that perform best individually.
 
-MosaicML uses a _benchmark_ as a term to denote an reproducible standard within the machine learning community. A benchmark is a specific model trained for a task, where a task is defined as a specific dataset with a specific loss function.
+**We have come up with compositions of methods that work especially well together** through rigorous exploration of the design space of recipes and research on the science behind composition.
+The [MosaicML Explorer](https://app.mosaicml.com/) contains all of the data we have collected so far on composition, and it highlights the compositions of methods that are _pareto-optimal_ - that provide the **best possible tradeoffs between training time or cost and the quality of the trained model**.
+Whether you want to reach the same quality faster or get better quality within your current budget, Explorer can help you decide which speedup methods to use.
+We update this data regularly as we add new methods and develop better recipes.
 
-Composer is currently focused on supporting computer vision and natural language processing use cases. We currently support the following combinations of models, datasets, and loss functions.
+<p align="center">
+<img src="https://storage.googleapis.com/docs.mosaicml.com/images/methods/explorer.png"/>
+</p>
+
+As an example, here are two performant recipes, one for ResNet-101 on ImageNet, and the other for GPT-2 on OpenWebText, on 8xA100s:
+
+### ResNet-101
+
+Name|Functional|tl;dr|Benchmark|Speed Up
+----|----------|-----|---------|--------
+[Blur Pool](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/blurpool)|`cf.apply_blurpool`|[Applies an anti-aliasing filter before every downsampling operation.](https://arxiv.org/abs/1904.11486)|ResNet-101|1.2x
+[Channels Last](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/channels_last)|`cf.apply_`<br>`channels_last`|[Uses channels last memory format (NHWC).](https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html)|ResNet-101|1.5x
+[Label Smoothing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/label_smoothing)|`cf.smooth_labels`|[Smooths the labels with a uniform prior.](https://arxiv.org/abs/1512.00567)|ResNet-101|1.5x
+[MixUp](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/mixup)|`CF.mixup_batch`|[Blends pairs of examples and labels.](https://arxiv.org/abs/1710.09412)|ResNet-101|1.5x
+[Progressive Resizing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/progressive_resizing)|`cf.resize_batch`|[Increases the input image size during training.](https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a7e0735/07_sizing_and_tta.ipynb)|ResNet-101|1.3x
+[SAM](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/sam)|`N/A`|[SAM optimizer measures sharpness of optimization space.](https://arxiv.org/abs/2010.01412)|ResNet-101|1.5x
+**Composition** | `N/A` | **Cheapest: \$49 @ 78.1% Acc** | **ResNet-101** | **3.5x**
+
+### GPT-2
+
+Name|Functional|tl;dr|Benchmark|Speed Up
+----|----------|-----|---------|--------
+[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[Replace attention with AliBi.](https://arxiv.org/abs/2108.12409v1)|GPT-2|1.6x
+[Seq Length Warmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|`cf.set_batch_`<br>`sequence_length`|[Progressively increase sequence length.](https://arxiv.org/abs/2108.06084)|GPT-2|1.5x
+**Composition** | `N/A` | **Cheapest: \$145 @ 24.11 PPL** | **GPT-2** | **1.7x**
+
+# ⚙️ What benchmarks does Composer support?
+
+Composer uses a _benchmark_ as a term to denote a particular model trained on a particular dataset in a standardized, reproducible way. A benchmark is a specific model trained for a task, where a task = dataset + loss function + metric.
+
+We support computer vision and natural language processing use cases, such as (but not limited to) the following. New benchmarks will be added regularly, as will compatibility with existing libraries.
 
 <div class="center">
 <table>
@@ -241,14 +266,14 @@ Composer is currently focused on supporting computer vision and natural language
   </tr>
   <tr>
     <td>BERT Family</td>
-    <td>{OpenWebText, C4}</td>
+    <td>{Wikipedia &amp; BooksCorpus, C4}</td>
     <td>Cross Entropy</td>
     <td>Masked Language Modeling</td>
     <td>GLUE </td>
   </tr>
   <tr>
     <td>GPT Family</td>
-    <td>{Wikipedia &amp; BooksCorpus, C4}</td>
+    <td>{OpenWebText, C4}</td>
     <td>Cross Entropy</td>
     <td>Language Modeling<br></td>
     <td>Perplexity</td>
@@ -257,33 +282,33 @@ Composer is currently focused on supporting computer vision and natural language
 </table>
 </div>
 
-## Why use Composer?
-The compute required to train a state-of-the-art machine learning model is [doubling every 6 months](https://arxiv.org/abs/2202.05924), subsequently making machine learning less accessible for the broader community. Composer shifts the focus to _efficiency_, and contains reproducible versions of cutting-edge algorithms that help reduce the compute and cost required to train state-of-the-art models. While every paper will claim state-of-the-art efficiency results, Composer will be your source well-engineered implementations of **efficient training methods that actually work in practice**.
+# 🤔 Why should I use Composer?
 
-Furthermore, combining these efficiency methods together isn't a piece of cake. When exploring how to seamlessly combine different efficient training methods, we that existing Trainers failed to provide a flexible design that would be needed to interleave and inject many different methods into the training loop.  To fulfill this need, we designed a Trainer built for efficiency from first-principles.  In Composer, we carefully designed new abstractions to allow us to have flexibility in all necesssary parts of the training loop.
+The compute required to train a state-of-the-art machine learning model is [doubling every 6 months](https://arxiv.org/abs/2202.05924), putting these capabilities further and further out of reach for the broader community with each passing day.
+Composer addresses this challenge by focusing on training efficiency: it contains cutting-edge speedup methods that modify the training algorithm to reduce the time and cost necessary to train deep learning models.
+**When you use Composer, you can rest assured that you are training efficiently.**
+We have combed the literature, done the science, and built industrial-grade implementations to ensure this is the case.
 
-Composer is designed with **two-way callbacks** ([Howard et al, 2020](https://arxiv.org/abs/2002.04688)) as a first-class citizen. This enables easy injection of efficiency methods throughout the entire training loop.  Not only does the two-way callback system trigger at every part of the training loop, each callback is designed to pass the **entire training state** designed so that any part of training can be modified.
+Even after these speedup methods are implemented, assembling them together into recipes is nontrivial. We designed Composer with the **right abstractions to composing (and creating new) speedup methods.**
 
-Composer leverages the two-way callback system to seamlessly integrate our methods into the training pipeline, for examples:
- - Composer modifies data inputs for batches (data augmentations, sequence length warmup, skipping examples, etc)
- - Composer modifies the neural network (layer freezing, pruning, model surgery, etc)
- - Composer modifies the loss function (label smoothing, MixUp, CutMix, etc)
- - Composer modifies the optimizer (Sharpness Aware Minimization)
+Specifically, Composer's efficiency methods use **two-way callbacks** from ([Howard et al, 2020](https://arxiv.org/abs/2002.04688)) to modify the **entire training state** at particular events in the training loop to effect speed-ups. We handle collisions between methods, the proper order of execution for algorithms, and more.
 
-With Composer, we make it easy to add your own methods or callbacks to easily instrument any part of the training loop.
+Through this, our methods can modify:
+ - data inputs for batches (data augmentations, sequence length warmup, skipping examples, etc.)
+ - neural network architecture (pruning, model surgery, etc.)
+ - loss function (label smoothing, MixUp, CutMix, etc.)
+ - optimizer (Sharpness Aware Minimization)
+ - training dynamics (layer freezing, selective backprop, etc.)
 
-## Why shouldn’t I use Composer?
+Easily [add your own methods](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/custom_method_tutorial.ipynb) or callbacks to instrument any part of the training loop.
 
-Composer is a framework built with a focus on training the most _efficient_ model for your downstream task.
+# 🧐 Why shouldn’t I use Composer?
 
-* If training efficiency is not a concern, then Composer may not be as well suited for your task. Inference efficiency is not in the current roadmap for Composer support.
-* Composer currently supports most computer vision (CV) and natural language processing (NLP) use cases. We will support most industry applications, but may not support highly custom or novel architectures.
+* Composer is mostly optimized for computer vision (CV) and natural language processing (NLP) use cases, including [custom models](https://docs.mosaicml.com/en/stable/composer_model.html) and custom datasets. We strongly encourage exploration on integrating our algorithms into new domains, such as reinforcement learning. Feel free to [join our Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg) and discuss!
+* Composer currently supports NVIDIA GPUs. We are adding support for additional hardware platforms, and you should expect more soon.
+* Composer is an active and ongoing project. Since Composer is still in alpha, our API may not be stable. We recommend pegging your work to a Composer version, and we will respond quickly to issues posted to this repository.
 
-Composer is an active and ongoing project. Since Composer is still in alpha, our API may not be stable. We recommend pegging your work to a Composer version.
-
-We welcome any comments, feedback, or contributions to Composer! Please do not hesitate to file an issue or pull request 🤩.
-
-## Learn More
+# 📚 Learn More
 
 Here's some resources actively maintained by the Composer community to help you get started:
 <table>
@@ -294,10 +319,6 @@ Here's some resources actively maintained by the Composer community to help you 
   </tr>
 </thead>
 <tbody>
-  <tr>
-    <td><a href="https://www.mosaicml.com/blog/founders-blog" target="_blank" rel="noopener noreferrer">Founder's Blog</a></td>
-    <td>A blog post by our founders highlighting why MosaicML exists</td>
-  </tr>
   <tr>
     <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Trainer</a></td>
     <td>An interactive Colab Notebook aimed at teaching users about our Trainer</td>
@@ -321,12 +342,14 @@ Here's some resources actively maintained by the Composer community to help you 
 </tbody>
 </table>
 
-If you have any questions, please feel free to reach out to us on [Twiter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
+If you have any questions, please feel free to reach out to us on [Twitter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
 
-## Contributors
+# 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!
 
-## Citation
+To start contributing, see our [Contributing](CONTRIBUTING.md) page. 
+
+# ✍️ Citation
 ```
 @misc{mosaicml2022composer,
     author = {The Mosaic ML Team},

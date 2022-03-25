@@ -28,8 +28,6 @@ model:
   efficientnetb0:
     drop_connect_rate: 0.2
     num_classes: 1000
-loggers:
-  - tqdm: {}
 max_duration: 400ep
 train_batch_size: 4096
 eval_batch_size: 2048

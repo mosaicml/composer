@@ -11,15 +11,15 @@ import textwrap
 import warnings
 from typing import Any, Dict, Optional
 
-from composer.core.logging import LoggerCallback, LogLevel, TLogData
-from composer.core.time import Timestamp
-from composer.core.types import Logger, State, StateDict
+from composer.core.state import State
+from composer.loggers.logger import Logger, LogLevel
+from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist, run_directory
 
 __all__ = ["WandBLogger"]
 
 
-class WandBLogger(LoggerCallback):
+class WandBLogger(LoggerDestination):
     """Log to Weights and Biases (https://wandb.ai/)
 
     Args:
@@ -70,13 +70,13 @@ class WandBLogger(LoggerCallback):
             init_params = {}
         self._init_params = init_params
 
-    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
+    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         import wandb
         del log_level  # unused
         if self._enabled:
-            wandb.log(data, step=int(timestamp.batch))
+            wandb.log(data, step=int(state.timer.batch))
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         import wandb
 
         # Storing these fields in the state dict to support run resuming in the future.
@@ -95,7 +95,11 @@ class WandBLogger(LoggerCallback):
 
     def init(self, state: State, logger: Logger) -> None:
         import wandb
-        del state, logger  # unused
+        del state  # unused
+        if "name" not in self._init_params:
+            # Use the logger run name if the name is not set.
+            self._init_params["name"] = logger.run_name
+
         if self._enabled:
             wandb.init(**self._init_params)
 

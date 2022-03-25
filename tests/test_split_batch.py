@@ -3,7 +3,7 @@ from typing import Dict, List, Mapping, Tuple
 import pytest
 import torch
 
-from composer.datasets.utils import _default_split_batch
+from composer.core.data_spec import _default_split_batch
 
 
 def dummy_tensor_batch(batch_size=12) -> torch.Tensor:

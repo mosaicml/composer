@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 from composer.algorithms import CutMix, CutMixHparams
 from composer.algorithms.cutmix.cutmix import _rand_bbox, cutmix_batch
-from composer.core.types import Event
+from composer.core import Event
 from composer.models.base import ComposerClassifier
 from tests.common import SimpleConvModel
 
@@ -17,7 +17,6 @@ from tests.common import SimpleConvModel
 def fake_data(request):
     # Generate some fake data
     N, C, d1, d2, num_classes = request.param
-    torch.manual_seed(0)
     x_fake = torch.randn(N, C, d1, d2)
     y_fake = torch.randint(num_classes, size=(N,))
     indices = torch.randperm(N)

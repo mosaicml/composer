@@ -6,8 +6,9 @@ from typing import Dict, Union
 
 import torch.cuda
 
-from composer.core import Logger, State
+from composer.core import State
 from composer.core.callback import Callback
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
@@ -21,17 +22,19 @@ class MemoryMonitor(Callback):
     :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` and reports different memory statistics.
 
     Example
-       >>> # constructing trainer object with this callback
-       >>> trainer = Trainer(
-       ...     model=model,
-       ...     train_dataloader=train_dataloader,
-       ...     eval_dataloader=eval_dataloader,
-       ...     optimizers=optimizer,
-       ...     max_duration="1ep",
-       ...     callbacks=[callbacks.MemoryMonitor()],
-       ... )
 
-    The memory statistics are logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as
+        >>> from composer.callbacks import MemoryMonitor
+        >>> # constructing trainer object with this callback
+        >>> trainer = Trainer(
+        ...     model=model,
+        ...     train_dataloader=train_dataloader,
+        ...     eval_dataloader=eval_dataloader,
+        ...     optimizers=optimizer,
+        ...     max_duration="1ep",
+        ...     callbacks=[MemoryMonitor()],
+        ... )
+
+    The memory statistics are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
 
     +--------------------------+-------------------------------------------------------------+
@@ -71,7 +74,7 @@ class MemoryMonitor(Callback):
         log.info(
             "Memory monitor just profiles the current GPU assuming that the memory footprint across GPUs is balanced.")
         if torch.cuda.device_count() == 0:
-            log.warn("Memory monitor only works on GPU devices.")
+            log.warning("Memory monitor only works on GPU devices.")
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}
@@ -83,7 +86,7 @@ class MemoryMonitor(Callback):
         memory_report = _get_memory_report()
 
         for mem_stat, val in memory_report.items():
-            logger.metric_batch({'memory/{}'.format(mem_stat): val})
+            logger.data_batch({'memory/{}'.format(mem_stat): val})
 
 
 _MEMORY_STATS = {

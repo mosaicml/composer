@@ -36,58 +36,96 @@ For example, a simple algorithm that shortens training:
 
 For more information about events, see :class:`~composer.core.event.Event`.
 """
-from composer.algorithms.algorithm_hparams import AlgorithmHparams as AlgorithmHparams
-from composer.algorithms.algorithm_registry import get_algorithm_registry as get_algorithm_registry
-from composer.algorithms.algorithm_registry import list_algorithms as list_algorithms
-from composer.algorithms.alibi import Alibi as Alibi
-from composer.algorithms.augmix import AugmentAndMixTransform as AugmentAndMixTransform
-from composer.algorithms.augmix import AugMix as AugMix
-from composer.algorithms.blurpool import BlurPool as BlurPool
-from composer.algorithms.channels_last import ChannelsLast as ChannelsLast
-from composer.algorithms.colout import ColOut as ColOut
-from composer.algorithms.colout import ColOutTransform as ColOutTransform
-from composer.algorithms.cutmix import CutMix as CutMix
-from composer.algorithms.cutout import CutOut as CutOut
-from composer.algorithms.factorize import Factorize as Factorize
-from composer.algorithms.ghost_batchnorm import GhostBatchNorm as GhostBatchNorm
-from composer.algorithms.hparams import AlibiHparams as AlibiHparams
-from composer.algorithms.hparams import AugMixHparams as AugMixHparams
-from composer.algorithms.hparams import BlurPoolHparams as BlurPoolHparams
-from composer.algorithms.hparams import ChannelsLastHparams as ChannelsLastHparams
-from composer.algorithms.hparams import ColOutHparams as ColOutHparams
-from composer.algorithms.hparams import CutMixHparams as CutMixHparams
-from composer.algorithms.hparams import CutOutHparams as CutOutHparams
-from composer.algorithms.hparams import FactorizeHparams as FactorizeHparams
-from composer.algorithms.hparams import GhostBatchNormHparams as GhostBatchNormHparams
-from composer.algorithms.hparams import LabelSmoothingHparams as LabelSmoothingHparams
-from composer.algorithms.hparams import LayerFreezingHparams as LayerFreezingHparams
-from composer.algorithms.hparams import MixUpHparams as MixUpHparams
-from composer.algorithms.hparams import NoOpModelHparams as NoOpModelHparams
-from composer.algorithms.hparams import ProgressiveResizingHparams as ProgressiveResizingHparams
-from composer.algorithms.hparams import RandAugmentHparams as RandAugmentHparams
-from composer.algorithms.hparams import SAMHparams as SAMHparams
-from composer.algorithms.hparams import ScaleScheduleHparams as ScaleScheduleHparams
-from composer.algorithms.hparams import SelectiveBackpropHparams as SelectiveBackpropHparams
-from composer.algorithms.hparams import SeqLengthWarmupHparams as SeqLengthWarmupHparams
-from composer.algorithms.hparams import SqueezeExciteHparams as SqueezeExciteHparams
-from composer.algorithms.hparams import StochasticDepthHparams as StochasticDepthHparams
-from composer.algorithms.hparams import SWAHparams as SWAHparams
-from composer.algorithms.label_smoothing import LabelSmoothing as LabelSmoothing
-from composer.algorithms.layer_freezing import LayerFreezing as LayerFreezing
-from composer.algorithms.mixup import MixUp as MixUp
-from composer.algorithms.no_op_model import NoOpModel as NoOpModel
-from composer.algorithms.progressive_resizing import ProgressiveResizing as ProgressiveResizing
-from composer.algorithms.randaugment import RandAugment as RandAugment
-from composer.algorithms.randaugment import RandAugmentTransform as RandAugmentTransform
-from composer.algorithms.sam import SAM as SAM
-from composer.algorithms.scale_schedule import ScaleSchedule as ScaleSchedule
-from composer.algorithms.selective_backprop import SelectiveBackprop as SelectiveBackprop
-from composer.algorithms.seq_length_warmup import SeqLengthWarmup as SeqLengthWarmup
-from composer.algorithms.squeeze_excite import SqueezeExcite as SqueezeExcite
-from composer.algorithms.squeeze_excite import SqueezeExcite2d as SqueezeExcite2d
-from composer.algorithms.squeeze_excite import SqueezeExciteConv2d as SqueezeExciteConv2d
-from composer.algorithms.stochastic_depth import StochasticDepth as StochasticDepth
-from composer.algorithms.swa import SWA as SWA
+from composer.algorithms.algorithm_hparams import AlgorithmHparams
+from composer.algorithms.algorithm_registry import get_algorithm_registry, list_algorithms
+from composer.algorithms.alibi import Alibi
+from composer.algorithms.augmix import AugmentAndMixTransform, AugMix
+from composer.algorithms.blurpool import BlurPool
+from composer.algorithms.channels_last import ChannelsLast
+from composer.algorithms.colout import ColOut, ColOutTransform
+from composer.algorithms.cutmix import CutMix
+from composer.algorithms.cutout import CutOut
+from composer.algorithms.factorize import Factorize
+from composer.algorithms.ghost_batchnorm import GhostBatchNorm
+from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
+                                         ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams,
+                                         GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
+                                         MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
+                                         SAMHparams, ScaleScheduleHparams, SelectiveBackpropHparams,
+                                         SeqLengthWarmupHparams, SqueezeExciteHparams, StochasticDepthHparams,
+                                         SWAHparams)
+from composer.algorithms.label_smoothing import LabelSmoothing
+from composer.algorithms.layer_freezing import LayerFreezing
+from composer.algorithms.mixup import MixUp
+from composer.algorithms.no_op_model import NoOpModel
+from composer.algorithms.progressive_resizing import ProgressiveResizing
+from composer.algorithms.randaugment import RandAugment, RandAugmentTransform
+from composer.algorithms.sam import SAM
+from composer.algorithms.scale_schedule import ScaleSchedule
+from composer.algorithms.selective_backprop import SelectiveBackprop
+from composer.algorithms.seq_length_warmup import SeqLengthWarmup
+from composer.algorithms.squeeze_excite import SqueezeExcite, SqueezeExcite2d, SqueezeExciteConv2d
+from composer.algorithms.stochastic_depth import StochasticDepth
+from composer.algorithms.swa import SWA
 
 load_multiple = AlgorithmHparams.load_multiple
 load = AlgorithmHparams.load
+
+__all__ = [
+    "load",
+    "load_multiple",
+    "get_algorithm_registry",
+    "list_algorithms",
+    "Alibi",
+    "AugmentAndMixTransform",
+    "AugMix",
+    "BlurPool",
+    "ChannelsLast",
+    "ColOut",
+    "ColOutTransform",
+    "CutMix",
+    "CutOut",
+    "Factorize",
+    "GhostBatchNorm",
+    "LabelSmoothing",
+    "LayerFreezing",
+    "MixUp",
+    "NoOpModel",
+    "ProgressiveResizing",
+    "RandAugment",
+    "RandAugmentTransform",
+    "SAM",
+    "ScaleSchedule",
+    "SelectiveBackprop",
+    "SeqLengthWarmup",
+    "SqueezeExcite",
+    "SqueezeExcite2d",
+    "SqueezeExciteConv2d",
+    "StochasticDepth",
+    "SWA",
+
+    # hparams objects
+    "AlgorithmHparams",
+    "AlibiHparams",
+    "AugMixHparams",
+    "BlurPoolHparams",
+    "ChannelsLastHparams",
+    "ColOutHparams",
+    "CutMixHparams",
+    "CutOutHparams",
+    "FactorizeHparams",
+    "GhostBatchNormHparams",
+    "LabelSmoothingHparams",
+    "LayerFreezingHparams",
+    "MixUpHparams",
+    "NoOpModelHparams",
+    "ProgressiveResizingHparams",
+    "RandAugmentHparams",
+    "SAMHparams",
+    "ScaleScheduleHparams",
+    "SelectiveBackpropHparams",
+    "SeqLengthWarmupHparams",
+    "SqueezeExciteHparams",
+    "StochasticDepthHparams",
+    "SWAHparams",
+]

@@ -15,7 +15,7 @@ from typing import List
 import yahp as hp
 from torch.utils.data import IterableDataset, get_worker_info
 
-from composer.core.types import Batch, DataSpec
+from composer.core.data_spec import DataSpec
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
@@ -23,23 +23,6 @@ from composer.utils import dist
 log = logging.getLogger(__name__)
 
 __all__ = ["C4Dataset", "C4DatasetHparams"]
-
-
-def _split_dict_fn(batch: Batch, n_microbatches: int) -> List[Batch]:
-    if isinstance(batch, dict):
-        chunked = {k: v.chunk(n_microbatches) for k, v in batch.items()}
-        for k, v in chunked.items():
-            if len(v) != n_microbatches:
-                raise ValueError(
-                    f"Unable to split batch into microbatches. "
-                    f"Key '{k}' has chunked list: {v} with length {len(v)}, but expected length {n_microbatches}. ")
-        microbatches = []
-        for idx in range(n_microbatches):
-            mb = {k: v[idx] for k, v in chunked.items()}
-            microbatches.append(mb)
-        return microbatches
-    else:
-        raise ValueError(f'Expected batch to be of type Dict[str, Tensor], but got {type(batch)}')
 
 
 @dataclass
@@ -130,9 +113,7 @@ class C4DatasetHparams(DatasetHparams):
             batch_size=batch_size,
             sampler=None,
             drop_last=self.drop_last,
-            collate_fn=collate_fn,
-        ),
-                        split_batch=_split_dict_fn)
+            collate_fn=collate_fn))
 
 
 class C4Dataset(IterableDataset):

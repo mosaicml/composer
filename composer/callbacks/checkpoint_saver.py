@@ -11,8 +11,8 @@ from typing import Callable, Optional, Union
 
 from composer.core import Event, State
 from composer.core.callback import Callback
-from composer.core.logging.logger import Logger
 from composer.core.time import Time, TimeUnit
+from composer.loggers import Logger
 from composer.utils import checkpoint, dist, run_directory
 
 log = logging.getLogger(__name__)

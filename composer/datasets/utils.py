@@ -8,12 +8,11 @@ from typing import Callable, List, Mapping, Sequence, Tuple, Union
 
 import numpy as np
 import torch
-import torch.utils.data
 from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import Batch, Tensor
+from composer.core.types import Batch
 
 __all__ = [
     "add_vision_dataset_transform",
@@ -50,8 +49,8 @@ class NormalizationFn:
 
     def __call__(self, batch: Batch):
         xs, ys = batch
-        assert isinstance(xs, Tensor)
-        assert isinstance(ys, Tensor)
+        assert isinstance(xs, torch.Tensor)
+        assert isinstance(ys, torch.Tensor)
         device = xs.device
 
         if not isinstance(self.mean, torch.Tensor):
@@ -68,8 +67,9 @@ class NormalizationFn:
         return xs, ys
 
 
-def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]],
-                      memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[Tensor, Tensor]:
+def pil_image_collate(
+        batch: List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]],
+        memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[torch.Tensor, torch.Tensor]:
     """Constructs a :class:`~composer.core.types.BatchPair` from datasets that yield samples of type
     :class:`PIL.Image.Image`.
 
@@ -162,67 +162,3 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
             dataset.transform = transforms.Compose([dataset.transform, transform])
             log.warning(transform_added_logstring)
 
-
-def _split_list(l: List, num_microbatches: int) -> List:
-    if len(l) < num_microbatches:
-        raise ValueError(
-            textwrap.dedent(f"""\
-        Cannot split list of length {len(l)} into {num_microbatches} batches.
-         make sure `grad_accum` is less than`batch_size`."""))
-    return [l[i::num_microbatches] for i in range(num_microbatches)]
-
-
-def _split_tensor(t: torch.Tensor, num_microbatches: int) -> List:
-    if len(t) < num_microbatches:
-        raise ValueError(
-            textwrap.dedent(f"""\
-        Cannot split tensor of length {len(t)} into {num_microbatches} batches.
-         make sure `grad_accum` is less than`batch_size`."""))
-    return t.chunk(num_microbatches)
-
-
-def _split_mapping(m, num_microbatches):
-    chunked = {}
-    for k, v in m.items():
-        if isinstance(v, torch.Tensor):
-            chunked[k] = _split_tensor(v, num_microbatches)
-        if isinstance(v, (List, Tuple)):
-            chunked[k] = _split_list(v, num_microbatches)
-    return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_microbatches)]
-
-
-def _default_split_batch(batch: Union[Mapping, List, Tuple], num_microbatches: int) -> Sequence:
-    """Splits batch into `num_microbatches` chunks for gradient accumulation. Works with tensors, dictionaries of
-    tensors, (x, y) tuples, and lists where batch is the first dimension.
-
-    Args:
-        batch: output from the dataloader.
-        num_microbatches (int): number of microbatches to batch into, will be set by `grad_accum`.
-    """
-    if num_microbatches < 1:
-        raise ValueError("num_microbatches must be at least 1")
-    if num_microbatches == 1:
-        return [batch]
-
-    if isinstance(batch, torch.Tensor):  # check for a single stack of tensors
-        return _split_tensor(batch, num_microbatches)
-
-    if isinstance(batch, list):  # assume lists have batch dimension first
-        return _split_list(batch, num_microbatches)
-
-    if isinstance(batch, Mapping):  # check for dictionary (hf style)
-        return _split_mapping(batch, num_microbatches)
-
-    if isinstance(batch, tuple):  # check for batch on 2nd dimension
-        result = []
-        for item in batch:
-            if isinstance(item, torch.Tensor):
-                result.append(_split_tensor(item, num_microbatches))
-            if isinstance(item, (List, Tuple)):
-                result.append(_split_list(item, num_microbatches))
-        return list(zip(*result))
-
-    raise NotImplementedError(
-        textwrap.dedent("""\
-            The default `split_fn` is unable to split the output of this
-            dataloader. To enable `grad_accum`, please and specify `split_batch` on the Trainer."""))

@@ -7,28 +7,29 @@ Useful for collecting and plotting data inside notebooks.
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Union
+import copy
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 from torch import Tensor
 
-from composer.core.logging import LoggerCallback, LogLevel, TLogData
-from composer.core.logging.logger import TLogDataValue
+from composer.core.state import State
 from composer.core.time import Timestamp
+from composer.loggers.logger import LogLevel
+from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ["InMemoryLogger"]
 
 
-class InMemoryLogger(LoggerCallback):
+class InMemoryLogger(LoggerDestination):
     """Logs metrics to dictionary objects that persist in memory throughout training. Useful for collecting and plotting
     data inside notebooks.
 
     Example usage:
         .. testcode::
 
-            from composer.loggers import InMemoryLogger
+            from composer.loggers import InMemoryLogger, LogLevel
             from composer.trainer import Trainer
-            from composer.core.logging import LogLevel
             logger = InMemoryLogger(
                 log_level=LogLevel.BATCH
             )
@@ -41,8 +42,8 @@ class InMemoryLogger(LoggerCallback):
                 loggers=[logger]
             )
             # Get data from logger. If you are using multiple loggers, be sure to confirm
-            # which index in trainer.logger.backends contains your desired logger.
-            logged_data = trainer.logger.backends[0].data
+            # which index in trainer.logger.destinations contains your desired logger.
+            logged_data = trainer.logger.destinations[0].data
 
     Args:
         log_level (str or LogLevel, optional):
@@ -52,40 +53,40 @@ class InMemoryLogger(LoggerCallback):
             everything.
 
     Attributes:
-        data (dict): Mapping of a logged key to a
-            (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`,
-            :attr:`~.logger.TLogDataValue`) tuple. This dictionary contains all logged
-            data.
-        most_recent_values (Dict[str, TLogData]): Mapping of a key to the most recent value for that key.
+        data (dict): Mapping of a logged key to a (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`, data dictionary) tuple.
+            This dictionary contains all logged data.
+        most_recent_values (Dict[str, Any]): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
     """
 
-    def __init__(self, log_level: Union[str, LogLevel] = LogLevel.BATCH) -> None:
+    def __init__(self, log_level: Union[str, int, LogLevel] = LogLevel.BATCH) -> None:
         self.log_level = LogLevel(log_level)
-        self.data: Dict[str, List[Tuple[Timestamp, LogLevel, TLogDataValue]]] = {}
-        self.most_recent_values: Dict[str, TLogDataValue] = {}
+        self.data: Dict[str, List[Tuple[Timestamp, LogLevel, Dict[str, Any]]]] = {}
+        self.most_recent_values = {}
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
 
-    def log_metric(self, timestamp: Timestamp, log_level: LogLevel, data: TLogData):
+    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         if log_level > self.log_level:
             # the logged metric is more verbose than what we want to record.
             return
-        for k, v in data.items():
+        timestamp = state.timer.get_timestamp()
+        copied_data = copy.deepcopy(data)
+        for k, v in copied_data.items():
             if k not in self.data:
                 self.data[k] = []
             self.data[k].append((timestamp, log_level, v))
-        self.most_recent_values.update(data)
-        self.most_recent_timestamps.update({k: timestamp for k in data})
+        self.most_recent_values.update(copied_data.items())
+        self.most_recent_timestamps.update({k: timestamp for k in copied_data})
 
-    def get_timeseries(self, metric: str) -> Dict[str, TLogData]:
+    def get_timeseries(self, metric: str) -> Dict[str, Any]:
         """Returns logged data as dict containing values of a desired metric over time.
 
         Args:
             metric (str): Metric of interest. Must be present in self.data.keys().
 
         Returns:
-            timeseries (Dict[str, TLogData]): Dictionary in which one key is ``metric``,
+            timeseries (Dict[str, Any]): Dictionary in which one key is ``metric``,
                 and the associated value is a list of values of that metric. The remaining
                 keys are each a unit of time, and the associated values are each a list of
                 values of that time unit for the corresponding index of the metric. For
@@ -99,24 +100,16 @@ class InMemoryLogger(LoggerCallback):
 
                 import matplotlib.pyplot as plt
 
-                from composer.core.logging import LogLevel
+                from composer.loggers import InMemoryLogger, LogLevel
                 from composer.core.time import Time, Timestamp
-                from composer.loggers import InMemoryLogger
 
                 in_mem_logger = InMemoryLogger(LogLevel.BATCH)
 
                 # Populate the logger with data
                 for b in range(0,3):
                     datapoint = b * 3
-                    timestamp = Timestamp(epoch=Time(0, "ep"),
-                                        batch=Time(b, "ba"),
-                                        batch_in_epoch=Time(0, "ba"),
-                                        sample=Time(0, "sp"),
-                                        sample_in_epoch=Time(0, "sp"),
-                                        token=Time(0, "tok"),
-                                        token_in_epoch=Time(0, "tok"))
-                    in_mem_logger.log_metric(timestamp=timestamp, 
-                        log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+                    in_mem_logger.log_data(state=state, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
+
                 timeseries = in_mem_logger.get_timeseries("accuracy/val")
                 plt.plot(timeseries["batch"], timeseries["accuracy/val"])
                 plt.xlabel("Batch")

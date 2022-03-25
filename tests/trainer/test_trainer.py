@@ -17,24 +17,26 @@ from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
-from composer.core.types import Model
-from composer.loggers import FileLogger, TQDMLogger, WandBLogger
+from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
+from composer.trainer.devices.device import Device
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from composer.utils import dist
-from composer.utils.reproducibility import seed_all
+from composer.utils.object_store import ObjectStoreHparams
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 
 
+@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerInit():
 
     @pytest.fixture
-    def config(self):
+    def config(self, rank_zero_seed: int):
         return {
             'model': SimpleModel(),
             'train_dataloader': DataLoader(dataset=RandomClassificationDataset()),
             'eval_dataloader': DataLoader(dataset=RandomClassificationDataset()),
             'max_duration': '2ep',
+            'seed': rank_zero_seed,
         }
 
     def test_init(self, config):
@@ -48,12 +50,12 @@ class TestTrainerInit():
 
     def test_loggers_before_callbacks(self, config):
         config.update({
-            "loggers": [TQDMLogger()],
+            "loggers": [ProgressBarLogger()],
             "callbacks": [LRMonitor()],
         })
 
         trainer = Trainer(**config)
-        assert isinstance(trainer.state.callbacks[0], TQDMLogger)
+        assert isinstance(trainer.state.callbacks[0], ProgressBarLogger)
         assert isinstance(trainer.state.callbacks[1], LRMonitor)
 
     @device('gpu', 'cpu')
@@ -114,9 +116,10 @@ class TestTrainerInit():
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
+@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerEquivalence():
 
-    reference_model: Model
+    reference_model: torch.nn.Module
     reference_folder: pathlib.Path
     default_threshold: Dict[str, float]
 
@@ -137,10 +140,9 @@ class TestTrainerEquivalence():
         self.default_threshold = {'atol': 0, 'rtol': 0}
 
     @pytest.fixture
-    def config(self, device, precision, world_size):
+    def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
         """Returns the reference config."""
 
-        seed_all(seed=0)
         return {
             'model': SimpleModel(),
             'train_dataloader': DataLoader(
@@ -153,7 +155,7 @@ class TestTrainerEquivalence():
                 shuffle=False,
             ),
             'max_duration': '2ep',
-            'seed': 0,
+            'seed': rank_zero_seed,
             'device': device,
             'precision': precision,
             'deterministic_mode': True,  # testing equivalence
@@ -260,10 +262,11 @@ class AssertDataAugmented(Callback):
         assert not torch.allclose(original_outputs[0], state.outputs[0])
 
 
+@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerEvents():
 
     @pytest.fixture
-    def config(self):
+    def config(self, rank_zero_seed: int):
         return {
             'model': SimpleConvModel(),
             'train_dataloader': DataLoader(
@@ -272,7 +275,8 @@ class TestTrainerEvents():
             ),
             'eval_dataloader': None,
             'max_duration': '1ep',
-            'loggers': []
+            'loggers': [],
+            'seed': rank_zero_seed,
         }
 
     def test_data_augmented(self, config):
@@ -308,10 +312,11 @@ config management to retrieve the objects to test.
 """
 
 
+@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerAssets:
 
     @pytest.fixture
-    def config(self):
+    def config(self, rank_zero_seed: int):
         return {
             'model': SimpleConvModel(),
             'train_dataloader': DataLoader(
@@ -324,13 +329,14 @@ class TestTrainerAssets:
             ),
             'max_duration': '2ep',
             'loggers': [],  # no progress bar
+            'seed': rank_zero_seed,
         }
 
     # Note: Not all algorithms, callbacks, and loggers are compatible
     #       with the above configuration. The fixtures below filter and
     #       create the objects to test.
 
-    @pytest.fixture(params=algorithms_registry.items(), ids=algorithms_registry.keys())
+    @pytest.fixture(params=algorithms_registry.items(), ids=tuple(algorithms_registry.keys()))
     def algorithm(self, request):
 
         name, hparams = request.param
@@ -359,7 +365,7 @@ class TestTrainerAssets:
 
         return algorithm
 
-    @pytest.fixture(params=callback_registry.items(), ids=callback_registry.keys())
+    @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
     def callback(self, request, tmpdir, monkeypatch):
         name, hparams = request.param
 
@@ -377,14 +383,27 @@ class TestTrainerAssets:
 
         return callback
 
-    @pytest.fixture(params=logger_registry.items(), ids=logger_registry.keys())
-    def logger(self, request):
+    @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
+    def logger(self, request, tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
 
         name, hparams = request.param
+
+        remote_dir = str(tmpdir / "remote_dir")
+        os.makedirs(remote_dir)
+        local_dir = str(tmpdir / "local_dir")
+        os.makedirs(local_dir)
+        monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
+        provider_hparams = ObjectStoreHparams(
+            provider='local',
+            key_environ="OBJECT_STORE_KEY",
+            container=".",
+        )
 
         required_args = {}
         if name == 'wandb':
             pytest.importorskip('wandb', reason='Required wandb')
+        if name == 'object_store':
+            required_args['object_store_hparams'] = provider_hparams
 
         return hparams(**required_args).initialize_object()
 
