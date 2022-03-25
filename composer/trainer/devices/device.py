@@ -72,7 +72,7 @@ class Device(Serializable, ABC):
                 return self.tensor_to_device(x)
             return x
 
-        return _map_collections(batch, _to_device)
+        return _map_batch(batch, _to_device)
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
         """Invoked by the :class:`.Trainer` to move the optimizer's state onto the device.
@@ -119,23 +119,25 @@ class Device(Serializable, ABC):
         pass
 
 
-def _map_collections(collections: Any, map_fn: Callable) -> Any:
+def _map_batch(batch: Any, map_fn: Callable) -> Any:
     """Recursively maps a function to the values of nested lists and dictionaries.
 
     Args:
-        collections: Nested lists and dictionaries.
+        batch: Nested lists and dictionaries.
         map_fn: A function to invoke on each element.
 
     Returns:
-        Collections: The result of applying ``map_fn`` on each element of ``collections``.
-        The type of ``collections`` is preserved.
+        Collections: The result of applying ``map_fn`` on each element of the ``batch``.
+        The type of ``batch`` is preserved.
     """
-    if isinstance(collections, Mapping):
-        return {k: _map_collections(v, map_fn) for k, v in collections.items()}
-    elif isinstance(collections, Sequence) and not isinstance(collections, string_classes):
+    if isinstance(batch, torch.Tensor):
+        return map_fn(batch)
+    if isinstance(batch, Mapping):
+        return {k: _map_batch(v, map_fn) for k, v in batch.items()}
+    elif isinstance(batch, Sequence) and not isinstance(batch, string_classes):
         try:
-            return type(collections)(_map_collections(x, map_fn) for x in collections)  # type: ignore
+            return type(batch)(_map_batch(x, map_fn) for x in batch)  # type: ignore
         except TypeError:
-            return [_map_collections(x, map_fn) for x in collections]
+            return [_map_batch(x, map_fn) for x in batch]
     else:
-        return map_fn(collections)
+        return map_fn(batch)

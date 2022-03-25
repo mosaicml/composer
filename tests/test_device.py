@@ -4,7 +4,7 @@ import pytest
 import torch
 
 from composer.trainer.devices import DeviceCPU, DeviceGPU
-from composer.trainer.devices.device import _map_collections
+from composer.trainer.devices.device import _map_batch
 from tests.common import device
 
 
@@ -69,4 +69,4 @@ def test_to_device(device, batch):
             assert x.device.type == device_handler._device.type
 
     new_batch = device_handler.batch_to_device(batch)
-    _map_collections(new_batch, assert_device)
+    _map_batch(new_batch, assert_device)
