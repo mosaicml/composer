@@ -47,7 +47,7 @@ class JSONTraceHparams(TraceHandlerHparams):
         merged_trace_filename (str, optional): See :class:`.JSONTraceHandler`.
         merged_trace_artifact_name (str, optional): See :class:`.JSONTraceHandler`.
         overwrite (bool, optional): See :class:`.JSONTraceHandler`.
-        num_trace_cycles_to_keep (int, optional): See :class:`.JSONTraceHandler`.
+        num_traces_to_keep (int, optional): See :class:`.JSONTraceHandler`.
     """
     folder: str = hp.optional("Folder format", default='{run_name}/traces')
     filename: str = hp.optional("Filename format string for the profile trace.",
@@ -58,7 +58,7 @@ class JSONTraceHparams(TraceHandlerHparams):
     merged_trace_artifact_name: Optional[str] = hp.optional("Merged trace file artifact name format",
                                                             default='{run_name}/traces/merged_trace.json')
     overwrite: bool = hp.optional("Overwrite", default=False)
-    num_trace_cycles_to_keep: int = hp.optional("Num trace files to keep", default=-1)
+    num_traces_to_keep: int = hp.optional("Num trace files to keep", default=-1)
 
     def initialize_object(self) -> JSONTraceHandler:
         return JSONTraceHandler(**dataclasses.asdict(self))
