@@ -21,6 +21,7 @@ def test_get_file_uri(tmpdir: pathlib.Path):
     with open(str(tmpdir / "example"), "r") as f:
         assert f.readline().startswith("<!")
 
+
 @pytest.mark.xfail("test is flaky")
 def test_get_file_uri_not_found(tmpdir: pathlib.Path):
     with pytest.raises(GetFileNotFoundException):
