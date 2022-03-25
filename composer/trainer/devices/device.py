@@ -3,16 +3,17 @@
 """The base :class:`~composer.trainer.devices.device.Device` class."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
-from typing import Generator, TypeVar, Union
+from typing import Any, Callable, Generator, TypeVar, Union
 
 import torch
 import torch.nn
+from torch._six import string_classes
 from torch.optim import Optimizer
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.utils.iter_helpers import map_collections
 
 __all__ = ["Device", "T_nnModule"]
 
@@ -66,12 +67,12 @@ class Device(Serializable, ABC):
             Batch: The batch on the device.
         """
 
-        def _to_device(x: T_Batch) -> T_Batch:  # type: ignore
+        def _to_device(x):
             if isinstance(x, torch.Tensor):
                 return self.tensor_to_device(x)
             return x
 
-        return map_collections(batch, _to_device)
+        return _map_collections(batch, _to_device)
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
         """Invoked by the :class:`.Trainer` to move the optimizer's state onto the device.
@@ -116,3 +117,25 @@ class Device(Serializable, ABC):
             Generator[None, None, None]: A context for the precision.
         """
         pass
+
+
+def _map_collections(collections: Any, map_fn: Callable) -> Any:
+    """Recursively maps a function to the values of nested lists and dictionaries.
+
+    Args:
+        collections: Nested lists and dictionaries.
+        map_fn: A function to invoke on each element.
+
+    Returns:
+        Collections: The result of applying ``map_fn`` on each element of ``collections``.
+        The type of ``collections`` is preserved.
+    """
+    if isinstance(collections, Mapping):
+        return {k: _map_collections(v, map_fn) for k, v in collections.items()}
+    elif isinstance(collections, Sequence) and not isinstance(collections, string_classes):
+        try:
+            return type(collections)(_map_collections(x, map_fn) for x in collections)  # type: ignore
+        except TypeError:
+            return [_map_collections(x, map_fn) for x in collections]
+    else:
+        return map_fn(collections)

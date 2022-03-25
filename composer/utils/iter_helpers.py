@@ -9,25 +9,6 @@ import contextlib
 from collections.abc import Sequence
 
 
-def map_collections(collections, map_fn):
-    """Recursively maps a function to the values of nested lists and dictionaries.
-
-    Args:
-        collections: Nested lists and dictionaries.
-        map_fn: A function to invoke on each element.
-
-    Returns:
-        Collections: The result of applying ``map_fn`` on each element of ``collections``.
-        The type of ``collections`` is preserved.
-    """
-    if isinstance(collections, dict):
-        return {k: map_collections(v, map_fn) for k, v in collections.items()}
-    elif isinstance(collections, (list, tuple)):
-        return type(collections)(map_collections(x, map_fn) for x in collections)
-    else:
-        return map_fn(collections)
-
-
 def map_collection(collection, map_fn):
     """Apply ``map_fn`` on each element in ``collection``.
 

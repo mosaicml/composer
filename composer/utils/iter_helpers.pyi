@@ -40,28 +40,3 @@ def ensure_tuple(union_of_all_types: Union[T, Sequence[T], Dict[Any, T], None]) 
 
 def iterate_with_pbar(iterator: Iterator[TSized], progress_bar: Optional[tqdm.tqdm] = ...) -> Iterator[TSized]:
     ...
-
-
-@overload
-def map_collections(tuple_of_elements: Tuple[T, ...], map_fn: Callable[[T], V], /) -> Tuple[V, ...]:
-    ...
-
-
-@overload
-def map_collections(list_of_elements: List[T], map_fn: Callable[[T], V], /) -> List[V]:
-    ...
-
-
-@overload
-def map_collections(dict_of_elements: Dict[KT, T], map_fn: Callable[[T], V], /) -> Dict[KT, V]:
-    ...
-
-
-@overload
-def map_collections(none: None, map_fn: Callable[[Any], Any], /) -> None:
-    ...
-
-
-@overload
-def map_collections(singleton: T, map_fn: Callable[[T], V], /) -> V:
-    ...
