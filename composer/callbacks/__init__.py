@@ -12,9 +12,9 @@ from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.grad_monitor import GradMonitor
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
+from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.run_directory_uploader import RunDirectoryUploader
 from composer.callbacks.speed_monitor import SpeedMonitor
-from composer.callbacks.mlperf import MLPerfCallback
 
 __all__ = [
     "GradMonitor",

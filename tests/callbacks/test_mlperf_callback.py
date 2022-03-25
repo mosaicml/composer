@@ -1,9 +1,18 @@
-import os
-from composer import Trainer
-from composer.callbacks import MLPerfCallback
-from tests.common import SimpleModel, RandomClassificationDataset
+import logging
+
+import numpy as np
 import pytest
 from torch.utils.data import DataLoader
+
+from composer import Trainer
+from composer.callbacks import MLPerfCallback
+from tests.common import RandomClassificationDataset, SimpleModel
+
+logging.basicConfig(filename="/Users/hanlintang/composer/package_checker.log", level=logging.INFO)
+logging.getLogger().addHandler(logging.StreamHandler())
+formatter = logging.Formatter("%(levelname)s - %(message)s")
+logging.getLogger().handlers[0].setFormatter(formatter)
+logging.getLogger().handlers[1].setFormatter(formatter)
 
 
 @pytest.fixture
@@ -22,7 +31,6 @@ def config():
             shuffle=False,
         ),
         'max_duration': '2ep',
-        'seed': 0,
         'deterministic_mode': True,  # testing equivalence
         'loggers': [],  # no progress bar
         'callbacks': []
@@ -30,22 +38,22 @@ def config():
 
 
 @pytest.mark.filterwarnings(
-    "ignore: DeprecationWarning",)
+    "ignore::DeprecationWarning",)
 def test_mlperf_callback(config, tmpdir):
+    tmpdir = 'mlperf_results'
     pytest.importorskip("mlperf_logging")
-    result_folder = os.path.join(tmpdir, "results")
-    os.mkdir(result_folder)
 
-    for run in range(5):
-        filename = os.path.join(result_folder, f"result_{run}.txt")
-        mlperf_callback = MLPerfCallback(filename=filename)
-        config['callbacks'].append(mlperf_callback)
-
-        trainer = Trainer(**config)
-        trainer.fit()
+    # for run in range(5):
+    run = 0
+    mlperf_callback = MLPerfCallback(root_folder=tmpdir, num_result=run)
+    config['callbacks'].append(mlperf_callback)
+    config['seed'] = np.random.randint(2e5)  # mlperf seeds are released near submission deadline
+    trainer = Trainer(**config)
+    trainer.fit()
 
     # run result checker
     from mlperf_logging.package_checker.package_checker import check_training_package
+
     check_training_package(
         folder=tmpdir,
         usage="training",
