@@ -66,7 +66,7 @@ class Device(Serializable, ABC):
             Batch: The batch on the device.
         """
 
-        def _to_device(x):
+        def _to_device(x: T_Batch) -> T_Batch:
             if isinstance(x, torch.Tensor):
                 return self.tensor_to_device(x)
             return x
