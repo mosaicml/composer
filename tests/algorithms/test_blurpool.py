@@ -14,6 +14,7 @@ import torch
 from composer.algorithms import BlurPool
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
+from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Event, State
 from composer.loggers import Logger
 from composer.models import ComposerClassifier
@@ -133,6 +134,12 @@ def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool):
         'blurpool/num_blurpool_layers': 1 if blurpool_instance.replace_maxpools else 0,
         'blurpool/num_blurconv_layers': 1 if blurpool_instance.replace_convs else 0,
     })
+
+
+def test_blurpool_noeffectwarning():
+    model = torch.nn.Linear(in_features=16, out_features=32)
+    with pytest.warns(NoEffectWarning):
+        apply_blurpool(model)
 
 
 def test_blurconv2d_optimizer_params_updated():

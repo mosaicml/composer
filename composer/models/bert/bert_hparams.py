@@ -3,13 +3,13 @@
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ general and classification interfaces for
 :class:`.BERTModel`."""
 
-import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import yahp as hp
 
 from composer.models.transformer_hparams import TransformerHparams
+from composer.utils import MissingConditionalImportError
 
 if TYPE_CHECKING:
     from composer.models.bert import BERTModel
@@ -41,10 +41,7 @@ class BERTForClassificationHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -67,8 +64,11 @@ class BERTForClassificationHparams(TransformerHparams):
             model = transformers.AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name,
                                                                                     **model_hparams)
         else:
+            # an invariant to ensure that we don't lose keys when creating the HF config
+            for k, v in model_hparams.items():
+                assert getattr(config, k) == v
             model = transformers.AutoModelForSequenceClassification.from_config(  #type: ignore (thirdparty)
-                config, **model_hparams)
+                config)
 
         return BERTModel(
             module=model,
@@ -94,10 +94,7 @@ class BERTHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         from composer.models.bert.model import BERTModel
         self.validate()

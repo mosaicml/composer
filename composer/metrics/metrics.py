@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Tuple
 
 import torch
+import torch.nn.functional as F
 from torch import Tensor
 from torchmetrics import Metric
 from torchmetrics.utilities.data import to_categorical
@@ -117,6 +118,7 @@ def _stat_scores(
     tn = ((preds != class_index) * (target != class_index)).to(torch.long).sum()
     fn = ((preds != class_index) * (target == class_index)).to(torch.long).sum()
     sup = (target == class_index).to(torch.long).sum()
+
     return tp, fp, tn, fn, sup
 
 
