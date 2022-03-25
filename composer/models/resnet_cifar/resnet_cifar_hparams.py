@@ -16,7 +16,7 @@ class ComposerResNetCIFARHparams(ModelHparams):
     """:class:`~.hp.Hparams` interface for :class:`.CIFAR10ResNet`.
 
     Args:
-        model_name (str): ``"cifar_resnet_9"``, ``"cifar_resnet_20"``, or ``"cifar_resnet_56"``.
+        model_name (str): ``"resnet_9"``, ``"resnet_20"``, or ``"resnet_56"``.
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
         initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
     """
