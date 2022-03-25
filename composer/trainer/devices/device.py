@@ -4,17 +4,20 @@
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Generator, TypeVar, Union, Any
+from typing import Any, Generator, TypeVar, Union
 
+import torch
 import torch.nn
+from torch.optim import Optimizer
 
+from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.core.types import Optimizer, Precision, Tensor
-from composer.utils.iter_helpers import recursive_apply
+from composer.utils.iter_helpers import map_collections
 
 __all__ = ["Device", "T_nnModule"]
 
 T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
+T_Batch = TypeVar('T_Batch')
 
 
 class Device(Serializable, ABC):
@@ -42,7 +45,7 @@ class Device(Serializable, ABC):
         pass
 
     @abstractmethod
-    def tensor_to_device(self, tensor: Tensor) -> Tensor:
+    def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         """Invoked by the :class:`.Trainer` to move a tensor onto a device.
 
         Args:
@@ -53,7 +56,7 @@ class Device(Serializable, ABC):
         """
         pass
 
-    def batch_to_device(self, batch: Any):
+    def batch_to_device(self, batch: T_Batch) -> T_Batch:
         """Invoked by the :class:`.Trainer` to move the ``batch`` onto the device.
 
         Args:
@@ -64,10 +67,11 @@ class Device(Serializable, ABC):
         """
 
         def _to_device(x):
-            if isinstance(x, Tensor):
+            if isinstance(x, torch.Tensor):
                 return self.tensor_to_device(x)
             return x
-        return recursive_apply(_to_device, batch)
+
+        return map_collections(batch, _to_device)
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
         """Invoked by the :class:`.Trainer` to move the optimizer's state onto the device.
@@ -80,7 +84,7 @@ class Device(Serializable, ABC):
         """
         for state in optimizer.state.values():
             for k, v in state.items():
-                if isinstance(v, Tensor):
+                if isinstance(v, torch.Tensor):
                     state[k] = self.tensor_to_device(v)
         return optimizer
 
@@ -93,7 +97,7 @@ class Device(Serializable, ABC):
 
         .. doctest::
 
-            >>> from composer.core.types import Precision
+            >>> from composer.core.precision import Precision
             >>> from composer.trainer.devices import DeviceCPU
             >>>
             >>> device = DeviceCPU()

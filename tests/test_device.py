@@ -1,8 +1,10 @@
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple
 
 import pytest
 import torch
-from composer.trainer.devices import DeviceCPU, DeviceGPU
+
+from composer.utils.iter_helpers import map_collections
+from tests.common import device
 
 
 def dummy_tensor_batch() -> torch.Tensor:
@@ -15,6 +17,14 @@ def dummy_tuple_batch() -> Tuple[torch.Tensor, torch.Tensor]:
     return image, target
 
 
+def dummy_tuple_batch_long() -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    image_1 = torch.randn(size=(12, 3, 32, 32))
+    image_2 = torch.randn(size=(12, 3, 32, 32))
+    image_3 = torch.randn(size=(12, 3, 32, 32))
+    target = torch.randint(size=(12,), high=10)
+    return image_1, image_2, image_3, target
+
+
 def dummy_dict_batch() -> Dict[str, torch.Tensor]:
     image = torch.randn(size=(12, 3, 32, 32))
     target = torch.randint(size=(12,), high=10)
@@ -22,12 +32,18 @@ def dummy_dict_batch() -> Dict[str, torch.Tensor]:
 
 
 def dummy_maskrcnn_batch() -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
+
     def generate_maskrcnn_sample(num_detections, image_height=12, image_width=12, num_classes=80):
-        """Generates a maskrcnn style sample (Tensor, Dict[Tensor])."""
+        """Generates a maskrcnn style sample: (Tensor, Dict[Tensor])."""
         image = torch.randn(size=(3, image_height, image_width)).type(torch.float)
-        target = {'boxes': torch.randint(size=(num_detections, 4), low=0, high=min(image_height, image_width)).type(torch.float),
-                  'labels': torch.randint(size=(num_detections,), low=0, high=num_classes),
-                  'masks': torch.randint(size=(num_detections, image_height, image_width), low=0, high=2).type(torch.uint8)}
+        target = {
+            'boxes':
+                torch.randint(size=(num_detections, 4), low=0, high=min(image_height, image_width)).type(torch.float),
+            'labels':
+                torch.randint(size=(num_detections,), low=0, high=num_classes),
+            'masks':
+                torch.randint(size=(num_detections, image_height, image_width), low=0, high=2).type(torch.uint8)
+        }
         return image, target
 
     def generate_maskrcnn_batch(batch_size, max_detections):
@@ -36,22 +52,20 @@ def dummy_maskrcnn_batch() -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]
     return generate_maskrcnn_batch(batch_size=5, max_detections=5)
 
 
-@pytest.mark.parametrize("batch", [dummy_tensor_batch(),
-                                   dummy_tuple_batch(),
-                                   dummy_dict_batch(),
-                                   dummy_maskrcnn_batch()])
-def test_to_device_cpu(batch):
-    device = DeviceCPU()
-    new_batch = device.batch_to_device(batch)
-    # test something about new batch?
-
-
-@pytest.mark.parametrize("batch", [dummy_tensor_batch(),
-                                   dummy_tuple_batch(),
-                                   dummy_dict_batch(),
-                                   dummy_maskrcnn_batch()])
+@device('gpu', 'cpu')
+@pytest.mark.parametrize(
+    "batch",
+    [dummy_tensor_batch(),
+     dummy_tuple_batch(),
+     dummy_tuple_batch_long(),
+     dummy_dict_batch(),
+     dummy_maskrcnn_batch()])
 @pytest.mark.gpu()
-def test_to_device_gpu(batch):
-    device = DeviceGPU()
+def test_to_device(device, batch):
     new_batch = device.batch_to_device(batch)
-    # test something about new batch?
+
+    def assert_device(x):
+        if isinstance(x, torch.Tensor):
+            assert x.device == device.id
+
+    map_collections(new_batch, assert_device)
