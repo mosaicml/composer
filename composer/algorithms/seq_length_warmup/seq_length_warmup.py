@@ -197,7 +197,7 @@ class SeqLengthWarmup(Algorithm):
                 raise RuntimeError("'labels' must be in model inputs")
 
             # create fake inputs
-            vocab_size = len(self._original_model.tokenizer)
+            vocab_size = self._original_model.config.vocab_size
 
             # simplifying assumption: Composer doesn't support model-parallelism,
             # so the first parameter's device is likely the same device for
