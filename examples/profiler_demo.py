@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 # [imports-start]
+import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
@@ -42,10 +43,10 @@ trainer = Trainer(
     train_dataloader=train_dataloader,
     eval_dataloader=train_dataloader,
     max_duration=2,
-    device="gpu",
+    device="gpu" if torch.cuda.is_available() else "cpu",
     validate_every_n_batches=-1,
     validate_every_n_epochs=-1,
-    precision="amp",
+    precision="amp" if torch.cuda.is_available() else "fp32",
     train_subset_num_batches=16,
     prof_trace_handlers=JSONTraceHandler(folder=composer_trace_dir, overwrite=True),
     prof_schedule=cyclic_schedule(
