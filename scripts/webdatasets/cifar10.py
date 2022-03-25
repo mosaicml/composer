@@ -5,7 +5,7 @@ import numpy as np
 from torchvision.datasets import CIFAR10
 from wurlitzer import pipes
 
-from composer.datasets.webdataset import create_webdataset
+from composer.datasets.webdataset_utils import create_webdataset
 
 
 def parse_args() -> Namespace:
