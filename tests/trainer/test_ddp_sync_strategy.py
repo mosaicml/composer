@@ -60,9 +60,9 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
                   optimizers=optimizer,
                   grad_accum=2,
                   max_duration="1ep",
-                  train_dataloader=dummy_train_dataloader,
                   evaluators=evaluators,
                   precision='fp32')
+    state.dataloader = dummy_train_dataloader
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
     state.model = _prepare_ddp_module(state.model, find_unused_parameters=True)

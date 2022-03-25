@@ -99,8 +99,9 @@ class ProgressBarLogger(LoggerDestination):
         if dist.get_global_rank() != 0:
             return
         assert self.is_train is not None, "self.is_train should be set by the callback"
+        assert state.dataloader is not None, "dataloader should be set when using tqdm"
         if self.is_train:
-            total_steps = state.steps_per_epoch
+            total_steps = len(state.dataloader)
         else:
             total_steps = 0
             for evaluator in state.evaluators:

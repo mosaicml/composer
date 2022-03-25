@@ -111,12 +111,12 @@ def dummy_state(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataL
         precision=Precision.FP32,
         grad_accum=1,
         rank_zero_seed=rank_zero_seed,
-        train_dataloader=dummy_train_dataloader,
         evaluators=evaluators,
         optimizers=dummy_optimizer,
         max_duration="10ep",
     )
     state.schedulers = dummy_scheduler
+    state.dataloader = dummy_train_dataloader
 
     return state
 
@@ -230,9 +230,10 @@ def state_with_model(simple_conv_model: torch.nn.Module, dummy_train_dataloader:
         max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,
-        train_dataloader=dummy_train_dataloader,
         evaluators=evaluators,
     )
+    state.dataloader = dummy_train_dataloader
+
     return state
 
 

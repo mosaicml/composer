@@ -71,8 +71,9 @@ class DataLoaderProfiler(Callback):
                 textwrap.dedent("""To use the dataloader profiler, state.profiler must be set.
                 Make sure to run composer with the profiler -- i.e. with the `--profiler` CLI flag."""))
 
-        if not _ProfiledDataLoader.is_dataloader_already_wrapped(state.train_dataloader):
-            state.train_dataloader = _ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
+        assert state.dataloader, "dataloader should be set on FIT_START"
+        if not _ProfiledDataLoader.is_dataloader_already_wrapped(state.dataloader):
+            state.dataloader = _ProfiledDataLoader(state.profiler, state.dataloader, "train")
 
         for evaluator in state.evaluators:
 

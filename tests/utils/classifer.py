@@ -14,24 +14,21 @@ from composer.loggers import Logger
 from tests.utils.model import SimpleModel
 
 
-def _get_state(train_dataloader: DataLoader,
-               eval_dataloader: DataLoader,
-               rank_zero_seed: int,
-               steps_per_epoch: int = 1):
+def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, rank_zero_seed: int):
     model = SimpleModel()
-    steps_per_epoch = steps_per_epoch
     metric_coll = MetricCollection([Accuracy()])
     evaluators = [Evaluator(label="dummy_label", dataloader=eval_dataloader, metrics=metric_coll)]
-    return State(
+    state = State(
         model=model,
         rank_zero_seed=rank_zero_seed,
         optimizers=SGD(model.parameters(), lr=.001, momentum=0.0),
         max_duration="1ep",
-        train_dataloader=train_dataloader,
         evaluators=evaluators,
         grad_accum=1,
         precision=Precision.FP32,
     )
+    state.dataloader = train_dataloader
+    return state
 
 
 def test_classifier_trains(
@@ -47,7 +44,6 @@ def test_classifier_trains(
 
     state = _get_state(train_dataloader=train_dataloader,
                        eval_dataloader=eval_dataloader,
-                       steps_per_epoch=n_steps,
                        rank_zero_seed=rank_zero_seed)
     model = state.model
 
@@ -72,9 +68,9 @@ def test_classifier_trains(
 
     opt = state.optimizers
     assert isinstance(opt, Optimizer)
-    assert state.train_dataloader is not None, "train dataloader should be set"
+    assert state.dataloader is not None, "train dataloader should be set"
 
-    for step, (X, y) in enumerate(state.train_dataloader):
+    for step, (X, y) in enumerate(state.dataloader):
         # reseed here so data is same for different sets of algorithms
         torch.manual_seed(step)
 

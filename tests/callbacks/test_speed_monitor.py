@@ -35,8 +35,9 @@ def test_speed_monitor(composer_trainer_hparams: TrainerHparams):
         if 'wall_clock_train' in metrics:
             wall_clock_train_calls += 1
 
-    assert isinstance(trainer.state.train_dataloader, collections.abc.Sized)
-    expected_step_calls = (trainer.state.steps_per_epoch - speed_monitor_hparams.window_size) * max_epochs
+    assert isinstance(trainer.state.dataloader, collections.abc.Sized)
+    assert trainer.train_subset_num_batches is not None
+    expected_step_calls = (trainer.train_subset_num_batches - speed_monitor_hparams.window_size) * max_epochs
     assert throughput_step_calls == expected_step_calls
     assert throughput_epoch_calls == max_epochs
     assert wall_clock_train_calls == max_epochs

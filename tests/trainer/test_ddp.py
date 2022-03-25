@@ -182,7 +182,6 @@ def test_ddp(device: DeviceHparams, world_size: int, composer_trainer_hparams: T
     if deepspeed:
         hparams.deepspeed = {}
     trainer = hparams.initialize_object()
-    assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
 
     for evaluator in trainer.evaluators:
         assert isinstance(evaluator.dataloader, DataSpec)

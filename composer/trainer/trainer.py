@@ -356,6 +356,15 @@ class Trainer:
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
+
+            .. warning::
+
+                This flag should be used for performance profiling only. Only a subset of the batches from the
+                dataloader will be used to training the model.
+
+                In addition, learning rate schedulers will not be scaled to reflect ``train_subset_num_batches``,
+                and instead will assume ``len(train_dataloader)`` batches per epoch.
+
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
@@ -415,12 +424,13 @@ class Trainer:
         self,
         *,
         model: ComposerModel,
-        train_dataloader: Union[DataLoader, DataSpec],
-        max_duration: Union[int, str, Time],
-        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
-        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
-        optimizers: Optional[torch.optim.Optimizer] = None,
-        schedulers: Optional[Union[ComposerScheduler, Sequence[ComposerScheduler]]] = None,
+        train_dataloader: Union[DataLoader, DataSpec],  # TODO move param to fit()
+        max_duration: Union[int, str, Time],  # TODO move param to fit()
+        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator,
+                                        Sequence[Evaluator]]] = None,  # TODO move param to fit()
+        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,  # TODO move param to fit()
+        optimizers: Optional[torch.optim.Optimizer] = None,  # TODO move param to fit()
+        schedulers: Optional[Union[ComposerScheduler, Sequence[ComposerScheduler]]] = None,  # TODO move param to fit()
 
         # device
         device: Optional[Union[str, Device]] = None,
@@ -428,12 +438,12 @@ class Trainer:
         # training hparams
         grad_accum: int = 1,
         grad_clip_norm: Optional[float] = None,
-        validate_every_n_batches: int = -1,
-        validate_every_n_epochs: int = 1,
-        compute_training_metrics: bool = False,
+        validate_every_n_batches: int = -1,  # TODO move param to fit()
+        validate_every_n_epochs: int = 1,  # TODO move param to fit()
+        compute_training_metrics: bool = False,  # TODO move param to fit()
         precision: Union[str, Precision] = Precision.FP32,
-        scale_schedule_ratio: float = 1.0,
-        step_schedulers_every_batch: Optional[bool] = None,
+        scale_schedule_ratio: float = 1.0,  # TODO move param to fit()
+        step_schedulers_every_batch: Optional[bool] = None,  # TODO move param to fit()
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -465,11 +475,11 @@ class Trainer:
         save_weights_only: bool = False,
 
         # subset parameters
-        train_subset_num_batches: Optional[int] = None,
-        eval_subset_num_batches: Optional[int] = None,
+        train_subset_num_batches: Optional[int] = None,  # TODO move param to fit()
+        eval_subset_num_batches: Optional[int] = None,  # TODO move param to fit()
 
         # DeepSpeed
-        deepspeed_config: Union[bool, Dict[str, Any]] = False,
+        deepspeed_config: Union[bool, Dict[str, Any]] = False,  # TODO move param to fit()
 
         # profiling
         profiler_trace_file: Optional[str] = None,
@@ -580,7 +590,7 @@ class Trainer:
                 evaluator = Evaluator(label="eval_dataset", dataloader=evaluator, metrics=metrics)
                 self.evaluators.append(evaluator)
 
-        self._eval_subset_num_batches = eval_subset_num_batches
+        self.eval_subset_num_batches = eval_subset_num_batches
 
         # do a check here to make sure there is at least one validation set
         if len(self.evaluators) == 0:
@@ -632,11 +642,12 @@ class Trainer:
             grad_accum=grad_accum,
             precision=precision,
             precision_context=precision_context,
-            train_dataloader=train_dataloader.dataloader,
             evaluators=self.evaluators,
             optimizers=optimizers,
-            steps_per_epoch=train_subset_num_batches,
         )
+
+        self._train_dataloader = train_dataloader.dataloader
+        self.train_subset_num_batches = train_subset_num_batches
 
         pytorch_schedulers = [
             scheduler for scheduler in ensure_tuple(schedulers) if isinstance(scheduler, PyTorchScheduler)
@@ -669,15 +680,11 @@ class Trainer:
             step_schedulers_every_batch = True
 
         self._step_schedulers_every_batch = step_schedulers_every_batch
+        self._scale_schedule_ratio = scale_schedule_ratio
 
-        for scheduler in ensure_tuple(schedulers):
-            if isinstance(scheduler, PyTorchScheduler):
-                scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
-                self.state.schedulers.append(scheduler)
-            else:  # it's a composer scheduler
-                self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
+        self._schedulers = ensure_tuple(schedulers)
 
-        if len(self.state.schedulers) == 0:
+        if len(self._schedulers) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Configure profilers if profiling is enabled
@@ -918,12 +925,13 @@ class Trainer:
                 break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
+        assert self.state.dataloader is not None, "train dataloader is set on state after FIT_START"
         for epoch in range(int(self.state.timer.epoch)):
             # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-            if hasattr(self.state.train_dataloader, "sampler") and isinstance(self.state.train_dataloader.sampler,
-                                                                              torch.utils.data.DistributedSampler):
-                self.state.train_dataloader.sampler.set_epoch(epoch)
-            for _ in self.state.train_dataloader:
+            if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
+                                                                        torch.utils.data.DistributedSampler):
+                self.state.dataloader.sampler.set_epoch(epoch)
+            for _ in self.state.dataloader:
                 break
 
     def _train_loop(self) -> None:
@@ -943,6 +951,18 @@ class Trainer:
             train_metrics = self._ensure_metrics_device_and_dtype(train_metrics)
         else:
             train_metrics = None
+
+        if self.state.dataloader is None:
+            # If the dataloader is not already set on State, then set it from what was passed in on init
+            self.state.dataloader = self._train_data_spec.dataloader
+
+        for scheduler in ensure_tuple(self._schedulers):
+            if isinstance(scheduler, PyTorchScheduler):
+                scale_pytorch_scheduler(scheduler, self._scale_schedule_ratio)
+                self.state.schedulers.append(scheduler)
+            else:  # it's a composer scheduler
+                self.state.schedulers.append(
+                    compile_composer_scheduler(scheduler, self.state, self._scale_schedule_ratio))
 
         self.engine.run_event(Event.FIT_START)
 
@@ -965,12 +985,12 @@ class Trainer:
                     self.logger.data_epoch({"epoch": int(self.state.timer.epoch)})
 
                 # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-                if hasattr(self.state.train_dataloader, "sampler") and isinstance(self.state.train_dataloader.sampler,
-                                                                                  torch.utils.data.DistributedSampler):
-                    self.state.train_dataloader.sampler.set_epoch(int(self.state.timer.epoch))
+                if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
+                                                                            torch.utils.data.DistributedSampler):
+                    self.state.dataloader.sampler.set_epoch(int(self.state.timer.epoch))
 
                 for batch_idx, self.state.batch in enumerate(
-                        itertools.islice(self.state.train_dataloader, self.state.steps_per_epoch)):
+                        itertools.islice(self.state.dataloader, self.train_subset_num_batches)):
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < int(self.state.timer.batch_in_epoch):
@@ -1208,24 +1228,28 @@ class Trainer:
         """
         restore_model_train = self.state.model.training
 
+        # back up the original dataloader on the state, so we can restore it after evaluation is finished
+        original_dataloader = self.state.dataloader
+
         self.state.model.eval()
         with torch.no_grad():
 
-            self.engine.run_event(Event.EVAL_START)
-
             for evaluator in self.state.evaluators:
-                dataloader = evaluator.dataloader.dataloader
+                self.state.dataloader = evaluator.dataloader.dataloader
+
+                self.engine.run_event(Event.EVAL_START)
+
                 metrics = self._ensure_metrics_device_and_dtype(evaluator.metrics)
                 # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-                if hasattr(dataloader, "sampler") and isinstance(dataloader.sampler,
-                                                                 torch.utils.data.DistributedSampler):
+                if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
+                                                                            torch.utils.data.DistributedSampler):
                     # The distributed sampler uses `set_epoch` to set the random seed
                     # Because evaluation can run on each batch, we use the batch to seed the sampler
                     # so each evaluation will get a proper shuffle.
                     # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                    dataloader.sampler.set_epoch(int(self.state.timer.batch))
+                    self.state.dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
-                for self.state.batch in itertools.islice(dataloader, self._eval_subset_num_batches):
+                for self.state.batch in itertools.islice(self.state.dataloader, self.eval_subset_num_batches):
                     self.state.batch = self._device.batch_to_device(self.state.batch)
                     if evaluator.dataloader.device_transforms:
                         self.state.batch = evaluator.dataloader.device_transforms(self.state.batch)
@@ -1250,10 +1274,12 @@ class Trainer:
 
                 self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
 
-            self.engine.run_event(Event.EVAL_END)
+                self.engine.run_event(Event.EVAL_END)
 
         if restore_model_train:
             self.state.model.train()
+
+        self.state.dataloader = original_dataloader
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.

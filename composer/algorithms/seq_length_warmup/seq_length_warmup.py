@@ -179,11 +179,10 @@ class SeqLengthWarmup(Algorithm):
                     {type(self).__name__} requires state.model to be of type {ComposerTransformer.__name__}, not of type {type(state.model)}"""
                                    ))
 
-            if state.train_dataloader.batch_size is None:
-                raise RuntimeError("Sequence Length Warmup algorithm requires constant batch size.")
-
             self._original_model = state.model
             return
+
+        assert state.dataloader is not None, "dataloader should be set on AFTER_DATALOADER"
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.
         if not self._activated:
@@ -204,7 +203,7 @@ class SeqLengthWarmup(Algorithm):
             # all of the parameters
             device = next(state.model.parameters()).device
 
-            per_gpu_macrobatch = state.train_dataloader.batch_size
+            per_gpu_macrobatch = state.dataloader.batch_size
             if per_gpu_macrobatch is None:
                 raise RuntimeError("Sequence Length Warmup algorithm requires constant batch size.")
             per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
@@ -238,7 +237,7 @@ class SeqLengthWarmup(Algorithm):
             self._activated = True
 
         if state.max_duration.unit == TimeUnit.EPOCH:
-            num_optimization_steps = state.steps_per_epoch * state.max_duration.value
+            num_optimization_steps = len(state.dataloader) * state.max_duration.value
         elif state.max_duration.unit == TimeUnit.BATCH:
             num_optimization_steps = state.max_duration.value
         else:

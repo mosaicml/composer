@@ -41,8 +41,8 @@ def test_progress_bar_logger(composer_trainer_hparams: TrainerHparams, monkeypat
     assert composer_trainer_hparams.validate_every_n_batches < 0
     assert len(is_train_to_mock_tqdms[False]) == composer_trainer_hparams.validate_every_n_epochs * max_epochs
     for mock_tqdm in is_train_to_mock_tqdms[True]:
-        assert mock_tqdm.update.call_count == trainer.state.steps_per_epoch
+        assert mock_tqdm.update.call_count == trainer.train_subset_num_batches
         mock_tqdm.close.assert_called_once()
     for mock_tqdm in is_train_to_mock_tqdms[False]:
-        assert mock_tqdm.update.call_count == trainer._eval_subset_num_batches
+        assert mock_tqdm.update.call_count == trainer.eval_subset_num_batches
         mock_tqdm.close.assert_called_once()

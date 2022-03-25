@@ -100,10 +100,6 @@ class TorchProfiler(Callback):
         assert state.profiler is not None, "composer profiler should be defined"
         composer_profiler_action = state.profiler.get_action(next_batch_in_epoch)
         next_composer_profiler_action = state.profiler.get_action(next_batch_in_epoch + 1)
-        if next_batch_in_epoch == state.steps_per_epoch:
-            if composer_profiler_action == ProfilerAction.ACTIVE:
-                # force saving at epoch boundaries
-                return TorchProfilerAction.RECORD_AND_SAVE
         if composer_profiler_action == ProfilerAction.ACTIVE and next_composer_profiler_action != ProfilerAction.ACTIVE:
             return TorchProfilerAction.RECORD_AND_SAVE
         if composer_profiler_action == ProfilerAction.ACTIVE:

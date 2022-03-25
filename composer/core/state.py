@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import contextlib
 import logging
-import textwrap
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
@@ -97,8 +96,6 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         grad_accum (int): The number of gradient accumulation steps to use. With this argument, micro batch size for
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
-        train_dataloader (types.DataLoader, DataSpec, or dict):
-            The :class:`~.types.DataLoader`, :class:`~.DataSpec`, or dict of :class:`~.DataSpec` kwargs to used for training.
         evaluators (evaluator.Evaluator | Sequence[evaluator.Evaluator]):
             The evaluators contain the evaluation dataset(s) used for evaluation with specific metrics.
         max_duration (str or Time): The maximum duration to train for.
@@ -115,6 +112,7 @@ class State(Serializable):
         profiler (Optional[Profiler]): The Composer profiler.
 
     Attributes:
+        dataloader (types.DataLoader): The active :class:`~.types.DataLoader`.
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
         batch_num_samples (int): The number of samples in the :attr:`batch`.
@@ -152,7 +150,6 @@ class State(Serializable):
     """
 
     _max_duration: Time[int]
-    _steps_per_epoch: Optional[int]
     batch: types.Batch
     batch_num_samples: int
     batch_num_tokens: int
@@ -170,7 +167,6 @@ class State(Serializable):
         rank_zero_seed: int,
 
         # data configurations
-        train_dataloader: types.DataLoader,
         evaluators: Optional[Union[Evaluator, Sequence[Evaluator]]] = None,
         grad_accum: int = 1,
 
@@ -187,17 +183,13 @@ class State(Serializable):
         # algorithms and callbacks
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
-
-        # steps per epoch
-        steps_per_epoch: Optional[int] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.grad_accum = grad_accum
-        self.train_dataloader = train_dataloader
+        self.dataloader: Optional[types.DataLoader] = None
         self.evaluators = list(ensure_tuple(evaluators))
         self.max_duration = max_duration
-        self.steps_per_epoch = steps_per_epoch
 
         self.timer = Timer()
         self._precision = Precision(precision)
@@ -215,6 +207,7 @@ class State(Serializable):
         self._callbacks = list(ensure_tuple(callbacks))
 
         self.profiler: Optional[Profiler] = None
+
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
         # All other attributes will not be serialized.
         # For simplicity, omit the leading underscore for private attributes.
@@ -364,27 +357,6 @@ class State(Serializable):
                 except AttributeError:
                     # ignore AttributeError for properties that have getters but not setters.
                     pass
-
-    @property
-    def steps_per_epoch(self):
-        """int: The maximum number of steps (batches) per epoch."""
-        if self._steps_per_epoch is None:
-            return len(self.train_dataloader)
-        return self._steps_per_epoch
-
-    @steps_per_epoch.setter
-    def steps_per_epoch(self, steps_per_epoch: Optional[int]):
-        try:
-            dataloader_len = len(self.train_dataloader)
-        except (TypeError, NotImplementedError):
-            dataloader_len = None
-        if dataloader_len is not None and steps_per_epoch is not None and steps_per_epoch > dataloader_len:
-            warnings.warn(
-                textwrap.dedent(f"""\
-                    SubsetNumBatchesWarning: The steps_per_epoch({steps_per_epoch})
-                    is greater than the number of batches in the training dataloader
-                    ({dataloader_len})"""))
-        self._steps_per_epoch = steps_per_epoch
 
     @property
     def precision(self):
