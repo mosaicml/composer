@@ -155,7 +155,14 @@ class MixUp(Algorithm):
         if self.interpolate_loss and event == Event.AFTER_LOSS:
             # Interpolate the loss
             modified_batch = (input, self.permuted_target)
-            new_loss = state.model.loss(state.outputs, modified_batch)
+            if isinstance(state.model, DistributedDataParallel):
+                loss_fn = state.model.module.loss
+            elif isinstance(state.model, ComposerModel):
+                loss_fn = state.model.loss
+            else:
+                raise RuntimeError("Model must be of type ComposerModel or DistributedDataParallel")
+
+            new_loss = loss_fn(state.outputs, modified_batch)
             state.loss *= (1 - self.mixing)
             state.loss += self.mixing * new_loss
 
