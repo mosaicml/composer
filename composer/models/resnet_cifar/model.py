@@ -1,23 +1,24 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""ResNet models for CIFAR10 extending :class:`.ComposerClassifier`."""
+"""ResNet models for CIFAR extending :class:`.ComposerClassifier`."""
 
 from typing import List, Optional
 
 from composer.models.base import ComposerClassifier
 from composer.models.model_hparams import Initializer
-from composer.models.resnet_cifar10.resnets import CIFARResNet, ResNet9
+from composer.models.resnet_cifar.resnets import ResNet9, ResNetCIFAR
 
-__all__ = ["CIFAR10ResNet"]
+__all__ = ["ComposerResNetCIFAR"]
 
 
-class CIFAR10ResNet(ComposerClassifier):
+class ComposerResNetCIFAR(ComposerClassifier):
     """ResNet models for CIFAR10 extending :class:`.ComposerClassifier`.
 
     From `Deep Residual Learning for Image Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2015).
+    ResNet9 is based on the  model from myrtle.ai `blog`_.
 
     Args:
-        model_name (str): ``"cifar_resnet_9"``, ``"cifar_resnet_20"``, or ``"cifar_resnet_56"``.
+        model_name (str): ``"resnet_9"``, ``"resnet_20"``, or ``"resnet_56"``.
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``10``.
         initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization. Default: ``None``.
 
@@ -25,9 +26,11 @@ class CIFAR10ResNet(ComposerClassifier):
 
     .. testcode::
 
-        from composer.models import CIFAR10ResNet
+        from composer.models import ComposerResNetCIFAR
 
-        model = CIFAR10ResNet(model_name="cifar_resnet_56")  # creates a resnet56 for cifar image classification
+        model = ComposerResNetCIFAR(model_name="resnet_56")  # creates a resnet56 for cifar image classification
+
+    .. _blog: https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
     """
 
     def __init__(
@@ -39,10 +42,10 @@ class CIFAR10ResNet(ComposerClassifier):
         if initializers is None:
             initializers = []
 
-        if model_name == "cifar_resnet_9":
+        if model_name == "resnet_9":
             model = ResNet9(num_classes)  # current initializers don't work with this architecture.
         else:
-            model = CIFARResNet.get_model_from_name(
+            model = ResNetCIFAR.get_model_from_name(
                 model_name,
                 initializers,
                 num_classes,

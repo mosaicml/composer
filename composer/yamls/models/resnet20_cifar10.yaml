@@ -25,8 +25,8 @@ schedulers:
         - "120ep"
       gamma: 0.1
 model:
-  resnet_cifar10:
-    model_name: cifar_resnet_20
+  resnet_cifar:
+    model_name: resnet_20
     initializers:
       - kaiming_normal
       - bn_uniform

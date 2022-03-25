@@ -24,7 +24,7 @@ from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
                               ProgressBarLoggerHparams, WandBLoggerHparams)
-from composer.models import (BERTForClassificationHparams, BERTHparams, CIFAR10ResNetHparams, DeepLabV3Hparams,
+from composer.models import (BERTForClassificationHparams, BERTHparams, ComposerCIFARResNetHparams, DeepLabV3Hparams,
                              EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetHparams,
                              SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams, CosineAnnealingSchedulerHparams,
@@ -74,7 +74,7 @@ model_registry = {
     "ssd": SSDHparams,
     "deeplabv3": DeepLabV3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
-    "resnet_cifar10": CIFAR10ResNetHparams,
+    "resnet_cifar": ComposerCIFARResNetHparams,
     "resnet": ResNetHparams,
     "mnist_classifier": MnistClassifierHparams,
     "gpt2": GPT2Hparams,

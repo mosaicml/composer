@@ -6,13 +6,14 @@ from dataclasses import dataclass
 import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
+from composer.models.resnet_cifar import ComposerResNetCIFAR
 
-__all__ = ["CIFAR10ResNetHparams"]
+__all__ = ["ComposerResNetCIFARHparams"]
 
 
 @dataclass
-class CIFAR10ResNetHparams(ModelHparams):
-    """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.CIFAR10ResNet`.
+class ComposerResNetCIFARHparams(ModelHparams):
+    """:class:`~.hp.Hparams` interface for :class:`.CIFAR10ResNet`.
 
     Args:
         model_name (str): ``"cifar_resnet_9"``, ``"cifar_resnet_20"``, or ``"cifar_resnet_56"``.
@@ -27,5 +28,6 @@ class CIFAR10ResNetHparams(ModelHparams):
             raise ValueError('model name must be one of "cifar_resnet_9", "cifar_resnet_20" or "cifar_resnet_56".')
 
     def initialize_object(self):
-        from composer.models import CIFAR10ResNet
-        return CIFAR10ResNet(model_name=self.model_name, num_classes=self.num_classes, initializers=self.initializers)
+        return ComposerResNetCIFAR(model_name=self.model_name,
+                                   num_classes=self.num_classes,
+                                   initializers=self.initializers)

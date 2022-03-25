@@ -17,17 +17,17 @@ from torchvision.models.resnet import BasicBlock
 
 from composer.models import Initializer
 
-__all__ = ["CIFARResNet", "ResNet9"]
+__all__ = ["ResNetCIFAR", "ResNet9"]
 
 
-class CIFARResNet(nn.Module):
+class ResNetCIFAR(nn.Module):
     """A residual neural network as originally designed for CIFAR-10."""
 
     class Block(nn.Module):
         """A ResNet block."""
 
         def __init__(self, f_in: int, f_out: int, downsample: bool = False):
-            super(CIFARResNet.Block, self).__init__()
+            super(ResNetCIFAR.Block, self).__init__()
 
             stride = 2 if downsample else 1
             self.conv1 = nn.Conv2d(f_in, f_out, kernel_size=3, stride=stride, padding=1, bias=False)
@@ -52,7 +52,7 @@ class CIFARResNet(nn.Module):
             return self.relu(out)
 
     def __init__(self, plan: List[Tuple[int, int]], initializers: List[Initializer], outputs: int = 10):
-        super(CIFARResNet, self).__init__()
+        super(ResNetCIFAR, self).__init__()
         outputs = outputs or 10
 
         self.num_classes = outputs
@@ -68,7 +68,7 @@ class CIFARResNet(nn.Module):
         for segment_index, (filters, num_blocks) in enumerate(plan):
             for block_index in range(num_blocks):
                 downsample = segment_index > 0 and block_index == 0
-                blocks.append(CIFARResNet.Block(current_filters, filters, downsample))
+                blocks.append(ResNetCIFAR.Block(current_filters, filters, downsample))
                 current_filters = filters
 
         self.blocks = nn.Sequential(*blocks)
@@ -91,27 +91,27 @@ class CIFARResNet(nn.Module):
 
     @staticmethod
     def is_valid_model_name(model_name: str):
-        valid_model_names = [f"cifar_resnet_{layers}" for layers in (20, 56)]
+        valid_model_names = [f"resnet_{layers}" for layers in (20, 56)]
         return (model_name in valid_model_names)
 
     @staticmethod
     def get_model_from_name(model_name: str, initializers: List[Initializer], outputs: int = 10):
-        """The naming scheme for a ResNet is ``'cifar_resnet_D[_W]'``.
+        """The naming scheme for a ResNet is ``'resnet_D[_W]'``.
 
-        D is the model depth (e.g. ``'cifar_resnet56'``)
+        D is the model depth (e.g. ``'resnet_56'``)
         """
 
-        if not CIFARResNet.is_valid_model_name(model_name):
+        if not ResNetCIFAR.is_valid_model_name(model_name):
             raise ValueError('Invalid model name: {}'.format(model_name))
 
-        depth = int(model_name.split('_')[2])
-        if len(model_name.split('_')) == 3:
+        depth = int(model_name.split('_')[-1])  # for resnet56, depth 56, width 16
+        if len(model_name.split('_')) == 2:
             width = 16
         else:
-            width = int(model_name.split('_')[4])
+            width = int(model_name.split('_')[3])
 
         if (depth - 2) % 3 != 0:
-            raise ValueError('Invalid CIFAR_ResNet depth: {}'.format(depth))
+            raise ValueError('Invalid ResNetCIFAR depth: {}'.format(depth))
         num_blocks = (depth - 2) // 6
 
         model_arch = {
@@ -119,7 +119,7 @@ class CIFARResNet(nn.Module):
             20: [(width, num_blocks), (2 * width, num_blocks), (4 * width, num_blocks)],
         }
 
-        return CIFARResNet(model_arch[depth], initializers, outputs)
+        return ResNetCIFAR(model_arch[depth], initializers, outputs)
 
 
 # adapted from https://raw.githubusercontent.com/matthias-wright/cifar10-resnet/master/model.py

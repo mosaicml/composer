@@ -27,8 +27,8 @@ from composer.models.resnet import ComposerResNet as ComposerResNet
 from composer.models.resnet import ResNetHparams as ResNetHparams
 from composer.models.resnet.model import ComposerResNet as ComposerResNet
 from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
-from composer.models.resnet_cifar10 import CIFAR10ResNet as CIFAR10ResNet
-from composer.models.resnet_cifar10 import CIFAR10ResNetHparams as CIFAR10ResNetHparams
+from composer.models.resnet_cifar import ComposerResNetCIFAR as ComposerCIFARResNet
+from composer.models.resnet_cifar import ComposerResNetCIFARHparams as ComposerCIFARResNetHparams
 from composer.models.ssd import SSD as SSD
 from composer.models.ssd import SSDHparams as SSDHparams
 from composer.models.timm import Timm as Timm
