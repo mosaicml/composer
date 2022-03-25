@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 import torch
 
 from composer.utils import dist, reproducibility
-from composer.utils.file_retriever import GetFileNotFoundException, get_file
+from composer.utils.file_helpers import GetFileNotFoundException, get_file
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
