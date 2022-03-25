@@ -84,7 +84,7 @@ class TorchProfiler(Callback):
             ``'awesome_training_run/torch_traces'``.
 
         filename (str, optional): A format string describing how to name Torch Profiler trace files.
-            Defaults to ``'ep{epoch}-ba{batch}-rank{rank}.json'``.
+            Defaults to ``'rank{rank}.{batch}.pt.trace.json'``.
 
             At the end of each batch where :meth:`~composer.profiler.Profiler.get_action` returns
             :attr:`~composer.profiler._profiler_action.ProfilerAction.ACTIVE_AND_SAVE`, trace files are saved
@@ -139,7 +139,7 @@ class TorchProfiler(Callback):
 
             *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``.
             *   The default ``trace_folder='{run_name}/torch_traces'`` is used.
-            *   The default ``name='ep{epoch}-ba{batch}-rank{rank}.json'`` is used.
+            *   The default ``name='rank{rank}.{batch}.pt.trace.json'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
@@ -151,7 +151,7 @@ class TorchProfiler(Callback):
                 ...
 
         artifact_name (str, optional): Format string for a Torch Profiler trace file's artifact name.
-            Defaults to ``'{run_name}/torch_traces/ep{epoch}-ba{batch}-rank{rank}.json'``.
+            Defaults to ``'{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json'``.
 
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
@@ -197,8 +197,8 @@ class TorchProfiler(Callback):
     def __init__(
         self,
         folder: str = '{run_name}/torch_traces',
-        filename: str = 'ep{epoch}-ba{batch}-rank{rank}.json',
-        artifact_name: Optional[str] = '{run_name}/torch_traces/ep{epoch}-ba{batch}-rank{rank}.json',
+        filename: str = 'rank{rank}.{batch}.pt.trace.json',
+        artifact_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
         *,
         overwrite: bool = False,
         use_gzip: bool = False,

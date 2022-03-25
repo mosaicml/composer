@@ -146,7 +146,7 @@ class JSONTraceHandler(TraceHandler):
             traces, it is generally helpful to merge traces together into a single file. This allows the traces
             across all ranks to be shown in a single view. To
 
-            The same format variables as for ``filename`` are available. The merged trace file is saved
+            The same format variables as for ``folder`` are available. The merged trace file is saved
             approximately to ``{folder}/{merged_trace_filename.format(...)}`` on the local rank zero
             process for each node.
 
@@ -165,7 +165,7 @@ class JSONTraceHandler(TraceHandler):
         merged_trace_artifact_name (str, optional): Format string for the merged trace file's artifact name.
             (default: ``'{run_name}/traces/merged_trace.json'``)
 
-            The same format variables as for ``filename`` are available.
+            The same format variables as for ``folder`` are available.
 
             This parameter has no effect if ``merged_trace_filename`` is None.
 
@@ -228,6 +228,16 @@ class JSONTraceHandler(TraceHandler):
         if not self.overwrite:
             ensure_folder_is_empty(trace_folder)
         # Ensure all ranks checked that the folder is empty before proceeding
+        # remove any existing merged trace file
+        if self.merged_trace_filename is not None:
+            merged_trace_filename = os.path.join(
+                trace_folder,
+                format_name_with_dist(self.merged_trace_filename, logger.run_name),
+            )
+            merged_trace_dirname = os.path.dirname(merged_trace_filename)
+            if merged_trace_dirname:
+                if os.path.exists(merged_trace_filename):
+                    os.remove(merged_trace_filename)
         dist.barrier()
 
     def batch_start(self, state: State, logger: Logger) -> None:
@@ -348,21 +358,36 @@ class JSONTraceHandler(TraceHandler):
                 end_rank = dist.get_global_rank() + dist.get_local_world_size()
                 trace_files_to_merge = trace_files[start_rank:end_rank]
                 merged_trace_filename = os.path.join(
-                    trace_folder, format_name_with_dist_and_time(self.merged_trace_filename, logger.run_name,
-                                                                 timestamp))
+                    trace_folder,
+                    format_name_with_dist(
+                        self.merged_trace_filename,
+                        logger.run_name,
+                    ),
+                )
                 merged_trace_dirname = os.path.dirname(merged_trace_filename)
                 if merged_trace_dirname:
                     os.makedirs(merged_trace_dirname, exist_ok=True)
-                with tempfile.NamedTemporaryFile("x+", delete=False) as f:
-                    merge_traces(f.name, merged_trace_filename, *trace_files_to_merge)
-                    os.rename(f.name, merged_trace_filename)
+
+                if os.path.exists(merged_trace_filename):
+                    # Include the existing merged trace in the new trace
+                    with tempfile.NamedTemporaryFile("x+", delete=False) as f:
+                        merge_traces(f.name, merged_trace_filename, *trace_files_to_merge)
+                        os.rename(f.name, merged_trace_filename)
+                else:
+                    # Write the trace directly
+                    merge_traces(merged_trace_filename, *trace_files_to_merge)
+
                 if self.merged_trace_artifact_name is not None:
-                    merged_trace_artifact_name = format_name_with_dist_and_time(self.merged_trace_artifact_name,
-                                                                                logger.run_name, timestamp)
-                    logger.file_artifact(LogLevel.BATCH,
-                                         artifact_name=merged_trace_artifact_name,
-                                         file_path=merged_trace_artifact_name,
-                                         overwrite=True)
+                    merged_trace_artifact_name = format_name_with_dist(
+                        self.merged_trace_artifact_name,
+                        logger.run_name,
+                    )
+                    logger.file_artifact(
+                        LogLevel.BATCH,
+                        artifact_name=merged_trace_artifact_name,
+                        file_path=merged_trace_artifact_name,
+                        overwrite=True,
+                    )
 
             # delete old trace files
             if self.num_traces_to_keep >= 0:
@@ -429,7 +454,8 @@ class JSONTraceHandler(TraceHandler):
             wall_clock_ns=wall_clock_time_ns,
             pid=dist.get_global_rank(),
             tid=os.getpid(),
-            args=values)
+            args=values,
+        )
 
     def _record_event(self, name: str, ph: str, wall_clock_ns: int, pid: int, tid: int, categories: str = "", **kwargs):
         """Helper function to record an event in the trace.

@@ -519,8 +519,8 @@ class Trainer:
         sys_prof_net: bool = False,
         sys_prof_stats_thread_interval_seconds: float = 0.5,
         torch_prof_folder: str = '{run_name}/torch_traces',
-        torch_prof_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.json',
-        torch_prof_artifact_name: str = '{run_name}/torch_traces/ep{epoch}-ba{batch}-rank{rank}.json',
+        torch_prof_filename: str = 'rank{rank}.{batch}.pt.trace.json',
+        torch_prof_artifact_name: str = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
         torch_prof_overwrite: bool = False,
         torch_prof_use_gzip: bool = False,
         torch_prof_record_shapes: bool = False,
@@ -727,7 +727,6 @@ class Trainer:
             self.state.profiler = Profiler(state=self.state,
                                            trace_handlers=ensure_tuple(prof_trace_handlers),
                                            schedule=prof_schedule)
-            self.state.callbacks.extend(self.state.profiler.trace_handlers)
 
             self.state.callbacks.append(DataLoaderProfiler())
 
@@ -751,6 +750,9 @@ class Trainer:
                                   use_gzip=torch_prof_use_gzip,
                                   with_stack=torch_prof_with_stack,
                                   with_flops=torch_prof_with_flops))
+
+            # Append the trace handlers at the end, so profilers will log events before the traces are written.
+            self.state.callbacks.extend(self.state.profiler.trace_handlers)
 
         if loggers is None:
             loggers = [ProgressBarLogger()]

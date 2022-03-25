@@ -392,29 +392,33 @@ class TrainerHparams(hp.Hparams):
                                                                 default=0.5)
 
     torch_prof_folder: str = hp.optional('Torch profiler folder format', default='{run_name}/torch_traces')
-    torch_prof_filename: str = hp.optional('Torch profiler filename format',
-                                           default='ep{epoch}-ba{batch}-rank{rank}.json')
-    torch_prof_artifact_name: str = hp.optional('Torch profiler artifact name format',
-                                                default='{run_name}/torch_traces/ep{epoch}-ba{batch}-rank{rank}.json')
+    torch_prof_filename: str = hp.optional(
+        'Torch profiler filename format',
+        default='rank{rank}.{batch}.pt.trace.json',
+    )
+    torch_prof_artifact_name: str = hp.optional(
+        'Torch profiler artifact name format',
+        default='{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+    )
     torch_prof_overwrite: bool = hp.optional('Torch profiler overwrite', default=False)
     torch_prof_use_gzip: bool = hp.optional('Torch profiler use gzip', default=False)
     torch_prof_num_traces_to_keep: int = hp.optional('Torch profiler num traces to keep', default=-1)
-    torch_prof_record_shapes: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record tensor shapes.
-        Ignored if `prof_trace_handlers` is not specified."""),
-                                                 default=False)
-    torch_prof_profile_memory: bool = hp.optional(doc=textwrap.dedent("""\
-        Track tensor memory allocations and frees.
-        Ignored if `prof_trace_handlers` is not specified."""),
-                                                  default=True)
-    torch_prof_with_stack: bool = hp.optional(doc=textwrap.dedent("""\
-        Record stack information.
-        Ignored if `prof_trace_handlers` is not specified."""),
-                                              default=False)
-    torch_prof_with_flops: bool = hp.optional(doc=textwrap.dedent("""\
-        Estimate flops for operators.
-        Ignored if `prof_trace_handlers` is not specified."""),
-                                              default=True)
+    torch_prof_record_shapes: bool = hp.optional(
+        "Whether to record tensor shapes. Ignored if `prof_trace_handlers` is not specified.",
+        default=False,
+    )
+    torch_prof_profile_memory: bool = hp.optional(
+        "Track tensor memory allocations and frees. Ignored if `prof_trace_handlers` is not specified.",
+        default=True,
+    )
+    torch_prof_with_stack: bool = hp.optional(
+        "Record stack information. Ignored if `prof_trace_handlers` is not specified.",
+        default=False,
+    )
+    torch_prof_with_flops: bool = hp.optional(
+        "Estimate flops for operators. Ignored if `prof_trace_handlers` is not specified.",
+        default=True,
+    )
 
     def validate(self):
         super().validate()
