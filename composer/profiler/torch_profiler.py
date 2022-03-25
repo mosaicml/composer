@@ -307,7 +307,6 @@ class TorchProfiler(Callback):
         assert self.profiler is not None
         logger.data_batch({"profiler/state": self.profiler.current_action.name})
 
-    def close(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
+    def close(self) -> None:
         if self.profiler is not None:
             self.profiler.__exit__(None, None, None)

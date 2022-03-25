@@ -64,7 +64,7 @@ class SystemProfiler(Callback):
         self.finished_event.clear()
         threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()
 
-    def close(self, state: State, logger: Logger) -> None:
+    def close(self) -> None:
         self.finished_event.set()
 
     def _stats_thread(self, profiler: Profiler):
