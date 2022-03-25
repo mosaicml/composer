@@ -210,7 +210,8 @@ class MixUpHparams(AlgorithmHparams):
     """See :class:`MixUp`"""
 
     alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=0.2)
-    interpolate_loss: bool = hp.optional('Uses index labels and interpolates the loss function instead of the labels.', default=True)
+    interpolate_loss: bool = hp.optional('Uses index labels and interpolates the loss function instead of the labels.',
+                                         default=True)
 
     def initialize_object(self) -> MixUp:
         return MixUp(**asdict(self))

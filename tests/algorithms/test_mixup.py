@@ -8,6 +8,7 @@ from composer.algorithms.mixup.mixup import _gen_mixing_coef, mixup_batch
 from composer.core import Event
 from composer.models.base import ComposerClassifier
 
+
 # (N, C, d1, d2, num_classes)
 @pytest.fixture(params=[(7, 11, 3, 5, 10)])
 def fake_data(request):
@@ -44,11 +45,7 @@ class TestMixUp:
         mixing = _gen_mixing_coef(alpha)
 
         # Apply mixup
-        x_mix, _, y_perm, _ = mixup_batch(
-            x_fake,
-            y_fake,
-            mixing=mixing,
-            indices=indices)
+        x_mix, _, y_perm, _ = mixup_batch(x_fake, y_fake, mixing=mixing, indices=indices)
 
         # Validate results
         validate_mixup_batch(x_fake, y_fake, indices, x_mix, y_perm, mixing)

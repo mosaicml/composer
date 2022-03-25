@@ -127,9 +127,9 @@ class MixUp(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         if self.interpolate_loss:
-             return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
+            return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
         else:
-             return event in [Event.AFTER_DATALOADER, Event.BEFORE_LOSS]
+            return event in [Event.AFTER_DATALOADER, Event.BEFORE_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         input, target = state.batch_pair
@@ -172,7 +172,6 @@ class MixUp(Algorithm):
             state.batch = (input, mixed_up_target)
 
 
-
 def _gen_mixing_coef(alpha: float) -> float:
     """Samples ``max(z, 1-z), z ~ Beta(alpha, alpha)``."""
     # First check if alpha is positive.
@@ -188,6 +187,7 @@ def _gen_mixing_coef(alpha: float) -> float:
     # this way the "main" label is always the original one, which keeps
     # the training accuracy meaningful
     return max(mixing_lambda, 1. - mixing_lambda)
+
 
 def _gen_indices(num_samples: int) -> torch.Tensor:
     """Generates a random permutation of the batch indices."""
