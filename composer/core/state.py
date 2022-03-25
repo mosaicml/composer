@@ -321,6 +321,8 @@ class State(Serializable):
                 perfectly match the keys in the model instance.
         """
         if state_dict.get("is_model_ddp", False) and not self.is_model_ddp:
+            # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
+            # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
         missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
