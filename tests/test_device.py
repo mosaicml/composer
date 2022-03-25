@@ -3,6 +3,7 @@ from typing import Dict, List, Tuple
 import pytest
 import torch
 
+from composer.trainer.devices import DeviceCPU, DeviceGPU
 from composer.utils.iter_helpers import map_collections
 from tests.common import device
 
@@ -52,7 +53,7 @@ def dummy_maskrcnn_batch() -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]
     return generate_maskrcnn_batch(batch_size=5, max_detections=5)
 
 
-@device('gpu', 'cpu')
+@device('cpu', 'gpu')
 @pytest.mark.parametrize(
     "batch",
     [dummy_tensor_batch(),
@@ -60,12 +61,12 @@ def dummy_maskrcnn_batch() -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]
      dummy_tuple_batch_long(),
      dummy_dict_batch(),
      dummy_maskrcnn_batch()])
-@pytest.mark.gpu()
 def test_to_device(device, batch):
-    new_batch = device.batch_to_device(batch)
+    device_handler = DeviceCPU() if device == 'cpu' else DeviceGPU()
 
     def assert_device(x):
         if isinstance(x, torch.Tensor):
-            assert x.device == device.id
+            assert x.device.type == device_handler._device
 
+    new_batch = device_handler.batch_to_device(batch)
     map_collections(new_batch, assert_device)
