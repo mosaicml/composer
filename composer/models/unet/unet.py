@@ -14,6 +14,7 @@ from composer.core.types import BatchPair
 from composer.metrics.metrics import Dice
 from composer.models.base import ComposerModel
 from composer.models.unet.model import UNet as UNetModel
+from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
@@ -36,8 +37,8 @@ class UNet(ComposerModel):
         super().__init__()
         try:
             from monai.losses import DiceLoss
-        except ImportError as e:
-            raise ImportError(
+        except MissingConditionalImportError as e:
+            raise MissingConditionalImportError(
                 textwrap.dedent("""\
                 Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
                 if using pip or `conda install -c conda-forge monai` if using Anaconda.""")) from e

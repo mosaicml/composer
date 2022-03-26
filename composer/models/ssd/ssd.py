@@ -15,6 +15,7 @@ from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["SSD"]
 
@@ -124,8 +125,8 @@ class coco_map(Metric):
         super().__init__()
         try:
             from pycocotools.coco import COCO
-        except ImportError:
-            raise ImportError(
+        except MissingConditionalImportError:
+            raise MissingConditionalImportError(
                 textwrap.dedent("""\
                 Composer was installed without coco support.
                 To use coco with Composer, run `pip install mosaicml[coco]` if using pip or
@@ -141,8 +142,8 @@ class coco_map(Metric):
     def compute(self):
         try:
             from pycocotools.cocoeval import COCOeval
-        except ImportError:
-            raise ImportError(
+        except MissingConditionalImportError:
+            raise MissingConditionalImportError(
                 textwrap.dedent("""\
                 Composer was installed without coco support.
                 To use coco with Composer, run `pip install mosaicml[coco]` if using pip or

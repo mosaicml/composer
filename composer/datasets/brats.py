@@ -15,13 +15,13 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 import torch.utils.data
-import torchvision
 import yahp as hp
 
 from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 PATCH_SIZE = [1, 192, 160]
 
@@ -264,8 +264,8 @@ def get_split(data, idx):
 def get_data_split(path: str):
     try:
         from sklearn.model_selection import KFold
-    except ImportError as e:
-        raise ImportError(
+    except MissingConditionalImportError as e:
+        raise MissingConditionalImportError(
             textwrap.dedent("""\
             Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
             if using pip or `conda install -c conda-forge scikit-learn` if using Anaconda.""")) from e

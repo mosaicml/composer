@@ -7,6 +7,7 @@ import textwrap
 from typing import Optional
 
 from composer.models.base import ComposerClassifier
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["Timm"]
 
@@ -50,8 +51,8 @@ class Timm(ComposerClassifier):
     ) -> None:
         try:
             import timm
-        except ImportError as e:
-            raise ImportError(
+        except MissingConditionalImportError as e:
+            raise MissingConditionalImportError(
                 textwrap.dedent("""\
                 Composer was installed without timm support. To use timm with Composer, run `pip install mosaicml[timm]`
                 if using pip or `pip install timm>=0.5.4` if using Anaconda.""")) from e

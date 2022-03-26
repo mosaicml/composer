@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["ViTSmallPatch16Hparams"]
 
@@ -35,8 +36,8 @@ class ViTSmallPatch16Hparams(ModelHparams):
     def validate(self):
         try:
             import vit_pytorch  # type: ignore
-        except ImportError as e:
-            raise ImportError(
+        except MissingConditionalImportError as e:
+            raise MissingConditionalImportError(
                 textwrap.dedent("""\
                 Composer was installed without vit support. To use vit with Composer, run `pip install mosaicml[vit]`
                 if using pip or `pip install vit_pytorch>=0.27` if using Anaconda.""")) from e

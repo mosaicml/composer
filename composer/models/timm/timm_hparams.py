@@ -10,6 +10,7 @@ import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
 from composer.models.timm.model import Timm
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["TimmHparams"]
 
@@ -51,8 +52,8 @@ class TimmHparams(ModelHparams):
         if self.model_name is None:
             try:
                 import timm
-            except ImportError as e:
-                raise ImportError(
+            except MissingConditionalImportError as e:
+                raise MissingConditionalImportError(
                     textwrap.dedent("""\
                     Composer was installed without timm support. To use timm with Composer, run `pip install mosaicml[timm]`
                     if using pip or `pip install timm>=0.5.4` if using Anaconda.""")) from e
