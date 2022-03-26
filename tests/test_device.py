@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import pytest
 import torch
@@ -32,6 +32,15 @@ def dummy_dict_batch() -> Dict[str, torch.Tensor]:
     return {'image': image, 'target': target}
 
 
+def dummy_dict_batch_with_metadata(batch_size=12) -> Dict[str, Union[List, torch.Tensor, str]]:
+    # sometimes metadata is included with a batch that isn't taken by the model.
+    image = torch.randn(size=(batch_size, 3, 32, 32))
+    target = torch.randint(size=(batch_size,), high=10)
+    meta = ['hi im a tag' for b in range(batch_size)]
+    index = [[1, 2, 3] for b in range(batch_size)]
+    return {'image': image, 'target': target, 'meta': meta, 'index': index}
+
+
 def dummy_maskrcnn_batch() -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
 
     def generate_maskrcnn_sample(num_detections, image_height=12, image_width=12, num_classes=80):
@@ -60,6 +69,7 @@ def dummy_maskrcnn_batch() -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]
      dummy_tuple_batch(),
      dummy_tuple_batch_long(),
      dummy_dict_batch(),
+     dummy_dict_batch_with_metadata(),
      dummy_maskrcnn_batch()])
 def test_to_device(device, batch):
     device_handler = DeviceCPU() if device == 'cpu' else DeviceGPU()

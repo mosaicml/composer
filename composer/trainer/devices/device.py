@@ -120,7 +120,7 @@ class Device(Serializable, ABC):
 
 
 def _map_batch(batch: Any, map_fn: Callable) -> Any:
-    """Recursively maps a function to the values of nested lists and dictionaries.
+    """Recursively maps a function to all the tensors in a batch.
 
     Args:
         batch: Nested lists and dictionaries.
@@ -130,14 +130,13 @@ def _map_batch(batch: Any, map_fn: Callable) -> Any:
         Collections: The result of applying ``map_fn`` on each element of the ``batch``.
         The type of ``batch`` is preserved.
     """
-    if isinstance(batch, torch.Tensor):
+    if isinstance(batch, torch.Tensor):  # short circuit on tensor batch.
         return map_fn(batch)
     if isinstance(batch, Mapping):
         return {k: _map_batch(v, map_fn) for k, v in batch.items()}
-    elif isinstance(batch, Sequence) and not isinstance(batch, string_classes):
+    if isinstance(batch, Sequence) and not isinstance(batch, string_classes):
         try:
             return type(batch)(_map_batch(x, map_fn) for x in batch)  # type: ignore
         except TypeError:
             return [_map_batch(x, map_fn) for x in batch]
-    else:
-        return map_fn(batch)
+    return map_fn(batch)
