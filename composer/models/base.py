@@ -13,7 +13,7 @@ from torchmetrics.classification import Accuracy
 
 from composer.core.types import Batch, BatchPair
 from composer.loss.loss import soft_cross_entropy
-from composer.metrics.metrics import CrossEntropyLoss
+from composer.metrics.metrics import CrossEntropy
 
 __all__ = ["ComposerClassifier", "ComposerModel"]
 
@@ -227,7 +227,7 @@ class ComposerClassifier(ComposerModel):
         super().__init__()
         self.train_acc = Accuracy()
         self.val_acc = Accuracy()
-        self.val_loss = CrossEntropyLoss()
+        self.val_loss = CrossEntropy()
         self.module = module
 
         if hasattr(self.module, "num_classes"):

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Mapping, Sequence, Union
 import torch
 from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, Metric, MetricCollection, SpearmanCorrcoef
 
-from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropyLoss, MaskedAccuracy
+from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
 from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
@@ -90,8 +90,8 @@ class BERTModel(ComposerTransformer):
 
         if config.num_labels == len(self.tokenizer):  # tests for MLM pre-training
             ignore_index = -100
-            self.train_loss = LanguageCrossEntropyLoss(ignore_index=ignore_index, vocab_size=config.num_labels)
-            self.val_loss = LanguageCrossEntropyLoss(ignore_index=ignore_index, vocab_size=config.num_labels)
+            self.train_loss = LanguageCrossEntropy(ignore_index=ignore_index, vocab_size=config.num_labels)
+            self.val_loss = LanguageCrossEntropy(ignore_index=ignore_index, vocab_size=config.num_labels)
 
             self.train_acc = MaskedAccuracy(ignore_index=ignore_index)
             self.val_acc = MaskedAccuracy(ignore_index=ignore_index)

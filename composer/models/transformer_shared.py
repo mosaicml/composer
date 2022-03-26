@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Mapping, Sequence, Tuple, Union
 
 from torch import Tensor
 
-from composer.metrics.nlp import HFCrossEntropyLoss
+from composer.metrics.nlp import HFCrossEntropy
 from composer.models.base import ComposerModel
 
 if TYPE_CHECKING:
@@ -57,8 +57,8 @@ class ComposerTransformer(ComposerModel):
         self.model_inputs.update(set({"labels"}))
 
         # define metrics for measurements
-        self.train_loss = HFCrossEntropyLoss()
-        self.val_loss = HFCrossEntropyLoss()
+        self.train_loss = HFCrossEntropy()
+        self.val_loss = HFCrossEntropy()
 
         if gradient_checkpointing:
             self.module.gradient_checkpointing_enable()  # type: ignore

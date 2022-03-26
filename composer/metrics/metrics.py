@@ -12,7 +12,7 @@ from torchmetrics.utilities.data import to_categorical
 
 from composer.loss import soft_cross_entropy
 
-__all__ = ["MIoU", "Dice", "CrossEntropyLoss", "LossMetric"]
+__all__ = ["MIoU", "Dice", "CrossEntropy", "LossMetric"]
 
 
 class MIoU(Metric):
@@ -121,7 +121,7 @@ def _stat_scores(
     return tp, fp, tn, fn, sup
 
 
-class CrossEntropyLoss(Metric):
+class CrossEntropy(Metric):
     """Torchmetrics cross entropy loss implementation.
 
     This class implements cross entropy loss as a :class:`torchmetrics.Metric` so that it can be returned by the

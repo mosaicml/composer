@@ -12,7 +12,7 @@ from torchvision.models import _utils, resnet
 
 from composer.core.types import BatchPair
 from composer.loss.loss import soft_cross_entropy
-from composer.metrics.metrics import CrossEntropyLoss, MIoU
+from composer.metrics.metrics import CrossEntropy, MIoU
 from composer.models.base import ComposerModel
 from composer.models.model_hparams import Initializer
 
@@ -181,9 +181,9 @@ class ComposerDeepLabV3(ComposerModel):
 
         # Metrics
         self.train_miou = MIoU(self.num_classes, ignore_index=-1)
-        self.train_ce = CrossEntropyLoss(ignore_index=-1)
+        self.train_ce = CrossEntropy(ignore_index=-1)
         self.val_miou = MIoU(self.num_classes, ignore_index=-1)
-        self.val_ce = CrossEntropyLoss(ignore_index=-1)
+        self.val_ce = CrossEntropy(ignore_index=-1)
 
     def forward(self, batch: BatchPair):
         x = batch[0]
