@@ -4,7 +4,7 @@
 
 import logging
 import textwrap
-from typing import Callable, List, Mapping, Sequence, Tuple, Union
+from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -161,4 +161,3 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
         else:
             dataset.transform = transforms.Compose([dataset.transform, transform])
             log.warning(transform_added_logstring)
-

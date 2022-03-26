@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import collections.abc
 import textwrap
-from typing import TYPE_CHECKING, Callable, List, Optional, Sequence, Mapping, Tuple
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Sequence, Tuple
 
 import torch
 import torch.utils.data
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 __all__ = ["DataSpec"]
 
 
-def _split_list(l: List, num_microbatches: int) -> List:
+def _split_list(l, num_microbatches):
     if len(l) < num_microbatches:
         raise ValueError(
             textwrap.dedent(f"""\
@@ -27,7 +27,7 @@ def _split_list(l: List, num_microbatches: int) -> List:
     return [l[i::num_microbatches] for i in range(num_microbatches)]
 
 
-def _split_tensor(t: torch.Tensor, num_microbatches: int) -> List:
+def _split_tensor(t, num_microbatches):
     if len(t) < num_microbatches:
         raise ValueError(
             textwrap.dedent(f"""\
@@ -46,9 +46,9 @@ def _split_mapping(m, num_microbatches):
     return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_microbatches)]
 
 
-def _default_split_batch(batch: Union[Mapping, List, Tuple], num_microbatches: int) -> Sequence:
+def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
     """Splits batch into `num_microbatches` chunks for gradient accumulation. Works with tensors, dictionaries of
-    tensors, (x, y) tuples, and lists where batch is the first dimension.
+    tensors, (x, y) tuples, and lists where batch is the 2nd dimension.
 
     Args:
         batch: output from the dataloader.
@@ -62,13 +62,10 @@ def _default_split_batch(batch: Union[Mapping, List, Tuple], num_microbatches: i
     if isinstance(batch, torch.Tensor):  # check for a single stack of tensors
         return _split_tensor(batch, num_microbatches)
 
-    if isinstance(batch, list):  # assume lists have batch dimension first
-        return _split_list(batch, num_microbatches)
-
     if isinstance(batch, Mapping):  # check for dictionary (hf style)
         return _split_mapping(batch, num_microbatches)
 
-    if isinstance(batch, tuple):  # check for batch on 2nd dimension
+    if isinstance(batch, (Tuple, List)):  # check for batch on 2nd dimension
         result = []
         for item in batch:
             if isinstance(item, torch.Tensor):

@@ -172,6 +172,7 @@ class State(Serializable):
         # data configurations
         train_dataloader: types.DataLoader,
         evaluators: Optional[Union[Evaluator, Sequence[Evaluator]]] = None,
+        split_batch: Optional[Callable] = None,
         grad_accum: int = 1,
 
         # precision

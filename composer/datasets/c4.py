@@ -10,7 +10,6 @@ import logging
 from dataclasses import dataclass
 from functools import partial
 from itertools import chain, cycle
-from typing import List
 
 import yahp as hp
 from torch.utils.data import IterableDataset, get_worker_info
@@ -109,11 +108,7 @@ class C4DatasetHparams(DatasetHparams):
                                                                   mlm_probability=self.mlm_probability)
         # Return DataSpec
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
-            dataset=c4_dataset,
-            batch_size=batch_size,
-            sampler=None,
-            drop_last=self.drop_last,
-            collate_fn=collate_fn))
+            dataset=c4_dataset, batch_size=batch_size, sampler=None, drop_last=self.drop_last, collate_fn=collate_fn))
 
 
 class C4Dataset(IterableDataset):

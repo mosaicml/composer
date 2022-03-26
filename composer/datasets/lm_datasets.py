@@ -20,7 +20,6 @@ __all__ = ["LMDatasetHparams"]
 log = logging.getLogger(__name__)
 
 
-
 @dataclass
 class LMDatasetHparams(DatasetHparams):
     """Defines a generic dataset class for self-supervised training of autoregressive and masked language models.
@@ -154,8 +153,5 @@ class LMDatasetHparams(DatasetHparams):
         sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
 
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
-            dataset=dataset,
-            batch_size=batch_size,
-            sampler=sampler,
-            drop_last=self.drop_last,
+            dataset=dataset, batch_size=batch_size, sampler=sampler, drop_last=self.drop_last,
             collate_fn=data_collator))
