@@ -2,6 +2,8 @@
 
 """Synthetic datasets used for testing, profiling, and debugging."""
 
+from __future__ import annotations
+
 from typing import Callable, Optional, Sequence, Union
 
 import torch
