@@ -1090,7 +1090,7 @@ class Trainer:
         # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
         if self.state.grad_accum == self.state.batch_num_samples:
             raise RuntimeError(
-                textwrap.dededent("""CUDA out of memory. Train loop failed with an internal microbatch of size 1.
+                textwrap.dedent("""CUDA out of memory. Train loop failed with an internal microbatch of size 1.
                                This means the GPU does not have enough memory to process even 1 sample."""))
         else:
             self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
