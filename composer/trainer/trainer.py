@@ -1238,7 +1238,7 @@ class Trainer:
             self.engine.run_event(Event.BEFORE_FORWARD)
 
             with self.state.precision_context:
-                self.state.outputs = self.state.model.forward(self.state.batch)
+                self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
 
