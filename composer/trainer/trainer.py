@@ -1091,7 +1091,7 @@ class Trainer:
         if self.state.grad_accum == self.state.batch_num_samples:
             raise RuntimeError(
                 textwrap.dededent("""CUDA out of memory. Train loop failed with an internal microbatch of size 1.
-                               This means the GPU does not have enough memory to process even 1"""))
+                               This means the GPU does not have enough memory to process even 1 sample."""))
         else:
             self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
             self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
