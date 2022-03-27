@@ -23,10 +23,9 @@ from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import LoggerDestinationHparams, logger_registry
-from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
-                             DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNetHparams, SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
-from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
+from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
+                             GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
+                             SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams, CosineAnnealingSchedulerHparams,
                             CosineAnnealingWarmRestartsSchedulerHparams, CosineAnnealingWithWarmupSchedulerHparams,
                             DecoupledAdamWHparams, DecoupledSGDWHparams, ExponentialSchedulerHparams,
@@ -74,9 +73,7 @@ model_registry = {
     "ssd": SSDHparams,
     "deeplabv3": DeepLabV3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
-    "resnet56_cifar10": CIFARResNetHparams,
-    "resnet20_cifar10": CIFARResNet20Hparams,
-    "resnet9_cifar10": CIFARResNet9Hparams,
+    "resnet_cifar": ResNetCIFARHparams,
     "resnet": ResNetHparams,
     "mnist_classifier": MnistClassifierHparams,
     "gpt2": GPT2Hparams,
@@ -484,8 +481,7 @@ class TrainerHparams(hp.Hparams):
         algorithms = [x.initialize_object() for x in self.algorithms]
 
         # callbacks, loggers, and seed
-        dict_config = self.to_dict()
-        loggers = [x.initialize_object(config=dict_config) for x in self.loggers]
+        loggers = [x.initialize_object() for x in self.loggers]
         callbacks = [x.initialize_object() for x in self.callbacks]
 
         if self.datadir is not None:
