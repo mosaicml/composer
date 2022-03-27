@@ -54,10 +54,16 @@ class GPT2Model(ComposerTransformer):
                  config: transformers.GPT2Config,
                  tokenizer: transformers.GPT2Tokenizer,
                  gradient_checkpointing: bool = False) -> None:
+
+        if tokenizer is None:
+            model_inputs = {"input_ids", "attention_mask", "token_type_ids"}
+        else:
+            model_inputs = set(tokenizer.model_input_names)
+
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
-            tokenizer=tokenizer,
+            model_inputs=model_inputs,
             gradient_checkpointing=gradient_checkpointing)
 
         # If we ever have algorithms that modify the loss function, then this might be a bit inefficient
