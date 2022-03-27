@@ -9,8 +9,6 @@ import queue
 import sys
 from typing import Any, Callable, Dict, Optional, TextIO
 
-import yaml
-
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
@@ -93,7 +91,6 @@ class FileLogger(LoggerDestination):
         log_level: LogLevel = LogLevel.EPOCH,
         log_interval: int = 1,
         flush_interval: int = 100,
-        config: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__()
         self.filename = filename
@@ -104,7 +101,6 @@ class FileLogger(LoggerDestination):
         self.is_batch_interval = False
         self.is_epoch_interval = False
         self.file: Optional[TextIO] = None
-        self.config = config
         self._queue: queue.Queue[str] = queue.Queue()
         self._original_stdout_write = sys.stdout.write
         self._original_stderr_write = sys.stderr.write
@@ -168,9 +164,6 @@ class FileLogger(LoggerDestination):
             buffering=self.buffer_size,
         )
         self._flush_queue()
-        if self.config is not None:
-            data = ("-" * 30) + "\n" + yaml.safe_dump(self.config) + "\n" + ("-" * 30) + "\n"
-            self.write('[config]: ', data)
 
     def batch_end(self, state: State, logger: Logger) -> None:
         del logger  # unused
