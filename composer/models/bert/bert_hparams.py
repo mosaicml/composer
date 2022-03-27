@@ -57,7 +57,10 @@ class BERTForClassificationHparams(TransformerHparams):
         config.num_labels = self.num_labels
 
         # setup the tokenizer in the hparams interface
-        tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        if self.tokenizer_name is not None:
+            tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        else:
+            tokenizer = None
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
@@ -110,7 +113,10 @@ class BERTHparams(TransformerHparams):
         config.num_labels = config.vocab_size
 
         # setup the tokenizer in the hparams interface
-        tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        if self.tokenizer_name is not None:
+            tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        else:
+            tokenizer = None
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head

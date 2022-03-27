@@ -39,9 +39,6 @@ class TransformerHparams(ModelHparams, ABC):
     gradient_checkpointing: bool = hp.optional("Whether to enable gradient checkpointing.", default=False)
 
     def validate(self):
-        if self.tokenizer_name is None:
-            raise ValueError('tokenizer_name cannot be None. Enter model name to pull from HuggingFace Model Hub.')
-
         if self.pretrained_model_name is None and self.model_config == {}:
             raise Exception("One of pretrained_model_name or model_config needed.")
 

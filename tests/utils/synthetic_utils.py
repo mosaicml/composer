@@ -52,7 +52,7 @@ def configure_model_for_synthetic(model_hparams: ModelHparams) -> None:
 
         # generate tokenizers and synthetic models
         tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family)
-        model_hparams.tokenizer_name = tokenizer.name_or_path
+        model_hparams.tokenizer_name = None
         model_hparams.model_config = generate_dummy_model_config(model_hparams_name, tokenizer)
 
     # configure DeepLabV3 models for synthetic testing
