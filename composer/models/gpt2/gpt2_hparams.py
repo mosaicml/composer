@@ -21,7 +21,7 @@ class GPT2Hparams(TransformerHparams):
     Args:
         pretrained_model_name (str): Pretrained model name to pull from Hugging Face Model Hub.
         model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
-        tokenizer_name (str): The tokenizer used for this model,
+        tokenizer_name (Optional[str]): The tokenizer used for this model,
             necessary to assert required model inputs.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.

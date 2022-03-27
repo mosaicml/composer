@@ -20,7 +20,7 @@ class TransformerHparams(ModelHparams, ABC):
     """Defines the necessary hyparameters for a Transformer base module.
 
     Args:
-        pretrained_model_name (str): "Pretrained model name to pull from Huggingface Model Hub."
+        pretrained_model_name (Optional[str]): "Pretrained model name to pull from Huggingface Model Hub."
         model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
         tokenizer_name (str): The tokenizer used for this model,
             necessary to assert required model inputs.
@@ -28,7 +28,7 @@ class TransformerHparams(ModelHparams, ABC):
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
     """
 
-    tokenizer_name: str = hp.optional("Tokenizer name to pull from Huggingface Model Hub.", default=None)
+    tokenizer_name: Optional[str] = hp.optional("Tokenizer name to pull from Huggingface Model Hub.", default=None)
     pretrained_model_name: Optional[str] = hp.optional(
         doc="Pretrained model name to pull from Huggingface Model Hub.",
         default=None,

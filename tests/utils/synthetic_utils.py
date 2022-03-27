@@ -24,12 +24,16 @@ def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams,
             raise ValueError(f"Model {type(model_hparams)} is currently not supported for synthetic testing!")
 
         tokenizer_family = _model_hparams_to_tokenizer_family[type(model_hparams)]
-        assert isinstance(dataset_hparams, GLUEHparams) or isinstance(dataset_hparams, LMDatasetHparams)
+        assert isinstance(dataset_hparams, (GLUEHparams, LMDatasetHparams))
         dataset_hparams.tokenizer_name = tokenizer_family
         dataset_hparams.max_seq_length = 128
 
 
-_model_hparams_to_tokenizer_family = {GPT2Hparams: "gpt2", BERTForClassificationHparams: "bert", BERTHparams: "bert"}
+_model_hparams_to_tokenizer_family: Dict[TransformerHparams, str] = {
+    GPT2Hparams: "gpt2",
+    BERTForClassificationHparams: "bert",
+    BERTHparams: "bert"
+}
 
 
 def configure_model_for_synthetic(model_hparams: ModelHparams) -> None:
