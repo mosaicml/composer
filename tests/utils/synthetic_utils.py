@@ -5,7 +5,8 @@ import pytest
 from composer.datasets import GLUEHparams, LMDatasetHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer
-from composer.models import DeepLabV3Hparams, ModelHparams, TransformerHparams
+from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, GPT2Hparams, ModelHparams,
+                             TransformerHparams)
 
 
 def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams,
@@ -18,33 +19,26 @@ def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams,
     dataset_hparams.use_synthetic = True
 
     if isinstance(model_hparams, TransformerHparams):
-        model_hparams_name = type(model_hparams).__name__
+        if type(model_hparams) not in _model_hparams_to_tokenizer_family:
+            print(type(model_hparams))
+            raise ValueError(f"Model {type(model_hparams)} is currently not supported for synthetic testing!")
 
-        if model_hparams_name not in _model_hparams_to_tokenizer_family:
-            raise ValueError(f"Model {model_hparams_name} is currently not supported for synthetic testing!")
-
-        tokenizer_family = _model_hparams_to_tokenizer_family[model_hparams_name]
+        tokenizer_family = _model_hparams_to_tokenizer_family[type(model_hparams)]
         assert isinstance(dataset_hparams, GLUEHparams) or isinstance(dataset_hparams, LMDatasetHparams)
         dataset_hparams.tokenizer_name = tokenizer_family
         dataset_hparams.max_seq_length = 128
 
 
-_model_hparams_to_tokenizer_family = {
-    "GPT2Hparams": "gpt2",
-    "BERTForClassificationHparams": "bert",
-    "BERTHparams": "bert"
-}
+_model_hparams_to_tokenizer_family = {GPT2Hparams: "gpt2", BERTForClassificationHparams: "bert", BERTHparams: "bert"}
 
 
 def configure_model_for_synthetic(model_hparams: ModelHparams) -> None:
     # configure Transformer-based models for synthetic testing
     if isinstance(model_hparams, TransformerHparams):
-        model_hparams_name = type(model_hparams).__name__
+        if type(model_hparams) not in _model_hparams_to_tokenizer_family:
+            raise ValueError(f"Model {type(model_hparams)} is currently not supported for synthetic testing!")
 
-        if model_hparams_name not in _model_hparams_to_tokenizer_family:
-            raise ValueError(f"Model {model_hparams_name} is currently not supported for synthetic testing!")
-
-        tokenizer_family = _model_hparams_to_tokenizer_family[model_hparams_name]
+        tokenizer_family = _model_hparams_to_tokenizer_family[type(model_hparams)]
 
         # force a non-pretrained model
         model_hparams.use_pretrained = False
@@ -53,7 +47,7 @@ def configure_model_for_synthetic(model_hparams: ModelHparams) -> None:
         # generate tokenizers and synthetic models
         tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family)
         model_hparams.tokenizer_name = None
-        model_hparams.model_config = generate_dummy_model_config(model_hparams_name, tokenizer)
+        model_hparams.model_config = generate_dummy_model_config(type(model_hparams), tokenizer)
 
     # configure DeepLabV3 models for synthetic testing
     if isinstance(model_hparams, DeepLabV3Hparams):
@@ -63,7 +57,7 @@ def configure_model_for_synthetic(model_hparams: ModelHparams) -> None:
 
 def generate_dummy_model_config(class_name, tokenizer) -> Dict[str, Any]:
     model_to_dummy_mapping = {
-        "BERTHparams": {
+        BERTHparams: {
             "architectures": ["BertForMaskedLM"],
             "attention_probs_dropout_prob": 0.1,
             "gradient_checkpointing": False,
@@ -84,7 +78,7 @@ def generate_dummy_model_config(class_name, tokenizer) -> Dict[str, Any]:
             "use_cache": True,
             "vocab_size": tokenizer.vocab_size,
         },
-        "GPT2Hparams": {
+        GPT2Hparams: {
             "activation_function": "gelu_new",
             "architectures": ["GPT2LMHeadModel"],
             "attn_pdrop": 0.1,
@@ -113,7 +107,7 @@ def generate_dummy_model_config(class_name, tokenizer) -> Dict[str, Any]:
             },
             "vocab_size": tokenizer.vocab_size
         },
-        "BERTForClassificationHparams": {
+        BERTForClassificationHparams: {
             "architectures": ["BertForSequenceClassification"],
             "attention_probs_dropout_prob": 0.1,
             "classifier_dropout": None,

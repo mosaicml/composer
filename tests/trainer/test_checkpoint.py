@@ -293,8 +293,13 @@ def test_checkpoint(
         composer_trainer_hparams.model = model_hparams.model
         composer_trainer_hparams.optimizer = model_hparams.optimizer
         composer_trainer_hparams.schedulers = model_hparams.schedulers
-        # to ensure that synthetic data is properly cast
-        composer_trainer_hparams.dataloader.pin_memory = True
+
+    if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
+        pytest.skip("Checkpointing tests require synthetic data")
+        return
+    if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
+        pytest.skip("Checkpointing tests require synthetic data")
+        return
 
     configure_model_for_synthetic(composer_trainer_hparams.model)
 
