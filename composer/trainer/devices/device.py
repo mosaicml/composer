@@ -132,10 +132,7 @@ def _map_batch(batch: Any, map_fn: Callable) -> Any:
         The type of ``batch`` is preserved.
     """
     if isinstance(batch, Mapping):
-        try:
-            return type(batch)({k: _map_batch(v, map_fn) for k, v in batch.items()})
-        except TypeError:
-            return {k: _map_batch(v, map_fn) for k, v in batch.items()}
+        return {k: _map_batch(v, map_fn) for k, v in batch.items()}
 
     if isinstance(batch, Sequence) and not isinstance(batch, (str, bytes)):
         try:
