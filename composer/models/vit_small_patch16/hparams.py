@@ -36,11 +36,8 @@ class ViTSmallPatch16Hparams(ModelHparams):
     def validate(self):
         try:
             import vit_pytorch  # type: ignore
-        except MissingConditionalImportError as e:
-            raise MissingConditionalImportError(
-                textwrap.dedent("""\
-                Composer was installed without vit support. To use vit with Composer, run `pip install mosaicml[vit]`
-                if using pip or `pip install vit_pytorch>=0.27` if using Anaconda.""")) from e
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="vit", conda_package="vit_pytorch>=0.27") from e
 
     def initialize_object(self):
         from composer.models import ViTSmallPatch16

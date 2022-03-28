@@ -52,11 +52,8 @@ class TimmHparams(ModelHparams):
         if self.model_name is None:
             try:
                 import timm
-            except MissingConditionalImportError as e:
-                raise MissingConditionalImportError(
-                    textwrap.dedent("""\
-                    Composer was installed without timm support. To use timm with Composer, run `pip install mosaicml[timm]`
-                    if using pip or `pip install timm>=0.5.4` if using Anaconda.""")) from e
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group="timm", conda_package="timm >=0.5.4") from e
             raise ValueError(f"model must be one of {timm.models.list_models()}")
 
     def initialize_object(self):

@@ -264,12 +264,10 @@ def get_split(data, idx):
 def get_data_split(path: str):
     try:
         from sklearn.model_selection import KFold
-    except MissingConditionalImportError as e:
-        raise MissingConditionalImportError(
-            textwrap.dedent("""\
-            Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
-            if using pip or `conda install -c conda-forge scikit-learn` if using Anaconda.""")) from e
-
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group="unet",
+                                            conda_channel="conda-forge",
+                                            conda_package="scikit-learn") from e
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
     imgs = load_data(path, "*_x.npy")
     lbls = load_data(path, "*_y.npy")

@@ -51,11 +51,8 @@ class Timm(ComposerClassifier):
     ) -> None:
         try:
             import timm
-        except MissingConditionalImportError as e:
-            raise MissingConditionalImportError(
-                textwrap.dedent("""\
-                Composer was installed without timm support. To use timm with Composer, run `pip install mosaicml[timm]`
-                if using pip or `pip install timm>=0.5.4` if using Anaconda.""")) from e
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="timm", conda_package="timm>=0.5.4") from e
 
         model = timm.create_model(
             model_name=model_name,

@@ -751,11 +751,9 @@ class Trainer:
         if self.deepspeed_enabled:
             try:
                 import deepspeed
-            except MissingConditionalImportError as e:
-                raise MissingConditionalImportError(
-                    textwrap.dedent("""\
-                    Composer was installed without DeepSpeed support. To use DeepSpeed with Composer, run `pip install mosaicml[deepspeed]`
-                    if using pip or `pip install deepspeed>=0.5.5` if using Anaconda.""")) from e
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group="deepspeed",
+                                                    conda_package="deepspeed>=0.5.5") from e
             assert self._deepspeed_config is not None
             self._deepspeed_config = _parse_deepspeed_config(self._deepspeed_config,
                                                              state=self.state,

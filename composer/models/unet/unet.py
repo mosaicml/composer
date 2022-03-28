@@ -37,11 +37,10 @@ class UNet(ComposerModel):
         super().__init__()
         try:
             from monai.losses import DiceLoss
-        except MissingConditionalImportError as e:
-            raise MissingConditionalImportError(
-                textwrap.dedent("""\
-                Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
-                if using pip or `conda install -c conda-forge monai` if using Anaconda.""")) from e
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="unet",
+                                                conda_package="monai",
+                                                conda_channel="conda-forge") from e
 
         self.module = self.build_nnunet()
 

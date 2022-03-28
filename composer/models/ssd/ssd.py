@@ -125,12 +125,10 @@ class coco_map(Metric):
         super().__init__()
         try:
             from pycocotools.coco import COCO
-        except MissingConditionalImportError:
-            raise MissingConditionalImportError(
-                textwrap.dedent("""\
-                Composer was installed without coco support.
-                To use coco with Composer, run `pip install mosaicml[coco]` if using pip or
-                `conda install -c conda-forge pycocotools` if using Anaconda.`"""))
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="coco",
+                                                conda_channel="conda-forge",
+                                                conda_package="pycocotools") from e
         self.add_state("predictions", default=[])
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         self.cocogt = COCO(annotation_file=val_annotate)
@@ -142,12 +140,10 @@ class coco_map(Metric):
     def compute(self):
         try:
             from pycocotools.cocoeval import COCOeval
-        except MissingConditionalImportError:
-            raise MissingConditionalImportError(
-                textwrap.dedent("""\
-                Composer was installed without coco support.
-                To use coco with Composer, run `pip install mosaicml[coco]` if using pip or
-                `conda install -c conda-forge pycocotools` if using Anaconda.`"""))
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="coco",
+                                                conda_channel="conda-forge",
+                                                conda_package="pycocotools") from e
         cocoDt = self.cocogt.loadRes(np.array(self.predictions))
         E = COCOeval(self.cocogt, cocoDt, iouType='bbox')
         E.evaluate()

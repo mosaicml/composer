@@ -50,11 +50,11 @@ class WandBLogger(LoggerDestination):
                  init_params: Optional[Dict[str, Any]] = None) -> None:
         try:
             import wandb
-        except MissingConditionalImportError as e:
-            raise MissingConditionalImportError(
-                textwrap.dedent("""\
-                Composer was installed without WandB support. To use WandB with Composer, run `pip install mosaicml[wandb]`
-                if using pip or `conda install -c conda-forge wandb` if using Anaconda.""")) from e
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="wandb",
+                                                conda_package="wandb",
+                                                conda_channel="conda-forge") from e
+
         del wandb  # unused
         if log_artifacts and rank_zero_only:
             warnings.warn(
