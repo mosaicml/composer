@@ -12,8 +12,7 @@ __all__ = ["import_object", "MissingConditionalImportError"]
 class MissingConditionalImportError(ImportError):
 
     def __init__(self, extra_deps_group: str, conda_package: str, conda_channel: Optional[str] = 'conda-forge'):
-        """
-        Handles errors for external packages that might not be installed.
+        """Handles errors for external packages that might not be installed.
 
         Args:
             extra_deps_group (str): the pip package group, found in setup.py. For example, nlp for `mosaicml[nlp]`.
