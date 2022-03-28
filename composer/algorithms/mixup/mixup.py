@@ -174,7 +174,7 @@ class MixUp(Algorithm):
             input, target = state.batch_pair
             # Interpolate the loss
             assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
-            new_loss = self._loss_fn(state.outputs, self.permuted_target)
+            new_loss = self._loss_fn(state.outputs, (torch.Tensor(), self.permuted_target))
             assert isinstance(state.loss, torch.Tensor), "Multiple losses not supported yet"
             state.loss *= (1 - self.mixing)
             assert isinstance(new_loss, torch.Tensor), "Multiple losses not supported yet"
