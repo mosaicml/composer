@@ -1,4 +1,5 @@
 """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a vanilla PyTorch model.
+
 :class:`.ComposerClassifier` requires batches in the form: (``input``, ``target``) and includes a basic
 classification training loop with :func:`.soft_cross_entropy` loss and accuracy logging.
 """
@@ -13,8 +14,9 @@ from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import Accuracy
 
 from composer.core.types import BatchPair
+from composer.loss import soft_cross_entropy
+from composer.metrics import CrossEntropy
 from composer.models import ComposerModel
-from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
 
 __all__ = ["ComposerClassifier"]
 
@@ -47,7 +49,7 @@ class ComposerClassifier(ComposerModel):
         super().__init__()
         self.train_acc = Accuracy()
         self.val_acc = Accuracy()
-        self.val_loss = CrossEntropyLoss()
+        self.val_loss = CrossEntropy()
         self.module = module
 
         if hasattr(self.module, "num_classes"):

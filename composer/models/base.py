@@ -12,7 +12,6 @@ from torchmetrics import Metric, MetricCollection
 
 from composer.core.types import Batch
 
-
 __all__ = ["ComposerModel"]
 
 
