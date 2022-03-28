@@ -9,7 +9,6 @@ from typing import Any, Callable, Generator, TypeVar, Union
 
 import torch
 import torch.nn
-from torch._six import string_classes
 from torch.optim import Optimizer
 
 from composer.core.precision import Precision
@@ -58,7 +57,9 @@ class Device(Serializable, ABC):
         pass
 
     def batch_to_device(self, batch: T_Batch) -> T_Batch:
-        """Invoked by the :class:`.Trainer` to move the ``batch`` onto the device.
+        """Invoked by the :class:`.Trainer` move all tensors items in a batch to device. Supports nested sequences and
+        mappings of tensors. Ignores non-tensor items. Preserves sequence and mapping types when possible, otherwise
+        converts sequences to lists and mappings to dictionaries.
 
         Args:
             batch (Any): The batch to move to the device.
@@ -131,8 +132,12 @@ def _map_batch(batch: Any, map_fn: Callable) -> Any:
         The type of ``batch`` is preserved.
     """
     if isinstance(batch, Mapping):
-        return {k: _map_batch(v, map_fn) for k, v in batch.items()}
-    if isinstance(batch, Sequence) and not isinstance(batch, string_classes):
+        try:
+            return type(batch)({k: _map_batch(v, map_fn) for k, v in batch.items()})
+        except TypeError:
+            return {k: _map_batch(v, map_fn) for k, v in batch.items()}
+
+    if isinstance(batch, Sequence) and not isinstance(batch, (str, bytes)):
         try:
             return type(batch)(_map_batch(x, map_fn) for x in batch)  # type: ignore
         except TypeError:
