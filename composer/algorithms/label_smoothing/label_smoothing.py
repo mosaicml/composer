@@ -10,7 +10,7 @@ import torch
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.models.loss import ensure_targets_one_hot
+from composer.loss.utils import ensure_targets_one_hot
 
 __all__ = ["LabelSmoothing", "smooth_labels"]
 

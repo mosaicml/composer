@@ -475,8 +475,7 @@ class TrainerHparams(hp.Hparams):
         algorithms = [x.initialize_object() for x in self.algorithms]
 
         # callbacks, loggers, and seed
-        dict_config = self.to_dict()
-        loggers = [x.initialize_object(config=dict_config) for x in self.loggers]
+        loggers = [x.initialize_object() for x in self.loggers]
         callbacks = [x.initialize_object() for x in self.callbacks]
 
         if self.datadir is not None:
