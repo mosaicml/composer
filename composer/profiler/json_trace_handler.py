@@ -20,7 +20,8 @@ from composer.profiler.json_trace_merger import merge_traces
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.trace_handler import TraceHandler
 from composer.utils import dist, ensure_folder_is_empty
-from composer.utils.file_helpers import FORMAT_NAME_WITH_DIST_TABLE, FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist, format_name_with_dist_and_time
+from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
+                                         format_name_with_dist, format_name_with_dist_and_time)
 
 __all__ = ["JSONTraceHandler"]
 
