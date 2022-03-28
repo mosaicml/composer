@@ -13,7 +13,7 @@ import torch
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.models import ComposerModel
-from composer.models.loss import ensure_targets_one_hot
+from composer.loss.utils import ensure_targets_one_hot
 
 log = logging.getLogger(__name__)
 

@@ -15,7 +15,7 @@ import torchvision.transforms.functional
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.models.loss import _check_for_index_targets
+from composer.loss.utils import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def resize_batch(input: torch.Tensor,
         return input, target
 
     # Prep targets for resizing if necessary
-    if _check_for_index_targets(target) and resize_targets is True:
+    if check_for_index_targets(target) and resize_targets is True:
         # Add a dimension to match shape of the input and change type for resizing
         y_sized = target.float().unsqueeze(1)
     else:
@@ -97,7 +97,7 @@ def resize_batch(input: torch.Tensor,
         raise ValueError(f"Progressive mode '{mode}' not supported.")
 
     # Revert targets to their original format if they were modified
-    if _check_for_index_targets(target) and resize_targets is True:
+    if check_for_index_targets(target) and resize_targets is True:
         # Convert back to original format for training
         y_sized = y_sized.squeeze(dim=1).to(target.dtype)
 
