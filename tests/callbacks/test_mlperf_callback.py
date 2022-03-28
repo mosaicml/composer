@@ -40,7 +40,6 @@ def config():
 @pytest.mark.filterwarnings(
     "ignore::DeprecationWarning",)
 def test_mlperf_callback(config, tmpdir):
-    tmpdir = 'mlperf_results'
     pytest.importorskip("mlperf_logging")
 
     for run in range(5):

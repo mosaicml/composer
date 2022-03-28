@@ -9,7 +9,6 @@ from typing import Dict, Optional
 import cpuinfo
 import psutil
 import torch
-from mlperf_logging import mllog
 
 import composer
 from composer import Callback, State
@@ -36,7 +35,7 @@ class MLPerfCallback(Callback):
     """Creates a compliant results file for MLPerf Training benchmark.
 
     A submission folder structure will be created with the ``root_folder``
-    as the base and the following directories:
+    as the base and the following directories::
 
     root_folder/
         results/
@@ -148,7 +147,7 @@ class MLPerfCallback(Callback):
         os.makedirs(benchmark_folder, exist_ok=True)
         os.makedirs(systems_folder, exist_ok=True)
 
-    def _log_dict(self, data: Dict):
+    def _log_dict(self, data: Dict[str, Any]):
         for key, value in data.items():
             self.mllogger.event(key=key, value=value)
 
