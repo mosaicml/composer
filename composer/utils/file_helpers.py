@@ -42,12 +42,12 @@ def is_tar(name: Union[str, pathlib.Path]) -> bool:
 
 
 def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
-    """Ensure that ``folder_name`` is empty.
+    """Ensure that the given folder is empty.
 
     Hidden files and folders (those beginning with ``.``) and ignored. Sub-folders are checked recursively.
 
     Args:
-        folder_name (str | pathlib.Path): The folder to create or to ensure that it is empty.
+        folder_name (str | pathlib.Path): The folder to ensure is empty.
 
     Raises:
         FileExistsError: If ``folder_name`` contains any non-hidden files, recursively.
