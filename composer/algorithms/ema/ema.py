@@ -4,34 +4,46 @@
 
 import copy
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import torch
 
 from composer.core import Algorithm, Event, State, Time, TimeUnit
 from composer.loggers import Logger
+from composer.models import ComposerModel
 
-import pdb
 log = logging.getLogger(__name__)
 
 __all__ = ["EMA", "ema"]
 
 
-def ema(model: torch.nn.Module, ema_model: torch.nn.Module, alpha: float = 0.9):
-    """
+def ema(model: torch.nn.Module, ema_model: torch.nn.Module, decay: float = 0.99):
+    """Updates the weights of ``ema_model`` to be closer to the weights of ``model`` according to an exponential
+    weighted average. Weights are updated according to
+    .. math::
+        W_{ema_model}^{(t+1)} = decay\times W_{ema_model}^{(t)}+(1-decay)\times W_{model}^{(t)}
+    The update to ``ema_model`` happens in place.
+
     The half life of the weights for terms in the average is given by
-
     .. math::
-        t_{1/2} = -\frac{\log(2)}{\log(\alpha)}
-
-    Therefore to set alpha to obtain a target half life, set alpha according to
+        t_{1/2} = -\frac{\log(2)}{\log(decay)}
+    Therefore to set decay to obtain a target half life, set decay according to
     .. math::
-        \alpha = \exp\left[- \frac{\log(2)}{t_{1/2}}\right]
+        decay = \exp\left[- \frac{\log(2)}{t_{1/2}}\right]
 
     Args:
-        model (Model): _description_
-        ema_model (Model): _description_
-        alpha (float, optional): _description_. Defaults to 0.9.
+        model (torch.nn.Module): the model containing the latest weights to use to update the moving average weights.
+        ema_model (torch.nn.Module): the model containing the moving average weights to be updated.
+        decay (float, optional): the coefficient representing the degree to which older observations are discounted.
+            Must be in the interval :math:`(0, 1)`. ``Default: ``0.99``.
+
+    Example:
+    .. testcode::
+        import composer.functional as cf
+        from torchvision import models
+        model = models.resnet50()
+        ema_model = models.resnet50()
+        cf.ema(model, ema_model, decay=0.9)
     """
     model_dict = model.state_dict()
     for key, ema_param in ema_model.state_dict().items():
