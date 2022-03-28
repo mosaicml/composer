@@ -60,7 +60,7 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
                 raise FileExistsError(f"{folder_name} is not empty; {os.path.join(root, file)} exists.")
 
 
-FORMAT_NAME_WITH_DIST_TABLE = """\
+FORMAT_NAME_WITH_DIST_TABLE = """
 +------------------------+-------------------------------------------------------+
 | Variable               | Description                                           |
 +========================+=======================================================+
@@ -98,7 +98,7 @@ def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs:
     return formatted_str
 
 
-format_name_with_dist.__doc__ = f"""\
+format_name_with_dist.__doc__ = f"""
 Format ``format_str`` with the ``run_name``, distributed variables, and ``extra_format_kwargs``.
 
 The following format variables are available:
@@ -122,7 +122,7 @@ Args:
     extra_format_kwargs (object): Any additional :meth:`~str.format` kwargs.
 """
 
-FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """\
+FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """
 +------------------------+-------------------------------------------------------+
 | Variable               | Description                                           |
 +========================+=======================================================+

@@ -10,6 +10,7 @@ import os
 import pathlib
 import queue
 import tempfile
+import textwrap
 import time
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -38,7 +39,7 @@ class JSONTraceHandler(TraceHandler):
 
             The following format variables are available:
 
-            {FORMAT_NAME_WITH_DIST_TABLE}
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_TABLE, prefix='            ')}
 
             For example, if the ``run_name`` is ``'awesome_training_run'``, and the default ``folder`` of
             ``'{{run_name}}/traces'`` is used, traces will be stored in ``'awesome_training_run/traces'``.
@@ -52,7 +53,7 @@ class JSONTraceHandler(TraceHandler):
 
             The following format variables are available:
 
-            {FORMAT_NAME_WITH_DIST_AND_TIME_TABLE}
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, prefix='            ')}
 
             Consider the following scenario, where:
 
@@ -70,7 +71,7 @@ class JSONTraceHandler(TraceHandler):
                 ...
 
         artifact_name (str, optional): Format string for the trace file's artifact name.
-            (default: ``'{run_name}/traces/ep{epoch}-ba{batch}-rank{rank}.json'``)
+            (default: ``'{{run_name}}/traces/ep{{epoch}}-ba{{batch}}-rank{{rank}}.json'``)
 
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
@@ -81,14 +82,14 @@ class JSONTraceHandler(TraceHandler):
 
             To disable logging trace files as file artifacts, set this parameter to ``None``.
         merged_trace_filename (str, optional): Format string for the merged trace filename.
-            (default: ``'node{node_rank}.json'``)
+            (default: ``'node{{node_rank}}.json'``)
 
             Each rank writes a separate trace file at the end of each profiling cycle. However, when visualizing
             traces, it is generally helpful to merge traces together into a single file. This allows the traces
             across all ranks to be shown in a single view. To
 
             The same format variables as for ``folder`` are available. The merged trace file is saved
-            approximately to ``{folder}/{merged_trace_filename.format(...)}`` on the local rank zero
+            approximately to ``{{folder}}/{{merged_trace_filename.format(...)}}`` on the local rank zero
             process for each node.
 
             If specified (the default), the local rank zero process merges together all traces files from that node,
@@ -104,7 +105,7 @@ class JSONTraceHandler(TraceHandler):
                 in a post-processing step. See :mod:`composer.profiler.json_trace_merger` for additional info.
 
         merged_trace_artifact_name (str, optional): Format string for the merged trace file's artifact name.
-            (default: ``'{run_name}/traces/merged_trace.json'``)
+            (default: ``'{{run_name}}/traces/merged_trace.json'``)
 
             The same format variables as for ``folder`` are available.
 
