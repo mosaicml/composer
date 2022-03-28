@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch.nn.functional import cross_entropy
 
-from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
+from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
 
 
 @pytest.mark.parametrize("ignore_index", [-100])
@@ -67,7 +67,7 @@ def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: in
     generated_preds = torch.randn((batch_size, sequence_length, num_classes))
     generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
 
-    torchmetrics_xent = CrossEntropyLoss(vocab_size=num_classes, dist_sync_on_step=False, ignore_index=ignore_index)
+    torchmetrics_xent = LanguageCrossEntropy(vocab_size=num_classes, dist_sync_on_step=False, ignore_index=ignore_index)
 
     if ignore_index is not None:
         labels_mask = torch.rand((batch_size, sequence_length))

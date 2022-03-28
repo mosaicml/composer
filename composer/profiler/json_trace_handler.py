@@ -10,6 +10,7 @@ import os
 import pathlib
 import queue
 import tempfile
+import textwrap
 import time
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -19,105 +20,46 @@ from composer.loggers import Logger, LogLevel
 from composer.profiler.json_trace_merger import merge_traces
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.trace_handler import TraceHandler
-from composer.utils import dist, ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time
+from composer.utils import dist, ensure_folder_is_empty
+from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
+                                         format_name_with_dist, format_name_with_dist_and_time)
 
 __all__ = ["JSONTraceHandler"]
 
 
 class JSONTraceHandler(TraceHandler):
-    """Records trace events in `JSON trace format <https://\\
+    __doc__ = f"""Records trace events in `JSON trace format <https://\\
     docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_.
 
     Traces are output to ``output_directory``.  Traces can be visualized using the Chrome Trace Viewer.
     To view in a Google Chrome browser, navigate to ``chrome://tracing`` and load the JSON trace file.
 
     Args:
-        folder (str, optional): Format string for the trace file folder. Defaults to ``'{run_name}/traces'``.
+        folder (str, optional): Format string for the trace file folder. Defaults to ``'{{run_name}}/traces'``.
 
             The following format variables are available:
 
-            +------------------------+-------------------------------------------------------+
-            | Variable               | Description                                           |
-            +========================+=======================================================+
-            | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`.Logger.run_name`.                             |
-            +------------------------+-------------------------------------------------------+
-            | ``{rank}``             | The global rank, as returned by                       |
-            |                        | :func:`~composer.utils.dist.get_global_rank`.         |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_rank}``       | The local rank of the process, as returned by         |
-            |                        | :func:`~composer.utils.dist.get_local_rank`.          |
-            +------------------------+-------------------------------------------------------+
-            | ``{world_size}``       | The world size, as returned by                        |
-            |                        | :func:`~composer.utils.dist.get_world_size`.          |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_world_size}`` | The local world size, as returned by                  |
-            |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
-            +------------------------+-------------------------------------------------------+
-            | ``{node_rank}``        | The node rank, as returned by                         |
-            |                        | :func:`~composer.utils.dist.get_node_rank`.           |
-            +------------------------+-------------------------------------------------------+
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_TABLE, prefix='            ')}
 
             For example, if the ``run_name`` is ``'awesome_training_run'``, and the default ``folder`` of
-            ``'{run_name}/traces'`` is used, traces will be stored in ``'awesome_training_run/traces'``.
+            ``'{{run_name}}/traces'`` is used, traces will be stored in ``'awesome_training_run/traces'``.
 
         filename (str, optional): A format string describing how to name trace files.
-            (default: ``'ep{epoch}-ba{batch}-rank{rank}.json'``)
+            (default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}.json'``)
 
             At the end of each batch where :meth:`~composer.profiler.Profiler.get_action` returns
             :attr:`~composer.profiler._profiler_action.ProfilerAction.ACTIVE_AND_SAVE`, trace files are saved
-            approximately to ``{folder}/{filename.format(...)}``.
+            approximately to ``{{folder}}/{{filename.format(...)}}``.
 
             The following format variables are available:
 
-            +------------------------+-------------------------------------------------------+
-            | Variable               | Description                                           |
-            +========================+=======================================================+
-            | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`.Logger.run_name`.                             |
-            +------------------------+-------------------------------------------------------+
-            | ``{rank}``             | The global rank, as returned by                       |
-            |                        | :func:`~.dist.get_global_rank`.                       |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_rank}``       | The local rank of the process, as returned by         |
-            |                        | :func:`~.dist.get_local_rank`.                        |
-            +------------------------+-------------------------------------------------------+
-            | ``{world_size}``       | The world size, as returned by                        |
-            |                        | :func:`~.dist.get_world_size`.                        |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_world_size}`` | The local world size, as returned by                  |
-            |                        | :func:`~.dist.get_local_world_size`.                  |
-            +------------------------+-------------------------------------------------------+
-            | ``{node_rank}``        | The node rank, as returned by                         |
-            |                        | :func:`~.dist.get_node_rank`.                         |
-            +------------------------+-------------------------------------------------------+
-            | ``{epoch}``            | The total epoch count, as returned by                 |
-            |                        | :meth:`~composer.core.time.Timer.epoch`.              |
-            +------------------------+-------------------------------------------------------+
-            | ``{batch}``            | The total batch count, as returned by                 |
-            |                        | :meth:`~composer.core.time.Timer.batch`.              |
-            +------------------------+-------------------------------------------------------+
-            | ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by  |
-            |                        | :meth:`~composer.core.time.Timer.batch_in_epoch`.     |
-            +------------------------+-------------------------------------------------------+
-            | ``{sample}``           | The total sample count, as returned by                |
-            |                        | :meth:`~composer.core.time.Timer.sample`.             |
-            +------------------------+-------------------------------------------------------+
-            | ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by |
-            |                        | :meth:`~composer.core.time.Timer.sample_in_epoch`.    |
-            +------------------------+-------------------------------------------------------+
-            | ``{token}``            | The total token count, as returned by                 |
-            |                        | :meth:`~composer.core.time.Timer.token`.              |
-            +------------------------+-------------------------------------------------------+
-            | ``{token_in_epoch}``   | The token count in the current epoch, as returned by  |
-            |                        | :meth:`~composer.core.time.Timer.token_in_epoch`.     |
-            +------------------------+-------------------------------------------------------+
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, prefix='            ')}
 
             Consider the following scenario, where:
 
             *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``
-            *   The default ``trace_folder='{run_name}/traces'`` is used.
-            *   The default ``name='ep{epoch}-ba{batch}-rank{rank}.json'`` is used.
+            *   The default ``trace_folder='{{run_name}}/traces'`` is used.
+            *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}.json'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
@@ -129,7 +71,7 @@ class JSONTraceHandler(TraceHandler):
                 ...
 
         artifact_name (str, optional): Format string for the trace file's artifact name.
-            (default: ``'{run_name}/traces/ep{epoch}-ba{batch}-rank{rank}.json'``)
+            (default: ``'{{run_name}}/traces/ep{{epoch}}-ba{{batch}}-rank{{rank}}.json'``)
 
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
@@ -140,14 +82,14 @@ class JSONTraceHandler(TraceHandler):
 
             To disable logging trace files as file artifacts, set this parameter to ``None``.
         merged_trace_filename (str, optional): Format string for the merged trace filename.
-            (default: ``'node{node_rank}.json'``)
+            (default: ``'node{{node_rank}}.json'``)
 
             Each rank writes a separate trace file at the end of each profiling cycle. However, when visualizing
             traces, it is generally helpful to merge traces together into a single file. This allows the traces
             across all ranks to be shown in a single view. To
 
             The same format variables as for ``folder`` are available. The merged trace file is saved
-            approximately to ``{folder}/{merged_trace_filename.format(...)}`` on the local rank zero
+            approximately to ``{{folder}}/{{merged_trace_filename.format(...)}}`` on the local rank zero
             process for each node.
 
             If specified (the default), the local rank zero process merges together all traces files from that node,
@@ -163,7 +105,7 @@ class JSONTraceHandler(TraceHandler):
                 in a post-processing step. See :mod:`composer.profiler.json_trace_merger` for additional info.
 
         merged_trace_artifact_name (str, optional): Format string for the merged trace file's artifact name.
-            (default: ``'{run_name}/traces/merged_trace.json'``)
+            (default: ``'{{run_name}}/traces/merged_trace.json'``)
 
             The same format variables as for ``folder`` are available.
 

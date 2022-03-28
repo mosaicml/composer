@@ -84,7 +84,7 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
-    ['model', 'is_model_ddp', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timer', 'rank_zero_seed']
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timer', 'rank_zero_seed']
 
 Resume training
 ---------------
@@ -158,9 +158,6 @@ state from the checkpoint are not compatible with these new objects.
     | scaler                | The gradient scaler in use for mixed precision training.    |
     +-----------------------+-------------------------------------------------------------+
     | timer                 | The timer that tracks training loop progress.               |
-    +-----------------------+-------------------------------------------------------------+
-    | is_model_ddp          | Whether the model is an instance of                         |
-    |                       | :class:`~torch.nn.parallel.DistributedDataParallel`.        |
     +-----------------------+-------------------------------------------------------------+
     | rank_zero_seed        | The seed of the rank zero process.                          |
     +-----------------------+-------------------------------------------------------------+

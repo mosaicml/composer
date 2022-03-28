@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Utility for retrieving files."""
+"""Helpers for working with files."""
 
 import os
 import pathlib
@@ -42,12 +42,12 @@ def is_tar(name: Union[str, pathlib.Path]) -> bool:
 
 
 def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
-    """Ensure that ``folder_name`` is empty.
+    """Ensure that the given folder is empty.
 
     Hidden files and folders (those beginning with ``.``) and ignored. Sub-folders are checked recursively.
 
     Args:
-        folder_name (str | pathlib.Path): The folder to create or to ensure that it is empty.
+        folder_name (str | pathlib.Path): The folder to ensure is empty.
 
     Raises:
         FileExistsError: If ``folder_name`` contains any non-hidden files, recursively.
@@ -60,49 +60,32 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
                 raise FileExistsError(f"{folder_name} is not empty; {os.path.join(root, file)} exists.")
 
 
+FORMAT_NAME_WITH_DIST_TABLE = """
++------------------------+-------------------------------------------------------+
+| Variable               | Description                                           |
++========================+=======================================================+
+| ``{run_name}``         | The name of the training run. See                     |
+|                        | :attr:`~composer.loggers.logger.Logger.run_name`.     |
++------------------------+-------------------------------------------------------+
+| ``{rank}``             | The global rank, as returned by                       |
+|                        | :func:`~composer.utils.dist.get_global_rank`.         |
++------------------------+-------------------------------------------------------+
+| ``{local_rank}``       | The local rank of the process, as returned by         |
+|                        | :func:`~composer.utils.dist.get_local_rank`.          |
++------------------------+-------------------------------------------------------+
+| ``{world_size}``       | The world size, as returned by                        |
+|                        | :func:`~composer.utils.dist.get_world_size`.          |
++------------------------+-------------------------------------------------------+
+| ``{local_world_size}`` | The local world size, as returned by                  |
+|                        | :func:`~composer.utils.dist.get_local_world_size`.    |
++------------------------+-------------------------------------------------------+
+| ``{node_rank}``        | The node rank, as returned by                         |
+|                        | :func:`~composer.utils.dist.get_node_rank`.           |
++------------------------+-------------------------------------------------------+
+"""
+
+
 def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: object):
-    """Format ``format_str`` with the ``run_name``, distributed variables, and ``extra_format_kwargs``.
-
-    The following format variables are available:
-
-    +------------------------+-------------------------------------------------------+
-    | Variable               | Description                                           |
-    +========================+=======================================================+
-    | ``{run_name}``         | The name of the training run. See                     |
-    |                        | :attr:`.Logger.run_name`.                             |
-    +------------------------+-------------------------------------------------------+
-    | ``{rank}``             | The global rank, as returned by                       |
-    |                        | :func:`~.dist.get_global_rank`.                       |
-    +------------------------+-------------------------------------------------------+
-    | ``{local_rank}``       | The local rank of the process, as returned by         |
-    |                        | :func:`~.dist.get_local_rank`.                        |
-    +------------------------+-------------------------------------------------------+
-    | ``{world_size}``       | The world size, as returned by                        |
-    |                        | :func:`~.dist.get_world_size`.                        |
-    +------------------------+-------------------------------------------------------+
-    | ``{local_world_size}`` | The local world size, as returned by                  |
-    |                        | :func:`~.dist.get_local_world_size`.                  |
-    +------------------------+-------------------------------------------------------+
-    | ``{node_rank}``        | The node rank, as returned by                         |
-    |                        | :func:`~.dist.get_node_rank`.                         |
-    +------------------------+-------------------------------------------------------+
-
-    For example, assume that the rank is ``0``. Then:
-
-    >>> from composer.utils import format_name_with_dist
-    >>> format_str = '{run_name}/rank{rank}.{extension}'
-    >>> format_name_with_dist(
-    ...     format_str,
-    ...     run_name='awesome_training_run',
-    ...     extension='json',
-    ... )
-    'awesome_training_run/rank0.json'
-
-    Args:
-        format_str (str): The format string for the checkpoint filename.
-        run_name (str): The value for the ``{run_name}`` format variable.
-        extra_format_kwargs (object): Any additional :meth:`~str.format` kwargs.
-    """
     formatted_str = format_str.format(
         run_name=run_name,
         rank=dist.get_global_rank(),
@@ -115,72 +98,77 @@ def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs:
     return formatted_str
 
 
+format_name_with_dist.__doc__ = f"""
+Format ``format_str`` with the ``run_name``, distributed variables, and ``extra_format_kwargs``.
+
+The following format variables are available:
+
+{FORMAT_NAME_WITH_DIST_TABLE}
+
+For example, assume that the rank is ``0``. Then:
+
+>>> from composer.utils import format_name_with_dist
+>>> format_str = '{{run_name}}/rank{{rank}}.{{extension}}'
+>>> format_name_with_dist(
+...     format_str,
+...     run_name='awesome_training_run',
+...     extension='json',
+... )
+'awesome_training_run/rank0.json'
+
+Args:
+    format_str (str): The format string for the checkpoint filename.
+    run_name (str): The value for the ``{{run_name}}`` format variable.
+    extra_format_kwargs (object): Any additional :meth:`~str.format` kwargs.
+"""
+
+FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """
++------------------------+-------------------------------------------------------+
+| Variable               | Description                                           |
++========================+=======================================================+
+| ``{run_name}``         | The name of the training run. See                     |
+|                        | :attr:`~composer.loggers.logger.Logger.run_name`.     |
++------------------------+-------------------------------------------------------+
+| ``{rank}``             | The global rank, as returned by                       |
+|                        | :func:`~composer.utils.dist.get_global_rank`.         |
++------------------------+-------------------------------------------------------+
+| ``{local_rank}``       | The local rank of the process, as returned by         |
+|                        | :func:`~composer.utils.dist.get_local_rank`.          |
++------------------------+-------------------------------------------------------+
+| ``{world_size}``       | The world size, as returned by                        |
+|                        | :func:`~composer.utils.dist.get_world_size`.          |
++------------------------+-------------------------------------------------------+
+| ``{local_world_size}`` | The local world size, as returned by                  |
+|                        | :func:`~composer.utils.dist.get_local_world_size`.    |
++------------------------+-------------------------------------------------------+
+| ``{node_rank}``        | The node rank, as returned by                         |
+|                        | :func:`~composer.utils.dist.get_node_rank`.           |
++------------------------+-------------------------------------------------------+
+| ``{epoch}``            | The total epoch count, as returned by                 |
+|                        | :meth:`~composer.core.time.Timer.epoch`.              |
++------------------------+-------------------------------------------------------+
+| ``{batch}``            | The total batch count, as returned by                 |
+|                        | :meth:`~composer.core.time.Timer.batch`.              |
++------------------------+-------------------------------------------------------+
+| ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by  |
+|                        | :meth:`~composer.core.time.Timer.batch_in_epoch`.     |
++------------------------+-------------------------------------------------------+
+| ``{sample}``           | The total sample count, as returned by                |
+|                        | :meth:`~composer.core.time.Timer.sample`.             |
++------------------------+-------------------------------------------------------+
+| ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by |
+|                        | :meth:`~composer.core.time.Timer.sample_in_epoch`.    |
++------------------------+-------------------------------------------------------+
+| ``{token}``            | The total token count, as returned by                 |
+|                        | :meth:`~composer.core.time.Timer.token`.              |
++------------------------+-------------------------------------------------------+
+| ``{token_in_epoch}``   | The token count in the current epoch, as returned by  |
+|                        | :meth:`~composer.core.time.Timer.token_in_epoch`.     |
++------------------------+-------------------------------------------------------+
+"""
+
+
 def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Timestamp, **extra_format_kwargs: object):
-    """Format ``format_str`` with the ``run_name``, distributed variables, ``timestamp``, and ``extra_format_kwargs``.
-
-    In addition to the variables specified via ``extra_format_kwargs``, the following format variables are available:
-
-    +------------------------+-------------------------------------------------------+
-    | Variable               | Description                                           |
-    +========================+=======================================================+
-    | ``{run_name}``         | The name of the training run. See                     |
-    |                        | :attr:`.Logger.run_name`.                             |
-    +------------------------+-------------------------------------------------------+
-    | ``{rank}``             | The global rank, as returned by                       |
-    |                        | :func:`~composer.utils.dist.get_global_rank`.         |
-    +------------------------+-------------------------------------------------------+
-    | ``{local_rank}``       | The local rank of the process, as returned by         |
-    |                        | :func:`~composer.utils.dist.get_local_rank`.          |
-    +------------------------+-------------------------------------------------------+
-    | ``{world_size}``       | The world size, as returned by                        |
-    |                        | :func:`~composer.utils.dist.get_world_size`.          |
-    +------------------------+-------------------------------------------------------+
-    | ``{local_world_size}`` | The local world size, as returned by                  |
-    |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
-    +------------------------+-------------------------------------------------------+
-    | ``{node_rank}``        | The node rank, as returned by                         |
-    |                        | :func:`~composer.utils.dist.get_node_rank`.           |
-    +------------------------+-------------------------------------------------------+
-    | ``{epoch}``            | The total epoch count, as returned by                 |
-    |                        | :meth:`~composer.core.time.Timer.epoch`.              |
-    +------------------------+-------------------------------------------------------+
-    | ``{batch}``            | The total batch count, as returned by                 |
-    |                        | :meth:`~composer.core.time.Timer.batch`.              |
-    +------------------------+-------------------------------------------------------+
-    | ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by  |
-    |                        | :meth:`~composer.core.time.Timer.batch_in_epoch`.     |
-    +------------------------+-------------------------------------------------------+
-    | ``{sample}``           | The total sample count, as returned by                |
-    |                        | :meth:`~composer.core.time.Timer.sample`.             |
-    +------------------------+-------------------------------------------------------+
-    | ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by |
-    |                        | :meth:`~composer.core.time.Timer.sample_in_epoch`.    |
-    +------------------------+-------------------------------------------------------+
-    | ``{token}``            | The total token count, as returned by                 |
-    |                        | :meth:`~composer.core.time.Timer.token`.              |
-    +------------------------+-------------------------------------------------------+
-    | ``{token_in_epoch}``   | The token count in the current epoch, as returned by  |
-    |                        | :meth:`~composer.core.time.Timer.token_in_epoch`.     |
-    +------------------------+-------------------------------------------------------+
-
-    For example, assume that the current epoch is ``0``, batch is ``0``, and rank is ``0``. Then:
-
-    >>> from composer.utils import format_name_with_dist_and_time
-    >>> format_str = '{run_name}/ep{epoch}-ba{batch}-rank{rank}.{extension}'
-    >>> format_name_with_dist_and_time(
-    ...     format_str,
-    ...     run_name='awesome_training_run',
-    ...     timestamp=state.timer.get_timestamp(),
-    ...     extension='json',
-    ... )
-    'awesome_training_run/ep0-ba0-rank0.json'
-
-    Args:
-        format_str (str): The format string for the checkpoint filename.
-        run_name (str): The value for the ``{run_name}`` format variable.
-        timestamp (Timestamp): The timestamp.
-        extra_format_kwargs (object): Any additional :meth:`~str.format` kwargs.
-    """
     formatted_str = format_str.format(
         run_name=run_name,
         rank=dist.get_global_rank(),
@@ -198,6 +186,33 @@ def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Ti
         **extra_format_kwargs,
     )
     return formatted_str
+
+
+format_name_with_dist_and_time.__doc__ = f"""\
+Format ``format_str`` with the ``run_name``, distributed variables, ``timestamp``, and ``extra_format_kwargs``.
+
+In addition to the variables specified via ``extra_format_kwargs``, the following format variables are available:
+
+{FORMAT_NAME_WITH_DIST_AND_TIME_TABLE}
+
+For example, assume that the current epoch is ``0``, batch is ``0``, and rank is ``0``. Then:
+
+>>> from composer.utils import format_name_with_dist_and_time
+>>> format_str = '{{run_name}}/ep{{epoch}}-ba{{batch}}-rank{{rank}}.{{extension}}'
+>>> format_name_with_dist_and_time(
+...     format_str,
+...     run_name='awesome_training_run',
+...     timestamp=state.timer.get_timestamp(),
+...     extension='json',
+... )
+'awesome_training_run/ep0-ba0-rank0.json'
+
+Args:
+    format_str (str): The format string for the checkpoint filename.
+    run_name (str): The value for the ``{{run_name}}`` format variable.
+    timestamp (Timestamp): The timestamp.
+    extra_format_kwargs (object): Any additional :meth:`~str.format` kwargs.
+"""
 
 
 def get_file(

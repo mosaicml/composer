@@ -175,10 +175,10 @@ composer -n N_GPUS examples/profiler_demo.py  # set N_GPUS to the number of GPUs
 Once the training loop is complete, you should see the following traces
 
 ```bash
-> ls composer_traces/
-... # TODO
-> ls torch_traces/
-... # TODO
+> ls composer_profiler/
+... ep0-ba5-rank0.json  ep1-ba21-rank0.json  merged_trace.json
+> ls torch_profiler/
+... rank0.21.pt.trace.json  rank0.5.pt.trace.json
 ```
 
 The trace files within the `composer_profiler` folder contain all timing information and metrics collected during the
