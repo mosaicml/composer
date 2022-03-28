@@ -23,7 +23,7 @@ def _split_list(l, num_microbatches):
         raise ValueError(
             textwrap.dedent(f"""\
         Cannot split list of length {len(l)} into {num_microbatches} batches.
-         make sure `grad_accum` is less than`batch_size`."""))
+         make sure `grad_accum` is less than or equal to `train_batch_size // world_size`."""))
     return [l[i::num_microbatches] for i in range(num_microbatches)]
 
 
@@ -32,7 +32,7 @@ def _split_tensor(t, num_microbatches):
         raise ValueError(
             textwrap.dedent(f"""\
         Cannot split tensor of length {len(t)} into {num_microbatches} batches.
-         make sure `grad_accum` is less than`batch_size`."""))
+         make sure `grad_accum` is less than or equal to `train_batch_size // world_size`."""))
     return t.chunk(num_microbatches)
 
 
@@ -76,8 +76,8 @@ def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
 
     raise NotImplementedError(
         textwrap.dedent("""\
-            The default `split_fn` is unable to split the output of this
-            dataloader. To enable `grad_accum`, please and specify `split_batch` on the Trainer."""))
+            The default `split_fn` is unable to split the output of this dataloader. To enable `grad_accum`,
+             please and specify a `DataSpec` with `split_batch` for your dataset."""))
 
 
 class DataSpec:
