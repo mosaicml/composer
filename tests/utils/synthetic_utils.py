@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 import pytest
 
@@ -29,7 +29,7 @@ def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams,
         dataset_hparams.max_seq_length = 128
 
 
-_model_hparams_to_tokenizer_family: Dict[TransformerHparams, str] = {
+_model_hparams_to_tokenizer_family: Dict[Type[TransformerHparams], str] = {
     GPT2Hparams: "gpt2",
     BERTForClassificationHparams: "bert",
     BERTHparams: "bert"

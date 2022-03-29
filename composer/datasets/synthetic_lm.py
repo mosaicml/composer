@@ -151,7 +151,7 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     with TemporaryDirectory() as tmp_path:
         tmp_tokenizer_dir = str(tmp_path)
         tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
-        tokenizer.save(tmp_tokenizer_file)
+        tokenizer.save(tmp_tokenizer_file)  #type: ignore (thirdparty)
 
         # save the vocabulary and potential merges file
         tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)  # type: ignore

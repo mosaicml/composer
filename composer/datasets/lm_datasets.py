@@ -6,8 +6,9 @@ import logging
 import tempfile
 from dataclasses import dataclass
 from os.path import join
-from typing import List, Optional
+from typing import List, Optional, cast
 
+import torch.utils.data
 import yahp as hp
 
 from composer.core import DataSpec
@@ -152,7 +153,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         lm_datasets = lm_datasets.shuffle(indices_cache_file_name=indices_cache_file_name, seed=self.seed)
 
         total_num_samples = len(lm_datasets)
-        tokens_per_sample = len(lm_datasets[0]['input_ids'])
+        tokens_per_sample = len(lm_datasets[0]['input_ids'])  #type: ignore (thirdparty)
         total_num_tokens = total_num_samples * tokens_per_sample
 
         # truncate the dataset to a specified size
@@ -185,10 +186,12 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                                                                          mlm=self.use_masked_lm,
                                                                          mlm_probability=self.mlm_probability)
 
-        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
+        sampler = dist.get_sampler(cast(torch.utils.data.Dataset, dataset),
+                                   drop_last=self.drop_last,
+                                   shuffle=self.shuffle)
 
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
-            dataset=dataset,
+            dataset=cast(torch.utils.data.Dataset, dataset),
             batch_size=batch_size,
             sampler=sampler,
             drop_last=self.drop_last,
