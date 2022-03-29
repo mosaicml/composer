@@ -198,6 +198,12 @@ class RandomImageDataset(VisionDataset):
             return x, y
 
 
+"""
+Below are dummy batch variables that mimic the typical
+data types encountered in our models.
+"""
+
+
 def dummy_tensor_batch(batch_size=12) -> torch.Tensor:
     return torch.randn(size=(batch_size, 3, 32, 32))
 
