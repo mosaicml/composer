@@ -158,7 +158,7 @@ class CheckpointSaver(Callback):
 
             Consider the following scenario, where:
 
-            *   The :attr:`~.Logger.run_name` is 'awesome-training-run'
+            *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``
             *   The default ``folder='{{run_name}}/checkpoints'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
             *   The current epoch count is ``1``.
