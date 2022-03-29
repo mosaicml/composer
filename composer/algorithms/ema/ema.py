@@ -3,6 +3,7 @@
 """Core Exponential Moving Average (EMA) classes and functions."""
 
 import copy
+import itertools
 import logging
 from typing import List, Optional, Tuple, Union
 
@@ -46,9 +47,13 @@ def ema(model: torch.nn.Module, ema_model: torch.nn.Module, decay: float = 0.99)
         cf.ema(model, ema_model, decay=0.9)
     """
     with torch.no_grad():
-        for ema_param, model_param in zip(list(ema_model.parameters()), list(model.parameters())):
+        model_params = itertools.chain(model.parameters(), model.buffers())
+        ema_model_params = itertools.chain(ema_model.parameters(), ema_model.buffers())
+
+        for ema_param, model_param in zip(ema_model_params, model_params):
             model_param = model_param.detach()
             ema_param.copy_(ema_param * decay + (1. - decay) * model_param)
+
 
 class EMA(Algorithm):
     r"""Maintains a shadow model with weights that follow the exponential moving average of the trained model weights.
