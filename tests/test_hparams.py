@@ -67,6 +67,6 @@ class TestHparamsCreate:
         if hparams.val_dataset is not None:
             configure_dataset_for_synthetic(hparams.val_dataset)
         hparams.device = CPUDeviceHparams()
-        hparams.load_path_format = None
+        hparams.load_path = None
 
         hparams.initialize_object()

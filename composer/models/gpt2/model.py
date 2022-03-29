@@ -7,7 +7,7 @@ Implemented as a wrapper using :class:`.ComposerTrainer`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Sequence, Union
+from typing import TYPE_CHECKING, Mapping, Sequence, Union, Optional
 
 from torch import Tensor
 from torchmetrics import Metric, MetricCollection
@@ -52,7 +52,7 @@ class GPT2Model(ComposerTransformer):
     def __init__(self,
                  module: transformers.GPT2Model,
                  config: transformers.GPT2Config,
-                 tokenizer: transformers.GPT2Tokenizer,
+                 tokenizer: Optional[transformers.GPT2Tokenizer] = None,
                  gradient_checkpointing: bool = False) -> None:
 
         if tokenizer is None:
