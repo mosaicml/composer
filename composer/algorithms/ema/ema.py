@@ -52,10 +52,35 @@ def ema(model: torch.nn.Module, ema_model: torch.nn.Module, decay: float = 0.99)
 
 
 class EMA(Algorithm):
-    """
+    """Maintains a shadow model with weights that follow the exponential moving average of the trained model weights.
+
+    Weights are updated according to
+    .. math::
+        W_{ema_model}^{(t+1)} = decay\times W_{ema_model}^{(t)}+(1-decay)\times W_{model}^{(t)}
+    Where the decay is determined from ``half_life`` according to
+    .. math::
+        decay = \exp\left[- \frac{\log(2)}{t_{1/2}}\right]
+
+    Model evaluation is done with the moving average weights, which can result in better generalization. Because of the
+    shadow model, EMA doubles the model's memory consumption. Note that this does not mean that the total memory
+    required doubles, however, since stored activations and the optimizer state are not doubled. EMA also uses a small
+    amount of extra compute to update the moving average weights.
+
+    See the :doc:`Method Card </method_cards/ema>` for more details.
+
+    Args:
+        half_life (str): The time string specifying the half life for terms in the average. A longer half life means
+            old information is remembered longer, a shorter half life means old information is discared sooner.
+            A half life of ``0`` means no averaging is done, an infinite half life means no update is done. Currently
+            only units of epoch ('ep') and batch ('ba').
+        update_interval (str): The time string specifying the period at which updates are done. For example, an
+            ``update_interval='1ep'`` means updates are done every epoch, while ``update_interval='10ba'`` means
+            updates are done once every ten batches. Units must match the units used to specify ``half_life``
+        train_with_ema_weights (bool, optional): An experimental feature that uses the ema weights as the training
+            weights
     """
 
-    def __init__(self, half_life: str, update_interval: str, train_with_ema_weights: bool):
+    def __init__(self, half_life: str, update_interval: str, train_with_ema_weights: bool = False):
         self.half_life = half_life
         self.update_interval = update_interval
         self.train_with_ema_weights = train_with_ema_weights
