@@ -77,7 +77,7 @@ class EMA(Algorithm):
             ``update_interval='1ep'`` means updates are done every epoch, while ``update_interval='10ba'`` means
             updates are done once every ten batches. Units must match the units used to specify ``half_life``
         train_with_ema_weights (bool, optional): An experimental feature that uses the ema weights as the training
-            weights
+            weights. Default ``False``.
     """
 
     def __init__(self, half_life: str, update_interval: str, train_with_ema_weights: bool = False):
