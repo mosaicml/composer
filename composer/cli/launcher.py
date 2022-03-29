@@ -31,6 +31,28 @@ def get_parser():
                         help="The total number of processes to launch on all "
                         "nodes. Set to -1 to default to nproc (single-node operation). "
                         "Defaults to -1.")
+    parser.add_argument(
+        "--stdout",
+        type=str,
+        default=None,
+        help=("Format string for a filename to dump the STDOUT from the non-local-rank-zero processes."
+              "The local rank zero process will be piped through to STDOUT. The available format variables are: "
+              "'{rank}', '{local_rank}', '{world_size}', '{node_rank}', and '{local_world_size}'. If specified, "
+              "it is recommended to include '{rank}' or '{local_rank}' in the filename so each rank will write to its"
+              "own file. By default, the STDOUT of the non-local-rank-zero processes is discarded; instead, use the "
+              "FileLogger within Composer. This logger captures and saves the STDOUT of each process."),
+    )
+    parser.add_argument(
+        "--stderr",
+        type=str,
+        default=None,
+        help=("Format string for a filename to dump the STDERR from the non-local-rank-zero processes."
+              "The local rank zero process will be piped through to STDERR. The available format variables are: "
+              "'{rank}', '{local_rank}', '{world_size}', '{node_rank}', and '{local_world_size}'. If specified, "
+              "it is recommended to include '{rank}' or '{local_rank}' in the filename so each rank will write to its"
+              "own file. By default, the STDERR of the non-local-rank-zero processes is discarded; instead, use the "
+              "FileLogger within Composer. This logger captures and saves the STDERR of each process."),
+    )
     parser.add_argument("--base_rank",
                         type=int,
                         default=0,
@@ -98,6 +120,7 @@ def parse_args():
 
 def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int, master_addr: str,
                      master_port: Optional[int], module_mode: bool, training_script: str,
+                     stdout_file_format: Optional[str], stderr_file_format: Optional[str],
                      training_script_args: List[Any]) -> Set[subprocess.Popen]:
     log.info("Starting DDP on local node for global_rank(%s-%s)", base_rank, base_rank + nproc - 1)
     processes = []
@@ -132,13 +155,27 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int
         if local_rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True, shell=True)
         else:
+
+            def _get_file(format: Optional[str]):
+                if format is None:
+                    return subprocess.DEVNULL
+                else:
+                    filename = format.format(
+                        rank=global_rank,
+                        world_size=world_size,
+                        local_rank=local_rank,
+                        local_world_size=nproc,
+                        node_rank=node_rank,
+                    )
+                    return open(filename, 'x')
+
             process = subprocess.Popen(
                 cmd,
                 # Using a shell to execute the command, so the env variables will be available to the CLI arguments
                 shell=True,
                 env=current_env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=_get_file(stdout_file_format),
+                stderr=_get_file(stderr_file_format),
                 text=True,
             )
         processes.append(process)
@@ -262,6 +299,8 @@ def main():
                                  master_addr=args.master_addr,
                                  master_port=args.master_port,
                                  module_mode=args.module_mode,
+                                 stdout_file_format=args.stdout,
+                                 stderr_file_format=args.stderr,
                                  training_script=args.training_script,
                                  training_script_args=args.training_script_args)
 
