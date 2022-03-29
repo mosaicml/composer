@@ -1,8 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """A :class:`.ComposerClassifier` wrapper around the EfficientNet-b0 architecture."""
-from composer.models.base import ComposerClassifier
 from composer.models.efficientnetb0.efficientnets import EfficientNet
+from composer.models.tasks import ComposerClassifier
 
 __all__ = ["EfficientNetB0"]
 
