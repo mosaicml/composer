@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import textwrap
 from typing import Optional, OrderedDict
 
 import torch.profiler
@@ -16,13 +17,15 @@ from composer.core.state import State
 from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
 from composer.profiler.profiler_action import ProfilerAction
-from composer.utils import dist, ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time
+from composer.utils import dist
+from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
+                                         ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time)
 
 __all__ = ["TorchProfiler"]
 
 
 class TorchProfiler(Callback):
-    """Profile the execution using the :class:`PyTorch Profiler <torch.profiler.profile>`.
+    __doc__ = f"""Profile the execution using the :class:`PyTorch Profiler <torch.profiler.profile>`.
 
     Profiling results are stored in TensorBoard format in the directory specified by ``folder``.
 
@@ -54,93 +57,32 @@ class TorchProfiler(Callback):
 
     Args:
         folder (str, optional): Format string for the folder containing the Torch Profiler trace files.
-            Defaults to ``'{run_name}/torch_traces'``.
+            Defaults to ``'{{run_name}}/torch_traces'``.
 
             The following format variables are available:
 
-            +------------------------+-------------------------------------------------------+
-            | Variable               | Description                                           |
-            +========================+=======================================================+
-            | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`.Logger.run_name`.                             |
-            +------------------------+-------------------------------------------------------+
-            | ``{rank}``             | The global rank, as returned by                       |
-            |                        | :func:`~composer.utils.dist.get_global_rank`.         |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_rank}``       | The local rank of the process, as returned by         |
-            |                        | :func:`~composer.utils.dist.get_local_rank`.          |
-            +------------------------+-------------------------------------------------------+
-            | ``{world_size}``       | The world size, as returned by                        |
-            |                        | :func:`~composer.utils.dist.get_world_size`.          |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_world_size}`` | The local world size, as returned by                  |
-            |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
-            +------------------------+-------------------------------------------------------+
-            | ``{node_rank}``        | The node rank, as returned by                         |
-            |                        | :func:`~composer.utils.dist.get_node_rank`.           |
-            +------------------------+-------------------------------------------------------+
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_TABLE, prefix='            ')}
 
             For example, if the ``run_name`` is ``'awesome_training_run'``, and the default ``folder`` of
-            ``'{run_name}/torch_traces'`` is used, Torch Profiler traces will be stored in
+            ``'{{run_name}}/torch_traces'`` is used, Torch Profiler traces will be stored in
             ``'awesome_training_run/torch_traces'``.
 
         filename (str, optional): A format string describing how to name Torch Profiler trace files.
-            Defaults to ``'rank{rank}.{batch}.pt.trace.json'``.
+            Defaults to ``'rank{{rank}}.{{batch}}.pt.trace.json'``.
 
             At the end of each batch where :meth:`~composer.profiler.Profiler.get_action` returns
             :attr:`~composer.profiler._profiler_action.ProfilerAction.ACTIVE_AND_SAVE`, trace files are saved
-            approximately to ``{folder.format(...)}/{filename.format(...)}``.
+            approximately to ``{{folder.format(...)}}/{{filename.format(...)}}``.
 
             The following format variables are available:
 
-            +------------------------+-------------------------------------------------------+
-            | Variable               | Description                                           |
-            +========================+=======================================================+
-            | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`.Logger.run_name`.                             |
-            +------------------------+-------------------------------------------------------+
-            | ``{rank}``             | The global rank, as returned by                       |
-            |                        | :func:`~.dist.get_global_rank`.                       |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_rank}``       | The local rank of the process, as returned by         |
-            |                        | :func:`~.dist.get_local_rank`.                        |
-            +------------------------+-------------------------------------------------------+
-            | ``{world_size}``       | The world size, as returned by                        |
-            |                        | :func:`~.dist.get_world_size`.                        |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_world_size}`` | The local world size, as returned by                  |
-            |                        | :func:`~.dist.get_local_world_size`.                  |
-            +------------------------+-------------------------------------------------------+
-            | ``{node_rank}``        | The node rank, as returned by                         |
-            |                        | :func:`~.dist.get_node_rank`.                         |
-            +------------------------+-------------------------------------------------------+
-            | ``{epoch}``            | The total epoch count, as returned by                 |
-            |                        | :meth:`~composer.core.time.Timer.epoch`.              |
-            +------------------------+-------------------------------------------------------+
-            | ``{batch}``            | The total batch count, as returned by                 |
-            |                        | :meth:`~composer.core.time.Timer.batch`.              |
-            +------------------------+-------------------------------------------------------+
-            | ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by  |
-            |                        | :meth:`~composer.core.time.Timer.batch_in_epoch`.     |
-            +------------------------+-------------------------------------------------------+
-            | ``{sample}``           | The total sample count, as returned by                |
-            |                        | :meth:`~composer.core.time.Timer.sample`.             |
-            +------------------------+-------------------------------------------------------+
-            | ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by |
-            |                        | :meth:`~composer.core.time.Timer.sample_in_epoch`.    |
-            +------------------------+-------------------------------------------------------+
-            | ``{token}``            | The total token count, as returned by                 |
-            |                        | :meth:`~composer.core.time.Timer.token`.              |
-            +------------------------+-------------------------------------------------------+
-            | ``{token_in_epoch}``   | The token count in the current epoch, as returned by  |
-            |                        | :meth:`~composer.core.time.Timer.token_in_epoch`.     |
-            +------------------------+-------------------------------------------------------+
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, prefix='            ')}
 
             Consider the following scenario, where:
 
             *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``.
-            *   The default ``trace_folder='{run_name}/torch_traces'`` is used.
-            *   The default ``name='rank{rank}.{batch}.pt.trace.json'`` is used.
+            *   The default ``trace_folder='{{run_name}}/torch_traces'`` is used.
+            *   The default ``name='rank{{rank}}.{{batch}}.pt.trace.json'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
@@ -152,7 +94,7 @@ class TorchProfiler(Callback):
                 ...
 
         artifact_name (str, optional): Format string for a Torch Profiler trace file's artifact name.
-            Defaults to ``'{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json'``.
+            Defaults to ``'{{run_name}}/torch_traces/rank{{rank}}.{{batch}}.pt.trace.json'``.
 
             Whenever a trace file is saved, it is also logged as a file artifact according to this format string.
             The same format variables as for ``filename`` are available.
