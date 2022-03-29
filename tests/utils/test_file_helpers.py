@@ -5,7 +5,9 @@ import pathlib
 
 import pytest
 
-from composer.utils.file_retriever import GetFileNotFoundException, get_file
+from composer.core.time import Time, Timestamp
+from composer.utils.file_helpers import (GetFileNotFoundException, ensure_folder_is_empty, format_name_with_dist,
+                                         format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.object_store import ObjectStoreHparams
 
 
@@ -96,3 +98,55 @@ def test_get_file_local_path_not_found():
             chunk_size=1024 * 1024,
             progress_bar=False,
         )
+
+
+def test_is_tar():
+    assert is_tar("x.tar")
+    assert is_tar("x.tgz")
+    assert is_tar("x.tar.gz")
+    assert is_tar("x.tar.bz2")
+    assert is_tar("x.tar.lzma")
+    assert not is_tar("x")
+
+
+def test_format_name_with_dist():
+    vars = ["run_name", "rank", "node_rank", "world_size", "local_world_size", "local_rank", "extra"]
+    format_str = ','.join(f"{x}={{{x}}}" for x in vars)
+    expected_str = "run_name=awesome_run,rank=0,node_rank=0,world_size=1,local_world_size=1,local_rank=0,extra=42"
+    assert format_name_with_dist(format_str, "awesome_run", extra=42) == expected_str
+
+
+def test_format_name_with_dist_and_time():
+    vars = [
+        "run_name",
+        "rank",
+        "node_rank",
+        "world_size",
+        "local_world_size",
+        "local_rank",
+        "extra",
+        "epoch",
+        "batch",
+        "batch_in_epoch",
+        "sample",
+        "sample_in_epoch",
+        "token",
+        "token_in_epoch",
+    ]
+    format_str = ','.join(f"{x}={{{x}}}" for x in vars)
+    expected_str = ("run_name=awesome_run,rank=0,node_rank=0,world_size=1,local_world_size=1,local_rank=0,extra=42,"
+                    "epoch=0,batch=1,batch_in_epoch=1,sample=2,sample_in_epoch=2,token=3,token_in_epoch=3")
+    timestamp = Timestamp(
+        epoch=Time.from_timestring("0ep"),
+        batch=Time.from_timestring("1ba"),
+        batch_in_epoch=Time.from_timestring("1ba"),
+        sample=Time.from_timestring("2sp"),
+        sample_in_epoch=Time.from_timestring("2sp"),
+        token=Time.from_timestring("3tok"),
+        token_in_epoch=Time.from_timestring("3tok"),
+    )
+    assert format_name_with_dist_and_time(format_str, "awesome_run", timestamp=timestamp, extra=42) == expected_str
+
+
+def test_ensure_folder_is_empty(tmpdir: pathlib.Path):
+    ensure_folder_is_empty(tmpdir)
