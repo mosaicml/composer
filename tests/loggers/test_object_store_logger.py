@@ -69,7 +69,7 @@ def object_store_test_helper(tmpdir: pathlib.Path,
         with pytest.raises(RuntimeError):
             destination.run_event(Event.EPOCH_END, dummy_state, logger)
 
-    destination.close()
+    destination.close(dummy_state, logger)
     destination.post_close()
 
     # verify upload uri is correct

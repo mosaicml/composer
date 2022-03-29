@@ -22,6 +22,8 @@ class Evaluator:
 
     For example, :class:`~.nlp_metrics.CrossEntropyLoss` metric for NLP models.
 
+    .. doctest::
+
        >>> from torchmetrics.classification.accuracy import Accuracy
        >>> eval_evaluator = Evaluator(label="myEvaluator", dataloader=eval_dataloader, metrics=Accuracy())
        >>> trainer = Trainer(
@@ -31,6 +33,10 @@ class Evaluator:
        ...     optimizers=optimizer,
        ...     max_duration="1ep",
        ... )
+
+    .. testcleanup::
+
+        trainer.engine.close()
 
 
     Args:
