@@ -73,6 +73,10 @@ class ProgressBarLogger(LoggerDestination):
                 loggers=[ProgressBarLogger()]
             )
 
+        .. testcleanup::
+
+            trainer.engine.close()
+
     Example output::
 
         Epoch 1: 100%|██████████| 64/64 [00:01<00:00, 53.17it/s, loss/train=2.3023]

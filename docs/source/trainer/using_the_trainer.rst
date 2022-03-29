@@ -169,21 +169,26 @@ argument.
 
 .. testcode::
 
-   from composer import Trainer
-   from composer.algorithms import LayerFreezing, MixUp
+    from composer import Trainer
+    from composer.algorithms import LayerFreezing, MixUp
 
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     max_duration='2ep',
-                     algorithms=[
-                         LayerFreezing(freeze_start=0.5, freeze_level=0.1),
-                         MixUp(num_classes=10, alpha=0.1),
-                     ])
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='2ep',
+        algorithms=[
+            LayerFreezing(freeze_start=0.5, freeze_level=0.1),
+            MixUp(num_classes=10, alpha=0.1),
+    ])
 
-   # the algorithms will automatically be applied during the appropriate
-   # points of the training loop
-   trainer.fit()
+    # the algorithms will automatically be applied during the appropriate
+    # points of the training loop
+    trainer.fit()
+
+.. testcleanup::
+
+    trainer.engine.close()
 
 We handle inserting those algorithms into the training loop and in the
 right order.
@@ -429,10 +434,10 @@ points during training and (2) load them back to resume training later.
                      max_duration='160ep',
                      device='gpu',
                      # Checkpointing params
-                     load_path_format: 'path/to/checkpoint/mosaic_states.pt')
+                     load_path: 'path/to/checkpoint/mosaic_states.pt')
 
    # will load the trainer state (including model weights) from the
-   # load_path_format before resuming training
+   # load_path before resuming training
    trainer.fit()
 
 .. seealso::
