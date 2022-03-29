@@ -171,7 +171,7 @@ class CheckpointSaverHparams(CallbackHparams):
             # assume it is a function path
             save_interval = import_object(self.save_interval)
         return CheckpointSaver(
-            save_folder=self.save_folder,
+            folder=self.save_folder,
             filename=self.filename,
             artifact_name=self.artifact_name,
             latest_filename=self.latest_filename,
