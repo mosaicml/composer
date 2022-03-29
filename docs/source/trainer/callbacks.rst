@@ -42,11 +42,11 @@ components of training.
 .. autosummary::
     :nosignatures:
 
+    ~checkpoint_saver.CheckpointSaver
     ~speed_monitor.SpeedMonitor
     ~lr_monitor.LRMonitor
     ~grad_monitor.GradMonitor
     ~memory_monitor.MemoryMonitor
-    ~run_directory_uploader.RunDirectoryUploader
 
 
 Custom Callbacks

@@ -3,7 +3,6 @@
 """A U-Net model extending :class:`.ComposerModel`."""
 
 import logging
-import textwrap
 from typing import Any, Sequence, Tuple, Union
 
 import torch
@@ -14,6 +13,7 @@ from composer.core.types import BatchPair
 from composer.metrics.metrics import Dice
 from composer.models.base import ComposerModel
 from composer.models.unet.model import UNet as UNetModel
+from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
@@ -37,10 +37,9 @@ class UNet(ComposerModel):
         try:
             from monai.losses import DiceLoss
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
-                if using pip or `conda install -c conda-forge monai` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="unet",
+                                                conda_package="monai",
+                                                conda_channel="conda-forge") from e
 
         self.module = self.build_nnunet()
 

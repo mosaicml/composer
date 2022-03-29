@@ -25,15 +25,21 @@ class LoggerDestination(Callback, ABC):
     Example
     -------
 
-    >>> from composer.loggers import LoggerDestination
-    >>> class MyLogger(LoggerDestination):
-    ...     def log_data(self, state, log_level, data):
-    ...         print(f'Batch {int(state.timer.batch)}: {log_level} {data}')
-    >>> logger = MyLogger()
-    >>> trainer = Trainer(
-    ...     ...,
-    ...     loggers=[logger]
-    ... )
+    .. doctest::
+
+        >>> from composer.loggers import LoggerDestination
+        >>> class MyLogger(LoggerDestination):
+        ...     def log_data(self, state, log_level, data):
+        ...         print(f'Batch {int(state.timer.batch)}: {log_level} {data}')
+        >>> logger = MyLogger()
+        >>> trainer = Trainer(
+        ...     ...,
+        ...     loggers=[logger]
+        ... )
+    
+    .. testcleanup::
+
+        trainer.engine.close()
     """
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
