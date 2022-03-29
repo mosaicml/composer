@@ -35,7 +35,7 @@ COMPOSER_TAG ?= mosaicml/composer:$(COMPOSER_EXTRA_DEPS)
 # target stage to build
 TARGET ?= pytorch_stage
 
-MMCV_TORCH_VERSION ?= 'torch1.9.0'
+MMCV_TORCH_VERSION ?= 'torch1.10.0'
 
 .PHONY: build pytorch composer
 
