@@ -98,6 +98,7 @@ from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_dd
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store import ObjectStore
 
 log = logging.getLogger(__name__)
@@ -793,10 +794,8 @@ class Trainer:
             try:
                 import deepspeed
             except ImportError as e:
-                raise ImportError(
-                    textwrap.dedent("""\
-                    Composer was installed without DeepSpeed support. To use DeepSpeed with Composer, run `pip install mosaicml[deepspeed]`
-                    if using pip or `pip install deepspeed>=0.5.5` if using Anaconda.""")) from e
+                raise MissingConditionalImportError(extra_deps_group="deepspeed",
+                                                    conda_package="deepspeed>=0.5.5") from e
             assert self._deepspeed_config is not None
             self._deepspeed_config = _parse_deepspeed_config(self._deepspeed_config,
                                                              state=self.state,

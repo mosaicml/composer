@@ -16,6 +16,7 @@ from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["WandBLogger"]
 
@@ -44,10 +45,10 @@ class WandBLogger(LoggerDestination):
         try:
             import wandb
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without WandB support. To use WandB with Composer, run `pip install mosaicml[wandb]`
-                if using pip or `conda install -c conda-forge wandb` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="wandb",
+                                                conda_package="wandb",
+                                                conda_channel="conda-forge") from e
+
         del wandb  # unused
         if log_artifacts and rank_zero_only:
             warnings.warn(
