@@ -112,6 +112,7 @@ class Logger:
             # ensure all ranks have the same experiment name
             dist.broadcast_object_list(run_name_list)
             run_name = run_name_list[0]
+        assert run_name is not None, "run name is set above if not specified."
         self.run_name = run_name
         self._state = state
 

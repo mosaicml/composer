@@ -82,7 +82,7 @@ extra_deps["dev"] = [
     "custom_inherit==2.3.2",
     "junitparser==2.4.3",
     "coverage[toml]==6.3.2",
-    "fasteners==0.17.3",  # run_directory_uploader tests require fasteners
+    "fasteners==0.17.3",  # object store tests require fasteners
     "pytest==7.1.0",
     "toml==0.10.2",
     "yapf==0.32.0",

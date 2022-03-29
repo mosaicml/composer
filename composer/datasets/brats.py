@@ -9,7 +9,6 @@ details about this dataset.
 import glob
 import os
 import random
-import textwrap
 from dataclasses import dataclass
 
 import numpy as np
@@ -22,6 +21,7 @@ from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 PATCH_SIZE = [1, 192, 160]
 
@@ -265,11 +265,9 @@ def get_data_split(path: str):
     try:
         from sklearn.model_selection import KFold
     except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
-            if using pip or `conda install -c conda-forge scikit-learn` if using Anaconda.""")) from e
-
+        raise MissingConditionalImportError(extra_deps_group="unet",
+                                            conda_channel="conda-forge",
+                                            conda_package="scikit-learn") from e
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
     imgs = load_data(path, "*_x.npy")
     lbls = load_data(path, "*_y.npy")

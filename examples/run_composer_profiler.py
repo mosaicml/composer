@@ -9,6 +9,7 @@ import warnings
 from typing import Type
 
 import composer
+from composer.profiler import CyclicProfilerScheduleHparams, JSONTraceHparams
 from composer.trainer import TrainerHparams
 
 logger = logging.getLogger(__name__)
@@ -36,21 +37,22 @@ def main() -> None:
     logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
     # Configure the Composer profiler
-    hparams.profiler_trace_file = "merged_traces.json"
-    hparams.torch_profiler_trace_dir = "torch_profiler"
-    if hparams.profiler_trace_file is not None:
-        if args.detailed:
-            hparams.sys_prof_disk = True
-            hparams.sys_prof_memory = True
-            hparams.sys_prof_net = True
-            hparams.torch_prof_record_shapes = True
-            hparams.torch_prof_with_stack = True
+    hparams.prof_trace_handlers = [JSONTraceHparams(folder="composer_traces")]
+    if args.detailed:
+        hparams.sys_prof_disk = True
+        hparams.sys_prof_memory = True
+        hparams.sys_prof_net = True
+        hparams.torch_prof_record_shapes = True
+        hparams.torch_prof_with_stack = True
 
     hparams.max_duration = "2ep"
-    if hparams.prof_repeat != 0 and hparams.train_subset_num_batches is None:
-        cycle_len = hparams.prof_wait + hparams.prof_warmup + hparams.prof_active
-        num_profiling_batches = hparams.prof_skip_first + cycle_len * hparams.prof_repeat
-        hparams.train_subset_num_batches = num_profiling_batches
+    if hparams.prof_schedule is None:
+        schedule_hparams = CyclicProfilerScheduleHparams()
+        hparams.prof_schedule = schedule_hparams
+        if schedule_hparams.repeat != 0 and hparams.train_subset_num_batches is None:
+            cycle_len = schedule_hparams.wait + schedule_hparams.warmup + schedule_hparams.active
+            num_profiling_batches = schedule_hparams.skip_first + cycle_len * schedule_hparams.repeat
+            hparams.train_subset_num_batches = num_profiling_batches
 
         # Disable dataset shuffle, since shuffle is not supported when using subset_num_batches
         hparams.train_dataset.shuffle = False

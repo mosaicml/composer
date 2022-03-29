@@ -4,9 +4,9 @@
 
 from typing import List, Optional
 
-from composer.models.base import ComposerClassifier
-from composer.models.model_hparams import Initializer
+from composer.models.initializers import Initializer
 from composer.models.resnet_cifar.resnets import ResNet9, ResNetCIFAR
+from composer.models.tasks import ComposerClassifier
 
 __all__ = ["ComposerResNetCIFAR"]
 
