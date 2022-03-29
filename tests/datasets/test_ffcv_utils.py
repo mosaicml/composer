@@ -18,5 +18,5 @@ def test_write_ffcv_dataset(tmpdir: pathlib.Path):
                                   label_type=SyntheticDataLabelType.CLASSIFICATION_INT,
                                   num_unique_samples_to_create=1)
     output_file = str(tmpdir / "ffcv")
-    write_ffcv_dataset(dataset, write_path=output_file, num_workers=0)
+    write_ffcv_dataset(dataset, write_path=output_file, num_workers=1)
     assert os.path.exists(output_file)
