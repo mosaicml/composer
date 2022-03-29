@@ -102,6 +102,8 @@ device_registry = {
 
 prof_event_handlers_registry = {"json": JSONTraceHandlerHparams}
 
+evaluator_registry = {"eval": EvaluatorHparams}
+
 
 @dataclass
 class TrainerHparams(hp.Hparams):
@@ -226,6 +228,7 @@ class TrainerHparams(hp.Hparams):
         "callbacks": callback_registry,
         "device": device_registry,
         "prof_event_handlers": prof_event_handlers_registry,
+        "evaluators": evaluator_registry,
     }
 
     model: ModelHparams = hp.required(doc="model")
