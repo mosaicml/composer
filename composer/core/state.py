@@ -121,35 +121,41 @@ class State(Serializable):
         batch_num_tokens (int): The number of tokens in the :attr:`batch`.
         computed_metrics (Dict[str, Dict[str, Any]]): The computed metrics, organized by dataloader label
             and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
-            the eval dataloader is labeled ``'eval'``. Otherwise, the label here is the evaluator label.
+            the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
 
             For example:
 
-            >>> trainer = Trainer(..., train_dataloader=train_dataloader, eval_dataloader=eval_dataloader)
+            >>> trainer = Trainer(
+            ...     ...,
+            ...     compute_training_metrics=True,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ... )
             >>> trainer.fit()
             >>> trainer.state.computed_metrics
-            {}
+            {'train': {'Accuracy': tensor(...)}, 'eval': {'Accuracy': tensor(...)}}
 
             Or, when using an :class:`.Evaluator`:
 
             .. testsetup::
 
-                from composer.core import Evaluator
-
                 evaluator_1_dataloader = eval_dataloader
                 evaluator_2_dataloader = eval_dataloader
 
+            >>> from torchmetrics import Accuracy
+            >>> from composer.core import Evaluator
             >>> trainer = Trainer(
             ...     ...,
+            ...     compute_training_metrics=True,
             ...     train_dataloader=train_dataloader,
             ...     eval_dataloader=[
-            ...         Evaluator(label='evaluator_1', dataloader=evaluator_1_dataloader),
-            ...         Evaluator(label='evaluator_2', dataloader=evaluator_2_dataloader),
+            ...         Evaluator(label='evaluator_1', dataloader=evaluator_1_dataloader, metrics=Accuracy()),
+            ...         Evaluator(label='evaluator_2', dataloader=evaluator_2_dataloader, metrics=Accuracy()),
             ...     ],
             ... )
             >>> trainer.fit()
             >>> trainer.state.computed_metrics
-            {}
+            {'train': {'Accuracy': tensor(...)}, 'evaluator_1': {'Accuracy': tensor(...)}, 'evaluator_2': {'Accuracy': tensor(...)}}
 
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward pass.

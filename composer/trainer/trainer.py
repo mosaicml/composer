@@ -943,12 +943,7 @@ class Trainer:
 
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
-        if self.train_metrics is not None:
-            # Resetting and logging the metrics before the FIT_START event
-            # so the state is properly reset.
-            self.train_metrics.reset()
-
-        # Log the algorithms being used.
+        # print training start
         self.logger.data_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
         self.engine.run_event(Event.FIT_START)
