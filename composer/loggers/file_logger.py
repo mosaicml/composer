@@ -7,18 +7,19 @@ from __future__ import annotations
 import os
 import queue
 import sys
+import textwrap
 from typing import Any, Callable, Dict, Optional, TextIO
 
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import format_name_with_dist
+from composer.utils.file_helpers import FORMAT_NAME_WITH_DIST_TABLE, format_name_with_dist
 
 __all__ = ["FileLogger"]
 
 
 class FileLogger(LoggerDestination):
-    """Log data to a file.
+    __doc__ = f"""Log data to a file.
 
     Example usage:
         .. testcode::
@@ -26,7 +27,7 @@ class FileLogger(LoggerDestination):
             from composer.loggers import FileLogger, LogLevel
             from composer.trainer import Trainer
             file_logger = FileLogger(
-                filename="{run_name}/logs-rank{rank}.txt",
+                filename="{{run_name}}/logs-rank{{rank}}.txt",
                 buffer_size=1,
                 log_level=LogLevel.BATCH,
                 log_interval=2,
@@ -51,10 +52,10 @@ class FileLogger(LoggerDestination):
 
     Example output::
 
-        [FIT][step=2]: { "logged_metric": "logged_value", }
-        [EPOCH][step=2]: { "logged_metric": "logged_value", }
-        [BATCH][step=2]: { "logged_metric": "logged_value", }
-        [EPOCH][step=3]: { "logged_metric": "logged_value", }
+        [FIT][step=2]: {{ "logged_metric": "logged_value", }}
+        [EPOCH][step=2]: {{ "logged_metric": "logged_value", }}
+        [BATCH][step=2]: {{ "logged_metric": "logged_value", }}
+        [EPOCH][step=3]: {{ "logged_metric": "logged_value", }}
 
 
     Args:
@@ -62,41 +63,21 @@ class FileLogger(LoggerDestination):
 
             The following format variables are available:
 
-            +------------------------+-------------------------------------------------------+
-            | Variable               | Description                                           |
-            +========================+=======================================================+
-            | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`.Logger.run_name`.                             |
-            +------------------------+-------------------------------------------------------+
-            | ``{rank}``             | The global rank, as returned by                       |
-            |                        | :func:`~composer.utils.dist.get_global_rank`.         |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_rank}``       | The local rank of the process, as returned by         |
-            |                        | :func:`~composer.utils.dist.get_local_rank`.          |
-            +------------------------+-------------------------------------------------------+
-            | ``{world_size}``       | The world size, as returned by                        |
-            |                        | :func:`~composer.utils.dist.get_world_size`.          |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_world_size}`` | The local world size, as returned by                  |
-            |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
-            +------------------------+-------------------------------------------------------+
-            | ``{node_rank}``        | The node rank, as returned by                         |
-            |                        | :func:`~composer.utils.dist.get_node_rank`.           |
-            +------------------------+-------------------------------------------------------+
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_TABLE, prefix='            ')}
 
             .. note::
 
-                When training with multiple devices (i.e. GPUs), ensure that ``'{rank}'`` appears in the format.
+                When training with multiple devices (i.e. GPUs), ensure that ``'{{rank}}'`` appears in the format.
                 Otherwise, multiple processes may attempt to write to the same file.
 
-            Consider the following example when using default value of '{run_name}/logs-rank{rank}.txt':
+            Consider the following example when using default value of '{{run_name}}/logs-rank{{rank}}.txt':
 
-            >>> file_logger = FileLogger(filename='{run_name}/logs-rank{rank}.txt')
+            >>> file_logger = FileLogger(filename='{{run_name}}/logs-rank{{rank}}.txt')
             >>> trainer = Trainer(loggers=[file_logger], run_name='my-awesome-run')
             >>> file_logger.filename
             'my-awesome-run/logs-rank0.txt'
 
-            Default: `'{run_name}/logs-rank{rank}.txt'`
+            Default: `'{{run_name}}/logs-rank{{rank}}.txt'`
 
         artifact_name (str, optional): Format string for the logfile's artifact name.
         

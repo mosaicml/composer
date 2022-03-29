@@ -869,7 +869,7 @@ class Trainer:
             When using DeepSpeed, the index of a filepath in each list corresponds to the global rank of
             the process that wrote that file. Each filepath is valid only on the process's (rank's) node.
 
-            Otherwise, when not using DeepSpeed, this list will contain only one filepath since only rank zero
+            Otherwise, when not using DeepSpeed, each sub-list will contain only one filepath since only rank zero
             saves checkpoints.
         """
         if self._checkpoint_saver is None:

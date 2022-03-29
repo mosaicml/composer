@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import textwrap
 from typing import Callable, List, Optional, Tuple, Union
 
 from composer.core import Event, State
@@ -14,8 +15,10 @@ from composer.core.callback import Callback
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
-from composer.utils import (checkpoint, dist, ensure_folder_is_empty, format_name_with_dist,
-                            format_name_with_dist_and_time, is_tar)
+from composer.utils import checkpoint, dist
+from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
+                                         ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
+                                         is_tar)
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +82,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
 
 class CheckpointSaver(Callback):
-    """Callback to save checkpoints.
+    __doc__ = f"""Callback to save checkpoints.
 
     .. note::
 
@@ -99,9 +102,9 @@ class CheckpointSaver(Callback):
 
         >>> trainer = Trainer(..., callbacks=[
         ...     CheckpointSaver(
-        ...         folder='{run_name}/checkpoints',
-        ...         filename="ep{epoch}-ba{batch}-rank{rank}",
-        ...         latest_filename="latest-rank{rank}",
+        ...         folder='{{run_name}}/checkpoints',
+        ...         filename="ep{{epoch}}-ba{{batch}}-rank{{rank}}",
+        ...         latest_filename="latest-rank{{rank}}",
         ...         save_interval="1ep",
         ...         weights_only=False,
         ...     )
@@ -113,86 +116,26 @@ class CheckpointSaver(Callback):
 
     Args:
         folder (str, optional): Format string for the folder where checkpoints will be saved.
-            (default: ``'{run_name}/checkpoints'``)
+            (default: ``'{{run_name}}/checkpoints'``)
 
             The following format variables are available:
 
-            +------------------------+-------------------------------------------------------+
-            | Variable               | Description                                           |
-            +========================+=======================================================+
-            | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`.Logger.run_name`.                             |
-            +------------------------+-------------------------------------------------------+
-            | ``{rank}``             | The global rank, as returned by                       |
-            |                        | :func:`~composer.utils.dist.get_global_rank`.         |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_rank}``       | The local rank of the process, as returned by         |
-            |                        | :func:`~composer.utils.dist.get_local_rank`.          |
-            +------------------------+-------------------------------------------------------+
-            | ``{world_size}``       | The world size, as returned by                        |
-            |                        | :func:`~composer.utils.dist.get_world_size`.          |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_world_size}`` | The local world size, as returned by                  |
-            |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
-            +------------------------+-------------------------------------------------------+
-            | ``{node_rank}``        | The node rank, as returned by                         |
-            |                        | :func:`~composer.utils.dist.get_node_rank`.           |
-            +------------------------+-------------------------------------------------------+
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_TABLE, prefix='            ')}
 
             .. note::
 
-                When training with multiple devices (i.e. GPUs), ensure that ``'{rank}'`` appears in the format.
+                When training with multiple devices (i.e. GPUs), ensure that ``'{{rank}}'`` appears in the format.
                 Otherwise, multiple processes may attempt to write to the same file.
 
         filename (str, optional): A format string describing how to name checkpoints.
-            (default: ``'ep{epoch}-ba{batch}-rank{rank}'``)
+            (default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}'``)
 
-            Checkpoints will be saved approximately to ``{folder}/{filename.format(...)}``.
+            Checkpoints will be saved approximately to ``{{folder}}/{{filename.format(...)}}``.
 
             The following format variables are available:
 
-            +------------------------+-------------------------------------------------------+
-            | Variable               | Description                                           |
-            +========================+=======================================================+
-            | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`.Logger.run_name`.                             |
-            +------------------------+-------------------------------------------------------+
-            | ``{rank}``             | The global rank, as returned by                       |
-            |                        | :func:`~composer.utils.dist.get_global_rank`.         |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_rank}``       | The local rank of the process, as returned by         |
-            |                        | :func:`~composer.utils.dist.get_local_rank`.          |
-            +------------------------+-------------------------------------------------------+
-            | ``{world_size}``       | The world size, as returned by                        |
-            |                        | :func:`~composer.utils.dist.get_world_size`.          |
-            +------------------------+-------------------------------------------------------+
-            | ``{local_world_size}`` | The local world size, as returned by                  |
-            |                        | :func:`~composer.utils.dist.get_local_world_size`.    |
-            +------------------------+-------------------------------------------------------+
-            | ``{node_rank}``        | The node rank, as returned by                         |
-            |                        | :func:`~composer.utils.dist.get_node_rank`.           |
-            +------------------------+-------------------------------------------------------+
-            | ``{epoch}``            | The total epoch count, as returned by                 |
-            |                        | :meth:`~composer.core.time.Timer.epoch`.              |
-            +------------------------+-------------------------------------------------------+
-            | ``{batch}``            | The total batch count, as returned by                 |
-            |                        | :meth:`~composer.core.time.Timer.batch`.              |
-            +------------------------+-------------------------------------------------------+
-            | ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by  |
-            |                        | :meth:`~composer.core.time.Timer.batch_in_epoch`.     |
-            +------------------------+-------------------------------------------------------+
-            | ``{sample}``           | The total sample count, as returned by                |
-            |                        | :meth:`~composer.core.time.Timer.sample`.             |
-            +------------------------+-------------------------------------------------------+
-            | ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by |
-            |                        | :meth:`~composer.core.time.Timer.sample_in_epoch`.    |
-            +------------------------+-------------------------------------------------------+
-            | ``{token}``            | The total token count, as returned by                 |
-            |                        | :meth:`~composer.core.time.Timer.token`.              |
-            +------------------------+-------------------------------------------------------+
-            | ``{token_in_epoch}``   | The token count in the current epoch, as returned by  |
-            |                        | :meth:`~composer.core.time.Timer.token_in_epoch`.     |
-            +------------------------+-------------------------------------------------------+
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, prefix='            ')}
+
 
             .. note::
 
@@ -200,7 +143,7 @@ class CheckpointSaver(Callback):
                 
                 *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
                     requires tarball format, as it saves model and optimizer states in separate files.
-                    Ensure that ``'{rank}'`` appears within the ``filename``. Otherwise, multiple ranks
+                    Ensure that ``'{{rank}}'`` appears within the ``filename``. Otherwise, multiple ranks
                     may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
                     extension is specified, ``'.tar'`` will be used.
 
@@ -216,8 +159,8 @@ class CheckpointSaver(Callback):
             Consider the following scenario, where:
 
             *   The :attr:`~.Logger.run_name` is 'awesome-training-run'
-            *   The default ``folder='{run_name}/checkpoints'`` is used.
-            *   The default ``name='ep{epoch}-ba{batch}-rank{rank}'`` is used.
+            *   The default ``folder='{{run_name}}/checkpoints'`` is used.
+            *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
@@ -230,13 +173,23 @@ class CheckpointSaver(Callback):
                 awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
         
-        artifact_name (str, optional):
+        artifact_name (str, optional): Format string for the checkpoint's artifact name.
+            (default: ``'{{run_name}}/checkpoints/ep{{epoch}}-ba{{batch}}-rank{{rank}}"``)
+        
+            After the checkpoint is saved, it will be periodically logged as a file artifact.
+            The artifact name will be determined by this format string.
 
+            .. seealso:: :meth:`~composer.loggers.logger.Logger.log_file_artifact` for file artifact logging.
 
+            The same format variables for ``filename`` are available.
+
+            Leading slashes (``'/'``) will be stripped.
+
+            To disable logging trace files as file artifacts, set this parameter to ``None``.
         latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
-            (default: ``'latest-rank{rank}'``)
+            (default: ``'latest-rank{{rank}}'``)
             
-            Symlinks will be created approximately at ``{folder}/{latest_filename.format(...)}``. 
+            Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``. 
 
             The same format variables as for ``name`` are available.
 
@@ -245,9 +198,9 @@ class CheckpointSaver(Callback):
             Consider the following scenario, where:
 
             *   The :attr:`~.Logger.run_name` is 'awesome-training-run'
-            *   The default ``folder='{run_name}/checkpoints'`` is used.
-            *   The default ``name='ep{epoch}-ba{batch}-rank{rank}'`` is used.
-            *   The default ``latest_filename='latest-rank{rank}'`` is used.
+            *   The default ``folder='{{run_name}}/checkpoints'`` is used.
+            *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
+            *   The default ``latest_filename='latest-rank{{rank}}'`` is used.
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
@@ -315,7 +268,7 @@ class CheckpointSaver(Callback):
                 When using DeepSpeed, the index of a filepath in each list corresponds to the global rank of
                 the process that wrote that file. Each filepath is valid only on the process's (rank's) node.
 
-                Otherwise, when not using DeepSpeed, this list will contain only one filepath since only rank zero
+                Otherwise, when not using DeepSpeed, each sub-list will contain only one filepath since only rank zero
                 saves checkpoints.
     """
 
@@ -323,7 +276,7 @@ class CheckpointSaver(Callback):
         self,
         folder: str = "{run_name}/checkpoints",
         filename: str = "ep{epoch}-ba{batch}-rank{rank}",
-        artifact_name: str = "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
+        artifact_name: Optional[str] = "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
         latest_filename: Optional[str] = "latest-rank{rank}",
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
         *,
@@ -382,15 +335,16 @@ class CheckpointSaver(Callback):
         if dist.get_global_rank() < len(checkpoint_filepaths):
             # Log the checkpoint as an artifact
             checkpoint_filepath = checkpoint_filepaths[dist.get_global_rank()]
-            artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
-                                                           state.timer.get_timestamp()).lstrip("/")
-            if state.is_model_deepspeed and not is_tar(artifact_name):
-                # Deepspeed requires tarballs; appending `.tar`
-                artifact_name += ".tar"
-            logger.file_artifact(log_level=log_level,
-                                 artifact_name=artifact_name,
-                                 file_path=checkpoint_filepath,
-                                 overwrite=self.overwrite)
+            if self.artifact_name is not None:
+                artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
+                                                               state.timer.get_timestamp()).lstrip("/")
+                if state.is_model_deepspeed and not is_tar(artifact_name):
+                    # Deepspeed requires tarballs; appending `.tar`
+                    artifact_name += ".tar"
+                logger.file_artifact(log_level=log_level,
+                                     artifact_name=artifact_name,
+                                     file_path=checkpoint_filepath,
+                                     overwrite=self.overwrite)
 
             if self.latest_filename is not None:
                 symlink_name = os.path.join(

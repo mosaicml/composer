@@ -100,13 +100,16 @@ class WandBLogger(LoggerDestination):
         del state, log_level, overwrite  # unused
 
         # replace all unsupported characters with periods
-        # Only alpha-numeric, periods, hyphins, and underscores are supported by wandb.
-        artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
+        # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
+        new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
+        if new_artifact_name != artifact_name:
+            warnings.warn(("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
+                           f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
 
         if self._enabled and self._log_artifacts:
             import wandb
             extension = file_path.name.split(".")[-1]
-            artifact = wandb.Artifact(name=artifact_name, type=extension)
+            artifact = wandb.Artifact(name=new_artifact_name, type=extension)
             artifact.add_file(os.path.abspath(file_path))
             wandb.log_artifact(artifact)
 

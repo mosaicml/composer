@@ -85,10 +85,6 @@ class Callback(Serializable, abc.ABC):
         .. testcleanup::
 
             trainer.engine.close()
-
-    .. testcleanup::
-
-        trainer.engine.close()
     """
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:

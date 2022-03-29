@@ -89,8 +89,8 @@ The above code, when run, will produce the checkpoints below:
 Resume training
 ---------------
 
-To resume training from a previous checkpoint, set the ``load_path`` argument of the :class:`Trainer` to the checkpoint
-filepath.  When the :class:`.Trainer` is initialized, the checkpoint state will be restored, and :meth:`Trainer.fit`
+To resume training from a previous checkpoint, set the ``load_path`` argument of the :class:`.Trainer` to the checkpoint
+filepath.  When the :class:`.Trainer` is initialized, the checkpoint state will be restored, and :meth:`.Trainer.fit`
 will continue training from where the checkpoint left off.
 
 .. testsetup::
