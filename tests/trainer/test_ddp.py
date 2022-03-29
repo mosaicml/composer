@@ -26,16 +26,16 @@ from composer.utils import dist
 from tests.fixtures.models import SimpleBatchPairModel
 
 
-def get_file_path(*, rank: int, is_train: bool, rank_zero_tmpdir: pathlib.Path) -> str:
+def get_file_path(*, is_train: bool, tmpdir: pathlib.Path) -> str:
     train_str = "train" if is_train else "val"
-    file_path = os.path.join(rank_zero_tmpdir, f"rank_{rank}", f"{train_str}_num_accesses")
+    file_path = os.path.join(tmpdir, f"{train_str}_num_accesses")
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     return file_path
 
 
-def get_batch_file_path(*, rank: int, epoch: int, is_train: bool, rank_zero_tmpdir: pathlib.Path) -> str:
+def get_batch_file_path(*, epoch: int, is_train: bool, tmpdir: pathlib.Path) -> str:
     train_str = "train" if is_train else "val"
-    file_path = os.path.join(rank_zero_tmpdir, f"rank_{rank}", f"{train_str}-epoch-{epoch}-batch0.pt")
+    file_path = os.path.join(tmpdir, f"{train_str}-epoch-{epoch}-batch0.pt")
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     return file_path
 
@@ -47,18 +47,15 @@ class TrackedDataset(types.Dataset):
     atomic file writes, it is slow and should not be used in any performance measurements.
     """
 
-    def __init__(self, is_train: bool, synthetic_dataset: SyntheticBatchPairDataset, rank_zero_tmpdir: pathlib.Path):
+    def __init__(self, is_train: bool, synthetic_dataset: SyntheticBatchPairDataset, tmpdir: pathlib.Path):
         self.dataset = synthetic_dataset
         self.is_train = is_train
-        self.rank_zero_tmpdir = rank_zero_tmpdir
+        self.tmpdir = tmpdir
         self.counter = 0
 
     def __getitem__(self, idx: int):
         self.counter += 1
-        with open(
-                get_file_path(rank_zero_tmpdir=self.rank_zero_tmpdir,
-                              rank=dist.get_global_rank(),
-                              is_train=self.is_train), "w+") as f:
+        with open(get_file_path(tmpdir=self.tmpdir, is_train=self.is_train), "w+") as f:
             f.write(str(self.counter))
         return self.dataset[idx]
 
@@ -70,12 +67,12 @@ class TrackedDataset(types.Dataset):
 class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     num_classes: Optional[int] = hp.optional("num_classes", default=None)
     data_shape: Optional[List[int]] = hp.optional("data_shape", default=None)
-    rank_zero_tmpdir: Optional[str] = hp.optional("rank_zero_tmpdir", default=None)
+    tmpdir: Optional[str] = hp.optional("tmpdir", default=None)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> types.DataLoader:
         assert self.num_classes is not None
         assert self.data_shape is not None
-        assert self.rank_zero_tmpdir is not None
+        assert self.tmpdir is not None
         synthetic_dataset = SyntheticBatchPairDataset(
             num_unique_samples_to_create=self.synthetic_num_unique_samples,
             total_dataset_size=10_000,
@@ -83,9 +80,11 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             num_classes=self.num_classes,
         )
         drop_last = False
-        tracked_dataset = TrackedDataset(rank_zero_tmpdir=pathlib.Path(self.rank_zero_tmpdir),
-                                         is_train=self.is_train,
-                                         synthetic_dataset=synthetic_dataset)
+        tracked_dataset = TrackedDataset(
+            tmpdir=pathlib.Path(self.tmpdir),
+            is_train=self.is_train,
+            synthetic_dataset=synthetic_dataset,
+        )
         sampler = dist.get_sampler(tracked_dataset, drop_last=drop_last, shuffle=True)
         return dataloader_hparams.initialize_object(
             dataset=tracked_dataset,
@@ -97,16 +96,16 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
 class CheckBatch0(Callback):
 
-    def __init__(self, rank_zero_tmpdir: pathlib.Path):
-        super().__init__()
-        self.rank_zero_tmpdir = rank_zero_tmpdir
+    def __init__(self, tmpdir: pathlib.Path):
+        self.tmpdir = tmpdir
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event in (Event.BEFORE_FORWARD, Event.EVAL_BEFORE_FORWARD):
-            filepath = get_batch_file_path(rank=dist.get_global_rank(),
-                                           epoch=int(state.timer.epoch),
-                                           is_train=state.model.training,
-                                           rank_zero_tmpdir=self.rank_zero_tmpdir)
+            filepath = get_batch_file_path(
+                epoch=int(state.timer.epoch),
+                is_train=state.model.training,
+                tmpdir=self.tmpdir,
+            )
             if os.path.exists(filepath):
                 return
             last_input, last_target = state.batch_pair
@@ -114,7 +113,9 @@ class CheckBatch0(Callback):
                 {
                     "last_input": last_input,
                     "last_target": last_target,
-                }, filepath)
+                },
+                filepath,
+            )
 
 
 @pytest.mark.timeout(90)
@@ -128,7 +129,7 @@ class CheckBatch0(Callback):
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
 def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams: ModelHparams, deepspeed: bool,
-             rank_zero_tmpdir: pathlib.Path) -> None:
+             tmpdir: pathlib.Path) -> None:
     """test strategy for ddp: 1) Train a dummy model on two gps, for two epochs, using the tracked dataset. 2) The
     tracked dataset should record two -- and only two -- accesses for each sample -- one for each epoch If each sample
     is accessed more than this number of times, then the distributed sampler isn't working properly If each sample is
@@ -161,7 +162,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
         is_train=True,
         data_shape=[model.num_channels, 5, 5],
         num_classes=model.num_classes,
-        rank_zero_tmpdir=str(rank_zero_tmpdir),
+        tmpdir=str(tmpdir),
     )
     train_dataloader = train_dataset_hparams.initialize_object(train_dataloader_batch_size, dataloader_hparams)
     eval_batch_size = 10
@@ -171,7 +172,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
         is_train=False,
         data_shape=[model.num_channels, 5, 5],
         num_classes=model.num_classes,
-        rank_zero_tmpdir=str(rank_zero_tmpdir),
+        tmpdir=str(tmpdir),
     )
     eval_dataloader_batch_size = eval_batch_size // dist.get_world_size()
     val_dataloader = val_dataset_hparams.initialize_object(eval_dataloader_batch_size, dataloader_hparams)
@@ -188,7 +189,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
                       eval_subset_num_batches=eval_subset_num_batches,
                       train_subset_num_batches=train_subset_num_batches,
                       deepspeed_config={} if deepspeed else False,
-                      callbacks=[CheckBatch0(rank_zero_tmpdir)])
+                      callbacks=[CheckBatch0(tmpdir)])
     assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
 
     for evaluator in trainer.evaluators:
@@ -210,10 +211,12 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     actual_train_num_loads = 0
     actual_val_num_loads = 0
 
-    for i in range(dist.get_world_size()):
-        with open(get_file_path(is_train=True, rank=i, rank_zero_tmpdir=rank_zero_tmpdir), "r") as f:
+    rank_to_tmpdir = [pathlib.Path(x) for x in dist.all_gather_object(str(tmpdir))]
+
+    for rank_tmpdir in rank_to_tmpdir:
+        with open(get_file_path(is_train=True, tmpdir=rank_tmpdir), "r") as f:
             actual_train_num_loads += int(f.read())
-        with open(get_file_path(is_train=False, rank=i, rank_zero_tmpdir=rank_zero_tmpdir), "r") as f:
+        with open(get_file_path(is_train=False, tmpdir=rank_tmpdir), "r") as f:
             actual_val_num_loads += int(f.read())
     assert actual_train_num_loads == expected_train_num_loads, f"actual_train_num_loads({actual_train_num_loads}) != expected_train_num_loads({expected_train_num_loads})"
     assert actual_val_num_loads == expected_val_num_loads, f"actual_val_num_loads({actual_val_num_loads}) != expected_val_num_loads({expected_val_num_loads})"
@@ -225,21 +228,21 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
         return
 
     for epoch in range(max_epochs):
-        for local_rank in range(dist.get_local_world_size()):
-            for is_train in (True, False):
-                real_epoch = epoch if is_train else epoch + 1  # validation is 1 ahead of training
-                data: Dict[str, types.Tensor] = torch.load(  # type: ignore
-                    get_batch_file_path(rank=local_rank,
-                                        epoch=real_epoch,
-                                        is_train=is_train,
-                                        rank_zero_tmpdir=rank_zero_tmpdir),
-                    map_location='cpu',
-                )
-                for pickle in is_train_to_pickles[is_train]:
-                    assert not torch.all(
-                        data['last_input'] == pickle['last_input']
-                    ), f"inputs are the same for is_train={is_train}, epoch={epoch}, local_rank={local_rank}"
-                    assert not torch.all(
-                        data['last_target'] == pickle['last_target']
-                    ), f"targets are the same for is_train={is_train}, epoch={epoch}, local_rank={local_rank}"
-                is_train_to_pickles[is_train].append(data)
+        for is_train in (True, False):
+            real_epoch = epoch if is_train else epoch + 1  # validation is 1 ahead of training
+            data: Dict[str, types.Tensor] = torch.load(  # type: ignore
+                get_batch_file_path(
+                    epoch=real_epoch,
+                    is_train=is_train,
+                    tmpdir=tmpdir,
+                ),
+                map_location='cpu',
+            )
+            for pickle in is_train_to_pickles[is_train]:
+                assert not torch.all(
+                    data['last_input'] == pickle['last_input']
+                ), f"inputs are the same for is_train={is_train}, epoch={epoch}, rank={dist.get_global_rank()}"
+                assert not torch.all(
+                    data['last_target'] == pickle['last_target']
+                ), f"targets are the same for is_train={is_train}, epoch={epoch}, rank={dist.get_global_rank()}"
+            is_train_to_pickles[is_train].append(data)

@@ -36,7 +36,6 @@ pytest_plugins = [
 if _include_deprecated_fixtures:
     pytest_plugins += [
         "tests.fixtures.dummy_fixtures",
-        "tests.fixtures.distributed_fixtures",
     ]
 
 

@@ -2,6 +2,7 @@
 
 import os
 import pathlib
+import shutil
 import tarfile
 import tempfile
 import textwrap
@@ -26,7 +27,7 @@ from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
-from composer.utils import is_tar
+from composer.utils import dist, is_tar
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 
@@ -61,6 +62,7 @@ class EventCounterCallback(Callback):
             self.event_to_num_calls[event] = 0
 
     def run_event(self, event: Event, state: State, logger: Logger):
+        del state, logger  # unused
         self.event_to_num_calls[event] += 1
 
     def state_dict(self) -> Dict[str, Any]:
@@ -99,19 +101,6 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
         assert (p1.data == p2.data).all()
 
 
-@pytest.fixture
-def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams,
-                                  rank_zero_tmpdir: pathlib.Path) -> TrainerHparams:
-    composer_trainer_hparams.grad_accum = 2
-    composer_trainer_hparams.max_duration = "2ep"
-    composer_trainer_hparams.save_folder = str(rank_zero_tmpdir / "checkpoints")
-    composer_trainer_hparams.save_interval = "1ba"
-    composer_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
-    composer_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
-    composer_trainer_hparams.train_subset_num_batches = 5
-    return composer_trainer_hparams
-
-
 def _load_checkpoint(checkpoint_dir: str, filename: str):
     filename = filename.format(rank=0)
     if not is_tar(filename):
@@ -123,8 +112,12 @@ def _load_checkpoint(checkpoint_dir: str, filename: str):
     return torch.load(states_path, map_location='cpu')
 
 
-def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: str, hparams_b: TrainerHparams,
-                                  checkpoint_file_b: str) -> None:
+def assert_checkpoints_equivalent(
+    hparams_a: TrainerHparams,
+    checkpoint_file_a: str,
+    hparams_b: TrainerHparams,
+    checkpoint_file_b: str,
+) -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         a_checkpoint_dir = os.path.join(tmpdir, 'a')
@@ -172,7 +165,6 @@ def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
 def test_load_weights(
     device_hparams: DeviceHparams,
     composer_trainer_hparams: TrainerHparams,
-    rank_zero_tmpdir: pathlib.Path,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
@@ -199,7 +191,7 @@ def test_load_weights(
     composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     composer_trainer_hparams.train_subset_num_batches = 5
     composer_trainer_hparams.device = device_hparams
-    checkpoint_a_folder = str(rank_zero_tmpdir / "first")
+    checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
     composer_trainer_hparams.save_filename = "ep{epoch}.pt"
     composer_trainer_hparams.save_interval = "1ep"
@@ -212,10 +204,12 @@ def test_load_weights(
     # re-create the trainer from the YAML
     second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
 
-    checkpoint_a_file_path = os.path.join(checkpoint_a_folder, final_checkpoint)
+    # Reduce the filepath to get the location on the rank zero process
+    checkpoint_a_file_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]
+    dist.broadcast_object_list(checkpoint_a_file_path)
 
     # load only model weights
-    second_trainer_hparams.load_path = checkpoint_a_file_path
+    second_trainer_hparams.load_path = checkpoint_a_file_path[0]
     second_trainer_hparams.load_weights_only = True
     second_trainer_hparams.load_strict_model_weights = True
     # setup a new optimizer
@@ -274,7 +268,7 @@ def test_checkpoint(
     final_checkpoint: str,
     seed: Optional[int],
     model_name: Optional[str],
-    rank_zero_tmpdir: pathlib.Path,
+    tmpdir: pathlib.Path,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
@@ -336,7 +330,7 @@ def test_checkpoint(
                         zero stage {zero_stage}"""))
         composer_trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
 
-    checkpoint_a_folder = str(rank_zero_tmpdir / "first")
+    checkpoint_a_folder = str(tmpdir / "first")
     composer_trainer_hparams.save_folder = checkpoint_a_folder
     composer_trainer_hparams.save_interval = save_interval
     composer_trainer_hparams.seed = seed
@@ -356,11 +350,32 @@ def test_checkpoint(
             checkpoint_saver = callback
     assert checkpoint_saver is not None
     assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
-    checkpoint_to_resume_filepath = os.path.join(checkpoint_a_folder, resume_file)
-    first_trainer_final_checkpoint_filepath = os.path.join(checkpoint_a_folder, final_checkpoint)
+
+    rank_to_checkpoint_a_folder = dist.all_gather_object(os.path.abspath(checkpoint_a_folder))
+
+    checkpoint_to_resume_filepath = os.path.join(rank_to_checkpoint_a_folder[0], resume_file)
+    first_trainer_final_checkpoint_filepath = os.path.join(rank_to_checkpoint_a_folder[0], final_checkpoint)
+
+    # Move the resume and final file to the rank 0 folder
+    try:
+        rank_checkpoint_filepath = os.path.join(checkpoint_a_folder, resume_file.format(rank=dist.get_global_rank()))
+        shutil.copy2(rank_checkpoint_filepath,
+                     checkpoint_to_resume_filepath.format(rank=dist.get_global_rank()),
+                     follow_symlinks=True)
+    except (shutil.SameFileError, FileNotFoundError):
+        pass
+
+    try:
+        rank_checkpoint_filepath = os.path.join(checkpoint_a_folder,
+                                                final_checkpoint.format(rank=dist.get_global_rank()))
+        shutil.copy2(rank_checkpoint_filepath,
+                     first_trainer_final_checkpoint_filepath.format(rank=dist.get_global_rank()),
+                     follow_symlinks=True)
+    except (shutil.SameFileError, FileNotFoundError):
+        pass
 
     second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
-    checkpoint_b_folder = str(rank_zero_tmpdir / "second")
+    checkpoint_b_folder = os.path.join(rank_to_checkpoint_a_folder[0], "second")
 
     second_trainer_hparams.save_folder = checkpoint_b_folder
     second_trainer_hparams.load_path = checkpoint_to_resume_filepath
