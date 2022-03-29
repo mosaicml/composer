@@ -7,7 +7,7 @@ Implemented as a wrapper using :class:`.ComposerTrainer`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Sequence, Union, Optional
+from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
 
 from torch import Tensor
 from torchmetrics import Metric, MetricCollection
