@@ -18,7 +18,7 @@ __all__ = ["EMA", "ema"]
 
 
 def ema(model: torch.nn.Module, ema_model: torch.nn.Module, decay: float = 0.99):
-    """Updates the weights of ``ema_model`` to be closer to the weights of ``model`` according to an exponential
+    r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model`` according to an exponential
     weighted average. Weights are updated according to
     .. math::
         W_{ema_model}^{(t+1)} = decay\times W_{ema_model}^{(t)}+(1-decay)\times W_{model}^{(t)}
@@ -29,7 +29,7 @@ def ema(model: torch.nn.Module, ema_model: torch.nn.Module, decay: float = 0.99)
         t_{1/2} = -\frac{\log(2)}{\log(decay)}
     Therefore to set decay to obtain a target half life, set decay according to
     .. math::
-        decay = \exp\left[- \frac{\log(2)}{t_{1/2}}\right]
+        decay = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
 
     Args:
         model (torch.nn.Module): the model containing the latest weights to use to update the moving average weights.
@@ -45,21 +45,20 @@ def ema(model: torch.nn.Module, ema_model: torch.nn.Module, decay: float = 0.99)
         ema_model = models.resnet50()
         cf.ema(model, ema_model, decay=0.9)
     """
-    model_dict = model.state_dict()
-    for key, ema_param in ema_model.state_dict().items():
-        model_param = model_dict[key].detach()
-        ema_param.copy_(ema_param * alpha + (1. - alpha) * model_param)
-
+    with torch.no_grad():
+        for ema_param, model_param in zip(list(ema_model.parameters()), list(model.parameters())):
+            model_param = model_param.detach()
+            ema_param.copy_(ema_param * decay + (1. - decay) * model_param)
 
 class EMA(Algorithm):
-    """Maintains a shadow model with weights that follow the exponential moving average of the trained model weights.
+    r"""Maintains a shadow model with weights that follow the exponential moving average of the trained model weights.
 
     Weights are updated according to
     .. math::
         W_{ema_model}^{(t+1)} = decay\times W_{ema_model}^{(t)}+(1-decay)\times W_{model}^{(t)}
     Where the decay is determined from ``half_life`` according to
     .. math::
-        decay = \exp\left[- \frac{\log(2)}{t_{1/2}}\right]
+        decay = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
 
     Model evaluation is done with the moving average weights, which can result in better generalization. Because of the
     shadow model, EMA doubles the model's memory consumption. Note that this does not mean that the total memory
@@ -77,7 +76,7 @@ class EMA(Algorithm):
             ``update_interval='1ep'`` means updates are done every epoch, while ``update_interval='10ba'`` means
             updates are done once every ten batches. Units must match the units used to specify ``half_life``
         train_with_ema_weights (bool, optional): An experimental feature that uses the ema weights as the training
-            weights. Default ``False``.
+            weights. In most cases should be left as ``False``. Default ``False``.
     """
 
     def __init__(self, half_life: str, update_interval: str, train_with_ema_weights: bool = False):
@@ -109,7 +108,7 @@ class EMA(Algorithm):
                              f"{self.update_interval.unit}")
 
         # Calculate the appropriate weighting for the moving average
-        self.alpha = 2 ** (-(self.update_interval.value/self.half_life.value))
+        self.decay = 2 ** (-(self.update_interval.value/self.half_life.value))
 
         # Construct the appropriate matching events
         self.match_events = [Event.FIT_START, Event.EVAL_START, Event.EVAL_END]
@@ -132,16 +131,16 @@ class EMA(Algorithm):
                 # Check if an update should happen
                 if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
                     # Update the ema model
-                    ema(state.model, self.ema_model, alpha=self.alpha)
+                    ema(state.model, self.ema_model, decay=self.decay)
                     # Use the ema weights for further training
                     state.model.load_state_dict(self.ema_model.state_dict())
         else:
             if event in [Event.BATCH_END, Event.EPOCH_END]:
                 # Check if an update should happen
                 if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
-                    print(state.timer.get(self.update_interval.unit), "Updating", self.alpha)
+                    print(state.timer.get(self.update_interval.unit), "Updating", self.decay)
                     # Update the ema model
-                    ema(state.model, self.ema_model, alpha=self.alpha)
+                    ema(state.model, self.ema_model, decay=self.decay)
             if event == Event.EVAL_START:
                 # Swap out the training model for the ema model in state
                 self.training_model.load_state_dict(state.model.state_dict())
