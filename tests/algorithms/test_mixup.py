@@ -6,7 +6,7 @@ import torch
 from composer.algorithms import MixUpHparams
 from composer.algorithms.mixup.mixup import _gen_mixing_coef, mixup_batch
 from composer.core import Event
-from composer.models.base import ComposerClassifier
+from composer.models import ComposerClassifier
 
 
 # (N, C, d1, d2, num_classes)

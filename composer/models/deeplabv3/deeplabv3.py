@@ -11,10 +11,10 @@ from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
 
 from composer.core.types import BatchPair
-from composer.loss.loss import soft_cross_entropy
-from composer.metrics.metrics import CrossEntropy, MIoU
+from composer.loss import soft_cross_entropy
+from composer.metrics import CrossEntropy, MIoU
 from composer.models.base import ComposerModel
-from composer.models.model_hparams import Initializer
+from composer.models.initializers import Initializer
 
 __all__ = ["deeplabv3_builder", "ComposerDeepLabV3"]
 
