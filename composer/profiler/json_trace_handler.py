@@ -81,6 +81,7 @@ class JSONTraceHandler(TraceHandler):
             Leading slashes (``'/'``) will be stripped.
 
             To disable logging trace files as file artifacts, set this parameter to ``None``.
+
         merged_trace_filename (str, optional): Format string for the merged trace filename.
             (default: ``'node{{node_rank}}.json'``)
 
@@ -127,6 +128,7 @@ class JSONTraceHandler(TraceHandler):
 
             This parameter only controls how many traces are kept locally; traces are not deleted from
             artifact stores.
+
     Attributes:
         saved_traces (List[Tuple[Timestamp, List[pathlib.Path]]]): The trace timestamps and filepaths.
 

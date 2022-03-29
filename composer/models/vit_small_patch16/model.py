@@ -2,7 +2,7 @@
 
 """Implements ViT-S/16 as a :class:`.ComposerClassifier`."""
 
-from composer.models.base import ComposerClassifier
+from composer.models.tasks import ComposerClassifier
 
 __all__ = ["ViTSmallPatch16"]
 
