@@ -56,7 +56,7 @@ class GPT2Model(ComposerTransformer):
                  gradient_checkpointing: bool = False) -> None:
 
         if tokenizer is None:
-            model_inputs = {"input_ids", "attention_mask", "token_type_ids"}
+            model_inputs = {"input_ids", "attention_mask"}
         else:
             model_inputs = set(tokenizer.model_input_names)
 
