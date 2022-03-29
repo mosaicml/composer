@@ -2,7 +2,6 @@
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.ViTSmallPatch16`."""
 
-import textwrap
 from dataclasses import dataclass
 
 import yahp as hp

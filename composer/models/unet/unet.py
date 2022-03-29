@@ -3,7 +3,6 @@
 """A U-Net model extending :class:`.ComposerModel`."""
 
 import logging
-import textwrap
 from typing import Any, Sequence, Tuple, Union
 
 import torch
