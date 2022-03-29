@@ -3,10 +3,10 @@
 """A wrapper around `timm.create_model() <https://rwightman.github.io/pytorch-image-models/#load-a-pretrained-model>`_
 used to create :class:`.ComposerClassifier`."""
 
-import textwrap
 from typing import Optional
 
 from composer.models.tasks import ComposerClassifier
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["Timm"]
 
