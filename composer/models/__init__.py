@@ -8,7 +8,6 @@ and logging to enable quick interaction with the :class:`.Trainer`.
 See :doc:`Composer Model </composer_model>` for more details.
 """
 
-from composer.models.base import ComposerClassifier as ComposerClassifier
 from composer.models.base import ComposerModel as ComposerModel
 from composer.models.bert import BERTForClassificationHparams as BERTForClassificationHparams
 from composer.models.bert import BERTHparams as BERTHparams
@@ -21,7 +20,7 @@ from composer.models.efficientnetb0 import EfficientNetB0 as EfficientNetB0
 from composer.models.efficientnetb0 import EfficientNetB0Hparams as EfficientNetB0Hparams
 from composer.models.gpt2 import GPT2Hparams as GPT2Hparams
 from composer.models.gpt2 import GPT2Model as GPT2Model
-from composer.models.model_hparams import Initializer as Initializer
+from composer.models.initializers import Initializer as Initializer
 from composer.models.model_hparams import ModelHparams as ModelHparams
 from composer.models.resnet import ComposerResNet as ComposerResNet
 from composer.models.resnet import ResNetHparams as ResNetHparams
@@ -29,6 +28,7 @@ from composer.models.resnet_cifar import ComposerResNetCIFAR as ComposerResNetCI
 from composer.models.resnet_cifar import ResNetCIFARHparams as ResNetCIFARHparams
 from composer.models.ssd import SSD as SSD
 from composer.models.ssd import SSDHparams as SSDHparams
+from composer.models.tasks import ComposerClassifier as ComposerClassifier
 from composer.models.timm import Timm as Timm
 from composer.models.timm import TimmHparams as TimmHparams
 from composer.models.transformer_hparams import TransformerHparams as TransformerHparams

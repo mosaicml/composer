@@ -6,8 +6,8 @@ used to create :class:`.ComposerClassifier`."""
 import textwrap
 from typing import Optional
 
-from composer.models.base import ComposerClassifier
-from composer.utils.import_helpers import MissingConditionalImportError
+
+from composer.models.tasks import ComposerClassifier
 
 __all__ = ["Timm"]
 
