@@ -7,7 +7,7 @@ import contextlib
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Mapping, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -119,6 +119,37 @@ class State(Serializable):
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
         batch_num_samples (int): The number of samples in the :attr:`batch`.
         batch_num_tokens (int): The number of tokens in the :attr:`batch`.
+        computed_metrics (Dict[str, Dict[str, Any]]): The computed metrics, organized by dataloader label
+            and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
+            the eval dataloader is labeled ``'eval'``. Otherwise, the label here is the evaluator label.
+
+            For example:
+
+            >>> trainer = Trainer(..., train_dataloader=train_dataloader, eval_dataloader=eval_dataloader)
+            >>> trainer.fit()
+            >>> trainer.state.computed_metrics
+            {}
+
+            Or, when using an :class:`.Evaluator`:
+
+            .. testsetup::
+
+                from composer.core import Evaluator
+
+                evaluator_1_dataloader = eval_dataloader
+                evaluator_2_dataloader = eval_dataloader
+
+            >>> trainer = Trainer(
+            ...     ...,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=[
+            ...         Evaluator(label='evaluator_1', dataloader=evaluator_1_dataloader),
+            ...         Evaluator(label='evaluator_2', dataloader=evaluator_2_dataloader),
+            ...     ],
+            ... )
+            >>> trainer.fit()
+            >>> trainer.state.computed_metrics
+            {}
 
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward pass.
@@ -145,6 +176,8 @@ class State(Serializable):
             | timer                 | The timer that tracks training loop progress.               |
             +-----------------------+-------------------------------------------------------------+
             | rank_zero_seed        | The seed of the rank zero process.                          |
+            +-----------------------+-------------------------------------------------------------+
+            | computed_metrics      | The computed metrics.                                       |
             +-----------------------+-------------------------------------------------------------+
     """
 
@@ -226,7 +259,10 @@ class State(Serializable):
             "scaler",
             "timer",
             "rank_zero_seed",
+            "computed_metrics",
         ]
+
+        self.computed_metrics: Dict[str, Mapping[str, Any]] = {}
 
     @property
     def seed(self):

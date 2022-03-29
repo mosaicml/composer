@@ -613,7 +613,7 @@ class Trainer:
                 self.evaluators.append(evaluator)
             else:
                 metrics = model.metrics(train=False)
-                evaluator = Evaluator(label="eval_dataset", dataloader=evaluator, metrics=metrics)
+                evaluator = Evaluator(label="eval", dataloader=evaluator, metrics=metrics)
                 self.evaluators.append(evaluator)
 
         self._eval_subset_num_batches = eval_subset_num_batches
@@ -778,11 +778,22 @@ class Trainer:
 
         self._validate_every_n_batches = validate_every_n_batches
         self._validate_every_n_epochs = validate_every_n_epochs
-        self._compute_training_metrics = compute_training_metrics
         self._grad_clip_norm = grad_clip_norm
 
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
+
+        if compute_training_metrics:
+            warnings.warn(('Computing model evaluation metrics during training doubles the number of forward passes '
+                           'and may lead to a throughput degradation.'))
+            train_metrics = model.metrics(train=True)
+            if isinstance(train_metrics, Metric):
+                # Forcing metrics to be a MetricCollection simplifies logging results
+                train_metrics = MetricCollection([train_metrics])
+
+            self.train_metrics = self._ensure_metrics_device_and_dtype(train_metrics)
+        else:
+            self.train_metrics = None
 
         self.engine.run_event(Event.INIT)
 
@@ -895,33 +906,14 @@ class Trainer:
 
         return metrics
 
-    def _compute_and_log_metrics(self,
-                                 metrics: Union[Metric, MetricCollection],
-                                 *,
-                                 is_train: bool,
-                                 is_batch: bool,
-                                 logging_label: str = ''):
-        """Computes metrics, logs the results, and resets the metrics.
-
-        Args:
-            metrics (Metric | MetricCollection): The metrics to compute.
-            is_train (bool): True for training metrics, False for evaluation metrics.
-            is_batch (bool): True if logging at batch level, false for epoch level.
-            logging_label (str): Should be left as empty string if called for training metrics.
-                Should be the evaluator label if called on evaluator metrics.
-        """
+    def _compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
+        """Computes metrics, logs the results, and updates the state."""
         computed_metrics = metrics.compute()
-        for name, value in computed_metrics.items():
-            log_level = LogLevel.BATCH if is_batch else LogLevel.EPOCH
-            suffix = 'train' if is_train else 'val'
-
-            # default label given to evaluator created by val_dataset parameter
-            if not logging_label or logging_label == "eval_dataset":
-                label = f'{name.lower()}/{suffix}'
-            else:
-                label = f'{logging_label}/{name.lower()}_{suffix}'
-            self.logger.data(log_level, {label: value})
-        metrics.reset()
+        self.logger.data(
+            log_level=log_level,
+            data={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
+        )
+        self.state.computed_metrics[dataloader_label] = computed_metrics
 
     def _spin_dataloaders(self):
         """Spin the dataloaders to restore sampler state.
@@ -951,21 +943,13 @@ class Trainer:
 
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
-        # print training start
+        if self.train_metrics is not None:
+            # Resetting and logging the metrics before the FIT_START event
+            # so the state is properly reset.
+            self.train_metrics.reset()
+
+        # Log the algorithms being used.
         self.logger.data_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
-
-        if self._compute_training_metrics:
-            log.warning('Computing model evaluation metrics during training.'
-                        ' This doubles the number of forward passes and may lead'
-                        ' to a throughput degradation.')
-            train_metrics = self._original_model.metrics(train=True)
-            if isinstance(train_metrics, Metric):
-                # Forcing metrics to be a MetricCollection simplifies logging results
-                train_metrics = MetricCollection([train_metrics])
-
-            train_metrics = self._ensure_metrics_device_and_dtype(train_metrics)
-        else:
-            train_metrics = None
 
         self.engine.run_event(Event.FIT_START)
 
@@ -986,6 +970,9 @@ class Trainer:
                 if int(self.state.timer.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.data_epoch({"epoch": int(self.state.timer.epoch)})
+                    if self.train_metrics is not None:
+                        # reset the metrics before every epoch
+                        self.train_metrics.reset()
 
                 # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
                 if hasattr(self.state.train_dataloader, "sampler") and isinstance(self.state.train_dataloader.sampler,
@@ -1011,17 +998,14 @@ class Trainer:
                     if self.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
-                    if self._compute_training_metrics:
-                        # compute metrics on the training set
-                        assert train_metrics is not None
+                    if self.train_metrics is not None:
                         self.state.model.eval()
                         with torch.no_grad():
                             for eval_microbatch in self._train_data_spec.split_batch(
                                     self.state.batch, self.state.grad_accum):
                                 # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
                                 # data and if so print a warning that metrics may return unexpected results
-                                outputs, targets = self._original_model.validate(eval_microbatch)
-                                train_metrics.update(outputs, targets)
+                                self.train_metrics.update(*self._original_model.validate(eval_microbatch))
 
                     self.state.model.train()
 
@@ -1071,9 +1055,12 @@ class Trainer:
                         full_loss = total_loss.cpu().item()
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
-                    if self._compute_training_metrics:
-                        assert train_metrics is not None
-                        self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
+                    if self.train_metrics is not None:
+                        self._compute_and_log_metrics(
+                            dataloader_label='train',
+                            log_level=LogLevel.BATCH,
+                            metrics=self.train_metrics,
+                        )
 
                     self.state.timer.on_batch_complete(
                         samples=int(num_samples_in_batch.item()),
@@ -1088,7 +1075,7 @@ class Trainer:
 
                     if self._validate_every_n_batches > 0 and int(
                             self.state.timer.batch) % self._validate_every_n_batches == 0:
-                        self.eval(is_batch=True)
+                        self.eval(log_level=LogLevel.BATCH)
 
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
 
@@ -1107,10 +1094,17 @@ class Trainer:
                 for scheduler in self.state.schedulers:
                     scheduler.step()
 
+            if self.train_metrics is not None:
+                self._compute_and_log_metrics(
+                    dataloader_label='train',
+                    log_level=LogLevel.EPOCH,
+                    metrics=self.train_metrics,
+                )
+
             self.engine.run_event(Event.EPOCH_END)
 
             if self._validate_every_n_epochs > 0 and int(self.state.timer.epoch) % self._validate_every_n_epochs == 0:
-                self.eval(is_batch=False)
+                self.eval(log_level=LogLevel.EPOCH)
 
             self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
@@ -1222,12 +1216,12 @@ class Trainer:
 
         return total_loss
 
-    def eval(self, is_batch: bool):
+    def eval(self, log_level: LogLevel = LogLevel.FIT):
         """Evaluate the model on the provided evaluation data and log appropriate metrics.
 
         Args:
-            is_batch (bool): True to log metrics with ``LogLevel.BATCH``
-                and False to log metrics with ``LogLevel.EPOCH``.
+            log_level (LogLevel, optional): The log level to use for metric logging during evaluation.
+                Defaults to :attr:`~.LogLevel.FIT`.
         """
         restore_model_train = self.state.model.training
 
@@ -1239,6 +1233,7 @@ class Trainer:
             for evaluator in self.state.evaluators:
                 dataloader = evaluator.dataloader.dataloader
                 metrics = self._ensure_metrics_device_and_dtype(evaluator.metrics)
+                metrics.reset()
                 # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
                 if hasattr(dataloader, "sampler") and isinstance(dataloader.sampler,
                                                                  torch.utils.data.DistributedSampler):
@@ -1265,13 +1260,16 @@ class Trainer:
                     self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                     metrics.update(self.state.outputs, targets)
+                    self._compute_and_log_metrics(dataloader_label=evaluator.label,
+                                                  metrics=metrics,
+                                                  log_level=log_level)
 
                     self.engine.run_event(Event.EVAL_BATCH_END)
 
                 self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
                 self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
 
-                self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
+                self._compute_and_log_metrics(dataloader_label=evaluator.label, metrics=metrics, log_level=log_level)
 
             self.engine.run_event(Event.EVAL_END)
 
