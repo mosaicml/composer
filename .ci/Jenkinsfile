@@ -12,7 +12,7 @@ numDaysOfBuildsToKeep = '7'
 jenkinsfileRepo = 'https://github.com/mosaicml/testing'
 gitCredentialsId = "9cf9add1-2cdd-414b-8160-94bd4ac4a13d"
 buildOutputFolder = "build/output"
-artifactsGlob = "$buildOutputFolder/*.xml"
+artifactsGlob = "$buildOutputFolder/**"
 junitGlob = "$buildOutputFolder/*.junit.xml"
 coverageGlob = "$buildOutputFolder/*.coverage.xml"
 condaBuildDockerImage = "continuumio/anaconda-pkg-build:2022.02.09-amd64"
@@ -60,17 +60,18 @@ def trackBuild(Map buildArgs) {
     }
 }
 
-def getDockerImageName(pythonVersion, gpu) {
+def getDockerImageName(baseImage, pythonVersion, gpu) {
     def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
     def cudaVersion = "cpu"
     if (gpu) {
         cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
 
     }
-    return "mosaicml/pytorch:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
+    return "${baseImage}:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
 }
 
-lintImage = getDockerImageName("3.9", false)
+lintImage = getDockerImageName("mosaicml/pytorch", "3.9", false)
+visionImage = getDockerImageName("mosaicml/pytorch_vision", "3.9", true)
 
 def runLint(pDockerImage) {
     trackBuild(
@@ -89,23 +90,22 @@ def runLint(pDockerImage) {
     )
 }
 
-def runPytest(pDockerImage, gpu, extraDeps) {
+def runPytest(pDockerImage, markers, extraDeps, isGpu) {
     // pDockerImage (str): Base docker image to use.
     // extraDeps (str): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps].
-    // gpu (bool): Whether to run tests on a gpu
+    // markers (str): Pyetst markers
+    // isGpu (bool): Whether the test requires gpus
     def nGpus = "0"
     def memLimit = "4Gi"
     def cpuLimit = "2"
-    def markers = "not notebooks and not gpu"
 
-    if (gpu){
+    if (isGpu) {
         nGpus = "2"
         cpuLimit = "16" // 8 cpu per gpu
         memLimit = "15Gi"  // 7.5Gb per gpu
-        markers = "not notebooks and gpu"
     }
 
-    def name = "$pDockerImage: gpu=$gpu; extraDeps=$extraDeps"
+    def name = "$pDockerImage: markers='$markers'; extraDeps=$extraDeps"
 
     trackBuild(
         job: jenkinsShellJobName,
@@ -200,31 +200,42 @@ stage('Build') {
                     // no need to run tests again
                     return
                 }
-                def gpu = false
+                def markers = "not notebooks and not gpu and not vision"
                 def isLintImage = false
+                def isVisionImage = false
+                def isGpuImage = false
                 def tag = null
                 buildConfigListOfTuples.each { item ->
                     def key = item[0]
                     def val = item[1]
 
                     if (key == 'CUDA_VERSION') {
-                        gpu = val != 'cpu'
+                        if (val != 'cpu') {
+                            markers = "not notebooks and gpu and not vision"
+                            isGpuImage = true
+                        }
                     }
                     if (key == 'TAG') {
                         tag = val
                         // there could be multiple tags
                         isLintImage = isLintImage || tag == lintImage
+                        isVisionImage = isVisionImage || tag == visionImage
                     }
                 
                 }
                 def extraDeps = 'all'
+
+                if (isVisionImage) {
+                    markers = "not notebooks and vision"
+                }
+
                 def subJobs = [
-                    "Pytest - ${tag}" : { -> runPytest(stagingImage, gpu, extraDeps) }
+                    "Pytest - ${tag}" : { -> runPytest(stagingImage, markers, extraDeps, isGpuImage) }
                 ]
                 if (isLintImage) {
                     // and run lint and a dev install on this image
                     subJobs << [
-                        "Pytest - extraDeps=dev": { -> runPytest(stagingImage, false, 'dev') },
+                        "Pytest - extraDeps=dev": { -> runPytest(stagingImage, markers, 'dev', false) },
                         "Lint": { -> runLint(stagingImage) },
                     ]
                 }
@@ -239,12 +250,55 @@ stage('Build') {
         // tests on merge commits, as the PR must have passed these checks already
         // to have been merged.
         jobs << [
-            'Python 3.7 - All': { -> runPytest(getDockerImageName("3.7", false), false, 'all') },
-            'Python 3.8 - All': { -> runPytest(getDockerImageName("3.8", false), false, 'all') },
-            'Python 3.9 - All': { -> runPytest(getDockerImageName("3.9", false), false, 'all') },
-            'Python 3.9 - All (GPU)': { -> runPytest(getDockerImageName("3.9", true), true, 'all') },
+            'Python 3.7': { ->
+                runPytest(
+                    getDockerImageName("mosaicml/pytorch", "3.7", false),
+                    "not notebooks and not gpu and not vision", // markers
+                    'all', // extraDeps
+                    false, // gpu
+                )
+            },
+            'Python 3.8': { ->
+                runPytest(
+                    getDockerImageName("mosaicml/pytorch", "3.8", false),
+                    "not notebooks and not gpu and not vision", // markers
+                    'all', // extraDeps
+                    false, // gpu
+                )
+            },
+            'Python 3.9': { ->
+                runPytest(
+                    getDockerImageName("mosaicml/pytorch", "3.9", false),
+                    "not notebooks and not gpu and not vision", // markers
+                    'all', // extraDeps
+                    false, // gpu
+                )
+            },
+            'Python 3.7 - GPU': { ->
+                runPytest(
+                    getDockerImageName("mosaicml/pytorch", "3.7", true),
+                    "not notebooks and gpu and not vision", // markers
+                    'all', // extraDeps
+                    true, // gpu
+                )
+            },
+            'Python 3.7 - Vision': { ->
+                runPytest(
+                    visionImage,
+                    "not notebooks and vision",
+                    'all', // extraDeps
+                    true, // gpu
+                )
+            },
             'Lint': { -> runLint(lintImage) },
-            'Python 3.9 - Dev': { -> runPytest(lintImage, false, "dev") },
+            'Python 3.7 - extraDeps=dev': { ->
+                runPytest(
+                    getDockerImageName("mosaicml/pytorch", "3.7", false),
+                    "not notebooks and not gpu and not vision", // markers
+                    "dev", // extraDeps
+                    false, // gpu
+                )
+            },
         ]
     }
 
