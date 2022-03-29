@@ -165,14 +165,14 @@ composer.loggers.object_store_logger._validate_credentials = do_not_validate
 
 def ObjectStoreLogger(fake_ellipses: None = None, **kwargs: Any):
     # ignore all arguments, and use a local folder
-    os.makedirs("./object_store_logger", exist_ok=True)
+    os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         use_procs=False,
         num_concurrent_uploads=1,
         provider='local',
         container='.',
         provider_kwargs={
-            'key': os.path.abspath("./object_store_logger"),
+            'key': os.path.abspath("./object_store"),
         },
     )
     return OriginalObjectStoreLogger(**kwargs)
@@ -180,7 +180,8 @@ def ObjectStoreLogger(fake_ellipses: None = None, **kwargs: Any):
 
 def ObjectStore(fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
-    kwargs.update(provider='local',
+    kwargs.update(
+        provider='local',
         container='.',
         provider_kwargs={
             'key': os.path.abspath("./object_store"),

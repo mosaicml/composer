@@ -123,7 +123,6 @@ will continue training from where the checkpoint left off.
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
-        eval_dataloader=None,
         max_duration="90ep",
         save_overwrite=True,
         load_path="./path/to/checkpoints/ep25.pt",
@@ -343,7 +342,6 @@ Once you've configured your object store logger per above, all that's left is to
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
-        eval_dataloader=None,
         max_duration='90ep',
         save_folder='checkpoints',
         save_interval='1ep',
@@ -382,12 +380,10 @@ should be the path to the checkpoint file *within the container/bucket*.
 
     new_trainer = Trainer(
         model=model,
-        train_dataloader=finetune_dataloader,
-        eval_dataloader=None,
+        train_dataloader=train_dataloader,
         max_duration="10ep",
-        load_path="checkpoints/ep1.tar",
+        load_path="checkpoints/ep1.pt",
         load_object_store=object_store,
-        load_weights_only=True,
     )
 
     new_trainer.fit()
