@@ -12,8 +12,7 @@ from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
-from composer.callbacks import LRMonitor, RunDirectoryUploader
-from composer.callbacks.checkpoint_saver import CheckpointSaver
+from composer.callbacks import CheckpointSaver, LRMonitor
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
@@ -94,7 +93,7 @@ class TestTrainerInit():
         config.update({
             'max_duration': 1,
             'save_interval': 10,
-            'save_folder': tmpdir,
+            'save_folder': str(tmpdir),
         })
 
         trainer = Trainer(**config)
@@ -168,7 +167,7 @@ class TestTrainerEquivalence():
         config = deepcopy(config)  # ensure the reference model is not passed to tests
 
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
-        config.update({'save_interval': '1ep', 'save_folder': save_folder, 'save_name_format': 'ep{epoch}.pt'})
+        config.update({'save_interval': '1ep', 'save_folder': str(save_folder), 'save_filename': 'ep{epoch}.pt'})
 
         trainer = Trainer(**config)
         trainer.fit()
@@ -210,7 +209,7 @@ class TestTrainerEquivalence():
     def test_checkpoint(self, config, *args):
         # load from epoch 1 checkpoint and finish training
         checkpoint_file = os.path.join(self.reference_folder, 'ep1.pt')
-        config['load_path_format'] = checkpoint_file
+        config['load_path'] = checkpoint_file
 
         trainer = Trainer(**config)
         assert trainer.state.timer.epoch == "1ep"  # ensure checkpoint state loaded
@@ -366,20 +365,10 @@ class TestTrainerAssets:
         return algorithm
 
     @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
-    def callback(self, request, tmpdir, monkeypatch):
-        name, hparams = request.param
+    def callback(self, request):
+        _, hparams = request.param
 
-        # create callback
-        if name == 'run_directory_uploader':
-            monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
-
-            callback = hparams(
-                provider='local',
-                container='.',
-                key_environ="KEY_ENVIRON",
-            ).initialize_object()
-        else:
-            callback = hparams().initialize_object()
+        callback = hparams().initialize_object()
 
         return callback
 
@@ -405,7 +394,18 @@ class TestTrainerAssets:
         if name == 'object_store':
             required_args['object_store_hparams'] = provider_hparams
 
-        return hparams(**required_args).initialize_object()
+        if name == 'object_store_logger':
+            monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
+
+            logger = hparams(
+                provider='local',
+                container='.',
+                key_environ="KEY_ENVIRON",
+            ).initialize_object()
+        else:
+            logger = hparams(**required_args).initialize_object()
+
+        return logger
 
     """
     Tests that training completes.
@@ -441,8 +441,6 @@ class TestTrainerAssets:
         self._test_multiple_fits(trainer)
 
     def test_callbacks_multiple_calls(self, config, callback):
-        if isinstance(callback, RunDirectoryUploader):
-            pytest.xfail("Known idempotency issue.")
         config['callbacks'] = [callback]
         trainer = Trainer(**config)
         self._test_multiple_fits(trainer)

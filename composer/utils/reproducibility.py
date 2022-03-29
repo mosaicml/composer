@@ -38,6 +38,7 @@
 
     .. testcleanup::
 
+        trainer.engine.close()
         warnings.resetwarnings()
 
 Attributes:
@@ -93,6 +94,7 @@ def configure_deterministic_mode():
 
         .. testcleanup::
 
+            trainer.engine.close()
             warnings.resetwarnings()
 
         However, to configure deterministic mode for operations before the trainer is initialized, manually invoke this
@@ -140,7 +142,13 @@ def seed_all(seed: int):
         instead of invoking this function directly.
         For example:
 
-        >>> trainer = Trainer(seed=42)
+        .. doctest::
+
+            >>> trainer = Trainer(seed=42)
+        
+        .. testcleanup::
+
+            trainer.engine.close()
 
         However, to configure the random seed for operations before the trainer is initialized, manually invoke this
         function at the beginning of your training script.

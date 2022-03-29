@@ -12,12 +12,6 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
 .. testsetup::
 
     import os
-    from composer.utils import run_directory
-
-    try:
-        os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
-    except FileNotFoundError:
-        pass
 
     os.environ["WANDB_MODE"] = "disabled"
 
@@ -38,9 +32,8 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
 
 .. testcleanup::
 
-    wandb_logger.post_close()
-    file_logger.close()
-    os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
+    trainer.engine.close()
+    os.remove("log.txt")
 
 Available Loggers
 -----------------

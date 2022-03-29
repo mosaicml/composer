@@ -24,6 +24,8 @@ class DataSpec:
     An example of constructing a :class:`DataSpec` object with a ``device_transforms`` callable
     (:class:`~composer.datasets.utils.NormalizationFn`) and then using it with :class:`~.Trainer`:
 
+    .. doctest::
+
        >>> # In this case, we apply NormalizationFn 
        >>> # Construct DataSpec as shown below to apply this transformation
        >>> from composer.datasets.utils import NormalizationFn
@@ -41,6 +43,10 @@ class DataSpec:
        ...     optimizers=optimizer,
        ...     max_duration="1ep",
        ... )
+
+    .. testcleanup::
+
+        trainer.engine.close()
 
     Args:
         dataloader (DataLoader): The dataloader.

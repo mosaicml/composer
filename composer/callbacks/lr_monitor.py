@@ -15,6 +15,8 @@ class LRMonitor(Callback):
 
     Example
 
+    .. doctest::
+
         >>> from composer.callbacks import LRMonitor
         >>> # constructing trainer object with this callback
         >>> trainer = Trainer(
@@ -25,6 +27,10 @@ class LRMonitor(Callback):
         ...     max_duration="1ep",
         ...     callbacks=[LRMonitor()],
         ... )
+    
+    .. testcleanup::
+
+        trainer.engine.close()
 
     The learning rate is logged by the :class:`~composer.loggers.logger.Logger` to the following key as described
     below.
