@@ -17,51 +17,48 @@ Train a model and save a checkpoint:
     from composer import Trainer
 
     ### Create a trainer
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      max_duration="1ep",
-                      eval_dataloader=eval_dataloader,
-                      optimizers=optimizer,
-                      schedulers=scheduler,
-                      device="cpu",
-                      validate_every_n_epochs=1,
-                      save_folder="checkpoints",
-                      save_interval="1ep")
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="1ep",
+        eval_dataloader=eval_dataloader,
+        optimizers=optimizer,
+        schedulers=scheduler,
+        device="cpu",
+        validate_every_n_epochs=1,
+        save_folder="checkpoints",
+        save_filename="ep{epoch}.pt",
+        save_interval="1ep",
+        save_overwrite=True,
+    )
 
-    ### Fit and run evaluation for 1 epoch.
-    ### Save a checkpoint after 1 epoch as specified during trainer creation.
+    # Fit and run evaluation for 1 epoch.
+    # Save a checkpoint after 1 epoch as specified during trainer creation.
     trainer.fit()
 
 Load the checkpoint and resume training:
 
 .. testcode::
 
-    ### Get the saved checkpoint folder
-    ### By default, the checkpoint folder is of the form runs/<timestamp>/rank_0/checkpoints
-    ### Alternatively, if you set the run directory environment variable as follows:
-    ### os.environ["COMPOSER_RUN_DIRECTORY"] = "my_run_directory", then the checkpoint path
-    ### will be of the form my_run_directory/rank_0/checkpoints
-    checkpoint_folder = trainer.checkpoint_folder
+    # Get the saved checkpoint filepath
+    checkpoint_path = trainer.saved_checkpoints.pop()[0]
 
-    ### If the save_interval was in terms of epochs like above then by default,
-    ### checkpoint filenames are of the form "ep{EPOCH_NUMBER}.pt".
-    checkpoint_path = os.path.join(checkpoint_folder, "ep1.pt")
+    # Create a new trainer with the `load_path` argument set to the checkpoint path.
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="2ep",
+        eval_dataloader=eval_dataloader,
+        optimizers=optimizer,
+        schedulers=scheduler,
+        device="cpu",
+        validate_every_n_epochs=1,
+        load_path=checkpoint_path,
+    )
 
-    ### Create a new trainer with the load_path_format argument set to the checkpoint path.
-    ### This will automatically load the checkpoint on trainer creation.
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      max_duration="2ep",
-                      eval_dataloader=eval_dataloader,
-                      optimizers=optimizer,
-                      schedulers=scheduler,
-                      device="cpu",
-                      validate_every_n_epochs=1,
-                      load_path_format=checkpoint_path)
-
-    ### Continue training and running evaluation where the previous trainer left off
-    ### until the new max_duration is reached.
-    ### In this case it will be one additional epoch to reach 2 epochs total.
+    # Continue training and running evaluation where the previous trainer left off
+    # until the new max_duration is reached.
+    # In this case it will be one additional epoch to reach 2 epochs total.
     trainer.fit()
 """
 
@@ -71,9 +68,10 @@ import contextlib
 import datetime
 import itertools
 import logging
+import pathlib
 import textwrap
 import warnings
-from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Tuple, Union, cast
 
 import torch
 import torch.distributed
@@ -227,13 +225,13 @@ class Trainer:
             then no callbacks will be run. (default: ``None``).
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
-        load_path_format (str, optional):  The path format string to an existing checkpoint file.
+        load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
             When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
-            Instead of hard-coding the rank in the ``path_format``, use the following format variables:
+            Instead of hard-coding the rank in the ``path``, use the following format variables:
 
             +------------------------+-------------------------------------------------------+
             | Variable               | Description                                           |
@@ -257,14 +255,14 @@ class Trainer:
                 my_model/ep1-rank2.tar
                 ...
 
-            Then, ``load_path_format`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load the
+            Then, ``load_path`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load the
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (ObjectStore, optional): If the ``load_path_format`` is in an object store
+        load_object_store (ObjectStore, optional): If the ``load_path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` which
             will be used to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath,
-            set to ``None``. Ignored if ``load_path_format`` is ``None``. (default: ``None``)
+            set to ``None``. Ignored if ``load_path`` is ``None``. (default: ``None``)
 
             Example:
 
@@ -286,31 +284,37 @@ class Trainer:
                                             container="my_container",
                                             provider_kwargs=creds)
 
-                checkpoint_path = "/path_to_the_checkpoint_in_object_store"
+                checkpoint_path = "./path_to_the_checkpoint_in_object_store"
 
                 # Create a trainer which will load a checkpoint from the specified object store
-                trainer = Trainer(model=model,
-                                  train_dataloader=train_dataloader,
-                                  max_duration="10ep",
-                                  eval_dataloader=eval_dataloader,
-                                  optimizers=optimizer,
-                                  schedulers=scheduler,
-                                  device="cpu",
-                                  validate_every_n_epochs=1,
-                                  load_path_format=checkpoint_path,
-                                  load_object_store=store)
+                trainer = Trainer(
+                    model=model,
+                    train_dataloader=train_dataloader,
+                    max_duration="10ep",
+                    eval_dataloader=eval_dataloader,
+                    optimizers=optimizer,
+                    schedulers=scheduler,
+                    device="cpu",
+                    validate_every_n_epochs=1,
+                    load_path=checkpoint_path,
+                    load_object_store=store,
+                )
 
+            .. testcleanup::
+
+                trainer.engine.close()
 
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
-            restoring the associated state. Ignored if ``load_path_format`` is ``None``. (default: ``False``)
+            restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
-            Ignored if ``load_path_format`` is ``None``. (default: ``False``)
+            Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
-            Ignored if ``load_path_format`` is either ``None`` or a local file path. (default: ``1,048,675``)
+            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
-            Ignored if ``load_path_format`` is either ``None`` or a local file path. (default: ``True``)
-        save_folder (str, optional): Folder where checkpoints are saved. If ``None``, checkpoints will not be saved
-            by default.
+            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
+        save_folder (str, optional): Format string for the folder where checkpoints are saved.
+            If ``None``, checkpoints will not be saved. (default: ``None``)
+
             .. seealso:: :class:`~.CheckpointSaver`
 
             .. note::
@@ -319,16 +323,14 @@ class Trainer:
                 at different intervals), leave this parameter as ``None``, and instead pass
                 instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
 
-            (default: ``None``)
-
-        save_name_format (str, optional): A format string describing how to name checkpoints.
+        save_filename (str, optional): A format string describing how to name checkpoints.
             This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"ep{epoch}-ba{batch}-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
-        save_latest_format (str, optional): A format string for the name of a symlink
-            (relative to ``checkpoint_folder``) that points to the last saved checkpoint.
+        save_latest_filename (str, optional): A format string for the name of a symlink
+            (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
             To disable symlinking, set to ``None``. (default: ``"latest-rank{rank}"``)
 
@@ -350,6 +352,16 @@ class Trainer:
 
             .. seealso:: :class:`~.CheckpointSaver`
 
+        save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
+            are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
+
+            Checkpoints will be removed after they have been logged as a file artifact. For example, when this callback
+            is used in conjunction with the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`, set this
+            parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
+            the object store.
+
+            This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
+            artifact stores.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
@@ -471,7 +483,7 @@ class Trainer:
         callbacks: Union[Callback, Sequence[Callback]] = tuple(),
 
         # load checkpoint
-        load_path_format: Optional[str] = None,
+        load_path: Optional[str] = None,
         load_object_store: Optional[ObjectStore] = None,
         load_weights_only: bool = False,
         load_strict: bool = False,
@@ -480,11 +492,13 @@ class Trainer:
 
         # save_checkpoint
         save_folder: Optional[str] = None,
-        save_name_format: str = "ep{epoch}-ba{batch}-rank{rank}",
-        save_latest_format: str = "latest-rank{rank}",
+        save_filename: str = "ep{epoch}-ba{batch}-rank{rank}",
+        save_artifact_name: str = "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
+        save_latest_filename: str = "latest-rank{rank}",
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,
+        save_num_checkpoints_to_keep: int = -1,
 
         # subset parameters
         train_subset_num_batches: Optional[int] = None,
@@ -745,12 +759,14 @@ class Trainer:
         self._checkpoint_saver = None
         if save_folder is not None:
             self._checkpoint_saver = CheckpointSaver(
-                save_folder=save_folder,
-                name_format=save_name_format,
-                save_latest_format=save_latest_format,
+                folder=save_folder,
+                filename=save_filename,
+                artifact_name=save_artifact_name,
+                latest_filename=save_latest_filename,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
+                num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )
             self.state.callbacks.append(self._checkpoint_saver)
 
@@ -804,9 +820,9 @@ class Trainer:
         # DDP.
 
         self._rng_state = None
-        if load_path_format is not None:
+        if load_path is not None:
             self._rng_state = load_checkpoint(state=self.state,
-                                              path_format=load_path_format,
+                                              path=load_path,
                                               object_store=load_object_store,
                                               load_weights_only=load_weights_only,
                                               strict_model_weights=load_strict,
@@ -841,42 +857,24 @@ class Trainer:
         return self._deepspeed_config is not None
 
     @property
-    def saved_checkpoints(self) -> Dict[Timestamp, List[str]]:
-        """The times and paths to checkpoint files saved across all ranks during training.
+    def saved_checkpoints(self) -> List[Tuple[Timestamp, List[pathlib.Path]]]:
+        """The checkpoint timestamps and filepaths.
 
-        Returns:
-
-            Dict[Timestamp, List[str]]: A dictionary mapping a save :class:`.Timestamp`. to a list of
-                filepaths, indexed by global rank, corresponding to the checkpoints saved at that time.
+        This list contains tuples of the save timestamp and the checkpoint filepaths.
+        This list will have at most ``save_num_checkpoints_to_keep`` entries. The latest checkpoint
+        will be at the end.
 
         .. note::
 
-            When using DeepSpeed, the index of a filepath corresponds to the
-            global rank of the process that wrote that file. These filepaths are valid only on
-            the global rank's node. Otherwise, when not using DeepSpeed, this list will contain
-            only one filepath since only rank zero saves checkpoints.
+            When using DeepSpeed, the index of a filepath in each list corresponds to the global rank of
+            the process that wrote that file. Each filepath is valid only on the process's (rank's) node.
+
+            Otherwise, when not using DeepSpeed, each sub-list will contain only one filepath since only rank zero
+            saves checkpoints.
         """
         if self._checkpoint_saver is None:
-            raise RuntimeError("`save_folder` was not specified, so no checkpoints were saved.")
+            return []
         return self._checkpoint_saver.saved_checkpoints
-
-    @property
-    def checkpoint_folder(self) -> Optional[str]:
-        """The folder in which checkpoints are stored.
-
-        Returns:
-            Optional[str]: The checkpoint folder, or None, if checkpoints were not saved.
-
-                If an absolute path was specified for ``save_folder`` upon trainer instantiation, then that path will
-                be used. Otherwise, this folder is relative to the :mod:`~composer.utils.run_directory` of the training
-                run (e.g. ``{run_directory}/{save_folder}``). If no run directory is provided, then by default, it is
-                of the form ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp`` is the start time
-                of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process, and ``save_folder`` is the
-                ``save_folder`` argument provided upon construction.
-        """
-        if self._checkpoint_saver is None:
-            raise RuntimeError("`save_folder` was not specified, so no checkpoints were saved.")
-        return self._checkpoint_saver.checkpoint_folder
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
@@ -1327,14 +1325,14 @@ class Trainer:
             getattr(optimizer, "_step_supports_amp_closure", False)
             for optimizer in ensure_tuple(self.state.optimizers))
 
-    def save_checkpoint(self, name_format: str = "ep{epoch}-ba{batch}-rank{rank}", *, weights_only: bool = False):
+    def save_checkpoint(self, name: str = "ep{epoch}-ba{batch}-rank{rank}", *, weights_only: bool = False):
         """Checkpoint the training :class:`~.State`.
 
         Args:
-            name_format (str, optional): See :func:`.save_checkpoint`.
+            name (str, optional): See :func:`.save_checkpoint`.
             weights_only (bool, optional): See :func:`.save_checkpoint`.
 
         Returns:
             List[pathlib.Path]: See :func:`.save_checkpoint`.
         """
-        return save_checkpoint(state=self.state, name_format=name_format, weights_only=weights_only)
+        return save_checkpoint(state=self.state, logger=self.logger, filename=name, weights_only=weights_only)

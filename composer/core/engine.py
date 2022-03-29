@@ -303,7 +303,7 @@ class Engine():
         callback_to_has_exception: Dict[Callback, bool] = {}
         for callback in self.state.callbacks:
             try:
-                callback.close()
+                callback.close(self.state, self.logger)
             except Exception as e:
                 log.error(
                     f"Error running {callback.__class__.__name__}.close(). Skipping {callback.__class__.__name__}.post_close().",

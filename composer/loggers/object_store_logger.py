@@ -26,7 +26,7 @@ from urllib3.exceptions import ProtocolError
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import dist
+from composer.utils import format_name_with_dist
 from composer.utils.object_store import ObjectStore
 
 log = logging.getLogger(__name__)
@@ -43,53 +43,30 @@ def _always_log(state: State, log_level: LogLevel, artifact_name: str):
 class ObjectStoreLogger(LoggerDestination):
     """Logger destination that uploads artifacts to an object store.
 
-    This logger destination handles calls to :meth:`~composer.core.logging.Logger.file_artifact`
+    This logger destination handles calls to :meth:`~composer.loggers.logger.Logger.file_artifact`
     and uploads files to an object store, such as AWS S3 or Google Cloud Storage.
 
-    Example
-        .. testsetup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
+    .. testcode:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
 
-            import os
-            import functools
-            import composer.loggers.object_store_logger
+        object_store_logger = ObjectStoreLogger(
+            provider='s3',
+            container='my-bucket',
+            provider_kwargs={
+                'key': 'AKIA...',
+                'secret': '*********',
+                'region': 'ap-northeast-1',
+            },
+        )
+        
+        # Construct the trainer using this logger
+        trainer = Trainer(
+            ...,
+            loggers=[object_store_logger],
+        )
 
-            from composer.loggers import ObjectStoreLogger
+    .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
 
-            # For this example, we do not validate credentials
-            def do_not_validate(*args, **kwargs) -> None:
-                pass
-
-            composer.loggers.object_store_logger._validate_credentials = do_not_validate
-           
-            ObjectStoreLogger = functools.partial(
-                ObjectStoreLogger,
-                use_procs=False,
-                num_concurrent_uploads=1,
-            )
-
-        .. testcode:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
-
-            object_store_logger = ObjectStoreLogger(
-                provider='s3',
-                container='my-bucket',
-                provider_kwargs={
-                    'key': 'AKIA...',
-                    'secret': '*********',
-                    'region': 'ap-northeast-1',
-                },
-            )
-            
-            # Construct the trainer using this logger
-            trainer = Trainer(
-                ...,
-                loggers=[object_store_logger],
-            )
-
-        .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
-
-            # Shut down the uploader
-            object_store_logger._check_workers()
-            object_store_logger.post_close()
+        trainer.engine.close()
 
     .. note::
 
@@ -153,7 +130,7 @@ class ObjectStoreLogger(LoggerDestination):
 
             By default, all artifacts will be uploaded.
 
-        object_name_format (str, optional): A format string used to determine the object name.
+        object_name (str, optional): A format string used to determine the object name.
 
             The following format variables are available:
 
@@ -163,7 +140,7 @@ class ObjectStoreLogger(LoggerDestination):
             | ``{artifact_name}``    | The name of the artifact being logged.                |
             +------------------------+-------------------------------------------------------+
             | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`~composer.core.logging.Logger.run_name`.       |
+            |                        | :attr:`.Logger.run_name`.                             |
             +------------------------+-------------------------------------------------------+
             | ``{rank}``             | The global rank, as returned by                       |
             |                        | :func:`~composer.utils.dist.get_global_rank`.         |
@@ -185,46 +162,33 @@ class ObjectStoreLogger(LoggerDestination):
 
             Consider the following example, which subfolders the artifacts by their rank:
 
-            .. testsetup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name_format
+            .. testsetup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name
 
                 import os
-                import functools
-                import composer.loggers.object_store_logger
 
-                from composer.loggers import ObjectStoreLogger as OriginalObjectStoreLogger
+                os.makedirs('path/to', exist_ok=True)
 
-                # For this example, we do not validate credentials
-                def do_not_validate(*args, **kwargs) -> None:
-                    pass
+                with open('path/to/file.txt', 'w+') as f:
+                    f.write('hi')
 
-                composer.loggers.object_store_logger._validate_credentials = do_not_validate
+            .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name
 
-                OriginalObjectStoreLogger.log_file_artifact = lambda *args, **kwargs: None
-
-                def ObjectStoreLogger(fake_ellipsis = ..., *args, **kwargs):
-                    return OriginalObjectStoreLogger(
-                        use_procs=False,
-                        num_concurrent_uploads=1,
-                        provider='local',
-                        container='.',
-                        provider_kwargs={'key': os.path.abspath(".") },
-                    )
-
-            .. doctest:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name_format
-
-                >>> object_store_logger = ObjectStoreLogger(..., object_name_format='rank_{rank}/{artifact_name}')
+                >>> object_store_logger = ObjectStoreLogger(..., object_name='rank_{rank}/{artifact_name}')
                 >>> trainer = Trainer(..., run_name='foo', loggers=[object_store_logger])
-                >>> trainer.logger.file_artifact(log_level=LogLevel.EPOCH, artifact_name='bar.txt',
-                ... file_path='path/to/file.txt')
+                >>> trainer.logger.file_artifact(
+                ...     log_level=LogLevel.EPOCH,
+                ...     artifact_name='bar.txt',
+                ...     file_path='path/to/file.txt',
+                ... )
 
-            .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name_format
+            .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__.object_name
 
                 # Shut down the uploader
                 object_store_logger._check_workers()
                 object_store_logger.post_close()
            
             Assuming that the process's rank is ``0``, the object store would store the contents of
-            ``'path/to/file.txt'`` in an object named ``'rank_0/bar.txt'``.
+            ``'path/to/file.txt'`` in an object named ``'rank0/bar.txt'``.
 
             Default: ``'{artifact_name}'``
 
@@ -241,7 +205,7 @@ class ObjectStoreLogger(LoggerDestination):
         container: str,
         provider_kwargs: Optional[Dict[str, Any]] = None,
         should_log_artifact: Optional[Callable[[State, LogLevel, str], bool]] = None,
-        object_name_format: str = '{artifact_name}',
+        object_name: str = '{artifact_name}',
         num_concurrent_uploads: int = 4,
         upload_staging_folder: Optional[str] = None,
         use_procs: bool = True,
@@ -252,7 +216,7 @@ class ObjectStoreLogger(LoggerDestination):
         if should_log_artifact is None:
             should_log_artifact = _always_log
         self.should_log_artifact = should_log_artifact
-        self.object_name_format = object_name_format
+        self.object_name = object_name
         self._run_name = None
 
         if upload_staging_folder is None:
@@ -286,7 +250,7 @@ class ObjectStoreLogger(LoggerDestination):
             raise RuntimeError("The ObjectStoreLogger is already initialized.")
         self._finished = self._finished_cls()
         self._run_name = logger.run_name
-        object_name_to_test = self._format_object_name(".credentials_validated_successfully")
+        object_name_to_test = self._object_name(".credentials_validated_successfully")
         _validate_credentials(self.provider, self.container, self.provider_kwargs, object_name_to_test)
         assert len(self._workers) == 0, "workers should be empty if self._finished was None"
         for _ in range(self._num_concurrent_uploads):
@@ -325,10 +289,9 @@ class ObjectStoreLogger(LoggerDestination):
         if not self.should_log_artifact(state, log_level, artifact_name):
             return
         copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
-        copied_path_dirname = os.path.dirname(copied_path)
-        os.makedirs(copied_path_dirname, exist_ok=True)
+        os.makedirs(self._upload_staging_folder, exist_ok=True)
         shutil.copy2(file_path, copied_path)
-        object_name = self._format_object_name(artifact_name)
+        object_name = self._object_name(artifact_name)
         self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
 
     def post_close(self):
@@ -350,22 +313,18 @@ class ObjectStoreLogger(LoggerDestination):
         Returns:
             str: The uri corresponding to the uploaded location of the artifact.
         """
-        obj_name = self._format_object_name(artifact_name)
+        obj_name = self._object_name(artifact_name)
         provider_prefix = f"{self.provider}://{self.container}/"
         return provider_prefix + obj_name.lstrip("/")
 
-    def _format_object_name(self, artifact_name: str):
-        """Format the ``artifact_name`` according to the ``object_name_format_string``."""
+    def _object_name(self, artifact_name: str):
+        """Format the ``artifact_name`` according to the ``object_name_string``."""
         if self._run_name is None:
             raise RuntimeError("The run name is not set. It should have been set on Event.INIT.")
-        key_name = self.object_name_format.format(
-            rank=dist.get_global_rank(),
-            local_rank=dist.get_local_rank(),
-            world_size=dist.get_world_size(),
-            local_world_size=dist.get_local_world_size(),
-            node_rank=dist.get_node_rank(),
-            artifact_name=artifact_name,
+        key_name = format_name_with_dist(
+            self.object_name,
             run_name=self._run_name,
+            artifact_name=artifact_name,
         )
         key_name = key_name.lstrip('/')
 
