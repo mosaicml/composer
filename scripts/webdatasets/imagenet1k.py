@@ -12,8 +12,8 @@ def parse_args() -> Namespace:
     args = ArgumentParser()
     args.add_argument('--in_root', type=str, required=True)
     args.add_argument('--out_root', type=str, required=True)
-    args.add_argument('--train_shards', type=int, default=1024)
-    args.add_argument('--val_shards', type=int, default=128)
+    args.add_argument('--train_shards', type=int, default=4096)
+    args.add_argument('--val_shards', type=int, default=1024)
     args.add_argument('--tqdm', type=int, default=1)
     return args.parse_args()
 
