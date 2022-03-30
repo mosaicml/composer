@@ -42,9 +42,10 @@ def colout_batch(input: ImgT,
             new_X = colout_batch(X_example, p_row=0.15, p_col=0.15)
 
     Args:
-        input: :class:`PIL.Image.Image` or :class:`torch.Tensor` of image data. In
-            the latter case, must be a single image of shape ``CHW`` or a batch
-            of images of shape ``NCHW``.
+        input (PIL.Image.Image | torch.Tensor): Image data. When a tensor, must be a single image of shape
+            ``CHW`` or a batch of images of shape ``NCHW``.
+        target (PIL.Image.Image | torch.Tensor): Target data. When a tensor, colout is only applied to this object if
+            it is at least 3 dimensional and has the same spatial dimensions as ``input``. Default: ``None``.
         p_row: Fraction of rows to drop (drop along H). Default: ``0.15``.
         p_col: Fraction of columns to drop (drop along W). Default: ``0.15``.
 
@@ -166,12 +167,13 @@ class ColOut(Algorithm):
             )
 
     Args:
-        p_row (float): Fraction of rows to drop (drop along H). Default: ``0.15``.
-        p_col (float): Fraction of columns to drop (drop along W). Default: ``0.15``.
-        batch (bool): Run ColOut at the batch level. Default: ``True``.
+        p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
+        p_col (float, optional): Fraction of columns to drop (drop along W). Default: ``0.15``.
+        batch (bool, optional): Run ColOut at the batch level. Default: ``True``.
+        resize_targets (bool, optional): If True, resize targets also. Default: ``False``.
     """
 
-    def __init__(self, p_row: float = 0.15, p_col: float = 0.15, batch: bool = True):
+    def __init__(self, p_row: float = 0.15, p_col: float = 0.15, batch: bool = True, resize_targets: bool = False):
         if not (0 <= p_col <= 1):
             raise ValueError("p_col must be between 0 and 1")
 
@@ -181,6 +183,7 @@ class ColOut(Algorithm):
         self.p_row = p_row
         self.p_col = p_col
         self.batch = batch
+        self.resize_targets = resize_targets
         self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
@@ -208,7 +211,11 @@ class ColOut(Algorithm):
         inputs, targets = state.batch_pair
         assert isinstance(inputs, Tensor) and isinstance(targets, Tensor), \
             "Multiple tensors not supported for this method yet."
-        new_batch = colout_batch(inputs, targets, p_row=self.p_row, p_col=self.p_col)
+
+        if self.resize_targets:
+            colout_input, colout_target = colout_batch(inputs, targets, p_row=self.p_row, p_col=self.p_col)
+        else:
+            colout_input = colout_batch(inputs, p_row=self.p_row, p_col=self.p_col)
 
         state.batch = new_batch
 
