@@ -5,7 +5,7 @@ import os
 import subprocess
 import textwrap
 from random import shuffle
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from tqdm import tqdm
 
@@ -13,8 +13,7 @@ if TYPE_CHECKING:
     from webdataset import WebDataset
 
 try:
-    from webdataset import ShardWriter, WebDataset
-    from wurlitzer import pipes
+    from webdataset import TarWriter, WebDataset
     webdataset_installed = True
 except ImportError:
     webdataset_installed = False
@@ -22,7 +21,7 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
-def _require_webdataset():
+def _require_webdataset() -> None:
     """Hard require webdataset."""
     if not webdataset_installed:
         raise ImportError(
@@ -31,23 +30,56 @@ def _require_webdataset():
                 mosaicml[webdataset]`."""))
 
 
-def _create_webdataset_meta(split_dir: str, n_samples: int, n_shards: int) -> None:
-    """Write a WebDataset meta file.
+def _get_shard_sizes(n_samples: int, n_shards: int) -> List[int]:
+    """Calculate the number of samples of each shard of a webdataset split.
 
     Args:
-        split_dir (str): Directory to save the JSON file into.
-        n_samples (int): Number of samples in this split.
-        n_shards (int): Number of shards in this split.
+        n_samples (int): Total samples over all shards.
+        n_shards (int): Number of shards.
     """
     samples_per_shard = n_samples // n_shards
-    n_leftover = n_samples % samples_per_shard
+    sizes = [samples_per_shard] * n_shards
+    for idx in range(n_samples - n_shards * samples_per_shard):
+        sizes[idx] += 1
+    return sizes
+
+
+def _create_shard(n_samples: int,
+                  samples: Iterator[Dict[str, Any]],
+                  filename: str,
+                  pbar=None) -> None:
+    """Write one shard of a WebDataset to a local directory, given an iterator over samples.
+
+    Args:
+        n_samples (int): Number of samples of this shard.
+        samples (iterator): Iterator over all samples of the split.
+        filename (str): Save filename.
+        pbar (optional): Optional tqdm progress bar.
+    """
+    out = open(filename, 'wb')
+    out = TarWriter(out)
+    for sample_idx in range(n_samples):
+        out.write(next(samples))
+        if pbar:
+            pbar.update(1)
+    out.close()
+
+
+def _create_split_meta(n_samples: int, n_shards: int, filename: str) -> None:
+    """Write a WebDataset split meta file.
+
+    Args:
+        n_samples (int): Number of samples in this split.
+        n_shards (int): Number of shards in this split.
+        filename (str): Save filename.
+    """
     obj = {
-        'n_shards': n_shards,
-        'samples_per_shard': samples_per_shard,
-        'n_leftover': n_leftover,
+        'samples': n_samples,
+        'shards': n_shards,
     }
-    filename = os.path.join(split_dir, 'meta.json')
-    json.dump(obj, open(filename, 'w'), sort_keys=True)
+    text = json.dumps(obj, sort_keys=True)
+    with open(filename, 'w') as out:
+        out.write(text)
 
 
 def create_webdataset(samples: Iterable[Dict[str, Any]],
@@ -67,19 +99,26 @@ def create_webdataset(samples: Iterable[Dict[str, Any]],
         use_tqdm (bool): Whether to show progress with tqdm.
     """
     _require_webdataset()
+
+    shard_sizes = _get_shard_sizes(n_samples, n_shards)
+
+    if use_tqdm:
+        pbar = tqdm(total=n_samples, leave=False)
+    else:
+        pbar = None
+
     split_dir = os.path.join(dataset_dir, split)
     os.makedirs(split_dir)
-    pattern = os.path.join(split_dir, '%05d.tar')
-    samples_per_shard = n_samples // n_shards
-    with pipes():
-        out = ShardWriter(pattern, maxcount=samples_per_shard)
-        out.verbose = 0
+
+    for shard_idx, shard_size in enumerate(shard_sizes):
+        filename = os.path.join(split_dir, '%05d.tar' % shard_idx)
+        _create_shard(shard_size, samples, filename, pbar)
+
+    filename = os.path.join(split_dir, 'meta.json')
+    _create_split_meta(n_samples, n_shards, filename)
+
     if use_tqdm:
-        samples = tqdm(samples, total=n_samples, leave=False)
-    for sample in samples:
-        out.write(sample)
-    out.close()
-    _create_webdataset_meta(split_dir, n_samples, n_shards)
+        pbar.close()
 
 
 def _find_samples(split_dirname):
@@ -211,7 +250,7 @@ def _init_webdataset(remote: str,
         split_dir = None
         text = _init_webdataset_meta(remote, split)
     meta = json.loads(text)
-    max_shard = meta['n_shards'] - 1
+    max_shard = meta['shards'] - 1
     shards = f'{{{0:05d}..{max_shard:05d}}}.tar'
     if remote.startswith('s3://'):
         urls = f'pipe: aws s3 cp {remote}/{split}/{shards} -'
@@ -317,5 +356,6 @@ def load_webdataset(remote: str, name: str, split: str, cache_dir: Optional[str]
         dataset = dataset.shuffle(shuffle_buffer)
     if preprocess:
         dataset = preprocess(dataset)
-    return _size_webdataset(dataset, meta['n_shards'], meta['samples_per_shard'], n_devices, workers_per_device,
+    samples_per_shard = math.ceil(meta['samples'] / meta['shards'])
+    return _size_webdataset(dataset, meta['shards'], samples_per_shard, n_devices, workers_per_device,
                             batch_size, drop_last)
