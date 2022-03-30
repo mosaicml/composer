@@ -6,8 +6,8 @@ weights initialized to 1/n. The samples must each be different and each provide 
 this by having the samples be the one-hot sample ID mapped to itself.
 
 As the model is trained, the weight matrix is expected to resolve to the identity matrix if the samples are presented
-a balanced number of times, whereas the weights columns for droppoed samples will never resolve at all. With imbalanced
-shards, we should expect to see nearly an identity matrix.
+a balanced number of times, whereas the weights columns for dropped samples will never resolve at all. With correctly
+handled imbalanced shards, we should expect nearly an identity matrix but with faint banding by shard size.
 """
 
 from argparse import ArgumentParser
