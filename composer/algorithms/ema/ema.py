@@ -18,24 +18,24 @@ log = logging.getLogger(__name__)
 __all__ = ["EMA", "ema"]
 
 
-def ema(model: torch.nn.Module, ema_model: torch.nn.Module, decay: float = 0.99):
+def ema(model: torch.nn.Module, ema_model: torch.nn.Module, smoothing: float = 0.99):
     r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model`` according to an exponential
     weighted average. Weights are updated according to
     .. math::
-        W_{ema_model}^{(t+1)} = decay\times W_{ema_model}^{(t)}+(1-decay)\times W_{model}^{(t)}
+        W_{ema_model}^{(t+1)} = smoothing\times W_{ema_model}^{(t)}+(1-smoothing)\times W_{model}^{(t)}
     The update to ``ema_model`` happens in place.
 
     The half life of the weights for terms in the average is given by
     .. math::
-        t_{1/2} = -\frac{\log(2)}{\log(decay)}
-    Therefore to set decay to obtain a target half life, set decay according to
+        t_{1/2} = -\frac{\log(2)}{\log(smoothing)}
+    Therefore to set smoothing to obtain a target half life, set smoothing according to
     .. math::
-        decay = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
+        smoothing = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
 
     Args:
         model (torch.nn.Module): the model containing the latest weights to use to update the moving average weights.
         ema_model (torch.nn.Module): the model containing the moving average weights to be updated.
-        decay (float, optional): the coefficient representing the degree to which older observations are discounted.
+        smoothing (float, optional): the coefficient representing the degree to which older observations are kept.
             Must be in the interval :math:`(0, 1)`. ``Default: ``0.99``.
 
     Example:
@@ -44,7 +44,7 @@ def ema(model: torch.nn.Module, ema_model: torch.nn.Module, decay: float = 0.99)
         from torchvision import models
         model = models.resnet50()
         ema_model = models.resnet50()
-        cf.ema(model, ema_model, decay=0.9)
+        cf.ema(model, ema_model, smoothing=0.9)
     """
     with torch.no_grad():
         model_params = itertools.chain(model.parameters(), model.buffers())
@@ -52,7 +52,7 @@ def ema(model: torch.nn.Module, ema_model: torch.nn.Module, decay: float = 0.99)
 
         for ema_param, model_param in zip(ema_model_params, model_params):
             model_param = model_param.detach()
-            ema_param.copy_(ema_param * decay + (1. - decay) * model_param)
+            ema_param.copy_(ema_param * smoothing + (1. - smoothing) * model_param)
 
 
 class EMA(Algorithm):
@@ -60,10 +60,10 @@ class EMA(Algorithm):
 
     Weights are updated according to
     .. math::
-        W_{ema_model}^{(t+1)} = decay\times W_{ema_model}^{(t)}+(1-decay)\times W_{model}^{(t)}
-    Where the decay is determined from ``half_life`` according to
+        W_{ema_model}^{(t+1)} = smoothing\times W_{ema_model}^{(t)}+(1-smoothing)\times W_{model}^{(t)}
+    Where the smoothing is determined from ``half_life`` according to
     .. math::
-        decay = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
+        smoothing = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
 
     Model evaluation is done with the moving average weights, which can result in better generalization. Because of the
     shadow model, EMA doubles the model's memory consumption. Note that this does not mean that the total memory
@@ -82,6 +82,20 @@ class EMA(Algorithm):
             updates are done once every ten batches. Units must match the units used to specify ``half_life``
         train_with_ema_weights (bool, optional): An experimental feature that uses the ema weights as the training
             weights. In most cases should be left as ``False``. Default ``False``.
+
+    Example:
+        .. testcode::
+
+            from composer.algorithms import EMA
+            algorithm = EMA(half_life='50ba', update_interval='1ba')
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[algorithm],
+                optimizers=[optimizer]
+            )
     """
 
     def __init__(self, half_life: str, update_interval: str, train_with_ema_weights: bool = False):
@@ -113,7 +127,7 @@ class EMA(Algorithm):
                              f"{self.update_interval.unit}")
 
         # Calculate the appropriate weighting for the moving average
-        self.decay = 2 ** (-(self.update_interval.value/self.half_life.value))
+        self.smoothing = 2**(-(self.update_interval.value / self.half_life.value))
 
         # Construct the appropriate matching events
         self.match_events = [Event.FIT_START, Event.EVAL_START, Event.EVAL_END]
@@ -136,16 +150,16 @@ class EMA(Algorithm):
                 # Check if an update should happen
                 if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
                     # Update the ema model
-                    ema(state.model, self.ema_model, decay=self.decay)
+                    ema(state.model, self.ema_model, smoothing=self.smoothing)
                     # Use the ema weights for further training
                     state.model.load_state_dict(self.ema_model.state_dict())
         else:
             if event in [Event.BATCH_END, Event.EPOCH_END]:
                 # Check if an update should happen
                 if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
-                    print(state.timer.get(self.update_interval.unit), "Updating", self.decay)
+                    print(state.timer.get(self.update_interval.unit), "Updating", self.smoothing)
                     # Update the ema model
-                    ema(state.model, self.ema_model, decay=self.decay)
+                    ema(state.model, self.ema_model, smoothing=self.smoothing)
             if event == Event.EVAL_START:
                 # Swap out the training model for the ema model in state
                 self.training_model.load_state_dict(state.model.state_dict())

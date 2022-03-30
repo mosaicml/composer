@@ -159,6 +159,7 @@ class CutOutHparams(AlgorithmHparams):
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
 
+
 @dataclass
 class EMAHparams(AlgorithmHparams):
     """See :class:`EMA`"""
