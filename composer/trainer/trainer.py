@@ -1146,7 +1146,8 @@ class Trainer:
         # Retry until we successfully complete training and return loss
         while True:
             total_loss = None
-            should_handle_cuda_oom = False
+            # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
+            should_handle_cuda_oom = 0 
             caught_timeout_error = None
             try:
                 assert self.state.scaler is not None
@@ -1173,7 +1174,7 @@ class Trainer:
                     log.debug(
                         textwrap.dedent(f"""Rank {dist.get_global_rank()} OOM'd. 
                         grad_accum will be increased prior to reattempting training on the current batch."""))
-                    should_handle_cuda_oom = True
+                    should_handle_cuda_oom = 1
                 elif "Timed out" in str(e):
                     # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
                     # is likely transient if one rank OOMed, it likely did not reach a barrier. Note that if we
@@ -1184,9 +1185,9 @@ class Trainer:
 
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
-                torch.tensor([should_handle_cuda_oom], dtype=torch.bool))
+                torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
             dist.all_reduce(should_handle_cuda_oom, reduce_operation="MAX")
-            if should_handle_cuda_oom:
+            if int(should_handle_cuda_oom.item()) == 1:
                 # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
                 # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
                 self._handle_cuda_oom()
