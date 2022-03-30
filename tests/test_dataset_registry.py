@@ -39,6 +39,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
             datadir=["hello"],  # type: ignore # need to remove the datadir from the base class.
             split='train',
             tokenizer_name='gpt2',
+            use_masked_lm=False,
         ),
     GLUEHparams:
         lambda: GLUEHparams(
@@ -73,6 +74,10 @@ def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataLoaderHparams)
     hparams = default_required_fields[hparams_cls]()
     if not isinstance(hparams, SyntheticHparamsMixin):
         pytest.xfail(f"{hparams.__class__.__name__} does not support synthetic data")
+    if isinstance(hparams, GLUEHparams) or isinstance(hparams, LMDatasetHparams):
+        pytest.importorskip("transformers")
+        pytest.importorskip("datasets")
+        pytest.importorskip("tokenizers")
 
     assert isinstance(hparams, SyntheticHparamsMixin)
 

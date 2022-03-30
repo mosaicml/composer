@@ -53,9 +53,9 @@ def test_dataset_properties(dataset, config):
 
 
 @pytest.fixture
-def tokenizer(dataset, config, tmp_path):
+def tokenizer(dataset, config):
     # build the tokenizer
-    tokenizer = generate_synthetic_tokenizer(config['tokenizer_family'], tmp_path=tmp_path, dataset=dataset)
+    tokenizer = generate_synthetic_tokenizer(config['tokenizer_family'], dataset=dataset)
     # verifying the input ids are a part of the tokenizer
     assert 'input_ids' in tokenizer.model_input_names
     return tokenizer
