@@ -1,12 +1,13 @@
 import copy
-import pytest
+
 import numpy as np
+import pytest
 import torch
 
 from composer.algorithms import EMAHparams
 from composer.algorithms.ema.ema import ema
 from composer.core import Event, Time, Timer, TimeUnit
-from tests.common import SimpleModel, SimpleConvModel
+from tests.common import SimpleConvModel, SimpleModel
 
 
 def validate_ema(model, original_model, ema_model, decay):
