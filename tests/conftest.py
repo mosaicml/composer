@@ -145,7 +145,7 @@ def seed_all(rank_zero_seed: int):
     reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
 
 
-@pytest.fixture(autouse=True, scope='session')
+@pytest.fixture(autouse=True)
 def initialize_cuda(request: pytest.FixtureRequest):
     if request.node.get_closest_marker('gpu') is not None:
         # torch.cuda takes a few seconds to initialize on first load
