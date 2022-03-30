@@ -35,7 +35,6 @@ def get_model_algs(model_name: str) -> List[str]:
         pytest.importorskip("datasets")
         pytest.importorskip("tokenizers")
     if is_language_model:
-        algs.remove('alibi')
         algs.remove('blurpool')
         algs.remove('channels_last')
         algs.remove('cutmix')

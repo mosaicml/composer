@@ -124,7 +124,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             lm_datasets = lm_datasets.map(lambda inp: tokenizer(
                 text=inp[column_names[0]], padding="max_length", max_length=self.max_seq_length, truncation=True),
                                           batched=True,
-                                          num_proc=dataloader_hparams.num_workers,
+                                          num_proc=max(1, dataloader_hparams.num_workers),
                                           remove_columns=columns_to_remove,
                                           keep_in_memory=True)
 
@@ -186,9 +186,11 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                                                                          mlm=self.use_masked_lm,
                                                                          mlm_probability=self.mlm_probability)
 
-        sampler = dist.get_sampler(cast(torch.utils.data.Dataset, dataset),
-                                   drop_last=self.drop_last,
-                                   shuffle=self.shuffle)
+        sampler = dist.get_sampler(
+            cast(torch.utils.data.Dataset,
+                 dataset),  # HF datasets do not subclass torch datasets, so this cast is needed
+            drop_last=self.drop_last,
+            shuffle=self.shuffle)
 
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=cast(torch.utils.data.Dataset, dataset),

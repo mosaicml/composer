@@ -20,7 +20,6 @@ def configure_dataset_for_synthetic(dataset_hparams: DatasetHparams,
 
     if isinstance(model_hparams, TransformerHparams):
         if type(model_hparams) not in _model_hparams_to_tokenizer_family:
-            print(type(model_hparams))
             raise ValueError(f"Model {type(model_hparams)} is currently not supported for synthetic testing!")
 
         tokenizer_family = _model_hparams_to_tokenizer_family[type(model_hparams)]
