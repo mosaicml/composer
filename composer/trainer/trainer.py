@@ -1147,7 +1147,7 @@ class Trainer:
         while True:
             total_loss = None
             # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
-            should_handle_cuda_oom = 0 
+            should_handle_cuda_oom = 0
             caught_timeout_error = None
             try:
                 assert self.state.scaler is not None
