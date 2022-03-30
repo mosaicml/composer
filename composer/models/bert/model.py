@@ -12,7 +12,7 @@ from torchmetrics.classification.accuracy import Accuracy
 from torchmetrics.classification.matthews_corrcoef import MatthewsCorrCoef
 from torchmetrics.regression.spearman import SpearmanCorrCoef
 
-from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
+from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
 from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
@@ -70,7 +70,7 @@ class BERTModel(ComposerTransformer):
             SpearmanCorrCoef(),
             BinaryF1Score(),
             MatthewsCorrCoef(num_classes=config.num_labels),
-            CrossEntropyLoss(ignore_index=ignore_index, vocab_size=config.num_labels),
+            LanguageCrossEntropy(ignore_index=ignore_index, vocab_size=config.num_labels),
             MaskedAccuracy(ignore_index=ignore_index),
         ]
         self.train_metrics = []
