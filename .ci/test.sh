@@ -15,13 +15,32 @@ else
     pip install .[${EXTRA_DEPS}]
 fi
 
-# Run pytest
-JUNIT_PREFIX=build/output/${BUILD_NUMBER}
-mkdir -p $(dirname $JUNIT_PREFIX)
-make test PYTEST="coverage run -m pytest" DURATION=all EXTRA_ARGS="--junitxml $JUNIT_PREFIX.n0.junit.xml -v -m '$MARKERS'"
-RANK_ARG='\$${RANK}' # escape RANK from the makefile and the makefile shell command
-make test-dist PYTEST="coverage run -m pytest" DURATION=all WORLD_SIZE=2 EXTRA_ARGS="--junitxml $JUNIT_PREFIX.${RANK_ARG}_n2.junit.xml -v -m '$MARKERS'"
+# Clean and make the output directory
+BUILD_DIR="build/output"
+rm -rf ${BUILD_DIR}
+mkdir -p ${BUILD_DIR}
 
-# Combine the coverage reports
-python -m coverage combine
-python -m coverage xml -o build/output/${BUILD_NUMBER}.coverage.xml
+function cleanup()
+{
+    # Combine the coverage reports
+    python -m coverage combine
+    python -m coverage xml -o build/output/build${BUILD_NUMBER}.coverage.xml
+}
+
+trap cleanup EXIT
+
+# Set the run directory to build/output, which will be caputred by Jenkins
+# Run pytest with coverage, and store the junit output
+make test \
+    PYTEST="coverage run -m pytest" \
+    DURATION=all \
+    EXTRA_ARGS="--junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_nproc0.junit.xml -v -m '$MARKERS'"
+
+RANK_ARG='\$${RANK}' # escape RANK from the makefile and the makefile shell command
+make test-dist \
+    PYTEST="coverage run -m pytest" \
+    DURATION=all \
+    WORLD_SIZE=2 \
+    EXTRA_LAUNCHER_ARGS="--stdout ${BUILD_DIR}/build${BUILD_NUMBER}_nproc2_rank{rank}.stdout.txt \
+        --stderr ${BUILD_DIR}/build${BUILD_NUMBER}_nproc2_rank{rank}.stderr.txt" \
+    EXTRA_ARGS="--junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_rank${RANK_ARG}_nproc2.junit.xml -v -m '$MARKERS'"

@@ -7,8 +7,8 @@ import signal
 import socket
 import subprocess
 import sys
-import textwrap
 import time
+import traceback
 import warnings
 from argparse import ArgumentParser
 from typing import Any, List, Optional, Set
@@ -32,6 +32,28 @@ def get_parser():
                         help="The total number of processes to launch on all "
                         "nodes. Set to -1 to default to nproc (single-node operation). "
                         "Defaults to -1.")
+    parser.add_argument(
+        "--stdout",
+        type=str,
+        default=None,
+        help=("Format string for a filename to dump the STDOUT from the non-local-rank-zero processes."
+              "The local rank zero process will be piped through to STDOUT. The available format variables are: "
+              "'{rank}', '{local_rank}', '{world_size}', '{node_rank}', and '{local_world_size}'. If specified, "
+              "it is recommended to include '{rank}' or '{local_rank}' in the filename so each rank will write to its"
+              "own file. By default, the STDOUT of the non-local-rank-zero processes is discarded; instead, use the "
+              "FileLogger within Composer. This logger captures and saves the STDOUT of each process."),
+    )
+    parser.add_argument(
+        "--stderr",
+        type=str,
+        default=None,
+        help=("Format string for a filename to dump the STDERR from the non-local-rank-zero processes."
+              "The local rank zero process will be piped through to STDERR. The available format variables are: "
+              "'{rank}', '{local_rank}', '{world_size}', '{node_rank}', and '{local_world_size}'. If specified, "
+              "it is recommended to include '{rank}' or '{local_rank}' in the filename so each rank will write to its"
+              "own file. By default, the STDERR of the non-local-rank-zero processes is discarded; instead, use the "
+              "FileLogger within Composer. This logger captures and saves the STDERR of each process."),
+    )
     parser.add_argument("--base_rank",
                         type=int,
                         default=0,
@@ -55,12 +77,6 @@ def get_parser():
                         help="The port on the master hosting the C10d TCP store. If you are running "
                         "multiple trainers on a single node, this generally needs to be unique for "
                         "each one. Defaults to a random free port.")
-    parser.add_argument("--run_directory",
-                        type=str,
-                        default=None,
-                        help=textwrap.dedent("""\
-                            Directory to store run artifcats. 
-                            Defaults to runs/{timestamp}/""")),
     parser.add_argument("-m",
                         "--module_mode",
                         action="store_true",
@@ -104,14 +120,10 @@ def parse_args():
 
 
 def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int, master_addr: str,
-                     master_port: Optional[int], module_mode: bool, run_directory: Optional[str], training_script: str,
-                     training_script_args: List[Any]) -> Set[subprocess.Popen]:
+                     master_port: Optional[int], module_mode: bool, training_script: str,
+                     stdout_file_format: Optional[str], stderr_file_format: Optional[str],
+                     training_script_args: List[Any], processes: Set[subprocess.Popen]):
     log.info("Starting DDP on local node for global_rank(%s-%s)", base_rank, base_rank + nproc - 1)
-    processes = []
-
-    if run_directory is None:
-        run_directory = os.path.join("runs", datetime.datetime.now().isoformat().replace(":", "-"))
-    os.makedirs(run_directory, exist_ok=True)
 
     if master_port is None:
         warnings.warn("AutoSelectPortWarning: The DDP port was auto-selected. "
@@ -137,27 +149,36 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int
         current_env["NODE_RANK"] = str(node_rank)
         current_env["MASTER_ADDR"] = master_addr
         current_env["MASTER_PORT"] = str(master_port)
-        current_env["COMPOSER_RUN_DIRECTORY"] = run_directory
 
         log.info("Launching process for local_rank(%s), global_rank(%s) with command(%s)", local_rank, global_rank, cmd)
 
         if local_rank == 0:
             process = subprocess.Popen(cmd, env=current_env, text=True, shell=True)
         else:
-            logs_dir = os.path.join(run_directory, f"rank_{global_rank}", "logs")
-            os.makedirs(logs_dir, exist_ok=True)
+
+            def _get_file(format: Optional[str]):
+                if format is None:
+                    return subprocess.DEVNULL
+                else:
+                    filename = format.format(
+                        rank=global_rank,
+                        world_size=world_size,
+                        local_rank=local_rank,
+                        local_world_size=nproc,
+                        node_rank=node_rank,
+                    )
+                    return open(filename, 'x')
+
             process = subprocess.Popen(
                 cmd,
                 # Using a shell to execute the command, so the env variables will be available to the CLI arguments
                 shell=True,
                 env=current_env,
-                stdout=open(os.path.join(logs_dir, f"rank_{global_rank}.stdout.txt"), "x"),
-                stderr=open(os.path.join(logs_dir, f"rank_{global_rank}.stderr.txt"), "x"),
+                stdout=_get_file(stdout_file_format),
+                stderr=_get_file(stderr_file_format),
                 text=True,
             )
-        processes.append(process)
-
-    return set(processes)
+        processes.add(process)
 
 
 def monitor_processes(processes: Set[subprocess.Popen]):
@@ -221,7 +242,7 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
             living_processes_at_end.add(process)
             log.info("Killing subprocess %s with SIGTERM", process.pid)
             try:
-                os.killpg(process.pid, signal.SIGTERM)
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             except ProcessLookupError:
                 pass
 
@@ -239,7 +260,7 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
         if process.returncode is None:
             log.warning("Failed to kill subprocess %s with SIGTERM; using SIGKILL instead", process.pid)
             try:
-                os.killpg(process.pid, signal.SIGKILL)
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
             except ProcessLookupError:
                 pass
     for process in processes:
@@ -269,22 +290,29 @@ def main():
     logging.basicConfig()
     log.setLevel(logging.INFO if args.verbose else logging.WARN)
 
-    processes = launch_processes(nproc=args.nproc,
-                                 world_size=args.world_size,
-                                 base_rank=args.base_rank,
-                                 node_rank=args.node_rank,
-                                 master_addr=args.master_addr,
-                                 master_port=args.master_port,
-                                 module_mode=args.module_mode,
-                                 training_script=args.training_script,
-                                 run_directory=args.run_directory,
-                                 training_script_args=args.training_script_args)
+    processes = set()
 
     try:
+        launch_processes(nproc=args.nproc,
+                         world_size=args.world_size,
+                         base_rank=args.base_rank,
+                         node_rank=args.node_rank,
+                         master_addr=args.master_addr,
+                         master_port=args.master_port,
+                         module_mode=args.module_mode,
+                         stdout_file_format=args.stdout,
+                         stderr_file_format=args.stderr,
+                         training_script=args.training_script,
+                         training_script_args=args.training_script_args,
+                         processes=processes)
         monitor_processes(processes)
-    except KeyboardInterrupt:
-        print("Caught Ctrl+C; killing training processes")
-        raise
+    except:
+        # Print the exception first, then kill the training processes, since killing
+        # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
+        # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
+        # will return an appropriate error code, which will cause the script to exit.
+        traceback.print_exc()
+        print("Killing training processes")
     finally:
         cleanup_processes(processes)
         return aggregate_process_returncode(processes)

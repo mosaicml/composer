@@ -14,7 +14,7 @@ from typing import List, Optional
 import yahp as hp
 from torchmetrics import Metric, MetricCollection
 
-from composer.core import Evaluator
+from composer.core.evaluator import Evaluator
 from composer.datasets import DataLoaderHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.hparams import DatasetHparams
