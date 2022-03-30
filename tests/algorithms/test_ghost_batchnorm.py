@@ -2,6 +2,7 @@
 
 """Test Ghost Batch Normalization, both as an algorithm and module."""
 
+import contextlib
 import math
 from typing import Any, Sequence, Tuple, Union, cast
 from unittest.mock import MagicMock, Mock
@@ -70,17 +71,19 @@ def test_ghost_bn_hparams():
     assert isinstance(algorithm, GhostBatchNorm)
 
 
-@pytest.mark.parametrize('num_dims', [
-    1, 2, 3,
-    pytest.param(4, marks=pytest.mark.xfail(raises=KeyError)),
-    pytest.param(-1, marks=pytest.mark.xfail(raises=KeyError))
-])
+@pytest.mark.parametrize('num_dims', [1, 2, 3, 4, -1])
 def test_batchnorm_gets_replaced_functional(num_dims: int):
-    """GhostBatchNorm{1,2,3}d should work, but other ints should throw."""
-    module = ModuleWithBatchnorm(num_dims)
-    assert module_surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 0
-    ghostbn.apply_ghost_batchnorm(module, ghost_batch_size=1)
-    assert module_surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 1
+    if num_dims < 1 or num_dims > 3:
+        ctx = pytest.raises(KeyError)
+    else:
+        ctx = contextlib.nullcontext()
+
+    with ctx:
+        """GhostBatchNorm{1,2,3}d should work, but other ints should throw."""
+        module = ModuleWithBatchnorm(num_dims)
+        assert module_surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 0
+        ghostbn.apply_ghost_batchnorm(module, ghost_batch_size=1)
+        assert module_surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 1
 
 
 @pytest.mark.parametrize('num_dims', _TEST_NUM_DIMS)

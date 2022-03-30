@@ -8,6 +8,7 @@ import socket
 import subprocess
 import sys
 import time
+import traceback
 import warnings
 from argparse import ArgumentParser
 from typing import Any, List, Optional, Set
@@ -121,9 +122,8 @@ def parse_args():
 def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int, master_addr: str,
                      master_port: Optional[int], module_mode: bool, training_script: str,
                      stdout_file_format: Optional[str], stderr_file_format: Optional[str],
-                     training_script_args: List[Any]) -> Set[subprocess.Popen]:
+                     training_script_args: List[Any], processes: Set[subprocess.Popen]):
     log.info("Starting DDP on local node for global_rank(%s-%s)", base_rank, base_rank + nproc - 1)
-    processes = []
 
     if master_port is None:
         warnings.warn("AutoSelectPortWarning: The DDP port was auto-selected. "
@@ -178,9 +178,7 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int
                 stderr=_get_file(stderr_file_format),
                 text=True,
             )
-        processes.append(process)
-
-    return set(processes)
+        processes.add(process)
 
 
 def monitor_processes(processes: Set[subprocess.Popen]):
@@ -244,7 +242,7 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
             living_processes_at_end.add(process)
             log.info("Killing subprocess %s with SIGTERM", process.pid)
             try:
-                os.killpg(process.pid, signal.SIGTERM)
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             except ProcessLookupError:
                 pass
 
@@ -262,7 +260,7 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
         if process.returncode is None:
             log.warning("Failed to kill subprocess %s with SIGTERM; using SIGKILL instead", process.pid)
             try:
-                os.killpg(process.pid, signal.SIGKILL)
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
             except ProcessLookupError:
                 pass
     for process in processes:
@@ -292,23 +290,29 @@ def main():
     logging.basicConfig()
     log.setLevel(logging.INFO if args.verbose else logging.WARN)
 
-    processes = launch_processes(nproc=args.nproc,
-                                 world_size=args.world_size,
-                                 base_rank=args.base_rank,
-                                 node_rank=args.node_rank,
-                                 master_addr=args.master_addr,
-                                 master_port=args.master_port,
-                                 module_mode=args.module_mode,
-                                 stdout_file_format=args.stdout,
-                                 stderr_file_format=args.stderr,
-                                 training_script=args.training_script,
-                                 training_script_args=args.training_script_args)
+    processes = set()
 
     try:
+        launch_processes(nproc=args.nproc,
+                         world_size=args.world_size,
+                         base_rank=args.base_rank,
+                         node_rank=args.node_rank,
+                         master_addr=args.master_addr,
+                         master_port=args.master_port,
+                         module_mode=args.module_mode,
+                         stdout_file_format=args.stdout,
+                         stderr_file_format=args.stderr,
+                         training_script=args.training_script,
+                         training_script_args=args.training_script_args,
+                         processes=processes)
         monitor_processes(processes)
-    except KeyboardInterrupt:
-        print("Caught Ctrl+C; killing training processes")
-        raise
+    except:
+        # Print the exception first, then kill the training processes, since killing
+        # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
+        # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
+        # will return an appropriate error code, which will cause the script to exit.
+        traceback.print_exc()
+        print("Killing training processes")
     finally:
         cleanup_processes(processes)
         return aggregate_process_returncode(processes)
