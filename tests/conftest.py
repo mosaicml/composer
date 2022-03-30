@@ -19,9 +19,8 @@ WORLD_SIZE_OPTIONS = (1, 2)
 # default timout threshold is 2 seconds for determinign long and short
 DEFAULT_TIMEOUT = 2.0
 
-# Enforce use of deterministic kernels
-# see composer.utils.reproducibility.configure_deterministic_mode
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+# Enforce deterministic mode before any tests start.
+reproducibility.configure_deterministic_mode()
 
 # during the pytest refactor transition, this flag
 # indicates whether to include the deprecated fixtures.

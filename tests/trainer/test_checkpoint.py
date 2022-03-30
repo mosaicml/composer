@@ -321,7 +321,6 @@ def test_checkpoint(
     if deepspeed_enabled:
         assert zero_stage is not None
         if zero_stage > 0:
-            composer_trainer_hparams.deterministic_mode = False
             if model_name is not None:
                 pytest.skip(
                     textwrap.dedent(f"""\

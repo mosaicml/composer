@@ -157,7 +157,6 @@ class TestTrainerEquivalence():
             'seed': rank_zero_seed,
             'device': device,
             'precision': precision,
-            'deterministic_mode': True,  # testing equivalence
             'loggers': [],  # no progress bar
         }
 
