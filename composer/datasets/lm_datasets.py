@@ -124,7 +124,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             lm_datasets = lm_datasets.map(lambda inp: tokenizer(
                 text=inp[column_names[0]], padding="max_length", max_length=self.max_seq_length, truncation=True),
                                           batched=True,
-                                          num_proc=1,
+                                          num_proc=dataloader_hparams.num_workers,
                                           remove_columns=columns_to_remove,
                                           keep_in_memory=True)
 
