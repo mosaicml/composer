@@ -24,7 +24,7 @@ from tests.fixtures.models import (SimpleBatchPairModel, SimpleConvModel, _Simpl
 
 @pytest.fixture
 def dummy_in_shape() -> Tuple[int, ...]:
-    return (1, 5, 5)
+    return 1, 5, 5
 
 
 @pytest.fixture
