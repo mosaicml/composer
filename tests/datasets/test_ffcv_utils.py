@@ -10,7 +10,7 @@ from composer.datasets.synthetic import SyntheticDataLabelType, SyntheticPILData
 
 
 @pytest.mark.vision
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(15)
 def test_write_ffcv_dataset(tmpdir: pathlib.Path):
     dataset = SyntheticPILDataset(total_dataset_size=1,
                                   num_classes=1,

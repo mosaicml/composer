@@ -10,7 +10,6 @@ from composer.trainer import TrainerHparams
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-@pytest.mark.timeout(10)
 def test_wandb_logger(composer_trainer_hparams: TrainerHparams, world_size: int):
     pytest.importorskip("wandb", reason="wandb is an optional dependency")
     del world_size  # unused. Set via launcher script

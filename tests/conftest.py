@@ -6,6 +6,7 @@ import pathlib
 from typing import List, Optional
 
 import pytest
+import torch
 
 import composer
 from composer.utils import dist, reproducibility
@@ -142,6 +143,15 @@ def seed_all(rank_zero_seed: int):
     """Set the random seed before each test to ensure consistent test results, which and limit flakiness due to random
     initializations."""
     reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
+
+
+@pytest.fixture(autouse=True, scope='session')
+def initialize_cuda(request: pytest.FixtureRequest):
+    if request.node.get_closest_marker('gpu') is not None:
+        # torch.cuda takes a few seconds to initialize on first load
+        # pre-initialize cuda via a fixture so individual tests, which are subject to a timeout,
+        # load cuda instantly.
+        torch.Tensor([0]).cuda()
 
 
 @pytest.fixture(autouse=True)
