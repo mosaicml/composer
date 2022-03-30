@@ -1147,7 +1147,7 @@ class Trainer:
         while True:
             total_loss = None
             should_handle_cuda_oom = False
-            caught_error = None
+            caught_timeout_error = None
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
@@ -1170,22 +1170,30 @@ class Trainer:
                             optimizer.step()
             except RuntimeError as e:
                 if self._is_cuda_oom(e):
+                    log.debug(
+                        textwrap.dedent(f"""Rank {dist.get_global_rank()} OOM'd. 
+                        grad_accum will be increased prior to reattempting training on the current batch."""))
                     should_handle_cuda_oom = True
+                elif "Timed out" in str(e):
+                    # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
+                    # is likely transient if one rank OOMed, it likely did not reach a barrier. Note that if we
+                    # catch non-transient timeout errors they will be later reraised if no rank OOMed.
+                    caught_timeout_error = e
                 else:
-                    caught_error = e
+                    raise e
 
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.bool))
             dist.all_reduce(should_handle_cuda_oom, reduce_operation="MAX")
             if should_handle_cuda_oom:
-                # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_error since it is
-                # likely transient, e.g. timeout because certain ranks failed and didn't sync.
+                # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
+                # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
                 self._handle_cuda_oom()
-            elif caught_error:
-                # If not CUDA out of memory, raise exception to user. Note that this
-                # truncates the call stack back only to this newly raised error
-                raise caught_error
+            elif caught_timeout_error:
+                # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
+                # back only to this newly raised error.
+                raise caught_timeout_error
             else:
                 # Otherwise, return calculated loss
                 return total_loss
