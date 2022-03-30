@@ -39,7 +39,7 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
     half_life, update_interval= params[0], params[1]
     algorithm = EMAHparams(half_life=half_life, update_interval=update_interval, train_with_ema_weights=False).initialize_object()
     state = minimal_state
-    state.model = torch.nn.Linear(5, 5)
+    state.model = SimpleConvModel()
     state.batch = (input, torch.Tensor())
 
     # Start EMA
@@ -52,7 +52,7 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
 
     # Fake a training update by replacing state.model after ema grabbed it.
     original_model = copy.deepcopy(state.model)
-    state.model = torch.nn.Linear(5, 5)
+    state.model = SimpleConvModel()
     # Do the EMA update
     state.timer = Timer()
     if half_life.unit == TimeUnit.BATCH:
