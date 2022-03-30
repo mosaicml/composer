@@ -3,7 +3,6 @@
 import itertools
 from copy import deepcopy
 
-import pytest
 import torch
 
 from composer.core.types import DataLoader
@@ -33,7 +32,6 @@ def get_total_loss(model: ComposerModel, dataloader: DataLoader, device: Device)
 
 
 def train_model(composer_trainer_hparams: TrainerHparams, max_epochs: int = 2, run_loss_check: bool = False):
-    pytest.xfail("train_model is flaky")
     total_dataset_size = 16
     composer_trainer_hparams.train_dataset = MNISTDatasetHparams(use_synthetic=True,)
     composer_trainer_hparams.train_subset_num_batches = 1
