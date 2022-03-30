@@ -13,12 +13,13 @@ to visualize the trace.
 """
 import argparse
 import json
+import pathlib
 from typing import Dict, List, Tuple, Union
 
 __all__ = ["merge_traces"]
 
 
-def _load_trace(file: str) -> Union[Dict, List]:
+def _load_trace(file: Union[str, pathlib.Path]) -> Union[Dict, List]:
     with open(file, "r") as f:
         trace_str = f.read().strip()
         if trace_str.startswith("["):
@@ -29,7 +30,7 @@ def _load_trace(file: str) -> Union[Dict, List]:
         return json.loads(trace_str)
 
 
-def _get_global_rank_from_file(file: str) -> int:
+def _get_global_rank_from_file(file: Union[str, pathlib.Path]) -> int:
     trace_json = _load_trace(file)
     if isinstance(trace_json, list):
         for event in trace_json:
@@ -41,7 +42,7 @@ def _get_global_rank_from_file(file: str) -> int:
     raise RuntimeError("global rank not found in file")
 
 
-def _get_rank_to_clock_syncs(trace_files: Tuple[str, ...]) -> Dict[int, int]:
+def _get_rank_to_clock_syncs(trace_files: Tuple[Union[str, pathlib.Path], ...]) -> Dict[int, int]:
     rank_to_clock_sync: Dict[int, int] = {}
     for filename in trace_files:
         rank = _get_global_rank_from_file(filename)
@@ -60,7 +61,7 @@ def _get_rank_to_clock_syncs(trace_files: Tuple[str, ...]) -> Dict[int, int]:
     return rank_to_clock_sync
 
 
-def merge_traces(output_file: str, *trace_files: str):
+def merge_traces(output_file: Union[str, pathlib.Path], *trace_files: Union[str, pathlib.Path]):
     """Merge profiler output JSON trace files together.
 
     This function will update the trace events such that:
@@ -70,8 +71,8 @@ def merge_traces(output_file: str, *trace_files: str):
     - The backward pass process appears below the forward process.
 
     Args:
-        output_file (str): The file to write the merged trace to
-        trace_files (str): Variable number of trace files to merge together
+        output_file (str | pathlib.Path): The file to write the merged trace to
+        trace_files (str | pathlib.Path): Variable number of trace files to merge together
     """
 
     ranks_to_clock_sync = _get_rank_to_clock_syncs(trace_files)
@@ -80,7 +81,7 @@ def merge_traces(output_file: str, *trace_files: str):
 
     rank_zero_clock_sync = ranks_to_clock_sync[0]
 
-    with open(output_file, "x") as output_f:
+    with open(output_file, "w+") as output_f:
         is_first_line = True
         output_f.write("[")
         for trace_filename in trace_files:
