@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import List, Mapping, Tuple, Type, cast
+from typing import Callable, Dict, List, Mapping, Optional, Tuple, Type, cast
 from unittest.mock import Mock
 
 import pytest
@@ -93,6 +93,37 @@ def test_module_replacement(model_cls: Type[SimpleReplacementPolicy], recurse_on
     )
 
     model.validate_replacements(recurse_on_replacements)
+
+
+def test_module_replacement_preserves_weights():
+    model = SimpleReplacementPolicy()
+
+    original_fc1 = model.fc1
+
+    def replacement_policy(module: torch.nn.Module, module_index: int):
+        assert isinstance(module, torch.nn.Linear)
+        new_linear = torch.nn.Linear(
+            in_features=module.in_features,
+            out_features=module.out_features,
+            bias=module.bias is not None,
+            dtype=module.weight.dtype,
+        )
+
+        torch.nn.init.constant_(new_linear.weight, 0.314)
+        torch.nn.init.constant_(new_linear.bias.data, 0.25)
+
+        assert torch.all(new_linear.weight != module.weight)
+        assert torch.all(new_linear.bias != module.bias)
+
+        return new_linear
+
+    policies: Dict[Type[nn.Module], Callable[[nn.Module, int], Optional[nn.Module]]] = {nn.Linear: replacement_policy}
+
+    module_surgery.replace_module_classes(model, policies)
+
+    assert model.fc1 is not original_fc1
+    assert torch.all(model.fc1.weight == original_fc1.weight)
+    assert torch.all(model.fc1.bias == original_fc1.bias)
 
 
 class _CopyLinear(torch.nn.Module):

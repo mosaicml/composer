@@ -101,13 +101,11 @@ def replace_module_classes(
         >>> replace_module_classes(module, policies, recurse_on_replacements=True)
         {Conv2d(1, 32, kernel_size=(3, 3), stride=(1, 1)): Linear(in_features=16, out_features=32, bias=True), Linear(in_features=16, out_features=32, bias=True): Linear(in_features=32, out_features=64, bias=True)}
 
-    .. warning::
+    .. note::
 
-        When a module is replaced, any tensor values within the module are not copied over
-        to the new module even when the shape is identical. For example, if model weights
-        are initialized prior to calling this function, the initialized weights will not
-        be preserved in any replacements.
-
+        For module parameters that are replaced with the same shape and data type, tensor values are copied from the
+        original parameters to new parameters. Otherwise, parameters values are not copied over. As such, when module
+        surgery changes tensor shapes or dimensions, any initialized weights will not be preserved.
 
     Arguments:
         module (torch.nn.Module): Model to modify.
@@ -178,6 +176,13 @@ def replace_module_classes(
             if replacement is not None:
                 assert child not in replaced_pairs
                 replaced_pairs[child] = replacement
+
+                # Attempt to copy initialization weights if possible
+                for child_parameter, replacement_parameter in zip(child.parameters(), replacement.parameters()):
+                    if child_parameter.shape == replacement_parameter.shape:
+                        if child_parameter.dtype == replacement_parameter.dtype:
+                            with torch.no_grad():
+                                replacement_parameter.data.copy_(child_parameter.data)
 
                 for parent, name in parents:
                     # update each parent with the replaced child
