@@ -20,6 +20,13 @@ def validate_ema(model, original_model, ema_model, decay):
         torch.testing.assert_allclose(ema_dict[key], new_param)
 
 
+def validate_model(model1, model2):
+    model1_dict = model1.state_dict()
+    model2_dict = model2.state_dict()
+    for key, param in model1_dict.items():
+        torch.testing.assert_allclose(param, model2_dict[key])
+
+
 @pytest.mark.parametrize("decay", [0, 0.5, 0.99, 1])
 def test_ema(decay):
     model = SimpleModel()
@@ -67,5 +74,7 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
     validate_ema(state.model, original_model, algorithm.ema_model, algorithm.decay)
     # Check if the EMA model is swapped in for testing
     algorithm.apply(Event.EVAL_START, state, empty_logger)
+    validate_model(state.model, algorithm.ema_model)
     # Check if the training model is swapped back in for training
     algorithm.apply(Event.EVAL_END, state, empty_logger)
+    validate_model(state.model, algorithm.training_model)
