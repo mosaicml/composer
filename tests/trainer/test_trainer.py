@@ -389,6 +389,7 @@ class TestTrainerAssets:
             pytest.importorskip('wandb', reason='Required wandb')
         if name == 'object_store':
             required_args['object_store_hparams'] = provider_hparams
+            required_args['use_procs'] = False
 
         if name == 'object_store_logger':
             monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
