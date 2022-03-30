@@ -405,7 +405,7 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
             Default: ``True``.
     """
 
-    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-ade20k')
+    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-ade20k-3')
     name: str = hp.optional('WebDataset local cache name', default='ade20k')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
     base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
