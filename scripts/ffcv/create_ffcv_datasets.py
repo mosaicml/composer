@@ -63,7 +63,7 @@ def get_parser():
 
     parser.add_argument("--max_resolution", type=int, default=500, help="Max resoultion for images.")
 
-    parser.add_argument("--num_workers", type=int, default=16, help="Number of workers to use.")
+    parser.add_argument("--num_workers", type=int, default=64, help="Number of workers to use.")
 
     parser.add_argument("--chunk_size", type=int, default=100, help="Chunk size to use.")
 
@@ -88,9 +88,9 @@ def parse_args():
         log.info(f"Will read from local directory: {args.datadir}.")
     else:
         if args.remote.startswith('s3://'):
-            log.info(f"Will read from webdataset: {args.remote}.")
+            log.info(f"Will read from remote: {args.remote}.")
         else:
-            raise ValueError(f'Unsupported webdataset location: {args.remote}.')
+            log.info(f"Will read from local: {args.remote}.")
 
     if args.write_path is None:
         args.write_path = f"/tmp/{args.dataset}_{args.split}.ffcv"
