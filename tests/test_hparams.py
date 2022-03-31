@@ -5,10 +5,9 @@ import os
 import pytest
 
 import composer
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
-from composer.models import DeepLabV3Hparams
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
+from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
 
 
 def walk_model_yamls():
@@ -23,15 +22,7 @@ def walk_model_yamls():
     return yamls
 
 
-def _configure_dataset_for_synthetic(dataset_hparams: DatasetHparams) -> None:
-    if not isinstance(dataset_hparams, SyntheticHparamsMixin):
-        pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batches")
-
-    assert isinstance(dataset_hparams, SyntheticHparamsMixin)
-
-    dataset_hparams.use_synthetic = True
-
-
+@pytest.mark.timeout(10)
 @pytest.mark.parametrize("hparams_file", walk_model_yamls())
 class TestHparamsCreate:
 
@@ -54,21 +45,28 @@ class TestHparamsCreate:
             pytest.importorskip("vit_pytorch")
         if hparams_file in ["unet.yaml"]:
             pytest.importorskip("monai")
+
+        nlp_hparam_keys = ['glue', 'gpt', 'bert']
+        # skip tests that require the NLP stack
+        if any([i in hparams_file for i in nlp_hparam_keys]):
+            pytest.importorskip("transformers")
+            pytest.importorskip("datasets")
+            pytest.importorskip("tokenizers")
+
         if "deeplabv3" in hparams_file:
             pytest.importorskip("mmseg")
+
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
         hparams.dataloader.num_workers = 0
         hparams.dataloader.persistent_workers = False
         hparams.dataloader.pin_memory = False
         hparams.dataloader.prefetch_factor = 2
 
-        _configure_dataset_for_synthetic(hparams.train_dataset)
+        configure_dataset_for_synthetic(hparams.train_dataset, model_hparams=hparams.model)
+        configure_model_for_synthetic(hparams.model)
         if hparams.val_dataset is not None:
-            _configure_dataset_for_synthetic(hparams.val_dataset)
+            configure_dataset_for_synthetic(hparams.val_dataset)
         hparams.device = CPUDeviceHparams()
-
-        if isinstance(hparams.model, DeepLabV3Hparams):
-            hparams.model.is_backbone_pretrained = False  # prevent downloading pretrained weights during test
-            hparams.model.sync_bn = False  # sync_bn throws an error when run on CPU
+        hparams.load_path = None
 
         hparams.initialize_object()

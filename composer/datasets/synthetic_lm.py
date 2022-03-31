@@ -8,6 +8,7 @@ import json
 import random
 import string
 from os.path import join
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, NamedTuple, Optional
 
 from composer.utils import MissingConditionalImportError
@@ -87,7 +88,6 @@ def _generate_gpt2_tokenizer_params() -> SyntheticTokenizerParams:
 
 
 def generate_synthetic_tokenizer(tokenizer_family: str,
-                                 tmp_path,
                                  dataset: Optional[Dataset] = None,
                                  vocab_size: int = 256) -> PreTrainedTokenizer:
     """Generates a synthetic tokenizer based on a tokenizer family.
@@ -148,23 +148,23 @@ def generate_synthetic_tokenizer(tokenizer_family: str,
     tokenizer.train_from_iterator(flattened_dataset, trainer=tokenizer_trainer)
 
     # save the tokenizer config
-    tmp_path.mkdir(exist_ok=True)
-    tmp_tokenizer_dir = str(tmp_path)
-    tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
-    tokenizer.save(tmp_tokenizer_file)
+    with TemporaryDirectory() as tmp_path:
+        tmp_tokenizer_dir = str(tmp_path)
+        tmp_tokenizer_file = join(tmp_tokenizer_dir, "tokenizer.json")
+        tokenizer.save(tmp_tokenizer_file)  #type: ignore (thirdparty)
 
-    # save the vocabulary and potential merges file
-    tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)  # type: ignore
+        # save the vocabulary and potential merges file
+        tokenizer_params.tokenizer_model.save(tmp_tokenizer_dir)  # type: ignore
 
-    # the .from_pretrained method doesn't load our padding for some reason, so we save it as a special kwarg
-    tmp_tokenizer_config = join(tmp_tokenizer_dir, "tokenizer_config.json")
-    with open(tmp_tokenizer_config, "w") as f:
-        json.dump({"pad_token": tokenizer_params.pad_token}, f)
+        # the .from_pretrained method doesn't load our padding for some reason, so we save it as a special kwarg
+        tmp_tokenizer_config = join(tmp_tokenizer_dir, "tokenizer_config.json")
+        with open(tmp_tokenizer_config, "w") as f:
+            json.dump({"pad_token": tokenizer_params.pad_token}, f)
 
-    # instantiate the new tokenizer
-    if not issubclass(tokenizer_params.tokenizer_cls, PreTrainedTokenizer):
-        raise ValueError(f"{tokenizer_params.tokenizer_cls} should sub-class transformers.PreTrainedTokenizer.")
-    tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
+        # instantiate the new tokenizer
+        if not issubclass(tokenizer_params.tokenizer_cls, PreTrainedTokenizer):
+            raise ValueError(f"{tokenizer_params.tokenizer_cls} should sub-class transformers.PreTrainedTokenizer.")
+        tokenizer = tokenizer_params.tokenizer_cls.from_pretrained(tmp_tokenizer_dir)
 
     return tokenizer
 
