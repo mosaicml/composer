@@ -81,7 +81,6 @@ from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
 import composer
-from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
 from composer.core.types import Batch, BreakEpochException, DataLoader, PyTorchScheduler
@@ -530,12 +529,6 @@ class Trainer:
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
-
-        # ScaleSchedule is a deprecated algorithm, but if it is used, updated SSR with its ratio.
-        # TODO(#434): Remove this completely.
-        for algorithm in ensure_tuple(algorithms):
-            if isinstance(algorithm, ScaleSchedule):
-                scale_schedule_ratio = algorithm.ratio
 
         if isinstance(max_duration, str):
             max_duration = Time.from_timestring(max_duration)

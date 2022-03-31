@@ -7,9 +7,9 @@ import pytest
 from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
                                  ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams, GhostBatchNormHparams,
                                  LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
-                                 ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, ScaleScheduleHparams,
-                                 SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
-                                 StochasticDepthHparams, SWAHparams, algorithm_registry)
+                                 ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, SelectiveBackpropHparams,
+                                 SeqLengthWarmupHparams, SqueezeExciteHparams, StochasticDepthHparams, SWAHparams,
+                                 algorithm_registry)
 from composer.core.algorithm import Algorithm
 
 default_required_fields = {
@@ -63,9 +63,6 @@ default_required_fields = {
     },
     GhostBatchNormHparams: {
         'ghost_batch_size': 32
-    },
-    ScaleScheduleHparams: {
-        'ratio': 0.5
     },
     NoOpModelHparams: {},
     SqueezeExciteHparams: {

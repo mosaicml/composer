@@ -8,7 +8,6 @@ import torch
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import ExponentialLR
 
-from composer.algorithms import ScaleScheduleHparams
 from composer.core.time import TimeUnit
 from composer.core.types import PyTorchScheduler
 from composer.optim import MultiStepSchedulerHparams, SGDHparams
@@ -73,13 +72,11 @@ class TestScaleSchedule():
 
 
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
-@pytest.mark.parametrize('use_algorithm', [False, True])
 class TestScaleScheduleTrainer():
 
     def test_epochs_scaled(
         self,
         ssr: float,
-        use_algorithm: bool,
         composer_trainer_hparams: TrainerHparams,
     ):
 
@@ -87,10 +84,7 @@ class TestScaleScheduleTrainer():
         composer_trainer_hparams.max_duration = '10ep'
         composer_trainer_hparams.schedulers = [MultiStepSchedulerHparams(milestones=['30ba', '50ba'], gamma=0.1)]
 
-        if use_algorithm:
-            composer_trainer_hparams.algorithms = [ScaleScheduleHparams(ratio=ssr)]
-        else:
-            composer_trainer_hparams.scale_schedule_ratio = ssr
+        composer_trainer_hparams.scale_schedule_ratio = ssr
         trainer = composer_trainer_hparams.initialize_object()
 
         assert trainer.state.max_duration.unit == TimeUnit.EPOCH
