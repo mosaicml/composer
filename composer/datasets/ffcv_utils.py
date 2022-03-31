@@ -1,10 +1,12 @@
 import json
 import logging
-import subprocess
 import textwrap
 from typing import Optional
 
+import numpy as np
+
 from composer.core.types import Dataset
+from composer.datasets.webdataset_utils import init_webdataset_meta
 
 log = logging.getLogger(__name__)
 
@@ -57,19 +59,30 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
                                        num_workers=num_workers)
     if dataset:
         writer.from_indexed_dataset(dataset, chunksize=chunk_size)
-    else:
+    elif remote is not None:
         pipeline = lambda dataset: dataset.decode('pil').to_tuple('jpg', 'cls')
 
-        metadata_url = f'{remote}/meta.json'
-        cmd = 'aws', 's3', 'cp', metadata_url, '-'
-        ret = subprocess.run(cmd, capture_output=True)
-        assert not ret.stderr, 'Download failed, check your credentials?'
-        text = ret.stdout
+        text = init_webdataset_meta(remote)
 
         metadata = json.loads(text)
         num_shards = metadata['n_shards']
         if metadata['n_leftover'] > 0:
             num_shards = num_shards + 1
-        urls = [f'pipe: aws s3 cp {remote}/{idx:05d}.tar -' for idx in range(num_shards)]
 
-        writer.from_webdataset(urls, pipeline)
+        if remote.startswith('s3://'):
+            urls = [f'pipe: aws s3 cp {remote}/{idx:05d}.tar -' for idx in range(num_shards)]
+        else:
+            urls = [f'{remote}/{idx:05d}.tar' for idx in range(num_shards)]
+
+        lengths = np.repeat(metadata['samples_per_shard'], metadata['n_shards'])
+        lengths = np.insert(lengths, 0, 0)
+        # we don't have n_leftover in the lengths array so we don't need to
+        # remove it from offsets.
+        offsets = np.cumsum(lengths)
+        todos = zip(urls, offsets)
+        total_len = metadata['samples_per_shard'] * metadata['n_shards'] + metadata['n_leftover']
+        # We call this internal API instead of writer.from_webdataset because with writer.from_webdataset
+        # FFCV downloads the whole dataset twice.
+        writer._write_common(total_len, todos, ffcv.writer.worker_job_webdataset, (pipeline,))
+
+        #writer.from_webdataset(urls, pipeline)
