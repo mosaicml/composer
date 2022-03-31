@@ -308,6 +308,7 @@ config management to retrieve the objects to test.
 """
 
 
+@pytest.mark.timeout(15)
 class TestTrainerAssets:
 
     @pytest.fixture
