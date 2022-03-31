@@ -10,7 +10,6 @@ import composer
 import composer.algorithms as algorithms
 import composer.trainer as trainer
 from composer.core.precision import Precision
-from composer.datasets.hparams import SyntheticHparamsMixin
 from composer.trainer.devices import CPUDeviceHparams
 from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
 
