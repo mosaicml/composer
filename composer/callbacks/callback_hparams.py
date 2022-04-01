@@ -31,12 +31,7 @@ __all__ = [
 
 @dataclass
 class CallbackHparams(hp.Hparams, abc.ABC):
-    """Base class for callback hyperparameters.
-
-    Callback parameters that are added to the callbacks argument of
-    :attr:`~composer.trainer.trainer_hparams.TrainerHparams` (e.g., via YAML or the CLI). See `Trainer with YAHP <https://docs.mosaicml.com/en/latest/tutorials/adding_models_datasets.html#trainer-with-yahp>`_ for more details.
-    These are initialized in the training loop.
-    """
+    """Base class for Callback hyperparameters."""
 
     @abc.abstractmethod
     def initialize_object(self) -> Callback:

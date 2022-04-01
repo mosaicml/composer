@@ -21,7 +21,7 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
-from composer.datasets import SyntheticHparamsMixin
+from composer.datasets import DatasetHparams, SyntheticHparamsMixin
 from composer.loggers import Logger
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
@@ -30,6 +30,7 @@ from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import dist, is_tar
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
+from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
 
 
 class DummyStatefulCallback(Callback):
@@ -295,6 +296,7 @@ def test_checkpoint(
         composer_trainer_hparams.model = model_hparams.model
         composer_trainer_hparams.optimizer = model_hparams.optimizer
         composer_trainer_hparams.schedulers = model_hparams.schedulers
+
     if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
@@ -302,11 +304,17 @@ def test_checkpoint(
         pytest.skip("Checkpointing tests require synthetic data")
         return
 
+    configure_model_for_synthetic(composer_trainer_hparams.model)
+
+    assert isinstance(composer_trainer_hparams.train_dataset, DatasetHparams)
+    configure_dataset_for_synthetic(composer_trainer_hparams.train_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.save_filename = save_filename
-    composer_trainer_hparams.train_dataset.use_synthetic = True
     composer_trainer_hparams.train_dataset.shuffle = False
-    composer_trainer_hparams.val_dataset.use_synthetic = True
+
+    assert isinstance(composer_trainer_hparams.val_dataset, DatasetHparams)
+    configure_dataset_for_synthetic(composer_trainer_hparams.val_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.val_dataset.shuffle = False
+
     composer_trainer_hparams.grad_accum = 2
     composer_trainer_hparams.loggers = []
     composer_trainer_hparams.train_batch_size = 8
