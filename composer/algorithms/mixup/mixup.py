@@ -169,9 +169,9 @@ class MixUp(Algorithm):
 
         if self.interpolate_loss and event == Event.AFTER_LOSS:
             # Grab the loss function
-            if hasattr(state.model, loss):
+            if hasattr(state.model, "loss"):
                 loss_fn = state.model.loss
-            elif hasattr(state.model.module) and hasattr(state.model.module.loss):
+            elif hasattr(state.model, "module") and hasattr(state.model.module, "loss"):
                 loss_fn = state.model.module.loss
             else:
                 raise AttributeError("Loss must be accesable via model.loss or model.module.loss")
@@ -179,8 +179,7 @@ class MixUp(Algorithm):
             if not callable(loss_fn):
                 raise TypeError("Loss must be callable")
             # Interpolate the loss
-            assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
-            new_loss = self._loss_fn(state.outputs, (input, self.permuted_target))
+            new_loss = loss_fn(state.outputs, (input, self.permuted_target))
             if not isinstance(state.loss, torch.Tensor):
                 raise NotImplementedError("Multiple losses not supported yet")
             if not isinstance(new_loss, torch.Tensor):
