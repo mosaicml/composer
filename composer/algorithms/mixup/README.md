@@ -95,7 +95,7 @@ trainer.fit()
 
 Composer's MixUp has two modes of use. When using `interpolate_loss=True` MixUp does not directly interpolate the targets, but rather interpolates the loss function by calling it on the original target and the mixed-in target and interpolating the two loss values. For loss functions that are linear in the targets (such as cross entropy) this is mathematically equivalent to interpolating the targets. Many other implementations of mixup work this way.
 
-For loss functions that are not linear in the targets, this trick may still be used but results in behavior that differs from the description in the [original paper](https://arxiv.org/abs/1710.09412). If the loss function in use can accept non-index targets (such as dense or one-hot labels) then Composer's MixUp can be used with `interpolate_loss=False` which interpolates the targets of the two samples. This gives behavior matching the usual description of MixUp.
+For loss functions that are not linear in the targets, this trick may still be used but results in behavior that differs from the description in the [original paper](https://arxiv.org/abs/1710.09412). If the loss function in use can accept non-index targets (such as dense or one-hot labels) then Composer's MixUp can be used with `interpolate_loss=False`, which interpolates the targets of the two samples. This gives behavior matching the usual description of MixUp.
 
 ## Suggested Hyperparameters
 
