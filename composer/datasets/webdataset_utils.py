@@ -139,37 +139,43 @@ def create_webdatasets_from_image_folder(in_root: str,
         create_webdataset(_each_sample(pairs), out_root, split, len(pairs), n_shards, use_tqdm)
 
 
-def _init_webdataset_meta_from_s3(remote: str, split: str) -> bytes:
+def _init_webdataset_meta_from_s3(remote: str, split: Optional[str] = None) -> bytes:
     """Read a WebDataset meta file from S3.
 
     Args:
         remote (str): S3 bucket or S3 bucket directory.
         split (str): Dataset split.
     """
-    url = f'{remote}/{split}/meta.json'
+    if split is None:
+        url = f'{remote}/meta.json'
+    else:
+        url = f'{remote}/{split}/meta.json'
     cmd = 'aws', 's3', 'cp', url, '-'
     ret = subprocess.run(cmd, capture_output=True)
     assert not ret.stderr, 'Download failed, check your credentials?'
     return ret.stdout
 
 
-def _init_webdataset_meta_from_local(remote: str, split: str) -> bytes:
+def _init_webdataset_meta_from_local(remote: str, split: Optional[str] = None) -> bytes:
     """Read a WebDataset meta file from local filesystem.
 
     Args:
         remote (str): Local filesystem directory.
         split (str): Dataset split.
     """
-    path = f'{remote}/{split}/meta.json'
+    if split is None:
+        path = f'{remote}/meta.json'
+    else:
+        path = f'{remote}/{split}/meta.json'
     return open(path, 'rb').read()
 
 
-def _init_webdataset_meta(remote: str, split: str) -> bytes:
+def init_webdataset_meta(remote: str, split: Optional[str] = None) -> bytes:
     """Read a WebDataset meta file.
 
     Args:
         remote (str): Dataset directory (S3 bucket or local dir).
-        split (str): Dataset split.
+        split (str): Dataset split. Default: ``None``.
     """
     if remote.startswith('s3://'):
         return _init_webdataset_meta_from_s3(remote, split)
@@ -202,14 +208,14 @@ def _init_webdataset(remote: str,
         if os.path.exists(meta_file):
             text = open(meta_file).read()
         else:
-            text = _init_webdataset_meta(remote, split)
+            text = init_webdataset_meta(remote, split)
             if not os.path.exists(split_dir):
                 os.makedirs(split_dir)
             with open(meta_file, 'wb') as out:
                 out.write(text)
     else:
         split_dir = None
-        text = _init_webdataset_meta(remote, split)
+        text = init_webdataset_meta(remote, split)
     meta = json.loads(text)
     max_shard = meta['n_shards'] - 1
     shards = f'{{{0:05d}..{max_shard:05d}}}.tar'
