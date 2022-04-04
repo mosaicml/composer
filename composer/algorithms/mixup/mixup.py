@@ -53,8 +53,8 @@ def mixup_batch(input: torch.Tensor,
     Returns:
         input_mixed (torch.Tensor): batch of inputs after mixup has been applied
         target_orig (torch.Tensor): The original labels
-        target_perm (torch.Tensor): The labels of the mixed in examples
-        mixing (torch.Tensor): the amount of mixing used.
+        target_perm (torch.Tensor): The labels of the mixed-in examples
+        mixing (torch.Tensor): the amount of mixing used
 
     Example:
         .. testcode::
