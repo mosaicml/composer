@@ -125,24 +125,17 @@ class MixUp(Algorithm):
         self.mixing = 0.0
         self.indices = torch.Tensor()
         self.permuted_target = torch.Tensor()
-        self._loss_fn = None  # set on Event.INIT
 
     def match(self, event: Event, state: State) -> bool:
         if self.interpolate_loss:
-            return event in [Event.INIT, Event.AFTER_DATALOADER, Event.AFTER_LOSS]
+            return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
         else:
             return event in [Event.AFTER_DATALOADER, Event.BEFORE_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        if event == Event.INIT:
-            # Grab the loss function
-            if isinstance(state.model, ComposerModel):
-                self._loss_fn = state.model.loss
-            else:
-                raise RuntimeError("Model must be of type ComposerModel")
+        input, target = state.batch_pair
 
         if event == Event.AFTER_DATALOADER:
-            input, target = state.batch_pair
             if not isinstance(input, torch.Tensor):
                 raise NotImplementedError("Multiple tensors for inputs not supported yet.")
             if not isinstance(target, torch.Tensor):
@@ -162,7 +155,6 @@ class MixUp(Algorithm):
 
         if not self.interpolate_loss and event == Event.BEFORE_LOSS:
             # Interpolate the targets
-            input, target = state.batch_pair
             if not isinstance(state.outputs, torch.Tensor):
                 raise NotImplementedError("Multiple output tensors not supported yet")
             if not isinstance(target, torch.Tensor):
@@ -176,7 +168,16 @@ class MixUp(Algorithm):
             state.batch = (input, mixed_up_target)
 
         if self.interpolate_loss and event == Event.AFTER_LOSS:
-            input, target = state.batch_pair
+            # Grab the loss function
+            if hasattr(state.model, loss):
+                loss_fn = state.model.loss
+            elif hasattr(state.model.module) and hasattr(state.model.module.loss):
+                loss_fn = state.model.module.loss
+            else:
+                raise AttributeError("Loss must be accesable via model.loss or model.module.loss")
+            # Verify that the loss is callable
+            if not callable(loss_fn):
+                raise TypeError("Loss must be callable")
             # Interpolate the loss
             assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
             new_loss = self._loss_fn(state.outputs, (input, self.permuted_target))
