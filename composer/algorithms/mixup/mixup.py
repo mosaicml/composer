@@ -182,10 +182,9 @@ class MixUp(Algorithm):
             new_loss = self._loss_fn(state.outputs, (input, self.permuted_target))
             if not isinstance(state.loss, torch.Tensor):
                 raise NotImplementedError("Multiple losses not supported yet")
-            state.loss *= (1 - self.mixing)
             if not isinstance(new_loss, torch.Tensor):
                 raise NotImplementedError("Multiple losses not supported yet")
-            state.loss += self.mixing * new_loss
+            state.loss = (1 - self.mixing) * state.loss + self.mixing * new_loss
 
 
 def _gen_mixing_coef(alpha: float) -> float:
