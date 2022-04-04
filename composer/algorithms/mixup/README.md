@@ -125,9 +125,9 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 > ❗ When `interpolate_loss=False` MixUp Produces a Full Distribution, Not a Target Index
 >
 > Many classification tasks represent the target value using the index of the target value rather than the full one-hot encoding of the label value.
-> With `interpolate_loss=False` MixUp interpolates between two target values for each example, it must represent the final targets as a dense distribution.
-> Our implementation of MixUp turns each label into a dense distribution (if it has not already been converted into a distribution).
-> The loss function used for the model must be able to accept this dense distribution as the target.
+> With `interpolate_loss=False` MixUp interpolates between two target values for each example, it must represent the final targets as a dense vector of probabilities.
+> Our implementation of MixUp turns each label into a dense vector of probabilities (if it has not already been converted into a distribution).
+> The loss function used for the model must be able to accept this dense vector of probabilities as the target.
 
 >❗ When `interpolate_loss=True` MixUp interpolates the loss rather than the targets.
 >
