@@ -20,7 +20,6 @@ Training in this fashion improves generalization.
 
 Running `mixup` using index labels and interpolating the loss (a trick when using cross entropy)
 ```python
-# Run the mixup algorithm directly on the inputs and targets using the Composer functional API
 
 import composer.functional as cf
 
@@ -41,7 +40,6 @@ def training_loop(model, train_loader):
 
 Running `mixup` using dense/one-hot labels and interpolating the labels (general case)
 ```python
-# Run the mixup algorithm directly on the inputs and targets using the Composer functional API
 
 import composer.functional as cf
 
@@ -132,7 +130,7 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 > The loss function used for the model must be able to accept this dense distribution as the target.
 
 >❗ When `interpolate_loss=True` MixUp interpolates the loss rather than the targets.
-> 
+>
 > This is fine for loss functions that are linear in the targets, such as cross entropy, but may produce unexpected results for other loss functions.
 
 > 🚧 Composing Regularization Methods
