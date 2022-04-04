@@ -132,7 +132,7 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 > The loss function used for the model must be able to accept this dense distribution as the target.
 
 >❗ When `interpolate_loss=True` MixUp interpolates the loss rather than the targets.
-
+> 
 > This is fine for loss functions that are linear in the targets, such as cross entropy, but may produce unexpected results for other loss functions.
 
 > 🚧 Composing Regularization Methods
