@@ -39,9 +39,9 @@ def bytes_to_sample_dict(data: bytes, keys: List[str]) -> Dict[str, bytes]:
     Returns:
         dict: The decoded sample dict.
     """
-    n_values = len(keys)
-    sizes = np.frombuffer(data[:n_values * 4], np.int32)
-    ends = n_values * 4 + sizes.cumsum(0)
+    num_values = len(keys)
+    sizes = np.frombuffer(data[:num_values * 4], np.int32)
+    ends = num_values * 4 + sizes.cumsum(0)
     begins = ends - sizes
     values = []
     for begin, end in zip(begins, ends):
@@ -177,9 +177,9 @@ class MosaicDatasetIndex(object):
 
         sample_shard_begins = []
         sample_shards = []
-        for shard, (n_samples, shard_begin) in enumerate(zip(self.samples_per_shard, shard_begins)):
-            sample_shard_begins += [shard_begin] * n_samples
-            sample_shards += [shard] * n_samples
+        for shard, (num_samples, shard_begin) in enumerate(zip(self.samples_per_shard, shard_begins)):
+            sample_shard_begins += [shard_begin] * num_samples
+            sample_shards += [shard] * num_samples
         sample_shard_begins = np.array(sample_shard_begins, np.int32)
         sample_shards = np.array(sample_shards, np.int32)
 
@@ -356,6 +356,7 @@ class MosaicDataset(IterableDataset):
 
         # Fields, protected by the lock, relating to loading shards in the background.
         self._lock = Lock()
+        self._files = [None] * self.index.num_shards
         self._next_epoch_key = 0
         self._key2epoch = {}
         self._loaded_epoch = []
@@ -389,6 +390,11 @@ class MosaicDataset(IterableDataset):
                 print('Waiting for download:', filename)
             sleep(0.25)
             i += 1
+
+    def __del__(self):
+        for fp in self._files:
+            if fp:
+                fp.close()
 
     def _download_if_missing(self, basename: str) -> str:
         """Safely download a shard from remote to local cache, returning local filename.
@@ -441,6 +447,11 @@ class MosaicDataset(IterableDataset):
             new_ids += list(range(begin, end))
 
         with self._lock:
+            for shard in shards:
+                basename = '%05d.mds' % shard
+                filename = os.path.join(self.local, self.split, basename)
+                self._files[shard] = open(filename, 'rb')
+
             if self.shuffle:
                 self._loaded_epoch.extend(new_ids)
                 np.random.shuffle(self._loaded_epoch)
@@ -521,12 +532,9 @@ class MosaicDataset(IterableDataset):
         shard = self.sample_shards[idx]
         offset = self.sample_offsets[idx]
         size = self.index.bytes_per_sample[idx]
-        basename = '%05d.mds' % shard
-        filename = os.path.join(self.local, self.split, basename)
-        fp = open(filename, 'rb')
+        fp = self._files[shard]
         fp.seek(offset)
         data = fp.read(size)
-        fp.close()
         obj = bytes_to_sample_dict(data, self.index.fields)
         x = self.transform(obj['x'])
         y = self.target_transform(obj['y'])
