@@ -25,7 +25,6 @@ from tests.common import (RandomClassificationDataset, RandomImageDataset, Simpl
                           world_size)
 
 
-@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerInit():
 
     @pytest.fixture
@@ -115,7 +114,6 @@ class TestTrainerInit():
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
-@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerEquivalence():
 
     reference_model: torch.nn.Module
@@ -261,7 +259,6 @@ class AssertDataAugmented(Callback):
         assert not torch.allclose(original_outputs[0], state.outputs[0])
 
 
-@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerEvents():
 
     @pytest.fixture
@@ -311,7 +308,7 @@ config management to retrieve the objects to test.
 """
 
 
-@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
+@pytest.mark.timeout(15)
 class TestTrainerAssets:
 
     @pytest.fixture
@@ -393,6 +390,7 @@ class TestTrainerAssets:
             pytest.importorskip('wandb', reason='Required wandb')
         if name == 'object_store':
             required_args['object_store_hparams'] = provider_hparams
+            required_args['use_procs'] = False
 
         if name == 'object_store_logger':
             monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
@@ -416,7 +414,6 @@ class TestTrainerAssets:
         trainer = Trainer(**config)
         trainer.fit()
 
-    @pytest.mark.timeout(10)
     def test_callbacks(self, config, callback):
         config['callbacks'] = [callback]
         trainer = Trainer(**config)

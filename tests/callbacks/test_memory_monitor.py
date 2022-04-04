@@ -56,7 +56,6 @@ def test_memory_monitor_cpu(composer_trainer_hparams: TrainerHparams):
     assert not memory_monitor_called
 
 
-@pytest.mark.timeout(60)
 @pytest.mark.gpu
 def test_memory_monitor_gpu(composer_trainer_hparams: TrainerHparams):
     n_cuda_devices = device_count()
