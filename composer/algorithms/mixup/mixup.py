@@ -171,7 +171,10 @@ class MixUp(Algorithm):
             if hasattr(state.model, "loss"):
                 loss_fn = state.model.loss
             elif hasattr(state.model, "module") and hasattr(state.model.module, "loss"):
-                loss_fn = state.model.module.loss
+                if isinstance(state.model.module, torch.nn.Module):
+                    loss_fn = state.model.module.loss
+                else:
+                    raise TypeError("state.model.module must be a torch module")
             else:
                 raise AttributeError("Loss must be accesable via model.loss or model.module.loss")
             # Verify that the loss is callable
