@@ -1,6 +1,13 @@
+import boto3
 import numpy as np
 import os
-from typing import Dict, List, Optional, Tuple
+import shutil
+from threading import Lock, Thread
+from time import sleep
+from torch import Tensor
+from torch.utils.data import IterableDataset
+from tqdm import tqdm
+from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
 
 def sample_dict_to_bytes(obj: Dict[str, bytes], keys: List[str]) -> bytes:
@@ -72,7 +79,7 @@ class MosaicDatasetIndex(object):
             samples_per_shard (np.ndarray): Number of samples of each shard.
             bytes_per_shard (np.ndarray): Size in bytes of each shard.
             bytes_per_sample (np.ndarray): Size in bytes of each sample across all shards.
-            fields (list of str): The names 
+            fields (list of str): The names of the sample's fields in order.
         """
         self.samples_per_shard = samples_per_shard
         self.bytes_per_shard = bytes_per_shard
@@ -285,3 +292,207 @@ class MosaicDatasetWriter(object):
     def __exit__(self, *args, **kwargs) -> None:
         """Exit as contextmanager."""
         self.finish()
+
+
+def download(remote, local) -> None:
+    """Universal downloader.
+
+    Args:
+        remote (str): Remote path (S3 or local filesystem).
+        local (str): Local path (local filesystem).
+    """
+    dirname = os.path.dirname(local)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    if remote.startswith('s3://'):
+        remote = remote[5:]
+        idx = remote.index('/')
+        bucket = remote[:idx]
+        path = remote[idx + 1:]
+        s3 = boto3.client('s3')
+        s3.download_file(bucket, path, local)
+    else:
+        shutil.copy(remote, local)
+
+
+class MosaicDataset(IterableDataset):
+    """MosaicDataset."""
+
+    def __init__(self,
+                 remote: str,
+                 local: str,
+                 split: str,
+                 transform: Optional[Callable],
+                 target_transform: Optional[Callable],
+                 shuffle: bool) -> None:
+        """Initialize with the given remote path and local cache.
+
+        Loads all the samples that are available in local cache, then starts a background thread to download the rest
+        during training. As samples are added, shuffled sample selection becomes more random.
+
+        Args:
+            remote (str): Download shards from this remote directory.
+            local (str): Download shards to this local filesystem directory for reuse.
+            split (str): Which dataset split.
+            transform (callable, optional): X transformation.
+            target_transform (callable, optional): Y transformation.
+            shuffle (bool): Whether to shuffle the samples.
+        """
+        self.remote = remote
+        self.local = local
+        self.split = split
+        self.transform = transform
+        self.target_transform = target_transform
+        self.shuffle = shuffle
+
+        # First, every worker loads the index file (one downloads/caches while the others poll).
+        local = self._download_if_missing('index.mds')
+        fp = open(local, 'rb')
+        self.index = MosaicDatasetIndex.load(fp)
+
+        # Given that, precompute shard and byte offset of all our samples, giving us which shards we need to load.
+        self.sample_shards, self.sample_offsets = self.index.locate_samples()
+        todo_shards = sorted(set(self.sample_shards))
+
+        # Fields, protected by the lock, relating to loading shards in the background.
+        self._lock = Lock()
+        self._loaded_epoch = []
+        self._is_loading_complete = False
+
+        # Preload all of our shards that are already available in the cache.
+        #
+        # If we are processing samples sequentially (i.e., not shuffled), we need to download and load their shards
+        # sequentially. This is covered in the background thread below. No help to preload shards.
+        if self.shuffle:
+            todo_shards = self._load_shards_if_downloaded(todo_shards)
+
+        # Start downloading our missing shards in a background thread, if there are any.
+        if todo_shards:
+            thread = Thread(target=self._download_thread, args=(todo_shards,), daemon=True)
+            thread.start()
+        else:
+            self._done_loading_shards()
+
+    def _wait_for_download(self, filename: str) -> None:
+        """Block until a shard download completes.
+
+        Args:
+            filename (str): Path to file.
+        """
+        i = 0
+        while True:
+            if os.path.exists(filename):
+                return
+            if 4 <= i and not i % 4:
+                print('Waiting for download:', filename)
+            sleep(0.25)
+            i += 1
+
+    def _download_if_missing(self, basename: str) -> str:
+        """Safely download a shard from remote to local cache, returning local filename.
+
+        Args:
+            basename (str): Basename of shard to download.
+
+        Returns:
+            str: Local cache filename.
+        """
+        # If we already have the file cached locally, we're done.
+        local = os.path.join(self.local, self.split, basename)
+        if os.path.exists(local):
+            return local
+
+        # Else if someone else is currently downloading the shard, wait for that download to complete.
+        local_tmp = local + '.tmp'
+        if os.path.exists(local_tmp):
+            self._wait_for_download(local)
+            return local
+
+        # Else if no one is downloading it, mark as in progress, then do the download ourself.
+        local_dir = os.path.join(self.local, self.split)
+        if not os.path.exists(local_dir):
+            os.makedirs(local_dir)
+        with open(local_tmp, 'w') as out:
+            out.write('')
+        remote = os.path.join(self.remote, self.split, basename)
+        download(remote, local_tmp)
+        os.rename(local_tmp, local)
+        return local
+
+    def _do_load_shards(self, shards: List[int]) -> None:
+        """Assimilate the given list of locally cached shards into the dataset.
+
+        Every time you call __iter__ on this dataset, it registers the list of samples you have left, which will not be
+        the full epoch if the dataset isn't finished loaded when you start training.
+
+        Calls to _do_load_shards during training modify the samples remaining on these iterations on the fly to
+        insert these new samples and then resort, making the shuffle as perfect as was possible.
+
+        This operation takes the lock, so try to group shards to load as best as possible.
+
+        Args:
+            shards (list of int): List of shards to load.
+        """
+        new_ids = []
+        for shard in shards:
+            begin, end = self.index.get_shard_sample_range(shard)
+            new_ids += list(range(begin, end))
+
+        with self._lock:
+            if self.shuffle:
+                self._loaded_epoch.extend(new_ids)
+                np.random.shuffle(self._loaded_epoch)
+            else:
+                self._loaded_epoch.reverse()
+                self._loaded_epoch.extend(new_ids)
+                self._loaded_epoch.reverse()
+
+    def _load_shards_if_downloaded(self, shards: List[int]) -> List[int]:
+        """Load any of the given shards that are already present in the cache, returning the missing shards.
+
+        Args:
+            shards (list of int): The shards to attempt to load.
+
+        Returns:
+            list of int: The shards that remain to be loaded.
+        """
+        downloaded = []
+        missing = []
+        for shard in sorted(shards):
+            basename = '%05d.mds' % shard
+            local = os.path.join(self.local, self.split, basename)
+            if os.path.exists(local):
+                downloaded.append(shard)
+            else:
+                missing.append(shard)
+        if downloaded:
+            self._do_load_shards(downloaded)
+        return missing
+
+    def _done_loading_shards(self) -> None:
+        """Callback on completion of loading my shards."""
+        with self._lock:
+            self._is_loading_complete = True
+
+    def _download_thread(self, shards: List[int]) -> None:
+        """Background thread to download and assimilate missing shards.
+
+        Args:
+            shards (list of int): The shards remaining to be downloaded.
+        """
+        shards = list(shards)
+        if self.shuffle:
+            np.random.shuffle(shards)
+        for shard in shards:
+            basename = '%05d.mds' % shard
+            self._download_if_missing(basename)
+            self._do_load_shards([shard])
+        self._done_loading_shards()
+
+    def __len__(self) -> int:
+        """Get the length of the dataset.
+
+        Returns:
+            int: Dataset length.
+        """
+        return self.index.num_samples
