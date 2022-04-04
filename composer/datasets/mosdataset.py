@@ -356,6 +356,8 @@ class MosaicDataset(IterableDataset):
 
         # Fields, protected by the lock, relating to loading shards in the background.
         self._lock = Lock()
+        self._next_epoch_key = 0
+        self._key2epoch = {}
         self._loaded_epoch = []
         self._is_loading_complete = False
 
@@ -442,10 +444,17 @@ class MosaicDataset(IterableDataset):
             if self.shuffle:
                 self._loaded_epoch.extend(new_ids)
                 np.random.shuffle(self._loaded_epoch)
+                for epoch in self._key2epoch.values():
+                    epoch.extend(new_ids)
+                    np.random.shuffle(epoch)
             else:
                 self._loaded_epoch.reverse()
                 self._loaded_epoch.extend(new_ids)
                 self._loaded_epoch.reverse()
+                for epoch in self._key2epoch.values():
+                    epoch.reverse()
+                    epoch.extend(new_ids)
+                    epoch.reverse()
 
     def _load_shards_if_downloaded(self, shards: List[int]) -> List[int]:
         """Load any of the given shards that are already present in the cache, returning the missing shards.
@@ -496,3 +505,100 @@ class MosaicDataset(IterableDataset):
             int: Dataset length.
         """
         return self.index.num_samples
+
+    def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor]:
+        """Get the sample at the index, assuming its shard is loaded.
+
+        Do not call this directly unless all shards have been loaded. Will crash if the shard is not loaded.
+
+        Args:
+            idx (int): Sample ID.
+
+        Returns:
+            x (tensor): The input tensor.
+            y (tensor): The output tensor.
+        """
+        shard = self.sample_shards[idx]
+        offset = self.sample_offsets[idx]
+        size = self.index.bytes_per_sample[idx]
+        basename = '%05d.mds' % shard
+        filename = os.path.join(self.local, self.split, basename)
+        fp = open(filename, 'rb')
+        fp.seek(offset)
+        data = fp.read(size)
+        fp.close()
+        obj = bytes_to_sample_dict(data, self.index.fields)
+        x = self.transform(obj['x'])
+        y = self.target_transform(obj['y'])
+        return x, y
+
+    def _new_growing_epoch(self) -> int:
+        """Start a new growing epoch, in which we own the sample sequence because it grows.
+
+        Returns:
+            int: The epoch key, a handle for this sequence which is given back to the caller.
+        """
+        with self._lock:
+            key = self._next_epoch_key
+            self._next_epoch_key += 1
+            epoch = list(self._loaded_epoch)
+            self._key2epoch[key] = epoch
+        return key
+
+    def _next_id(self, key: int) -> Optional[int]:
+        """Get the next sample of the growing epoch referenced by the given epoch key, or None if done.
+
+        If we are currently out of samples but not finished downloading the shards, blocks until it has new samples.
+
+        Args:
+            key (int): The epoch key, a handle for this sequence.
+
+        Returns:
+            int: ID of next sample.
+        """
+        while True:
+            with self._lock:
+                epoch = self._key2epoch[key]
+                if epoch:
+                    return epoch.pop()
+                elif self._is_loading_complete:
+                    del self._key2epoch[key]
+                    return None
+                else:
+                    pass
+            sleep(0.25)
+
+    def _iter_ids(self) -> Iterator[int]:
+        """Get an iterator over all our sample IDs.
+
+        Returns:
+            iterator over pairs of tensors: Each sample ID.
+        """
+        with self._lock:
+            have_full_epoch = self._is_loading_complete
+
+        if have_full_epoch:
+            epoch = list(self._loaded_epoch)
+            if self.shuffle:
+                np.random.shuffle(epoch)
+            for idx in epoch:
+                yield idx
+        else:
+            key = self._new_growing_epoch()
+            while True:
+                idx = self._next_id(key)
+                if idx is None:
+                    break
+                yield idx
+
+    def __iter__(self) -> Iterator[Tuple[Tensor, Tensor]]:
+        """Get an iterator over all our samples.
+
+        If not all samples have been downloaded yet, iterates over what it has while inserting the remainder into the
+        sequence behind the scenes as it progresses.
+
+        Returns:
+            iterator over pairs of tensors: Each sample.
+        """
+        for idx in self._iter_ids():
+            yield self[idx]
