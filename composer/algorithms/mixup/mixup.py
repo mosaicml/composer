@@ -143,8 +143,10 @@ class MixUp(Algorithm):
 
         if event == Event.AFTER_DATALOADER:
             input, target = state.batch_pair
-            assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
-                "Multiple tensors for inputs or targets not supported yet."
+            if not isinstance(input, torch.Tensor):
+                raise NotImplementedError("Multiple tensors for inputs not supported yet.")
+            if not isinstance(target, torch.Tensor):
+                raise NotImplementedError("Multiple tensors for targets not supported yet.")
 
             self.mixing = _gen_mixing_coef(self.alpha)
             self.indices = _gen_indices(input.shape[0])
@@ -161,8 +163,10 @@ class MixUp(Algorithm):
         if not self.interpolate_loss and event == Event.BEFORE_LOSS:
             # Interpolate the targets
             input, target = state.batch_pair
-            assert isinstance(state.outputs, torch.Tensor), "Multiple output tensors not supported yet"
-            assert isinstance(target, torch.Tensor), "Multiple target tensors not supported yet"
+            if not isinstance(state.outputs, torch.Tensor):
+                raise NotImplementedError("Multiple output tensors not supported yet")
+            if not isinstance(target, torch.Tensor):
+                raise NotImplementedError("Multiple target tensors not supported yet")
             # Make sure that the targets are dense/one-hot
             target = ensure_targets_one_hot(state.outputs, target)
             permuted_target = ensure_targets_one_hot(state.outputs, self.permuted_target)
@@ -176,9 +180,11 @@ class MixUp(Algorithm):
             # Interpolate the loss
             assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
             new_loss = self._loss_fn(state.outputs, (torch.Tensor(), self.permuted_target))
-            assert isinstance(state.loss, torch.Tensor), "Multiple losses not supported yet"
+            if not isinstance(state.loss, torch.Tensor):
+                raise NotImplementedError("Multiple losses not supported yet")
             state.loss *= (1 - self.mixing)
-            assert isinstance(new_loss, torch.Tensor), "Multiple losses not supported yet"
+            if not isinstance(new_loss, torch.Tensor):
+                raise NotImplementedError("Multiple losses not supported yet")
             state.loss += self.mixing * new_loss
 
 
