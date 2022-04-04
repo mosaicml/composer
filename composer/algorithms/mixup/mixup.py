@@ -101,7 +101,8 @@ class MixUp(Algorithm):
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``0.2``.
         interpolate_loss (bool, optional): Interpolates the loss rather than the labels.
-            A useful trick when using a cross entropy loss. Default: ``True``
+            A useful trick when using a cross entropy loss. Will produce incorrect behavior if the loss is not a linear
+            function of the targets. Default: ``False``
 
     Example:
         .. testcode::
@@ -118,7 +119,7 @@ class MixUp(Algorithm):
             )
     """
 
-    def __init__(self, alpha: float = 0.2, interpolate_loss: bool = True):
+    def __init__(self, alpha: float = 0.2, interpolate_loss: bool = False):
         self.alpha = alpha
         self.interpolate_loss = interpolate_loss
         self.mixing = 0.0
