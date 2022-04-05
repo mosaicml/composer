@@ -1,7 +1,7 @@
 |:robot:| Algorithms
 ====================
 
-Composer has a curated collection of speedup methods ("Algorithms") that can be composed together
+Composer has a curated collection of speedup methods ("Algorithms") that can be composed 
 to easily create efficient training recipes.
 
 Below is a brief overview of the algorithms currently in Composer.
