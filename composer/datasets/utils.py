@@ -8,7 +8,6 @@ from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import torch
-import torch.utils.data
 from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import VisionDataset

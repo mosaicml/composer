@@ -69,7 +69,7 @@ def object_store_test_helper(tmpdir: pathlib.Path,
         with pytest.raises(RuntimeError):
             destination.run_event(Event.EPOCH_END, dummy_state, logger)
 
-    destination.close()
+    destination.close(dummy_state, logger)
     destination.post_close()
 
     # verify upload uri is correct
@@ -92,7 +92,7 @@ def test_object_store_logger_use_procs(tmpdir: pathlib.Path, dummy_state: State,
     object_store_test_helper(tmpdir=tmpdir, dummy_state=dummy_state, monkeypatch=monkeypatch, use_procs=True)
 
 
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(15)
 @pytest.mark.filterwarnings(r"ignore:((.|\n)*)FileExistsError((.|\n)*):pytest.PytestUnhandledThreadExceptionWarning")
 def test_object_store_logger_no_overwrite(tmpdir: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
     object_store_test_helper(tmpdir=tmpdir, dummy_state=dummy_state, monkeypatch=monkeypatch, overwrite=False)

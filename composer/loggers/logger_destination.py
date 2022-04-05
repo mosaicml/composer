@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
+from typing import Any, Dict
 
 from composer.core.callback import Callback
 from composer.core.state import State
-from composer.loggers.logger import LoggerDataDict, LogLevel
+from composer.loggers.logger import LogLevel
 
 __all__ = ["LoggerDestination"]
 
@@ -24,18 +25,24 @@ class LoggerDestination(Callback, ABC):
     Example
     -------
 
-    >>> from composer.loggers import LoggerDestination
-    >>> class MyLogger(LoggerDestination):
-    ...     def log_data(self, state, log_level, data):
-    ...         print(f'Batch {int(state.timer.batch)}: {log_level} {data}')
-    >>> logger = MyLogger()
-    >>> trainer = Trainer(
-    ...     ...,
-    ...     loggers=[logger]
-    ... )
+    .. doctest::
+
+        >>> from composer.loggers import LoggerDestination
+        >>> class MyLogger(LoggerDestination):
+        ...     def log_data(self, state, log_level, data):
+        ...         print(f'Batch {int(state.timer.batch)}: {log_level} {data}')
+        >>> logger = MyLogger()
+        >>> trainer = Trainer(
+        ...     ...,
+        ...     loggers=[logger]
+        ... )
+    
+    .. testcleanup::
+
+        trainer.engine.close()
     """
 
-    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
+    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         """Log data.
 
         Subclasses should implement this method to store logged data (e.g. write it to a file, send it to a server,
@@ -55,7 +62,7 @@ class LoggerDestination(Callback, ABC):
         Args:
             state (State): The training state.
             log_level (LogLevel): The log level.
-            data (LoggerDataDict): The data to log.
+            data (Dict[str, Any]): The data to log.
         """
         del state, log_level, data  # unused
         pass

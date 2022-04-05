@@ -1,87 +1,133 @@
 |:white_check_mark:| Checkpointing
 ==================================
 
-Composer can be configured to automatically save training checkpoints by
-passing the argument ``save_folder`` when creating the
-:class:`.Trainer`. The ``save_folder`` can be a relative path, in which case
-checkpoints will be stored in
-``CWD/runs/<timestamp>/<rank>/<save_folder>``. Absolute paths will be used as-is.
+Composer can be configured to automatically save training checkpoints by passing the argument ``save_folder`` when
+creating the :class:`.Trainer`.
 
-By default, checkpoints are saved every epoch, but can be configured
-using the ``save_interval`` argument. Specify ``save_interval="10ep"``
-to save every 10 epochs or ``save_interval="500ba"`` to save every
-500 batches/steps.
+To customize the filename of checkpoints inside the ``save_folder``, you can set the ``save_filename`` argument.
+By default, checkpoints will be named like ``'ep{epoch}-ba{batch}-rank{rank}'`` within the ``save_folder``.
 
-.. code:: python
+In addition, the trainer creates a symlink called ``'latest-rank{rank}'``, which points to the latest saved checkpoint
+file. You can customize this symlink name by setting the ``save_latest_filename`` argument.
 
-   from composer import Trainer
+The ``save_folder``, ``save_filename``, and ``save_latest`` arguments are Python format strings, so you can customize the folder
+structure to include information such as the rank of the python process or the current training progress. Please see
+the :class:`~.CheckpointSaver` for the full list of available format variables.
 
-   trainer = Trainer(model=model,
-                     train_dataloader=dataloader,
-                     max_duration="1ep",
-                     save_folder="/path/to/checkpoints",
-                     save_interval="1ep")  # Save checkpoints every epoch
-   trainer.fit()
+For example:
+
+.. testcode::
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="2ep",
+        save_folder="./path/to/checkpoints",
+        save_filename='ep{epoch}',
+        save_latest_filename='latest',
+        save_overwrite=True,
+    )
+
+    trainer.fit()
+
+Save Interval
+-------------
+
+By default, checkpoints are saved every epoch, but this interval can be configured using the ``save_interval`` argument.
+The ``save_interval`` can be an integer (interpreted in terms of epochs), a time string (see the
+:doc:`Time Guide </trainer/time>` for more information), or a function that takes
+(:class:`~.State`, :class:`~.Event`) and returns whether a checkpoint should be
+saved.
+
+For example:
+
+*   ``save_interval=1`` to save every epoch (the default).
+*   ``save_interval="10ep"`` to save every 10 epochs.
+*   ``save_interval="500ba"`` to save every 500 batches/steps.
+*   ``save_interval=lambda state, event: state.timer.epoch > 50 and event == Event.EPOCH_CHECKPOINT``
+    to save every epoch, starting after the 50th epoch.
+
+Putting this together, here's how to save checkpoints:
+
+.. testcode::
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="1ep",
+        save_filename="ep{epoch}.pt",
+        save_folder="./path/to/checkpoints",
+        save_overwrite=True,
+        save_interval="1ep",  # Save checkpoints every epoch
+    )
+    trainer.fit()
 
 The above code will train a model for 1 epoch, and then save the checkpoint.
 
-Anatomy of a checkpoint
+Anatomy of a Checkpoint
 -----------------------
 
 The above code, when run, will produce the checkpoints below:
 
-.. code:: python
+.. doctest::
 
-   os.listdir(trainer.checkpoint_saver.checkpoint_folder)
-
-   ['ep1.pt']
-
-Opening one of those checkpoints, you'll see:
-
-.. code:: python
-
-   state_dict = torch.load(
-       os.path.join(trainer.checkpoint_saver.checkpoint_folder, "ep1.pt")
-   )
-   print(f"Top level keys: {list(state_dict.keys())}")
-   print(f"state keys: {list(state_dict['state'].keys())}")
-
-   >>> Top level keys: ['rng', 'state']
-   >>> Keys: ['model', 'timer', 'optimizers', 'schedulers', 'scaler', 'algorithms', 'callbacks', 'rng', 'rank_zero_seed', 'is_model_ddp']
-
-At the top level, we see details on the current RNG state and the
-``trainer.state``.
-
-Under the ``"state"`` key, we see:
-
-1. ``"model"``: Model weights
-2. ``"_optimizers"``: Optimizer state
-3. ``"_schedulers"``: Scheduler state
-4. ``"_algorithms"``: Any algorithm state
-
-These are the most important keys to be aware of. There are several
-others that are required to ensure that you can pick back up where you
-left off.
+    >>> trainer.saved_checkpoints
+    [(Timestamp(...), [PosixPath('path/to/checkpoints/ep1.pt')])]
+    >>> latest_checkpoint = trainer.saved_checkpoints[-1]
+    >>> timestamp, checkpoint_filepaths = latest_checkpoint
+    >>> checkpoint_filepath = checkpoint_filepaths[0]  # when not using DeepSpeed, there is only one checkpoint file.
+    >>> state_dict = torch.load(checkpoint_filepath)
+    >>> list(state_dict)
+    ['state', 'rng']
+    >>> list(state_dict['state'].keys())
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timer', 'rank_zero_seed']
 
 Resume training
 ---------------
 
-To resume training from a previous checkpoint, pass the
-checkpoint file path to the :class:`.Trainer` with the
-``load_path_format`` argument. This should be an absolute path.
+To resume training from a previous checkpoint, set the ``load_path`` argument of the :class:`.Trainer` to the checkpoint
+filepath.  When the :class:`.Trainer` is initialized, the checkpoint state will be restored, and :meth:`.Trainer.fit`
+will continue training from where the checkpoint left off.
 
-When the :class:`.Trainer` is initialized, all the state
-information will be restored from the checkpoint and
-``trainer.fit()`` will continue training from where the checkpoint left off.
+.. testsetup::
 
-.. code:: python
+    import os
+    import shutil
 
-   trainer = Trainer(model=model,
-                     train_dataloader=dataloader,
-                     eval_dataloader=None,
-                     max_duration="90ep",
-                     load_path_format="/path/to/checkpoint/ep25.pt")
-   trainer.fit()
+    from composer import Trainer
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="1ep",
+        save_filename="ep{epoch}.pt",
+        save_folder="./path/to/checkpoints",
+        save_overwrite=True,
+        save_interval="1ep",  # Save checkpoints every epoch
+    )
+    trainer.fit()
+
+    assert os.path.exists("./path/to/checkpoints/ep1.pt")
+
+    if not os.path.exists("./path/to/checkpoints/ep25.pt"):
+        shutil.copy2("./path/to/checkpoints/ep1.pt", "./path/to/checkpoints/ep25.pt")
+
+    assert os.path.exists("./path/to/checkpoints/ep25.pt")
+
+.. testcode::
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="90ep",
+        save_overwrite=True,
+        load_path="./path/to/checkpoints/ep25.pt",
+    )
+    trainer.fit()
 
 The above code will load the checkpoint from epoch 25, and continue training
 for another 65 epochs (to reach 90 epochs total).
@@ -90,218 +136,263 @@ Different ``model`` or ``optimizer`` objects passed into the trainer when
 resume will be respected. However, an error will be raised if the weights or
 state from the checkpoint are not compatible with these new objects.
 
-..note ::
 
-    Only the following attributes from :class:`.State` will be serialized and loaded:
+.. note::
 
-    .. code:: python
+    Only the attributes in :attr:`.State.serialized_attributes` are be serialized and loaded. By default, they are:
 
-        serialized_attributes = [
-                "model",
-                "optimizers",
-                "schedulers",
-                "algorithms",
-                "callbacks",
-                "scaler",
-                "timer",
-            ]
+    +-----------------------+-------------------------------------------------------------+
+    | Attribute             | Description                                                 |
+    +=======================+=============================================================+
+    | model                 | The model under training.                                   |
+    +-----------------------+-------------------------------------------------------------+
+    | optimizers            | The optimizers being used to train the model.               |
+    +-----------------------+-------------------------------------------------------------+
+    | schedulers            | The learning rate schedulers.                               |
+    +-----------------------+-------------------------------------------------------------+
+    | algorithms            | The algorithms used for training.                           |
+    +-----------------------+-------------------------------------------------------------+
+    | callbacks             | The callbacks used for training.                            |
+    +-----------------------+-------------------------------------------------------------+
+    | scaler                | The gradient scaler in use for mixed precision training.    |
+    +-----------------------+-------------------------------------------------------------+
+    | timer                 | The timer that tracks training loop progress.               |
+    +-----------------------+-------------------------------------------------------------+
+    | rank_zero_seed        | The seed of the rank zero process.                          |
+    +-----------------------+-------------------------------------------------------------+
 
-    All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use
-    the defaults or what is passed in during the trainer creation.
+    All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use the defaults or what is passed when
+    reconstructing the trainer.
 
 
+Saving for Inference
+--------------------
+
+By default, the :class:`.Trainer` stores the entire training state in each checkpoint. If you would like to store
+only the model weights in a checkpoint, set ``save_weights_only=True``.
+
+.. testcode::
+
+    from composer.trainer import Trainer
+
+    trainer = Trainer(
+        ...,
+        save_folder="checkpoints",
+        save_weights_only=True,
+        save_overwrite=True,
+    )
+
+    trainer.fit()
+
+Saving Multiple Checkpoint Types
+--------------------------------
+
+To save multiple checkpoint types, such as full checkpoints and weights-only checkpoints, the
+:class:`~.CheckpointSaver` can be passed directly into the ``callbacks`` argument
+of the trainer. Each :class:`~.CheckpointSaver` can have its own save folder, interval, and other parameters.
+
+When configuring checkpoints via the ``callbacks``, it is not necessary to specify the ``save_folder`` or other
+checkpoint saving parameters directly on the trainer.
+
+.. testcode::
+
+    from composer.trainer import Trainer
+    from composer.callbacks import CheckpointSaver
+
+    trainer = Trainer(
+        ...,
+        callbacks=[
+            CheckpointSaver(
+                folder='full_checkpoints',
+                save_interval='5ep',
+                overwrite=True,
+                num_checkpoints_to_keep=1,  # only keep the latest, full checkpoint
+            ),
+            CheckpointSaver(
+                folder='weights_only_checkpoints',
+                weights_only=True,
+                overwrite=True,
+            ),
+        ],
+    )
+
+    trainer.fit()
 
 Fine-tuning
 -----------
 
-The :class:`.Trainer` will only load the model weights from the checkpoint if
-``load_weights_only=True``. This is especially useful for model finetuning,
-since the rest of the trainer's state no longer applies.
+The :class:`.Trainer` will only load the model weights from the checkpoint if ``load_weights_only=True``, or if the
+checkpoint was saved with ``save_weights_only=True``. This is especially useful for model fine-tuning, since the rest
+of the trainer's state no longer applies.
 
-.. code:: python
+If the fine-tuned model contains different parameters than the model in the checkpoint, set ``load_strict=False`` to
+ignore mismatches in model parameter names between the serialized model state and new model object.
+Parameters with the same name are expected to have the same shape and will have their state restored, and parameters
+with different names will ignored.
 
-   ft_trainer = Trainer(model=model,
-                        train_dataloader=finetune_dataloader,
-                        eval_dataloader=None,
-                        max_duration="10ep",
-                        load_path_format="/path/to/checkpoint/ep50.pt",
-                        load_weights_only=True)
+.. testsetup::
 
-This example will load only the model weights from epoch 50, and then continue
-training on the finetuned dataloader for 10 epochs.
+    import os
+    import shutil
+    from composer import Trainer
 
-Loading weights externally
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="1ep",
+        save_filename="ep{epoch}.pt",
+        save_folder="./path/to/checkpoints",
+        save_overwrite=True,
+        save_interval="1ep",  # Save checkpoints every epoch
+    )
+    trainer.fit()
+
+    assert os.path.exists("./path/to/checkpoints/ep1.pt")
+
+    if not os.path.exists("./path/to/checkpoints/ep50.pt"):
+        shutil.copy2("./path/to/checkpoints/ep1.pt", "./path/to/checkpoints/ep50.pt")
+
+    assert os.path.exists("./path/to/checkpoints/ep50.pt")
+
+    finetune_model = model
+    finetune_dataloader = train_dataloader
+
+.. testcode::
+
+    ft_trainer = Trainer(
+        model=finetune_model,
+        train_dataloader=finetune_dataloader,
+        max_duration="10ep",
+        load_path="./path/to/checkpoints/ep50.pt",
+        load_weights_only=True,
+        load_strict=False,
+    )
+
+    ft_trainer.fit()
+
+This example will load only the model weights from epoch 1, and then continue training on the fine-tuned dataloader
+for 10 epochs.
+
+Loading Weights Externally
 --------------------------
 
-The model weights are located at ``state_dict["state"]["model"]`` within
-the stored checkpoint. To load them into a model outside of
-a :class:`.Trainer`, use :meth:`torch.load`:
+The model weights are located at ``state_dict["state"]["model"]`` within the stored checkpoint. To load them into a
+model outside of a :class:`.Trainer`, use :meth:`torch.load`:
 
-.. code:: python
+.. testcode::
 
-   model = MyModel()
-   state_dict = torch.load("/path/to/checkpoint/ep15.pt")
+   model = Model(num_channels, num_classes)
+   state_dict = torch.load("./path/to/checkpoints/ep1.pt")
    model.load_state_dict(state_dict["state"]["model"])
 
 Uploading to Object Store
 -------------------------
 
-Checkpoints can also be saved to and loaded from your object store of
-choice (e.g. AWS S3 or Google Cloud Storage). Writing checkpoints to an
-object store is a two-step process. The checkpoints are first written to
-the local filesystem, and then the :class:`RunDirectoryUploader` callback
-will upload to the object store.
+Checkpoints can also be saved to and loaded from your object store of choice (e.g. AWS S3 or Google Cloud Storage).
+Writing checkpoints to an object store is a two-step process. The checkpoints are first written to the local filesystem,
+and then the :class:`.ObjectStoreLogger` logger will upload checkpoints to the specified object store.
 
-.. note ::
+Behind the scenes, the :class:`.ObjectStoreLogger` uses :doc:`Apache Libcloud <libcloud:storage/index>`.
 
-    We use :mod:`libcloud` to connect to the remote object stores, so be
-    sure to have the Python package ``apache-libcloud`` installed.
+.. testcode::
 
-For this, the :class:`.ObjectStore` needs to be configured with
-the following arguments:
+    from composer.loggers import ObjectStoreLogger
 
--  ``provider``: The name of the object store provider, as recognized by
-   :mod:`libcloud`. See available providers
-   `here <https://libcloud.readthedocs.io/en/stable/storage/supported_providers.html#provider-matrix>`__.
--  ``container``: The name of the container (i.e. “bucket”) to use.
+    object_store_logger = ObjectStoreLogger(
+        provider="s3",  # The Apache Libcloud provider name
+        container="my_bucket",  # The name of the cloud container (i.e. bucket) to use.
+        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments 
+            'key': 'provider_key',  # The cloud provider key.
+            'secret': '*******',  # The cloud provider secret.
+            # Any additional arguments required for the cloud provider.
+        },
+    )
 
-To prevent accidental leakage of API keys, your secrets must be provided
-indirectly through environment variables. Set these in your environment
-and provide the following environment variable names:
+.. seealso::
 
--  ``key_environ``: The environment variable where your username is
-   stored. For example, the GCS access key.
--  ``secret_environ``: The environment variable where your secret is
-   stored. For example, the GCS secret that is paired with the
-   above access key for requests.
+    *   :doc:`Full list of object store providers <libcloud:storage/supported_providers>`
+    *   :class:`~.ObjectStoreLogger`
 
-The object store also accepts these common optional arguments:
+There are a few additional trainer arguments which can be helpful to configure:
 
--  ``host``: The specific hostname for the cloud provider, letting you
-   override the default value provided by :mod:`libcloud`.
--  ``port``: The port for the cloud provider
--  ``region``: The region to use for the cloud provider
+*   ``save_num_checkpoints_to_keep``: Set this parameter to remove checkpoints from the local disk after they have been
+    uploaded. For example, setting this parameter to 1 will only keep the latest checkpoint locally; setting it to 0
+    will remove each checkpoint after it has been uploaded. Checkpoints are never deleted from object stores.
+*   ``save_artifact_name``: To customize how checkpoints are named in the cloud bucket, modify this parameter. By
+    default, they will be named as ``'{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}'``. See the
+    :class:`.CheckpointSaver` documentation for the available format variables.
 
-If your cloud provider requires additional parameters, pass them as a
-dictionary under the key ``extra_init_kwargs``.
+Once you've configured your object store logger per above, all that's left is to add it to the
+:class:`.Trainer` as part of the ``loggers``:
 
-Once you've configured your object store properly per above, all that's
-left is to add the :class:`.RunDirectoryUploader` as a callback.
+.. testcode::
 
-Let's put all this together below:
+    from composer.loggers import ObjectStoreLogger
 
-.. code:: python
+    object_store_logger = ObjectStoreLogger(
+        provider="s3",  # The Apache Libcloud provider name
+        container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
+        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments 
+            'key': 'provider_key',  # The cloud provider key.
+            'secret': '*******',  # The cloud provider secret.
+            # Any additional arguments required for the cloud provider.
+        },
+    )
 
-   import uuid
-   from composer.callbacks import RunDirectoryUploader
-   from composer.utils.object_store import ObjectStoreHparams
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='90ep',
+        save_folder='checkpoints',
+        save_interval='1ep',
+        save_overwrite=True,
+        save_artifact_name='checkpoints/ep{epoch}.pt',
+        save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
+        loggers=[object_store_logger],
+    )
 
-   credentials = {"provider": "GOOGLE_STORAGE",
-                  "container": "checkpoints-debugging",
-                  "key_environ": "GCE_KEY",
-                  "secret_environ": "GCE_SECRET"}
-   hp = ObjectStoreHparams(**credentials)
+    trainer.fit()
 
-   prefix = f"my-model-{str(uuid.uuid4())[:6]}"
-   store_uploader = RunDirectoryUploader(hp, object_name_prefix=prefix)
-
-   trainer = Trainer(model=model,
-                     train_dataloader=dataloader,
-                     eval_dataloader=None,
-                     max_duration="90ep",
-                     save_folder="checkpoints",
-                     callbacks=[store_uploader])
-
-This will train your model, saving the checkpoints locally, and also
-upload them to Google Storage buckets using the username from
-``GCS_KEY`` and the secrets from ``GCS_SECRET`` in your environment
-variables.
+This will train your model, saving the checkpoints locally, upload them to the S3 Bucket,
+and delete the checkpoints from the local disk.
 
 Loading from Object Store
 -------------------------
 
-Checkpoints saved to an object store can also be loaded in the
-same way as files saved on disk. Provide the
-:class:`.ObjectStoreHparams` to the trainer's ``load_object_store``
-argument.  The ``load_path_format`` argument
+Checkpoints saved to an object store can also be loaded in the same way as files saved on disk. Provide the
+:class:`.ObjectStore` to the trainer's ``load_object_store`` argument.  The ``load_path`` argument
 should be the path to the checkpoint file *within the container/bucket*.
 
-.. code:: python
+.. testcode::
 
-   from composer.utils.object_store import ObjectStoreHparams
+    from composer.utils.object_store import ObjectStore
+    from composer.trainer import Trainer
 
-   credentials = {"provider": "GOOGLE_STORAGE",
-                  "container": "checkpoints-debugging",
-                  "key_environ": "GCS_KEY",
-                  "secret_environ": "GCS_SECRET"}
-   hp = ObjectStoreHparams(
-       provider="GOOGLE_STORAGE",
-       container="checkpoints-debugging",
-       key_environ="GCS_KEY",
-       secret_environ="GCS_SECRET",
-   )
-   object_store = hp.initialize_object()
+    object_store = ObjectStore(
+        provider="s3",  # The Apache Libcloud provider name
+        container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
+        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments 
+            'key': 'provider_key',  # The cloud provider key.
+            'secret': '*******',  # The cloud provider secret.
+            # Any additional arguments required for the cloud provider.
+        },
+    )
 
-From there we can fine-tune with:
+    new_trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration="10ep",
+        load_path="checkpoints/ep1.pt",
+        load_object_store=object_store,
+    )
 
-.. code:: python
+    new_trainer.fit()
 
-   new_trainer = Trainer(model=model,
-                         train_dataloader=finetune_dataloader,
-                         eval_dataloader=None,
-                         max_duration="10ep",
-                         load_path_format="simple/rank_0/checkpoints/ep1.tar",
-                         load_object_store=object_store,
-                         load_weights_only=True)
-   new_trainer.fit()
+API Reference
+-------------
 
-Trainer checkpoint API
-----------------------
 
-The :class:`.Trainer` has many arguments, and below we provide the API reference
-for the arguments that are specific to checkpoint loading and saving:
-
-..
-    This is manually duplicated for now, until an automated solution with sphinx
-    is implemented.
-
-Loading
-~~~~~~~
-
-- ``load_path_format`` (``str``, `optional`): Path to a specific checkpoint to load. If not set (the default),
-  then no checkpoint will be loaded. (default: ``None``)
-- ``load_object_store`` (:class:`.ObjectStore`, `optional`): For loading from object stores (e.g. S3),
-  this will be used to download the checkpoint. Ignored if ``load_path_format`` is not specified. (default: ``None``)
-- ``load_weights_only`` (``bool``): Only load the model weights.  Ignored if ``load_path_format`` is not specified.
-  (default: ``False``)
-- ``load_strict`` (``bool``): Ensure that the set of weights in the checkpoint and model must exactly match. Ignored if
-  ``load_path_format`` is not specified. (default: ``False``)
-- ``load_chunk_size`` (``int``): Chunk size (in bytes) to use when downloading checkpoints.
-  Ignored if the ``load_path_format`` is not specified or it is a local file path. (default: ``1,048,675``)
-- ``load_progress_bar`` (``bool``): Display the progress bar for downloading the checkpoint. Ignored if
-  ``load_path_format`` is not specified or if it is a local file path. (default: ``True``)
-
-Saving
-~~~~~~
-
-- ``save_folder`` (``str``, `optional`): Folder path to save checkpoints, relative to the run directory.
-  Set to ``None`` to not save checkpoints. (default: ``None``)
-- ``save_interval`` (``str`` or ``int``): How often to save checkpoints. For example, set to "1ep" to save checkpoints
-  every epoch, or "10ba" to save checkpoints every 10 batches. An integer will be assumed to be epochs.
-  (default: ``1ep``)
-- ``save_compression`` (``str``): Compression algorithm to run on checkpoints. Can be ``gzip``, ``bzip2``,
-  ``lzma``, or left blank for no compression.  (default: ``""`` for no compression).
-
-Object Store API
-----------------
-
-.. autoclass:: composer.utils.object_store.ObjectStoreHparams
-    :noindex:
-
-RunDirectoryUploader API
-------------------------
-
-.. autoclass:: composer.callbacks.run_directory_uploader.RunDirectoryUploader
-    :noindex:
-
-.. TODO: add details on what can be overridden when loading a checkpoint.
+*   :class:`.ObjectStoreLogger` for saving checkpoints to cloud storage.
+*   :class:`.Trainer` for the trainer checkpoint arguments.
+*   :class:`.CheckpointSaver` for the CheckpointSaver arguments.
+*   :mod:`composer.utils.checkpoint` for the underlying utilities to manually save and load checkpoints.

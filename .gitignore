@@ -152,9 +152,6 @@ README.md.bkp
 # Sphinx
 api_reference/
 
-# Run directory
-runs/
-
 # Node (for pyright)
 node_modules/
 package.json

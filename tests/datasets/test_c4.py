@@ -4,7 +4,6 @@ from composer.datasets.c4 import C4Dataset
 
 
 @pytest.mark.skip()
-@pytest.mark.timeout(30)
 @pytest.mark.parametrize("num_samples", [500, 500000])
 @pytest.mark.parametrize("group_method", ["concat", "truncate"])
 def test_c4_length(num_samples, group_method):

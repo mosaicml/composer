@@ -8,8 +8,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from composer.models.base import ComposerClassifier
-from composer.models.model_hparams import Initializer
+from composer.models.initializers import Initializer
+from composer.models.tasks import ComposerClassifier
 
 __all__ = ["Model", "MNIST_Classifier"]
 

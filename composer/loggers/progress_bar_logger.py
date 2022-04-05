@@ -5,15 +5,13 @@
 from __future__ import annotations
 
 import collections.abc
-import sys
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 
-import yaml
 from tqdm import auto
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LoggerDataDict, LogLevel, format_log_data_value
+from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 
@@ -29,7 +27,7 @@ class _ProgressBarLoggerInstanceState:
     position: int
     keys_to_log: List[str]
     n: int
-    epoch_metrics: LoggerDataDict
+    epoch_metrics: Dict[str, Any]
 
 
 class _ProgressBarLoggerInstance:
@@ -42,7 +40,7 @@ class _ProgressBarLoggerInstance:
                               bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}")
         self.pbar.set_postfix(state.epoch_metrics)
 
-    def log_data(self, data: LoggerDataDict):
+    def log_data(self, data: Dict[str, Any]):
         formatted_data = {k: format_log_data_value(v) for (k, v) in data.items() if k in self.state.keys_to_log}
         self.state.epoch_metrics.update(formatted_data)
         self.pbar.set_postfix(self.state.epoch_metrics)
@@ -69,14 +67,15 @@ class ProgressBarLogger(LoggerDestination):
 
             from composer.loggers import ProgressBarLogger
             from composer.trainer import Trainer
+
             trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                optimizers=[optimizer],
+                ...,
                 loggers=[ProgressBarLogger()]
             )
+
+        .. testcleanup::
+
+            trainer.engine.close()
 
     Example output::
 
@@ -87,33 +86,18 @@ class ProgressBarLogger(LoggerDestination):
 
         It is currently not possible to show additional metrics.
         Custom metrics for the TQDM progress bar will be supported in a future version.
-
-    Args:
-        config (dict or None, optional):
-            Trainer configuration. If provided, it is printed to the terminal as YAML.
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
-        super().__init__()
+    def __init__(self) -> None:
         self.pbars: Dict[bool, _ProgressBarLoggerInstance] = {}
         self.is_train: Optional[bool] = None
-        self.config = config
 
-    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict) -> None:
+    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
         del state
         if dist.get_global_rank() == 0 and log_level <= LogLevel.BATCH and self.is_train in self.pbars:
             # Logging outside an epoch
             assert self.is_train is not None
             self.pbars[self.is_train].log_data(data)
-
-    def init(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
-        if self.config is not None:
-            print("Config")
-            print("-" * 30)
-            yaml.safe_dump(self.config, stream=sys.stdout)
-            print("-" * 30)
-            print()
 
     def _start(self, state: State):
         if dist.get_global_rank() != 0:

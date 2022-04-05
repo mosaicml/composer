@@ -3,10 +3,10 @@
 """A wrapper around `timm.create_model() <https://rwightman.github.io/pytorch-image-models/#load-a-pretrained-model>`_
 used to create :class:`.ComposerClassifier`."""
 
-import textwrap
 from typing import Optional
 
-from composer.models.base import ComposerClassifier
+from composer.models.tasks import ComposerClassifier
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["Timm"]
 
@@ -51,10 +51,7 @@ class Timm(ComposerClassifier):
         try:
             import timm
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without timm support. To use timm with Composer, run `pip install mosaicml[timm]`
-                if using pip or `pip install timm>=0.5.4` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="timm", conda_package="timm>=0.5.4") from e
 
         model = timm.create_model(
             model_name=model_name,

@@ -8,6 +8,7 @@ import textwrap
 from typing import TYPE_CHECKING, Callable, List, Optional, Sequence
 
 import torch
+import torch.utils.data
 
 from composer.utils.iter_helpers import ensure_tuple
 
@@ -22,6 +23,8 @@ class DataSpec:
 
     An example of constructing a :class:`DataSpec` object with a ``device_transforms`` callable
     (:class:`~composer.datasets.utils.NormalizationFn`) and then using it with :class:`~.Trainer`:
+
+    .. doctest::
 
        >>> # In this case, we apply NormalizationFn 
        >>> # Construct DataSpec as shown below to apply this transformation
@@ -40,6 +43,10 @@ class DataSpec:
        ...     optimizers=optimizer,
        ...     max_duration="1ep",
        ... )
+
+    .. testcleanup::
+
+        trainer.engine.close()
 
     Args:
         dataloader (DataLoader): The dataloader.
@@ -95,7 +102,9 @@ class DataSpec:
             self.num_samples = num_samples
 
         else:
-            if isinstance(dataloader.dataset, collections.abc.Sized):
+            # FFCV dataloaders don't have an associated dataset
+            if isinstance(dataloader, torch.utils.data.DataLoader) and isinstance(dataloader.dataset,
+                                                                                  collections.abc.Sized):
                 try:
                     self.num_samples = len(dataloader.dataset)
                 except (TypeError, NotImplementedError):

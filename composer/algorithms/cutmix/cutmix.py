@@ -14,7 +14,7 @@ from torch.nn import functional as F
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.models.loss import _check_for_index_targets
+from composer.loss.utils import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ def cutmix_batch(input: Tensor,
     # Interpolate between labels using the adjusted lambda
     # First check if labels are indices. If so, convert them to onehots.
     # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
-    if _check_for_index_targets(target):
+    if check_for_index_targets(target):
         y_onehot = F.one_hot(target, num_classes=num_classes)
         y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
         y_cutmix = adjusted_lambda * y_onehot + (1 - adjusted_lambda) * y_shuffled_onehot

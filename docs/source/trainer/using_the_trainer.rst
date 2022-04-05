@@ -169,21 +169,26 @@ argument.
 
 .. testcode::
 
-   from composer import Trainer
-   from composer.algorithms import LayerFreezing, MixUp
+    from composer import Trainer
+    from composer.algorithms import LayerFreezing, MixUp
 
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     max_duration='2ep',
-                     algorithms=[
-                         LayerFreezing(freeze_start=0.5, freeze_level=0.1),
-                         MixUp(num_classes=10, alpha=0.1),
-                     ])
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='2ep',
+        algorithms=[
+            LayerFreezing(freeze_start=0.5, freeze_level=0.1),
+            MixUp(num_classes=10, alpha=0.1),
+    ])
 
-   # the algorithms will automatically be applied during the appropriate
-   # points of the training loop
-   trainer.fit()
+    # the algorithms will automatically be applied during the appropriate
+    # points of the training loop
+    trainer.fit()
+
+.. testcleanup::
+
+    trainer.engine.close()
 
 We handle inserting those algorithms into the training loop and in the
 right order.
@@ -429,10 +434,10 @@ points during training and (2) load them back to resume training later.
                      max_duration='160ep',
                      device='gpu',
                      # Checkpointing params
-                     load_path_format: 'path/to/checkpoint/mosaic_states.pt')
+                     load_path: 'path/to/checkpoint/mosaic_states.pt')
 
    # will load the trainer state (including model weights) from the
-   # load_path_format before resuming training
+   # load_path before resuming training
    trainer.fit()
 
 .. seealso::
@@ -442,6 +447,56 @@ points during training and (2) load them back to resume training later.
 
 This was just a quick tour of all the features within our trainer. Please see the other
 guides and notebooks for more information.
+
+Reproducibility
+~~~~~~~~~~~~~~~
+
+The random seed can be provided to the trainer directly, e.g.
+
+.. testcode::
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        ...,
+        seed=42,
+    )
+
+If no seed is provided, a random seed will be generated from system time.
+
+Since the model and dataloaders are initialized outside of the Trainer, for complete
+determinism, we recommend calling :func:`~composer.utils.reproducibility.seed_all` and/or
+:func:`~composer.utils.reproducibility.configure_deterministic_mode` before creating any objects. For example:
+
+.. testsetup::
+
+    import functools
+    import torch.nn
+    import warnings
+
+    warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
+
+    MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
+
+.. testcode::
+
+   import torch.nn
+   from composer.utils import reproducibility
+
+   reproducibility.configure_deterministic_mode()
+   reproducibility.seed_all(42)
+
+   model = MyModel()
+
+   def init_weights(m):
+       if isinstance(m, torch.nn.Linear):
+           torch.nn.init.xavier_uniform(m.weight)
+
+   # model will now be deterministically initialized, since the seed is set.
+   init_weights(model)
+   trainer = Trainer(model=model, seed=42)
+
+Note that the Trainer must still be seeded.
 
 Annotated Trainer Loop
 ----------------------

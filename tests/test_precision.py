@@ -17,6 +17,9 @@ from composer.trainer.devices import GPUDeviceHparams
 def run_and_measure_memory(precision: Precision) -> int:
     hparams_f = os.path.join(os.path.dirname(composer.__file__), "yamls", "models", "resnet56_cifar10_synthetic.yaml")
     hparams = TrainerHparams.create(f=hparams_f, cli_args=False)
+    hparams.train_subset_num_batches = 1
+    hparams.validate_every_n_batches = -1
+    hparams.validate_every_n_epochs = -1
     assert isinstance(hparams, TrainerHparams)
     assert isinstance(hparams.device, GPUDeviceHparams)
     hparams.precision = precision
@@ -35,7 +38,6 @@ def run_and_measure_memory(precision: Precision) -> int:
     return torch.cuda.max_memory_allocated()
 
 
-@pytest.mark.timeout(120)
 @pytest.mark.gpu
 @pytest.mark.parametrize("precision", [Precision.AMP, Precision.BF16])
 def test_precision_memory(precision):
