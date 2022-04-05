@@ -123,15 +123,14 @@ Putting all the pieces together, our trainer looks something like this:
 
 .. code-block:: python
 
-    from composer.core.time import Time
-    from composer.core.types import DataLoader
+    from composer import Time
 
-    model = SomeComposerModel() # a Composer model which subclasses `ComposerModel`
-    max_duration = Time(10, TimeUnit.EPOCH) # max duration to train for
-    rank_zero_seed = 0
-    dataloader = (...) # load some dataset. Initialize the same way you would `torch.utils.DataLoader`.
-
-    state = State(model, max_duration, rank_zero_seed, dataloader)
+    state = State(
+        model=your_model,  # ComposerModel 
+        max_duration=Time(10, 'epoch'), 
+        rank_zero_seed=0, 
+        dataloader=your_dataloader  # torch.utils.DataLoader,
+    )
 
     engine = Engine(state=state, algorithms=[MixUp()])
 
