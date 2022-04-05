@@ -1,13 +1,15 @@
-import boto3
-import numpy as np
 import os
 import shutil
+from io import BufferedReader, BufferedWriter
 from threading import Lock, Thread
 from time import sleep
+from typing import Callable, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
+
+import boto3
+import numpy as np
 from torch import Tensor
 from torch.utils.data import IterableDataset
 from tqdm import tqdm
-from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
 
 def sample_dict_to_bytes(obj: Dict[str, bytes], keys: List[str]) -> bytes:
@@ -71,28 +73,28 @@ class MosaicDatasetIndex(object):
     - Fields
     """
 
-    def __init__(self, samples_per_shard: np.ndarray, bytes_per_shard: np.ndarray, bytes_per_sample: np.ndarray,
-                 fields: List[str]) -> None:
+    def __init__(self, samples_per_shard: Sequence[int], bytes_per_shard: Sequence[int],
+                 bytes_per_sample: Sequence[int], fields: List[str]) -> None:
         """Initialize with sample stats.
 
         Args:
-            samples_per_shard (np.ndarray): Number of samples of each shard.
-            bytes_per_shard (np.ndarray): Size in bytes of each shard.
-            bytes_per_sample (np.ndarray): Size in bytes of each sample across all shards.
+            samples_per_shard (sequence of int): Number of samples of each shard.
+            bytes_per_shard (sequence of int): Size in bytes of each shard.
+            bytes_per_sample (sequence of int): Size in bytes of each sample across all shards.
             fields (list of str): The names of the sample's fields in order.
         """
-        self.samples_per_shard = samples_per_shard
-        self.bytes_per_shard = bytes_per_shard
-        self.bytes_per_sample = bytes_per_sample
+        self.samples_per_shard = np.asarray(samples_per_shard, np.int32)
+        self.bytes_per_shard = np.asarray(bytes_per_shard, np.int32)
+        self.bytes_per_sample = np.asarray(bytes_per_sample, np.int32)
         self.fields = fields
 
         self.num_shards = len(samples_per_shard)
         self.total_samples = len(bytes_per_sample)
-        self.total_bytes = sum(bytes_per_sample)
+        self.total_bytes = sum(bytes_per_shard)
         self.num_fields = len(fields)
 
     @classmethod
-    def loads(cls, data):
+    def loads(cls, data: bytes):
         """Load a MosaicDatasetIndex from raw bytes.
 
         Args:
@@ -103,7 +105,7 @@ class MosaicDatasetIndex(object):
         """
         begin = 0
         end = begin + 4 * 4
-        num_shards, num_samples, num_bytes, num_fields = np.frombuffer(data[begin:end], np.int32)
+        num_shards, total_samples, total_bytes, num_fields = np.frombuffer(data[begin:end], np.int32)
 
         begin = end
         end = begin + num_shards * 4
@@ -112,9 +114,10 @@ class MosaicDatasetIndex(object):
         begin = end
         end = begin + num_shards * 4
         bytes_per_shard = np.frombuffer(data[begin:end], np.int32)
+        assert sum(bytes_per_shard) == total_bytes
 
         begin = end
-        end = begin + num_samples * 4
+        end = begin + total_samples * 4
         bytes_per_sample = np.frombuffer(data[begin:end], np.int32)
 
         begin = end
@@ -131,7 +134,7 @@ class MosaicDatasetIndex(object):
         return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
 
     @classmethod
-    def load(cls, fp):
+    def load(cls, fp: BufferedReader):
         """Load a MosaicDatasetIndex from a file handle.
 
         Args:
@@ -143,20 +146,20 @@ class MosaicDatasetIndex(object):
         data = fp.read()
         return cls.loads(data)
 
-    def dumps(self) -> None:
+    def dumps(self) -> bytes:
         """Dump a MosaicDatasetIndex to raw bytes.
 
         Returns:
             bytes: The serialized form.
         """
+        counts = self.num_shards, self.total_samples, self.total_bytes, self.num_fields
         bytes_per_field = list(map(len, self.fields))
-        ints = np.concatenate([[self.num_shards, self.total_samples, self.total_bytes, self.num_fields],
-                               self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample,
-                               bytes_per_field]).astype(np.int32)
+        arrays = counts, self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, bytes_per_field
+        ints = np.concatenate(arrays).astype(np.int32)
         byte_fields = list(map(lambda s: s.encode('utf-8'), self.fields))
         return ints.tobytes() + b''.join(byte_fields)
 
-    def dump(self, fp) -> None:
+    def dump(self, fp: BufferedWriter) -> None:
         """Dump a MosaicDatasetIndex to the file.
 
         Args:
@@ -195,8 +198,8 @@ class MosaicDatasetIndex(object):
             shard (int): Which shard.
 
         Returns:
-            begin: First sample ID of shard.
-            end: One past the last sample ID of the shard.
+            begin (np.ndarray): First sample ID of shard.
+            end (np.ndarray): One past the last sample ID of the shard.
         """
         ends = self.samples_per_shard.cumsum(0)
         begins = ends - self.samples_per_shard
@@ -265,7 +268,9 @@ class MosaicDatasetWriter(object):
         self.new_samples.append(data)
         self.new_shard_size += len(data)
 
-    def write_samples(self, objs: Iterable[Dict[str, bytes]], use_tqdm: bool = True,
+    def write_samples(self,
+                      objs: Iterable[Dict[str, bytes]],
+                      use_tqdm: bool = True,
                       total: Optional[int] = None) -> None:
         """Add the samples from the given iterable to the dataset.
 
@@ -289,12 +294,12 @@ class MosaicDatasetWriter(object):
         """Enter as contextmanager."""
         return self
 
-    def __exit__(self, *args, **kwargs) -> None:
+    def __exit__(self, *args: List, **kwargs: Dict) -> None:
         """Exit as contextmanager."""
         self.finish()
 
 
-def download(remote, local) -> None:
+def download(remote: str, local: str) -> None:
     """Universal downloader.
 
     Args:
@@ -318,12 +323,7 @@ def download(remote, local) -> None:
 class MosaicDataset(IterableDataset):
     """MosaicDataset."""
 
-    def __init__(self,
-                 remote: str,
-                 local: str,
-                 split: str,
-                 transform: Optional[Callable],
-                 target_transform: Optional[Callable],
+    def __init__(self, remote: str, local: str, split: str, transform: Callable, target_transform: Callable,
                  shuffle: bool) -> None:
         """Initialize with the given remote path and local cache.
 
@@ -356,7 +356,7 @@ class MosaicDataset(IterableDataset):
 
         # Fields, protected by the lock, relating to loading shards in the background.
         self._lock = Lock()
-        self._files = [None] * self.index.num_shards
+        self._files: List[Optional[BufferedReader]] = [None] * self.index.num_shards
         self._next_epoch_key = 0
         self._key2epoch = {}
         self._loaded_epoch = []
@@ -515,7 +515,7 @@ class MosaicDataset(IterableDataset):
         Returns:
             int: Dataset length.
         """
-        return self.index.num_samples
+        return self.index.total_samples
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor]:
         """Get the sample at the index, assuming its shard is loaded.
@@ -533,6 +533,7 @@ class MosaicDataset(IterableDataset):
         offset = self.sample_offsets[idx]
         size = self.index.bytes_per_sample[idx]
         fp = self._files[shard]
+        assert fp is not None, 'Tried to __getitem__ a sample that was not loaded.'
         fp.seek(offset)
         data = fp.read(size)
         obj = bytes_to_sample_dict(data, self.index.fields)
