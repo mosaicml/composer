@@ -52,7 +52,7 @@ training loop:
             optimizer.zero_grad()
 
 This works and is recommended if you want to quickly modify an existing training loop to use our implementation of
-MixUp! However, the goal of the Composer library is to be able to rapidly experiment with different combinations of
+MixUp! However, the goal of Composer is to be able to rapidly experiment with different combinations of
 algorithms. Our methods library contains over 20 different methods to experiment with, and it would be unwieldy to
 have to add conditional logic to the trainer for enabling/disabling each new method. This is where the composer trainer comes in.
 
