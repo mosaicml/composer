@@ -13,6 +13,8 @@ from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.models import ComposerModel
 
+__all__ = ['SelectiveBackprop', 'select_using_loss', 'should_selective_backprop']
+
 
 def should_selective_backprop(
     current_duration: float,

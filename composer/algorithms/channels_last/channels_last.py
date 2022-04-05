@@ -12,6 +12,8 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
+__all__ = ['ChannelsLast', 'apply_channels_last']
+
 
 def apply_channels_last(model: torch.nn.Module) -> None:
     """Changes the memory format of the model to torch.channels_last.

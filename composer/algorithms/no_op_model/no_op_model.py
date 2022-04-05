@@ -63,13 +63,14 @@ class NoOpModelClass(ComposerModel):
 
 
 class NoOpModel(Algorithm):
+    """Runs on Event.INIT and replaces the model with 
+    a dummy model of type NoOpModelClass.
+    """
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT"""
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Replace model with dummy model of type NoOpModelClass"""
         new_model = NoOpModelClass(state.model)
         module_surgery.update_params_in_optimizer(old_params=state.model.parameters(),
                                                   new_params=new_model.parameters(),

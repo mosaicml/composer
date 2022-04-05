@@ -13,6 +13,8 @@ from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
+__all__ = ['SAM', 'SAMOptimizer']
+
 
 class SAMOptimizer(torch.optim.Optimizer):
     """Wraps an optimizer with sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_).
