@@ -51,7 +51,6 @@ def mixup_batch(input: torch.Tensor,
 
     Returns:
         input_mixed (torch.Tensor): batch of inputs after mixup has been applied
-        target_orig (torch.Tensor): The original labels
         target_perm (torch.Tensor): The labels of the mixed-in examples
         mixing (torch.Tensor): the amount of mixing used
 
@@ -64,7 +63,7 @@ def mixup_batch(input: torch.Tensor,
             N, C, H, W = 2, 3, 4, 5
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
-            X_mixed, y_orig, y_perm, mixing = mixup_batch(
+            X_mixed, y_perm, mixing = mixup_batch(
                 X, y, alpha=0.2)
     """
     if mixing is None:
@@ -80,7 +79,7 @@ def mixup_batch(input: torch.Tensor,
     # Interpolate between the inputs
     x_mixup = (1 - mixing) * input + mixing * x_permuted
 
-    return x_mixup, target, permuted_target, mixing
+    return x_mixup, permuted_target, mixing
 
 
 class MixUp(Algorithm):
@@ -143,7 +142,7 @@ class MixUp(Algorithm):
             self.mixing = _gen_mixing_coef(self.alpha)
             self.indices = _gen_indices(input.shape[0])
 
-            new_input, _, self.permuted_target, _ = mixup_batch(
+            new_input, self.permuted_target, _ = mixup_batch(
                 input,
                 target,
                 mixing=self.mixing,

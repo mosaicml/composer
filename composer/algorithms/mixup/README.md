@@ -30,7 +30,7 @@ def training_loop(model, train_loader):
 
   for epoch in range(num_epochs):
       for X, y in train_loader:
-          X_mixed, y_orig, y_perm, mixing = cf.mixup_batch(X, y, alpha=0.2)
+          X_mixed, y_perm, mixing = cf.mixup_batch(X, y, alpha=0.2)
           y_hat = model(X_mixed)
           loss = (1 - mixing) * loss_fn(y_hat, y_orig) + mixing * loss_fn(y_hat, y_perm)
           loss.backward()
@@ -50,7 +50,7 @@ def training_loop(model, train_loader):
 
   for epoch in range(num_epochs):
       for X, y in train_loader:
-          X_mixed, y_orig, y_perm, mixing = cf.mixup_batch(X, y, alpha=0.2)
+          X_mixed, y_perm, mixing = cf.mixup_batch(X, y, alpha=0.2)
           y_mixed = (1 - mixing) * y_orig + mixing * y_perm
           y_hat = model(X_mixed)
           loss = loss_fn(y_hat, y_mixed)

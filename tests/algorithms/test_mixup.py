@@ -45,7 +45,7 @@ class TestMixUp:
         mixing = _gen_mixing_coef(alpha)
 
         # Apply mixup
-        x_mix, _, y_perm, _ = mixup_batch(x_fake, y_fake, mixing=mixing, indices=indices)
+        x_mix, y_perm, _ = mixup_batch(x_fake, y_fake, mixing=mixing, indices=indices)
 
         # Validate results
         validate_mixup_batch(x_fake, y_fake, indices, x_mix, y_perm, mixing)

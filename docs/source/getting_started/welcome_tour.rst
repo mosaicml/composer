@@ -42,7 +42,7 @@ training loop:
 
     for epoch in range(NUM_EPOCHS):
         for inputs, targets in dataloader:
-            inputs, targets, targets_perm, mixing = cf.mixup_batch(inputs, targets, alpha=0.2)
+            inputs, targets_perm, mixing = cf.mixup_batch(inputs, targets, alpha=0.2)
             outputs = model.forward(inputs)
             loss = (1 - mixing) * model.loss(outputs, targets) + mixing * model.loss(outputs, targets_perm)
             loss.backward()
@@ -59,7 +59,7 @@ Events, Engines, and State
 
 The core principle of the Composer trainer is to avoid the need to introduce algorithm-specific logic to the trainer
 by instead relying on callbacks tied to *events*. Events describe specific stages of the training lifecycle, such as
-``BATCH_START`` and ``BEFORE_FORWARD``. This is based on the two-way callback system from (`Howard et al, 2020`_). 
+``BATCH_START`` and ``BEFORE_FORWARD``. This is based on the two-way callback system from (`Howard et al, 2020`_).
 We could add events to our training loop as follows:
 
 .. code-block:: python
@@ -118,7 +118,7 @@ simple:
             input, target = state.batch_pair
 
             if event == Event.AFTER_DATALOADER:
-                new_input, _, self.permuted_target, self.mixing = mixup_batch(input, target, alpha=0.2)
+                new_input, self.permuted_target, self.mixing = mixup_batch(input, target, alpha=0.2)
                 state.batch = (new_input, target)
 
             if event == Event.AFTER_LOSS:
@@ -134,9 +134,9 @@ Putting all the pieces together, our trainer looks something like this:
     from composer import Time
 
     state = State(
-        model=your_model,  # ComposerModel 
-        max_duration=Time(10, 'epoch'), 
-        rank_zero_seed=0, 
+        model=your_model,  # ComposerModel
+        max_duration=Time(10, 'epoch'),
+        rank_zero_seed=0,
         dataloader=your_dataloader  # torch.utils.DataLoader,
     )
 
