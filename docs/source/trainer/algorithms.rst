@@ -1,13 +1,13 @@
 |:robot:| Algorithms
 ====================
 
-Composer has a curated collection of speedup methods ("Algorithms") that can be composed together
+Composer has a curated collection of speedup methods ("Algorithms") that can be composed 
 to easily create efficient training recipes.
 
 Below is a brief overview of the algorithms currently in Composer.
 For more detailed information about each algorithm, see the :doc:`method cards</method_cards/methods_overview>`,
 also linked in the table. Each algorithm has a functional implementation intended
-for use with your own training loop, and an implementation intended for use with
+for use with your own training loop and an implementation intended for use with
 Composer's trainer.
 
 .. csv-table::
@@ -26,8 +26,8 @@ Composer's trainer.
 Functional API
 --------------
 
-The simplest way to use Composer's algorithms is through the functional API. Composer's
-algorithms can be grouped into three broad classes:
+The simplest way to use Composer's algorithms is via the functional API.
+Composer's algorithms can be grouped into three, broad classes:
 
 - `data augmentations` add additional transforms to the training data.
 - `model surgery` algorithms modify the network architecture.
@@ -56,31 +56,34 @@ transforms. For example, with :doc:`/method_cards/randaugment`:
                             transform=c10_transforms)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1024)
 
-Some augmentations, such as :doc:`/method_cards/cutmix` act on a batch of inputs. Insert
+Some augmentations, such as :doc:`/method_cards/cutmix`, act on a batch of inputs. Insert
 these in your training loop after a batch is loaded from the dataloader:
 
 .. code-block:: python
 
-    from composer import functional as CF
+    from composer import functional as cf
 
     cutmix_alpha = 1
     num_classes = 10
     for batch_idx, (data, target) in enumerate(dataloader):
-    ### Insert CutMix here ###
-    data = CF.cutmix(data, target, cutmix_alpha, num_classes)
-    ### ------------------ ###
+        data = cf.cutmix(
+            data,
+            target,
+            alpha=cutmix_alpha, 
+            num_classes=num_classes
+        )
         optimizer.zero_grad()
-    output = model(data)
-    loss = loss(output, target)
-    loss.backward()
-    optimizer.step()
+        output = model(data)
+        loss = loss_fn(output, target)
+        loss.backward()
+        optimizer.step()
 
 Model Surgery
 ~~~~~~~~~~~~~
 
-Model surgery algorithms make direct modifications to the network itself. For example,
-For example, apply :doc:`/method_cards/blurpool`, which inserts a blur layer before strided convolution
-layers, with:
+Model surgery algorithms make direct modifications to the network itself.
+For example, apply :doc:`/method_cards/blurpool`, inserts a blur layer before strided convolution
+layers as demonstrated here:
 
 .. code-block:: python
 
@@ -90,7 +93,7 @@ layers, with:
     model = models.resnet18()
     cf.apply_blurpool(model)
 
-Or in NLP, swap out the attention head of a |:hugging_face:| transforms with one
+For a transformer model, we can swap out the attention head of a |:hugging_face:| transformer with one
 from :doc:`/method_cards/alibi`:
 
 .. code-block:: python
@@ -105,14 +108,16 @@ from :doc:`/method_cards/alibi`:
 
     model = GPT2Model.from_pretrained("gpt2")
 
-    cf.apply_alibi(model=model,
-                   heads_per_layer=12,
-                   max_sequence_length=8192,
-                   position_embedding_attribute="module.transformer.wpe",
-                   attention_module=GPT2Attention,
-                   attr_to_replace="_attn",
-                   alibi_attention=_attn,
-                   mask_replacement_function=enlarge_mask)
+    cf.apply_alibi(
+        model=model,
+        heads_per_layer=12,
+        max_sequence_length=8192,
+        position_embedding_attribute="module.transformer.wpe",
+        attention_module=GPT2Attention,
+        attr_to_replace="_attn",
+        alibi_attention=_attn,
+        mask_replacement_function=enlarge_mask
+    )
 
 
 Training Loop
@@ -127,20 +132,21 @@ Composer Trainer
 ----------------
 
 Building training recipes require composing all these different methods together, which is
-the purpose behind our :class:`.Trainer`. Pass in a list of the algorithm classes to run
+the purpose of our :class:`.Trainer`. Pass in a list of the algorithm classes to run
 to the trainer, and we will automatically run each one at the appropriate time during training,
-handling any collisions or reorderings needed.
+handling any collisions or reorderings as needed.
 
 .. code-block:: python
 
     from composer import Trainer
     from composer.algorithms import BlurPool, ChannelsLast
 
-    trainer = Trainer(model=model,
-                      algorithms=[ChannelsLast(), BlurPool()]
-                      train_dataloader=train_dataloader,
-                      eval_dataloader=test_dataloader,
-                      max_duration='10ep',
+    trainer = Trainer(
+        model=model,
+        algorithms=[ChannelsLast(), BlurPool()]
+        train_dataloader=train_dataloader,
+        eval_dataloader=test_dataloader,
+        max_duration='10ep',
     )
 
 For more information, see: :doc:`/trainer/using_the_trainer` and :doc:`/getting_started/welcome_tour`.
@@ -151,7 +157,7 @@ Two-way callbacks
 
 The way our algorithms insert themselves in our trainer is based on the two-way callbacks system developed
 by (`Howard et al, 2020 <https://arxiv.org/abs/2002.04688>`__). Algorithms interact with the
-training loop at various :class:`.Events` and effect their change by modifing the trainer :class:`.State`.
+training loop at various :class:`.Events` and effect their changes by modifing the trainer :class:`.State`.
 
 .. `Events` denote locations inside the training procedure where algorithms can be run. In pseudocode,
 .. Composer’s `events` look as follows:

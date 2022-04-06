@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Sequence, Union
+from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
 
 import torch
 from torchmetrics import MeanSquaredError, Metric, MetricCollection
@@ -48,12 +48,20 @@ class BERTModel(ComposerTransformer):
         model = BERTModel(module=hf_model, config=config, tokenizer=tokenizer)
     """
 
-    def __init__(self, module: transformers.BertModel, config: transformers.BertConfig,
-                 tokenizer: transformers.BertTokenizer) -> None:
+    def __init__(self,
+                 module: transformers.BertModel,
+                 config: transformers.BertConfig,
+                 tokenizer: Optional[transformers.BertTokenizer] = None) -> None:
+
+        if tokenizer is None:
+            model_inputs = {"input_ids", "attention_mask", "token_type_ids"}
+        else:
+            model_inputs = set(tokenizer.model_input_names)
+
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
-            tokenizer=tokenizer)
+            model_inputs=model_inputs)
 
         # we're going to remove the label from the expected inputs
         # since we will handle metric calculation with TorchMetrics instead of HuggingFace.
