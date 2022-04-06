@@ -134,7 +134,7 @@ def parse_args():
         if getattr(args, arg_name) is None:
             if env_var_name in os.environ:
                 env_var_value = os.environ[env_var_name]
-                if env_var_name != "master_addr":
+                if env_var_name != "MASTER_ADDR":
                     env_var_value = int(env_var_value)
                 setattr(args, arg_name, env_var_value)
 
