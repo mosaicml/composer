@@ -41,7 +41,7 @@ class StreamingDatasetWriter(object):
         shard = len(self.samples_per_shard)
         basename = get_shard_basename(shard)
         filename = os.path.join(self.dirname, basename)
-        with open(filename, 'wb') as out:
+        with open(filename, 'xb') as out:
             for data in self.new_samples:
                 out.write(data)
         self.samples_per_shard.append(len(self.new_samples))
@@ -54,7 +54,7 @@ class StreamingDatasetWriter(object):
         assert not self.new_samples
         filename = os.path.join(self.dirname, get_index_basename())
         index = StreamingDatasetIndex(self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, self.fields)
-        with open(filename, 'wb') as out:
+        with open(filename, 'xb') as out:
             index.dump(out)
 
     def write_sample(self, obj: Dict[str, bytes]) -> None:
