@@ -9,11 +9,10 @@ from typing import Optional, Tuple
 
 import numpy as np
 import torch
-from torch.nn import functional as F
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.loss.utils import check_for_index_targets
+from composer.loss.utils import ensure_targets_one_hot
 
 log = logging.getLogger(__name__)
 
@@ -22,10 +21,9 @@ __all__ = ["MixUp", "mixup_batch"]
 
 def mixup_batch(input: torch.Tensor,
                 target: torch.Tensor,
-                num_classes: int,
                 mixing: Optional[float] = None,
                 alpha: float = 0.2,
-                indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, float]:
     """Create new samples using convex combinations of pairs of samples.
 
     This is done by taking a convex combination of ``input`` with a randomly
@@ -42,7 +40,6 @@ def mixup_batch(input: torch.Tensor,
             ``...`` indicates zero or more dimensions.
         target (torch.Tensor): target tensor of shape ``(minibatch, ...)``, where
             ``...`` indicates zero or more dimensions.
-        num_classes (int): total number of classes or output variables
         mixing (float, optional): coefficient used to interpolate
             between the two examples. If provided, must be in :math:`[0, 1]`.
             If ``None``, value is drawn from a ``Beta(alpha, alpha)``
@@ -54,8 +51,8 @@ def mixup_batch(input: torch.Tensor,
 
     Returns:
         input_mixed (torch.Tensor): batch of inputs after mixup has been applied
-        target_mixed (torch.Tensor): labels after mixup has been applied
-        perm (torch.Tensor): the permutation used
+        target_perm (torch.Tensor): The labels of the mixed-in examples
+        mixing (torch.Tensor): the amount of mixing used
 
     Example:
         .. testcode::
@@ -64,34 +61,25 @@ def mixup_batch(input: torch.Tensor,
             from composer.functional import mixup_batch
 
             N, C, H, W = 2, 3, 4, 5
-            num_classes = 10
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
-            X_mixed, y_mixed, perm = mixup_batch(
-                X, y, num_classes=num_classes, alpha=0.2)
+            X_mixed, y_perm, mixing = mixup_batch(
+                X, y, alpha=0.2)
     """
     if mixing is None:
         mixing = _gen_mixing_coef(alpha)
-    # Create shuffled versions of x and y in preparation for interpolation
+    # Create permuted versions of x and y in preparation for interpolation
     # Use given indices if there are any.
     if indices is None:
-        shuffled_idx = torch.randperm(input.shape[0])
+        permuted_idx = _gen_indices(input.shape[0])
     else:
-        shuffled_idx = indices
-    x_shuffled = input[shuffled_idx]
-    y_shuffled = target[shuffled_idx]
+        permuted_idx = indices
+    x_permuted = input[permuted_idx]
+    permuted_target = target[permuted_idx]
     # Interpolate between the inputs
-    x_mix = (1 - mixing) * input + mixing * x_shuffled
+    x_mixup = (1 - mixing) * input + mixing * x_permuted
 
-    # First check if labels are indices. If so, convert them to onehots.
-    # This is under the assumption that the loss expects torch.LongTensor, which is true for pytorch cross_entropy
-    if check_for_index_targets(target):
-        y_onehot = F.one_hot(target, num_classes=num_classes)
-        y_shuffled_onehot = F.one_hot(y_shuffled, num_classes=num_classes)
-        y_mix = ((1. - mixing) * y_onehot + mixing * y_shuffled_onehot)
-    else:
-        y_mix = ((1. - mixing) * target + mixing * y_shuffled)
-    return x_mix, y_mix, shuffled_idx
+    return x_mixup, permuted_target, mixing
 
 
 class MixUp(Algorithm):
@@ -105,18 +93,20 @@ class MixUp(Algorithm):
     Training in this fashion sometimes reduces generalization error.
 
     Args:
-        num_classes (int): the number of classes in the task labels.
         alpha (float, optional): the psuedocount for the Beta distribution used to sample
             mixing parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``0.2``.
+        interpolate_loss (bool, optional): Interpolates the loss rather than the labels.
+            A useful trick when using a cross entropy loss. Will produce incorrect behavior if the loss is not a linear
+            function of the targets. Default: ``False``
 
     Example:
         .. testcode::
 
             from composer.algorithms import MixUp
-            algorithm = MixUp(num_classes=10, alpha=0.2)
+            algorithm = MixUp(alpha=0.2)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
@@ -127,46 +117,75 @@ class MixUp(Algorithm):
             )
     """
 
-    def __init__(self, num_classes: int, alpha: float = 0.2):
-        self.num_classes = num_classes
+    def __init__(self, alpha: float = 0.2, interpolate_loss: bool = False):
         self.alpha = alpha
+        self.interpolate_loss = interpolate_loss
         self.mixing = 0.0
         self.indices = torch.Tensor()
+        self.permuted_target = torch.Tensor()
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT and Event.AFTER_DATALOADER.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
-        return event == Event.AFTER_DATALOADER
+        if self.interpolate_loss:
+            return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
+        else:
+            return event in [Event.AFTER_DATALOADER, Event.BEFORE_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        """Applies MixUp augmentation on State input.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
-
         input, target = state.batch_pair
-        assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
-            "Multiple tensors for inputs or targets not supported yet."
 
-        self.mixing = _gen_mixing_coef(self.alpha)
+        if event == Event.AFTER_DATALOADER:
+            if not isinstance(input, torch.Tensor):
+                raise NotImplementedError("Multiple tensors for inputs not supported yet.")
+            if not isinstance(target, torch.Tensor):
+                raise NotImplementedError("Multiple tensors for targets not supported yet.")
 
-        new_input, new_target, self.indices = mixup_batch(
-            input,
-            target,
-            mixing=self.mixing,
-            num_classes=self.num_classes,
-        )
+            self.mixing = _gen_mixing_coef(self.alpha)
+            self.indices = _gen_indices(input.shape[0])
 
-        state.batch = (new_input, new_target)
+            new_input, self.permuted_target, _ = mixup_batch(
+                input,
+                target,
+                mixing=self.mixing,
+                indices=self.indices,
+            )
+
+            state.batch = (new_input, target)
+
+        if not self.interpolate_loss and event == Event.BEFORE_LOSS:
+            # Interpolate the targets
+            if not isinstance(state.outputs, torch.Tensor):
+                raise NotImplementedError("Multiple output tensors not supported yet")
+            if not isinstance(target, torch.Tensor):
+                raise NotImplementedError("Multiple target tensors not supported yet")
+            # Make sure that the targets are dense/one-hot
+            target = ensure_targets_one_hot(state.outputs, target)
+            permuted_target = ensure_targets_one_hot(state.outputs, self.permuted_target)
+            # Interpolate to get the new target
+            mixed_up_target = (1 - self.mixing) * target + self.mixing * permuted_target
+            # Create the new batch
+            state.batch = (input, mixed_up_target)
+
+        if self.interpolate_loss and event == Event.AFTER_LOSS:
+            # Grab the loss function
+            if hasattr(state.model, "loss"):
+                loss_fn = state.model.loss
+            elif hasattr(state.model, "module") and hasattr(state.model.module, "loss"):
+                if isinstance(state.model.module, torch.nn.Module):
+                    loss_fn = state.model.module.loss
+                else:
+                    raise TypeError("state.model.module must be a torch module")
+            else:
+                raise AttributeError("Loss must be accesable via model.loss or model.module.loss")
+            # Verify that the loss is callable
+            if not callable(loss_fn):
+                raise TypeError("Loss must be callable")
+            # Interpolate the loss
+            new_loss = loss_fn(state.outputs, (input, self.permuted_target))
+            if not isinstance(state.loss, torch.Tensor):
+                raise NotImplementedError("Multiple losses not supported yet")
+            if not isinstance(new_loss, torch.Tensor):
+                raise NotImplementedError("Multiple losses not supported yet")
+            state.loss = (1 - self.mixing) * state.loss + self.mixing * new_loss
 
 
 def _gen_mixing_coef(alpha: float) -> float:
@@ -183,4 +202,9 @@ def _gen_mixing_coef(alpha: float) -> float:
     # for symmetric beta distribution, can always use 0 <= lambda <= .5;
     # this way the "main" label is always the original one, which keeps
     # the training accuracy meaningful
-    return max(mixing_lambda, 1. - mixing_lambda)
+    return min(mixing_lambda, 1. - mixing_lambda)
+
+
+def _gen_indices(num_samples: int) -> torch.Tensor:
+    """Generates a random permutation of the batch indices."""
+    return torch.randperm(num_samples)
