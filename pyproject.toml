@@ -51,7 +51,7 @@ reportUnusedCoroutine = "error"
 # Pytest
 [tool.pytest.ini_options]
 # By default, do not run gpu or notebook tests
-addopts = "--strict-markers -m 'not notebooks and not gpu'"
+addopts = "--strict-markers -m 'not notebooks and not gpu and not vision'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
@@ -65,6 +65,8 @@ markers = [
     "gpu",
     # Whether the test is a notebook test.
     "notebooks",
+    # Whether the test should run in a container based on the vision dockerimage, which contains ffcv and opencv
+    "vision",
 ]
 filterwarnings = [
     # "error",  # warnings should be treated like errors, but still need to fix some warnings

@@ -4,12 +4,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Sequence, Union
+from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
 
 import torch
 from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, Metric, MetricCollection, SpearmanCorrcoef
 
-from composer.models.nlp_metrics import BinaryF1Score, CrossEntropyLoss, MaskedAccuracy
+from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
 from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
@@ -45,12 +45,20 @@ class BERTModel(ComposerTransformer):
         model = BERTModel(module=hf_model, config=config, tokenizer=tokenizer)
     """
 
-    def __init__(self, module: transformers.BertModel, config: transformers.BertConfig,
-                 tokenizer: transformers.BertTokenizer) -> None:
+    def __init__(self,
+                 module: transformers.BertModel,
+                 config: transformers.BertConfig,
+                 tokenizer: Optional[transformers.BertTokenizer] = None) -> None:
+
+        if tokenizer is None:
+            model_inputs = {"input_ids", "attention_mask", "token_type_ids"}
+        else:
+            model_inputs = set(tokenizer.model_input_names)
+
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
-            tokenizer=tokenizer)
+            model_inputs=model_inputs)
 
         # we're going to remove the label from the expected inputs
         # since we will handle metric calculation with TorchMetrics instead of HuggingFace.
@@ -78,7 +86,7 @@ class BERTModel(ComposerTransformer):
             self.train_metrics.extend([self.train_f1])
             self.val_metrics.extend([self.val_f1])
 
-        if config.num_labels > 1 and config.num_labels != len(self.tokenizer):
+        if config.num_labels > 1 and config.num_labels != config.vocab_size:
             self.train_acc = Accuracy()
             self.val_acc = Accuracy()
 
@@ -88,10 +96,10 @@ class BERTModel(ComposerTransformer):
             self.train_metrics.extend([self.train_acc, self.train_matthews])
             self.val_metrics.extend([self.val_acc, self.val_matthews])
 
-        if config.num_labels == len(self.tokenizer):  # tests for MLM pre-training
+        if config.num_labels == config.vocab_size:  # tests for MLM pre-training
             ignore_index = -100
-            self.train_loss = CrossEntropyLoss(ignore_index=ignore_index, vocab_size=config.num_labels)
-            self.val_loss = CrossEntropyLoss(ignore_index=ignore_index, vocab_size=config.num_labels)
+            self.train_loss = LanguageCrossEntropy(ignore_index=ignore_index, vocab_size=config.num_labels)
+            self.val_loss = LanguageCrossEntropy(ignore_index=ignore_index, vocab_size=config.num_labels)
 
             self.train_acc = MaskedAccuracy(ignore_index=ignore_index)
             self.val_acc = MaskedAccuracy(ignore_index=ignore_index)

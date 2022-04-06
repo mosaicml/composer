@@ -21,7 +21,7 @@ class GPT2Hparams(TransformerHparams):
     Args:
         pretrained_model_name (str): Pretrained model name to pull from Hugging Face Model Hub.
         model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
-        tokenizer_name (str): The tokenizer used for this model,
+        tokenizer_name (Optional[str]): The tokenizer used for this model,
             necessary to assert required model inputs.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
@@ -39,12 +39,16 @@ class GPT2Hparams(TransformerHparams):
         if self.model_config:
             config = transformers.GPT2Config.from_dict(self.model_config)
         elif self.pretrained_model_name is not None:
+            # TODO (Moin): verify that the config is an appropriate instance of GPT2!
             config = transformers.GPT2Config.from_pretrained(self.pretrained_model_name)
         else:
             raise ValueError('One of pretrained_model_name or model_config needed.')
 
         # setup the tokenizer in the hparams interface
-        tokenizer = transformers.GPT2Tokenizer.from_pretrained(self.tokenizer_name)
+        if self.tokenizer_name is not None:
+            tokenizer = transformers.GPT2Tokenizer.from_pretrained(self.tokenizer_name)
+        else:
+            tokenizer = None
 
         if self.use_pretrained:
             model = transformers.AutoModelForCausalLM.from_pretrained(self.pretrained_model_name)
