@@ -26,7 +26,6 @@ def get_parser():
     required_args.add_argument("-n",
                                "--nproc",
                                type=int,
-                               default=None,
                                help="The number of processes to launch on this node. Overrides env var "
                                "LOCAL_WORLD_SIZE.")
 
@@ -64,13 +63,11 @@ def get_parser():
         "environment, i.e. when the world_size is bigger than nproc.")
     multinode_args.add_argument("--world_size",
                                 type=int,
-                                default=None,
                                 help="The total number of processes to launch across all nodes. "
                                 "Setting this to a value greater than nproc indicates a multi-node "
                                 "environment. Overrides env var WORLD_SIZE. Defaults to nproc.")
     multinode_args.add_argument("--base_rank",
                                 type=int,
-                                default=None,
                                 help="The rank of the lowest ranked process to launch on this node. "
                                 "Specifying a base_rank B and an nproc N will spawn processes with "
                                 "global ranks [B, B+1, ... B+N-1]. In a multi-node environment, "
@@ -83,19 +80,16 @@ def get_parser():
                                 "environment.")
     multinode_args.add_argument("--node_rank",
                                 type=int,
-                                default=None,
                                 help="The rank of this node. See base_rank for information on when "
                                 "this must be provided. Overrides env var NODE_RANK. Defaults to 0 "
                                 "in a single-node environment.")
     multinode_args.add_argument("--master_addr",
                                 type=str,
-                                default=None,
                                 help="The FQDN of the node hosting the C10d TCP store. For single-node "
                                 "operation, this can generally be left as 127.0.0.1. Overrides env var "
                                 "MASTER_ADDR. Defaults to 127.0.0.1 in a single-node environment.")
     multinode_args.add_argument("--master_port",
                                 type=int,
-                                default=None,
                                 help="The port on the master hosting the C10d TCP store. If you are "
                                 "running multiple trainers on a single node, this generally needs "
                                 "to be unique for each one. Overrides env var MASTER_PORT. Defaults "
