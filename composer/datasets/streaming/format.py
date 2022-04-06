@@ -22,7 +22,7 @@ def get_shard_basename(shard: int) -> str:
     Returns:
         str: Basename of file.
     """
-    return '%05d.mds' % shard
+    return f'{shard:05}.mds'
 
 
 def sample_dict_to_bytes(obj: Dict[str, bytes], keys: Sequence[str]) -> bytes:
