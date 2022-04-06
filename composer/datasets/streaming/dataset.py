@@ -72,7 +72,7 @@ class StreamingDataset(IterableDataset):
         self._lock = Lock()
         self._files: List[Optional[BufferedReader]] = [None] * self.index.num_shards
         self._next_epoch_key = 0
-        self._key2epoch = {}
+        self._key_to_epoch = {}
         self._loaded_epoch = []
         self._is_loading_complete = False
 
@@ -139,13 +139,13 @@ class StreamingDataset(IterableDataset):
                     self._loaded_epoch.extend(new_ids)
                     np.random.shuffle(self._loaded_epoch)
 
-                for epoch in self._key2epoch.values():
+                for epoch in self._key_to_epoch.values():
                     epoch.extend(new_ids)
                     np.random.shuffle(epoch)
             else:
                 if not self._is_loading_complete:
                     self._loaded_epoch.extend(new_ids)
-                for epoch in self._key2epoch.values():
+                for epoch in self._key_to_epoch.values():
                     epoch.extend(new_ids)
 
     def _load_shards_if_downloaded(self, shards: Sequence[int], part_min_id: int, part_max_id: int) -> List[int]:
@@ -238,7 +238,7 @@ class StreamingDataset(IterableDataset):
             key = self._next_epoch_key
             self._next_epoch_key += 1
             epoch = list(self._loaded_epoch)
-            self._key2epoch[key] = epoch
+            self._key_to_epoch[key] = epoch
         return key
 
     def _next_id(self, key: int) -> Optional[int]:
@@ -255,11 +255,11 @@ class StreamingDataset(IterableDataset):
         """
         while True:
             with self._lock:
-                epoch = self._key2epoch[key]
+                epoch = self._key_to_epoch[key]
                 if epoch:
                     return epoch.pop()
                 elif self._is_loading_complete:
-                    del self._key2epoch[key]
+                    del self._key_to_epoch[key]
                     return None
                 else:
                     pass
