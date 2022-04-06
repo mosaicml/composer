@@ -74,7 +74,7 @@ these in your training loop after a batch is loaded from the dataloader:
         )
         optimizer.zero_grad()
         output = model(data)
-        loss = loss(output, target)
+        loss = loss_fn(output, target)
         loss.backward()
         optimizer.step()
 
