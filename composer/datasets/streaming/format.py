@@ -4,6 +4,27 @@ from typing import Dict, List, Sequence, Tuple
 import numpy as np
 
 
+def get_index_basename() -> str:
+    """Get the basename for a streaming dataset index.
+
+    Returns:
+        str: Basename of file.
+    """
+    return 'index.mds'
+
+
+def get_shard_basename(shard: int) -> str:
+    """Get the basename for a streaming dataset shard.
+
+    Args:
+        shard (int): Which shard.
+
+    Returns:
+        str: Basename of file.
+    """
+    return '%05d.mds' % shard
+
+
 def sample_dict_to_bytes(obj: Dict[str, bytes], keys: List[str]) -> bytes:
     """Dump a sample dict to bytes, given field names.
 

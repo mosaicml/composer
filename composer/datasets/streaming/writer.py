@@ -3,7 +3,8 @@ from typing import Dict, Iterable, List, Optional
 
 from tqdm import tqdm
 
-from composer.datasets.streaming.format import StreamingDatasetIndex, sample_dict_to_bytes
+from composer.datasets.streaming.format import (StreamingDatasetIndex, get_index_basename, get_shard_basename,
+                                                sample_dict_to_bytes)
 
 
 class StreamingDatasetWriter(object):
@@ -37,8 +38,9 @@ class StreamingDatasetWriter(object):
         """Flush cached samples to a new dataset shard."""
         if not self.samples_per_shard:
             os.makedirs(self.dirname)
-        shard_idx = len(self.samples_per_shard)
-        filename = os.path.join(self.dirname, '%05d.mds' % shard_idx)
+        shard = len(self.samples_per_shard)
+        basename = get_shard_basename(shard)
+        filename = os.path.join(self.dirname, basename)
         with open(filename, 'wb') as out:
             for data in self.new_samples:
                 out.write(data)
@@ -50,7 +52,7 @@ class StreamingDatasetWriter(object):
     def _write_index(self) -> None:
         """Save dataset index file."""
         assert not self.new_samples
-        filename = os.path.join(self.dirname, 'index.mds')
+        filename = os.path.join(self.dirname, get_index_basename())
         index = StreamingDatasetIndex(self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, self.fields)
         with open(filename, 'wb') as out:
             index.dump(out)

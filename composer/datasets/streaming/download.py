@@ -5,9 +5,6 @@ from time import sleep
 import boto3
 
 
-s3 = boto3.client('s3')
-
-
 def wait_for_download(local: str) -> None:
     """Block until another worker's shard download completes.
 
@@ -36,6 +33,7 @@ def download_from_s3(remote: str, local: str) -> None:
     idx = remote.index('/')
     bucket = remote[:idx]
     path = remote[idx + 1:]
+    s3 = boto3.client('s3')
     s3.download_file(bucket, path, local)
 
 

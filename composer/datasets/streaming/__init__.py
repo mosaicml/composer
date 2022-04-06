@@ -1,2 +1,2 @@
-from composer.datasets.streaming.dataset import StreamingDataset
-from composer.datasets.streaming.writer import StreamingDatasetWriter
+from composer.datasets.streaming.dataset import StreamingDataset as StreamingDataset
+from composer.datasets.streaming.writer import StreamingDatasetWriter as StreamingDatasetWriter

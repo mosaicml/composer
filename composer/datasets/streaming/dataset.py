@@ -9,7 +9,8 @@ from torch import Tensor
 from torch.utils.data import IterableDataset
 
 from composer.datasets.streaming.download import safe_download
-from composer.datasets.streaming.format import StreamingDatasetIndex, bytes_to_sample_dict
+from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
+                                                get_shard_basename)
 
 
 class StreamingDataset(IterableDataset):
@@ -38,7 +39,7 @@ class StreamingDataset(IterableDataset):
         self.shuffle = shuffle
 
         # First, every worker loads the index file (one downloads/caches while the others poll).
-        local = self._download_if_missing('index.mds')
+        local = self._download_if_missing(get_index_basename())
         fp = open(local, 'rb')
         self.index = StreamingDatasetIndex.load(fp)
 
@@ -108,7 +109,7 @@ class StreamingDataset(IterableDataset):
 
         with self._lock:
             for shard in shards:
-                basename = '%05d.mds' % shard
+                basename = get_shard_basename(shard)
                 filename = os.path.join(self.local, self.split, basename)
                 self._files[shard] = open(filename, 'rb')
 
@@ -139,7 +140,7 @@ class StreamingDataset(IterableDataset):
         downloaded = []
         missing = []
         for shard in sorted(shards):
-            basename = '%05d.mds' % shard
+            basename = get_shard_basename(shard)
             local = os.path.join(self.local, self.split, basename)
             if os.path.exists(local):
                 downloaded.append(shard)
@@ -164,7 +165,7 @@ class StreamingDataset(IterableDataset):
         if self.shuffle:
             np.random.shuffle(shards)
         for shard in shards:
-            basename = '%05d.mds' % shard
+            basename = get_shard_basename(shard)
             self._download_if_missing(basename)
             self._do_load_shards([shard])
         self._done_loading_shards()
