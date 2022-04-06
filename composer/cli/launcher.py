@@ -107,7 +107,7 @@ def get_parser():
     return parser
 
 
-def get_free_tcp_port() -> int:
+def _get_free_tcp_port() -> int:
     # from https://www.programcreek.com/python/?CodeExample=get+free+port
     tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp.bind(('', 0))
@@ -116,27 +116,29 @@ def get_free_tcp_port() -> int:
     return port
 
 
-def parse_args():
+def _parse_args():
     parser = get_parser()
 
     args = parser.parse_args()
 
-    env_var_mapping = {
-        "nproc": "LOCAL_WORLD_SiZE",
-        "world_size": "WORLD_SIZE",
-        "base_rank": "BASE_RANK",
-        "node_rank": "NODE_RANK",
-        "master_addr": "MASTER_ADDR",
-        "master_port": "MASTER_PORT",
-    }
+    # Default values to env vars if they are not provided
+    if args.nproc is None and "LOCAL_WORLD_SIZE" in os.environ:
+        args.nproc = int(os.environ["LOCAL_WORLD_SIZE"])
 
-    for arg_name, env_var_name in env_var_mapping.items():
-        if getattr(args, arg_name) is None:
-            if env_var_name in os.environ:
-                env_var_value = os.environ[env_var_name]
-                if env_var_name != "MASTER_ADDR":
-                    env_var_value = int(env_var_value)
-                setattr(args, arg_name, env_var_value)
+    if args.world_size is None and "WORLD_SIZE" in os.environ:
+        args.world_size = int(os.environ["WORLD_SIZE"])
+
+    if args.base_rank is None and "BASE_RANK" in os.environ:
+        args.base_rank = int(os.environ["BASE_RANK"])
+
+    if args.node_rank is None and "NODE_RANK" in os.environ:
+        args.node_rank = int(os.environ["NODE_RANK"])
+
+    if args.master_addr is None and "MASTER_ADDR" in os.environ:
+        args.master_addr = os.environ["MASTER_ADDR"]
+
+    if args.master_port is None and "MASTER_PORT" in os.environ:
+        args.master_port = int(os.environ["MASTER_PORT"])
 
     if args.world_size is None:
         args.world_size = args.nproc
@@ -190,12 +192,12 @@ def parse_args():
             warnings.warn("AutoSelectPortWarning: The distributed key-value port was auto-selected. "
                           "This may lead to race conditions when launching multiple training processes simultaneously. "
                           "To eliminate this race condition, explicitly specify a port with --master_port PORT_NUMBER")
-            args.master_port = get_free_tcp_port()
+            args.master_port = _get_free_tcp_port()
 
     return args
 
 
-def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int, master_addr: str, master_port: int,
+def _launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int, master_addr: str, master_port: int,
                      module_mode: bool, training_script: str, stdout_file_format: Optional[str],
                      stderr_file_format: Optional[str], training_script_args: List[Any],
                      processes: Set[subprocess.Popen]):
@@ -251,7 +253,7 @@ def launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int
         processes.add(process)
 
 
-def monitor_processes(processes: Set[subprocess.Popen]):
+def _monitor_processes(processes: Set[subprocess.Popen]):
     while len(processes) > 0:
         process_has_crashed = False
         for process in processes:
@@ -272,7 +274,7 @@ def monitor_processes(processes: Set[subprocess.Popen]):
         time.sleep(1)
 
 
-def print_process_exit_status(process: subprocess.Popen):
+def _print_process_exit_status(process: subprocess.Popen):
     if process.stdout is None:
         output = None
     else:
@@ -304,7 +306,7 @@ def print_process_exit_status(process: subprocess.Popen):
     print("\n".join(error_msg))
 
 
-def cleanup_processes(processes: Set[subprocess.Popen]):
+def _cleanup_processes(processes: Set[subprocess.Popen]):
     living_processes_at_end = set()
     for process in processes:
         process.poll()
@@ -338,10 +340,10 @@ def cleanup_processes(processes: Set[subprocess.Popen]):
         if process.returncode != 0 and process not in living_processes_at_end:
             # only print the processes that have actually crashed,
             # not the ones we killed
-            print_process_exit_status(process)
+            _print_process_exit_status(process)
 
 
-def aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
+def _aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
     for process in processes:
         process.poll()
         if process.returncode is None:
@@ -355,7 +357,7 @@ def aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
 
 
 def main():
-    args = parse_args()
+    args = _parse_args()
 
     logging.basicConfig()
     log.setLevel(logging.INFO if args.verbose else logging.WARN)
@@ -363,7 +365,7 @@ def main():
     processes = set()
 
     try:
-        launch_processes(nproc=args.nproc,
+        _launch_processes(nproc=args.nproc,
                          world_size=args.world_size,
                          base_rank=args.base_rank,
                          node_rank=args.node_rank,
@@ -375,7 +377,7 @@ def main():
                          training_script=args.training_script,
                          training_script_args=args.training_script_args,
                          processes=processes)
-        monitor_processes(processes)
+        _monitor_processes(processes)
     except:
         # Print the exception first, then kill the training processes, since killing
         # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
@@ -384,8 +386,8 @@ def main():
         traceback.print_exc()
         print("Killing training processes")
     finally:
-        cleanup_processes(processes)
-        return aggregate_process_returncode(processes)
+        _cleanup_processes(processes)
+        return _aggregate_process_returncode(processes)
 
 
 if __name__ == '__main__':
