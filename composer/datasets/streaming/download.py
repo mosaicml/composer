@@ -2,6 +2,7 @@ import os
 import shutil
 from time import sleep, time
 from typing import Optional
+from urllib import parse
 
 import boto3
 
@@ -32,13 +33,10 @@ def download_from_s3(remote: str, local: str) -> None:
         remote (str): Remote path (S3).
         local (str): Local path (local filesystem).
     """
-    assert remote.startswith('s3://')
-    remote = remote[5:]
-    idx = remote.index('/')
-    bucket = remote[:idx]
-    path = remote[idx + 1:]
+    obj = parse(remote)
+    assert obj.scheme == 's3'
     s3 = boto3.client('s3')
-    s3.download_file(bucket, path, local)
+    s3.download_file(obj.netloc, obj.path, local)
 
 
 def download_from_local(remote: str, local: str) -> None:
