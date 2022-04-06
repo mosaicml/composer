@@ -73,21 +73,29 @@ def safe_download(remote: str, local: str, timeout: Optional[float] = 10) -> Non
         local (str): Local path (local filesystem).
         timeout (Optional[float]): How long to wait before raising an exception. Default: 10 sec.
     """
-    # If we already have the file cached locally, we're done.
+    # If we already have the file cached locally, we are done.
     if os.path.exists(local):
         return
 
-    # Else if someone else is currently downloading the shard, wait for that download to complete.
+    # No local file, so check to see if someone else is currently downloading
+    # the shard. If they are, wait for that download to complete.
     local_tmp = local + '.tmp'
     if os.path.exists(local_tmp):
         wait_for_download(local, timeout)
         return
 
-    # Else if no one is downloading it, mark as in progress, then do the download ourself.
+    # No temp download file when we checked, so attept to take it ourself. If
+    # that fails, someone beat us to it.
     local_dir = os.path.dirname(local)
     if not os.path.exists(local_dir):
         os.makedirs(local_dir)
-    with open(local_tmp, 'w') as out:
-        out.write('')
+    try:
+        with open(local_tmp, 'xb') as out:
+            out.write(b'')
+    except FileExistsError:
+        wait_for_download(local, timeout)
+        return
+
+    # We took the temp download file. Perform the download, then rename.
     download(remote, local_tmp)
     os.rename(local_tmp, local)
