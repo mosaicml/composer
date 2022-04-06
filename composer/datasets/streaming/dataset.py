@@ -42,8 +42,9 @@ class StreamingDataset(IterableDataset):
                  shuffle: bool) -> None:
         """Initialize with the given remote path and local cache.
 
-        Loads all the samples that are available in local cache, then starts a background thread to download the rest
-        during training. As samples are added, shuffled sample selection becomes more random.
+        Loads all the samples that are available in local cache, then starts a
+        background thread to download the rest during training. As samples are
+        added, shuffled sample selection becomes more random.
 
         Args:
             remote (str): Download shards from this remote directory.
@@ -205,7 +206,8 @@ class StreamingDataset(IterableDataset):
     def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor]:
         """Get the sample at the index, assuming its shard is loaded.
 
-        Do not call this directly unless all shards have been loaded. Will crash if the shard is not loaded.
+        Do not call this directly unless all shards have been loaded. Will crash
+        if the shard is not loaded.
 
         Args:
             idx (int): Sample ID.
@@ -289,8 +291,9 @@ class StreamingDataset(IterableDataset):
     def __iter__(self) -> Iterator[Tuple[Tensor, Tensor]]:
         """Iterate over all the samples in our partition.
 
-        If not all samples have been downloaded yet, iterates over what it has while inserting the remainder into the
-        sequence behind the scenes as it progresses.
+        If not all samples have been downloaded yet, iterates over what it has
+        while inserting the remainder into the sequence behind the scenes as it
+        progresses.
 
         Returns:
             Iterator[Tuple[Tensor, Tensor]]: Each sample.

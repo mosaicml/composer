@@ -68,12 +68,13 @@ def bytes_to_sample_dict(data: bytes, keys: Sequence[str]) -> Dict[str, bytes]:
 class StreamingDatasetIndex(object):
     """Streaming dataset index file, containing all the info about shards.
 
-    The shards are just dumb buffers with samples catted together. All the
+    The shards are binary buffers with samples concatenated together. All the
     offset info across the whole dataset is contained in the index file. Workers
     read this file to calculate how much of which shards their slice is.
 
     Each sample is a dict of str to bytes. All samples must contain the same
-    dict keys (fields). These strings are stored in the index file for efficiency.
+    dict keys (fields). These strings are stored in the index file for
+    efficiency.
     """
 
     def __init__(self, samples_per_shard: Sequence[int], bytes_per_shard: Sequence[int],
