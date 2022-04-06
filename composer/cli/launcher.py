@@ -198,9 +198,9 @@ def _parse_args():
 
 
 def _launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int, master_addr: str, master_port: int,
-                     module_mode: bool, training_script: str, stdout_file_format: Optional[str],
-                     stderr_file_format: Optional[str], training_script_args: List[Any],
-                     processes: Set[subprocess.Popen]):
+                      module_mode: bool, training_script: str, stdout_file_format: Optional[str],
+                      stderr_file_format: Optional[str], training_script_args: List[Any],
+                      processes: Set[subprocess.Popen]):
     log.info("Starting distributed environment on local node for global_rank(%s-%s)", base_rank, base_rank + nproc - 1)
     log.info("Distributed KV store: tcp://%s:%s", master_addr, master_port)
 
@@ -366,17 +366,17 @@ def main():
 
     try:
         _launch_processes(nproc=args.nproc,
-                         world_size=args.world_size,
-                         base_rank=args.base_rank,
-                         node_rank=args.node_rank,
-                         master_addr=args.master_addr,
-                         master_port=args.master_port,
-                         module_mode=args.module_mode,
-                         stdout_file_format=args.stdout,
-                         stderr_file_format=args.stderr,
-                         training_script=args.training_script,
-                         training_script_args=args.training_script_args,
-                         processes=processes)
+                          world_size=args.world_size,
+                          base_rank=args.base_rank,
+                          node_rank=args.node_rank,
+                          master_addr=args.master_addr,
+                          master_port=args.master_port,
+                          module_mode=args.module_mode,
+                          stdout_file_format=args.stdout,
+                          stderr_file_format=args.stderr,
+                          training_script=args.training_script,
+                          training_script_args=args.training_script_args,
+                          processes=processes)
         _monitor_processes(processes)
     except:
         # Print the exception first, then kill the training processes, since killing
