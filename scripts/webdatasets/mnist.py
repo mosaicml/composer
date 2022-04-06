@@ -4,7 +4,7 @@ from typing import Any, Dict, Iterable, Tuple
 import numpy as np
 from torchvision.datasets import MNIST
 
-from composer.datasets.webdataset import create_webdataset
+from composer.datasets.webdataset_utils import create_webdataset
 
 
 def parse_args() -> Namespace:
