@@ -44,8 +44,7 @@ class StreamingDataset(IterableDataset):
         self.index = StreamingDatasetIndex.load(fp)
 
         # Given that, precompute shard and byte offset of all our samples, giving us which shards we need to load.
-        self.sample_shards, self.sample_offsets = self.index.locate_samples()
-        todo_shards = sorted(set(self.sample_shards))
+        todo_shards = sorted(set(self.index.sample_shards))
 
         # Fields, protected by the lock, relating to loading shards in the background.
         self._lock = Lock()
@@ -104,7 +103,8 @@ class StreamingDataset(IterableDataset):
         """
         new_ids = []
         for shard in shards:
-            begin, end = self.index.get_shard_sample_range(shard)
+            begin = self.index.shard_begins[shard]
+            end = self.index.shard_ends[shard]
             new_ids += list(range(begin, end))
 
         with self._lock:
@@ -190,8 +190,8 @@ class StreamingDataset(IterableDataset):
             x (tensor): The input tensor.
             y (tensor): The output tensor.
         """
-        shard = self.sample_shards[idx]
-        offset = self.sample_offsets[idx]
+        shard = self.index.sample_shards[idx]
+        offset = self.index.sample_shard_offsets[idx]
         size = self.index.bytes_per_sample[idx]
         fp = self._files[shard]
         assert fp is not None, 'Tried to __getitem__ a sample that was not loaded.'

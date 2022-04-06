@@ -1,5 +1,5 @@
 from io import BufferedReader, BufferedWriter
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, Sequence, Tuple
 
 import numpy as np
 
@@ -25,7 +25,7 @@ def get_shard_basename(shard: int) -> str:
     return '%05d.mds' % shard
 
 
-def sample_dict_to_bytes(obj: Dict[str, bytes], keys: List[str]) -> bytes:
+def sample_dict_to_bytes(obj: Dict[str, bytes], keys: Sequence[str]) -> bytes:
     """Dump a sample dict to bytes, given field names.
 
     Args:
@@ -44,7 +44,7 @@ def sample_dict_to_bytes(obj: Dict[str, bytes], keys: List[str]) -> bytes:
     return sizes.tobytes() + b''.join(values)
 
 
-def bytes_to_sample_dict(data: bytes, keys: List[str]) -> Dict[str, bytes]:
+def bytes_to_sample_dict(data: bytes, keys: Sequence[str]) -> Dict[str, bytes]:
     """Load a sample dict from bytes and field names.
 
     Args:
@@ -66,45 +66,43 @@ def bytes_to_sample_dict(data: bytes, keys: List[str]) -> Dict[str, bytes]:
 
 
 class StreamingDatasetIndex(object):
-    """Streaming dataset index file, giving all the information about shards.
+    """Streaming dataset index file, containing all the info about shards.
 
-    The shards are just dumb buffers with samples catted together. All the offset info across the whole dataset is
-    contained in the index file. Workers read this file to calculate how much of which shards their slice is.
+    The shards are just dumb buffers with samples catted together. All the
+    offset info across the whole dataset is contained in the index file. Workers
+    read this file to calculate how much of which shards their slice is.
 
-    Each sample is a dict of str to bytes. All samples must contain the same dict keys (fields). These strings are
-    stored in the index file for efficiency.
-
-    Format:
-    - Num shards
-    - Total samples
-    - Total bytes
-    - Num fields
-    - Samples per shard
-    - Bytes per shard
-    - Bytes per sample
-    - Bytes per field
-    - Fields
+    Each sample is a dict of str to bytes. All samples must contain the same
+    dict keys (fields). These strings are stored in the index file for efficiency.
     """
 
     def __init__(self, samples_per_shard: Sequence[int], bytes_per_shard: Sequence[int],
-                 bytes_per_sample: Sequence[int], fields: List[str]) -> None:
-        """Initialize with sample stats.
+                 bytes_per_sample: Sequence[int], fields: Sequence[str]) -> None:
+        """Initialize with sample statistics.
 
         Args:
-            samples_per_shard (sequence of int): Number of samples of each shard.
-            bytes_per_shard (sequence of int): Size in bytes of each shard.
-            bytes_per_sample (sequence of int): Size in bytes of each sample across all shards.
-            fields (list of str): The names of the sample's fields in order.
+            samples_per_shard (Sequence[int]): Number of samples of each shard.
+            bytes_per_shard (Sequence[int]): Size in bytes of each shard.
+            bytes_per_sample (Sequence[int]): Size in bytes of each sample across all shards.
+            fields (Sequence[str]): The names of the samples' fields in order.
         """
         self.samples_per_shard = np.asarray(samples_per_shard, np.int32)
         self.bytes_per_shard = np.asarray(bytes_per_shard, np.int32)
         self.bytes_per_sample = np.asarray(bytes_per_sample, np.int32)
         self.fields = fields
 
+        # Totals.
         self.num_shards = len(samples_per_shard)
-        self.total_samples = len(bytes_per_sample)
         self.total_bytes = sum(bytes_per_shard)
+        self.total_samples = len(bytes_per_sample)
         self.num_fields = len(fields)
+
+        # Shard -> sample range.
+        self.shard_ends = self.samples_per_shard.cumsum()
+        self.shard_begins = self.shard_ends - self.samples_per_shard
+
+        # Sample -> shard, byte offset within shard.
+        self.sample_shards, self.sample_shard_offsets = self.locate_samples()
 
     @classmethod
     def loads(cls, data: bytes):
@@ -117,8 +115,12 @@ class StreamingDatasetIndex(object):
             cls: The loaded object.
         """
         begin = 0
-        end = begin + 4 * 4
-        num_shards, total_samples, total_bytes, num_fields = np.frombuffer(data[begin:end], np.int32)
+        end = begin + 2 * 8
+        total_samples, total_bytes = np.frombuffer(data[begin:end], np.int64)
+
+        begin = end
+        end = begin + 2 * 4
+        num_shards, num_fields = np.frombuffer(data[begin:end], np.int32)
 
         begin = end
         end = begin + num_shards * 4
@@ -165,12 +167,13 @@ class StreamingDatasetIndex(object):
         Returns:
             bytes: The serialized form.
         """
-        counts = self.num_shards, self.total_samples, self.total_bytes, self.num_fields
+        x1 = np.array([self.total_samples, self.total_bytes], np.int64).tobytes()
+        x2 = np.array([self.num_shards, self.num_fields], np.int32).tobytes()
         bytes_per_field = list(map(len, self.fields))
-        arrays = counts, self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, bytes_per_field
-        ints = np.concatenate(arrays).astype(np.int32)
-        byte_fields = list(map(lambda s: s.encode('utf-8'), self.fields))
-        return ints.tobytes() + b''.join(byte_fields)
+        arrays = self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, bytes_per_field
+        x3 = np.concatenate(arrays).astype(np.int32).tobytes()
+        x4 = b''.join(map(lambda s: s.encode('utf-8'), self.fields))
+        return x1 + x2 + x3 + x4
 
     def dump(self, fp: BufferedWriter) -> None:
         """Dump a StreamingDatasetIndex to the file.
@@ -188,7 +191,7 @@ class StreamingDatasetIndex(object):
             sample_shards (np.ndarray): Shard per sample.
             sample_shard_offsets (np.ndarray): Intra-shard byte offset per sample.
         """
-        shard_ends = self.bytes_per_shard.cumsum(0)
+        shard_ends = self.bytes_per_shard.cumsum()
         shard_begins = shard_ends - self.bytes_per_shard
 
         sample_shard_begins = []
@@ -199,21 +202,26 @@ class StreamingDatasetIndex(object):
         sample_shard_begins = np.array(sample_shard_begins, np.int32)
         sample_shards = np.array(sample_shards, np.int32)
 
-        sample_ends = self.bytes_per_sample.cumsum(0)
+        sample_ends = self.bytes_per_sample.cumsum()
         sample_begins = sample_ends - self.bytes_per_sample
         sample_shard_offsets = sample_begins - sample_shard_begins
         return sample_shards, sample_shard_offsets
 
-    def get_shard_sample_range(self, shard: int) -> Tuple[np.ndarray, np.ndarray]:
-        """Get the dataset-wide sample range of a shard.
+    def get_partition_shards_and_samples(self, part_id: int, num_parts: int) -> Tuple[Sequence[int], int, int]:
+        """Get the shards and sample range of a given partition of the dataset.
 
         Args:
-            shard (int): Which shard.
+            part_id (int): Which partition.
+            num_parts (int): Out of how many partitions.
 
         Returns:
-            begin (np.ndarray): First sample ID of shard.
-            end (np.ndarray): One past the last sample ID of the shard.
+            shards (Sequence[int]): The shards that this partition overlaps.
+            min_id (int): The lowest sample ID of this partition.
+            max_id (int): The highest sample ID of this partition.
         """
-        ends = self.samples_per_shard.cumsum(0)
-        begins = ends - self.samples_per_shard
-        return begins[shard], ends[shard]
+        min_id = self.total_samples * part_id // num_parts
+        max_id = self.total_samples * (part_id + 1) // num_parts - 1
+        min_shard = self.sample_shards[min_id]
+        max_shard = self.sample_shards[max_id]
+        shards = list(range(min_shard, max_shard))
+        return shards, min_id, max_id
