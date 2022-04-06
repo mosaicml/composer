@@ -8,7 +8,7 @@ import numpy as np
 from torch import Tensor
 from torch.utils.data import IterableDataset
 
-from composer.datasets.streaming.download import download
+from composer.datasets.streaming.download import safe_download
 from composer.datasets.streaming.format import StreamingDatasetIndex, bytes_to_sample_dict
 
 
@@ -68,21 +68,6 @@ class StreamingDataset(IterableDataset):
         else:
             self._done_loading_shards()
 
-    def _wait_for_download(self, filename: str) -> None:
-        """Block until a shard download completes.
-
-        Args:
-            filename (str): Path to file.
-        """
-        i = 0
-        while True:
-            if os.path.exists(filename):
-                return
-            if 4 <= i and not i % 4:
-                print('Waiting for download:', filename)
-            sleep(0.25)
-            i += 1
-
     def __del__(self):
         for fp in self._files:
             if fp:
@@ -97,26 +82,9 @@ class StreamingDataset(IterableDataset):
         Returns:
             str: Local cache filename.
         """
-        # If we already have the file cached locally, we're done.
-        local = os.path.join(self.local, self.split, basename)
-        if os.path.exists(local):
-            return local
-
-        # Else if someone else is currently downloading the shard, wait for that download to complete.
-        local_tmp = local + '.tmp'
-        if os.path.exists(local_tmp):
-            self._wait_for_download(local)
-            return local
-
-        # Else if no one is downloading it, mark as in progress, then do the download ourself.
-        local_dir = os.path.join(self.local, self.split)
-        if not os.path.exists(local_dir):
-            os.makedirs(local_dir)
-        with open(local_tmp, 'w') as out:
-            out.write('')
         remote = os.path.join(self.remote, self.split, basename)
-        download(remote, local_tmp)
-        os.rename(local_tmp, local)
+        local = os.path.join(self.local, self.split, basename)
+        safe_download(remote, local)
         return local
 
     def _do_load_shards(self, shards: List[int]) -> None:
