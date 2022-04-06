@@ -22,7 +22,7 @@ def walk_model_yamls():
     return yamls
 
 
-@pytest.mark.timeout(20)
+@pytest.mark.timeout(40)
 @pytest.mark.parametrize("hparams_file", walk_model_yamls())
 class TestHparamsCreate:
 
