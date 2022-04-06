@@ -2,7 +2,7 @@
 ======================
 
 We have a variety of colab-ready notebooks to get you started using Composer and its efficiency methods.
-Some of these demonstrate the speed-ups from our work, even with short training times.
+Some of these demonstrate the speed-ups from our work, even with already short training times.
 
 .. csv-table::
     :header: "Notebook", "Summary", "Colab"
