@@ -39,7 +39,12 @@ inserted in the training loop after a batch is loaded from the dataloader as fol
     cutmix_alpha = 1
     num_classes = 10
     for batch_idx, (data, target) in enumerate(dataloader):
-        data = cf.cutmix(data, target, cutmix_alpha, num_classes)
+        data = cf.cutmix(
+            data,
+            target,
+            alpha=cutmix_alpha,
+            num_classes=num_classes
+        )
         optimizer.zero_grad()
         output = model(data)
         loss = loss_fn(output, target)
