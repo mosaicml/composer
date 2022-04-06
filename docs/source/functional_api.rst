@@ -39,7 +39,7 @@ inserted in the training loop after a batch is loaded from the dataloader as fol
     cutmix_alpha = 1
     num_classes = 10
     for batch_idx, (data, target) in enumerate(dataloader):
-        data = cf.cutmix(
+        data = cf.cutmix(  # <-- insert cutmix
             data,
             target,
             alpha=cutmix_alpha,
