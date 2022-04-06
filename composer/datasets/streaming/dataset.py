@@ -128,6 +128,7 @@ class StreamingDataset(IterableDataset):
             for shard in shards:
                 basename = get_shard_basename(shard)
                 filename = os.path.join(self.local, self.split, basename)
+                assert self._files[shard] is None, 'Open file handle already exists!'
                 self._files[shard] = open(filename, 'rb')
 
             # Extend and reshuffle the remaining samples of any epochs we have
