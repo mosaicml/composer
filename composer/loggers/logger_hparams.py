@@ -108,7 +108,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
     group: Optional[str] = hp.optional(doc="wandb group name", default=None)
     name: Optional[str] = hp.optional(doc="wandb run name", default=None)
     entity: Optional[str] = hp.optional(doc="wandb entity", default=None)
-    tags: str = hp.optional(doc="wandb tags comma separated", default="")
+    tags: Optional[str] = hp.optional(doc="wandb tags comma separated", default=None)
     log_artifacts: bool = hp.optional(doc="Whether to log artifacts", default=False)
     rank_zero_only: bool = hp.optional("Whether to log on rank zero only", default=True)
     extra_init_params: Dict[str, Any] = hp.optional(doc="wandb parameters", default_factory=dict)
