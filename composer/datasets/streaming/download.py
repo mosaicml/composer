@@ -1,23 +1,27 @@
 import os
 import shutil
-from time import sleep
+from time import sleep, time
+from typing import Optional
 
 import boto3
 
 
-def wait_for_download(local: str) -> None:
+def wait_for_download(local: str, timeout: Optional[float] = 10) -> None:
     """Block until another worker's shard download completes.
 
     Args:
         local (str): Path to file.
+        timeout (Optional[float]): How long to wait before raising an exception. Default: 10 sec.
     """
+    start_time = time()
     i = 0
     while True:
         if os.path.exists(local):
             return
-        if 4 <= i and not i % 4:
-            print('Waiting for download:', local)
-        sleep(0.25)
+        elapsed = time() - start_time
+        if timeout is not None:
+            assert elapsed < timeout, f'Waited too long (more than {timeout:.3f} sec) for download'
+        sleep(0.1)
         i += 1
 
 
@@ -63,12 +67,13 @@ def download(remote: str, local: str) -> None:
         download_from_local(remote, local)
 
 
-def safe_download(remote: str, local: str) -> None:
+def safe_download(remote: str, local: str, timeout: Optional[float] = 10) -> None:
     """Safely download a file from remote to local.
 
     Args:
         remote (str): Remote path (S3 or local filesystem).
         local (str): Local path (local filesystem).
+        timeout (Optional[float]): How long to wait before raising an exception. Default: 10 sec.
     """
     # If we already have the file cached locally, we're done.
     if os.path.exists(local):
@@ -77,7 +82,7 @@ def safe_download(remote: str, local: str) -> None:
     # Else if someone else is currently downloading the shard, wait for that download to complete.
     local_tmp = local + '.tmp'
     if os.path.exists(local_tmp):
-        wait_for_download(local)
+        wait_for_download(local, timeout)
         return
 
     # Else if no one is downloading it, mark as in progress, then do the download ourself.
