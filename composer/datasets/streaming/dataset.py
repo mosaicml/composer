@@ -2,15 +2,37 @@ import os
 from io import BufferedReader
 from threading import Lock, Thread
 from time import sleep
-from typing import Callable, Iterator, List, Optional, Tuple
+from typing import Callable, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 from torch import Tensor
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, get_worker_info
 
 from composer.datasets.streaming.download import safe_download
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
                                                 get_shard_basename)
+from composer.utils import dist
+
+
+def get_partition() -> Tuple[int, int]:
+    """Get how to partition the dataset.
+
+    Returns:
+        part (int): Our partition.
+        num_parts (int): Out of how many partitions.
+    """
+    info = get_worker_info()
+    if info:
+        worker_id = info.id
+        workers_per_device = info.num_workers
+    else:
+        worker_id = 0
+        workers_per_device = 1
+    rank = dist.get_local_rank()
+    world_size = dist.get_local_world_size()
+    part = rank * workers_per_device + worker_id
+    num_parts = workers_per_device * world_size
+    return part, num_parts
 
 
 class StreamingDataset(IterableDataset):
@@ -38,13 +60,12 @@ class StreamingDataset(IterableDataset):
         self.target_transform = target_transform
         self.shuffle = shuffle
 
-        # First, every worker loads the index file (one downloads/caches while the others poll).
+        # Load the index file containing the shard metadata, either over the
+        # network or cached locally.
+        # Precomputes the shard and offset in bytes of each sample (for direct
+        # access).
         local = self._download_if_missing(get_index_basename())
-        fp = open(local, 'rb')
-        self.index = StreamingDatasetIndex.load(fp)
-
-        # Given that, precompute shard and byte offset of all our samples, giving us which shards we need to load.
-        todo_shards = sorted(set(self.index.sample_shards))
+        self.index = StreamingDatasetIndex.load(open(local, 'rb'))
 
         # Fields, protected by the lock, relating to loading shards in the background.
         self._lock = Lock()
@@ -54,27 +75,14 @@ class StreamingDataset(IterableDataset):
         self._loaded_epoch = []
         self._is_loading_complete = False
 
-        # Preload all of our shards that are already available in the cache.
-        #
-        # If we are processing samples sequentially (i.e., not shuffled), we need to download and load their shards
-        # sequentially. This is covered in the background thread below. No help to preload shards.
-        if self.shuffle:
-            todo_shards = self._load_shards_if_downloaded(todo_shards)
-
-        # Start downloading our missing shards in a background thread, if there are any.
-        if todo_shards:
-            thread = Thread(target=self._download_thread, args=(todo_shards,), daemon=True)
-            thread.start()
-        else:
-            self._done_loading_shards()
-
-    def __del__(self):
+    def __del__(self) -> None:
+        """The destructor closes any file handles left open to read shards."""
         for fp in self._files:
             if fp:
                 fp.close()
 
     def _download_if_missing(self, basename: str) -> str:
-        """Safely download a shard from remote to local cache, returning local filename.
+        """Safely download a shard from remote to local cache.
 
         Args:
             basename (str): Basename of shard to download.
@@ -87,52 +95,64 @@ class StreamingDataset(IterableDataset):
         safe_download(remote, local)
         return local
 
-    def _do_load_shards(self, shards: List[int]) -> None:
-        """Assimilate the given list of locally cached shards into the dataset.
+    def _load_shards(self, shards: Sequence[int], part_min_id: int, part_max_id: int) -> None:
+        """Load the given list of locally cached shards into the dataset.
 
-        Every time you call __iter__ on this dataset, it registers the list of samples you have left, which will not be
-        the full epoch if the dataset isn't finished loaded when you start training.
+        Every time you call __iter__ on this dataset, it registers the list of
+        samples you have left, which will not be the full epoch if the dataset
+        isn't finished loaded when you start training.
 
-        Calls to _do_load_shards during training modify the samples remaining on these iterations on the fly to
-        insert these new samples and then resort, making the shuffle as perfect as was possible.
+        Calls to _load_shards during training modify the samples remaining on
+        these iterations on the fly to insert these new samples and then resort,
+        making the shuffle as perfect as was possible.
 
-        This operation takes the lock, so try to group shards to load as best as possible.
+        This operation takes the lock, so batch your _load_shards calls where
+        possible.
 
         Args:
-            shards (list of int): List of shards to load.
+            shards (Sequence[int]): List of shards to load.
+            part_min_id (int): Minimum sample ID of this partition.
+            part_max_id (int): Maximum sample ID of this partition.
         """
+        # Get all samples from the given shards that fall within our partition.
         new_ids = []
         for shard in shards:
-            begin = self.index.shard_begins[shard]
-            end = self.index.shard_ends[shard]
-            new_ids += list(range(begin, end))
+            shard_min_id = self.index.shard_begins[shard]
+            shard_max_id = self.index.shard_ends[shard] - 1
+            min_id = max(part_min_id, shard_min_id)
+            max_id = min(part_max_id, shard_max_id)
+            new_ids += list(range(min_id, max_id + 1))
 
         with self._lock:
+            # Keep open a file handle to each loaded shard for fast access.
             for shard in shards:
                 basename = get_shard_basename(shard)
                 filename = os.path.join(self.local, self.split, basename)
                 self._files[shard] = open(filename, 'rb')
 
+            # Extend and reshuffle the remaining samples of any epochs we have
+            # going on.
             if self.shuffle:
-                self._loaded_epoch.extend(new_ids)
-                np.random.shuffle(self._loaded_epoch)
+                if not self._is_loading_complete:
+                    self._loaded_epoch.extend(new_ids)
+                    np.random.shuffle(self._loaded_epoch)
+
                 for epoch in self._key2epoch.values():
                     epoch.extend(new_ids)
                     np.random.shuffle(epoch)
             else:
-                self._loaded_epoch.reverse()
-                self._loaded_epoch.extend(new_ids)
-                self._loaded_epoch.reverse()
+                if not self._is_loading_complete:
+                    self._loaded_epoch.extend(new_ids)
                 for epoch in self._key2epoch.values():
-                    epoch.reverse()
                     epoch.extend(new_ids)
-                    epoch.reverse()
 
-    def _load_shards_if_downloaded(self, shards: List[int]) -> List[int]:
+    def _load_shards_if_downloaded(self, shards: Sequence[int], part_min_id: int, part_max_id: int) -> List[int]:
         """Load any of the given shards that are already present in the cache, returning the missing shards.
 
         Args:
-            shards (list of int): The shards to attempt to load.
+            shards (Sequence[int]): The shards to attempt to load.
+            part_min_id (int): Minimum sample ID of this partition.
+            part_max_id (int): Maximum sample ID of this partition.
 
         Returns:
             list of int: The shards that remain to be loaded.
@@ -147,19 +167,21 @@ class StreamingDataset(IterableDataset):
             else:
                 missing.append(shard)
         if downloaded:
-            self._do_load_shards(downloaded)
+            self._load_shards(downloaded, part_min_id, part_max_id)
         return missing
 
-    def _done_loading_shards(self) -> None:
+    def _done_loading(self) -> None:
         """Callback on completion of loading my shards."""
         with self._lock:
             self._is_loading_complete = True
 
-    def _download_thread(self, shards: List[int]) -> None:
+    def _download_thread(self, shards: Sequence[int], part_min_id: int, part_max_id: int) -> None:
         """Background thread to download and assimilate missing shards.
 
         Args:
             shards (list of int): The shards remaining to be downloaded.
+            part_min_id (int): Minimum sample ID of this partition.
+            part_max_id (int): Maximum sample ID of this partition.
         """
         shards = list(shards)
         if self.shuffle:
@@ -167,8 +189,9 @@ class StreamingDataset(IterableDataset):
         for shard in shards:
             basename = get_shard_basename(shard)
             self._download_if_missing(basename)
-            self._do_load_shards([shard])
-        self._done_loading_shards()
+            shards = shard,
+            self._load_shards(shards, part_min_id, part_max_id)
+        self._done_loading()
 
     def __len__(self) -> int:
         """Get the length of the dataset.
@@ -206,7 +229,7 @@ class StreamingDataset(IterableDataset):
         """Start a new growing epoch, in which we own the sample sequence because it grows.
 
         Returns:
-            int: The epoch key, a handle for this sequence which is given back to the caller.
+            int: The epoch key, a handle which is given back to the caller.
         """
         with self._lock:
             key = self._next_epoch_key
@@ -216,9 +239,10 @@ class StreamingDataset(IterableDataset):
         return key
 
     def _next_id(self, key: int) -> Optional[int]:
-        """Get the next sample of the growing epoch referenced by the given epoch key, or None if done.
+        """Get next sample of the growing epoch given by key, or None if done.
 
-        If we are currently out of samples but not finished downloading the shards, blocks until it has new samples.
+        If we are currently out of samples but not finished downloading the
+        shards, blocks until it has new samples.
 
         Args:
             key (int): The epoch key, a handle for this sequence.
@@ -262,13 +286,29 @@ class StreamingDataset(IterableDataset):
                 yield idx
 
     def __iter__(self) -> Iterator[Tuple[Tensor, Tensor]]:
-        """Get an iterator over all our samples.
+        """Iterate over all the samples in our partition.
 
         If not all samples have been downloaded yet, iterates over what it has while inserting the remainder into the
         sequence behind the scenes as it progresses.
 
         Returns:
-            iterator over pairs of tensors: Each sample.
+            Iterator[Tuple[Tensor, Tensor]]: Each sample.
         """
+        # We find out num workers, and therefore num partitions, when __iter__ is called.
+        # From the partition, derive our shard overlap range and exact sample range.
+        part, num_parts = get_partition()
+        todo_shards, part_min_id, part_max_id = self.index.get_partition_shards_and_samples(part, num_parts)
+
+        # Preload all of our shards that are already available in the cache.
+        todo_shards = self._load_shards_if_downloaded(todo_shards, part_min_id, part_max_id)
+
+        # Start downloading our missing shards in a background thread, if there are any.
+        if todo_shards:
+            thread = Thread(target=self._download_thread, args=(todo_shards, part_min_id, part_max_id), daemon=True)
+            thread.start()
+        else:
+            self._done_loading()
+
+        # Iterate over the samples we have while the rest are begin loaded.
         for idx in self._iter_ids():
             yield self[idx]

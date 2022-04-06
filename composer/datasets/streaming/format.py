@@ -223,5 +223,5 @@ class StreamingDatasetIndex(object):
         max_id = self.total_samples * (part_id + 1) // num_parts - 1
         min_shard = self.sample_shards[min_id]
         max_shard = self.sample_shards[max_id]
-        shards = list(range(min_shard, max_shard))
+        shards = list(range(min_shard, max_shard + 1))
         return shards, min_id, max_id
