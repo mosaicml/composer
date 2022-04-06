@@ -23,7 +23,7 @@ def mixup_batch(input: torch.Tensor,
                 target: torch.Tensor,
                 mixing: Optional[float] = None,
                 alpha: float = 0.2,
-                indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, float]:
+                indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, float]:
     """Create new samples using convex combinations of pairs of samples.
 
     This is done by taking a convex combination of ``input`` with a randomly
