@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""SAM algorithm and optimizer class"""
+
 from __future__ import annotations
 
 import logging
@@ -96,6 +98,8 @@ class SAM(Algorithm):
     """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
     existing optimizer with a :class:`SAMOptimizer`. SAM can improves model generalization and can provide robustness to label noise.
 
+    Runs on :attr:`~composer.core.event.Event.INIT`.
+
     Args:
         rho (float, optional): The neighborhood size parameter of SAM. Must be greater than 0.
             Default: ``0.05``.
@@ -131,11 +135,9 @@ class SAM(Algorithm):
         self.interval = interval
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT."""
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
-        """Applies SAM by wrapping the base optimizer with the SAM optimizer."""
         assert state.optimizers is not None
 
         state.optimizers = tuple(

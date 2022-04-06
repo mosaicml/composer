@@ -4,8 +4,8 @@
 to the difficulty of the individual training examples, and only computes weight gradients
 over the pruned subset, reducing iteration time and speeding up training.
 
-The algorithm runs on Event.INIT and Event.AFTER_DATALOADER. On Event.INIT, it gets the
-loss function before the model is wrapped. On Event.AFTER_DATALOADER, it applies selective
+The algorithm runs on :attr:`~composer.core.event.Event.INIT` and :attr:`~composer.core.event.Event.AFTER_DATLOADER`. 
+On Event.INIT, it gets the loss function before the model is wrapped. On Event.AFTER_DATALOADER, it applies selective
 backprop if the time is between ``self.start`` and ``self.end``.
 
 See the :doc:`Method Card </method_cards/selective_backprop>` for more details.

@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""NoOpModel algorithm and class"""
+
 from __future__ import annotations
 
 import logging

@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""ChannelsLast algorithm"""
+
 from __future__ import annotations
 
 import logging
@@ -48,12 +50,10 @@ class ChannelsLast(Algorithm):
     """
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on ``Event.INIT``"""
         del state  # unused
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Changes the memory format of the model to ``torch.channels_last``"""
         del event, logger  # unused
         # TODO: Double check model is moved to cuda with device type
         apply_channels_last(state.model)

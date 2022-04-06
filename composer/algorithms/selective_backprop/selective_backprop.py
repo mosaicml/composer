@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Core SelectiveBackprop class and functions"""
+
 from __future__ import annotations
 
 import inspect
@@ -60,7 +62,7 @@ def select_using_loss(input: torch.Tensor,
                       loss_fun: Callable,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Prunes minibatches as a subroutine of `SelectiveBackprop <https://arxiv.org/abs/1910.00762>`_.
+    """Prunes minibatches as a subroutine of SelectiveBackprop (`Jiang et al, 2019 <https://arxiv.org/abs/1910.00762>`_).
     Computes the loss function on the provided training examples and runes minibatches according 
     to the difficulty. The fraction of the minibatch that is kept for gradient computation is
     specified by the argument ``0 <= keep <= 1``.
@@ -203,7 +205,6 @@ class SelectiveBackprop(Algorithm):
         self._loss_fn = None  # set on Event.INIT
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT and Event.AFTER_DATALOADER."""
         if event == Event.INIT:
             return True
         if event != Event.AFTER_DATALOADER:
@@ -223,7 +224,6 @@ class SelectiveBackprop(Algorithm):
         return is_chosen
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-        """Applies SelectiveBackprop to the current batch."""
         if event == Event.INIT:
             if self._loss_fn is None:
                 if not isinstance(state.model, ComposerModel):
