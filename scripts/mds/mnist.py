@@ -5,7 +5,7 @@ from torchvision.datasets import MNIST
 from typing import Any, Dict, Iterable, Tuple
 from wurlitzer import pipes
 
-from composer.datasets.mosdataset import MosaicDatasetWriter
+from composer.datasets.streaming import StreamingDatasetWriter
 
 
 def parse_args() -> Namespace:
@@ -63,14 +63,14 @@ def main(args: Namespace) -> None:
         dataset = MNIST(root=args.in_root, train=True, download=True)
     images, classes = get(dataset)
     split_dir = os.path.join(args.out_root, 'train')
-    with MosaicDatasetWriter(split_dir, fields, args.shard_size_limit) as out:
+    with StreamingDatasetWriter(split_dir, fields, args.shard_size_limit) as out:
         out.write_samples(each(images, classes), bool(args.tqdm), len(images))
 
     with pipes():
         dataset = MNIST(root=args.in_root, train=False, download=True)
     images, classes = get(dataset)
     split_dir = os.path.join(args.out_root, 'val')
-    with MosaicDatasetWriter(split_dir, fields, args.shard_size_limit) as out:
+    with StreamingDatasetWriter(split_dir, fields, args.shard_size_limit) as out:
         out.write_samples(each(images, classes), bool(args.tqdm), len(images))
 
 

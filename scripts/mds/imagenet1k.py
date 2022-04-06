@@ -5,7 +5,7 @@ import os
 from random import shuffle
 from typing import Any, Dict, Iterable, List, Tuple
 
-from composer.datasets.mosdataset import MosaicDatasetWriter
+from composer.datasets.streaming import StreamingDatasetWriter
 
 
 def parse_args() -> Namespace:
@@ -61,7 +61,7 @@ def each(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
 
 
 def main(args: Namespace) -> None:
-    """Main: create imagenet1k webdataset.
+    """Main: create ImageNet1k streaming dataset.
 
     Args:
         args (Namespace): Commandline arguments.
@@ -71,13 +71,13 @@ def main(args: Namespace) -> None:
     in_split_dir = os.path.join(args.in_root, 'train')
     pairs = get(in_split_dir)
     out_split_dir = os.path.join(args.out_root, 'train')
-    with MosaicDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
+    with StreamingDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
         out.write_samples(each(pairs), bool(args.tqdm), len(pairs))
 
     in_split_dir = os.path.join(args.in_root, 'val')
     pairs = get(in_split_dir)
     out_split_dir = os.path.join(args.out_root, 'val')
-    with MosaicDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
+    with StreamingDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
         out.write_samples(each(pairs), bool(args.tqdm), len(pairs))
 
 

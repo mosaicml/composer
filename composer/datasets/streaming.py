@@ -52,8 +52,8 @@ def bytes_to_sample_dict(data: bytes, keys: List[str]) -> Dict[str, bytes]:
     return dict(zip(keys, values))
 
 
-class MosaicDatasetIndex(object):
-    """Mosaic dataset index file, giving all the information about shards.
+class StreamingDatasetIndex(object):
+    """Streaming dataset index file, giving all the information about shards.
 
     The shards are just dumb buffers with samples catted together. All the offset info across the whole dataset is
     contained in the index file. Workers read this file to calculate how much of which shards their slice is.
@@ -95,7 +95,7 @@ class MosaicDatasetIndex(object):
 
     @classmethod
     def loads(cls, data: bytes):
-        """Load a MosaicDatasetIndex from raw bytes.
+        """Load a StreamingDatasetIndex from raw bytes.
 
         Args:
             data (bytes): The serialized form.
@@ -135,7 +135,7 @@ class MosaicDatasetIndex(object):
 
     @classmethod
     def load(cls, fp: BufferedReader):
-        """Load a MosaicDatasetIndex from a file handle.
+        """Load a StreamingDatasetIndex from a file handle.
 
         Args:
             fp (file): The file to read.
@@ -147,7 +147,7 @@ class MosaicDatasetIndex(object):
         return cls.loads(data)
 
     def dumps(self) -> bytes:
-        """Dump a MosaicDatasetIndex to raw bytes.
+        """Dump a StreamingDatasetIndex to raw bytes.
 
         Returns:
             bytes: The serialized form.
@@ -160,7 +160,7 @@ class MosaicDatasetIndex(object):
         return ints.tobytes() + b''.join(byte_fields)
 
     def dump(self, fp: BufferedWriter) -> None:
-        """Dump a MosaicDatasetIndex to the file.
+        """Dump a StreamingDatasetIndex to the file.
 
         Args:
             fp (file): The file to write.
@@ -206,8 +206,8 @@ class MosaicDatasetIndex(object):
         return begins[shard], ends[shard]
 
 
-class MosaicDatasetWriter(object):
-    """Writes MosaicDatasets."""
+class StreamingDatasetWriter(object):
+    """Writes StreamingDatasets."""
 
     def __init__(self, dirname: str, fields: List[str], shard_size_limit: int = 1 << 24) -> None:
         """Initialize with the given output dirname.
@@ -251,7 +251,7 @@ class MosaicDatasetWriter(object):
         """Save dataset index file."""
         assert not self.new_samples
         filename = os.path.join(self.dirname, 'index.mds')
-        index = MosaicDatasetIndex(self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, self.fields)
+        index = StreamingDatasetIndex(self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, self.fields)
         with open(filename, 'wb') as out:
             index.dump(out)
 
@@ -320,8 +320,8 @@ def download(remote: str, local: str) -> None:
         shutil.copy(remote, local)
 
 
-class MosaicDataset(IterableDataset):
-    """MosaicDataset."""
+class StreamingDataset(IterableDataset):
+    """StreamingDataset."""
 
     def __init__(self, remote: str, local: str, split: str, transform: Callable, target_transform: Callable,
                  shuffle: bool) -> None:
@@ -348,7 +348,7 @@ class MosaicDataset(IterableDataset):
         # First, every worker loads the index file (one downloads/caches while the others poll).
         local = self._download_if_missing('index.mds')
         fp = open(local, 'rb')
-        self.index = MosaicDatasetIndex.load(fp)
+        self.index = StreamingDatasetIndex.load(fp)
 
         # Given that, precompute shard and byte offset of all our samples, giving us which shards we need to load.
         self.sample_shards, self.sample_offsets = self.index.locate_samples()

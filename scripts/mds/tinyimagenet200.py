@@ -7,7 +7,7 @@ from tqdm import tqdm
 from typing import Any, Dict, Iterable, List, Tuple
 from wurlitzer import pipes
 
-from composer.datasets.mosdataset import MosaicDatasetWriter
+from composer.datasets.streaming import StreamingDatasetWriter
 
 
 def parse_args() -> Namespace:
@@ -83,7 +83,7 @@ def each(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
 
 
 def main(args: Namespace) -> None:
-    """Main: create TinyImageNet200 Mosaic dataset.
+    """Main: create TinyImageNet200 streaming dataset.
 
     Args:
         args (Namespace): Commandline arguments.
@@ -96,12 +96,12 @@ def main(args: Namespace) -> None:
 
     pairs = get_train(args.in_root, wnids)
     split_dir = os.path.join(args.out_root, 'train')
-    with MosaicDatasetWriter(split_dir, fields, args.shard_size_limit) as out:
+    with StreamingDatasetWriter(split_dir, fields, args.shard_size_limit) as out:
         out.write_samples(each(pairs), bool(args.tqdm), len(pairs))
 
     pairs = get_val(args.in_root, wnid2idx)
     split_dir = os.path.join(args.out_root, 'val')
-    with MosaicDatasetWriter(split_dir, fields, args.shard_size_limit) as out:
+    with StreamingDatasetWriter(split_dir, fields, args.shard_size_limit) as out:
         out.write_samples(each(pairs), bool(args.tqdm), len(pairs))
 
 
