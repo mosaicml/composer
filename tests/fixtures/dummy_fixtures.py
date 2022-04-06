@@ -192,7 +192,7 @@ def composer_trainer_hparams(
     return TrainerHparams(
         algorithms=[],
         optimizer=AdamHparams(),
-        schedulers=[ExponentialSchedulerHparams(gamma=0.1)],
+        schedulers=[ExponentialSchedulerHparams(gamma=0.9)],
         max_duration="2ep",
         precision=Precision.FP32,
         train_batch_size=dummy_train_batch_size,

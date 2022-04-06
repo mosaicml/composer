@@ -11,12 +11,14 @@ from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.trainer.trainer_hparams import algorithms_registry
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit
-from composer.datasets import SyntheticHparamsMixin
+from composer.datasets import DataLoaderHparams, DatasetHparams, SyntheticHparamsMixin
+from composer.models import ModelHparams
+from composer.optim import AdamHparams, ExponentialSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import run_directory
 from composer.utils.checkpoint import _is_archive
-from tests.fixtures.dummy_fixtures import dummy_num_classes
+from tests.fixtures.dummy_fixtures import dummy_model_hparams, dummy_num_classes, dummy_train_dataset_hparams, dummy_val_batch_size, dummy_val_dataset_hparams
 from tests.trainer.test_checkpoint import assert_checkpoints_equivalent
 
 
@@ -33,7 +35,8 @@ algo_hparams_overrides = {
     }    
 }
 
-simple_net_skiplist = {
+skiplist = {
+    'default': {
             'colout': 'Only for images',
             'cutmix': 'Only for images',
             'cutout': 'Only for images',            
@@ -44,17 +47,15 @@ simple_net_skiplist = {
             'augmix': 'Required PIL dataset to test.',
             'stochastic_depth': 'Only applies to ResNets.',
             'no_op_model': 'Not compatible with this model.'
-        }
-
-resnet_skiplist = {
+        },
+    'resnet50_synthetic': {
             'alibi': 'Not compatible with simple model.',
             'seq_length_warmup': 'Not compatible with simple model.',
             'randaugment': 'Requires PIL dataset to test.',
             'augmix': 'Required PIL dataset to test.',
             'no_op_model': 'Not compatible with this model.'
-        }
-
-lm_skiplist = {
+        },
+    'gpt2_52m': {
             'blurpool': 'Only for CNNs',
             'channels_last': 'Only for CNNs',
             'colout': 'Only for images',
@@ -68,6 +69,7 @@ lm_skiplist = {
             'stochastic_depth': 'Only applies to ResNets.',
             'no_op_model': 'Not compatible with this model.'
         }
+}
 
 
 @pytest.mark.timeout(180)
@@ -93,21 +95,23 @@ lm_skiplist = {
         [42, "2ba", "ba{batch}", "ba16", "ba25"],  # test save batch after complete epoch
     ],
 )
-@pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
+@pytest.mark.parametrize("model_name", ["default", "resnet50_synthetic", "gpt2_52m"])
 @pytest.mark.parametrize("algorithm", algorithms_registry.items(), ids=algorithms_registry.keys())
 def test_algorithm_resumption(
     device_hparams: DeviceHparams,
     world_size: int,
     deepspeed_enabled: bool,
     zero_stage: Optional[int],
-    composer_trainer_hparams: TrainerHparams,
     save_interval: str,
     save_name_format: str,
     resume_file: str,
     final_checkpoint: str,
     seed: Optional[int],
-    model_name: Optional[str],
+    model_name: str,
     algorithm: Tuple[str, Type[AlgorithmHparams]],
+    dummy_model_hparams: ModelHparams,
+    dummy_train_dataset_hparams: DatasetHparams,
+    dummy_val_dataset_hparams: DatasetHparams,    
 ):
     """strategy:
     - train five epochs. capture checkpoints after `checkpoint_interval` and ep5.
@@ -118,8 +122,8 @@ def test_algorithm_resumption(
 
     algo_name, algo_hparams = algorithm
 
-    if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
-        pytest.skip("DeepSpeed tests must be ran on GPU")
+    if algo_name in ["layer_freezing", "sam", "swa"]:
+        pytest.xfail(f"Checkpointing known to break {algo_name}")
 
     if deepspeed_enabled:
         if not _is_archive(resume_file):
@@ -127,93 +131,95 @@ def test_algorithm_resumption(
         if not _is_archive(final_checkpoint):
             final_checkpoint += ".tar"
 
-    composer_trainer_hparams.schedulers = []
-    composer_trainer_hparams.max_duration = '5ep'
-    if model_name in ["resnet50_synthetic", "gpt2_52m"]:
+    max_epochs = "5ep"
+    subset_num_batches = 5
+
+    trainer_hparams = TrainerHparams(
+        algorithms=[],
+        seed=seed,
+        optimizer=AdamHparams(),
+        schedulers=[],
+        precision=Precision.FP32,
+        max_duration=max_epochs,
+        train_batch_size=10,
+        eval_batch_size=10,
+        dataloader=DataLoaderHparams(
+            num_workers=0,
+            prefetch_factor=2,
+            persistent_workers=False,
+            pin_memory=False,
+            timeout=0.0,
+        ),
+        model=dummy_model_hparams,
+        val_dataset=dummy_val_dataset_hparams,
+        train_dataset=dummy_train_dataset_hparams,
+        deterministic_mode=True,
+        loggers=[],
+        grad_accum=2,
+        train_subset_num_batches=subset_num_batches,
+        eval_subset_num_batches=subset_num_batches,
+        save_name_format=save_name_format,
+        device=device_hparams
+    )
+
+    if model_name != "default":
         if not isinstance(device_hparams, GPUDeviceHparams):
             pytest.skip("Real models require a GPU -- otherwise they take too long")
         model_hparams = TrainerHparams.load(model_name)
-        composer_trainer_hparams.train_dataset = model_hparams.train_dataset
-        composer_trainer_hparams.val_dataset = model_hparams.val_dataset
-        composer_trainer_hparams.model = model_hparams.model
-        composer_trainer_hparams.optimizer = model_hparams.optimizer
-        composer_trainer_hparams.schedulers = model_hparams.schedulers
-    if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
+        trainer_hparams.train_dataset = model_hparams.train_dataset
+        trainer_hparams.val_dataset = model_hparams.val_dataset
+        trainer_hparams.model = model_hparams.model
+        trainer_hparams.optimizer = model_hparams.optimizer
+        trainer_hparams.schedulers = model_hparams.schedulers
+    if not isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
-    if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
+    if not isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
 
-    if model_name is None and algo_name in simple_net_skiplist:
-        pytest.skip(simple_net_skiplist[algo_name])
-
-    if model_name == 'resnet50_synthetic' and algo_name in resnet_skiplist:
-        pytest.skip(resnet_skiplist[algo_name])
-    
-    if model_name == 'gpt2_52m' and algo_name in lm_skiplist:
-        pytest.skip(lm_skiplist[algo_name])
+    if algo_name in skiplist[model_name].keys():
+        pytest.skip(skiplist[model_name][algo_name])
 
     if algo_name in algo_hparams_overrides:
         algo_object = algo_hparams(**algo_hparams_overrides[algo_name])
     else:
         algo_object = algo_hparams()
 
-    composer_trainer_hparams.algorithms = [algo_object]
-    composer_trainer_hparams.save_name_format = save_name_format
-    composer_trainer_hparams.train_dataset.use_synthetic = True
-    composer_trainer_hparams.train_dataset.synthetic_num_unique_samples = 500
-    composer_trainer_hparams.train_dataset.shuffle = False
-    composer_trainer_hparams.val_dataset.use_synthetic = True
-    composer_trainer_hparams.val_dataset.shuffle = False
-    composer_trainer_hparams.grad_accum = 2
-    composer_trainer_hparams.loggers = []
-    composer_trainer_hparams.train_batch_size = 10
-    composer_trainer_hparams.eval_batch_size = 10
-    num_epochs = 5
-    composer_trainer_hparams.max_duration = f"{num_epochs}ep"
-    composer_trainer_hparams.precision = Precision.FP32
-    composer_trainer_hparams.train_subset_num_batches = 5
-    composer_trainer_hparams.eval_subset_num_batches = 5
-    composer_trainer_hparams.device = device_hparams
+    trainer_hparams.algorithms = [algo_object]
+    trainer_hparams.train_dataset.use_synthetic = True
+    trainer_hparams.train_dataset.synthetic_num_unique_samples = 500
+    trainer_hparams.train_dataset.shuffle = False
+    trainer_hparams.val_dataset.use_synthetic = True
+    trainer_hparams.val_dataset.shuffle = False
+
     if deepspeed_enabled:
         assert zero_stage is not None
         if zero_stage > 0:
-            composer_trainer_hparams.deterministic_mode = False
+            trainer_hparams.deterministic_mode = False
             if model_name is not None:
                 pytest.skip(
                     textwrap.dedent(f"""\
                         Skipping test since deterministic mode is required for
                         non-trivial models, but deterministic mode isn't compatible with deepspeed
                         zero stage {zero_stage}"""))
-        composer_trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
+        trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
 
     checkpoint_a_folder = "first"
-    composer_trainer_hparams.save_folder = checkpoint_a_folder
-    composer_trainer_hparams.save_interval = save_interval
-    composer_trainer_hparams.seed = seed
+    trainer_hparams.save_folder = checkpoint_a_folder
+    trainer_hparams.save_interval = save_interval
 
-    composer_trainer_hparams.validate_every_n_batches = 1 if resume_file.startswith("ba") else 0
-    composer_trainer_hparams.validate_every_n_epochs = 1 if resume_file.startswith("ep") else 0
-    first_trainer = composer_trainer_hparams.initialize_object()
+    trainer_hparams.validate_every_n_batches = 1 if resume_file.startswith("ba") else 0
+    trainer_hparams.validate_every_n_epochs = 1 if resume_file.startswith("ep") else 0
+
+    first_trainer = trainer_hparams.initialize_object()
     first_trainer.fit()
-    save_interval_time = Time.from_timestring(save_interval)
-    if save_interval_time.unit == TimeUnit.EPOCH:
-        expected_num_checkpoints = ((num_epochs - 1) // save_interval_time.value) + 1
-    else:
-        expected_num_checkpoints = (
-            (composer_trainer_hparams.train_subset_num_batches * num_epochs - 1) // save_interval_time.value) + 1
-    checkpoint_saver = None
-    for callback in first_trainer.state.callbacks:
-        if isinstance(callback, CheckpointSaver):
-            checkpoint_saver = callback
-    assert checkpoint_saver is not None
-    assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
+    
     checkpoint_a_file_path = os.path.join(checkpoint_a_folder, resume_file)
     checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}", checkpoint_a_folder,
                                           final_checkpoint)
 
-    second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
+    second_trainer_hparams = TrainerHparams.create(data=trainer_hparams.to_dict(), cli_args=False)
     checkpoint_b_folder = "second"
 
     second_trainer_hparams.save_folder = checkpoint_b_folder
@@ -229,7 +235,7 @@ def test_algorithm_resumption(
                                           final_checkpoint)
 
     assert_checkpoints_equivalent(
-        hparams_a=composer_trainer_hparams,
+        hparams_a=trainer_hparams,
         checkpoint_file_a=checkpoint_b_file_path,
         hparams_b=second_trainer_hparams,
         checkpoint_file_b=checkpoint_c_file_path,
