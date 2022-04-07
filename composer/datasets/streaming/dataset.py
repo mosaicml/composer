@@ -41,7 +41,6 @@ class StreamingDataset(IterableDataset):
     """Streaming dataset."""
 
     def __init__(self, remote: str, local: str, split: str, shuffle: bool) -> None:
-                 shuffle: bool) -> None:
         """Initialize with the given remote path and local cache.
 
         Loads all the samples that are available in local cache, then starts a
@@ -320,7 +319,7 @@ class StreamingVisionDataset(StreamingDataset, VisionDataset):
     """
 
     def __init__(self, root: str, transforms: Optional[Callable] = None, transform: Optional[Callable] = None,
-                 target_transform: Optional[Callable] = None) -> None:
+                 target_transform: Optional[Callable] = None, data_key: str = 'data', target_key: str = 'target') -> None:
         """Initialize with the same API as VisionDataset.
 
         Args:
@@ -333,11 +332,15 @@ class StreamingVisionDataset(StreamingDataset, VisionDataset):
                 ``transforms.RandomCrop``
             target_transform (Optional[Callable]): A function/transform that
                 takes in the target and transforms it.
+            data_key (str, optional): Sample dict key for the data. Default: 'data'.
+            target_key (str, optional): Sample dict key for the target. Default: 'target'.
         """
         self.root = root
         self.transforms = transforms
         self.transform = transform
         self.target_transform = target_transform
+        self.data_key = data_key
+        self.target_key = target_key
 
     def __getitem__(self, idx: int) -> Any:
         """Get the sample at the index, assuming its shard is loaded.
@@ -354,11 +357,11 @@ class StreamingVisionDataset(StreamingDataset, VisionDataset):
         obj = super()[idx]
 
         # The "data" field is a PIL image.
-        x = obj['data']
+        x = obj[self.data_key]
         x = Image.open(BytesIO(x))
 
         # The "target" field is an int.
-        y = obj['target']
+        y = obj[self.target_key]
         y = np.frombuffer(y, np.int64)[0]
         y = int(y)
 
