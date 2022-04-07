@@ -35,9 +35,9 @@ class SimpleBatchPairModel(ComposerModel):
         # These tests attempt to perform surgery on `fc1` layer, and we want
         # to make sure that post-surgery, self.fc1 refers to the same parameters
         # as self.net[1]
-        self.fc1 = torch.nn.Linear(num_channels, 20)
+        self.fc1 = torch.nn.Linear(num_channels, 5)
 
-        self.fc2 = torch.nn.Linear(20, num_classes)
+        self.fc2 = torch.nn.Linear(5, num_classes)
 
         self.net = torch.nn.Sequential(
             torch.nn.AdaptiveAvgPool2d(1),
