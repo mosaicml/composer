@@ -7,7 +7,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
 
 import torch
-from torchmetrics import Accuracy, MatthewsCorrcoef, MeanSquaredError, Metric, MetricCollection, SpearmanCorrcoef
+from torchmetrics import MeanSquaredError, Metric, MetricCollection
+from torchmetrics.classification.accuracy import Accuracy
+from torchmetrics.classification.matthews_corrcoef import MatthewsCorrCoef
+from torchmetrics.regression.spearman import SpearmanCorrCoef
 
 from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
 from composer.models.transformer_shared import ComposerTransformer
@@ -64,48 +67,21 @@ class BERTModel(ComposerTransformer):
         # since we will handle metric calculation with TorchMetrics instead of HuggingFace.
         self.model_inputs.remove("labels")
 
+        # When using Evaluators, the validation metrics represent all possible
+        # validation metrics that can be used with the bert model
+        # The Evaluator class checks if it's metrics are in the models validation metrics
+
+        ignore_index = -100
+        self.val_metrics = [
+            Accuracy(),
+            MeanSquaredError(),
+            SpearmanCorrCoef(),
+            BinaryF1Score(),
+            MatthewsCorrCoef(num_classes=config.num_labels),
+            LanguageCrossEntropy(ignore_index=ignore_index, vocab_size=config.num_labels),
+            MaskedAccuracy(ignore_index=ignore_index),
+        ]
         self.train_metrics = []
-        self.val_metrics = []
-
-        # TODO (Moin): make sure this is moved to be dataset-specific
-        # if config.num_labels=1, then we are training a regression task, so we should update our loss functions
-        if config.num_labels == 1:
-            self.train_loss = MeanSquaredError()
-            self.val_loss = MeanSquaredError()
-
-            self.train_spearman = SpearmanCorrcoef()
-            self.val_spearman = SpearmanCorrcoef()
-
-            self.train_metrics.extend([self.train_loss, self.train_spearman])
-            self.val_metrics.extend([self.val_loss, self.val_spearman])
-
-        if config.num_labels == 2:
-            self.train_f1 = BinaryF1Score()
-            self.val_f1 = BinaryF1Score()
-
-            self.train_metrics.extend([self.train_f1])
-            self.val_metrics.extend([self.val_f1])
-
-        if config.num_labels > 1 and config.num_labels != config.vocab_size:
-            self.train_acc = Accuracy()
-            self.val_acc = Accuracy()
-
-            self.train_matthews = MatthewsCorrcoef(num_classes=config.num_labels)
-            self.val_matthews = MatthewsCorrcoef(num_classes=config.num_labels)
-
-            self.train_metrics.extend([self.train_acc, self.train_matthews])
-            self.val_metrics.extend([self.val_acc, self.val_matthews])
-
-        if config.num_labels == config.vocab_size:  # tests for MLM pre-training
-            ignore_index = -100
-            self.train_loss = LanguageCrossEntropy(ignore_index=ignore_index, vocab_size=config.num_labels)
-            self.val_loss = LanguageCrossEntropy(ignore_index=ignore_index, vocab_size=config.num_labels)
-
-            self.train_acc = MaskedAccuracy(ignore_index=ignore_index)
-            self.val_acc = MaskedAccuracy(ignore_index=ignore_index)
-
-            self.train_metrics.extend([self.train_loss, self.train_acc])
-            self.val_metrics.extend([self.val_loss, self.val_acc])
 
     def loss(self, outputs: Mapping, batch: Batch) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         if outputs.get('loss', None) is not None:
