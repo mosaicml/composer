@@ -41,7 +41,7 @@ def sample_dict_to_bytes(obj: Dict[str, bytes], keys: Sequence[str]) -> bytes:
         value = obj[key]
         values.append(value)
     sizes = list(map(len, values))
-    sizes = np.array(sizes, np.int32)
+    sizes = np.array(sizes, np.int64)
     return sizes.tobytes() + b''.join(values)
 
 
@@ -56,8 +56,8 @@ def bytes_to_sample_dict(data: bytes, keys: Sequence[str]) -> Dict[str, bytes]:
         dict: The decoded sample dict.
     """
     num_values = len(keys)
-    sizes = np.frombuffer(data[:num_values * 4], np.int32)
-    ends = num_values * 4 + sizes.cumsum()
+    sizes = np.frombuffer(data[:num_values * np.int64().nbytes], np.int64)
+    ends = num_values * np.int64().nbytes + sizes.cumsum()
     begins = ends - sizes
     values = []
     for begin, end in zip(begins, ends):
@@ -104,9 +104,9 @@ class StreamingDatasetIndex(object):
             bytes_per_sample (NDArray): Size in bytes of each sample across all shards.
             fields (Sequence[str]): The names of the samples' fields in order.
         """
-        self.samples_per_shard = np.asarray(samples_per_shard, np.int32)
-        self.bytes_per_shard = np.asarray(bytes_per_shard, np.int32)
-        self.bytes_per_sample = np.asarray(bytes_per_sample, np.int32)
+        self.samples_per_shard = np.asarray(samples_per_shard, np.int64)
+        self.bytes_per_shard = np.asarray(bytes_per_shard, np.int64)
+        self.bytes_per_sample = np.asarray(bytes_per_sample, np.int64)
         self.fields = fields
 
         # Totals.
@@ -133,12 +133,11 @@ class StreamingDatasetIndex(object):
             cls: The loaded object.
         """
         fp = BytesIO(data)
-        total_samples, total_bytes = read_array(fp, 2, np.int64)  # type: ignore
-        num_shards, num_fields = read_array(fp, 2, np.int32)
-        samples_per_shard = read_array(fp, num_shards, np.int32)
-        bytes_per_shard = read_array(fp, num_shards, np.int32)
-        bytes_per_sample = read_array(fp, total_samples, np.int32)
-        bytes_per_field = read_array(fp, num_fields, np.int32)
+        total_samples, total_bytes, num_shards, num_fields = read_array(fp, 4, np.int64)  # type: ignore
+        samples_per_shard = read_array(fp, num_shards, np.int64)
+        bytes_per_shard = read_array(fp, num_shards, np.int64)
+        bytes_per_sample = read_array(fp, total_samples, np.int64)
+        bytes_per_field = read_array(fp, num_fields, np.int64)
         fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
         return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
 
@@ -161,13 +160,12 @@ class StreamingDatasetIndex(object):
         Returns:
             bytes: The serialized form.
         """
-        x1 = np.array([self.total_samples, self.total_bytes], np.int64).tobytes()
-        x2 = np.array([self.num_shards, self.num_fields], np.int32).tobytes()
+        header = np.array([self.total_samples, self.total_bytes, self.num_shards, self.num_fields], np.int64)
         bytes_per_field = list(map(len, self.fields))
-        arrays = self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, bytes_per_field
-        x3 = np.concatenate(arrays).astype(np.int32).tobytes()
-        x4 = b''.join(map(lambda s: s.encode('utf-8'), self.fields))
-        return x1 + x2 + x3 + x4
+        arrays = header, self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, bytes_per_field
+        arrays = np.concatenate(arrays, dtype=np.int64).tobytes()
+        fields = b''.join(map(lambda s: s.encode('utf-8'), self.fields))
+        return arrays + fields
 
     def dump(self, fp: BufferedWriter) -> None:
         """Dump a StreamingDatasetIndex to the file.
@@ -193,8 +191,8 @@ class StreamingDatasetIndex(object):
         for shard, (num_samples, shard_begin) in enumerate(zip(self.samples_per_shard, shard_begins)):
             sample_shard_begins += [shard_begin] * num_samples
             sample_shards += [shard] * num_samples
-        sample_shard_begins = np.array(sample_shard_begins, np.int32)
-        sample_shards = np.array(sample_shards, np.int32)
+        sample_shard_begins = np.array(sample_shard_begins, np.int64)
+        sample_shards = np.array(sample_shards, np.int64)
 
         sample_ends = self.bytes_per_sample.cumsum()
         sample_begins = sample_ends - self.bytes_per_sample  # type: ignore
