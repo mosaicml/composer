@@ -7,6 +7,8 @@ leverage.
 
 | Linux Distro | Pytorch Version | Cuda Version | Python Version | Docker Tag                                                        |
 | ------------ | --------------- | ------------ | -------------- | ----------------------------------------------------------------- |
+| ubuntu:20.04 | 1.11.0          | 11.3.1       | 3.9            | `mosaicml/pytorch:1.11.0_cu113-python3.9-ubuntu20.04`             |
+| ubuntu:20.04 | 1.11.0          | cpu          | 3.9            | `mosaicml/pytorch:1.11.0_cpu-python3.9-ubuntu20.04`               |
 | ubuntu:20.04 | 1.10.0          | 11.3.1       | 3.9            | `latest`, `mosaicml/pytorch:1.10.0_cu113-python3.9-ubuntu20.04`   |
 | ubuntu:20.04 | 1.10.0          | cpu          | 3.9            | `mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04`               |
 | ubuntu:18.04 | 1.9.1           | 11.1.1       | 3.8            | `mosaicml/pytorch:1.9.1_cu111-python3.8-ubuntu18.04`              |
