@@ -1,14 +1,14 @@
 import os
 from io import BufferedReader, BytesIO
-from PIL import Image
 from threading import Lock, Thread
 from time import sleep
-from torchvision.datasets import VisionDataset
 from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
+from PIL import Image
 from torch import Tensor
 from torch.utils.data import IterableDataset, get_worker_info
+from torchvision.datasets import VisionDataset
 
 from composer.datasets.streaming.download import safe_download
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
@@ -318,8 +318,13 @@ class StreamingVisionDataset(StreamingDataset, VisionDataset):
     is an IterableDataset, so do not naively rely on __getitem__.
     """
 
-    def __init__(self, root: str, transforms: Optional[Callable] = None, transform: Optional[Callable] = None,
-                 target_transform: Optional[Callable] = None, data_key: str = 'data', target_key: str = 'target') -> None:
+    def __init__(self,
+                 root: str,
+                 transforms: Optional[Callable] = None,
+                 transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None,
+                 data_key: str = 'data',
+                 target_key: str = 'target') -> None:
         """Initialize with the same API as VisionDataset.
 
         Args:
