@@ -117,7 +117,9 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         doc="Whether to flatten the config, which can make nested fields easier to visualize and query.", default=False)
 
     def initialize_object(self) -> WandBLogger:
-        tags = list(set([x.strip() for x in self.tags.split(",") if x.strip() != ""]))
+        tags = None
+        if self.tags:
+            tags = list(set([x.strip() for x in self.tags.split(",") if x.strip() != ""]))
 
         config_dict = self.config
 
