@@ -1,8 +1,10 @@
 import os
-from io import BufferedReader
+from io import BufferedReader, BytesIO
+from PIL import Image
 from threading import Lock, Thread
 from time import sleep
-from typing import Callable, Iterator, List, Optional, Sequence, Tuple
+from torchvision.datasets import VisionDataset
+from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 from torch import Tensor
@@ -36,9 +38,9 @@ def get_partition() -> Tuple[int, int]:
 
 
 class StreamingDataset(IterableDataset):
-    """StreamingDataset."""
+    """Streaming dataset."""
 
-    def __init__(self, remote: str, local: str, split: str, transform: Callable, target_transform: Callable,
+    def __init__(self, remote: str, local: str, split: str, shuffle: bool) -> None:
                  shuffle: bool) -> None:
         """Initialize with the given remote path and local cache.
 
@@ -50,15 +52,11 @@ class StreamingDataset(IterableDataset):
             remote (str): Download shards from this remote directory.
             local (str): Download shards to this local filesystem directory for reuse.
             split (str): Which dataset split.
-            transform (callable, optional): X transformation.
-            target_transform (callable, optional): Y transformation.
             shuffle (bool): Whether to shuffle the samples.
         """
         self.remote = remote
         self.local = local
         self.split = split
-        self.transform = transform
-        self.target_transform = target_transform
         self.shuffle = shuffle
 
         # Load the index file containing the shard metadata, either over the
@@ -203,7 +201,7 @@ class StreamingDataset(IterableDataset):
         """
         return self.index.total_samples
 
-    def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor]:
+    def __getitem__(self, idx: int) -> Any:
         """Get the sample at the index, assuming its shard is loaded.
 
         Do not call this directly unless all shards have been loaded. Will crash
@@ -213,8 +211,7 @@ class StreamingDataset(IterableDataset):
             idx (int): Sample ID.
 
         Returns:
-            x (tensor): The input tensor.
-            y (tensor): The output tensor.
+            Any: The sample.
         """
         shard = self.index.sample_shards[idx]
         offset = self.index.sample_shard_offsets[idx]
@@ -223,10 +220,7 @@ class StreamingDataset(IterableDataset):
         assert fp is not None, 'Tried to __getitem__ a sample that was not loaded.'
         fp.seek(offset)
         data = fp.read(size)
-        obj = bytes_to_sample_dict(data, self.index.fields)
-        x = self.transform(obj['x'])
-        y = self.target_transform(obj['y'])
-        return x, y
+        return bytes_to_sample_dict(data, self.index.fields)
 
     def _new_growing_epoch(self) -> int:
         """Start a new growing epoch, in which we own the sample sequence because it grows.
@@ -269,7 +263,7 @@ class StreamingDataset(IterableDataset):
         """Get an iterator over all our sample IDs.
 
         Returns:
-            iterator over pairs of tensors: Each sample ID.
+            Iterator[int]: Each sample ID.
         """
         with self._lock:
             have_full_epoch = self._is_loading_complete
@@ -316,3 +310,65 @@ class StreamingDataset(IterableDataset):
         # Iterate over the samples we have while the rest are begin loaded.
         for idx in self._iter_ids():
             yield self[idx]
+
+
+class StreamingVisionDataset(StreamingDataset, VisionDataset):
+    """Streaming vision dataset.
+
+    Analogous to `torchvision.datasets.VisionDataset` plus streaming, but this
+    is an IterableDataset, so do not naively rely on __getitem__.
+    """
+
+    def __init__(self, root: str, transforms: Optional[Callable] = None, transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None) -> None:
+        """Initialize with the same API as VisionDataset.
+
+        Args:
+            root (str): Root directory of dataset.
+            transforms (Optional[Callable]): A function/transforms that takes in
+                an image and a label and returns the transformed versions of
+                both.
+            transform (Optional[Callable]): A function/transform that  takes in
+                an PIL image and returns a transformed version. E.g,
+                ``transforms.RandomCrop``
+            target_transform (Optional[Callable]): A function/transform that
+                takes in the target and transforms it.
+        """
+        self.root = root
+        self.transforms = transforms
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __getitem__(self, idx: int) -> Any:
+        """Get the sample at the index, assuming its shard is loaded.
+
+        Do not call this directly unless all shards have been loaded. Will crash
+        if the shard is not loaded.
+
+        Args:
+            idx (int): Sample ID.
+
+        Returns:
+            Any: The sample.
+        """
+        obj = super()[idx]
+
+        # The "data" field is a PIL image.
+        x = obj['data']
+        x = Image.open(BytesIO(x))
+
+        # The "target" field is an int.
+        y = obj['target']
+        y = np.frombuffer(y, np.int64)[0]
+        y = int(y)
+
+        # Do the transform (joint or separate).
+        if self.transforms:
+            x, y = self.transforms(x, y)
+        else:
+            if self.transform:
+                x = self.transform(x)
+            if self.target_transform:
+                y = self.target_transform(y)
+
+        return x, y
