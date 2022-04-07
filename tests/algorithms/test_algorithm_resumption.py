@@ -1,24 +1,23 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
+import pathlib
+import shutil
 import textwrap
 from typing import Optional, Type, Tuple
 
 import pytest
 
 from composer.algorithms import AlgorithmHparams
-from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.trainer.trainer_hparams import algorithms_registry
 from composer.core.precision import Precision
-from composer.core.time import Time, TimeUnit
 from composer.datasets import DataLoaderHparams, DatasetHparams, SyntheticHparamsMixin
 from composer.models import ModelHparams
 from composer.optim import AdamHparams, ExponentialSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import run_directory
-from composer.utils.checkpoint import _is_archive
-from tests.fixtures.dummy_fixtures import dummy_model_hparams, dummy_num_classes, dummy_train_dataset_hparams, dummy_val_batch_size, dummy_val_dataset_hparams
+from composer.utils import dist, is_tar
+from tests.fixtures.dummy_fixtures import dummy_num_classes
 from tests.trainer.test_checkpoint import assert_checkpoints_equivalent
 
 
@@ -85,14 +84,14 @@ skiplist = {
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
-    "seed,save_interval,save_name_format,resume_file,final_checkpoint",
+    "seed,save_interval,save_filename,resume_file,final_checkpoint",
     [
-        [None, "1ep", "ep{epoch}", "ep3", "latest-rank{rank}"],  # test randomized seed saving and symlinking
-        [42, "1ep", "ep{epoch}", "ep3", "ep5"],  # test save at epoch end
-        [42, "1ep", "ep{epoch}.tgz", "ep3.tgz", "ep5.tgz"],  # test tarball with compression
-        [42, "2ba", "ba{batch}", "ba12", "ba25"],  # test save batch in partial epoch
-        [42, "1ba", "ba{batch}", "ba15", "ba25"],  # test save final batch in epoch
-        [42, "2ba", "ba{batch}", "ba16", "ba25"],  # test save batch after complete epoch
+        [None, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "latest-rank{rank}"],  # test randomized seed saving and symlinking
+        [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
+        [42, "1ep", "ep{epoch}-rank{rank}.tgz", "ep3-rank{rank}.tgz", "ep5-rank{rank}.tgz"],  # test tarball with compression
+        [42, "2ba", "ba{batch}-rank{rank}", "ba12-rank{rank}", "ba25-rank{rank}"],  # test save batch in partial epoch
+        [42, "1ba", "ba{batch}-rank{rank}", "ba15-rank{rank}", "ba25-rank{rank}"],  # test save final batch in epoch
+        [42, "2ba", "ba{batch}-rank{rank}", "ba16-rank{rank}", "ba25-rank{rank}"],  # test save batch after complete epoch
     ],
 )
 @pytest.mark.parametrize("model_name", ["default", "resnet50_synthetic", "gpt2_52m"])
@@ -103,7 +102,7 @@ def test_algorithm_resumption(
     deepspeed_enabled: bool,
     zero_stage: Optional[int],
     save_interval: str,
-    save_name_format: str,
+    save_filename: str,
     resume_file: str,
     final_checkpoint: str,
     seed: Optional[int],
@@ -111,7 +110,8 @@ def test_algorithm_resumption(
     algorithm: Tuple[str, Type[AlgorithmHparams]],
     dummy_model_hparams: ModelHparams,
     dummy_train_dataset_hparams: DatasetHparams,
-    dummy_val_dataset_hparams: DatasetHparams,    
+    dummy_val_dataset_hparams: DatasetHparams,
+    tmpdir: pathlib.Path
 ):
     """strategy:
     - train five epochs. capture checkpoints after `checkpoint_interval` and ep5.
@@ -126,9 +126,9 @@ def test_algorithm_resumption(
         pytest.xfail(f"Checkpointing known to break {algo_name}")
 
     if deepspeed_enabled:
-        if not _is_archive(resume_file):
+        if is_tar(resume_file):
             resume_file += ".tar"
-        if not _is_archive(final_checkpoint):
+        if not is_tar(final_checkpoint):
             final_checkpoint += ".tar"
 
     max_epochs = "5ep"
@@ -138,7 +138,7 @@ def test_algorithm_resumption(
         algorithms=[],
         seed=seed,
         optimizer=AdamHparams(),
-        schedulers=[],
+        schedulers=[ExponentialSchedulerHparams(gamma=0.9)],
         precision=Precision.FP32,
         max_duration=max_epochs,
         train_batch_size=10,
@@ -158,7 +158,7 @@ def test_algorithm_resumption(
         grad_accum=2,
         train_subset_num_batches=subset_num_batches,
         eval_subset_num_batches=subset_num_batches,
-        save_name_format=save_name_format,
+        save_filename=save_filename,
         device=device_hparams
     )
 
@@ -205,7 +205,7 @@ def test_algorithm_resumption(
                         zero stage {zero_stage}"""))
         trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
 
-    checkpoint_a_folder = "first"
+    checkpoint_a_folder = str(tmpdir / "first")
     trainer_hparams.save_folder = checkpoint_a_folder
     trainer_hparams.save_interval = save_interval
 
@@ -215,28 +215,44 @@ def test_algorithm_resumption(
     first_trainer = trainer_hparams.initialize_object()
     first_trainer.fit()
     
-    checkpoint_a_file_path = os.path.join(checkpoint_a_folder, resume_file)
-    checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}", checkpoint_a_folder,
-                                          final_checkpoint)
+    rank_to_checkpoint_a_folder = dist.all_gather_object(os.path.abspath(checkpoint_a_folder))
+
+    checkpoint_to_resume_filepath = os.path.join(rank_to_checkpoint_a_folder[0], resume_file)
+    first_trainer_final_checkpoint_filepath = os.path.join(rank_to_checkpoint_a_folder[0], final_checkpoint)
+
+    # Move the resume and final file to the rank 0 folder
+    try:
+        rank_checkpoint_filepath = os.path.join(checkpoint_a_folder, resume_file.format(rank=dist.get_global_rank()))
+        shutil.copy2(rank_checkpoint_filepath,
+                     checkpoint_to_resume_filepath.format(rank=dist.get_global_rank()),
+                     follow_symlinks=True)
+    except (shutil.SameFileError, FileNotFoundError):
+        pass
+
+    try:
+        rank_checkpoint_filepath = os.path.join(checkpoint_a_folder,
+                                                final_checkpoint.format(rank=dist.get_global_rank()))
+        shutil.copy2(rank_checkpoint_filepath,
+                     first_trainer_final_checkpoint_filepath.format(rank=dist.get_global_rank()),
+                     follow_symlinks=True)
+    except (shutil.SameFileError, FileNotFoundError):
+        pass
 
     second_trainer_hparams = TrainerHparams.create(data=trainer_hparams.to_dict(), cli_args=False)
-    checkpoint_b_folder = "second"
+    checkpoint_b_folder = os.path.join(rank_to_checkpoint_a_folder[0], "second")
 
     second_trainer_hparams.save_folder = checkpoint_b_folder
-    second_trainer_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}",
-                                           checkpoint_a_file_path)
-    second_trainer_hparams.load_path_format = second_trainer_filepath
+    second_trainer_hparams.load_path = checkpoint_to_resume_filepath
     second_trainer_hparams.load_weights_only = False
     second_trainer_hparams.load_strict_model_weights = False
 
     second_trainer = second_trainer_hparams.initialize_object()
     second_trainer.fit()
-    checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{rank}", checkpoint_b_folder,
-                                          final_checkpoint)
+    second_trainer_final_checkpoint_filepath = os.path.join(checkpoint_b_folder, final_checkpoint)
 
     assert_checkpoints_equivalent(
         hparams_a=trainer_hparams,
-        checkpoint_file_a=checkpoint_b_file_path,
+        checkpoint_file_a=first_trainer_final_checkpoint_filepath,
         hparams_b=second_trainer_hparams,
-        checkpoint_file_b=checkpoint_c_file_path,
+        checkpoint_file_b=second_trainer_final_checkpoint_filepath,
     )
