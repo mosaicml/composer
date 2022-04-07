@@ -65,6 +65,7 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
 }
 
 
+@pytest.mark.timeout(10)
 @pytest.mark.parametrize("dataset_name", dataset_registry.keys())
 def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataLoaderHparams) -> None:
     # Skip WebDatasets.

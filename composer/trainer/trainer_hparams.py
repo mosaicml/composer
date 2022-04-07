@@ -100,6 +100,8 @@ device_registry = {
     "cpu": CPUDeviceHparams,
 }
 
+evaluator_registry = {"evaluator": EvaluatorHparams}
+
 
 @dataclass
 class TrainerHparams(hp.Hparams):
@@ -236,6 +238,7 @@ class TrainerHparams(hp.Hparams):
         "device": device_registry,
         "prof_trace_handlers": trace_handler_registory,
         "prof_schedule": profiler_scheduler_registry,
+        "evaluators": evaluator_registry,
     }
 
     model: ModelHparams = hp.required(doc="model")
