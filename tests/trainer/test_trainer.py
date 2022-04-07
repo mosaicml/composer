@@ -354,7 +354,7 @@ class TestTrainerAssets:
             pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
         # create the algorithms
-        if name in ('cutmix, mixup'):  # these algos have required algorithms
+        if name in ('cutmix'):  # these algos have required hparams
             algorithm = hparams(num_classes=2).initialize_object()
         else:
             algorithm = hparams().initialize_object()

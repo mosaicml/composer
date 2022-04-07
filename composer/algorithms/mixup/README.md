@@ -14,22 +14,46 @@ Training in this fashion improves generalization.
 |:--:
 |*Two different training examples (a picture of a bird and a picture of a frog) that have been combined by MixUp into a single example. The corresponding targets are a convex combination of the targets for the bird class and the frog class.*|
 
-<!--## How to Use
+## How to Use
 
 ### Functional Interface
 
-TODO(CORY): FIX
-
+Running `mixup` using index labels and interpolating the loss (a trick when using cross entropy)
 ```python
+
+import composer.functional as cf
+
 def training_loop(model, train_loader):
   opt = torch.optim.Adam(model.parameters())
   loss_fn = F.cross_entropy
   model.train()
-  
+
   for epoch in range(num_epochs):
       for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
+          X_mixed, y_perm, mixing = cf.mixup_batch(X, y, alpha=0.2)
+          y_hat = model(X_mixed)
+          loss = (1 - mixing) * loss_fn(y_hat, y_orig) + mixing * loss_fn(y_hat, y_perm)
+          loss.backward()
+          opt.step()
+          opt.zero_grad()
+```
+
+Running `mixup` using dense/one-hot labels and interpolating the labels (general case)
+```python
+
+import composer.functional as cf
+
+def training_loop(model, train_loader):
+  opt = torch.optim.Adam(model.parameters())
+  loss_fn = F.cross_entropy
+  model.train()
+
+  for epoch in range(num_epochs):
+      for X, y in train_loader:
+          X_mixed, y_perm, mixing = cf.mixup_batch(X, y, alpha=0.2)
+          y_mixed = (1 - mixing) * y_orig + mixing * y_perm
+          y_hat = model(X_mixed)
+          loss = loss_fn(y_hat, y_mixed)
           loss.backward()
           opt.step()
           opt.zero_grad()
@@ -37,31 +61,49 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-TODO(CORY): Fix and provide commentary and/or comments
-
+Running `mixup` using index labels and interpolating the loss (a trick when using cross entropy)
 ```python
-from composer.algorithms import XXX
+from composer.algorithms import MixUp
 from composer.trainer import Trainer
+
+mixup = MixUp(alpha=0.2, interpolate_loss=True)
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   max_duration='1ep',
-                  algorithms=[
-                  ])
+                  algorithms=[mixup])
+
+trainer.fit()
+```
+
+Running `mixup` using dense/one-hot labels and interpolating the labels (general case).
+```python
+from composer.algorithms import MixUp
+from composer.trainer import Trainer
+
+mixup = MixUp(alpha=0.2, interpolate_loss=False)
+
+trainer = Trainer(model=model,
+                  train_dataloader=train_dataloader,
+                  max_duration='1ep',
+                  algorithms=[mixup])
 
 trainer.fit()
 ```
 
 ### Implementation Details
 
-TODO(CORY): Briefly describe how this is implemented under the hood in Composer.-->
+Composer's MixUp has two modes of use. When using `interpolate_loss=True` MixUp does not directly interpolate the targets, but rather interpolates the loss function by calling it on the original target and the mixed-in target and interpolating the two loss values. For loss functions that are linear in the targets (such as cross entropy) this is mathematically equivalent to interpolating the targets. Many other implementations of mixup work this way.
+
+For loss functions that are not linear in the targets, this trick may still be used but results in behavior that differs from the description in the [original paper](https://arxiv.org/abs/1710.09412). If the loss function in use can accept non-index targets (such as dense or one-hot labels) then Composer's MixUp can be used with `interpolate_loss=False`, which interpolates the targets of the two samples. This gives behavior matching the usual description of MixUp.
 
 ## Suggested Hyperparameters
 
 The sole hyperparameter for MixUp is `alpha`, which controls the Beta distribution that determines the extent of interpolation between the two input examples.
 Concretely, for two examples `x1` and `x2`, the example that MixUp produces is `t * x1 + (1 - t) * x2` where `a` is sampled from the distribution `Beta(alpha, alpha)`.
 On ImageNet, we found that `alpha=0.2` (which places slightly higher probability on extreme values of `t`) works well.
-On CIFAR-10, we found that `alpha=0.1` (which samples `t` uniformly between 0 and 1) works well.
+On CIFAR-10, we found that `alpha=1.0` (which samples `t` uniformly between 0 and 1) works well.
+
 
 ## Technical Details
 
@@ -80,12 +122,16 @@ Doing so avoids putting additional work on the CPU (since augmentation occurs on
 > MixUp requires a small amount of additional GPU compute and memory to produce the mixed-up batch.
 > In our experiments, we have found these additional resource requirements to be negligible.
 
-> ❗ MixUp Produces a Full Distribution, Not a Target Index
+> ❗ When `interpolate_loss=False` MixUp Produces a Full Distribution, Not a Target Index
 >
 > Many classification tasks represent the target value using the index of the target value rather than the full one-hot encoding of the label value.
-> Since MixUp interpolates between two target values for each example, it must represent the final targets as a dense distribution.
-> Our implementation of MixUp turns each label into a dense distribution (if it has not already been converted into a distribution).
-> The loss function used for the model must be able to accept this dense distribution as the target.
+> With `interpolate_loss=False` MixUp interpolates between two target values for each example, it must represent the final targets as a dense vector of probabilities.
+> Our implementation of MixUp turns each label into a dense vector of probabilities (if it has not already been converted into a distribution).
+> The loss function used for the model must be able to accept this dense vector of probabilities as the target.
+
+>❗ When `interpolate_loss=True` MixUp interpolates the loss rather than the targets.
+>
+> This is fine for loss functions that are linear in the targets, such as cross entropy, but may produce unexpected results for other loss functions.
 
 > 🚧 Composing Regularization Methods
 >
