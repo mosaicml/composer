@@ -118,7 +118,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
 
     def initialize_object(self) -> WandBLogger:
         tags = None
-        if self.tags:
+        if self.tags is not None:
             tags = list(set([x.strip() for x in self.tags.split(",") if x.strip() != ""]))
 
         config_dict = self.config
