@@ -40,7 +40,7 @@ def get_partition() -> Tuple[int, int]:
 class StreamingDataset(IterableDataset):
     """Streaming dataset."""
 
-    def __init__(self, remote: str, local: str, split: str, shuffle: bool) -> None:
+    def __init__(self, remote: str, local: str, shuffle: bool) -> None:
         """Initialize with the given remote path and local cache.
 
         Loads all the samples that are available in local cache, then starts a
@@ -50,12 +50,10 @@ class StreamingDataset(IterableDataset):
         Args:
             remote (str): Download shards from this remote directory.
             local (str): Download shards to this local filesystem directory for reuse.
-            split (str): Which dataset split.
             shuffle (bool): Whether to shuffle the samples.
         """
         self.remote = remote
         self.local = local
-        self.split = split
         self.shuffle = shuffle
 
         # Load the index file containing the shard metadata, either over the
@@ -88,8 +86,8 @@ class StreamingDataset(IterableDataset):
         Returns:
             str: Local cache filename.
         """
-        remote = os.path.join(self.remote, self.split, basename)
-        local = os.path.join(self.local, self.split, basename)
+        remote = os.path.join(self.remote, basename)
+        local = os.path.join(self.local, basename)
         safe_download(remote, local)
         return local
 
@@ -125,7 +123,7 @@ class StreamingDataset(IterableDataset):
             # Keep open a file handle to each loaded shard for fast access.
             for shard in shards:
                 basename = get_shard_basename(shard)
-                filename = os.path.join(self.local, self.split, basename)
+                filename = os.path.join(self.local, basename)
                 assert self._files[shard] is None, 'Open file handle already exists!'
                 self._files[shard] = open(filename, 'rb')
 
@@ -160,7 +158,7 @@ class StreamingDataset(IterableDataset):
         missing = []
         for shard in sorted(shards):
             basename = get_shard_basename(shard)
-            local = os.path.join(self.local, self.split, basename)
+            local = os.path.join(self.local, basename)
             if os.path.exists(local):
                 downloaded.append(shard)
             else:
@@ -319,7 +317,9 @@ class StreamingVisionDataset(StreamingDataset, VisionDataset):
     """
 
     def __init__(self,
-                 root: str,
+                 remote: str,
+                 local: str,
+                 shuffle: bool,
                  transforms: Optional[Callable] = None,
                  transform: Optional[Callable] = None,
                  target_transform: Optional[Callable] = None,
@@ -328,7 +328,9 @@ class StreamingVisionDataset(StreamingDataset, VisionDataset):
         """Initialize with the same API as VisionDataset.
 
         Args:
-            root (str): Root directory of dataset.
+            remote (str): Download shards from this remote directory.
+            local (str): Download shards to this local filesystem directory for reuse.
+            shuffle (bool): Whether to shuffle the samples.
             transforms (Optional[Callable]): A function/transforms that takes in
                 an image and a label and returns the transformed versions of
                 both.
@@ -340,7 +342,8 @@ class StreamingVisionDataset(StreamingDataset, VisionDataset):
             data_key (str, optional): Sample dict key for the data. Default: 'data'.
             target_key (str, optional): Sample dict key for the target. Default: 'target'.
         """
-        self.root = root
+        StreamingDataset.__init__(self, remote, local, shuffle)
+
         self.transforms = transforms
         self.transform = transform
         self.target_transform = target_transform
@@ -359,7 +362,7 @@ class StreamingVisionDataset(StreamingDataset, VisionDataset):
         Returns:
             Any: The sample.
         """
-        obj = super()[idx]
+        obj = StreamingDataset.__getitem__(self, idx)
 
         # The "data" field is a PIL image.
         x = obj[self.data_key]
