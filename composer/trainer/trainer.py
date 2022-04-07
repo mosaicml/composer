@@ -1316,6 +1316,20 @@ class Trainer:
 
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
+            
+    def predict(self, loader, batchsize):
+
+        self.state.model.eval()
+        for batch_idx, self.state.batch in enumerate(
+            itertools.islice(loader, batchsize)):
+
+            self.state.batch = self._device.batch_to_device(self.state.batch)
+            if self.deepspeed_enabled:
+                self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+
+            with torch.no_grad():
+                outputs, targets = self._original_model.validate(self.state.batch)
+        return outputs, targets
 
     def eval(self, is_batch: bool):
         """Evaluate the model on the provided evaluation data and log appropriate metrics.
