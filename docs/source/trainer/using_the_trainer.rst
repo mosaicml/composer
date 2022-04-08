@@ -84,15 +84,15 @@ training progress to the console.
 A few tips and tricks for using our Trainer:
 
 -  For time-related inputs, such as the ``max_duration`` above, we
-   support both an integer (which we assume is epochs), or a string. The
+   support either an integer (which we assume is epochs) or a string. The
    string can have a suffix of ``"ep"`` (epochs), ``"ba"`` (batches), or
    ``"dur"`` (full training duration), among other options.
-   For example, ``"10ba"`` means 10 minibatches or steps, and ``"10ep"``
+   For example, ``"10ba"`` means 10 minibatches (or steps) and ``"10ep"``
    means 10 epochs. See: :class:`.Time` for details.
 -  If you are using gradient accumulation, the ``batch_size`` in your
-   dataloaders should be the per-device macrobatch size — the batch size of your
+   dataloaders should be the per-device macrobatch size, i.e. the batch size of your
    optimization update. For example, with ``grad_accum=2`` and
-   ``batch_size=2048``, the trainer runs through two microbatches of 1024
+   ``batch_size=2048``, the trainer runs through two microbatches of size 1024
    each, then performs a gradient update step.
 -  At any time, most of the relevant quantities for debugging are
    centralized into one variable: :class:`.State`.
@@ -139,7 +139,7 @@ Events & State
 
 The core principle of the Composer trainer is to make it easy to inject
 custom logic to run at various points in the training loop. To do this,
-we have events that run before and after each of the lines above, e.g.:
+we have events that run before and after each of the lines above, e.g.
 
 .. code:: python
 
@@ -151,8 +151,8 @@ Algorithms and callbacks (see below) register themselves to run on one
 or more events.
 
 We also maintain a :class:`.State` which stores the trainer's state, such as
-the model, optimizers, dataloader, current batch, etc (see
-:class:`.State`). This allows algorithms to modify the state at the
+the model, optimizers, dataloader, current batch, etc. (see
+:class:`.State`). This allows algorithms to modify the state during the
 various events above.
 
 .. seealso::
@@ -189,12 +189,11 @@ argument.
 
     trainer.engine.close()
 
-We handle inserting those algorithms into the training loop and in the
-right order.
+We handle inserting algorithms into the training loop and in the right order.
 
 .. seealso::
 
-    Our :doc:`algorithms` guide, and the individual
+    Our :doc:`algorithms` guide and the individual
     :doc:`/method_cards/methods_overview` for each algorithm.
 
 
@@ -229,7 +228,7 @@ or ``T_max`` can be provided in many units, from epochs (``"10ep"``)
 to batches (``"2048ba"``) to duration (``"0.7dur"``).
 
 For example, the below would step the learning rate at 30%, 50%, and
-90% through training:
+90% of the way through the training process:
 
 
 .. testcode::
@@ -286,9 +285,10 @@ the ``torch.distributed`` setup for you.
                      device='gpu')
    trainer.fit()
 
-Access the Composer launcher via the ``composer`` command along with the
-number of GPUs you'd like to use and your training script. Use
-``composer --help`` to see a full list of configurable options.
+Access the Composer launcher via the ``composer`` command line program.
+Specify the number of GPUs you'd like to use  with the ``-n`` flag
+along with the file containing your training script. 
+Use ``composer --help`` to see a full list of configurable options.
 
 .. code:: bash
 
@@ -296,8 +296,8 @@ number of GPUs you'd like to use and your training script. Use
    $ composer -n 8 run_trainer.py
 
 For multiple GPUs, the ``batch_size`` for each dataloader should be the
-per-device batch size. For example, to use a batch size of 2048, with
-data parallel across 8 GPUs, the dataloader should have ``batch_size=256``.
+per-device batch size. For example, to use a total batch size of 2048 with
+data parallel across 8 GPUs the dataloader should set ``batch_size=256``.
 
 
 .. warning::
@@ -342,7 +342,7 @@ DeepSpeed docs `here <https://www.deepspeed.ai/docs/config-json/>`__.
                      })
 
 Providing an empty dictionary to deepspeed is also valid. The deepspeed
-defaults will be used and other fields (such as precision) inferred
+defaults will be used and other fields (such as precision) will be inferred
 from the trainer.
 
 .. warning::
@@ -380,8 +380,8 @@ during training, but you can also implement your own.
 Numerics
 ~~~~~~~~
 
-The trainer automatically handles multiple precision types, either as ``fp32`` or for GPUs,
-``amp`` for automatic mixed precision, which is pytorch's built-in methods of training
+The trainer automatically handles multiple precision types such as ``fp32`` or, for GPUs,
+``amp`` (automatic mixed precision), which is PyTorch's built-in method for training
 in 16-bit floating point. For more details on ``amp``, see :mod:`torch.cuda.amp` and
 the paper by `Micikevicius et al, 2018 <https://arxiv.org/abs/1710.03740>`__
 
@@ -443,10 +443,6 @@ points during training and (2) load them back to resume training later.
 
     The :doc:`checkpointing` guide.
 
-
-This was just a quick tour of all the features within our trainer. Please see the other
-guides and notebooks for more information.
-
 Reproducibility
 ~~~~~~~~~~~~~~~
 
@@ -461,10 +457,10 @@ The random seed can be provided to the trainer directly, e.g.
         seed=42,
     )
 
-If no seed is provided, a random seed will be generated from system time.
+If no seed is provided, a random seed will be generated from the system time.
 
 Since the model and dataloaders are initialized outside of the Trainer, for complete
-determinism, we recommend calling :func:`~composer.utils.reproducibility.seed_all` and/or
+determinism we recommend calling :func:`~composer.utils.reproducibility.seed_all` and/or
 :func:`~composer.utils.reproducibility.configure_deterministic_mode` before creating any objects. For example:
 
 .. testsetup::
@@ -479,21 +475,21 @@ determinism, we recommend calling :func:`~composer.utils.reproducibility.seed_al
 
 .. testcode::
 
-   import torch.nn
-   from composer.utils import reproducibility
+    import torch.nn as nn
+    from composer.utils import reproducibility
 
-   reproducibility.configure_deterministic_mode()
-   reproducibility.seed_all(42)
+    reproducibility.configure_deterministic_mode()
+    reproducibility.seed_all(42)
 
-   model = MyModel()
+    model = MyModel()
 
-   def init_weights(m):
-       if isinstance(m, torch.nn.Linear):
-           torch.nn.init.xavier_uniform(m.weight)
+    def init_weights(m):
+        if isinstance(m, torch.nn.Linear):
+            nn.init.xavier_uniform(m.weight)
 
-   # model will now be deterministically initialized, since the seed is set.
-   init_weights(model)
-   trainer = Trainer(model=model, seed=42)
+    # model will now be deterministically initialized, since the seed is set.
+    init_weights(model)
+    trainer = Trainer(model=model, seed=42)
 
 Note that the Trainer must still be seeded.
 
@@ -560,12 +556,12 @@ provided checkpoints, and then runs the training:
                 eval()
 
 
-Remaining are two methods: ``_train_batch`` and ``_train_batch_inner``.
-For first decides whether to use the context manager for
-:meth:`torch.nn.parallel.DistributedDataParallel.no_sync`, which
-disables the gradient synchronization for distributed training.
+There are two methods to discuss: ``_train_batch`` and ``_train_batch_inner``.
+The first decides whether to use the context manager for
+:meth:`torch.nn.parallel.DistributedDataParallel.no_sync` which
+disables gradient synchronization for distributed training.
 
-The second carries out the iteration over the ``batch``, broken
+The second carries out the iteration over the ``batch``, possibly broken
 into microbatches (for gradient accumulation). This last
 method is where the forward and backward pass take place.
 
@@ -584,3 +580,6 @@ method is where the forward and backward pass take place.
 .. _Transformers: https://huggingface.co/docs/transformers/index
 .. _TIMM: https://fastai.github.io/timmdocs/
 .. _torchvision: https://pytorch.org/vision/stable/models.html
+
+This was just a quick tour of the features available within our trainer.
+Please see the other guides and notebooks for further details.
