@@ -41,9 +41,11 @@ def dummy_train_batch_size() -> int:
 def dummy_val_batch_size() -> int:
     return 32
 
+
 @pytest.fixture()
 def dummy_train_n_samples() -> int:
     return 1000
+
 
 @pytest.fixture
 def dummy_model_hparams(

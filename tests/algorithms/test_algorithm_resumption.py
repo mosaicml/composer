@@ -29,43 +29,43 @@ algo_hparams_overrides = {
     },
     "mixup": {
         "num_classes": dummy_num_classes
-    }    
+    }
 }
 
 skiplist = {
     'default': {
-            'colout': 'Only for images',
-            'cutmix': 'Only for images',
-            'cutout': 'Only for images',            
-            'mixup': 'Only defined for images',
-            'alibi': 'Not compatible with simple model.',
-            'seq_length_warmup': 'Not compatible with simple model.',
-            'randaugment': 'Requires PIL dataset to test.',
-            'augmix': 'Required PIL dataset to test.',
-            'stochastic_depth': 'Only applies to ResNets.',
-            'no_op_model': 'Not compatible with this model.'
-        },
+        'colout': 'Only for images',
+        'cutmix': 'Only for images',
+        'cutout': 'Only for images',
+        'mixup': 'Only defined for images',
+        'alibi': 'Not compatible with simple model.',
+        'seq_length_warmup': 'Not compatible with simple model.',
+        'randaugment': 'Requires PIL dataset to test.',
+        'augmix': 'Required PIL dataset to test.',
+        'stochastic_depth': 'Only applies to ResNets.',
+        'no_op_model': 'Not compatible with this model.'
+    },
     'resnet50_synthetic': {
-            'alibi': 'Not compatible with simple model.',
-            'seq_length_warmup': 'Not compatible with simple model.',
-            'randaugment': 'Requires PIL dataset to test.',
-            'augmix': 'Required PIL dataset to test.',
-            'no_op_model': 'Not compatible with this model.'
-        },
+        'alibi': 'Not compatible with simple model.',
+        'seq_length_warmup': 'Not compatible with simple model.',
+        'randaugment': 'Requires PIL dataset to test.',
+        'augmix': 'Required PIL dataset to test.',
+        'no_op_model': 'Not compatible with this model.'
+    },
     'gpt2_52m': {
-            'blurpool': 'Only for CNNs',
-            'channels_last': 'Only for CNNs',
-            'colout': 'Only for images',
-            'cutmix': 'Only for images',
-            'cutout': 'Only for images',
-            'squeeze_excite': 'Not defined for language model transformers',
-            'mixup': 'Only defined for images',
-            'randaugment': 'Requires PIL dataset to test.',
-            'augmix': 'Required PIL dataset to test.',
-            'progressive_resizing': 'Only defined for images',
-            'stochastic_depth': 'Only applies to ResNets.',
-            'no_op_model': 'Not compatible with this model.'
-        }
+        'blurpool': 'Only for CNNs',
+        'channels_last': 'Only for CNNs',
+        'colout': 'Only for images',
+        'cutmix': 'Only for images',
+        'cutout': 'Only for images',
+        'squeeze_excite': 'Not defined for language model transformers',
+        'mixup': 'Only defined for images',
+        'randaugment': 'Requires PIL dataset to test.',
+        'augmix': 'Required PIL dataset to test.',
+        'progressive_resizing': 'Only defined for images',
+        'stochastic_depth': 'Only applies to ResNets.',
+        'no_op_model': 'Not compatible with this model.'
+    }
 }
 
 
@@ -84,33 +84,25 @@ skiplist = {
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
     [
-        [None, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "latest-rank{rank}"],  # test randomized seed saving and symlinking
+        [None, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "latest-rank{rank}"
+        ],  # test randomized seed saving and symlinking
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
-        [42, "1ep", "ep{epoch}-rank{rank}.tgz", "ep3-rank{rank}.tgz", "ep5-rank{rank}.tgz"],  # test tarball with compression
+        [42, "1ep", "ep{epoch}-rank{rank}.tgz", "ep3-rank{rank}.tgz", "ep5-rank{rank}.tgz"
+        ],  # test tarball with compression
         [42, "2ba", "ba{batch}-rank{rank}", "ba12-rank{rank}", "ba25-rank{rank}"],  # test save batch in partial epoch
         [42, "1ba", "ba{batch}-rank{rank}", "ba15-rank{rank}", "ba25-rank{rank}"],  # test save final batch in epoch
-        [42, "2ba", "ba{batch}-rank{rank}", "ba16-rank{rank}", "ba25-rank{rank}"],  # test save batch after complete epoch
+        [42, "2ba", "ba{batch}-rank{rank}", "ba16-rank{rank}", "ba25-rank{rank}"
+        ],  # test save batch after complete epoch
     ],
 )
 @pytest.mark.parametrize("model_name", ["default", "resnet50_synthetic", "gpt2_52m"])
 @pytest.mark.parametrize("algorithm", algorithms_registry.items(), ids=algorithms_registry.keys())
-def test_algorithm_resumption(
-    device_hparams: DeviceHparams,
-    world_size: int,
-    deepspeed_enabled: bool,
-    zero_stage: Optional[int],
-    save_interval: str,
-    save_filename: str,
-    resume_file: str,
-    final_checkpoint: str,
-    seed: Optional[int],
-    model_name: str,
-    algorithm: Tuple[str, Type[AlgorithmHparams]],
-    dummy_model_hparams: ModelHparams,
-    dummy_train_dataset_hparams: DatasetHparams,
-    dummy_val_dataset_hparams: DatasetHparams,
-    tmpdir: pathlib.Path
-):
+def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, deepspeed_enabled: bool,
+                              zero_stage: Optional[int], save_interval: str, save_filename: str, resume_file: str,
+                              final_checkpoint: str, seed: Optional[int], model_name: str,
+                              algorithm: Tuple[str, Type[AlgorithmHparams]], dummy_model_hparams: ModelHparams,
+                              dummy_train_dataset_hparams: DatasetHparams, dummy_val_dataset_hparams: DatasetHparams,
+                              tmpdir: pathlib.Path):
     """strategy:
     - train five epochs. capture checkpoints after `checkpoint_interval` and ep5.
     - create a new trainer from the `checkpoint_interval` checkpoint, and train until end. checkpoint again.
@@ -132,33 +124,31 @@ def test_algorithm_resumption(
     max_epochs = "5ep"
     subset_num_batches = 5
 
-    trainer_hparams = TrainerHparams(
-        algorithms=[],
-        seed=seed,
-        optimizer=AdamHparams(),
-        schedulers=[ExponentialSchedulerHparams(gamma=0.9)],
-        precision=Precision.FP32,
-        max_duration=max_epochs,
-        train_batch_size=10,
-        eval_batch_size=10,
-        dataloader=DataLoaderHparams(
-            num_workers=0,
-            prefetch_factor=2,
-            persistent_workers=False,
-            pin_memory=False,
-            timeout=0.0,
-        ),
-        model=dummy_model_hparams,
-        val_dataset=dummy_val_dataset_hparams,
-        train_dataset=dummy_train_dataset_hparams,
-        deterministic_mode=True,
-        loggers=[],
-        grad_accum=2,
-        train_subset_num_batches=subset_num_batches,
-        eval_subset_num_batches=subset_num_batches,
-        save_filename=save_filename,
-        device=device_hparams
-    )
+    trainer_hparams = TrainerHparams(algorithms=[],
+                                     seed=seed,
+                                     optimizer=AdamHparams(),
+                                     schedulers=[ExponentialSchedulerHparams(gamma=0.9)],
+                                     precision=Precision.FP32,
+                                     max_duration=max_epochs,
+                                     train_batch_size=10,
+                                     eval_batch_size=10,
+                                     dataloader=DataLoaderHparams(
+                                         num_workers=0,
+                                         prefetch_factor=2,
+                                         persistent_workers=False,
+                                         pin_memory=False,
+                                         timeout=0.0,
+                                     ),
+                                     model=dummy_model_hparams,
+                                     val_dataset=dummy_val_dataset_hparams,
+                                     train_dataset=dummy_train_dataset_hparams,
+                                     deterministic_mode=True,
+                                     loggers=[],
+                                     grad_accum=2,
+                                     train_subset_num_batches=subset_num_batches,
+                                     eval_subset_num_batches=subset_num_batches,
+                                     save_filename=save_filename,
+                                     device=device_hparams)
 
     if model_name != "default":
         if not isinstance(device_hparams, GPUDeviceHparams):
@@ -212,7 +202,7 @@ def test_algorithm_resumption(
 
     first_trainer = trainer_hparams.initialize_object()
     first_trainer.fit()
-    
+
     rank_to_checkpoint_a_folder = dist.all_gather_object(os.path.abspath(checkpoint_a_folder))
 
     checkpoint_to_resume_filepath = os.path.join(rank_to_checkpoint_a_folder[0], resume_file)
