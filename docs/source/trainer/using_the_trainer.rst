@@ -42,40 +42,41 @@ A minimal example of a ResNet-18 model is shown here:
 
 .. testcode::
 
-   import torchvision
-   import torch.nn.functional as F
+    import torchvision
+    import torch.nn.functional as F
 
-   from composer.models import ComposerModel
+    from composer.models import ComposerModel
 
-   class ResNet18(ComposerModel):
+    class ResNet18(ComposerModel):
+        def __init__(self):
+            super().__init__()
+            self.model = torchvision.models.resnet18()
 
-       def __init__(self):
-           super().__init__()
-           self.model = torchvision.models.resnet18()
+        def forward(self, batch):
+            inputs, _ = batch
+            return self.model(inputs)
 
-       def forward(self, batch):
-           inputs, _ = batch
-           return self.model(inputs)
-
-       def loss(self, outputs, batch):
-           _, targets = batch
-           return F.cross_entropy(outputs, targets)
+        def loss(self, outputs, batch):
+            _, targets = batch
+            return F.cross_entropy(outputs, targets)
 
 Then, the model can be passed to the trainer with the relevant torch
 objects.
 
 .. code:: python
 
-   import torch
+    import torch
 
-   trainer = Trainer(model=ResNet18(),
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     optimizers=torch.optim.Adam(lr=0.01),
-                     max_duration=10,  # epochs
-                     device='gpu')
+    trainer = Trainer(
+        model=ResNet18(),
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        optimizers=torch.optim.Adam(lr=0.01),
+        max_duration=10,  # epochs
+        device='gpu'
+    )
 
-   trainer.fit()
+    trainer.fit()
 
 In the background, we automatically add the :class:`.ProgressBarLogger` to log
 training progress to the console.
@@ -112,19 +113,19 @@ interacts with the :class:`.ComposerModel` is as follows:
 
 .. code:: python
 
-   # training loop
-   for batch in train_dataloader:
+    # training loop
+    for batch in train_dataloader:
 
-       outputs = model.forward(batch)
-       loss = model.loss(outputs, batch)
+        outputs = model.forward(batch)
+        loss = model.loss(outputs, batch)
 
-       loss.backward()
-       optimizer.step()
+        loss.backward()
+        optimizer.step()
 
-   # eval loop
-   for batch in eval_dataloader:
-       outputs, targets = model.validate(batch)
-       metrics.update(outputs, target)
+    # eval loop
+    for batch in eval_dataloader:
+        outputs, targets = model.validate(batch)
+        metrics.update(outputs, target)
 
 For the actual code, see the :meth:`.Trainer.fit` and :meth:`.Trainer.eval` methods.
 
@@ -143,9 +144,9 @@ we have events that run before and after each of the lines above, e.g.
 
 .. code:: python
 
-   engine.run_event("before_forward")
-   outputs = model.forward(batch)
-   engine.run_event("after_forward")
+    engine.run_event("before_forward")
+    outputs = model.forward(batch)
+    engine.run_event("after_forward")
 
 Algorithms and callbacks (see below) register themselves to run on one
 or more events.
@@ -172,14 +173,15 @@ argument.
     from composer import Trainer
     from composer.algorithms import LayerFreezing, MixUp
 
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      eval_dataloader=eval_dataloader,
-                      max_duration='2ep',
-                      algorithms=[
-                        LayerFreezing(freeze_start=0.5, freeze_level=0.1),
-                        MixUp(alpha=0.1),
-                      ])
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='2ep',
+        algorithms=[
+            LayerFreezing(freeze_start=0.5, freeze_level=0.1),
+            MixUp(alpha=0.1),
+        ])
 
     # the algorithms will automatically be applied during the appropriate
     # points of the training loop
@@ -206,21 +208,23 @@ well as Composer's custom schedulers.
 
 .. testcode::
 
-   from composer import Trainer
-   from composer.models import ComposerResNet
-   from torch.optim import SGD
-   from torch.optim.lr_scheduler import LinearLR
+    from composer import Trainer
+    from composer.models import ComposerResNet
+    from torch.optim import SGD
+    from torch.optim.lr_scheduler import LinearLR
 
-   model = ComposerResNet(model_name="resnet50", num_classes=1000)
-   optimizer = SGD(model.parameters(), lr=0.1)
-   scheduler = LinearLR(optimizer)
+    model = ComposerResNet(model_name="resnet50", num_classes=1000)
+    optimizer = SGD(model.parameters(), lr=0.1)
+    scheduler = LinearLR(optimizer)
 
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     max_duration='90ep',
-                     optimizers=optimizer,
-                     schedulers=scheduler)
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='90ep',
+        optimizers=optimizer,
+        schedulers=scheduler
+    )
 
 Composer's own custom schedulers are versions that support the
 :class:`.Time` abstraction. Time related inputs such as ``step``
@@ -236,13 +240,14 @@ For example, the below would step the learning rate at 30%, 50%, and
     from composer import Trainer
     from composer.optim.scheduler import MultiStepScheduler
 
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      max_duration='90ep',
-                      schedulers=MultiStepScheduler(
-                          milestones=['0.3dur', '0.5dur', '0.9dur'],
-                          gamma=0.1
-                      ))
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='90ep',
+        schedulers=MultiStepScheduler(
+            milestones=['0.3dur', '0.5dur', '0.9dur'],
+            gamma=0.1
+    ))
 
 
 See :doc:`schedulers` for details.
@@ -257,13 +262,15 @@ engineering. We currently support the ``cpu`` and ``gpu`` devices.
 
 .. testcode::
 
-   from composer import Trainer
+    from composer import Trainer
 
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     max_duration='2ep',
-                     device='cpu')
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='2ep',
+        device='cpu'
+    )
 
 Distributed Training
 ~~~~~~~~~~~~~~~~~~~~
@@ -274,16 +281,18 @@ the ``torch.distributed`` setup for you.
 
 .. code:: python
 
-   # run_trainer.py
+    # run_trainer.py
 
-   from composer import Trainer
+    from composer import Trainer
 
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     max_duration='160ep',
-                     device='gpu')
-   trainer.fit()
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='160ep',
+        device='gpu'
+    )
+    trainer.fit()
 
 Access the Composer launcher via the ``composer`` command line program.
 Specify the number of GPUs you'd like to use  with the ``-n`` flag
@@ -292,8 +301,8 @@ Use ``composer --help`` to see a full list of configurable options.
 
 .. code:: bash
 
-   # run training on 8 GPUs
-   $ composer -n 8 run_trainer.py
+    # run training on 8 GPUs
+    $ composer -n 8 run_trainer.py
 
 For multiple GPUs, the ``batch_size`` for each dataloader should be the
 per-device batch size. For example, to use a total batch size of 2048 with
@@ -327,19 +336,20 @@ DeepSpeed docs `here <https://www.deepspeed.ai/docs/config-json/>`__.
 
 .. code:: python
 
-   # run_trainer.py
+    # run_trainer.py
 
-   from composer import Trainer
+    from composer import Trainer
 
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     max_duration='160ep',
-                     device='gpu',
-                     deepspeed_config={
-                         "train_batch_size": 2048,
-                         "fp16": {"enabled": True},
-                     })
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='160ep',
+        device='gpu',
+        deepspeed_config={
+            "train_batch_size": 2048,
+            "fp16": {"enabled": True},
+    })
 
 Providing an empty dictionary to deepspeed is also valid. The deepspeed
 defaults will be used and other fields (such as precision) will be inferred
@@ -361,16 +371,18 @@ during training, but you can also implement your own.
 
 .. code:: python
 
-   from composer import Trainer
-   from composer.callbacks import SpeedMonitor
+    from composer import Trainer
+    from composer.callbacks import SpeedMonitor
 
-   # include a callback for tracking throughput/step during training
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     max_duration='160ep',
-                     device='gpu',
-                     callbacks=[SpeedMonitor(window_size=100)])
+    # include a callback for tracking throughput/step during training
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='160ep',
+        device='gpu',
+        callbacks=[SpeedMonitor(window_size=100)]
+    )
 
 .. seealso::
 
@@ -389,15 +401,17 @@ We recommend using ``amp`` on GPUs to accelerate your training.
 
 .. code:: python
 
-   from composer import Trainer
+    from composer import Trainer
 
-   # use mixed precision during training
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     max_duration='160ep',
-                     device='gpu',
-                     precision='amp')
+    # use mixed precision during training
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='160ep',
+        device='gpu',
+        precision='amp'
+    )
 
 Checkpointing
 ~~~~~~~~~~~~~
@@ -407,37 +421,41 @@ points during training and (2) load them back to resume training later.
 
 .. code:: python
 
-   from composer import Trainer
+    from composer import Trainer
 
-   ### Saving checkpoints
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     max_duration='160ep',
-                     device='gpu',
-                     # Checkpointing params
-                     save_folder: 'checkpoints',
-                     save_interval: '1ep')
+    ### Saving checkpoints
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='160ep',
+        device='gpu',
+        # Checkpointing params
+        save_folder: 'checkpoints',
+        save_interval: '1ep'
+    )
 
-   # will save checkpoints to the 'checkpoints' folder every epoch
-   trainer.fit()
+    # will save checkpoints to the 'checkpoints' folder every epoch
+    trainer.fit()
 
 .. code:: python
 
-   from composer import Trainer
+    from composer import Trainer
 
-   ### Loading checkpoints
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     max_duration='160ep',
-                     device='gpu',
-                     # Checkpointing params
-                     load_path: 'path/to/checkpoint/mosaic_states.pt')
+    ### Loading checkpoints
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        max_duration='160ep',
+        device='gpu',
+        # Checkpointing params
+        load_path='path/to/checkpoint/mosaic_states.pt'
+    )
 
-   # will load the trainer state (including model weights) from the
-   # load_path before resuming training
-   trainer.fit()
+    # will load the trainer state (including model weights) from the
+    # load_path before resuming training
+    trainer.fit()
 
 .. seealso::
 
