@@ -44,13 +44,13 @@ can be specified as in the following example:
     glue_mrpc_task = Evaluator(
         label='glue_mrpc',
         dataloader=mrpc_dataloader,
-        metrics=MetricCollection([BinaryF1Score, Accuracy])
+        metrics=MetricCollection([BinaryF1Score(), Accuracy()])
     )
 
     glue_mnli_task = Evaluator(
         label='glue_mnli',
         dataloader=mnli_dataloader,
-        metrics=Accuracy
+        metrics=Accuracy()
     )
 
     trainer = Trainer(
