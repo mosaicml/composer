@@ -4,22 +4,20 @@ import os
 import pathlib
 import shutil
 import textwrap
-from typing import Optional, Type, Tuple
+from typing import Optional, Tuple, Type
 
 import pytest
 
 from composer.algorithms import AlgorithmHparams
-from composer.trainer.trainer_hparams import algorithms_registry
 from composer.core.precision import Precision
 from composer.datasets import DataLoaderHparams, DatasetHparams, SyntheticHparamsMixin
 from composer.models import ModelHparams
 from composer.optim import AdamHparams, ExponentialSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from composer.trainer.trainer_hparams import TrainerHparams
+from composer.trainer.trainer_hparams import TrainerHparams, algorithms_registry
 from composer.utils import dist, is_tar
 from tests.fixtures.dummy_fixtures import dummy_num_classes
 from tests.trainer.test_checkpoint import assert_checkpoints_equivalent
-
 
 algo_hparams_overrides = {
     "swa": {
