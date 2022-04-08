@@ -108,7 +108,7 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
     - create a new trainer from the `checkpoint_interval` checkpoint, and train until end. checkpoint again.
     - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
     """
-    del world_size  # unused. Read via env variable
+    del world_size  # unused. Read via env variable.
 
     algo_name, algo_hparams = algorithm
 
