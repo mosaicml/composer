@@ -27,7 +27,7 @@ def get(in_root: str, split: str) -> List[Tuple[str, int]]:
         split (str): Split name.
 
     Returns:
-        List of pairs of (image filename, annotation filename).
+        List of samples of (uid, image filename, annotation filename).
     """
 
     # Get uids
@@ -39,26 +39,28 @@ def get(in_root: str, split: str) -> List[Tuple[str, int]]:
     corrupted_uids = ['00003020', '00001701', '00013508', '00008455']
     uids = [uid for uid in uids if uid not in corrupted_uids]
 
-    # Create and shuffle pairs
-    pairs = [(f'{in_root}/images/{split}/ADE_{split}_{uid}.jpg', f'{in_root}/annotations/{split}/ADE_{split}_{uid}.png')
-             for uid in uids]
-    shuffle(pairs)
-    return pairs
+    # Create and shuffle samples
+    samples = [(uid, f'{in_root}/images/{split}/ADE_{split}_{uid}.jpg',
+                f'{in_root}/annotations/{split}/ADE_{split}_{uid}.png') for uid in uids]
+    shuffle(samples)
+    return samples
 
 
-def each(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
+def each(samples: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
     """Generator over each dataset sample.
 
     Args:
-        pairs (list): List of pairs of (image filename, annotation filename).
+        samples (list): List of samples of (uid, image filename, annotation filename).
 
     Yields:
         Sample dicts.
     """
-    for idx, (image_file, annotation_file) in enumerate(pairs):
+    for (uid, image_file, annotation_file) in samples:
+        uid = uid.encode("utf-8")
         image = open(image_file, 'rb').read()
         annotation = open(annotation_file, 'rb').read()
         yield {
+            'uid': uid,
             'image': image,
             'annotation': annotation,
         }
@@ -70,17 +72,17 @@ def main(args: Namespace) -> None:
     Args:
         args (Namespace): Commandline arguments.
     """
-    fields = 'image', 'annotation'
+    fields = 'uid', 'image', 'annotation'
 
-    pairs = get(args.in_root, 'train')
+    samples = get(args.in_root, 'train')
     out_split_dir = os.path.join(args.out_root, 'train')
     with StreamingDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
-        out.write_samples(each(pairs), bool(args.tqdm), len(pairs))
+        out.write_samples(each(samples), bool(args.tqdm), len(samples))
 
-    pairs = get(args.in_root, 'val')
+    samples = get(args.in_root, 'val')
     out_split_dir = os.path.join(args.out_root, 'val')
     with StreamingDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
-        out.write_samples(each(pairs), bool(args.tqdm), len(pairs))
+        out.write_samples(each(samples), bool(args.tqdm), len(samples))
 
 
 if __name__ == '__main__':
