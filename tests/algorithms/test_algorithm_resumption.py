@@ -27,9 +27,6 @@ algo_hparams_overrides = {
     "cutmix": {
         "num_classes": dummy_num_classes
     },
-    "mixup": {
-        "num_classes": dummy_num_classes
-    }
 }
 
 skiplist = {
