@@ -12,13 +12,10 @@ Example that trains MNIST with label smoothing::
     --algorithms label_smoothing --alpha 0.1
     --datadir ~/datasets
 """
-import os
 import sys
-import textwrap
+import tempfile
 import warnings
 from typing import Type
-
-import yaml
 
 from composer.loggers.logger import LogLevel
 from composer.loggers.logger_hparams import WandBLoggerHparams
@@ -46,22 +43,12 @@ def main() -> None:
     trainer = hparams.initialize_object()
 
     # Log the config to an artifact store
-    hparams_path = os.path.join(trainer.logger.run_name, "hparams.yaml")
-    os.makedirs(os.path.dirname(hparams_path), exist_ok=True)
-    try:
-        with open(hparams_path, "x") as f:
-            # Storing the config (ex. hparams) in a separate file so they can be modified before resuming
-            f.write(hparams.to_yaml())
-    except FileExistsError as e:
-        with open(hparams_path, "r") as f:
-            # comparing the parsed hparams to ignore whitespace and formatting differences
-            if hparams.to_dict() != yaml.safe_load(f):
-                raise RuntimeError(
-                    textwrap.dedent(f"""\
-                        The hparams in the existing checkpoint folder {hparams_path}
-                        differ from those being used in the current training run.
-                        Please specify a new checkpoint folder.""")) from e
-    trainer.logger.file_artifact(LogLevel.FIT, artifact_name="hparams.yaml", file_path=hparams_path, overwrite=True)
+    with tempfile.NamedTemporaryFile(mode="x+") as f:
+        f.write(hparams.to_yaml())
+        trainer.logger.file_artifact(LogLevel.FIT,
+                                     artifact_name="{run_name}/hparams.yaml",
+                                     file_path=f.name,
+                                     overwrite=True)
 
     # Print the config to the terminal
     print("*" * 30)

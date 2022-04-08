@@ -10,7 +10,8 @@ The output of this setup script does not show up in the documentation.
 import os
 import sys
 import tempfile
-from typing import Any, Callable as Callable
+from typing import Any
+from typing import Callable as Callable
 
 import numpy as np
 import torch.optim
@@ -44,9 +45,13 @@ from composer.core import Event as Event
 from composer.core import State as State
 from composer.core import Time as Time
 from composer.core import Timer as Timer
-from composer.core import TimeUnit as TimeUnit
 from composer.core import Timestamp as Timestamp
+from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
+from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.loggers import InMemoryLogger as InMemoryLogger
+from composer.loggers import Logger as Logger
+from composer.loggers import LogLevel as LogLevel
 from composer.models import ComposerModel as ComposerModel
 import composer.loggers.object_store_logger
 from composer.loggers import ObjectStoreLogger as OriginalObjectStoreLogger
@@ -150,6 +155,7 @@ def Trainer(fake_ellipses: None = None, **kwargs: Any):
     trainer = OriginalTrainer(**kwargs)
 
     return trainer
+
 
 # patch composer so that 'from composer import Trainer' calls do not override change above
 composer.Trainer = Trainer
