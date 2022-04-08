@@ -164,11 +164,11 @@ def _parse_args():
                                  "have different amounts of processes. Please also provide base_rank.")
             args.base_rank = args.node_rank * args.nproc
 
-        if args.base_rank + args.nproc >= args.world_size:
+        if args.base_rank + args.nproc > args.world_size:
             raise ValueError(f"Cannot initialize processes for node with base_rank({args.base_rank}) and "
                              f"nproc({args.nproc}) because this would mean creating a process with "
-                             f"rank({args.base_rank + args.nproc}), and all processes must have smaller rank than the "
-                             f"world_size({args.world_size}).")
+                             f"rank({args.base_rank + args.nproc - 1}), and all processes must have smaller rank than "
+                             f"the world_size({args.world_size}).")
 
         if args.master_addr is None:
             raise ValueError("In a multi-node environment, master_addr is required.")
