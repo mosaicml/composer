@@ -9,7 +9,7 @@ import os
 import textwrap
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
 import yahp as hp
 
@@ -99,6 +99,8 @@ device_registry = {
     "gpu": GPUDeviceHparams,
     "cpu": CPUDeviceHparams,
 }
+
+evaluator_registry = {"evaluator": EvaluatorHparams}
 
 
 @dataclass
@@ -236,6 +238,7 @@ class TrainerHparams(hp.Hparams):
         "device": device_registry,
         "prof_trace_handlers": trace_handler_registory,
         "prof_schedule": profiler_scheduler_registry,
+        "evaluators": evaluator_registry,
     }
 
     model: ModelHparams = hp.required(doc="model")
@@ -269,10 +272,12 @@ class TrainerHparams(hp.Hparams):
     device: DeviceHparams = hp.optional(doc="Device Parameters", default_factory=CPUDeviceHparams)
 
     # training hparams
-    grad_accum: int = hp.optional(textwrap.dedent("""\
+    grad_accum: Union[int, str] = hp.optional(textwrap.dedent("""\
         Determines the number of microbatches to split a per-gpu batch into,
-        used to compensate for low-memory-capacity devices."""),
-                                  default=1)
+        used to compensate for low-memory-capacity devices. If set to auto, 
+        dynamically increases grad_accum if microbatch size is too large for
+        GPU. Defaults to ``1``"""),
+                                              default=1)
     grad_clip_norm: Optional[float] = hp.optional(
         default=None, doc='the norm to clip gradient magnitudes to. Default: None (no clip)')
     validate_every_n_epochs: int = hp.optional(
@@ -404,7 +409,7 @@ class TrainerHparams(hp.Hparams):
     )
     torch_prof_profile_memory: bool = hp.optional(
         "Track tensor memory allocations and frees. Ignored if `prof_trace_handlers` is not specified.",
-        default=True,
+        default=False,
     )
     torch_prof_with_stack: bool = hp.optional(
         "Record stack information. Ignored if `prof_trace_handlers` is not specified.",
@@ -412,7 +417,7 @@ class TrainerHparams(hp.Hparams):
     )
     torch_prof_with_flops: bool = hp.optional(
         "Estimate flops for operators. Ignored if `prof_trace_handlers` is not specified.",
-        default=True,
+        default=False,
     )
 
     def validate(self):
@@ -456,6 +461,10 @@ class TrainerHparams(hp.Hparams):
 
         if self.scale_schedule_ratio <= 0:
             raise ValueError("scale_schedule_ratio must be a positive value.")
+
+        if (isinstance(self.grad_accum, str) and self.grad_accum != "auto") or (isinstance(self.grad_accum, int) and
+                                                                                self.grad_accum < 1):
+            raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1')
 
     def initialize_object(self) -> Trainer:
         self.validate()

@@ -22,7 +22,7 @@ def walk_model_yamls():
     return yamls
 
 
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(40)
 @pytest.mark.parametrize("hparams_file", walk_model_yamls())
 class TestHparamsCreate:
 
@@ -66,6 +66,9 @@ class TestHparamsCreate:
         configure_model_for_synthetic(hparams.model)
         if hparams.val_dataset is not None:
             configure_dataset_for_synthetic(hparams.val_dataset)
+        if hparams.evaluators is not None:
+            for evaluator in hparams.evaluators:
+                configure_dataset_for_synthetic(evaluator.eval_dataset)
         hparams.device = CPUDeviceHparams()
         hparams.load_path = None
 
