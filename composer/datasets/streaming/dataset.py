@@ -1,5 +1,5 @@
 import os
-from io import BufferedReader, BytesIO
+from io import BytesIO
 from threading import Lock, Thread
 from time import sleep
 from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
@@ -60,22 +60,15 @@ class StreamingDataset(IterableDataset):
         # network or cached locally.
         # Precomputes the shard and offset in bytes of each sample (for direct
         # access).
-        local = self._download_if_missing(get_index_basename())
-        self.index = StreamingDatasetIndex.load(open(local, 'rb'))
+        index_filename = self._download_if_missing(get_index_basename())
+        self.index = StreamingDatasetIndex.load(open(index_filename, 'rb'))
 
         # Fields, protected by the lock, relating to loading shards in the background.
         self._lock = Lock()
-        self._files: List[Optional[BufferedReader]] = [None] * self.index.num_shards
-        self._next_epoch_key = 0
-        self._key_to_epoch = {}
-        self._loaded_epoch = []
-        self._is_loading_complete = False
-
-    def __del__(self) -> None:
-        """The destructor closes any file handles left open to read shards."""
-        for fp in self._files:
-            if fp:
-                fp.close()
+        self._next_epoch = 0
+        self._epoch_to_todo_ids = {}
+        self._downloaded_ids = []
+        self._are_all_shards_downloaded = False
 
     def _download_if_missing(self, basename: str) -> str:
         """Safely download a shard from remote to local cache.
@@ -120,28 +113,21 @@ class StreamingDataset(IterableDataset):
             new_ids += list(range(min_id, max_id + 1))
 
         with self._lock:
-            # Keep open a file handle to each loaded shard for fast access.
-            for shard in shards:
-                basename = get_shard_basename(shard)
-                filename = os.path.join(self.local, basename)
-                assert self._files[shard] is None, 'Open file handle already exists!'
-                self._files[shard] = open(filename, 'rb')
-
-            # Extend and reshuffle the remaining samples of any epochs we have
-            # going on.
+            # Extend and optionally reshuffle the remaining samples of any
+            # epochs we have in progress.
             if self.shuffle:
-                if not self._is_loading_complete:
-                    self._loaded_epoch.extend(new_ids)
-                    np.random.shuffle(self._loaded_epoch)
+                if not self._are_all_shards_downloaded:
+                    self._downloaded_ids.extend(new_ids)
+                    np.random.shuffle(self._downloaded_ids)
 
-                for epoch in self._key_to_epoch.values():
-                    epoch.extend(new_ids)
-                    np.random.shuffle(epoch)
+                for todo_ids in self._epoch_to_todo_ids.values():
+                    todo_ids.extend(new_ids)
+                    np.random.shuffle(todo_ids)
             else:
-                if not self._is_loading_complete:
-                    self._loaded_epoch.extend(new_ids)
-                for epoch in self._key_to_epoch.values():
-                    epoch.extend(new_ids)
+                if not self._are_all_shards_downloaded:
+                    self._downloaded_ids.extend(new_ids)
+                for todo_ids in self._epoch_to_todo_ids.values():
+                    todo_ids.extend(new_ids)
 
     def _load_shards_if_downloaded(self, shards: Sequence[int], part_min_id: int, part_max_id: int) -> List[int]:
         """Load any of the given shards that are already present in the cache, returning the missing shards.
@@ -170,7 +156,7 @@ class StreamingDataset(IterableDataset):
     def _done_loading(self) -> None:
         """Callback on completion of loading my shards."""
         with self._lock:
-            self._is_loading_complete = True
+            self._are_all_shards_downloaded = True
 
     def _download_thread(self, shards: Sequence[int], part_min_id: int, part_max_id: int) -> None:
         """Background thread to download and assimilate missing shards.
@@ -213,44 +199,45 @@ class StreamingDataset(IterableDataset):
         shard = self.index.sample_shards[idx]
         offset = self.index.sample_shard_offsets[idx]
         size = self.index.bytes_per_sample[idx]
-        fp = self._files[shard]
-        assert fp is not None, 'Tried to __getitem__ a sample that was not loaded.'
+        basename = get_shard_basename(shard)
+        shard_filename = os.path.join(self.local, basename)
+        fp = open(shard_filename, 'rb')
         fp.seek(offset)
         data = fp.read(size)
+        fp.close()
         return bytes_to_sample_dict(data, self.index.fields)
 
     def _new_growing_epoch(self) -> int:
         """Start a new growing epoch, in which we own the sample sequence because it grows.
 
         Returns:
-            int: The epoch key, a handle which is given back to the caller.
+            int: The epoch ID, an identifier which is given back to the caller.
         """
         with self._lock:
-            key = self._next_epoch_key
-            self._next_epoch_key += 1
-            epoch = list(self._loaded_epoch)
-            self._key_to_epoch[key] = epoch
-        return key
+            epoch = self._next_epoch
+            self._next_epoch += 1
+            self._epoch_to_todo_ids[epoch] = list(self._downloaded_ids)
+        return epoch
 
-    def _next_id(self, key: int) -> Optional[int]:
-        """Get next sample of the growing epoch given by key, or None if done.
+    def _next_id(self, epoch: int) -> Optional[int]:
+        """Get next sample of the growing epoch given by epoch, or None if done.
 
         If we are currently out of samples but not finished downloading the
         shards, blocks until it has new samples.
 
         Args:
-            key (int): The epoch key, a handle for this sequence.
+            epoch (int): The epoch, an identifier for this sequence of samples.
 
         Returns:
             int: ID of next sample.
         """
         while True:
             with self._lock:
-                epoch = self._key_to_epoch[key]
-                if epoch:
-                    return epoch.pop()
-                elif self._is_loading_complete:
-                    del self._key_to_epoch[key]
+                todo_ids = self._epoch_to_todo_ids[epoch]
+                if todo_ids:
+                    return todo_ids.pop()
+                elif self._are_all_shards_downloaded:
+                    del self._epoch_to_todo_ids[epoch]
                     return None
                 else:
                     pass
@@ -263,18 +250,18 @@ class StreamingDataset(IterableDataset):
             Iterator[int]: Each sample ID.
         """
         with self._lock:
-            have_full_epoch = self._is_loading_complete
+            have_full_epoch = self._are_all_shards_downloaded
 
         if have_full_epoch:
-            epoch = list(self._loaded_epoch)
+            ids = list(self._downloaded_ids)
             if self.shuffle:
-                np.random.shuffle(epoch)
-            for idx in epoch:
+                np.random.shuffle(ids)
+            for idx in ids:
                 yield idx
         else:
-            key = self._new_growing_epoch()
+            epoch = self._new_growing_epoch()
             while True:
-                idx = self._next_id(key)
+                idx = self._next_id(epoch)
                 if idx is None:
                     break
                 yield idx
