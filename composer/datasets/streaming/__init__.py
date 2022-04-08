@@ -1,2 +1,3 @@
 from composer.datasets.streaming.dataset import StreamingDataset as StreamingDataset
+from composer.datasets.streaming.dataset import StreamingVisionDataset as StreamingVisionDataset
 from composer.datasets.streaming.writer import StreamingDatasetWriter as StreamingDatasetWriter
