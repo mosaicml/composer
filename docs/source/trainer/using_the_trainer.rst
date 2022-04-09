@@ -461,6 +461,25 @@ points during training and (2) load them back to resume training later.
 
     The :doc:`checkpointing` guide.
 
+Gradient Accumulation
+~~~~~~~~~~~~~~~~~~~~~
+
+Composer supports gradient accumulation, which allows training arbitrary
+logical batch sizes on any hardware by breaking the batch into ``grad_accum``
+different microbatches.
+
+.. code:: python
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        ...,
+        grad_accum=2,
+    )
+
+If ``grad_accum=auto``, Composer will try to automatically determine the 
+smallest ``grad_accum`` which the current hardware supports.
+
 Reproducibility
 ~~~~~~~~~~~~~~~
 
