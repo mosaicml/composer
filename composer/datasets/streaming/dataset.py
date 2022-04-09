@@ -2,7 +2,7 @@ import os
 from io import BytesIO
 from threading import Lock, Thread
 from time import sleep
-from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 from PIL import Image
@@ -40,7 +40,7 @@ def get_partition() -> Tuple[int, int]:
 class StreamingDataset(IterableDataset):
     """Streaming dataset."""
 
-    def __init__(self, remote: str, local: str, shuffle: bool) -> None:
+    def __init__(self, remote: str, local: str, decoders: Dict[str, Optional[Callable]], shuffle: bool) -> None:
         """Initialize with the given remote path and local cache.
 
         Loads all the samples that are available in local cache, then starts a
@@ -50,10 +50,12 @@ class StreamingDataset(IterableDataset):
         Args:
             remote (str): Download shards from this remote directory.
             local (str): Download shards to this local filesystem directory for reuse.
+            decoders (Dict[str, Optional[Callable]): Raw bytes decoder per sample field.
             shuffle (bool): Whether to shuffle the samples.
         """
         self.remote = remote
         self.local = local
+        self.decoders = decoders
         self.shuffle = shuffle
 
         # Load the index file containing the shard metadata, either over the
@@ -184,6 +186,26 @@ class StreamingDataset(IterableDataset):
         """
         return self.index.total_samples
 
+    def _unpack_sample(self, data: bytes) -> Dict[str, Any]:
+        """Unpack a sample dict from raw bytes.
+
+        First unpacks the str to raw bytes dict, then unpacks each field's raw bytes.
+
+        Args:
+            data (bytes): The packed bytes of the sample.
+
+        Returns:
+            Dict[str, Any]: The sample dict.
+        """
+        key_to_raw = bytes_to_sample_dict(data, self.index.fields)
+        obj = {}
+        for key, decode in self.decoders.items():
+            value = key_to_raw[key]
+            if decode:
+                value = decode(value)
+            obj[key] = value
+        return obj
+
     def __getitem__(self, idx: int) -> Any:
         """Get the sample at the index, assuming its shard is loaded.
 
@@ -199,13 +221,15 @@ class StreamingDataset(IterableDataset):
         shard = self.index.sample_shards[idx]
         offset = self.index.sample_shard_offsets[idx]
         size = self.index.bytes_per_sample[idx]
+
         basename = get_shard_basename(shard)
         shard_filename = os.path.join(self.local, basename)
         fp = open(shard_filename, 'rb')
         fp.seek(offset)
         data = fp.read(size)
         fp.close()
-        return bytes_to_sample_dict(data, self.index.fields)
+
+        return self._unpack_sample(data)
 
     def _new_growing_epoch(self) -> int:
         """Start a new growing epoch, in which we own the sample sequence because it grows.
@@ -329,7 +353,7 @@ class StreamingVisionDataset(StreamingDataset, VisionDataset):
             data_key (str, optional): Sample dict key for the data. Default: 'data'.
             target_key (str, optional): Sample dict key for the target. Default: 'target'.
         """
-        StreamingDataset.__init__(self, remote, local, shuffle)
+        StreamingDataset.__init__(self, remote, local, {}, shuffle)
 
         self.transforms = transforms
         self.transform = transform
