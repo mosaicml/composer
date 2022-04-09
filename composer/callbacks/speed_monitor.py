@@ -113,7 +113,7 @@ class SpeedMonitor(Callback):
     def batch_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
         self._load_state()
-        self.batch_start_num_samples = state.timer.sample
+        self.batch_start_num_samples = state.timestamp.sample
 
     def epoch_start(self, state: State, logger: Logger):
         del state, logger  # unused
@@ -125,7 +125,7 @@ class SpeedMonitor(Callback):
 
     def batch_end(self, state: State, logger: Logger):
         self.batch_end_times.append(time.time())
-        new_num_samples = state.timer.sample
+        new_num_samples = state.timestamp.sample
         batch_num_samples = int(new_num_samples - self.batch_start_num_samples)
         self.batch_num_samples.append(batch_num_samples)
         self.train_examples_per_epoch += batch_num_samples

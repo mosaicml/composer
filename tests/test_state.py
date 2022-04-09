@@ -80,7 +80,7 @@ def train_one_step(state: State, batch: Batch) -> None:
         optimizer.step()
     for scheduler in state.schedulers:
         scheduler.step()
-    state.timer.on_batch_complete(len(batch))
+    state.timestamp.on_batch_complete(len(batch))
 
 
 def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHparams) -> Batch:

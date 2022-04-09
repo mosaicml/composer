@@ -958,7 +958,7 @@ class Trainer:
                 break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
-        for epoch in range(int(self.state.timer.epoch)):
+        for epoch in range(int(self.state.timestamp.epoch)):
             # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
             if hasattr(self.state.train_dataloader, "sampler") and isinstance(self.state.train_dataloader.sampler,
                                                                               torch.utils.data.DistributedSampler):
@@ -991,31 +991,31 @@ class Trainer:
 
         self._spin_dataloaders()
 
-        if self.state.timer.batch_in_epoch == 0 and self._rng_state is not None:
+        if self.state.timestamp.batch_in_epoch == 0 and self._rng_state is not None:
             # only restore the rng state here if the step in the current epoch is zero.
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
 
-        while self.state.timer < self.state.max_duration:
+        while self.state.timestamp < self.state.max_duration:
             try:
                 self.state.model.train()
 
-                if int(self.state.timer.batch_in_epoch) == 0:
+                if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.data_epoch({"epoch": int(self.state.timer.epoch)})
+                    self.logger.data_epoch({"epoch": int(self.state.timestamp.epoch)})
 
                 # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
                 if hasattr(self.state.train_dataloader, "sampler") and isinstance(self.state.train_dataloader.sampler,
                                                                                   torch.utils.data.DistributedSampler):
-                    self.state.train_dataloader.sampler.set_epoch(int(self.state.timer.epoch))
+                    self.state.train_dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
                 for batch_idx, self.state.batch in enumerate(
                         itertools.islice(self.state.train_dataloader, self.state.steps_per_epoch)):
 
                     # if resuming, skip dataloader forward to the minibatch index
-                    if batch_idx < int(self.state.timer.batch_in_epoch):
+                    if batch_idx < int(self.state.timestamp.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
-                        if batch_idx + 1 == int(self.state.timer.batch_in_epoch) and self._rng_state is not None:
+                        if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
                             reproducibility.load_rng_state(self._rng_state)
                             self._rng_state = None
                         continue
@@ -1043,8 +1043,8 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.data_batch({
-                        "trainer/global_step": int(self.state.timer.batch),
-                        "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
+                        "trainer/global_step": int(self.state.timestamp.batch),
+                        "trainer/batch_idx": self.state.timestamp.batch_in_epoch.value,
                     })
 
                     total_loss = self._train_batch(use_grad_scaling)
@@ -1065,7 +1065,7 @@ class Trainer:
                         assert train_metrics is not None
                         self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
 
-                    self.state.timer.on_batch_complete(
+                    self.state.timestamp.on_batch_complete(
                         samples=int(num_samples_in_batch.item()),
                         tokens=int(num_tokens_in_batch.item()),
                     )
@@ -1077,21 +1077,21 @@ class Trainer:
                     self.engine.run_event(Event.BATCH_END)
 
                     if self._validate_every_n_batches > 0 and int(
-                            self.state.timer.batch) % self._validate_every_n_batches == 0:
+                            self.state.timestamp.batch) % self._validate_every_n_batches == 0:
                         self.eval(is_batch=True)
 
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
 
-                    if self.state.timer >= self.state.max_duration:
+                    if self.state.timestamp >= self.state.max_duration:
                         # If max_duration is specified in batches, samples, or tokens, and
                         # and the max_duration is reached mid-epoch, then break out of the dataloader
                         # to finish the epoch early and finish training.
                         break
 
             except BreakEpochException:
-                log.info(f'Skipping the rest of Epoch {int(self.state.timer.epoch)}')
+                log.info(f'Skipping the rest of Epoch {int(self.state.timestamp.epoch)}')
 
-            self.state.timer.on_epoch_complete()
+            self.state.timestamp.on_epoch_complete()
 
             if not self._step_schedulers_every_batch:
                 for scheduler in self.state.schedulers:
@@ -1099,7 +1099,7 @@ class Trainer:
 
             self.engine.run_event(Event.EPOCH_END)
 
-            if self._validate_every_n_epochs > 0 and int(self.state.timer.epoch) % self._validate_every_n_epochs == 0:
+            if self._validate_every_n_epochs > 0 and int(self.state.timestamp.epoch) % self._validate_every_n_epochs == 0:
                 self.eval(is_batch=False)
 
             self.engine.run_event(Event.EPOCH_CHECKPOINT)
@@ -1341,7 +1341,7 @@ class Trainer:
                     # Because evaluation can run on each batch, we use the batch to seed the sampler
                     # so each evaluation will get a proper shuffle.
                     # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                    dataloader.sampler.set_epoch(int(self.state.timer.batch))
+                    dataloader.sampler.set_epoch(int(self.state.timestamp.batch))
 
                 for self.state.batch in itertools.islice(dataloader, self._eval_subset_num_batches):
                     self.state.batch = self._device.batch_to_device(self.state.batch)
@@ -1363,8 +1363,8 @@ class Trainer:
 
                     self.engine.run_event(Event.EVAL_BATCH_END)
 
-                self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
-                self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
+                self.logger.data_epoch({"epoch": self.state.timestamp.epoch.value})
+                self.logger.data_batch({"trainer/global_step": self.state.timestamp.batch.value})
 
                 self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
 

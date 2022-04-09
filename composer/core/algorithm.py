@@ -78,7 +78,7 @@ class Algorithm(Serializable, ABC):
 
         >>> class MyAlgorithm:
         ...     def match(self, event, state):
-        ...        return state.timer.epoch > 30
+        ...        return state.timestamp.epoch > 30
         >>> MyAlgorithm().match(Event.BEFORE_LOSS, state)
         False
 

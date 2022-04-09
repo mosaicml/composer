@@ -34,7 +34,7 @@ class Callback(Serializable, abc.ABC):
 
             >>> class MyCallback(Callback):
             ...     def epoch_start(self, state: State, logger: Logger):
-            ...         print(f'Epoch: {int(state.timer.epoch)}')
+            ...         print(f'Epoch: {int(state.timestamp.epoch)}')
             >>> # construct trainer object with your callback
             >>> trainer = Trainer(
             ...     model=model,
@@ -67,7 +67,7 @@ class Callback(Serializable, abc.ABC):
             >>> class MyCallback(Callback):
             ...     def run_event(self, event: Event, state: State, logger: Logger):
             ...         if event == Event.EPOCH_START:
-            ...             print(f'Epoch: {int(state.timer.epoch)}')
+            ...             print(f'Epoch: {int(state.timestamp.epoch)}')
             >>> # construct trainer object with your callback
             >>> trainer = Trainer(
             ...     model=model,

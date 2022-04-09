@@ -257,7 +257,7 @@ class JSONTraceHandler(TraceHandler):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         assert state.profiler is not None
-        timestamp = state.timer.get_timestamp()
+        timestamp = state.timestamp.get_timestamp()
         trace_folder = format_name_with_dist(self.folder, run_name=logger.run_name)
         if self._save_at_batch_end:
             # no longer active, but was previously active.

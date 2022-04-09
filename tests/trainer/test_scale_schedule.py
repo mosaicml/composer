@@ -103,7 +103,7 @@ class TestScaleScheduleTrainer():
         for test_step, target_lr in zip(test_steps, target_lrs):
 
             while current_step < test_step:
-                trainer.state.timer.on_batch_complete()
+                trainer.state.timestamp.on_batch_complete()
                 current_step += 1
 
             scheduler.step()

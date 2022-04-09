@@ -2,13 +2,13 @@
 
 import pytest
 
-from composer.core.time import Time, Timer, TimeUnit
+from composer.core.time import Time, Timer, TimeUnit, Timestamp
 
 
 @pytest.mark.parametrize("time_string,expected_value,expected_unit", [
     ["1ep", 1, TimeUnit.EPOCH],
     ["2ba", 2, TimeUnit.BATCH],
-    ["3e10sp", 3 * 10**10, TimeUnit.SAMPLE],
+    ["3e10sp", 3 * 10 ** 10, TimeUnit.SAMPLE],
     ["4tok", 4, TimeUnit.TOKEN],
     ["0.5dur", 0.5, TimeUnit.DURATION],
 ])
@@ -58,13 +58,22 @@ def test_time_repr():
 
 def test_timer():
     timer = Timer()
-    timer.on_batch_complete(10, 20)
-    timer.on_epoch_complete()
-    timer.on_batch_complete(5)
-    assert timer.epoch == 1
-    assert timer.batch == 2
-    assert timer.batch_in_epoch == 1
-    assert timer.sample == 15
-    assert timer.sample_in_epoch == 5
-    assert timer.token == 20
-    assert timer.token_in_epoch == 0
+    timer_state = timer.state
+    timer_state.on_batch_complete(10, 20)
+    timer_state.on_epoch_complete()
+    timer_state.on_batch_complete(5)
+
+    assert timer_state.epoch == 1
+    assert timer_state.batch == 2
+    assert timer_state.batch_in_epoch == 1
+    assert timer_state.sample == 15
+    assert timer_state.sample_in_epoch == 5
+    assert timer_state.token == 20
+    assert timer_state.token_in_epoch == 0
+
+
+def test_timestamp():
+    timestamp = Timestamp()
+    time = Time(10, "ep")
+    assert timestamp < time
+    timestamp.get(time.unit)  # get the value of a dynamic unit without getattr

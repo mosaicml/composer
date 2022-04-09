@@ -112,10 +112,10 @@ class ProgressBarLogger(LoggerDestination):
                 assert isinstance(dataloader_spec.dataloader, collections.abc.Sized)
                 total_steps += len(dataloader_spec.dataloader)
 
-        desc = f'Epoch {int(state.timer.epoch)}'
+        desc = f'Epoch {int(state.timestamp.epoch)}'
         position = 0 if self.is_train else 1
         if not self.is_train:
-            desc += f", Batch {int(state.timer.batch)} (val)"
+            desc += f", Batch {int(state.timestamp.batch)} (val)"
         self.pbars[self.is_train] = _ProgressBarLoggerInstance(
             _ProgressBarLoggerInstanceState(total=total_steps,
                                             position=position,

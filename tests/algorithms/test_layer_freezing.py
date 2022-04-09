@@ -26,7 +26,7 @@ def _generate_state(epoch: int, max_epochs: int):
 
     # fast forward by epochs
     for _ in range(epoch):
-        state.timer.on_epoch_complete()
+        state.timestamp.on_epoch_complete()
 
     return state
 

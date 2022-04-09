@@ -30,7 +30,7 @@ class LoggerDestination(Callback, ABC):
         >>> from composer.loggers import LoggerDestination
         >>> class MyLogger(LoggerDestination):
         ...     def log_data(self, state, log_level, data):
-        ...         print(f'Batch {int(state.timer.batch)}: {log_level} {data}')
+        ...         print(f'Batch {int(state.timestamp.batch)}: {log_level} {data}')
         >>> logger = MyLogger()
         >>> trainer = Trainer(
         ...     ...,

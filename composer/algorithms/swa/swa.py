@@ -175,7 +175,7 @@ class SWA(Algorithm):
         if self.swa_start.unit == TimeUnit.DURATION:
             should_start_swa = state.get_elapsed_duration() >= self.swa_start and not self.swa_completed
         elif self.swa_start.unit == TimeUnit.EPOCH:
-            should_start_swa = state.timer.get("ep") >= self.swa_start and not self.swa_completed
+            should_start_swa = state.timestamp.get("ep") >= self.swa_start and not self.swa_completed
         else:
             should_start_swa = False
         return event == self.match_event and should_start_swa
@@ -222,7 +222,7 @@ class SWA(Algorithm):
         # Determine whether it's time to end SWA
         if self.swa_end.unit == TimeUnit.DURATION and (state.get_elapsed_duration() >= self.swa_end):
             self.swa_completed = True
-        if self.swa_end.unit == TimeUnit.EPOCH and (state.timer.get("ep") >= self.swa_end):
+        if self.swa_end.unit == TimeUnit.EPOCH and (state.timestamp.get("ep") >= self.swa_end):
             self.swa_completed = True
         if self.swa_completed:
             if state.get_elapsed_duration() == 1:

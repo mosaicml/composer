@@ -74,7 +74,7 @@ class InMemoryLogger(LoggerDestination):
         if log_level > self.log_level:
             # the logged metric is more verbose than what we want to record.
             return
-        timestamp = state.timer.get_timestamp()
+        timestamp = state.timestamp.get_timestamp()
         copied_data = copy.deepcopy(data)
         for k, v in copied_data.items():
             if k not in self.data:

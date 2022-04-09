@@ -102,7 +102,7 @@ class TestTrainerInit():
             if isinstance(callback, CheckpointSaver):
                 checkpoint_saver = callback
         assert checkpoint_saver is not None
-        trainer.state.timer.epoch._value = 10
+        trainer.state.timestamp.epoch._value = 10
         assert checkpoint_saver.save_interval(trainer.state, Event.EPOCH_CHECKPOINT)
 
     @pytest.mark.timeout(5.0)
@@ -210,7 +210,7 @@ class TestTrainerEquivalence():
         config['load_path'] = checkpoint_file
 
         trainer = Trainer(**config)
-        assert trainer.state.timer.epoch == "1ep"  # ensure checkpoint state loaded
+        assert trainer.state.timestamp.epoch == "1ep"  # ensure checkpoint state loaded
         trainer.fit()
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
@@ -251,7 +251,7 @@ class AssertDataAugmented(Callback):
     def after_forward(self, state, logger):
         if state.grad_accum != 1:
             raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
-        batch_idx = state.timer.batch_in_epoch.value
+        batch_idx = state.timestamp.batch_in_epoch.value
         batch_size = state.batch_num_samples
         original_batch = self.dataset[batch_idx:batch_idx + batch_size]
         original_outputs = state.model(original_batch)

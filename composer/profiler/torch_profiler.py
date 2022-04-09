@@ -197,7 +197,7 @@ class TorchProfiler(Callback):
 
             assert state.profiler is not None
 
-            timestamp = state.timer.get_timestamp()
+            timestamp = state.timestamp.get_timestamp()
 
             trace_file_name = os.path.join(
                 folder_name,

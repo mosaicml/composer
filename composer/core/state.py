@@ -122,7 +122,7 @@ class State(Serializable):
 
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward pass.
-        timer (Timer): The timer that tracks training loop progress.
+        timestamp (Timer): The timer that tracks training loop progress.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
 
             By default, the following attributes are serialized:
@@ -197,6 +197,7 @@ class State(Serializable):
         self.steps_per_epoch = steps_per_epoch
 
         self.timer = Timer()
+        self.timestamp = self.timer.state
         self._precision = Precision(precision)
         self._precision_context = precision_context
 
@@ -253,7 +254,7 @@ class State(Serializable):
             Time: The elapsed duration, in :attr:`TimeUnit.DURATION`. ``Time(0.0, TimeUnit.DURATION)`` represents the
                 beginning of training and ``Time(1.0, TimeUnit.DURATION)`` represents a completed training process.
         """
-        return self.timer.get(self.max_duration.unit) / self.max_duration
+        return self.timestamp.get(self.max_duration.unit) / self.max_duration
 
     @property
     def optimizers(self):

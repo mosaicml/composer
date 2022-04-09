@@ -588,3 +588,7 @@ class Timer(Serializable):
 
     def __ge__(self, other: object):
         return self._state >= other
+
+    @property
+    def state(self):
+        return self._state

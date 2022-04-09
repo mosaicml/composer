@@ -44,7 +44,7 @@ def cyclic_schedule(
     def schedule(state: State):
         # do wait, then warump, then active, up to repeat times per cycle
         cycle_len = wait + warmup + active
-        batch_idx = int(state.timer.batch_in_epoch)
+        batch_idx = int(state.timestamp.batch_in_epoch)
         if batch_idx < skip_first:
             return ProfilerAction.SKIP
         if repeat != 0 and batch_idx >= cycle_len * repeat + skip_first:
@@ -55,7 +55,7 @@ def cyclic_schedule(
             return ProfilerAction.SKIP
         if position_in_cycle < wait + warmup:
             return ProfilerAction.WARMUP
-        is_last_batch_in_epoch = state.timer.batch_in_epoch == state.steps_per_epoch - 1
+        is_last_batch_in_epoch = state.timestamp.batch_in_epoch == state.steps_per_epoch - 1
         if position_in_cycle == cycle_len - 1 or is_last_batch_in_epoch:
             return ProfilerAction.ACTIVE_AND_SAVE
         return ProfilerAction.ACTIVE

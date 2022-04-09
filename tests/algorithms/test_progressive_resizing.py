@@ -150,7 +150,7 @@ class TestProgressiveResizingAlgorithm:
                    minimal_state: State, empty_logger: Logger):
         """Test apply at different epoch fractions (fraction of max epochs)"""
         assert minimal_state.max_duration.unit == TimeUnit.EPOCH
-        minimal_state.timer.epoch._value = int(epoch_frac * minimal_state.max_duration.value)
+        minimal_state.timestamp.epoch._value = int(epoch_frac * minimal_state.max_duration.value)
         s = pr_algorithm.initial_scale
         f = pr_algorithm.finetune_fraction
         scale_factor = min([s + (1 - s) / (1 - f) * epoch_frac, 1.0])

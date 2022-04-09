@@ -61,19 +61,19 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             # if doing batch-wise checkpointing, and we saved a checkpoint at the batch_checkpoint event
             # right before the epoch_checkpoint event, do not save another checkpoint at the epoch_checkpoint
             # event if the batch count didn't increase.
-            if state.timer.batch != last_checkpoint_batch:
-                last_checkpoint_batch = state.timer.batch
+            if state.timestamp.batch != last_checkpoint_batch:
+                last_checkpoint_batch = state.timestamp.batch
                 return True
 
         if save_event == Event.EPOCH_CHECKPOINT:
-            count = state.timer.epoch
+            count = state.timestamp.epoch
         elif save_event == Event.BATCH_CHECKPOINT:
-            count = state.timer.batch
+            count = state.timestamp.batch
         else:
             raise RuntimeError(f"Invalid save_event: {save_event}")
 
         if event == save_event and int(count) % int(interval) == 0:
-            last_checkpoint_batch = state.timer.batch
+            last_checkpoint_batch = state.timestamp.batch
             return True
 
         return False
@@ -337,7 +337,7 @@ class CheckpointSaver(Callback):
             checkpoint_filepath = checkpoint_filepaths[dist.get_global_rank()]
             if self.artifact_name is not None:
                 artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
-                                                               state.timer.get_timestamp()).lstrip("/")
+                                                               state.timestamp.get_timestamp()).lstrip("/")
                 if state.is_model_deepspeed and not is_tar(artifact_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     artifact_name += ".tar"
@@ -349,7 +349,7 @@ class CheckpointSaver(Callback):
             if self.latest_filename is not None:
                 symlink_name = os.path.join(
                     format_name_with_dist(self.folder, logger.run_name),
-                    format_name_with_dist_and_time(self.latest_filename, logger.run_name, state.timer.get_timestamp()),
+                    format_name_with_dist_and_time(self.latest_filename, logger.run_name, state.timestamp.get_timestamp()),
                 )
                 if state.is_model_deepspeed and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
@@ -363,7 +363,7 @@ class CheckpointSaver(Callback):
                     pass
                 os.symlink(checkpoint_filepath, symlink_name)
 
-        timestamp = state.timer.get_timestamp()
+        timestamp = state.timestamp.get_timestamp()
 
         self.saved_checkpoints.append((timestamp, checkpoint_filepaths))
         if self.num_checkpoints_to_keep >= 0:

@@ -148,9 +148,9 @@ def state(minimal_state: State, conv_model: ComposerClassifier, loss_fun_tuple: 
     conv_model.loss = loss_fun_tuple
     minimal_state.model = conv_model
 
-    minimal_state.timer.epoch._value = epoch
-    minimal_state.timer.batch._value = epoch * minimal_state.steps_per_epoch + batch
-    minimal_state.timer.batch_in_epoch._value = batch
+    minimal_state.timestamp.epoch._value = epoch
+    minimal_state.timestamp.batch._value = epoch * minimal_state.steps_per_epoch + batch
+    minimal_state.timestamp.batch_in_epoch._value = batch
 
     return minimal_state
 
