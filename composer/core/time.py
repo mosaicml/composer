@@ -555,10 +555,10 @@ class Timer(Serializable):
         self._state = Timestamp()
 
     def state_dict(self) -> Dict[str, Any]:
-        return self._state.state_dict()
+        return self.state.state_dict()
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self._state.load_state_dict(state)
+        self.state.load_state_dict(state)
 
     def get_timestamp(self) -> Timestamp:
         """Returns a snapshot of the current time.
@@ -569,25 +569,25 @@ class Timer(Serializable):
         Returns:
             Timestamp: A snapshot of the current training time.
         """
-        return self._state
+        return self.state
 
     def __eq__(self, other: object):
-        return self._state == other
+        return self.state == other
 
     def __ne__(self, other: object):
-        return self._state != other
+        return self.state != other
 
     def __lt__(self, other: object):
-        return self._state < other
+        return self.state < other
 
     def __le__(self, other: object):
-        return self._state <= other
+        return self.state <= other
 
     def __gt__(self, other: object):
-        return self._state > other
+        return self.state > other
 
     def __ge__(self, other: object):
-        return self._state >= other
+        return self.state >= other
 
     @property
     def state(self):
