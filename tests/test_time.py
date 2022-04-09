@@ -2,13 +2,13 @@
 
 import pytest
 
-from composer.core.time import Time, Timer, TimeUnit, Timestamp
+from composer.core.time import Time, Timer, Timestamp, TimeUnit
 
 
 @pytest.mark.parametrize("time_string,expected_value,expected_unit", [
     ["1ep", 1, TimeUnit.EPOCH],
     ["2ba", 2, TimeUnit.BATCH],
-    ["3e10sp", 3 * 10 ** 10, TimeUnit.SAMPLE],
+    ["3e10sp", 3 * 10**10, TimeUnit.SAMPLE],
     ["4tok", 4, TimeUnit.TOKEN],
     ["0.5dur", 0.5, TimeUnit.DURATION],
 ])

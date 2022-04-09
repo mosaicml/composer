@@ -465,7 +465,8 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
             current_interval_end += current_interval_len
 
         current_interval_start = current_interval_end - current_interval_len
-        frac_of_current_interval = ((state.timestamp.get(t_0.unit) - current_interval_start) / current_interval_len).value
+        frac_of_current_interval = ((state.timestamp.get(t_0.unit) - current_interval_start) /
+                                    current_interval_len).value
 
         return _cosine_anneal(x=frac_of_current_interval, min_y=self.alpha_f)
 

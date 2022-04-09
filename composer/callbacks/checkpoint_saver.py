@@ -349,7 +349,8 @@ class CheckpointSaver(Callback):
             if self.latest_filename is not None:
                 symlink_name = os.path.join(
                     format_name_with_dist(self.folder, logger.run_name),
-                    format_name_with_dist_and_time(self.latest_filename, logger.run_name, state.timestamp.get_timestamp()),
+                    format_name_with_dist_and_time(self.latest_filename, logger.run_name,
+                                                   state.timestamp.get_timestamp()),
                 )
                 if state.is_model_deepspeed and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`

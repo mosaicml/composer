@@ -1099,7 +1099,8 @@ class Trainer:
 
             self.engine.run_event(Event.EPOCH_END)
 
-            if self._validate_every_n_epochs > 0 and int(self.state.timestamp.epoch) % self._validate_every_n_epochs == 0:
+            if self._validate_every_n_epochs > 0 and int(
+                    self.state.timestamp.epoch) % self._validate_every_n_epochs == 0:
                 self.eval(is_batch=False)
 
             self.engine.run_event(Event.EPOCH_CHECKPOINT)
