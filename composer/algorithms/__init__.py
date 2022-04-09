@@ -2,8 +2,8 @@
 
 """Efficiency methods for training.
 
-Examples include :class:`smoothing the labels <composer.algorithms.label_smoothing.LabelSmoothing>` 
-and adding :class:`Squeeze-and-Excitation <composer.algorithms.squeeze_excite.SqueezeExcite>` blocks,
+Examples include :class:`~composer.algorithms.label_smoothing.LabelSmoothing` 
+and adding :class:`~composer.algorithms.squeeze_excite.SqueezeExcite` blocks,
 among many others.
 
 Algorithms are implemented in both a standalone functional form (see :mod:`composer.functional`)
