@@ -544,12 +544,13 @@ class Timestamp(Serializable):
 
 
 class Timer(Serializable):
-    """Timer tracks the current training progress, in terms of epochs, batches, samples, and tokens.
-    See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
-    .. note::
-        An instance of this class is automatically constructed by the :class:`~composer.core.state.State` constructor.
-        A user need not instantiate this class.
+    """Timer tracks the current training progress, in terms of epochs, batches, samples, and tokens. See the :doc:`Time
+    Guide </trainer/time>` for more details on tracking time during training.
+
+    .. note::     An instance of this class is automatically constructed by the :class:`~composer.core.state.State`
+    constructor.     A user need not instantiate this class.
     """
+
     def __init__(self) -> None:
         self._state = Timestamp()
 
@@ -558,7 +559,6 @@ class Timer(Serializable):
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         self._state.load_state_dict(state)
-
 
     def get_timestamp(self) -> Timestamp:
         """Returns a snapshot of the current time.
@@ -578,13 +578,13 @@ class Timer(Serializable):
         return self._state != other
 
     def __lt__(self, other: object):
-        return self._state  < other
+        return self._state < other
 
     def __le__(self, other: object):
-        return self._state  <= other
+        return self._state <= other
 
     def __gt__(self, other: object):
-        return self._state  > other
+        return self._state > other
 
     def __ge__(self, other: object):
-        return self._state  >= other
+        return self._state >= other
