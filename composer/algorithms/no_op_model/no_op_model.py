@@ -65,7 +65,7 @@ class NoOpModelClass(ComposerModel):
 
 
 class NoOpModel(Algorithm):
-    """Runs on Event.INIT and replaces the model with 
+    """Runs on :attr:`Event.INIT` and replaces the model with 
     a dummy model of type NoOpModelClass.
     """
 
