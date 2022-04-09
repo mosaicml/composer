@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 import textwrap
 import warnings
-from typing import Any, Dict, Generic, NamedTuple, TypeVar, Union, cast
+from typing import Any, Dict, Generic, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils.string_enum import StringEnum
@@ -356,7 +356,7 @@ class Time(Generic[TValue]):
         return cls(value, unit)
 
 
-class Timer(Serializable):
+class Timestamp(Serializable):
     """Timer tracks the current training progress, in terms of epochs, batches, samples, and tokens.
 
     See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
@@ -497,18 +497,18 @@ class Timer(Serializable):
         raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
 
     def __eq__(self, other: object):
-        if not isinstance(other, (Time, Timer, str)):
+        if not isinstance(other, (Time, Timestamp, str)):
             return NotImplemented
-        if isinstance(other, Timer):
+        if isinstance(other, Timestamp):
             return self.state_dict() == other.state_dict()
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter == other
 
     def __ne__(self, other: object):
-        if not isinstance(other, (Time, Timer, str)):
+        if not isinstance(other, (Time, Timestamp, str)):
             return NotImplemented
-        if isinstance(other, Timer):
+        if isinstance(other, Timestamp):
             return self.state_dict() != other.state_dict()
         other = self._parse(other)
         self_counter = self.get(other.unit)
@@ -542,7 +542,25 @@ class Timer(Serializable):
         self_counter = self.get(other.unit)
         return self_counter >= other
 
-    def get_timestamp(self):
+
+class Timer(Serializable):
+    """Timer tracks the current training progress, in terms of epochs, batches, samples, and tokens.
+    See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
+    .. note::
+        An instance of this class is automatically constructed by the :class:`~composer.core.state.State` constructor.
+        A user need not instantiate this class.
+    """
+    def __init__(self) -> None:
+        self._state = Timestamp()
+
+    def state_dict(self) -> Dict[str, Any]:
+        return self._state.state_dict()
+
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        self._state.load_state_dict(state)
+
+
+    def get_timestamp(self) -> Timestamp:
         """Returns a snapshot of the current time.
 
         Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as
@@ -551,44 +569,22 @@ class Timer(Serializable):
         Returns:
             Timestamp: A snapshot of the current training time.
         """
-        return Timestamp(
-            epoch=self.epoch,
-            batch=self.batch,
-            batch_in_epoch=self.batch_in_epoch,
-            sample=self.sample,
-            sample_in_epoch=self.sample_in_epoch,
-            token=self.token,
-            token_in_epoch=self.token_in_epoch,
-        )
+        return self._state
 
+    def __eq__(self, other: object):
+        return self._state == other
 
-class Timestamp(NamedTuple):
-    """Timestamp represents a snapshot of :class:`Timer`.
+    def __ne__(self, other: object):
+        return self._state != other
 
-    It is returned from a call to :meth:`Timer.get_timestamp`.
+    def __lt__(self, other: object):
+        return self._state  < other
 
-    Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as training
-    progresses.
+    def __le__(self, other: object):
+        return self._state  <= other
 
-    See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
+    def __gt__(self, other: object):
+        return self._state  > other
 
-    .. note::
-
-        :class:`Timestamp` should not be instantiated directly; instead use :meth:`Timer.get_timestamp`.
-
-    Attributes:
-        epoch (Time[int]): The total epoch count when the :class`Timestamp` was generated.
-        batch (Time[int]): The total batch count when the :class`Timestamp` was generated.
-        batch_in_epoch (Time[int]): The batch count in the epoch when the :class`Timestamp` was generated.
-        sample (Time[int]): The total sample count when the :class`Timestamp` was generated.
-        sample_in_epoch (Time[int]): The sample count in the epoch when the :class`Timestamp` was generated.
-        token (Time[int]): The total token count when the :class`Timestamp` was generated.
-        token_in_epoch (Time[int]): The token count in the epoch when the :class`Timestamp` was generated.
-    """
-    epoch: Time[int]
-    batch: Time[int]
-    batch_in_epoch: Time[int]
-    sample: Time[int]
-    sample_in_epoch: Time[int]
-    token: Time[int]
-    token_in_epoch: Time[int]
+    def __ge__(self, other: object):
+        return self._state  >= other
