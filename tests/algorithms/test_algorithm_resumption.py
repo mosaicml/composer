@@ -182,7 +182,7 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
         assert zero_stage is not None
         if zero_stage > 0:
             trainer_hparams.deterministic_mode = False
-            if model_name is not None:
+            if model_name is not "default":
                 pytest.skip(
                     textwrap.dedent(f"""\
                         Skipping test since deterministic mode is required for
