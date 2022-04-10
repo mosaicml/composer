@@ -337,7 +337,7 @@ class CheckpointSaver(Callback):
             checkpoint_filepath = checkpoint_filepaths[dist.get_global_rank()]
             if self.artifact_name is not None:
                 artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
-                                                               state.timestamp.get_timestamp()).lstrip("/")
+                                                               state.timestamp).lstrip("/")
                 if state.is_model_deepspeed and not is_tar(artifact_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     artifact_name += ".tar"
@@ -349,8 +349,7 @@ class CheckpointSaver(Callback):
             if self.latest_filename is not None:
                 symlink_name = os.path.join(
                     format_name_with_dist(self.folder, logger.run_name),
-                    format_name_with_dist_and_time(self.latest_filename, logger.run_name,
-                                                   state.timestamp.get_timestamp()),
+                    format_name_with_dist_and_time(self.latest_filename, logger.run_name, state.timestamp),
                 )
                 if state.is_model_deepspeed and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
@@ -364,7 +363,7 @@ class CheckpointSaver(Callback):
                     pass
                 os.symlink(checkpoint_filepath, symlink_name)
 
-        timestamp = state.timestamp.get_timestamp()
+        timestamp = state.timestamp
 
         self.saved_checkpoints.append((timestamp, checkpoint_filepaths))
         if self.num_checkpoints_to_keep >= 0:

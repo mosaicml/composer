@@ -367,14 +367,21 @@ class Timestamp(Serializable):
         A user need not instantiate this class.
     """
 
-    def __init__(self):
-        self._epoch = Time(0, TimeUnit.EPOCH)
-        self._batch = Time(0, TimeUnit.BATCH)
-        self._sample = Time(0, TimeUnit.SAMPLE)
-        self._token = Time(0, TimeUnit.TOKEN)
-        self._batch_in_epoch = Time(0, TimeUnit.BATCH)
-        self._sample_in_epoch = Time(0, TimeUnit.SAMPLE)
-        self._token_in_epoch = Time(0, TimeUnit.TOKEN)
+    def __init__(self,
+                 epoch: Time = Time(0, TimeUnit.EPOCH),
+                 batch: Time = Time(0, TimeUnit.BATCH),
+                 sample: Time = Time(0, TimeUnit.SAMPLE),
+                 token: Time = Time(0, TimeUnit.TOKEN),
+                 batch_in_epoch: Time = Time(0, TimeUnit.BATCH),
+                 sample_in_epoch: Time = Time(0, TimeUnit.SAMPLE),
+                 token_in_epoch: Time = Time(0, TimeUnit.TOKEN)):
+        self._epoch = epoch
+        self._batch = batch
+        self._sample = sample
+        self._token = token
+        self._batch_in_epoch = batch_in_epoch
+        self._sample_in_epoch = sample_in_epoch
+        self._token_in_epoch = token_in_epoch
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -385,6 +392,17 @@ class Timestamp(Serializable):
             "batch_in_epoch": self.batch_in_epoch.value,
             "sample_in_epoch": self.sample_in_epoch.value,
             "token_in_epoch": self.token_in_epoch.value,
+        }
+
+    def get_state(self) -> Dict[str, Time[int]]:
+        return {
+            "epoch": self.epoch,
+            "batch": self.batch,
+            "sample": self.sample,
+            "token": self.token,
+            "batch_in_epoch": self.batch_in_epoch,
+            "sample_in_epoch": self.sample_in_epoch,
+            "token_in_epoch": self.token_in_epoch,
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
