@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple, Union
 
 import torch
-import torch.nn.functional as F
 import torch.utils.data
 import torchmetrics
 import yahp as hp
