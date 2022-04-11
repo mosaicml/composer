@@ -1,7 +1,7 @@
 |:wood:| Logging
 ================
 
-By default, the trainer enables :class:`.TQDMLogger`, which logs
+By default, the trainer enables :class:`.ProgressBarLogger`, which logs
 information to a ``tqdm`` progress bar.
 
 To attach other loggers, use the ``loggers`` argument. For example, the
@@ -12,28 +12,28 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
 .. testsetup::
 
     import os
-    from composer.utils import run_directory
-
-    try:
-        os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
-    except FileNotFoundError:
-        pass
 
     os.environ["WANDB_MODE"] = "disabled"
 
 .. testcode::
 
-   from composer import Trainer
-   from composer.loggers import WandBLogger, FileLogger
+    from composer import Trainer
+    from composer.loggers import WandBLogger, FileLogger
 
-   trainer = Trainer(model=model,
-                     train_dataloader=train_dataloader,
-                     eval_dataloader=eval_dataloader,
-                     loggers=[WandBLogger(), FileLogger(filename="log.txt")])
+    wandb_logger = WandBLogger()
+    file_logger = FileLogger(filename="log.txt")
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        loggers=[wandb_logger, file_logger],
+    )
 
 .. testcleanup::
 
-    os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
+    trainer.engine.close()
+    os.remove("log.txt")
 
 Available Loggers
 -----------------
@@ -45,8 +45,9 @@ Available Loggers
 
     ~file_logger.FileLogger
     ~wandb_logger.WandBLogger
-    ~tqdm_logger.TQDMLogger
+    ~progress_bar_logger.ProgressBarLogger
     ~in_memory_logger.InMemoryLogger
+    ~object_store_logger.ObjectStoreLogger
 
 Automatically Logged Data
 -------------------------
@@ -105,8 +106,10 @@ into a dictionary:
 
 .. testcode::
 
+    from typing import Any, Dict
+
     from composer.loggers.logger_destination import LoggerDestination
-    from composer.loggers.logger import LoggerDataDict, LogLevel
+    from composer.loggers.logger import LogLevel
     from composer.core.time import Timestamp
     from composer.core.state import State
 
@@ -116,7 +119,7 @@ into a dictionary:
             # Dictionary to store logged data
             self.data = {}
 
-        def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
+        def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
             if log_level <= self.log_level:
                 for k, v in data.items():
                     if k not in self.data:

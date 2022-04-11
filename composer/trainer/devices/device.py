@@ -2,10 +2,10 @@
 
 """The base :class:`~composer.trainer.devices.device.Device` class."""
 
-import collections.abc
 from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
-from typing import Generator, Sequence, TypeVar, Union
+from typing import Any, Callable, Generator, TypeVar, Union
 
 import torch
 import torch.nn
@@ -13,11 +13,11 @@ from torch.optim import Optimizer
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.core.types import Batch
 
 __all__ = ["Device", "T_nnModule"]
 
 T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
+T_Batch = TypeVar('T_Batch')
 
 
 class Device(Serializable, ABC):
@@ -56,29 +56,24 @@ class Device(Serializable, ABC):
         """
         pass
 
-    def batch_to_device(self, batch: Batch) -> Batch:
-        """Invoked by the :class:`.Trainer` to move the ``batch`` onto the device.
+    def batch_to_device(self, batch: T_Batch) -> T_Batch:
+        """Invoked by the :class:`.Trainer` move all tensors items in a batch to device. Supports nested sequences and
+        mappings of tensors. Ignores non-tensor items. Preserves sequence and types when possible, otherwise converts
+        sequences to lists. Converts mappings to dictionaries.
 
         Args:
-            batch (Batch): The batch to move to the device.
+            batch (Any): The batch to move to the device.
 
         Returns:
             Batch: The batch on the device.
         """
-        if isinstance(batch, torch.Tensor):
-            return self.tensor_to_device(batch)
-        if isinstance(batch, collections.abc.Sequence):  # BatchPair
-            ans = []
-            for x in batch:
-                if isinstance(x, torch.Tensor):
-                    ans.append(self.tensor_to_device(x))
-                else:
-                    assert isinstance(x, (dict, Sequence))
-                    ans.append(self.batch_to_device(x))
-            return list(ans)  # always returning a list, as the original batch type might not be callable
-        if isinstance(batch, dict):  # BatchDict
-            return {k: self.tensor_to_device(v) for k, v in batch.items()}
-        raise TypeError(f"Unsupported type for batch: {type(batch)}")
+
+        def _to_device(x):
+            if isinstance(x, torch.Tensor):
+                return self.tensor_to_device(x)
+            return x
+
+        return _map_batch(batch, _to_device)
 
     def optimizer_to_device(self, optimizer: Optimizer) -> Optimizer:
         """Invoked by the :class:`.Trainer` to move the optimizer's state onto the device.
@@ -123,3 +118,25 @@ class Device(Serializable, ABC):
             Generator[None, None, None]: A context for the precision.
         """
         pass
+
+
+def _map_batch(batch: Any, map_fn: Callable) -> Any:
+    """Recursively maps a function to all items in a batch.
+
+    Args:
+        batch: Nested lists and dictionaries.
+        map_fn: A function to invoke on each element.
+
+    Returns:
+        Collections: The result of applying ``map_fn`` on each element of the ``batch``.
+        The type of ``batch`` is preserved.
+    """
+    if isinstance(batch, Mapping):
+        return {k: _map_batch(v, map_fn) for k, v in batch.items()}
+
+    if isinstance(batch, Sequence) and not isinstance(batch, (str, bytes)):
+        try:
+            return type(batch)(_map_batch(x, map_fn) for x in batch)  # type: ignore
+        except TypeError:
+            return [_map_batch(x, map_fn) for x in batch]
+    return map_fn(batch)

@@ -16,8 +16,10 @@ from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
-                                             TQDMLoggerHparams, WandBLoggerHparams)
-from composer.loggers.tqdm_logger import TQDMLogger
+                                             ObjectStoreLoggerHparams, ProgressBarLoggerHparams, WandBLoggerHparams,
+                                             logger_registry)
+from composer.loggers.object_store_logger import ObjectStoreLogger
+from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
 
 # All needs to be defined properly for sphinx autosummary
@@ -30,8 +32,11 @@ __all__ = [
     "LoggerDestinationHparams",
     "FileLoggerHparams",
     "InMemoryLoggerHparams",
-    "TQDMLoggerHparams",
+    "ProgressBarLoggerHparams",
     "WandBLoggerHparams",
-    "TQDMLogger",
+    "ProgressBarLogger",
     "WandBLogger",
+    "ObjectStoreLogger",
+    "ObjectStoreLoggerHparams",
+    "logger_registry",
 ]

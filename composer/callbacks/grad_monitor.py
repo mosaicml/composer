@@ -17,15 +17,23 @@ class GradMonitor(Callback):
     correctness of norm, this function should be called after gradient unscaling in cases where gradients are scaled.
 
     Example
-       >>> # constructing trainer object with this callback
-       >>> trainer = Trainer(
-       ...     model=model,
-       ...     train_dataloader=train_dataloader,
-       ...     eval_dataloader=eval_dataloader,
-       ...     optimizers=optimizer,
-       ...     max_duration="1ep",
-       ...     callbacks=[callbacks.GradMonitor()],
-       ... )
+
+    .. doctest::
+
+        >>> from composer.callbacks import GradMonitor
+        >>> # constructing trainer object with this callback
+        >>> trainer = Trainer(
+        ...     model=model,
+        ...     train_dataloader=train_dataloader,
+        ...     eval_dataloader=eval_dataloader,
+        ...     optimizers=optimizer,
+        ...     max_duration="1ep",
+        ...     callbacks=[GradMonitor()],
+        ... )
+    
+    .. testcleanup::
+
+        trainer.engine.close()
 
     The L2 norms are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as described below.
 

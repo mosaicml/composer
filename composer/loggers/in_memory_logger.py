@@ -8,14 +8,14 @@ Useful for collecting and plotting data inside notebooks.
 from __future__ import annotations
 
 import copy
-from typing import Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 from torch import Tensor
 
 from composer.core.state import State
 from composer.core.time import Timestamp
-from composer.loggers.logger import LoggerData, LoggerDataDict, LogLevel
+from composer.loggers.logger import LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 
 __all__ = ["InMemoryLogger"]
@@ -45,6 +45,10 @@ class InMemoryLogger(LoggerDestination):
             # which index in trainer.logger.destinations contains your desired logger.
             logged_data = trainer.logger.destinations[0].data
 
+        .. testcleanup::
+
+            trainer.engine.close()
+
     Args:
         log_level (str or LogLevel, optional):
             :class:`~.logger.LogLevel` (i.e. unit of resolution) at
@@ -53,22 +57,20 @@ class InMemoryLogger(LoggerDestination):
             everything.
 
     Attributes:
-        data (dict): Mapping of a logged key to a
-            (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`,
-            :attr:`~.LoggerDataDict`) tuple. This dictionary contains all logged
-            data.
-        most_recent_values (LoggerDataDict): Mapping of a key to the most recent value for that key.
+        data (dict): Mapping of a logged key to a (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`, data dictionary) tuple.
+            This dictionary contains all logged data.
+        most_recent_values (Dict[str, Any]): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
     """
 
     def __init__(self, log_level: Union[str, int, LogLevel] = LogLevel.BATCH) -> None:
         self.log_level = LogLevel(log_level)
-        self.data: Dict[str, List[Tuple[Timestamp, LogLevel, LoggerData]]] = {}
-        self.most_recent_values: LoggerDataDict = {}
+        self.data: Dict[str, List[Tuple[Timestamp, LogLevel, Dict[str, Any]]]] = {}
+        self.most_recent_values = {}
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
 
-    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
+    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         if log_level > self.log_level:
             # the logged metric is more verbose than what we want to record.
             return
@@ -81,14 +83,14 @@ class InMemoryLogger(LoggerDestination):
         self.most_recent_values.update(copied_data.items())
         self.most_recent_timestamps.update({k: timestamp for k in copied_data})
 
-    def get_timeseries(self, metric: str) -> Dict[str, LoggerData]:
+    def get_timeseries(self, metric: str) -> Dict[str, Any]:
         """Returns logged data as dict containing values of a desired metric over time.
 
         Args:
             metric (str): Metric of interest. Must be present in self.data.keys().
 
         Returns:
-            timeseries (LoggerDataDict): Dictionary in which one key is ``metric``,
+            timeseries (Dict[str, Any]): Dictionary in which one key is ``metric``,
                 and the associated value is a list of values of that metric. The remaining
                 keys are each a unit of time, and the associated values are each a list of
                 values of that time unit for the corresponding index of the metric. For

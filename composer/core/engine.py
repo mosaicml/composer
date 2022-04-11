@@ -303,7 +303,7 @@ class Engine():
         callback_to_has_exception: Dict[Callback, bool] = {}
         for callback in self.state.callbacks:
             try:
-                callback.close()
+                callback.close(self.state, self.logger)
             except Exception as e:
                 log.error(
                     f"Error running {callback.__class__.__name__}.close(). Skipping {callback.__class__.__name__}.post_close().",
@@ -312,10 +312,6 @@ class Engine():
                 callback_to_has_exception[callback] = True
             else:
                 callback_to_has_exception[callback] = False
-
-        if self.state.profiler is not None:
-            # Merge traces after close, but before post_close, so the merged file will be uploaded
-            self.state.profiler._merge_traces()
 
         for callback in self.state.callbacks:
             if callback_to_has_exception[callback] is False:

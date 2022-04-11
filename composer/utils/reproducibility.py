@@ -4,15 +4,18 @@
 
 .. note::
 
-    For deterministic model initialization, :meth:`~composer.utils.reproducibility.seed_all` and/or
-    :meth:`~composer.utils.configure_deterministic_mode` should be
-    invoked before creating and initializing a model, before creating the :class:`~composer.trainer.trainer.Trainer`.
+    For deterministic model initialization, :func:`~.seed_all` and/or
+    :func:`~.configure_deterministic_mode` should be
+    invoked before creating and initializing a model, before creating the :class:`~.Trainer`.
     For example:
 
     .. testsetup::
 
         import functools
         import torch.nn
+        import warnings
+
+        warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
 
         MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
 
@@ -28,7 +31,15 @@
         ...         torch.nn.init.xavier_uniform(m.weight)
         >>> # model will now be deterministically initialized, since the seed is set.
         >>> init_weights(model)
-        >>> trainer = Trainer(model=model)
+        >>> trainer = Trainer(model=model, seed=42)
+
+    Note that the seed must also be passed to the Trainer, otherwise the Trainer
+    would generate a random seed based on the timestamp (see :func:`~.get_random_seed`).
+
+    .. testcleanup::
+
+        trainer.engine.close()
+        warnings.resetwarnings()
 
 Attributes:
     MAX_SEED (int): The maximum allowed seed, which is :math:`2^{32} - 1`.
@@ -71,13 +82,26 @@ def configure_deterministic_mode():
         instead of invoking this function directly.
         For example:
 
-        >>> trainer = Trainer(deterministic_mode=True)
+        .. testsetup::
+
+            import warnings
+
+            warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
+
+        .. doctest::
+
+            >>> trainer = Trainer(deterministic_mode=True)
+
+        .. testcleanup::
+
+            trainer.engine.close()
+            warnings.resetwarnings()
 
         However, to configure deterministic mode for operations before the trainer is initialized, manually invoke this
         function at the beginning of your training script.
 
     .. note::
-        
+
         When training on a GPU, this function must be invoked before any CUDA operations.
 
     .. note::
@@ -118,7 +142,13 @@ def seed_all(seed: int):
         instead of invoking this function directly.
         For example:
 
-        >>> trainer = Trainer(seed=42)
+        .. doctest::
+
+            >>> trainer = Trainer(seed=42)
+        
+        .. testcleanup::
+
+            trainer.engine.close()
 
         However, to configure the random seed for operations before the trainer is initialized, manually invoke this
         function at the beginning of your training script.

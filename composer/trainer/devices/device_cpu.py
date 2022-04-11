@@ -27,12 +27,13 @@ class DeviceCPU(Device):
     """
 
     dist_backend = "gloo"
+    _device = torch.device('cpu')
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
-        return module
+        return module.to(self._device)
 
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
-        return tensor
+        return tensor.to(self._device)
 
     @contextmanager
     def precision_context(self, precision: Union[str, Precision]) -> Generator[None, None, None]:

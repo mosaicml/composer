@@ -6,10 +6,10 @@ import pathlib
 from typing import List, Optional
 
 import pytest
-from pytest import MonkeyPatch
+import torch
 
 import composer
-from composer.utils import run_directory
+from composer.utils import dist, reproducibility
 
 # Allowed options for pytest.mark.world_size()
 # Important: when updating this list, make sure to also up ./.ci/test.sh
@@ -37,11 +37,22 @@ pytest_plugins = [
 if _include_deprecated_fixtures:
     pytest_plugins += [
         "tests.fixtures.dummy_fixtures",
-        "tests.fixtures.distributed_fixtures",
     ]
+
+if torch.cuda.is_available():
+    # torch.cuda takes a few seconds to initialize on first load
+    # pre-initialize cuda so individual tests, which are subject to a timeout,
+    # load cuda instantly.
+    torch.Tensor([0]).cuda()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--seed",
+                     default=0,
+                     type=int,
+                     help="""\
+        Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
+        before each test.""")
     parser.addoption("--duration",
                      default="all",
                      choices=["short", "long", "all"],
@@ -125,13 +136,24 @@ def set_loglevels():
     logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
 
 
+@pytest.fixture
+def rank_zero_seed(request: pytest.FixtureRequest) -> int:
+    """Read the rank_zero_seed from the CLI option."""
+    seed = request.config.getoption("seed")
+    assert isinstance(seed, int)
+    return seed
+
+
 @pytest.fixture(autouse=True)
-def subfolder_run_directory(tmpdir: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
-    tmpdir_test_folder_name = os.path.basename(os.path.normpath(str(tmpdir)))
-    test_folder_tmpdir = os.path.join(run_directory.get_node_run_directory(), tmpdir_test_folder_name)
-    monkeypatch.setenv(run_directory._RUN_DIRECTORY_KEY, test_folder_tmpdir)
-    os.makedirs(run_directory.get_run_directory(), exist_ok=True)
-    os.makedirs(run_directory.get_node_run_directory(), exist_ok=True)
+def seed_all(rank_zero_seed: int):
+    """Set the random seed before each test to ensure consistent test results, which and limit flakiness due to random
+    initializations."""
+    reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
+
+
+@pytest.fixture(autouse=True)
+def chdir_to_tmpdir(tmpdir: pathlib.Path):
+    os.chdir(tmpdir)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
