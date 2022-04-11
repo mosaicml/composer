@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""SAM algorithm and optimizer class"""
+"""SAM algorithm and optimizer class."""
 
 from __future__ import annotations
 
@@ -109,7 +109,7 @@ class SAM(Algorithm):
         interval (int, optional): SAM will run once per ``interval`` steps. A value of 1 will
             cause SAM to run every step. Steps on which SAM runs take
             roughly twice as much time to complete. Default: ``1``.
-            
+
     Example:
         .. testcode::
 
