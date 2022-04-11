@@ -128,7 +128,7 @@ will continue training from where the checkpoint left off.
     )
     trainer.fit()
 
-The above code will load the checkpoint from epoch 25 (if it exists, otherwise epoch 1) and continue training
+The above code will load the checkpoint from epoch 25 and continue training
 for another 65 epochs (to reach 90 epochs total).
 
 Different ``model`` or ``optimizer`` objects that are passed into the trainer when it is

@@ -59,6 +59,7 @@ By default, we attempt to infer the number of samples based on the batch type:
 - If ``list`` or ``tuple``, the size of its first dimension is used. As such, all elements must have the same first dimension size.
 - If ``dict``, the size of its first dimension is used. As such, all elements must have the same first dimension size
 
+
 Users can supply their own ``get_num_samples_in_batch`` method to the trainer
 via the :class:`.DataSpec` for more complicated datasets:
 
