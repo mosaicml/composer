@@ -52,15 +52,6 @@ def _format_path_with_current_rank(path: str) -> str:
     )
 
 
-def _format_path_with_rank_zero(path: str) -> str:
-    """Formats ``path`` formatted with rank values of 0."""
-    return path.format(
-        rank=0,
-        local_rank=0,
-        node_rank=0,
-    )
-
-
 def _get_write_mode(name: str) -> str:
     """Get the write mode to use with :func:`tarfile.open`."""
     if name.endswith('.tar'):
