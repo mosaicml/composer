@@ -98,7 +98,7 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
                               final_checkpoint: str, seed: Optional[int], model_name: str,
                               algorithm: Tuple[str, Type[AlgorithmHparams]], dummy_model_hparams: ModelHparams,
                               dummy_train_dataset_hparams: DatasetHparams, dummy_val_dataset_hparams: DatasetHparams,
-                              tmpdir: pathlib.Path):
+                              self_destructing_tmp: pathlib.Path):
     """strategy:
     - train five epochs. capture checkpoints after `checkpoint_interval` and ep5.
     - create a new trainer from the `checkpoint_interval` checkpoint, and train until end. checkpoint again.
@@ -189,7 +189,7 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
                         zero stage {zero_stage}"""))
         trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
 
-    checkpoint_a_folder = str(tmpdir / "first")
+    checkpoint_a_folder = str(self_destructing_tmp / "first")
     trainer_hparams.save_folder = checkpoint_a_folder
     trainer_hparams.save_interval = save_interval
 
