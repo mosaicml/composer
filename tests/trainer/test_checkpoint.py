@@ -28,6 +28,7 @@ from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceH
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import dist, is_tar
+from composer.utils.file_helpers import GetFileNotFoundException
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
 from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
@@ -161,6 +162,24 @@ def assert_checkpoints_equivalent(
 def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
     monkeypatch.setitem(callback_registry, "dummy", DummyStatefulCallbackHparams)
     monkeypatch.setitem(callback_registry, "event_counter", EventCounterCallbackHparams)
+
+
+@pytest.mark.parametrize("load_ignore_missing_checkpoint", [
+    pytest.param(True),
+    pytest.param(False),
+])
+def test_load_missing_checkpoint(
+    load_ignore_missing_checkpoint: bool,
+    composer_trainer_hparams: TrainerHparams,
+):
+    composer_trainer_hparams.load_ignore_missing_checkpoint = load_ignore_missing_checkpoint
+    composer_trainer_hparams.load_path = "dummy_path.pt"
+    print(composer_trainer_hparams)
+    if load_ignore_missing_checkpoint:
+        composer_trainer_hparams.initialize_object()
+    else:
+        with pytest.raises(GetFileNotFoundException):
+            composer_trainer_hparams.initialize_object()
 
 
 @pytest.mark.timeout(90)
