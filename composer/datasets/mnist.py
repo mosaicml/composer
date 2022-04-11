@@ -8,6 +8,7 @@ See the `wikipedia entry <https://en.wikipedia.org/wiki/MNIST_database>`_ for mo
 
 import os
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import yahp as hp

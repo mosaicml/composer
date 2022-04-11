@@ -22,7 +22,7 @@ from torchvision.datasets import CIFAR10
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMiin, WebDatasetHparams
+from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.streaming import StreamingBatchPairDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
