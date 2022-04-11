@@ -12,7 +12,7 @@ from functools import partial
 from itertools import chain, cycle
 
 import yahp as hp
-from torch.utils.data import IterableDataset, get_worker_info
+from torch.utils.data import DataLoader, IterableDataset, get_worker_info
 
 from composer.core.data_spec import DataSpec
 from composer.datasets.dataloader import DataLoaderHparams
@@ -81,7 +81,7 @@ class C4DatasetHparams(DatasetHparams):
         if self.mlm and self.mlm_probability <= 0:
             raise ValueError("Must provide a positive 'mlm_probability' when using masked language modeling.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         try:
             import transformers
         except ImportError:
@@ -106,9 +106,12 @@ class C4DatasetHparams(DatasetHparams):
         collate_fn = transformers.DataCollatorForLanguageModeling(tokenizer=c4_dataset.tokenizer,
                                                                   mlm=self.mlm,
                                                                   mlm_probability=self.mlm_probability)
-        # Return DataSpec
-        return DataSpec(dataloader=dataloader_hparams.initialize_object(
-            dataset=c4_dataset, batch_size=batch_size, sampler=None, drop_last=self.drop_last, collate_fn=collate_fn))
+
+        return dataloader_hparams.initialize_object(dataset=c4_dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=None,
+                                                    drop_last=self.drop_last,
+                                                    collate_fn=collate_fn)
 
 
 class C4Dataset(IterableDataset):

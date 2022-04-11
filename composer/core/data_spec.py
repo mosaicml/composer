@@ -70,8 +70,10 @@ def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
         for item in batch:
             if isinstance(item, torch.Tensor):
                 result.append(_split_tensor(item, num_microbatches))
-            if isinstance(item, (List, Tuple)):
+            elif isinstance(item, (List, Tuple)):
                 result.append(_split_list(item, num_microbatches))
+            else:
+                raise ValueError(f"Unsupported batch type: {type(item)}.")
         return list(zip(*result))
 
     raise NotImplementedError(

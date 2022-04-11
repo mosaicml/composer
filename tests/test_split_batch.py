@@ -1,9 +1,91 @@
-from typing import Mapping
+from typing import Dict, List, Mapping, Tuple, Union
 
 import pytest
+import torch
 
 from composer.core.data_spec import _default_split_batch, _split_list
-from tests.common import dummy_batches, dummy_maskrcnn_batch, dummy_tuple_batch, dummy_tuple_batch_long
+
+
+def dummy_tensor_batch(batch_size=12) -> torch.Tensor:
+    return torch.randn(size=(batch_size, 3, 32, 32))
+
+
+def dummy_tuple_batch(batch_size=12) -> List[torch.Tensor]:
+    # pytorch default collate converts tuples to lists
+    # https://github.com/pytorch/pytorch/blob/master/torch/utils/data/_utils/collate.py#L67
+    image = torch.randn(size=(batch_size, 3, 32, 32))
+    target = torch.randint(size=(batch_size,), high=10)
+    return [image, target]
+
+
+def dummy_tuple_batch_long(batch_size=12) -> List[torch.Tensor]:
+    image_1 = torch.randn(size=(batch_size, 3, 32, 32))
+    image_2 = torch.randn(size=(batch_size, 3, 32, 32))
+    image_3 = torch.randn(size=(batch_size, 3, 32, 32))
+    target = torch.randint(size=(batch_size,), high=10)
+    return [image_1, image_2, image_3, target]
+
+
+def dummy_tuple_list_batch(batch_size=12) -> List[Union[List, torch.Tensor]]:
+    image_1 = torch.randn(size=(batch_size, 3, 32, 32))
+    image_2 = torch.randn(size=(batch_size, 3, 32, 32))
+    image_3 = torch.randn(size=(batch_size, 3, 32, 32))
+    target = torch.randint(size=(batch_size,), high=10)
+    return [[image_1, image_2, image_3], target]
+
+
+def dummy_dict_batch(batch_size=12) -> Dict[str, torch.Tensor]:
+    image = torch.randn(size=(batch_size, 3, 32, 32))
+    target = torch.randint(size=(batch_size,), high=10)
+    return {'image': image, 'target': target}
+
+
+def dummy_dict_batch_with_metadata(batch_size=12) -> Dict[str, Union[List, torch.Tensor, str]]:
+    # sometimes metadata is included with a batch that isnt taken by the model.
+    image = torch.randn(size=(batch_size, 3, 32, 32))
+    target = torch.randint(size=(batch_size,), high=10)
+    meta = ['hi im a tag' for _ in range(batch_size)]
+    index = [[1, 2, 3] for _ in range(batch_size)]
+    return {'image': image, 'target': target, 'meta': meta, 'index': index}
+
+
+def dummy_maskrcnn_batch(batch_size=12,
+                         image_height=12,
+                         image_width=12,
+                         num_classes=80,
+                         max_detections=5) -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
+
+    def generate_maskrcnn_sample(num_detections,
+                                 image_height=image_height,
+                                 image_width=image_width,
+                                 num_classes=num_classes):
+        """Generates a maskrcnn style sample: (Tensor, Dict[Tensor])."""
+        image = torch.randn(size=(3, image_height, image_width)).type(torch.float)
+        target = {
+            'boxes':
+                torch.randint(size=(num_detections, 4), low=0, high=min(image_height, image_width)).type(torch.float),
+            'labels':
+                torch.randint(size=(num_detections,), low=0, high=num_classes + 1),
+            'masks':
+                torch.randint(size=(num_detections, image_height, image_width), low=0, high=2).type(torch.uint8)
+        }
+        return image, target
+
+    return [
+        generate_maskrcnn_sample(num_detections=n)
+        for n in torch.randint(size=(batch_size,), low=1, high=max_detections + 1)
+    ]
+
+
+def dummy_batches(batch_size=12):
+    return [
+        dummy_tensor_batch(batch_size=batch_size),
+        dummy_tuple_batch(batch_size=batch_size),
+        dummy_tuple_batch_long(batch_size=batch_size),
+        dummy_tuple_list_batch(batch_size=batch_size),
+        dummy_dict_batch(batch_size=batch_size),
+        dummy_dict_batch_with_metadata(batch_size=batch_size)
+    ]
 
 
 @pytest.mark.parametrize("batch", dummy_batches(12))

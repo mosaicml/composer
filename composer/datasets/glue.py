@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import cast
 
 import yahp as hp
+from torch.utils.data import DataLoader
 
 from composer.core import DataSpec
 from composer.core.types import Dataset
@@ -88,7 +89,7 @@ class GLUEHparams(DatasetHparams):
         if self.split is None:
             raise ValueError("A dataset split must be specified.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
         try:
             import datasets
@@ -134,10 +135,9 @@ class GLUEHparams(DatasetHparams):
         data_collator = transformers.data.data_collator.default_data_collator
         sampler = dist.get_sampler(cast(Dataset, dataset), drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataSpec(dataloader=dataloader_hparams.initialize_object(
+        return dataloader_hparams.initialize_object(
             dataset=dataset,  #type: ignore (thirdparty)
             batch_size=batch_size,
             sampler=sampler,
             drop_last=self.drop_last,
-            collate_fn=data_collator,
-        ))
+            collate_fn=data_collator)
