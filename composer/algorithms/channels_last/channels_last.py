@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""ChannelsLast algorithm"""
+"""ChannelsLast algorithm."""
 
 from __future__ import annotations
 
@@ -18,7 +18,8 @@ __all__ = ['ChannelsLast', 'apply_channels_last']
 
 
 def apply_channels_last(model: torch.nn.Module) -> None:
-    """Changes the memory format of the model to `torch.channels_last <https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html>`_.
+    """Changes the memory format of the model to `torch.channels_last
+    <https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html>`_.
 
     This usually yields improved GPU utilization.
 
@@ -29,7 +30,8 @@ def apply_channels_last(model: torch.nn.Module) -> None:
 
 
 class ChannelsLast(Algorithm):
-    """Changes the memory format of the model to `torch.channels_last <https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html>`_. This usually improves GPU utilization.
+    """Changes the memory format of the model to `torch.channels_last
+    <https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html>`_. This usually improves GPU utilization.
 
     Runs on ``Event.INIT``, so it can set the memory format before the model is DDP wrapped. Has no hyperparameters.
 
@@ -46,7 +48,6 @@ class ChannelsLast(Algorithm):
                 algorithms=[algorithm],
                 optimizers=[optimizer]
             )
-
     """
 
     def match(self, event: Event, state: State) -> bool:

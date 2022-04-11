@@ -2,7 +2,7 @@
 
 """Efficiency methods for training.
 
-Examples include :class:`~composer.algorithms.label_smoothing.LabelSmoothing` 
+Examples include :class:`~composer.algorithms.label_smoothing.LabelSmoothing`
 and adding :class:`~composer.algorithms.squeeze_excite.SqueezeExcite` blocks,
 among many others.
 

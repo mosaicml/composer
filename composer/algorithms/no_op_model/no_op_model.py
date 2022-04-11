@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""NoOpModel algorithm and class"""
+"""NoOpModel algorithm and class."""
 
 from __future__ import annotations
 
@@ -27,8 +27,7 @@ __all__ = ["NoOpModelClass", "NoOpModel"]
 
 
 class NoOpModelClass(ComposerModel):
-    """Dummy model used for testing. The NoOpModel algorithm uses this to
-    replace a ComposerModel.
+    """Dummy model used for testing. The NoOpModel algorithm uses this to replace a ComposerModel.
 
     Args:
         original_model (ComposerModel): model to replace.
@@ -65,9 +64,7 @@ class NoOpModelClass(ComposerModel):
 
 
 class NoOpModel(Algorithm):
-    """Runs on :attr:`Event.INIT` and replaces the model with 
-    a dummy model of type NoOpModelClass.
-    """
+    """Runs on :attr:`Event.INIT` and replaces the model with a dummy model of type NoOpModelClass."""
 
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
