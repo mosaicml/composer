@@ -347,16 +347,12 @@ class CheckpointSaver(Callback):
                                      overwrite=self.overwrite)
 
             if self.latest_filename is not None:
+                # Since object stores might not support symlinks, we emulate a symlink
+                # with ".symlink" file containing the path to the true latest checkpoint
                 symlink_name = os.path.join(
                     format_name_with_dist(self.folder, logger.run_name),
                     format_name_with_dist_and_time(self.latest_filename, logger.run_name, state.timer.get_timestamp()),
-                )
-                if state.is_model_deepspeed and not is_tar(symlink_name):
-                    # Deepspeed requires tarballs; appending `.tar`
-                    symlink_name += ".tar"
-                # Since object stores might not support symlinks, we emulate a symlink
-                # with ".symlink" file containing the path to the true latest checkpoint
-                symlink_name += ".symlink"
+                ) + ".symlink"
                 symlink_dirname = os.path.dirname(symlink_name)
                 if symlink_dirname:
                     os.makedirs(symlink_dirname, exist_ok=True)
