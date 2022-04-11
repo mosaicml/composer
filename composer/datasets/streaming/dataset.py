@@ -1,3 +1,4 @@
+import math
 import os
 from threading import Lock, Thread
 from time import sleep
@@ -22,22 +23,25 @@ def get_partition() -> Tuple[int, int]:
     """
     info = get_worker_info()
     if info:
-        worker_id = info.id
-        workers_per_device = info.num_workers
+        local_worker_id = info.id
+        num_local_workers = info.num_workers
     else:
-        worker_id = 0
-        workers_per_device = 1
-    rank = dist.get_local_rank()
-    world_size = dist.get_local_world_size()
-    part = rank * workers_per_device + worker_id
-    num_parts = workers_per_device * world_size
-    return part, num_parts
+        local_worker_id = 0
+        num_local_workers = 1
+    device_id = dist.get_global_rank()
+    num_devices = dist.get_world_size()
+    return device_id, num_devices, local_worker_id, num_local_workers
 
 
 class StreamingDataset(IterableDataset):
     """Streaming dataset."""
 
-    def __init__(self, remote: str, local: str, decoders: Dict[str, Optional[Callable]], shuffle: bool) -> None:
+    def __init__(self,
+                 remote: str,
+                 local: str,
+                 decoders: Dict[str, Optional[Callable]],
+                 shuffle: bool,
+                 device_batch_size: int = None) -> None:
         """Initialize with the given remote path and local cache.
 
         Loads all the samples that are available in local cache, then starts a
@@ -54,6 +58,7 @@ class StreamingDataset(IterableDataset):
         self.local = local
         self.decoders = decoders
         self.shuffle = shuffle
+        self.device_batch_size = device_batch_size
 
         # Load the index file containing the shard metadata, either over the
         # network or cached locally.
@@ -70,8 +75,7 @@ class StreamingDataset(IterableDataset):
         self._are_all_shards_downloaded = False
 
     @classmethod
-    def split(cls, split: str, remote: str, local: str, decoders: Dict[str, Optional[Callable]],
-              shuffle: bool):
+    def split(cls, split: str, remote: str, local: str, decoders: Dict[str, Optional[Callable]], shuffle: bool):
         remote = os.path.join(remote, split)
         local = os.path.join(local, split)
         return cls(remote, local, decoders, shuffle)
@@ -187,7 +191,7 @@ class StreamingDataset(IterableDataset):
         Returns:
             int: Dataset length.
         """
-        return self.index.total_samples
+        return math.ceil(self.index.total_samples / dist.get_world_size())
 
     def _unpack_sample(self, data: bytes) -> Dict[str, Any]:
         """Unpack a sample dict from raw bytes.
@@ -305,8 +309,13 @@ class StreamingDataset(IterableDataset):
         """
         # We find out num workers, and therefore num partitions, when __iter__ is called.
         # From the partition, derive our shard overlap range and exact sample range.
-        part, num_parts = get_partition()
-        todo_shards, part_min_id, part_max_id = self.index.get_partition_shards_and_samples(part, num_parts)
+        device_id, num_devices, local_worker_id, num_local_workers = get_partition()
+        todo_shards, part_min_id, part_max_id = self.index.get_partition_shards_and_samples(
+            device_id, num_devices, local_worker_id, num_local_workers, device_batch_size=self.device_batch_size)
+
+        # print(
+        #     f"{device_id=}, {num_devices=}, {local_worker_id=}, {num_local_workers=}, {todo_shards=}, {part_min_id=}, {part_max_id=}"
+        # )
 
         # Preload all of our shards that are already available in the cache.
         todo_shards = self._load_shards_if_downloaded(todo_shards, part_min_id, part_max_id)
@@ -324,9 +333,17 @@ class StreamingDataset(IterableDataset):
 
 
 class StreamingBatchPairDataset(StreamingDataset):
-    def __init__(self, remote: str, local: str, decoders: Dict[str, Optional[Callable]], shuffle: bool,
-                 transforms: Optional[Callable], transform: Optional[Callable], target_transform: Optional[Callable],
-                 data_key: str = 'x', target_key: str = 'y'):
+
+    def __init__(self,
+                 remote: str,
+                 local: str,
+                 decoders: Dict[str, Optional[Callable]],
+                 shuffle: bool,
+                 transforms: Optional[Callable],
+                 transform: Optional[Callable],
+                 target_transform: Optional[Callable],
+                 data_key: str = 'x',
+                 target_key: str = 'y'):
         super().__init__(remote, local, decoders, shuffle)
         self.transforms = transforms
         self.transform = transform
@@ -335,9 +352,17 @@ class StreamingBatchPairDataset(StreamingDataset):
         self.target_key = target_key
 
     @classmethod
-    def split(cls, split: str, remote: str, local: str, decoders: Dict[str, Optional[Callable]], shuffle: bool,
-              transforms: Optional[Callable], transform: Optional[Callable], target_transform: Optional[Callable],
-              data_key: str = 'x', target_key: str = 'y'):
+    def split(cls,
+              split: str,
+              remote: str,
+              local: str,
+              decoders: Dict[str, Optional[Callable]],
+              shuffle: bool,
+              transforms: Optional[Callable],
+              transform: Optional[Callable],
+              target_transform: Optional[Callable],
+              data_key: str = 'x',
+              target_key: str = 'y'):
         remote = os.path.join(remote, split)
         local = os.path.join(local, split)
         return cls(remote, local, decoders, shuffle, transforms, transform, target_transform, data_key, target_key)
