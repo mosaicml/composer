@@ -85,9 +85,11 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
     Then assert that they are equivalent to the weights from the original model.
     """
 
-    # load_weights_only is False since the original Trainer is testing full checkpoint recovery
-    original_trainer_hparams.load_path = new_trainer_hparams.load_path
-    original_trainer_hparams.load_weights_only = False
+    print(original_trainer_hparams)
+    print(new_trainer_hparams)
+
+    # Use load_path, not load_only_weights_path since the original Trainer is testing full checkpoint recovery
+    original_trainer_hparams.load_only_weights_path = new_trainer_hparams.load_only_weights_path
     original_trainer_hparams.load_strict_model_weights = False
     original_trainer_hparams.save_overwrite = True
 
@@ -136,7 +138,6 @@ def assert_checkpoints_equivalent(
     assert hparams_b.load_path is not None
     assert hparams_b.save_folder is not None
     hparams_a.load_path = hparams_b.load_path
-    hparams_a.load_weights_only = False
     hparams_a.save_overwrite = True
     hparams_a.load_strict_model_weights = False
     hparams_a.save_folder = hparams_b.save_folder
@@ -214,8 +215,7 @@ def test_load_weights(
     dist.broadcast_object_list(checkpoint_a_file_path)
 
     # load only model weights
-    second_trainer_hparams.load_path = checkpoint_a_file_path[0]
-    second_trainer_hparams.load_weights_only = True
+    second_trainer_hparams.load_only_weights_path = checkpoint_a_file_path[0]
     second_trainer_hparams.load_strict_model_weights = True
     # setup a new optimizer
     second_trainer_hparams.optimizer = AdamWHparams()
@@ -391,7 +391,6 @@ def test_checkpoint(
 
     second_trainer_hparams.save_folder = checkpoint_b_folder
     second_trainer_hparams.load_path = checkpoint_to_resume_filepath
-    second_trainer_hparams.load_weights_only = False
     second_trainer_hparams.load_strict_model_weights = False
 
     _test_checkpoint_trainer(second_trainer_hparams)
