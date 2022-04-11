@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, List, Union
 
 from torch.optim.lr_scheduler import LambdaLR
 
-from composer.core.time import Time, TimeUnit
-from composer.core.types import PyTorchScheduler, State
+from composer.core import State, Time, TimeUnit
+from composer.core.types import PyTorchScheduler
 
 try:
     from typing import Protocol

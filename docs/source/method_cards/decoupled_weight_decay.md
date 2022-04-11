@@ -1,3 +1,7 @@
+```{eval-rst}
+:orphan:
+```
+
 # 🏋️‍♀️ Decoupled Weight Decay
 
 Tags: `Best Practice`, `Increased Accuracy`, `Regularization`

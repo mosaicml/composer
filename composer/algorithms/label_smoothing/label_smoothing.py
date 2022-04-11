@@ -8,13 +8,14 @@ from typing import Optional
 
 import torch
 
-from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 from composer.models.loss import ensure_targets_one_hot
 
 __all__ = ["LabelSmoothing", "smooth_labels"]
 
 
-def smooth_labels(logits: Tensor, target: Tensor, smoothing: float = 0.1):
+def smooth_labels(logits: torch.Tensor, target: torch.Tensor, smoothing: float = 0.1):
     """Shrink targets towards a uniform distribution as in `Szegedy et al <https://arxiv.org/abs/1512.00567>`_.
 
     The smoothed labels are computed as ``(1 - smoothing) * targets + smoothing * unif``
@@ -94,8 +95,8 @@ class LabelSmoothing(Algorithm):
         input, labels = state.batch_pair
 
         if event == Event.BEFORE_LOSS:
-            assert isinstance(state.outputs, Tensor), "Multiple tensors not supported yet"
-            assert isinstance(labels, Tensor), "Multiple tensors not supported yet"
+            assert isinstance(state.outputs, torch.Tensor), "Multiple tensors not supported yet"
+            assert isinstance(labels, torch.Tensor), "Multiple tensors not supported yet"
 
             self.original_labels = labels.clone()
             smoothed_labels = smooth_labels(

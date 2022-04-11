@@ -11,7 +11,7 @@ import pathlib
 import shutil
 import tarfile
 import tempfile
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import torch
 
@@ -21,7 +21,6 @@ from composer.utils.object_store import ObjectStoreProvider
 
 if TYPE_CHECKING:
     from composer.core.state import State
-    from composer.core.types import StateDict
 
 log = logging.getLogger(__name__)
 
@@ -128,7 +127,7 @@ def load_checkpoint(
             Ignored if the checkpoint is a local file path. (default: ``True``)
 
     Returns:
-        Optional[List[types.StateDict]]: The RNG state dicts, indexed by global rank, if
+        Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
     # download the checkpoint to the node-local folder
@@ -265,7 +264,7 @@ def _restore_checkpoint(
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     strict_model_weights: bool,
-) -> Optional[List[StateDict]]:
+) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = torch.load(composer_states_filepath, map_location='cpu')

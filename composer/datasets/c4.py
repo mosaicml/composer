@@ -15,7 +15,8 @@ from typing import List
 import yahp as hp
 from torch.utils.data import IterableDataset, get_worker_info
 
-from composer.core.types import Batch, DataSpec
+from composer.core.data_spec import DataSpec
+from composer.core.types import Batch
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist

@@ -13,7 +13,7 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import Batch, Tensor
+from composer.core.types import Batch
 
 __all__ = [
     "add_vision_dataset_transform",
@@ -50,8 +50,8 @@ class NormalizationFn:
 
     def __call__(self, batch: Batch):
         xs, ys = batch
-        assert isinstance(xs, Tensor)
-        assert isinstance(ys, Tensor)
+        assert isinstance(xs, torch.Tensor)
+        assert isinstance(ys, torch.Tensor)
         device = xs.device
 
         if not isinstance(self.mean, torch.Tensor):
@@ -68,8 +68,9 @@ class NormalizationFn:
         return xs, ys
 
 
-def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]],
-                      memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[Tensor, Tensor]:
+def pil_image_collate(
+        batch: List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]],
+        memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[torch.Tensor, torch.Tensor]:
     """Constructs a :class:`~composer.core.types.BatchPair` from datasets that yield samples of type
     :class:`PIL.Image.Image`.
 

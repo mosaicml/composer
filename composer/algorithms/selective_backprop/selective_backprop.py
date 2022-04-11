@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import inspect
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
 from torch.nn import functional as F
 
-from composer.core.types import Algorithm, Event, Logger, State, Tensor, Tensors
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 from composer.models import ComposerModel
 
 
@@ -53,7 +54,7 @@ def should_selective_backprop(
 
 def select_using_loss(input: torch.Tensor,
                       target: torch.Tensor,
-                      model: Callable[[Tensors], Tensor],
+                      model: Callable[[Union[torch.Tensor, Sequence[torch.Tensor]]], torch.Tensor],
                       loss_fun: Callable,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -221,7 +222,7 @@ class SelectiveBackprop(Algorithm):
                 self._loss_fn = state.model.loss
             return
         input, target = state.batch_pair
-        assert isinstance(input, Tensor) and isinstance(target, Tensor), \
+        assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 
         # Model expected to only take in input, not the full batch

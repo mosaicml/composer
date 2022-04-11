@@ -7,7 +7,7 @@ from typing import Any, List
 
 import torch
 import torch.nn.functional as F
-from torchmetrics.collections import MetricCollection
+from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
 
 from composer.core.types import BatchPair

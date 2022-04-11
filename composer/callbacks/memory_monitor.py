@@ -6,8 +6,9 @@ from typing import Dict, Union
 
 import torch.cuda
 
-from composer.core import Logger, State
+from composer.core import State
 from composer.core.callback import Callback
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class MemoryMonitor(Callback):
        ...     callbacks=[callbacks.MemoryMonitor()],
        ... )
 
-    The memory statistics are logged by the :class:`~composer.core.logging.logger.Logger` to the following keys as
+    The memory statistics are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
 
     +--------------------------+-------------------------------------------------------------+
@@ -83,7 +84,7 @@ class MemoryMonitor(Callback):
         memory_report = _get_memory_report()
 
         for mem_stat, val in memory_report.items():
-            logger.metric_batch({'memory/{}'.format(mem_stat): val})
+            logger.data_batch({'memory/{}'.format(mem_stat): val})
 
 
 _MEMORY_STATS = {

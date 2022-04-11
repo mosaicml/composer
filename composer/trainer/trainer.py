@@ -80,20 +80,15 @@ import torch.distributed
 import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
-from torchmetrics.collections import MetricCollection
-from torchmetrics.metric import Metric
+from torchmetrics import Metric, MetricCollection
 
 import composer
 from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
-from composer.core import Callback, DataSpec, Engine, Event, Logger, State, Time
-from composer.core.algorithm import Algorithm
-from composer.core.evaluator import Evaluator
-from composer.core.logging import LoggerCallback, LogLevel
-from composer.core.time import Timestamp
-from composer.core.types import (Batch, BreakEpochException, DataLoader, Evaluators, Many, Metrics, Optimizers,
-                                 Precision, PyTorchScheduler)
+from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
+from composer.core.types import Batch, BreakEpochException, DataLoader, PyTorchScheduler
 from composer.datasets.dataloader import unwrap_data_loader
+from composer.loggers import Logger, LoggerDestination, LogLevel
 from composer.loggers.tqdm_logger import TQDMLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
@@ -136,22 +131,24 @@ class Trainer:
                 then the per-rank batch will be divided into microbatches of size ``256 / 2 = 128``.
         max_duration (int, str, or Time): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
-        eval_dataloader (DataLoader, DataSpec, or Evaluators, optional): The :class:`.DataLoader`,
-            :class:`.DataSpec`, or :class:`.Evaluators` for the evaluation data.
-            In order to evaluate one or more specific metrics across one or more datasets, pass in an
+        eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.DataLoader`,
+            :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
+
+            To evaluate one or more specific metrics across one or more datasets, pass in an
             :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
             metrics returned by ``model.metrics()`` will be used during evaluation.
             ``None`` results in no evaluation. (default: ``None``)
-        algorithms (List[Algorithm], optional): The algorithms to use during training. If ``None``, then
+        algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms to use during training. If ``None``, then
             no algorithms will be used. (default: ``None``)
 
             .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
-        optimizers (Optimizers, optional): The optimizer.
+        optimizers (torch.optim.Optimizer, optional): The optimizer.
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
             .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
-        schedulers (Schedulers, optional): The learning rate schedulers. If ``[]`` or ``None``, will be set to
-            ``[constant_scheduler]``. (default: ``None``).
+        schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional):
+            The learning rate schedulers. If ``[]`` or ``None``, the learning rate will be constant.
+            (default: ``None``).
 
             .. seealso:: :mod:`composer.optim.scheduler` for the different schedulers built into Composer.
         device (str or Device, optional): The device to use for training. Either ``cpu`` or ``gpu``.
@@ -223,11 +220,14 @@ class Trainer:
                 This will ensure any initialization done before the trainer init also runs deterministically.
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
-        loggers (Sequence[LoggerCallback], optional): The destinations to log training information to.
+        run_name (str, optional): A name for this training run. If not specified, one will be generated automatically.
+
+            .. seealso:: :class:`~composer.loggers.logger.Logger`
+        loggers (LoggerDestination | Sequence[LoggerDestination], optional): The destinations to log training information to.
             If ``None``, will be set to ``[TQDMLogger()]``. (default: ``None``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        callbacks (Sequence[Callback], optional): The callbacks to run during training. If ``None``,
+        callbacks (Callback | Sequence[Callback], optional): The callbacks to run during training. If ``None``,
             then no callbacks will be run. (default: ``None``).
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
@@ -418,10 +418,10 @@ class Trainer:
         model: ComposerModel,
         train_dataloader: Union[DataLoader, DataSpec],
         max_duration: Union[int, str, Time],
-        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluators]] = None,
-        algorithms: Optional[List[Algorithm]] = None,
-        optimizers: Optional[Optimizers] = None,
-        schedulers: Optional[Many[ComposerScheduler]] = None,
+        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
+        optimizers: Optional[torch.optim.Optimizer] = None,
+        schedulers: Optional[Union[ComposerScheduler, Sequence[ComposerScheduler]]] = None,
 
         # device
         device: Optional[Union[str, Device]] = None,
@@ -445,8 +445,9 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # logging and callbacks
-        loggers: Optional[Sequence[LoggerCallback]] = None,
-        callbacks: Sequence[Callback] = tuple(),
+        run_name: Optional[str] = None,
+        loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
+        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
 
         # load checkpoint
         load_path_format: Optional[str] = None,
@@ -497,7 +498,7 @@ class Trainer:
 
         # ScaleSchedule is a deprecated algorithm, but if it is used, updated SSR with its ratio.
         # TODO(#434): Remove this completely.
-        for algorithm in algorithms or []:
+        for algorithm in ensure_tuple(algorithms):
             if isinstance(algorithm, ScaleSchedule):
                 scale_schedule_ratio = algorithm.ratio
 
@@ -560,12 +561,9 @@ class Trainer:
         # which is okay because all runs with the hparams codepath will do this
         reproducibility.seed_all(seed)
 
-        if not algorithms:
-            algorithms = []
-
         # some algorithms require specific settings
-        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, algorithms))
-        find_unused_parameters = any(map(lambda x: x.find_unused_parameters, algorithms))
+        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
+        find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
         self._find_unused_parameters = find_unused_parameters
 
         if ddp_sync_strategy is None:
@@ -716,7 +714,7 @@ class Trainer:
 
         if loggers is None:
             loggers = [TQDMLogger()]
-        self.logger = Logger(self.state, loggers)
+        self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
         self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
         self._checkpoint_saver = None
@@ -844,12 +842,12 @@ class Trainer:
         Returns:
             Optional[str]: The checkpoint folder, or None, if checkpoints were not saved.
 
-            If an absolute path was specified for ``save_folder`` upon trainer instantiation, then that path will be
-            used. Otherwise, this folder is relative to the :mod:`~composer.utils.run_directory` of the training run
-            (e.g. ``{run_directory}/{save_folder}``). If no run directory is provided, then by default, it is of the
-            form ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp`` is the start time of the
-            run in iso-format, ``GLOBAL_RANK`` is the global rank of the process, and ``save_folder`` is the
-            ``save_folder`` argument provided upon construction.
+                If an absolute path was specified for ``save_folder`` upon trainer instantiation, then that path will
+                be used. Otherwise, this folder is relative to the :mod:`~composer.utils.run_directory` of the training
+                run (e.g. ``{run_directory}/{save_folder}``). If no run directory is provided, then by default, it is
+                of the form ``runs/<timestamp>/rank_<GLOBAL_RANK>/<save_folder>`` where ``timestamp`` is the start time
+                of the run in iso-format, ``GLOBAL_RANK`` is the global rank of the process, and ``save_folder`` is the
+                ``save_folder`` argument provided upon construction.
         """
         if self._checkpoint_saver is None:
             raise RuntimeError("`save_folder` was not specified, so no checkpoints were saved.")
@@ -875,11 +873,16 @@ class Trainer:
 
         return metrics
 
-    def _compute_and_log_metrics(self, metrics: Metrics, *, is_train: bool, is_batch: bool, logging_label: str = ''):
+    def _compute_and_log_metrics(self,
+                                 metrics: Union[Metric, MetricCollection],
+                                 *,
+                                 is_train: bool,
+                                 is_batch: bool,
+                                 logging_label: str = ''):
         """Computes metrics, logs the results, and resets the metrics.
 
         Args:
-            metrics (Metrics): The metrics to compute.
+            metrics (Metric | MetricCollection): The metrics to compute.
             is_train (bool): True for training metrics, False for evaluation metrics.
             is_batch (bool): True if logging at batch level, false for epoch level.
             logging_label (str): Should be left as empty string if called for training metrics.
@@ -895,7 +898,7 @@ class Trainer:
                 label = f'{name.lower()}/{suffix}'
             else:
                 label = f'{logging_label}/{name.lower()}_{suffix}'
-            self.logger.metric(log_level, {label: value})
+            self.logger.data(log_level, {label: value})
         metrics.reset()
 
     def _spin_dataloaders(self):
@@ -923,7 +926,7 @@ class Trainer:
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
         # print training start
-        self.logger.metric_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
+        self.logger.data_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
         if self._compute_training_metrics:
             log.warn('Computing model evaluation metrics during training.'
@@ -956,7 +959,7 @@ class Trainer:
 
                 if int(self.state.timer.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.metric_epoch({"epoch": int(self.state.timer.epoch)})
+                    self.logger.data_epoch({"epoch": int(self.state.timer.epoch)})
 
                 if isinstance(self.state.train_dataloader.sampler, torch.utils.data.DistributedSampler):
                     self.state.train_dataloader.sampler.set_epoch(int(self.state.timer.epoch))
@@ -1004,7 +1007,7 @@ class Trainer:
                     dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
 
                     self.engine.run_event(Event.BATCH_START)
-                    self.logger.metric_batch({
+                    self.logger.data_batch({
                         "trainer/global_step": int(self.state.timer.batch),
                         "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
                     })
@@ -1038,7 +1041,7 @@ class Trainer:
                         # total_loss can be None if gradient scaling failed
                         dist.all_reduce(total_loss, reduce_operation="SUM")
                         full_loss = total_loss.cpu().item()
-                        self.logger.metric_batch({'loss/train': full_loss / dist.get_world_size()})
+                        self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
                     if self._compute_training_metrics:
                         assert train_metrics is not None
@@ -1235,8 +1238,8 @@ class Trainer:
 
                     self.engine.run_event(Event.EVAL_BATCH_END)
 
-                self.logger.metric_epoch({"epoch": self.state.timer.epoch.value})
-                self.logger.metric_batch({"trainer/global_step": self.state.timer.batch.value})
+                self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
+                self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
 
                 self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
 

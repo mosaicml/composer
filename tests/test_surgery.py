@@ -6,8 +6,8 @@ from unittest.mock import Mock
 import pytest
 import torch
 from torch import nn
+from torch.optim import Optimizer
 
-from composer.core.types import Optimizer
 from composer.utils import module_surgery
 from tests.fixtures.models import SimpleBatchPairModel
 

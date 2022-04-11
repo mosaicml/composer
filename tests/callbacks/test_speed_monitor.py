@@ -1,10 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import collections.abc
+from typing import cast
 from unittest.mock import MagicMock
 
 from composer.callbacks import SpeedMonitorHparams
+from composer.loggers.logger_destination import LoggerDestination
 from composer.trainer import TrainerHparams
+from composer.utils import ensure_tuple
 
 
 def test_speed_monitor(composer_trainer_hparams: TrainerHparams):
@@ -16,14 +19,14 @@ def test_speed_monitor(composer_trainer_hparams: TrainerHparams):
     composer_trainer_hparams.max_duration = f"{max_epochs}ep"
     trainer = composer_trainer_hparams.initialize_object()
     log_destination = MagicMock()
-    log_destination.will_log.return_value = True
-    trainer.logger.backends = [log_destination]
+    log_destination = cast(LoggerDestination, log_destination)
+    trainer.logger.destinations = ensure_tuple(log_destination)
     trainer.fit()
 
     throughput_epoch_calls = 0
     wall_clock_train_calls = 0
     throughput_step_calls = 0
-    for call_ in log_destination.log_metric.mock_calls:
+    for call_ in log_destination.log_data.mock_calls:
         metrics = call_[1][2]
         if "throughput/step" in metrics:
             throughput_step_calls += 1
