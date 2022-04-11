@@ -36,7 +36,7 @@ def download_from_s3(remote: str, local: str) -> None:
     obj = urlparse(remote)
     assert obj.scheme == 's3'
     s3 = boto3.client('s3')
-    s3.download_file(obj.netloc, obj.path, local)
+    s3.download_file(obj.netloc, obj.path[1:], local)
 
 
 def download_from_local(remote: str, local: str) -> None:
