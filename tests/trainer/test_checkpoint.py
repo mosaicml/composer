@@ -286,9 +286,9 @@ def test_checkpoint(
         pytest.skip("DeepSpeed tests must be ran on GPU")
 
     if deepspeed_enabled:
-        if not is_tar(resume_file):
+        if not is_tar(resume_file) and not resume_file.endswith(".symlink"):
             resume_file += ".tar"
-        if not is_tar(final_checkpoint):
+        if not is_tar(final_checkpoint) and not final_checkpoint.endswith(".symlink"):
             final_checkpoint += ".tar"
 
     if model_name is not None:
