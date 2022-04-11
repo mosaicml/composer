@@ -1,14 +1,11 @@
 import os
-from io import BytesIO
 from threading import Lock, Thread
 from time import sleep
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
-from PIL import Image
 from torch import Tensor
 from torch.utils.data import IterableDataset, get_worker_info
-from torchvision.datasets import VisionDataset
 
 from composer.datasets.streaming.download import safe_download
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
@@ -72,6 +69,13 @@ class StreamingDataset(IterableDataset):
         self._downloaded_ids = []
         self._are_all_shards_downloaded = False
 
+    @classmethod
+    def split(cls, split: str, remote: str, local: str, decoders: Dict[str, Optional[Callable]],
+              shuffle: bool):
+        remote = os.path.join(remote, split)
+        local = os.path.join(local, split)
+        return cls(remote, local, decoders, shuffle)
+
     def _download_if_missing(self, basename: str) -> str:
         """Safely download a shard from remote to local cache.
 
@@ -121,7 +125,6 @@ class StreamingDataset(IterableDataset):
                 if not self._are_all_shards_downloaded:
                     self._downloaded_ids.extend(new_ids)
                     np.random.shuffle(self._downloaded_ids)
-
                 for todo_ids in self._epoch_to_todo_ids.values():
                     todo_ids.extend(new_ids)
                     np.random.shuffle(todo_ids)
@@ -320,77 +323,36 @@ class StreamingDataset(IterableDataset):
             yield self[idx]
 
 
-class StreamingVisionDataset(StreamingDataset, VisionDataset):
-    """Streaming vision dataset.
-
-    Analogous to `torchvision.datasets.VisionDataset` plus streaming, but this
-    is an IterableDataset, so do not naively rely on __getitem__.
-    """
-
-    def __init__(self,
-                 remote: str,
-                 local: str,
-                 shuffle: bool,
-                 transforms: Optional[Callable] = None,
-                 transform: Optional[Callable] = None,
-                 target_transform: Optional[Callable] = None,
-                 data_key: str = 'data',
-                 target_key: str = 'target') -> None:
-        """Initialize with the same API as VisionDataset.
-
-        Args:
-            remote (str): Download shards from this remote directory.
-            local (str): Download shards to this local filesystem directory for reuse.
-            shuffle (bool): Whether to shuffle the samples.
-            transforms (Optional[Callable]): A function/transforms that takes in
-                an image and a label and returns the transformed versions of
-                both.
-            transform (Optional[Callable]): A function/transform that  takes in
-                an PIL image and returns a transformed version. E.g,
-                ``transforms.RandomCrop``
-            target_transform (Optional[Callable]): A function/transform that
-                takes in the target and transforms it.
-            data_key (str, optional): Sample dict key for the data. Default: 'data'.
-            target_key (str, optional): Sample dict key for the target. Default: 'target'.
-        """
-        StreamingDataset.__init__(self, remote, local, {}, shuffle)
-
+class StreamingBatchPairDataset(StreamingDataset):
+    def __init__(self, remote: str, local: str, decoders: Dict[str, Optional[Callable]], shuffle: bool,
+                 transforms: Optional[Callable], transform: Optional[Callable], target_transform: Optional[Callable],
+                 data_key: str = 'x', target_key: str = 'y'):
+        super().__init__(remote, local, decoders, shuffle)
         self.transforms = transforms
         self.transform = transform
         self.target_transform = target_transform
         self.data_key = data_key
         self.target_key = target_key
 
-    def __getitem__(self, idx: int) -> Any:
-        """Get the sample at the index, assuming its shard is loaded.
+    @classmethod
+    def split(cls, split: str, remote: str, local: str, decoders: Dict[str, Optional[Callable]], shuffle: bool,
+              transforms: Optional[Callable], transform: Optional[Callable], target_transform: Optional[Callable],
+              data_key: str = 'x', target_key: str = 'y'):
+        remote = os.path.join(remote, split)
+        local = os.path.join(local, split)
+        return cls(remote, local, decoders, shuffle, transforms, transform, target_transform, data_key, target_key)
 
-        Do not call this directly unless all shards have been loaded. Will crash
-        if the shard is not loaded.
-
-        Args:
-            idx (int): Sample ID.
-
-        Returns:
-            Any: The sample.
-        """
-        obj = StreamingDataset.__getitem__(self, idx)
-
-        # The "data" field is a PIL image.
-        x = obj[self.data_key]
-        x = Image.open(BytesIO(x))
-
-        # The "target" field is an int.
-        y = obj[self.target_key]
-        y = np.frombuffer(y, np.int64)[0]
-        y = int(y)
-
-        # Do the transform (joint or separate).
-        if self.transforms:
-            x, y = self.transforms(x, y)
+    def __getitem__(self, idx: int) -> Tuple[Any, Any]:
+        obj = super().__getitem__(idx)
+        data = obj[self.data_key]
+        target = obj[self.target_key]
+        if self.transforms is not None:
+            assert self.transform is None
+            assert self.target_transform is None
+            data, target = self.transforms(data, target)
         else:
-            if self.transform:
-                x = self.transform(x)
-            if self.target_transform:
-                y = self.target_transform(y)
-
-        return x, y
+            if self.transform is not None:
+                data = self.transform(data)
+            if self.target_transform is not None:
+                target = self.target_transform(target)
+        return data, target
