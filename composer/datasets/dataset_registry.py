@@ -11,9 +11,10 @@ from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHpa
 from composer.datasets.coco import COCODatasetHparams
 from composer.datasets.glue import GLUEHparams
 from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams,
+                                        StreamingImagenet1kHparams, StreamingTinyImagenet200Hparams,
                                         TinyImagenet200WebDatasetHparams)
 from composer.datasets.lm_datasets import LMDatasetHparams
-from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams
+from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams, StreamingMNISTHparams
 
 registry = {
     "ade20k": ADE20kDatasetHparams,
@@ -32,9 +33,12 @@ registry = {
     'wds_tinyimagenet200': TinyImagenet200WebDatasetHparams,
     'wds_imagenet1k': Imagenet1kWebDatasetHparams,
     'wds_ade20k': ADE20kWebDatasetHparams,
+    'streaming_mnist': StreamingMNISTHparams,
     'streaming_cifar10': StreamingCIFAR10Hparams,
     'streaming_cifar20': StreamingCIFAR20Hparams,
     'streaming_cifar100': StreamingCIFAR100Hparams,
+    'streaming_tinyimagenet200': StreamingTinyImagenet200Hparams,
+    'streaming_imagenet1k': StreamingImagenet1kHparams,
 }
 
 

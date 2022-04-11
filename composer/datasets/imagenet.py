@@ -7,10 +7,13 @@ Dataset <http://image-net.org/>`_ for more details. Also includes streaming data
 <https://github.com/webdataset/webdataset>`_.
 """
 
+from io import BytesIO
+import numpy as np
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import List
+from PIL import Image
+from typing import Any, List
 
 import torch
 import torch.utils.data
@@ -22,7 +25,8 @@ from composer.core import DataSpec
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
+from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
+from composer.datasets.streaming import StreamingBatchPairDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
@@ -180,6 +184,145 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             dataset=dataset,
             batch_size=batch_size,
             sampler=sampler,
+            drop_last=self.drop_last,
+            collate_fn=collate_fn,
+        ),
+                        device_transforms=device_transform_fn)
+
+
+class StreamingTinyImagenet200(StreamingBatchPairDataset):
+    """Streaming TinyImagenet200."""
+
+    @classmethod
+    def decode_image(cls, data: bytes) -> Any:
+        arr = np.frombuffer(data, np.uint8)
+        arr = arr.reshape(64, 64, 3)
+        return Image.fromarray(arr)
+
+    @classmethod
+    def decode_class(cls, data: bytes) -> Any:
+        return np.frombuffer(data, np.int64)[0]
+
+    decoders = {
+        'x': decode_image,
+        'y': decode_class,
+    }
+
+    def __init__(self, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
+        super().__init__(remote, local, self.decoders, shuffle, transforms, transform, target_transform)
+
+    @classmethod
+    def split(cls, split, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
+        remote = os.path.join(remote, split)
+        local = os.path.join(local, split)
+        return cls(remote, local, shuffle, transforms, transform, target_transform)
+
+
+@dataclass
+class StreamingTinyImagenet200Hparams(StreamingDatasetHparams):
+    """Streaming TinyImagenet200 hyperparameters.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+    """
+
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-tinyimagenet200/mds/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-tinyimagenet200/')
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+        if self.is_train:
+            split = 'train'
+            transform = transforms.Compose([
+                transforms.RandomCrop(64, 8),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+            ])
+        else:
+            split = 'val'
+            transform = transforms.Compose([
+                transforms.ToTensor(),
+            ])
+        dataset = StreamingTinyImagenet200.split(split, self.remote, self.local, self.shuffle, transform=transform)
+        return dataloader_hparams.initialize_object(dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=None,
+                                                    drop_last=self.drop_last)
+
+
+class StreamingImagenet(StreamingBatchPairDataset):
+    """Streaming Imagenet."""
+
+    @classmethod
+    def decode_image(cls, data: bytes) -> Any:
+        return Image.open(BytesIO(data))
+
+    @classmethod
+    def decode_class(cls, data: bytes) -> Any:
+        return np.frombuffer(data, np.int64)[0]
+
+    decoders = {
+        'x': decode_image,
+        'y': decode_class,
+    }
+
+    def __init__(self, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
+        super().__init__(remote, local, self.decoders, shuffle, transforms, transform, target_transform)
+
+    @classmethod
+    def split(cls, split, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
+        remote = os.path.join(remote, split)
+        local = os.path.join(local, split)
+        return cls(remote, local, shuffle, transforms, transform, target_transform)
+
+
+@dataclass
+class StreamingImagenet1kHparams(WebDatasetHparams):
+    """Streaming Imagenet1k hyperparameters.
+
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+        resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
+    """
+
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-imagenet1k/')
+    resize_size: int = hp.optional("Resize size. Set to -1 to not resize", default=-1)
+    crop_size: int = hp.optional("Crop size", default=224)
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+        if self.is_train:
+            split = 'train'
+            # include fixed-size resize before RandomResizedCrop in training only
+            # if requested (by specifying a size > 0)
+            train_resize_size = self.resize_size
+            train_transforms: List[torch.nn.Module] = []
+            if train_resize_size > 0:
+                train_transforms.append(transforms.Resize(train_resize_size))
+            # always include RandomResizedCrop and RandomHorizontalFlip
+            train_transforms += [
+                transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+                transforms.RandomHorizontalFlip()
+            ]
+            transform = transforms.Compose(train_transforms)
+        else:
+            split = 'val'
+            transform = transforms.Compose([
+                transforms.Resize(self.resize_size),
+                transforms.CenterCrop(self.crop_size),
+            ])
+        dataset = StreamingImagenet.split(split, self.remote, self.local, self.shuffle, transform=transform)
+        collate_fn = pil_image_collate
+        device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=None,
             drop_last=self.drop_last,
             collate_fn=collate_fn,
         ),
