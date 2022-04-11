@@ -206,8 +206,8 @@ class CheckpointSaver(Callback):
 
             When DeepSpeed is not being used, the rank zero process will save the checkpoint to
             ``'awesome-training-run/checkpoints/ep1-ba42-rank0'``,
-            and a symlink will be created at
-            ``'awesome-training-run/checkpoints/latest-rank0' -> 'awesome-training-run/checkpoints/ep1-ba42-rank0'``
+            and an effective symlink will be created at
+            ``'awesome-training-run/checkpoints/latest-rank0.symlink' -> 'awesome-training-run/checkpoints/ep1-ba42-rank0'``
 
             When DeepSpeed is being used, each rank (process) will save checkpoints to::
 
@@ -216,11 +216,11 @@ class CheckpointSaver(Callback):
                 awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
 
-            Corresponding symlinks will be created at::
+            Corresponding effective symlinks will be::
 
-                awesome-training-run/checkpoints/latest-rank0.tar -> awesome-training-run/checkpoints/ep1-ba42-rank0.tar
-                awesome-training-run/checkpoints/latest-rank1.tar -> awesome-training-run/checkpoints/ep1-ba42-rank1.tar
-                awesome-training-run/checkpoints/latest-rank2.tar -> awesome-training-run/checkpoints/ep1-ba42-rank2.tar
+                awesome-training-run/checkpoints/latest-rank0.symlink.tar -> awesome-training-run/checkpoints/ep1-ba42-rank0.tar
+                awesome-training-run/checkpoints/latest-rank1.symlink.tar -> awesome-training-run/checkpoints/ep1-ba42-rank1.tar
+                awesome-training-run/checkpoints/latest-rank2.symlink.tar -> awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
 
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
@@ -354,6 +354,9 @@ class CheckpointSaver(Callback):
                 if state.is_model_deepspeed and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     symlink_name += ".tar"
+                # Since object stores might not support symlinks, we emulate a symlink
+                # with ".symlink" file containing the path to the true latest checkpoint
+                symlink_name += ".symlink"
                 symlink_dirname = os.path.dirname(symlink_name)
                 if symlink_dirname:
                     os.makedirs(symlink_dirname, exist_ok=True)
@@ -361,7 +364,8 @@ class CheckpointSaver(Callback):
                     os.remove(symlink_name)
                 except FileNotFoundError:
                     pass
-                os.symlink(checkpoint_filepath, symlink_name)
+                with open(symlink_name, 'w') as f:
+                    f.write(str(checkpoint_filepath))
 
         timestamp = state.timer.get_timestamp()
 

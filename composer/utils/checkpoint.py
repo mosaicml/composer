@@ -50,6 +50,14 @@ def _format_path_with_current_rank(path: str) -> str:
         node_rank=dist.get_node_rank(),
     )
 
+def _format_path_with_rank_zero(path: str) -> str:
+    """Formats ``path`` formatted with rank values of 0."""
+    return path.format(
+        rank=0,
+        local_rank=0,
+        node_rank=0,
+    )
+
 
 def _get_write_mode(name: str) -> str:
     """Get the write mode to use with :func:`tarfile.open`."""
@@ -133,6 +141,15 @@ def load_checkpoint(
     with tempdir_ctx as tempdir:
         try:
             node_checkpoint_folder = _get_node_checkpoint_download_folder(tempdir)
+            # download any effective symlinks
+            if path.endswith(".symlink"):
+                _download_symlinks(
+                    path=path,
+                    node_checkpoint_folder=node_checkpoint_folder,
+                    object_store=object_store,
+                    chunk_size=chunk_size,
+                    progress_bar=progress_bar,
+                )
             composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = _download_checkpoint(
                 path=path,
                 node_checkpoint_folder=node_checkpoint_folder,
@@ -164,6 +181,51 @@ def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
     local_rank_zero_path = paths[local_rank_zero]
     assert local_rank_zero_path is not None, "local rank zero provides the path"
     return local_rank_zero_path
+
+
+def _download_symlinks(
+    path: str,
+    node_checkpoint_folder: str,
+    object_store: Optional[ObjectStore],
+    chunk_size: int,
+    progress_bar: bool,
+):
+    """Download the symlink(s) stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``."""
+    rank_zero_symlink_filepath = os.path.join(node_checkpoint_folder, "rank0_checkpoint.symlink")
+    rank_n_symlink_filepath = os.path.join(node_checkpoint_folder, f"rank{dist.get_global_rank()}_checkpoint.symlink")
+    if dist.get_local_rank() == 0:
+        # every NODE needs the GLOBAL rank zero checkpoint
+        get_file(destination=rank_zero_symlink_filepath,
+                 path=_format_path_with_rank_zero(path),
+                 object_store=object_store,
+                 chunk_size=chunk_size,
+                 progress_bar=progress_bar)
+    if rank_zero_symlink_filepath != rank_n_symlink_filepath:
+        # every RANK needs ITS OWN checkpoint.
+        # But, the global rank zero is a special case -- these files are the same!
+        try:
+            get_file(destination=rank_n_symlink_filepath,
+                     path=_format_path_with_current_rank(path),
+                     object_store=object_store,
+                     chunk_size=chunk_size,
+                     progress_bar=progress_bar)
+        except GetFileNotFoundException:
+            # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
+            # (e.g. when not using deepspeed)
+            pass
+
+
+def _follow_symlink(
+    path: str,
+    node_checkpoint_folder: str,
+    rank: int,
+):
+    """Follows an effective symlink to the real checkpoint."""
+    if path.endswith(".symlink"):
+        rank_n_symlink_filepath = os.path.join(node_checkpoint_folder, f"rank{rank}_checkpoint.symlink")
+        with open(rank_n_symlink_filepath) as f:
+            return f.readline()
+    return path
 
 
 def _download_checkpoint(
@@ -202,7 +264,7 @@ def _download_checkpoint(
             # every NODE needs the GLOBAL rank zero checkpoint
             path = _format_path_with_rank_zero(path)
             get_file(destination=rank_zero_checkpoint_filepath,
-                     path=path,
+                     path=_follow_symlink(_format_path_with_rank_zero(path), node_checkpoint_folder, 0),
                      object_store=object_store,
                      chunk_size=chunk_size,
                      progress_bar=progress_bar)
@@ -218,12 +280,13 @@ def _download_checkpoint(
 
         if rank_zero_checkpoint_filepath != rank_n_checkpoint_filepath:
             # every RANK needs ITS OWN checkpoint.
-            # But, the  global rank zero is a special case -- these files are the same!
+            # But, the global rank zero is a special case -- these files are the same!
             assert dist.get_global_rank() != 0, "invariant violation"
 
             try:
                 get_file(destination=rank_n_checkpoint_filepath,
-                         path=_format_path_with_current_rank(path),
+                         path=_follow_symlink(_format_path_with_current_rank(path), node_checkpoint_folder,
+                                              dist.get_global_rank()),
                          object_store=object_store,
                          chunk_size=chunk_size,
                          progress_bar=progress_bar)

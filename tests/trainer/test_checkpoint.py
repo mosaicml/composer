@@ -104,6 +104,10 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
 
 def _load_checkpoint(checkpoint_dir: str, filename: str):
     filename = filename.format(rank=0)
+    if filename.endswith(".symlink"):
+        with open(filename) as f:
+            filename = f.readline()
+            filename = filename.format(rank=0)
     if not is_tar(filename):
         return torch.load(filename, map_location='cpu')
 
@@ -246,7 +250,7 @@ def test_load_weights(
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
     [
-        [None, "1ep", "ep{epoch}-rank{rank}", "ep1-rank{rank}", "latest-rank{rank}"
+        [None, "1ep", "ep{epoch}-rank{rank}", "ep1-rank{rank}", "latest-rank{rank}.symlink"
         ],  # test randomized seed saving and symlinking
         [42, "1ep", "ep{epoch}-rank{rank}", "ep1-rank{rank}", "ep2-rank{rank}"],  # test save at epoch end
         [42, "1ep", "ep{epoch}-rank{rank}.tgz", "ep1-rank{rank}.tgz", "ep2-rank{rank}.tgz"
