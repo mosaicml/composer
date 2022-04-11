@@ -126,14 +126,14 @@ class MixUp(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         if self.interpolate_loss:
-            return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
+            return event in [Event.BEFORE_FORWARD, Event.BEFORE_BACKWARD]
         else:
-            return event in [Event.AFTER_DATALOADER, Event.BEFORE_LOSS]
+            return event in [Event.BEFORE_FORWARD, Event.BEFORE_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         input, target = state.batch_pair
 
-        if event == Event.AFTER_DATALOADER:
+        if event == Event.BEFORE_FORWARD:
             if not isinstance(input, torch.Tensor):
                 raise NotImplementedError("Multiple tensors for inputs not supported yet.")
             if not isinstance(target, torch.Tensor):
@@ -165,7 +165,7 @@ class MixUp(Algorithm):
             # Create the new batch
             state.batch = (input, mixed_up_target)
 
-        if self.interpolate_loss and event == Event.AFTER_LOSS:
+        if self.interpolate_loss and event == Event.BEFORE_BACKWARD:
             # Grab the loss function
             if hasattr(state.model, "loss"):
                 loss_fn = state.model.loss
