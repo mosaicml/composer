@@ -34,7 +34,6 @@ skiplist = {
         'colout': 'Only for images',
         'cutmix': 'Only for images',
         'cutout': 'Only for images',
-        'mixup': 'Only defined for images',
         'alibi': 'Not compatible with simple model.',
         'seq_length_warmup': 'Not compatible with simple model.',
         'randaugment': 'Requires PIL dataset to test.',
