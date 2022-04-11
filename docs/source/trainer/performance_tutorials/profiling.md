@@ -159,7 +159,7 @@ Lastly, we run the training loop by invoking {meth}`.Trainer.fit`.
 :end-before: '[fit-end]'
 ```
 
-Finally, we can run the application as follows on 1 GPU:
+Finally, we can run the application as follows on a single GPU:
 
 ```bash
 python examples/profiler_demo.py
