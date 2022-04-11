@@ -179,7 +179,7 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
         load_path (str, optional): See :class:`.Trainer`.
         load_object_store (ObjectStore, optional): See :class:`.Trainer`.
-        load_weights_only (bool, optional): See :class:`.Trainer`.
+        load_only_weights_path (str, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -197,7 +197,8 @@ class TrainerHparams(hp.Hparams):
             to the trainer for the ``deepspeed_config`` parameter signaling that DeepSpeed will not be used
             for training.
         prof_schedule (ProfileScheduleHparams, optional): Profile schedule hparams. Must be specified to enable the profiler.
-        prof_event_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.        prof_skip_first (int, optional): See :class:`.Trainer`.        prof_wait (int, optional): See :class:`.Trainer`.
+        prof_event_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.
+        prof_skip_first (int, optional): See :class:`.Trainer`.        prof_wait (int, optional): See :class:`.Trainer`.
 
         sys_prof_cpu (bool, optional): See :class:`.Trainer`.
         sys_prof_memory (bool, optional): See :class:`.Trainer`.
@@ -325,22 +326,25 @@ class TrainerHparams(hp.Hparams):
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
         leave blank. This parameter has no effect if `load_path` is not specified."""),
                                                                   default=None)
-    load_weights_only: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to only load the weights from the model.
-        This parameter has no effect if `load_path`is not specified."""),
-                                          default=False)
+    load_only_weights_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
+        If specified, the path to an existing checkpoint file
+        (if the checkpoint is on the local disk) or the object name for the checkpoint
+        (if the checkpoint is in a cloud bucket) to load only the weights. 
+        Set to None (the default) to skip loading from a checkpoint.
+        Ignored if `load_path` is specified and exists"""),
+                                              default=None)
     load_strict_model_weights: bool = hp.optional(doc=textwrap.dedent("""\
         Ensure that the set of checkpoint weights in the checkpoint and model must exactly match.
-        This parameter has no effect if `load_path` is not specified."""),
+        This parameter has no effect if `load_path` or `load_only_weights_path` are not specified."""),
                                                   default=False)
 
     load_chunk_size: int = hp.optional(doc=textwrap.dedent("""\
         Chunk size (in bytes) to use when downloading checkpoints.
-        This parameter has no effect if `load_path` is not specified or it is a local file path."""),
+        This parameter has no effect if `load_path` or `load_only_weights_path` are not specified or are is a local file path."""),
                                        default=1_048_576)
     load_progress_bar: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to show a progress bar when downloading checkpoints.
-        This parameter has no effect if `load_path` is not specified or it is a local file path."""),
+        This parameter has no effect if `load_path` or `load_only_weights_path` are not specified or are is a local file path."""),
                                           default=True)
 
     # save checkpoint
@@ -593,7 +597,7 @@ class TrainerHparams(hp.Hparams):
             # Checkpoint parameters
             load_path=self.load_path,
             load_object_store=None if self.load_object_store is None else self.load_object_store.initialize_object(),
-            load_weights_only=self.load_weights_only,
+            load_only_weights_path=self.load_only_weights_path,
             load_strict=self.load_strict_model_weights,
             load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,

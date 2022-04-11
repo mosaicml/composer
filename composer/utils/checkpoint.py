@@ -12,6 +12,7 @@ import shutil
 import tarfile
 import tempfile
 import textwrap
+import warnings
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import torch
@@ -50,6 +51,7 @@ def _format_path_with_current_rank(path: str) -> str:
         node_rank=dist.get_node_rank(),
     )
 
+
 def _format_path_with_rank_zero(path: str) -> str:
     """Formats ``path`` formatted with rank values of 0."""
     return path.format(
@@ -78,6 +80,7 @@ def load_checkpoint(
     object_store: Optional[ObjectStore] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
+    error_on_failure: bool = True,
     chunk_size: int = 1_048_576,
     progress_bar: bool = True,
 ):
@@ -127,6 +130,8 @@ def load_checkpoint(
             restoring the associated state. (default: ``False``)
         strict_model_weights (bool, optional): Whether or not to force that the checkpointed weights must exactly
             match the model weights. (default: ``False``)
+        error_on_failure (bool, optional): Whether or not to raise FileNotFoundExceptions to user level, or otherwise
+            catch errors and emit a warning. (default: ``True``)
         chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``1_048_576`` bytes (1 MB))
         progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
@@ -140,23 +145,35 @@ def load_checkpoint(
     tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
     with tempdir_ctx as tempdir:
         try:
+            # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
             node_checkpoint_folder = _get_node_checkpoint_download_folder(tempdir)
-            # download any effective symlinks
-            if path.endswith(".symlink"):
-                _download_symlinks(
+            try:
+                # download any effective symlinks
+                if path.endswith(".symlink"):
+                    _download_symlinks(
+                        path=path,
+                        node_checkpoint_folder=node_checkpoint_folder,
+                        object_store=object_store,
+                        chunk_size=chunk_size,
+                        progress_bar=progress_bar,
+                    )
+                composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = _download_checkpoint(
                     path=path,
                     node_checkpoint_folder=node_checkpoint_folder,
                     object_store=object_store,
                     chunk_size=chunk_size,
                     progress_bar=progress_bar,
                 )
-            composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = _download_checkpoint(
-                path=path,
-                node_checkpoint_folder=node_checkpoint_folder,
-                object_store=object_store,
-                chunk_size=chunk_size,
-                progress_bar=progress_bar,
-            )
+            except GetFileNotFoundException as e:
+                # GLOBAL rank zero checkpoint was not found as this is the only ``get_file``` call not wrapped in try
+                # except. In this case, abort restoring checkpoints. If error_on_failure, we reraise this error, or
+                # otherwise emit a warning and abort restoring checkpoint but continue onward.
+                if error_on_failure:
+                    raise e
+                else:
+                    warnings.warn(f"Required files not found for {path}, skipping loading checkpoint")
+                    return
+
             rng_state_dicts = _restore_checkpoint(
                 state,
                 composer_states_filepath,

@@ -260,6 +260,10 @@ class Trainer:
             Then, ``load_path`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load the
             correct state.
 
+            If using graceful resumption, this path will be used to load weights following preemption. Since missing
+            checkpoints are ignored with a warning, to enable graceful resumption, set ``load_path`` to
+            ``{save_folder}/{save_latest}``.
+
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
         load_object_store (ObjectStore, optional): If the ``load_path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` which
@@ -306,8 +310,41 @@ class Trainer:
 
                 trainer.engine.close()
 
-        load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
-            restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
+        load_only_weights_path (str, optional): The path format to an existing checkpoint file where only weights
+            are loaded without restoring the associated state.
+
+            It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
+            for a checkpoint in a cloud bucket.
+
+            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
+            Instead of hard-coding the rank in the ``path``, use the following format variables:
+
+            +------------------------+-------------------------------------------------------+
+            | Variable               | Description                                           |
+            +========================+=======================================================+
+            | ``{rank}``             | The global rank, as returned by                       |
+            |                        | :func:`~.dist.get_global_rank`.                       |
+            +------------------------+-------------------------------------------------------+
+            | ``{local_rank}``       | The local rank of the process, as returned by         |
+            |                        | :func:`~.dist.get_local_rank`.                        |
+            +------------------------+-------------------------------------------------------+
+            | ``{node_rank}``        | The node rank, as returned by                         |
+            |                        | :func:`~.dist.get_node_rank`.                         |
+            +------------------------+-------------------------------------------------------+
+
+            For example, suppose that checkpoints are stored in the following structure:
+
+            .. code-block::
+
+                my_model/ep1-rank0.tar
+                my_model/ep1-rank1.tar
+                my_model/ep1-rank2.tar
+                ...
+
+            Then, ``load_only_weights_path`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load
+            the correct weights.
+
+            Ignored if ``load_path`` is provided and the checkpoint at that path exists. (default: ``None``)
         load_strict (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
             Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
@@ -487,7 +524,7 @@ class Trainer:
         # load checkpoint
         load_path: Optional[str] = None,
         load_object_store: Optional[ObjectStore] = None,
-        load_weights_only: bool = False,
+        load_only_weights_path: str = None,
         load_strict: bool = False,
         load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
@@ -836,15 +873,30 @@ class Trainer:
         # DDP.
 
         self._rng_state = None
+        # First try to load from ``load_path``.
         if load_path is not None:
+            # Set error_on_failure to False, so we emit a warning and continue if the checkpoint is
+            # missing. This is required for graceful resumption support, where the "latest" checkpoint
+            # will not exist at start of training.
             self._rng_state = load_checkpoint(state=self.state,
                                               path=load_path,
                                               object_store=load_object_store,
-                                              load_weights_only=load_weights_only,
+                                              load_weights_only=False,
                                               strict_model_weights=load_strict,
+                                              error_on_failure=False,
                                               chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
             reproducibility.seed_all(self.state.seed)
+        # If ``load_path`` is not specified or failed, next try ``load_only_weights_path``.
+        if load_only_weights_path is not None and self._rng_state is None:
+            load_checkpoint(state=self.state,
+                            path=load_only_weights_path,
+                            object_store=load_object_store,
+                            load_weights_only=True,
+                            strict_model_weights=load_strict,
+                            error_on_failure=True,
+                            chunk_size=load_chunk_size,
+                            progress_bar=load_progress_bar)
 
         if not self.deepspeed_enabled:
             host_model_params = self.state.model.parameters()
