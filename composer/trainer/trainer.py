@@ -260,11 +260,13 @@ class Trainer:
             Then, ``load_path`` should be set to ``my_model/ep1-rank{rank}.tar``, and all ranks will load the
             correct state.
 
-            If using graceful resumption, this path will be used to load weights following preemption. Since missing
-            checkpoints are ignored with a warning, to enable graceful resumption, set ``load_path`` to
-            ``{save_folder}/{save_latest}``.
+            If using graceful resumption, this path will be used to load weights following preemption. To enable graceful
+            resumption, set ``load_path`` to ``{save_folder}/{save_latest}`` and set ``load_ignore_missing_checkpoint`` to ``True``.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
+        load_ignore_missing_checkpoint (bool, optional): Whether or not to ignore missing checkpoint on ``load_path``. If using
+            graceful resumption, this should be set to ``True`` and ``load_path`` set to ``{save_folder}/{save_latest}``.
+            (default: ``False``)
         load_object_store (ObjectStore, optional): If the ``load_path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` which
             will be used to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath,
@@ -523,8 +525,9 @@ class Trainer:
 
         # load checkpoint
         load_path: Optional[str] = None,
+        load_ignore_missing_checkpoint: bool = False,
         load_object_store: Optional[ObjectStore] = None,
-        load_only_weights_path: str = None,
+        load_only_weights_path: Optional[str] = None,
         load_strict: bool = False,
         load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
@@ -875,7 +878,7 @@ class Trainer:
         self._rng_state = None
         # First try to load from ``load_path``.
         if load_path is not None:
-            # Set error_on_failure to False, so we emit a warning and continue if the checkpoint is
+            # If load_ignore_missing_checkpoint is False, we emit a warning and continue if the checkpoint is
             # missing. This is required for graceful resumption support, where the "latest" checkpoint
             # will not exist at start of training.
             self._rng_state = load_checkpoint(state=self.state,
@@ -883,7 +886,7 @@ class Trainer:
                                               object_store=load_object_store,
                                               load_weights_only=False,
                                               strict_model_weights=load_strict,
-                                              error_on_failure=False,
+                                              load_ignore_missing_checkpoint=load_ignore_missing_checkpoint,
                                               chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
             reproducibility.seed_all(self.state.seed)
@@ -894,7 +897,7 @@ class Trainer:
                             object_store=load_object_store,
                             load_weights_only=True,
                             strict_model_weights=load_strict,
-                            error_on_failure=True,
+                            load_ignore_missing_checkpoint=False,
                             chunk_size=load_chunk_size,
                             progress_bar=load_progress_bar)
 

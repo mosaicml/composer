@@ -80,7 +80,7 @@ def load_checkpoint(
     object_store: Optional[ObjectStore] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
-    error_on_failure: bool = True,
+    load_ignore_missing_checkpoint: bool = True,
     chunk_size: int = 1_048_576,
     progress_bar: bool = True,
 ):
@@ -130,8 +130,8 @@ def load_checkpoint(
             restoring the associated state. (default: ``False``)
         strict_model_weights (bool, optional): Whether or not to force that the checkpointed weights must exactly
             match the model weights. (default: ``False``)
-        error_on_failure (bool, optional): Whether or not to raise FileNotFoundExceptions to user level, or otherwise
-            catch errors and emit a warning. (default: ``True``)
+        load_ignore_missing_checkpoint (bool, optional): Whether or not to ignore missing files and emit a warning or otherwise
+            raise FileNotFoundExceptions to user level. (default: ``True``)
         chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``1_048_576`` bytes (1 MB))
         progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
@@ -166,9 +166,9 @@ def load_checkpoint(
                 )
             except GetFileNotFoundException as e:
                 # GLOBAL rank zero checkpoint was not found as this is the only ``get_file``` call not wrapped in try
-                # except. In this case, abort restoring checkpoints. If error_on_failure, we reraise this error, or
+                # except. In this case, abort restoring checkpoints. If load_ignore_missing_checkpoint, we reraise this error, or
                 # otherwise emit a warning and abort restoring checkpoint but continue onward.
-                if error_on_failure:
+                if not load_ignore_missing_checkpoint:
                     raise e
                 else:
                     warnings.warn(f"Required files not found for {path}, skipping loading checkpoint")
