@@ -6,14 +6,18 @@ The MNIST dataset is a collection of labeled 28x28 black and white images of han
 See the `wikipedia entry <https://en.wikipedia.org/wiki/MNIST_database>`_ for more details.
 """
 
+import os
 from dataclasses import dataclass
 
+import numpy as np
 import yahp as hp
+from PIL import Image
 from torchvision import datasets, transforms
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
+from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
+from composer.datasets.streaming import StreamingBatchPairDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 
@@ -56,6 +60,58 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         return dataloader_hparams.initialize_object(dataset=dataset,
                                                     batch_size=batch_size,
                                                     sampler=sampler,
+                                                    drop_last=self.drop_last)
+
+
+class StreamingMNIST(StreamingBatchPairDataset):
+    """Streaming MNIST."""
+
+    @classmethod
+    def decode_image(cls, data: bytes) -> Any:
+        arr = np.frombuffer(data, np.uint8)
+        arr = arr.reshape(28, 28)
+        return Image.fromarray(arr)
+
+    @classmethod
+    def decode_class(cls, data: bytes) -> Any:
+        return np.frombuffer(data, np.int64)[0]
+
+    decoders = {
+        'x': decode_image,
+        'y': decode_class,
+    }
+
+    def __init__(self, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
+        super().__init__(remote, local, self.decoders, shuffle, transforms, transform, target_transform)
+
+    @classmethod
+    def split(cls, split, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
+        remote = os.path.join(remote, split)
+        local = os.path.join(local, split)
+        return cls(remote, local, shuffle, transforms, transform, target_transform)
+
+
+@dataclass
+class StreamingMNISTHparams(StreamingDatasetHparams):
+    """Streaming MNIST hyperparameters.
+
+    Args
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+    """
+
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-mnist/mds/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-mnist/')
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+        split = 'train' if self.is_train else 'val'
+        transform = transforms.ToTensor()
+        dataset = StreamingMNIST.split(split, self.remote, self.local, self.shuffle, transform=transform)
+        return dataloader_hparams.initialize_object(dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=None,
                                                     drop_last=self.drop_last)
 
 

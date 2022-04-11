@@ -7,22 +7,22 @@ The CIFAR datasets are a collection of labeled 32x32 colour images. Please refer
 """
 
 import logging
-import numpy as np
 import os
-from PIL import Image
 import textwrap
 from dataclasses import dataclass
-from typing import List
+from typing import Any, List
 
+import numpy as np
 import torch
 import yahp as hp
+from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, StreamingDatasetHparams, WebDatasetHparams
+from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMiin, WebDatasetHparams
 from composer.datasets.streaming import StreamingBatchPairDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
@@ -180,12 +180,14 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class StreamingCIFAR(StreamingBatchPairDataset):
     """Streaming CIFAR."""
 
-    def decode_image(data):
+    @classmethod
+    def decode_image(cls, data: bytes) -> Any:
         arr = np.frombuffer(data, np.uint8)
         arr = arr.reshape(32, 32, 3)
         return Image.fromarray(arr)
 
-    def decode_class(data):
+    @classmethod
+    def decode_class(cls, data: bytes) -> Any:
         return np.frombuffer(data, np.int64)[0]
 
     decoders = {
@@ -213,8 +215,7 @@ class StreamingCIFAR10Hparams(StreamingDatasetHparams):
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              #default='s3://mosaic-internal-dataset-cifar10/mds/')
-                              default='/datasets/mds-cifar10/')
+                              default='s3://mosaicml-internal-dataset-cifar10/mds/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-cifar10/')
 
