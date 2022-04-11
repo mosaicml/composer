@@ -242,7 +242,7 @@ def _download_checkpoint(
     rank_n_checkpoint_filepath = os.path.join(node_checkpoint_folder, f"rank{dist.get_global_rank()}_checkpoint")
     extracted_checkpoint_folder = None
     extracted_rank_n = False
-    if is_tar(path):
+    if is_tar(_follow_symlink(_format_path_with_rank_zero(path), node_checkpoint_folder, 0)):
         extracted_checkpoint_folder = os.path.join(node_checkpoint_folder, "checkpoint")
         composer_states_filepath = os.path.join(extracted_checkpoint_folder, _COMPOSER_STATES_FILENAME)
     else:
