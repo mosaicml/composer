@@ -7,22 +7,22 @@ The CIFAR datasets are a collection of labeled 32x32 colour images. Please refer
 """
 
 import logging
-import numpy as np
 import os
-from PIL import Image
 import textwrap
 from dataclasses import dataclass
 from typing import Any, List
 
+import numpy as np
 import torch
 import yahp as hp
+from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, StreamingDatasetHparams, WebDatasetHparams
+from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMiin, WebDatasetHparams
 from composer.datasets.streaming import StreamingBatchPairDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist

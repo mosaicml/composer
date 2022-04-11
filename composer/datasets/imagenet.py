@@ -7,17 +7,17 @@ Dataset <http://image-net.org/>`_ for more details. Also includes streaming data
 <https://github.com/webdataset/webdataset>`_.
 """
 
-from io import BytesIO
-import numpy as np
 import os
 import textwrap
 from dataclasses import dataclass
-from PIL import Image
+from io import BytesIO
 from typing import Any, List
 
+import numpy as np
 import torch
 import torch.utils.data
 import yahp as hp
+from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 

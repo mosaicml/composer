@@ -6,12 +6,12 @@ The MNIST dataset is a collection of labeled 28x28 black and white images of han
 See the `wikipedia entry <https://en.wikipedia.org/wiki/MNIST_database>`_ for more details.
 """
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 
 import numpy as np
-from PIL import Image
 import yahp as hp
+from PIL import Image
 from torchvision import datasets, transforms
 
 from composer.core.types import DataLoader

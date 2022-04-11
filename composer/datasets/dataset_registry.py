@@ -10,9 +10,8 @@ from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHpa
                                      StreamingCIFAR100Hparams)
 from composer.datasets.coco import COCODatasetHparams
 from composer.datasets.glue import GLUEHparams
-from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams,
-                                        StreamingImagenet1kHparams, StreamingTinyImagenet200Hparams,
-                                        TinyImagenet200WebDatasetHparams)
+from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams, StreamingImagenet1kHparams,
+                                        StreamingTinyImagenet200Hparams, TinyImagenet200WebDatasetHparams)
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams, StreamingMNISTHparams
 
