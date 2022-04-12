@@ -89,7 +89,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
         if self.split is None:
             raise ValueError("A dataset split must be specified.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:  # type: ignore
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
         try:
             import datasets
