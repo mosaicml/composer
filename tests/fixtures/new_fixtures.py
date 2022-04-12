@@ -18,10 +18,9 @@ def minimal_state(rank_zero_seed: int):
     state = State(
         model=SimpleModel(),
         rank_zero_seed=rank_zero_seed,
-        evaluators=[],
         max_duration='100ep',
     )
-    state.dataloader = DataLoader(RandomClassificationDataset())
+    state.set_dataloader(DataLoader(RandomClassificationDataset()), "train")
     return state
 
 

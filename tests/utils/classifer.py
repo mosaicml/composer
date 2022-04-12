@@ -5,10 +5,8 @@ from typing import Optional, Sequence
 import torch
 import torch.nn.functional as F
 from torch.optim import SGD, Optimizer
-from torchmetrics import MetricCollection
-from torchmetrics.classification.accuracy import Accuracy
 
-from composer.core import Algorithm, Engine, Evaluator, Event, Precision, State
+from composer.core import Algorithm, Engine, Event, Precision, State
 from composer.core.types import DataLoader
 from composer.loggers import Logger
 from tests.utils.model import SimpleModel
@@ -16,18 +14,15 @@ from tests.utils.model import SimpleModel
 
 def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, rank_zero_seed: int):
     model = SimpleModel()
-    metric_coll = MetricCollection([Accuracy()])
-    evaluators = [Evaluator(label="dummy_label", dataloader=eval_dataloader, metrics=metric_coll)]
     state = State(
         model=model,
         rank_zero_seed=rank_zero_seed,
         optimizers=SGD(model.parameters(), lr=.001, momentum=0.0),
         max_duration="1ep",
-        evaluators=evaluators,
         grad_accum=1,
         precision=Precision.FP32,
     )
-    state.dataloader = train_dataloader
+    state.set_dataloader(train_dataloader, "train")
     return state
 
 

@@ -224,13 +224,15 @@ class Time(Generic[TValue]):
         # parse ``other`` into a Time object
         if isinstance(other, Time):
             return other
+        if isinstance(other, int):
+            return Time(other, self.unit)
         if isinstance(other, str):
             other_parsed = Time.from_timestring(other)
             warnings.warn(
                 textwrap.dedent(f"""\
                     TimeImplicitStringConversion:
-                    Implicitly converting {other} to {other_parsed}.
-                    To fix this warning, replace {other} with {other_parsed}."""))
+                    Implicitly converting '{other}' to '{repr(other_parsed)}'.
+                    To fix this warning, replace '{other}' with '{repr(other_parsed)}'."""))
             return other_parsed
 
         raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")

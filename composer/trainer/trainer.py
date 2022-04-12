@@ -451,13 +451,12 @@ class Trainer:
         self,
         *,
         model: ComposerModel,
-        train_dataloader: Union[DataLoader, DataSpec],  # TODO move param to fit()
-        max_duration: Union[int, str, Time],  # TODO move param to fit()
-        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator,
-                                        Sequence[Evaluator]]] = None,  # TODO move param to fit()
-        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,  # TODO move param to fit()
-        optimizers: Optional[torch.optim.Optimizer] = None,  # TODO move param to fit()
-        schedulers: Optional[Union[ComposerScheduler, Sequence[ComposerScheduler]]] = None,  # TODO move param to fit()
+        train_dataloader: Union[DataLoader, DataSpec],
+        max_duration: Union[int, str, Time],
+        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
+        optimizers: Optional[torch.optim.Optimizer] = None,
+        schedulers: Optional[Union[ComposerScheduler, Sequence[ComposerScheduler]]] = None,
 
         # device
         device: Optional[Union[str, Device]] = None,
@@ -465,12 +464,12 @@ class Trainer:
         # training hparams
         grad_accum: int = 1,
         grad_clip_norm: Optional[float] = None,
-        validate_every_n_batches: int = -1,  # TODO move param to fit()
-        validate_every_n_epochs: int = 1,  # TODO move param to fit()
-        compute_training_metrics: bool = False,  # TODO move param to fit()
+        validate_every_n_batches: int = -1,
+        validate_every_n_epochs: int = 1,
+        compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
-        scale_schedule_ratio: float = 1.0,  # TODO move param to fit()
-        step_schedulers_every_batch: Optional[bool] = None,  # TODO move param to fit()
+        scale_schedule_ratio: float = 1.0,
+        step_schedulers_every_batch: Optional[bool] = None,
 
         # dist hparams
         dist_timeout: float = 300.0,
@@ -504,11 +503,11 @@ class Trainer:
         save_num_checkpoints_to_keep: int = -1,
 
         # subset parameters
-        train_subset_num_batches: Optional[int] = None,  # TODO move param to fit()
-        eval_subset_num_batches: Optional[int] = None,  # TODO move param to fit()
+        train_subset_num_batches: Optional[int] = None,
+        eval_subset_num_batches: Optional[int] = None,
 
         # DeepSpeed
-        deepspeed_config: Union[bool, Dict[str, Any]] = False,  # TODO move param to fit()
+        deepspeed_config: Union[bool, Dict[str, Any]] = False,
 
         # profiling
         prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
@@ -670,7 +669,6 @@ class Trainer:
             grad_accum=grad_accum,
             precision=precision,
             precision_context=precision_context,
-            evaluators=self.evaluators,
             optimizers=optimizers,
         )
 
@@ -930,7 +928,7 @@ class Trainer:
         """
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
-        for evaluator in self.state.evaluators:
+        for evaluator in self.evaluators:
             dataloader = evaluator.dataloader.dataloader
             # FFCV dataloaders use their own sampling strategy
             if isinstance(dataloader, torch.utils.data.DataLoader) and isinstance(dataloader.sampler,
@@ -969,8 +967,10 @@ class Trainer:
 
         if self.state.dataloader is None:
             # If the dataloader is not already set on State, then set it from what was passed in on init
-            self.state.dataloader = self._train_data_spec.dataloader
+            self.state.set_dataloader(self._train_data_spec.dataloader, "train")
             self.state.dataloader_len = self.train_subset_num_batches
+
+        assert self.state.dataloader is not None
 
         for scheduler in ensure_tuple(self._schedulers):
             if isinstance(scheduler, PyTorchScheduler):
@@ -1250,13 +1250,15 @@ class Trainer:
 
         # back up the original dataloader on the state, so we can restore it after evaluation is finished
         original_dataloader = self.state.dataloader
+        original_dataloader_label = self.state.dataloader_label
         original_num_batches = self.state.dataloader_len
 
         self.state.model.eval()
         with torch.no_grad():
 
-            for evaluator in self.state.evaluators:
-                self.state.dataloader = evaluator.dataloader.dataloader
+            for evaluator in self.evaluators:
+                self.state.set_dataloader(evaluator.dataloader.dataloader, evaluator.label)
+                assert self.state.dataloader is not None, "dataloader is set"
                 self.state.dataloader_len = self.eval_subset_num_batches
 
                 self.engine.run_event(Event.EVAL_START)
@@ -1306,7 +1308,7 @@ class Trainer:
         if restore_model_train:
             self.state.model.train()
 
-        self.state.dataloader = original_dataloader
+        self.state.set_dataloader(original_dataloader, original_dataloader_label)
         self.state.dataloader_len = original_num_batches
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:

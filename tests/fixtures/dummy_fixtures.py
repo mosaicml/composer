@@ -7,10 +7,8 @@ import pytest
 import torch
 import torch.utils.data
 from torch.optim import Optimizer
-from torchmetrics import MetricCollection
-from torchmetrics.classification.accuracy import Accuracy
 
-from composer.core import DataSpec, Evaluator, Precision, State
+from composer.core import DataSpec, Precision, State
 from composer.core.types import DataLoader, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.loggers import Logger
@@ -102,21 +100,17 @@ def dummy_scheduler(dummy_optimizer: Optimizer):
 
 @pytest.fixture()
 def dummy_state(dummy_model: SimpleBatchPairModel, dummy_train_dataloader: DataLoader, dummy_optimizer: Optimizer,
-                dummy_scheduler: PyTorchScheduler, dummy_val_dataloader: DataLoader, rank_zero_seed: int) -> State:
-    evaluators = [
-        Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=dummy_model.metrics(train=False))
-    ]
+                dummy_scheduler: PyTorchScheduler, rank_zero_seed: int) -> State:
     state = State(
         model=dummy_model,
         precision=Precision.FP32,
         grad_accum=1,
         rank_zero_seed=rank_zero_seed,
-        evaluators=evaluators,
         optimizers=dummy_optimizer,
         max_duration="10ep",
     )
     state.schedulers = dummy_scheduler
-    state.dataloader = dummy_train_dataloader
+    state.set_dataloader(dummy_train_dataloader, "train")
 
     return state
 
@@ -220,19 +214,15 @@ def simple_conv_model_input():
 
 
 @pytest.fixture()
-def state_with_model(simple_conv_model: torch.nn.Module, dummy_train_dataloader: DataLoader,
-                     dummy_val_dataloader: DataLoader, rank_zero_seed: int):
-    metric_coll = MetricCollection([Accuracy()])
-    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
+def state_with_model(simple_conv_model: torch.nn.Module, dummy_train_dataloader: DataLoader, rank_zero_seed: int):
     state = State(
         grad_accum=1,
         rank_zero_seed=rank_zero_seed,
         max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,
-        evaluators=evaluators,
     )
-    state.dataloader = dummy_train_dataloader
+    state.set_dataloader(dummy_train_dataloader, "train")
 
     return state
 

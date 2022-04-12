@@ -212,8 +212,8 @@ class TestColOutAlgorithm:
         original_image, _ = dataset[0]
         assert isinstance(original_image, Image.Image)
 
-        minimal_state.dataloader = dataloader
-        colout_algorithm.apply(Event.INIT, minimal_state, empty_logger)
+        minimal_state.set_dataloader(dataloader, "train")
+        colout_algorithm.apply(Event.FIT_START, minimal_state, empty_logger)
 
         new_image, _ = dataset[0]
         assert isinstance(new_image, Image.Image)

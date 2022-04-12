@@ -20,14 +20,13 @@ def _generate_state(epoch: int, max_epochs: int):
                   optimizers=torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),
                   precision=Precision.FP32,
                   grad_accum=1,
-                  evaluators=Mock(),
                   max_duration=f'{max_epochs}ep')
 
     # fast forward by epochs
     for _ in range(epoch):
         state.timer.on_epoch_complete()
 
-    state.dataloader = Mock(__len__=lambda x: 100)
+    state.set_dataloader(Mock(__len__=lambda x: 100), "train")
 
     return state
 

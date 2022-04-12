@@ -28,7 +28,7 @@ def dummy_schedulers_state(dummy_model: torch.nn.Module, rank_zero_seed: int):
         rank_zero_seed=rank_zero_seed,
         max_duration=MAX_DURATION,
     )
-    state.dataloader = cast(torch.utils.data.DataLoader, [None] * STEPS_PER_EPOCH)
+    state.set_dataloader(cast(torch.utils.data.DataLoader, [None] * STEPS_PER_EPOCH), "train")
     return state
 
 

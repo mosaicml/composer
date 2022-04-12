@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     import composer.core.types as types
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
-    from composer.core.evaluator import Evaluator
     from composer.profiler import Profiler
 
 __all__ = ["State"]
@@ -96,9 +95,14 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         grad_accum (int): The number of gradient accumulation steps to use. With this argument, micro batch size for
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
-        evaluators (evaluator.Evaluator | Sequence[evaluator.Evaluator]):
-            The evaluators contain the evaluation dataset(s) used for evaluation with specific metrics.
-        max_duration (str or Time): The maximum duration to train for.
+        dataloader (types.DataLoader, optional): The active DataLoader.
+        dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
+            The trainer will yield the first ``dataloader_len`` batches per iteration. If ``None`` (the default),
+            the entire dataloader will be iterated over.
+        dataloader_label (str, optional): The name for the dataloader. Required if ``dataloader`` is specified. (default: ``None``)
+            By convention, the training dataloader is called ``'train'``. The evaluator dataloader is called
+            ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
+        max_duration (str | Time): The maximum duration to train for.
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
         precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
@@ -145,6 +149,9 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
     """
 
+    _dataloader: Optional[types.DataLoader]
+    _dataloader_label: Optional[str]
+    _dataloader_len: Optional[Time[int]]
     _max_duration: Time[int]
     batch: types.Batch
     batch_num_samples: int
@@ -163,8 +170,10 @@ class State(Serializable):
         rank_zero_seed: int,
 
         # data configurations
-        evaluators: Optional[Union[Evaluator, Sequence[Evaluator]]] = None,
         grad_accum: int = 1,
+        dataloader: Optional[types.DataLoader] = None,
+        dataloader_label: Optional[str] = None,
+        dataloader_len: Optional[Union[int, Time[int]]] = None,
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
@@ -183,9 +192,8 @@ class State(Serializable):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.grad_accum = grad_accum
-        self._dataloader: Optional[types.DataLoader] = None
-        self._dataloader_len: Optional[Time[int]] = None
-        self.evaluators = list(ensure_tuple(evaluators))
+        self.set_dataloader(dataloader, dataloader_label, dataloader_len)
+        self.dataloader_len = dataloader_len
         self.max_duration = max_duration
 
         self.timer = Timer()
@@ -364,11 +372,36 @@ class State(Serializable):
     def dataloader(self):
         """The dataloader."""
         return self._dataloader
-    
-    @dataloader.setter
-    def dataloader(self, dataloader: Optional[types.DataLoader]):
+
+    @property
+    def dataloader_label(self):
+        """The dataloader label. By convention, the training dataloader is called ``'train'``. The evaluator dataloader
+        is called ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
+
+        Returns:
+            Optional[str]: The dataloader label, or None if no dataloader is set.
+        """
+        return self._dataloader_label
+
+    def set_dataloader(
+        self,
+        dataloader: Optional[types.DataLoader] = None,
+        dataloader_label: Optional[str] = None,
+        dataloader_len: Optional[Union[int, Time[int]]] = None,
+    ):
+        """Update the dataloader and dataloader label.
+
+        Args:
+            dataloader (types.DataLoader, optional): The dataloader. Defaults to None.
+            dataloader_label (str, optional): The dataloader label. Must be ``None`` if and only if
+                ``dataloader`` is None. Defaults to None.
+            dataloader_len (int, int):
+        """
+        if (dataloader == None) != (dataloader_label == None):
+            raise ValueError("Both `dataloader` and `dataloader_label` should be None, or neither should be None.")
         self._dataloader = dataloader
-        self.dataloader_len = None  # setting it to None will do a failsafe read of len(dataloader)
+        self._dataloader_label = dataloader_label
+        self.dataloader_len = dataloader_len  # setting it to None will do a failsafe read of len(dataloader)
 
     @property
     def dataloader_len(self):
@@ -385,6 +418,9 @@ class State(Serializable):
         if isinstance(num_batches, int):
             num_batches = Time(num_batches, TimeUnit.BATCH)
         if self._dataloader is None:
+            if num_batches is None:
+                self._dataloader_len = None
+                return
             raise RuntimeError("`State.dataloader_len` cannot be set if the dataloader is not defined.")
         try:
             dataloader_len = len(self._dataloader)

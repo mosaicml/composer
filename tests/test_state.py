@@ -29,14 +29,13 @@ def get_dummy_state(model: ComposerModel, train_dataloader: DataLoader, val_data
                   rank_zero_seed=random.randint(0, 100),
                   precision=Precision.AMP,
                   max_duration=f"{random.randint(0, 100)}ep",
-                  evaluators=evaluators,
                   optimizers=optimizers,
                   algorithms=[ChannelsLastHparams().initialize_object()])
     state.schedulers = torch.optim.lr_scheduler.StepLR(optimizers, step_size=3)
     state.loss = random_tensor()
     state.batch = (random_tensor(), random_tensor())
     state.outputs = random_tensor()
-    state.dataloader = train_dataloader
+    state.set_dataloader(train_dataloader, "train")
     return state
 
 
