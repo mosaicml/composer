@@ -184,6 +184,7 @@ RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
     sudo pip${PYTHON_VERSION} install --no-cache-dir mmcv-full==1.4.4 -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir 'mmsegmentation>=0.22.0,<0.23'
 
+
 FROM pytorch_stage AS mofed_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -196,4 +197,5 @@ ARG MOFED_OS_VERSION
 
 RUN wget http://content.mellanox.com/ofed/${MOFED_VERSION}/${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
 RUN tar -zxvf ${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
-RUN ${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force
+RUN sudo ${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force
+RUN rm -rf ${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz ${MOFED_VERSION}-${MOFED_OS_VERSION}
