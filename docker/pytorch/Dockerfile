@@ -195,7 +195,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG MOFED_VERSION
 ARG MOFED_OS_VERSION
 
-RUN wget http://content.mellanox.com/ofed/${MOFED_VERSION}/${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
-RUN tar -zxvf ${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
-RUN ${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force
-RUN rm -rf ${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz ${MOFED_VERSION}-${MOFED_OS_VERSION}
+RUN wget http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
+RUN tar -zxvf MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
+RUN sudo MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force
+RUN rm -rf MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}
