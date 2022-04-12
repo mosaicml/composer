@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import collections.abc
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 
@@ -99,22 +98,14 @@ class ProgressBarLogger(LoggerDestination):
         if dist.get_global_rank() != 0:
             return
         assert self.is_train is not None, "self.is_train should be set by the callback"
-        assert state.dataloader is not None, "dataloader should be set when using tqdm"
-        if self.is_train:
-            total_steps = len(state.dataloader)
-        else:
-            total_steps = 0
-            for evaluator in state.evaluators:
-                dataloader_spec = evaluator.dataloader
-                assert isinstance(dataloader_spec.dataloader, collections.abc.Sized)
-                total_steps += len(dataloader_spec.dataloader)
+        assert state.dataloader_len is not None, "dataloader_len should be set when using tqdm"
 
         desc = f'Epoch {int(state.timer.epoch)}'
         position = 0 if self.is_train else 1
         if not self.is_train:
             desc += f", Batch {int(state.timer.batch)} (val)"
         self.pbars[self.is_train] = _ProgressBarLoggerInstance(
-            _ProgressBarLoggerInstanceState(total=total_steps,
+            _ProgressBarLoggerInstanceState(total=state.dataloader_len,
                                             position=position,
                                             n=0,
                                             keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],

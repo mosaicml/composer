@@ -237,7 +237,9 @@ class SeqLengthWarmup(Algorithm):
             self._activated = True
 
         if state.max_duration.unit == TimeUnit.EPOCH:
-            num_optimization_steps = len(state.dataloader) * state.max_duration.value
+            if state.dataloader_len is None:
+                raise RuntimeError("Sequential Length Warmup requires the dataloader to be sized.")
+            num_optimization_steps = int(state.dataloader_len) * state.max_duration.value
         elif state.max_duration.unit == TimeUnit.BATCH:
             num_optimization_steps = state.max_duration.value
         else:

@@ -131,19 +131,19 @@ def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: f
         time = Time.from_timestring(time)
 
     if time.unit == TimeUnit.DURATION:
-        if state.dataloader is None:
-            raise RuntimeError("Cannot convert time, as state.dataloader is None.")
+        if state.dataloader_len is None:
+            raise RuntimeError("Cannot convert time, as state.dataloader_len is None.")
         if state.max_duration.unit == TimeUnit.EPOCH:
-            return Time(int(time.value * len(state.dataloader) * state.max_duration.value), TimeUnit.BATCH)
+            return Time(int(time.value * state.dataloader_len * state.max_duration.value), TimeUnit.BATCH)
         return Time(int(time.value * state.max_duration.value), state.max_duration.unit)
 
     if time.unit == TimeUnit.EPOCH:
         # Epochs do not provide sufficient granularity for SSR scaling
         # e.g. if max_duration = 1ep, then any SSR would result in a new duration of 0.
         # so, convert the time into batches
-        if state.dataloader is None:
-            raise RuntimeError("Cannot convert time, as state.dataloader is None.")
-        time = Time(value=time.value * len(state.dataloader), unit=TimeUnit.BATCH)
+        if state.dataloader_len is None:
+            raise RuntimeError("Cannot convert time, as state.dataloader_len is None.")
+        time = Time(value=time.value * state.dataloader_len, unit=TimeUnit.BATCH)
 
     return Time(value=int(time.value * ssr), unit=time.unit)
 

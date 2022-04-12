@@ -232,8 +232,8 @@ class TestStochasticDepthDropRate:
         self.get_drop_rate_list(state.model, drop_rates=new_drop_rates)
 
         assert state.max_duration.unit == TimeUnit.EPOCH
-        assert state.dataloader is not None
-        drop_warmup_iters = int(len(state.dataloader) * int(state.max_duration.value) * algorithm.drop_warmup)
+        assert state.dataloader_len is not None
+        drop_warmup_iters = int(int(state.dataloader_len) * int(state.max_duration.value) * algorithm.drop_warmup)
         assert torch.all(torch.tensor(new_drop_rates) == ((step / drop_warmup_iters) * torch.tensor(old_drop_rates)))
 
 

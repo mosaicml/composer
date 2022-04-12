@@ -112,7 +112,6 @@ class State(Serializable):
         profiler (Optional[Profiler]): The Composer profiler.
 
     Attributes:
-        dataloader (types.DataLoader): The active :class:`~.types.DataLoader`.
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
         batch_num_samples (int): The number of samples in the :attr:`batch`.
@@ -187,7 +186,8 @@ class State(Serializable):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.grad_accum = grad_accum
-        self.dataloader: Optional[types.DataLoader] = None
+        self._dataloader: Optional[types.DataLoader] = None
+        self._dataloader_len: Optional[Time[int]] = None
         self.evaluators = list(ensure_tuple(evaluators))
         self.max_duration = max_duration
 
@@ -357,6 +357,48 @@ class State(Serializable):
                 except AttributeError:
                     # ignore AttributeError for properties that have getters but not setters.
                     pass
+
+    @property
+    def dataloader(self):
+        """The dataloader."""
+        return self._dataloader
+    
+    @dataloader.setter
+    def dataloader(self, dataloader: Optional[types.DataLoader]):
+        self._dataloader = dataloader
+        self.dataloader_len = None  # setting it to None will do a failsafe read of len(dataloader)
+
+    @property
+    def dataloader_len(self):
+        """The number of batches per dataloader iteration (e.g. epoch), as used by the trainer.
+
+        Returns:
+            Optional[Time[int]]: The number of batches per dataloader iteration (e.g. epoch), or None if no dataloader
+            is defined or if the dataloader has an unknown length (e.g. streaming dataloaders).
+        """
+        return self._dataloader_len
+
+    @dataloader_len.setter
+    def dataloader_len(self, num_batches: Optional[Union[int, Time[int]]]):
+        if isinstance(num_batches, int):
+            num_batches = Time(num_batches, TimeUnit.BATCH)
+        if self._dataloader is None:
+            raise RuntimeError("`State.dataloader_len` cannot be set if the dataloader is not defined.")
+        try:
+            dataloader_len = len(self._dataloader)
+        except (TypeError, NotImplementedError):
+            dataloader_len = None
+        if dataloader_len is not None and num_batches is not None and int(num_batches) > dataloader_len:
+            warnings.warn((f"DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) "
+                           f"is greater than the length (i.e. number of batches) of the dataloader, which is "
+                           f"{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}."))
+            num_batches = Time(dataloader_len, TimeUnit.BATCH)
+        if num_batches is None and dataloader_len is not None:
+            # len(dataloader) is an approximation -- see https://pytorch.org/docs/stable/data.html.
+            # However, in the worst case where additional last batches are dropped, this calculation should be
+            # an over-estimate, leading to the entire dataloader still being iterated over.
+            num_batches = Time(dataloader_len, TimeUnit.BATCH)
+        self._dataloader_len = num_batches
 
     @property
     def precision(self):

@@ -357,15 +357,7 @@ class Trainer:
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
 
-            .. warning::
-
-                This flag should be used for performance profiling only. Only a subset of the batches from the
-                dataloader will be used to training the model.
-
-                In addition, learning rate schedulers will not be scaled to reflect ``train_subset_num_batches``,
-                and instead will assume ``len(train_dataloader)`` batches per epoch.
-
-        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
+        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches per evaluation dataloader.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
             If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
         deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
@@ -955,6 +947,7 @@ class Trainer:
         if self.state.dataloader is None:
             # If the dataloader is not already set on State, then set it from what was passed in on init
             self.state.dataloader = self._train_data_spec.dataloader
+            self.state.dataloader_len = self.train_subset_num_batches
 
         for scheduler in ensure_tuple(self._schedulers):
             if isinstance(scheduler, PyTorchScheduler):
@@ -989,8 +982,12 @@ class Trainer:
                                                                             torch.utils.data.DistributedSampler):
                     self.state.dataloader.sampler.set_epoch(int(self.state.timer.epoch))
 
-                for batch_idx, self.state.batch in enumerate(
-                        itertools.islice(self.state.dataloader, self.train_subset_num_batches)):
+                if self.state.dataloader_len is None:
+                    iterable = self.state.dataloader
+                else:
+                    iterable = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
+
+                for batch_idx, self.state.batch in enumerate(iterable):
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < int(self.state.timer.batch_in_epoch):
@@ -1230,12 +1227,14 @@ class Trainer:
 
         # back up the original dataloader on the state, so we can restore it after evaluation is finished
         original_dataloader = self.state.dataloader
+        original_num_batches = self.state.dataloader_len
 
         self.state.model.eval()
         with torch.no_grad():
 
             for evaluator in self.state.evaluators:
                 self.state.dataloader = evaluator.dataloader.dataloader
+                self.state.dataloader_len = self.eval_subset_num_batches
 
                 self.engine.run_event(Event.EVAL_START)
 
@@ -1249,7 +1248,7 @@ class Trainer:
                     # The epoch provided to `set_epoch` need not be sequential, so this is fine.
                     self.state.dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
-                for self.state.batch in itertools.islice(self.state.dataloader, self.eval_subset_num_batches):
+                for self.state.batch in itertools.islice(self.state.dataloader, self.state.dataloader_len):
                     self.state.batch = self._device.batch_to_device(self.state.batch)
                     if evaluator.dataloader.device_transforms:
                         self.state.batch = evaluator.dataloader.device_transforms(self.state.batch)
@@ -1280,6 +1279,7 @@ class Trainer:
             self.state.model.train()
 
         self.state.dataloader = original_dataloader
+        self.state.dataloader_len = original_num_batches
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.

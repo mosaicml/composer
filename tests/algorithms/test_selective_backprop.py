@@ -144,12 +144,12 @@ def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:
 def state(minimal_state: State, conv_model: ComposerClassifier, loss_fun_tuple: Callable, epoch: int,
           batch: int) -> State:
     """State with required values set for Selective Backprop."""
-    assert minimal_state.dataloader is not None
+    assert minimal_state.dataloader_len is not None
     conv_model.loss = loss_fun_tuple
     minimal_state.model = conv_model
 
     minimal_state.timer.epoch._value = epoch
-    minimal_state.timer.batch._value = epoch * len(minimal_state.dataloader) + batch
+    minimal_state.timer.batch._value = epoch * minimal_state.dataloader_len + batch
     minimal_state.timer.batch_in_epoch._value = batch
 
     return minimal_state
