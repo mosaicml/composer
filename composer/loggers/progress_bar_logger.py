@@ -105,7 +105,7 @@ class ProgressBarLogger(LoggerDestination):
         if not self.is_train:
             desc += f", Batch {int(state.timer.batch)} (val)"
         self.pbars[self.is_train] = _ProgressBarLoggerInstance(
-            _ProgressBarLoggerInstanceState(total=state.dataloader_len,
+            _ProgressBarLoggerInstanceState(total=int(state.dataloader_len),
                                             position=position,
                                             n=0,
                                             keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],

@@ -1248,7 +1248,12 @@ class Trainer:
                     # The epoch provided to `set_epoch` need not be sequential, so this is fine.
                     self.state.dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
-                for self.state.batch in itertools.islice(self.state.dataloader, self.state.dataloader_len):
+                if self.state.dataloader_len is None:
+                    iterable = self.state.dataloader
+                else:
+                    iterable = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
+
+                for self.state.batch in iterable:
                     self.state.batch = self._device.batch_to_device(self.state.batch)
                     if evaluator.dataloader.device_transforms:
                         self.state.batch = evaluator.dataloader.device_transforms(self.state.batch)

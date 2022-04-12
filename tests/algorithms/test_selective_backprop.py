@@ -149,7 +149,7 @@ def state(minimal_state: State, conv_model: ComposerClassifier, loss_fun_tuple: 
     minimal_state.model = conv_model
 
     minimal_state.timer.epoch._value = epoch
-    minimal_state.timer.batch._value = epoch * minimal_state.dataloader_len + batch
+    minimal_state.timer.batch._value = epoch * int(minimal_state.dataloader_len) + batch
     minimal_state.timer.batch_in_epoch._value = batch
 
     return minimal_state
