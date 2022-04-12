@@ -183,3 +183,19 @@ RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
     cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`>=10.2.0 && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir mmcv-full==1.4.4 -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir 'mmsegmentation>=0.22.0,<0.23'
+
+FROM pytorch_stage AS mofed_stage
+ARG DEBIAN_FRONTEND=noninteractive
+
+###################################
+# Mellanox OFED driver installation
+###################################
+
+ARG MOFED_VERSION
+ARG MOFED_OS_VERSION
+
+RUN wget http://content.mellanox.com/ofed/${MOFED_VERSION}/${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
+
+RUN tar -zxvf ${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
+
+RUN ${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force

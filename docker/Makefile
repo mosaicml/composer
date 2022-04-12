@@ -37,6 +37,9 @@ TARGET ?= pytorch_stage
 
 MMCV_TORCH_VERSION ?= 'torch1.10.0'
 
+MOFED_VERSION ?= 'MLNX_OFED_LINUX-5.5-1.0.3.2'
+MOFED_OS_VERSION ?= 'ubuntu20.04'
+
 .PHONY: build pytorch composer
 
 build: composer
@@ -50,6 +53,8 @@ pytorch:
 		--build-arg PYTORCH_VERSION=$(PYTORCH_VERSION) \
 		--build-arg TORCHVISION_VERSION=$(TORCHVISION_VERSION) \
 		--build-arg MMCV_TORCH_VERSION=$(MMCV_TORCH_VERSION) \
+		--build-arg MOFED_VERSION=${MOFED_VERSION} \
+		--build-arg MOFED_OS_VERSION=${MOFED_OS_VERSION} \
 		.
 
 composer: pytorch
