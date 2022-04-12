@@ -42,5 +42,5 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture(scope='class')
 def self_destructing_tmp(tmp_path_factory: pytest.TempPathFactory):
     my_tmpdir = tmp_path_factory.mktemp("checkpoints")
-    yield my_tmpdir 
+    yield my_tmpdir
     shutil.rmtree(str(my_tmpdir))
