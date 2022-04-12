@@ -5,6 +5,8 @@ from typing import Dict, Sequence, Tuple, Union
 import numpy as np
 from numpy.typing import DTypeLike, NDArray
 
+from composer.datasets.streaming.world import World
+
 
 def get_index_basename() -> str:
     """Get the basename for a streaming dataset index.
@@ -200,40 +202,35 @@ class StreamingDatasetIndex(object):
         sample_shard_offsets = sample_begins - sample_shard_begins
         return sample_shards, sample_shard_offsets
 
-    def get_partition_shards_and_samples(self,
-                                         device_id: int,
-                                         num_devices: int,
-                                         local_worker_id: int,
-                                         num_local_workers: int,
-                                         device_batch_size: int = 0) -> Tuple[Sequence[int], int, int]:
+    def get_partition(self, world: World, device_batch_size: int = 0) -> Tuple[Sequence[int], int, int]:
         """Get the shards and sample range of a given partition of the dataset.
 
         Args:
-            part_id (int): Which partition.
-            num_parts (int): Out of how many partitions.
+            world (World): Context about workers, devices, and nodes.
+            device_batch_size (int): Device batch size.
 
         Returns:
             shards (Sequence[int]): The shards that this partition overlaps.
             min_id (int): The lowest sample ID of this partition.
             max_id (int): The highest sample ID of this partition.
         """
-        device_min_id = self.total_samples * device_id // num_devices
-        device_max_id = self.total_samples * (device_id + 1) // num_devices - 1
+        device_min_id = self.total_samples * world.global_device // world.global_num_devices
+        device_max_id = self.total_samples * (world.global_device + 1) // world.global_num_devices - 1
         device_samples = device_max_id - device_min_id + 1
 
+        w_of_d = world.worker_of_device
+        w_per_d = world.workers_per_device
         if not device_batch_size:
-            local_worker_min_id = device_min_id + (device_samples * local_worker_id // num_local_workers)
-            local_worker_max_id = device_min_id + (device_samples * (local_worker_id + 1) // num_local_workers - 1)
+            worker_min_id = device_min_id + device_samples * w_of_d // w_per_d
+            worker_max_id = device_min_id + (device_samples * (w_of_d + 1) // w_per_d) - 1
         else:
             device_batches = math.ceil(device_samples / device_batch_size)
-            local_worker_min_id = device_min_id + (device_batches * local_worker_id //
-                                                   num_local_workers) * device_batch_size
-            local_worker_max_id = device_min_id + (device_batches *
-                                                   (local_worker_id + 1) // num_local_workers) * device_batch_size - 1
-            # Last batch may be incomplete
-            local_worker_max_id = min(device_max_id, local_worker_max_id)
+            worker_min_id = device_min_id + (device_batches * w_of_d // w_per_d) * device_batch_size
+            worker_max_id = device_min_id + (device_batches * (w_of_d + 1) // w_per_d) * device_batch_size - 1
+            # Last batch may be incomplete.
+            worker_max_id = min(device_max_id, worker_max_id)
 
-        min_shard = self.sample_shards[local_worker_min_id]
-        max_shard = self.sample_shards[local_worker_max_id]
+        min_shard = self.sample_shards[worker_min_id]
+        max_shard = self.sample_shards[worker_max_id]
         shards = list(range(min_shard, max_shard + 1))
-        return shards, local_worker_min_id, local_worker_max_id
+        return shards, worker_min_id, worker_max_id

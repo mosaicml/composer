@@ -8,32 +8,14 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tupl
 import numpy as np
 from PIL import Image
 from torch import Tensor
-from torch.utils.data import IterableDataset, get_worker_info
+from torch.utils.data import IterableDataset
 from torchvision import transforms
 
 from composer.datasets.streaming.download import safe_download
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
                                                 get_shard_basename)
+from composer.datasets.streaming.world import World
 from composer.utils import dist
-
-
-def get_partition() -> Tuple[int, int, int, int]:
-    """Get how to partition the dataset.
-
-    Returns:
-        part (int): Our partition.
-        num_parts (int): Out of how many partitions.
-    """
-    info = get_worker_info()
-    if info:
-        local_worker_id = info.id
-        num_local_workers = info.num_workers
-    else:
-        local_worker_id = 0
-        num_local_workers = 1
-    device_id = dist.get_global_rank()
-    num_devices = dist.get_world_size()
-    return device_id, num_devices, local_worker_id, num_local_workers
 
 
 class StreamingDataset(IterableDataset):
@@ -306,13 +288,8 @@ class StreamingDataset(IterableDataset):
         """
         # We find out num workers, and therefore num partitions, when __iter__ is called.
         # From the partition, derive our shard overlap range and exact sample range.
-        device_id, num_devices, local_worker_id, num_local_workers = get_partition()
-        todo_shards, part_min_id, part_max_id = self.index.get_partition_shards_and_samples(
-            device_id, num_devices, local_worker_id, num_local_workers, device_batch_size=self.device_batch_size)
-
-        # print(
-        #     f"{device_id=}, {num_devices=}, {local_worker_id=}, {num_local_workers=}, {todo_shards=}, {part_min_id=}, {part_max_id=}"
-        # )
+        world = World.from_env()
+        todo_shards, part_min_id, part_max_id = self.index.get_partition(world, self.device_batch_size)
 
         # Preload all of our shards that are already available in the cache.
         todo_shards = self._load_shards_if_downloaded(todo_shards, part_min_id, part_max_id)
