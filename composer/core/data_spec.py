@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import collections.abc
 import textwrap
-from typing import TYPE_CHECKING, Callable, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Sequence, Tuple
 
 import torch
 import torch.utils.data
@@ -16,6 +16,71 @@ if TYPE_CHECKING:
     from composer.core.types import Batch, DataLoader
 
 __all__ = ["DataSpec"]
+
+
+def _split_list(l, num_microbatches):
+    if len(l) < num_microbatches:
+        raise ValueError(
+            textwrap.dedent(f"""\
+        Cannot split list of length {len(l)} into {num_microbatches} batches.
+         make sure `grad_accum` is less than or equal to `train_batch_size // world_size`."""))
+    return [l[i::num_microbatches] for i in range(num_microbatches)]
+
+
+def _split_tensor(t, num_microbatches):
+    if len(t) < num_microbatches:
+        raise ValueError(
+            textwrap.dedent(f"""\
+        Cannot split tensor of length {len(t)} into {num_microbatches} batches.
+         make sure `grad_accum` is less than or equal to `train_batch_size // world_size`."""))
+    return t.chunk(num_microbatches)
+
+
+def _split_mapping(m, num_microbatches):
+    chunked = {}
+    for k, v in m.items():
+        if isinstance(v, torch.Tensor):
+            chunked[k] = _split_tensor(v, num_microbatches)
+        if isinstance(v, (List, Tuple)):
+            chunked[k] = _split_list(v, num_microbatches)
+    num_chunks = len(list(chunked.values())[0])
+    return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
+
+
+def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
+    """Splits batch into `num_microbatches` chunks for gradient accumulation. Works with tensors, dictionaries of
+    tensors, (x, y) tuples, and lists where batch is the 2nd dimension.
+
+    Args:
+        batch: output from the dataloader.
+        num_microbatches (int): number of microbatches to batch into, will be set by `grad_accum`.
+    """
+    if num_microbatches < 1:
+        raise ValueError("num_microbatches must be at least 1")
+    if num_microbatches == 1:
+        return [batch]
+
+    if isinstance(batch, torch.Tensor):  # check for a single stack of tensors
+        return _split_tensor(batch, num_microbatches)
+
+    if isinstance(batch, Mapping):  # check for dictionary (hf style)
+        return _split_mapping(batch, num_microbatches)
+
+    if isinstance(batch, (Tuple, List)):  # check for batch on 2nd dimension
+        result = []
+        for item in batch:
+            if isinstance(item, torch.Tensor):
+                result.append(_split_tensor(item, num_microbatches))
+            elif isinstance(item, (List, Tuple)):
+                result.append(_split_list(item, num_microbatches))
+            else:
+                raise ValueError(f"Unsupported batch type: {type(item)}.")
+        return list(zip(*result))
+
+    raise NotImplementedError(
+        textwrap.dedent("""\
+            The default `split_fn` is unable to split the output of this dataloader. To enable `grad_accum`,
+             please and specify a `DataSpec` with `split_batch` for your dataset."""))
 
 
 class DataSpec:
@@ -95,7 +160,7 @@ class DataSpec:
         self.dataloader = dataloader
         self.num_tokens = num_tokens
         self.device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
-        self.split_batch = self._default_split_batch if split_batch is None else split_batch
+        self.split_batch = _default_split_batch if split_batch is None else split_batch
         self.get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
         self.get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
         if num_samples is not None:
@@ -114,27 +179,6 @@ class DataSpec:
 
     def _default_device_transforms(self, batch: Batch):
         return batch
-
-    def _default_split_batch(self, batch: Batch, num_microbatches: int) -> Sequence[Batch]:
-        if num_microbatches < 1:
-            raise ValueError("num_microbatches must be at least 1")
-        if num_microbatches == 1:
-            return [batch]
-        if not isinstance(batch, Sequence):
-            raise ValueError(f'split_fn requires batch be a tuple pair of tensors, got {type(batch)}')
-        x, y = batch
-        if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
-            return list(zip(x.chunk(num_microbatches), y.chunk(num_microbatches)))
-        if isinstance(x, List) and isinstance(y, List):
-            return list(
-                zip(
-                    [x[i::num_microbatches] for i in range(num_microbatches)],
-                    [y[i::num_microbatches] for i in range(num_microbatches)],
-                ))
-        raise NotImplementedError(
-            textwrap.dedent("""\
-                The default split_fn is unable to split the output of this
-                dataloader. Please use a DataSpec and specify `split_batch`."""))
 
     def _default_get_num_samples_in_batch(self, batch: Batch) -> int:
         if isinstance(batch, torch.Tensor):
