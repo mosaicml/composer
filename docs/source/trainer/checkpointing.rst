@@ -4,14 +4,14 @@
 Composer can be configured to automatically save training checkpoints by passing the argument ``save_folder`` when
 creating the :class:`.Trainer`.
 
-To customize the filename of checkpoints inside the ``save_folder``, you can set the ``save_filename`` argument.
+To customize the filenames of checkpoints inside ``save_folder``, you can set the ``save_filename`` argument.
 By default, checkpoints will be named like ``'ep{epoch}-ba{batch}-rank{rank}'`` within the ``save_folder``.
 
 In addition, the trainer creates a symlink called ``'latest-rank{rank}'``, which points to the latest saved checkpoint
 file. You can customize this symlink name by setting the ``save_latest_filename`` argument.
 
 The ``save_folder``, ``save_filename``, and ``save_latest`` arguments are Python format strings, so you can customize the folder
-structure to include information such as the rank of the python process or the current training progress. Please see
+structure to include information such as the rank of the Python process or the current training progress. Please see
 the :class:`~.CheckpointSaver` for the full list of available format variables.
 
 For example:
@@ -25,8 +25,8 @@ For example:
         train_dataloader=train_dataloader,
         max_duration="2ep",
         save_folder="./path/to/checkpoints",
-        save_filename='ep{epoch}',
-        save_latest_filename='latest',
+        save_filename="ep{epoch}",
+        save_latest_filename="latest",
         save_overwrite=True,
     )
 
@@ -36,10 +36,9 @@ Save Interval
 -------------
 
 By default, checkpoints are saved every epoch, but this interval can be configured using the ``save_interval`` argument.
-The ``save_interval`` can be an integer (interpreted in terms of epochs), a time string (see the
-:doc:`Time Guide </trainer/time>` for more information), or a function that takes
-(:class:`~.State`, :class:`~.Event`) and returns whether a checkpoint should be
-saved.
+The ``save_interval`` can be an integer (interpreted as a number of epochs), a time string (see the
+:doc:`Time Guide </trainer/time>` for more information), or a function that takes 
+(:class:`~.State`, :class:`~.Event`) and returns whether a checkpoint should be saved.
 
 For example:
 
@@ -90,7 +89,7 @@ Resume training
 ---------------
 
 To resume training from a previous checkpoint, set the ``load_path`` argument of the :class:`.Trainer` to the checkpoint
-filepath.  When the :class:`.Trainer` is initialized, the checkpoint state will be restored, and :meth:`.Trainer.fit`
+filepath.  When the :class:`.Trainer` is initialized, the checkpoint state will be restored, and the :meth:`.Trainer.fit`
 will continue training from where the checkpoint left off.
 
 .. testsetup::
@@ -129,17 +128,17 @@ will continue training from where the checkpoint left off.
     )
     trainer.fit()
 
-The above code will load the checkpoint from epoch 25, and continue training
+The above code will load the checkpoint from epoch 25 and continue training
 for another 65 epochs (to reach 90 epochs total).
 
-Different ``model`` or ``optimizer`` objects passed into the trainer when
-resume will be respected. However, an error will be raised if the weights or
+Different ``model`` or ``optimizer`` objects that are passed into the trainer when it is
+resumed will be respected. However, an error will be raised if the weights or
 state from the checkpoint are not compatible with these new objects.
 
 
 .. note::
 
-    Only the attributes in :attr:`.State.serialized_attributes` are be serialized and loaded. By default, they are:
+    Only the attributes in :attr:`.State.serialized_attributes` are serialized and loaded. By default, they are:
 
     +-----------------------+-------------------------------------------------------------+
     | Attribute             | Description                                                 |
@@ -161,8 +160,8 @@ state from the checkpoint are not compatible with these new objects.
     | rank_zero_seed        | The seed of the rank zero process.                          |
     +-----------------------+-------------------------------------------------------------+
 
-    All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use the defaults or what is passed when
-    reconstructing the trainer.
+    All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use either the defaults 
+    or what is passed in when reconstructing the trainer.
 
 
 Saving for Inference
@@ -188,11 +187,11 @@ Saving Multiple Checkpoint Types
 --------------------------------
 
 To save multiple checkpoint types, such as full checkpoints and weights-only checkpoints, the
-:class:`~.CheckpointSaver` can be passed directly into the ``callbacks`` argument
-of the trainer. Each :class:`~.CheckpointSaver` can have its own save folder, interval, and other parameters.
+:class:`~.CheckpointSaver` can be passed directly into the ``callbacks`` argument of the trainer. 
+Each :class:`~.CheckpointSaver` can have its own save folder, interval, and other parameters.
 
-When configuring checkpoints via the ``callbacks``, it is not necessary to specify the ``save_folder`` or other
-checkpoint saving parameters directly on the trainer.
+When configuring checkpoints via the ``callbacks``, it is not necessary to specify the ``save_folder``
+or other checkpoint saving parameters directly on the trainer.
 
 .. testcode::
 
@@ -221,14 +220,14 @@ checkpoint saving parameters directly on the trainer.
 Fine-tuning
 -----------
 
-The :class:`.Trainer` will only load the model weights from the checkpoint if ``load_weights_only=True``, or if the
+The :class:`.Trainer` will only load the model weights from the checkpoint if ``load_weights_only=True`` or if the
 checkpoint was saved with ``save_weights_only=True``. This is especially useful for model fine-tuning, since the rest
 of the trainer's state no longer applies.
 
-If the fine-tuned model contains different parameters than the model in the checkpoint, set ``load_strict=False`` to
+If the fine-tuned model contains different parameter names than the model in the checkpoint, set ``load_strict=False`` to
 ignore mismatches in model parameter names between the serialized model state and new model object.
-Parameters with the same name are expected to have the same shape and will have their state restored, and parameters
-with different names will ignored.
+Parameters with the same name are expected to have the same shape and will have their state restored.
+Parameters with different names will ignored.
 
 .. testsetup::
 
@@ -270,7 +269,7 @@ with different names will ignored.
 
     ft_trainer.fit()
 
-This example will load only the model weights from epoch 1, and then continue training on the fine-tuned dataloader
+This example will load only the model weights from epoch 1 and then continue training on the fine-tuned dataloader
 for 10 epochs.
 
 Loading Weights Externally
@@ -281,9 +280,9 @@ model outside of a :class:`.Trainer`, use :meth:`torch.load`:
 
 .. testcode::
 
-   model = Model(num_channels, num_classes)
-   state_dict = torch.load("./path/to/checkpoints/ep1.pt")
-   model.load_state_dict(state_dict["state"]["model"])
+    model = Model(num_channels, num_classes)
+    state_dict = torch.load("./path/to/checkpoints/ep1.pt")
+    model.load_state_dict(state_dict["state"]["model"])
 
 Uploading to Object Store
 -------------------------

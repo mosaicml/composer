@@ -5,7 +5,7 @@ Composer provides a :mod:`~composer.profiler` to help users collect and analyze 
 when using the :class:`~.Trainer`.  This information will help with identifying critical bottlenecks in the training pipeline and evaluating 
 the effectiveness of potential mitigations.
 
-To get started with profiling, please see the tutorials below.  For details on implementation and advanced features, please see the 
+To get started with profiling, please see the tutorials below. For details on implementation and advanced features, please see the 
 :mod:`~composer.profiler` API Reference.
 
 Tutorials
