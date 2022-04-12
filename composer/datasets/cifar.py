@@ -180,14 +180,12 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class StreamingCIFAR(StreamingBatchPairDataset):
     """Streaming CIFAR."""
 
-    @classmethod
-    def decode_image(cls, data: bytes) -> Any:
+    def decode_image(data: bytes) -> Any:
         arr = np.frombuffer(data, np.uint8)
         arr = arr.reshape(32, 32, 3)
         return Image.fromarray(arr)
 
-    @classmethod
-    def decode_class(cls, data: bytes) -> Any:
+    def decode_class(data: bytes) -> Any:
         return np.frombuffer(data, np.int64)[0]
 
     decoders = {

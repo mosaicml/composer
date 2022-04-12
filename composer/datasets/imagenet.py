@@ -193,14 +193,12 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 class StreamingTinyImagenet200(StreamingBatchPairDataset):
     """Streaming TinyImagenet200."""
 
-    @classmethod
-    def decode_image(cls, data: bytes) -> Any:
+    def decode_image(data: bytes) -> Any:
         arr = np.frombuffer(data, np.uint8)
         arr = arr.reshape(64, 64, 3)
         return Image.fromarray(arr)
 
-    @classmethod
-    def decode_class(cls, data: bytes) -> Any:
+    def decode_class(data: bytes) -> Any:
         return np.frombuffer(data, np.int64)[0]
 
     decoders = {
@@ -251,12 +249,10 @@ class StreamingTinyImagenet200Hparams(StreamingDatasetHparams):
 class StreamingImagenet(StreamingBatchPairDataset):
     """Streaming Imagenet."""
 
-    @classmethod
-    def decode_image(cls, data: bytes) -> Any:
+    def decode_image(data: bytes) -> Any:
         return Image.open(BytesIO(data))
 
-    @classmethod
-    def decode_class(cls, data: bytes) -> Any:
+    def decode_class(data: bytes) -> Any:
         return np.frombuffer(data, np.int64)[0]
 
     decoders = {
