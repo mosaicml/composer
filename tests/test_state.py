@@ -20,10 +20,9 @@ def random_tensor(size=(4, 10)):
     return torch.rand(*size)
 
 
-def get_dummy_state(model: ComposerModel, train_dataloader: DataLoader, val_dataloader: DataLoader):
+def get_dummy_state(model: ComposerModel, train_dataloader: DataLoader):
     optimizers = torch.optim.Adadelta(model.parameters())
 
-    evaluators = [Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=model.metrics(train=False))]
     state = State(model=model,
                   grad_accum=random.randint(0, 100),
                   rank_zero_seed=random.randint(0, 100),
