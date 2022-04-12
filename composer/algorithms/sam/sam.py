@@ -46,6 +46,8 @@ class SAMOptimizer(torch.optim.Optimizer):
                  num_max_steps:int = None, # only necessary for some interval schedules
                  use_LookSAM: bool = False,
                  alpha_LookSAM: float = 0.7,
+                 use_ESAM_SWP: bool = False,
+                 beta_ESAM_SWP: float = 0.6,
                  **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         self.base_optimizer = base_optimizer
@@ -60,6 +62,12 @@ class SAMOptimizer(torch.optim.Optimizer):
         self.alpha_LookSAM = alpha_LookSAM
         if self.use_LookSAM:
             self.gv_norm = None
+        self.use_ESAM_SWP = use_ESAM_SWP # to support SDS from ESAM paper, need to either recompute loss or ensure that current loss reduction='none'
+        self.beta_ESAM_SWP = beta_ESAM_SWP
+        if self.use_ESAM_SWP:
+            self.original_grad_states = {}
+            # stores the original grad states to revert to
+
         defaults = dict(rho=rho, epsilon=epsilon, **kwargs)
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 
@@ -80,6 +88,8 @@ class SAMOptimizer(torch.optim.Optimizer):
         grad_norm = self._grad_norm()
         for group in self.param_groups:
             scale = group["rho"] / (grad_norm + group["epsilon"])
+            if self.use_ESAM_SWP:
+                scale.div_(1-self.beta_ESAM_SWP)
             for p in group["params"]:
                 if p.grad is None:
                     continue
@@ -153,8 +163,6 @@ class SAMOptimizer(torch.optim.Optimizer):
             [p.grad.norm(p=2) for group in self.param_groups for p in group["params"] if p.grad is not None]),
                           p="fro")
         return norm
-
-    #def zero_grad(self, set_to_none: bool = False):
 
 
 class SAM(Algorithm):
