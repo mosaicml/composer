@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from typing import Sequence, Tuple, TypeVar, Union
+from typing import Optional, Sequence, Tuple, TypeVar, Union
 
 import torch
 from PIL.Image import Image as PillowImage
@@ -27,10 +27,30 @@ ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 __all__ = ["ColOut", "ColOutTransform", "colout_batch"]
 
 
+def _should_resize_targets(input: ImgT, target: Optional[ImgT], resize_targets: Union[bool, str]):
+    """ """
+    # If a target is given and has the same spatial dimensions as the input, reshape target like the input
+    if isinstance(resize_targets, bool):
+        return resize_targets
+
+    if target is None:
+        return False
+
+    if isinstance(resize_targets, str) and resize_targets.lower() == 'auto':
+        input_size = input.shape[-2:] if isinstance(input, torch.Tensor) else input.size[::-1]
+        if isinstance(target, PillowImage):
+            return target.size[::-1] == input_size
+        else:
+            return target.ndim > 2 and target.shape[-2:] == input_size
+
+    raise ValueError("resize_targets must either be a boolean or 'auto'")
+
+
 def colout_batch(input: ImgT,
-                 target: ImgT = None,
+                 target: Optional[ImgT] = None,
                  p_row: float = 0.15,
-                 p_col: float = 0.15) -> Union[ImgT, Tuple[ImgT, ImgT]]:
+                 p_col: float = 0.15,
+                 resize_targets: Union[bool, str] = 'auto') -> Union[ImgT, Tuple[ImgT, ImgT]]:
     """Applies ColOut augmentation to a batch of images, dropping the same random rows and columns from all images in a
     batch.
 
@@ -79,23 +99,22 @@ def colout_batch(input: ImgT,
         X_colout = X_colout.reshape(X_colout.shape[-3:])
     X_colout = image_as_type(X_colout, type(input))
 
-    if (target is not None):
-        # If a target is given and has the same spatial dimensions as the input, reshape target like the input
+    resize_targets = _should_resize_targets(input, target, resize_targets)
+
+    if resize_targets:
         Y_tensor = image_as_type(target, torch.Tensor)
-        if (len(Y_tensor.shape) > 2) and (Y_tensor.shape[-2:] == X_tensor.shape[-2:]):
-            Y_colout = Y_tensor[..., kept_row_idx, :]
-            Y_colout = Y_colout[..., :, kept_col_idx]
-            if not isinstance(target, torch.Tensor) or (target.ndim < Y_colout.ndim):
-                Y_colout = Y_colout.reshape(Y_colout.shape[-3:])
-            Y_colout = image_as_type(Y_colout, type(target))
+        Y_colout = Y_tensor[..., kept_row_idx, :]
+        Y_colout = Y_colout[..., :, kept_col_idx]
 
-            return X_colout, Y_colout
+        # convert back to same type as input, and strip added batch dim if needed;
+        # we can't just reshape to input shape because we've reduced the spatial size
+        if not isinstance(target, torch.Tensor) or (target.ndim < Y_colout.ndim):
+            Y_colout = Y_colout.reshape(Y_colout.shape[-3:])
+        Y_colout = image_as_type(Y_colout, type(target))
 
-        # If target has different spatial dimensions as the input, return the original target
-        else:
-            return X_colout, target
+        return X_colout, Y_colout
 
-    return X_colout
+    return X_colout, target
 
 
 class ColOutTransform:
@@ -117,9 +136,10 @@ class ColOutTransform:
         p_col (float): Fraction of columns to drop (drop along W). Default: ``0.15``.
     """
 
-    def __init__(self, p_row: float = 0.15, p_col: float = 0.15):
+    def __init__(self, p_row: float = 0.15, p_col: float = 0.15, resize_targets: Union[bool, str] = 'auto'):
         self.p_row = p_row
         self.p_col = p_col
+        self.resize_targets = resize_targets
 
     def __call__(self, sample: Union[ImgT, Sequence[ImgT]]) -> ImgT:
         """Drops random rows and columns from a single image.
@@ -131,13 +151,19 @@ class ColOutTransform:
             torch.Tensor or PIL Image: A smaller image with rows and columns dropped
         """
         sample = ensure_tuple(sample)
-        assert len(sample) < 3, "Colout supports 2 inputs at most"
-        if len(sample) == 1:
+
+        if len(sample) == 1 or self.resize_targets is False:
             img = sample[0]
-            return colout_batch(img, self.p_row, self.p_col)
-        elif len(sample) == 2:
-            img, target = sample
-            return colout_batch(img, target, self.p_row, self.p_col)
+            sample[0], _ = colout_batch(img, p_row=self.p_row, p_col=self.p_col, resize_targets=self.resize_targets)
+            return sample
+        elif len(sample) >= 2:
+            img, target = sample[0], sample[1]
+            sample[0], sample[1] = colout_batch(img,
+                                                target,
+                                                p_row=self.p_row,
+                                                p_col=self.p_col,
+                                                resize_targets=self.resize_targets)
+            return sample
 
 
 class ColOut(Algorithm):
@@ -174,12 +200,19 @@ class ColOut(Algorithm):
         resize_targets (bool, optional): If True, resize targets also. Default: ``False``.
     """
 
-    def __init__(self, p_row: float = 0.15, p_col: float = 0.15, batch: bool = True, resize_targets: bool = False):
+    def __init__(self,
+                 p_row: float = 0.15,
+                 p_col: float = 0.15,
+                 batch: bool = True,
+                 resize_targets: Union[bool, str] = 'auto'):
         if not (0 <= p_col <= 1):
             raise ValueError("p_col must be between 0 and 1")
 
         if not (0 <= p_row <= 1):
             raise ValueError("p_row must be between 0 and 1")
+
+        if not isinstance(resize_targets, bool) or (isinstance(resize_targets, str) and resize_targets != 'auto'):
+            raise ValueError("resize_targets must be a boolean or ``auto``")
 
         self.p_row = p_row
         self.p_col = p_col
@@ -197,7 +230,7 @@ class ColOut(Algorithm):
         """Add the ColOut dataset transform to the dataloader."""
         dataset = state.train_dataloader.dataset
 
-        transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col)
+        transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col, resize_targets=self.resize_targets)
 
         if not isinstance(dataset, VisionDataset):
             raise TypeError(
