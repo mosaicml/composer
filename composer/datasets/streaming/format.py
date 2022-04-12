@@ -205,7 +205,7 @@ class StreamingDatasetIndex(object):
                                          num_devices: int,
                                          local_worker_id: int,
                                          num_local_workers: int,
-                                         device_batch_size: int = None) -> Tuple[Sequence[int], int, int]:
+                                         device_batch_size: int = 0) -> Tuple[Sequence[int], int, int]:
         """Get the shards and sample range of a given partition of the dataset.
 
         Args:
@@ -221,7 +221,7 @@ class StreamingDatasetIndex(object):
         device_max_id = self.total_samples * (device_id + 1) // num_devices - 1
         device_samples = device_max_id - device_min_id + 1
 
-        if device_batch_size == None:
+        if not device_batch_size:
             local_worker_min_id = device_min_id + (device_samples * local_worker_id // num_local_workers)
             local_worker_max_id = device_min_id + (device_samples * (local_worker_id + 1) // num_local_workers - 1)
         else:

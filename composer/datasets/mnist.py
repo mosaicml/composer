@@ -18,7 +18,7 @@ from torchvision import datasets, transforms
 from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
-from composer.datasets.streaming import StreamingBatchPairDataset
+from composer.datasets.streaming import StreamingImageClassDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 
@@ -64,24 +64,13 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                                                     drop_last=self.drop_last)
 
 
-class StreamingMNIST(StreamingBatchPairDataset):
+class StreamingMNIST(StreamingImageClassDataset):
     """Streaming MNIST."""
 
-    def decode_image(data: bytes) -> Any:
+    def decode_image(self, data: bytes) -> Any:
         arr = np.frombuffer(data, np.uint8)
         arr = arr.reshape(28, 28)
         return Image.fromarray(arr)
-
-    def decode_class(data: bytes) -> Any:
-        return np.frombuffer(data, np.int64)[0]
-
-    decoders = {
-        'x': decode_image,
-        'y': decode_class,
-    }
-
-    def __init__(self, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
-        super().__init__(remote, local, self.decoders, shuffle, transforms, transform, target_transform)
 
 
 @dataclass
@@ -103,7 +92,7 @@ class StreamingMNISTHparams(StreamingDatasetHparams):
         transform = transforms.ToTensor()
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
-        dataset = StreamingMNIST(remote, local, self.shuffle, transform=transform)
+        dataset = StreamingMNIST(remote, local, self.shuffle, transform)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,

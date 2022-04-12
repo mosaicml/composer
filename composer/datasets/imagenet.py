@@ -10,7 +10,6 @@ Dataset <http://image-net.org/>`_ for more details. Also includes streaming data
 import os
 import textwrap
 from dataclasses import dataclass
-from io import BytesIO
 from typing import Any, List
 
 import numpy as np
@@ -26,7 +25,7 @@ from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
-from composer.datasets.streaming import StreamingBatchPairDataset
+from composer.datasets.streaming import StreamingImageClassDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
@@ -190,24 +189,13 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                         device_transforms=device_transform_fn)
 
 
-class StreamingTinyImagenet200(StreamingBatchPairDataset):
+class StreamingTinyImagenet200(StreamingImageClassDataset):
     """Streaming TinyImagenet200."""
 
-    def decode_image(data: bytes) -> Any:
+    def decode_image(self, data: bytes) -> Any:
         arr = np.frombuffer(data, np.uint8)
         arr = arr.reshape(64, 64, 3)
         return Image.fromarray(arr)
-
-    def decode_class(data: bytes) -> Any:
-        return np.frombuffer(data, np.int64)[0]
-
-    decoders = {
-        'x': decode_image,
-        'y': decode_class,
-    }
-
-    def __init__(self, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
-        super().__init__(remote, local, self.decoders, shuffle, transforms, transform, target_transform)
 
 
 @dataclass
@@ -239,29 +227,17 @@ class StreamingTinyImagenet200Hparams(StreamingDatasetHparams):
             ])
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
-        dataset = StreamingTinyImagenet200(remote, local, self.shuffle, transform=transform)
+        dataset = StreamingTinyImagenet200(remote, local, self.shuffle, transform)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
                                                     drop_last=self.drop_last)
 
 
-class StreamingImagenet(StreamingBatchPairDataset):
+class StreamingImagenet(StreamingImageClassDataset):
     """Streaming Imagenet."""
 
-    def decode_image(data: bytes) -> Any:
-        return Image.open(BytesIO(data))
-
-    def decode_class(data: bytes) -> Any:
-        return np.frombuffer(data, np.int64)[0]
-
-    decoders = {
-        'x': decode_image,
-        'y': decode_class,
-    }
-
-    def __init__(self, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
-        super().__init__(remote, local, self.decoders, shuffle, transforms, transform, target_transform)
+    pass
 
 
 @dataclass
@@ -304,7 +280,7 @@ class StreamingImagenet1kHparams(WebDatasetHparams):
             ])
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
-        dataset = StreamingImagenet(remote, local, self.shuffle, transform=transform)
+        dataset = StreamingImagenet(remote, local, self.shuffle, transform)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(

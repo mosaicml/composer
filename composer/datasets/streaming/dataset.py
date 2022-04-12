@@ -1,7 +1,10 @@
+from io import BytesIO
 import math
 import os
+from PIL import Image
 from threading import Lock, Thread
 from time import sleep
+from torchvision import transforms
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -14,7 +17,7 @@ from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_
 from composer.utils import dist
 
 
-def get_partition() -> Tuple[int, int]:
+def get_partition() -> Tuple[int, int, int, int]:
     """Get how to partition the dataset.
 
     Returns:
@@ -39,9 +42,9 @@ class StreamingDataset(IterableDataset):
     def __init__(self,
                  remote: str,
                  local: str,
-                 decoders: Dict[str, Optional[Callable]],
                  shuffle: bool,
-                 device_batch_size: int = None) -> None:
+                 decoders: Dict[str, Callable],
+                 device_batch_size: int = 0) -> None:
         """Initialize with the given remote path and local cache.
 
         Loads all the samples that are available in local cache, then starts a
@@ -51,13 +54,13 @@ class StreamingDataset(IterableDataset):
         Args:
             remote (str): Download shards from this remote directory.
             local (str): Download shards to this local filesystem directory for reuse.
-            decoders (Dict[str, Optional[Callable]): Raw bytes decoder per sample field.
             shuffle (bool): Whether to shuffle the samples.
+            decoders (Dict[str, Optional[Callable]): Raw bytes decoder per sample field.
         """
         self.remote = remote
         self.local = local
-        self.decoders = decoders
         self.shuffle = shuffle
+        self.decoders = decoders
         self.device_batch_size = device_batch_size
 
         # Load the index file containing the shard metadata, either over the
@@ -326,36 +329,44 @@ class StreamingDataset(IterableDataset):
             yield self[idx]
 
 
-class StreamingBatchPairDataset(StreamingDataset):
+class StreamingImageClassDataset(StreamingDataset):
+    """Streaming image classification dataset."""
 
-    def __init__(self,
-                 remote: str,
-                 local: str,
-                 decoders: Dict[str, Optional[Callable]],
-                 shuffle: bool,
-                 transforms: Optional[Callable],
-                 transform: Optional[Callable],
-                 target_transform: Optional[Callable],
-                 data_key: str = 'x',
-                 target_key: str = 'y'):
-        super().__init__(remote, local, decoders, shuffle)
-        self.transforms = transforms
-        self.transform = transform
-        self.target_transform = target_transform
-        self.data_key = data_key
-        self.target_key = target_key
+    def decode_image(self, data: bytes) -> Any:
+        """Decode the sample image.
+
+        Args:
+            data (bytes): The raw bytes.
+
+        Returns:
+            Image: PIL image encoded by the bytes.
+        """
+        return Image.open(BytesIO(data))
+
+    def decode_class(self, data: bytes) -> Any:
+        """Decode the sample class.
+
+        Args:
+            data (bytes): The raw bytes.
+
+        Returns:
+            np.int64: The class encoded by the bytes.
+        """
+        return np.frombuffer(data, np.int64)[0]
+
+    def __init__(self, remote: str, local: str, shuffle: bool, transform: Optional[Callable] = None):
+        """Initialize the streaming image classification dataset."""
+        decoders = {
+            'x': self.decode_image,
+            'y': self.decode_class,
+        }
+        super().__init__(remote, local, shuffle, decoders)
+        self.transform = transform or transforms.ToTensor()
 
     def __getitem__(self, idx: int) -> Tuple[Any, Any]:
+        """Get the decoded and transformemd (image, class) pair by ID."""
         obj = super().__getitem__(idx)
-        data = obj[self.data_key]
-        target = obj[self.target_key]
-        if self.transforms is not None:
-            assert self.transform is None
-            assert self.target_transform is None
-            data, target = self.transforms(data, target)
-        else:
-            if self.transform is not None:
-                data = self.transform(data)
-            if self.target_transform is not None:
-                target = self.target_transform(target)
-        return data, target
+        x = obj['x']
+        x = self.transform(x)
+        y = obj['y']
+        return x, y
