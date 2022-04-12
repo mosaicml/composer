@@ -14,7 +14,6 @@ from itertools import chain, cycle
 import yahp as hp
 from torch.utils.data import DataLoader, IterableDataset, get_worker_info
 
-from composer.core.data_spec import DataSpec
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
@@ -46,7 +45,7 @@ class C4DatasetHparams(DatasetHparams):
         seed (int): If ``shuffle=True``, what seed to use for shuffling operations. Default: ``5``.
         drop_last (bool): Whether to drop the last samples for the last batch. Default: ``True``.
     Returns:
-        DataSpec: A :class:`~core.data_spec.DataSpec` object.
+        DataLoader: A PyTorch :class:`~torch.utils.data.DataLoader` object.
     """
 
     split: str = hp.optional("What split of the dataset to use. Either `train` or `validation`.", default=None)

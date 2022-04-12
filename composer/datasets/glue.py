@@ -22,7 +22,6 @@ from typing import cast
 import yahp as hp
 from torch.utils.data import DataLoader
 
-from composer.core import DataSpec
 from composer.core.types import Dataset
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
@@ -63,7 +62,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             they fail. Default: ``10``.
 
     Returns:
-       DataSpec: A :class:`~composer.core.DataSpec` object.
+        DataLoader: A PyTorch :class:`~torch.utils.data.DataLoader` object.
     """
 
     task: str = hp.optional(
