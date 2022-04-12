@@ -2,12 +2,12 @@
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.ViTSmallPatch16`."""
 
-import textwrap
 from dataclasses import dataclass
 
 import yahp as hp
 
 from composer.models.model_hparams import ModelHparams
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["ViTSmallPatch16Hparams"]
 
@@ -36,10 +36,7 @@ class ViTSmallPatch16Hparams(ModelHparams):
         try:
             import vit_pytorch  # type: ignore
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without vit support. To use vit with Composer, run `pip install mosaicml[vit]`
-                if using pip or `pip install vit_pytorch>=0.27` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="vit", conda_package="vit_pytorch>=0.27") from e
 
     def initialize_object(self):
         from composer.models import ViTSmallPatch16

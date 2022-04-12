@@ -209,8 +209,9 @@ class LayerFreezingHparams(AlgorithmHparams):
 class MixUpHparams(AlgorithmHparams):
     """See :class:`MixUp`"""
 
-    num_classes: int = hp.required('Number of classes in the task labels.')
     alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=0.2)
+    interpolate_loss: bool = hp.optional('Use index labels and interpolate the loss instead of the labels.',
+                                         default=False)
 
     def initialize_object(self) -> MixUp:
         return MixUp(**asdict(self))
