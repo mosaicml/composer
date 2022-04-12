@@ -44,16 +44,22 @@ class SAMOptimizer(torch.optim.Optimizer):
                  #interval: int = 1,
                  interval: Union[int, Type[SAMInterval]] = 1,
                  num_max_steps:int = None, # only necessary for some interval schedules
+                 use_LookSAM: bool = False,
+                 alpha_LookSAM: float = 0.7,
                  **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         self.base_optimizer = base_optimizer
         self.global_step = 0
+        #self.interval = interval
         if isinstance(interval, int):
             self.interval_class = SAM_FixedInterval(num_max_steps, interval)
         else:
             self.interval_class = interval(num_max_steps, **kwargs)
-        #self.interval = interval
         self._step_supports_amp_closure = True  # Flag for Composer trainer
+        self.use_LookSAM = use_LookSAM # can also be added to param_groups if want to support doing LookSAM for only some layers
+        self.alpha_LookSAM = alpha_LookSAM
+        if self.use_LookSAM:
+            self.gv_norm = None
         defaults = dict(rho=rho, epsilon=epsilon, **kwargs)
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 
@@ -77,14 +83,36 @@ class SAMOptimizer(torch.optim.Optimizer):
                 e_w = p.grad * scale.to(p)
                 p.add_(e_w)  # climb to the local maximum "w + e(w)"
                 self.state[p]["e_w"] = e_w
+                if self.use_LookSAM:
+                    # need to store original gradients for calculation of g_v
+                    # this can be memory intensive and may require a better
+                    # solution if RAM is of a concern
+                    self.state[p]['prev_grad'] = p.grad.clone()
 
     @torch.no_grad()
     def second_step(self):
+        if self.use_LookSAM:
+            old_grad_norm = torch.norm(torch.stack(
+                [self.state[p]['prev_grad'].norm(p=2) for group in self.param_groups for p in group["params"] if self.state[p]['prev_grad'] is not None]),
+                            p="fro")
+            new_grad_norm = self._grad_norm()
+            grad_norm_prod = new_grad_norm * old_grad_norm
         for group in self.param_groups:
             for p in group["params"]:
                 if p.grad is None or "e_w" not in self.state[p]:
                     continue
                 p.sub_(self.state[p]["e_w"])  # get back to "w" from "w + e(w)"
+                if self.use_LookSAM:
+                    cos_theta = (p.grad * self.state[p]['prev_grad']) / grad_norm_prod
+                    self.state[p]['g_v'] = p.grad - new_grad_norm * cos_theta * self.state[p]['prev_grad'] / old_grad_norm
+
+        if self.use_LookSAM:
+            # calculate and store gv_norm once so don't need to recalculate
+            # for future steps.
+            self.gv_norm = torch.norm(torch.stack(
+                [self.state[p]['g_v'].norm(p=2) for group in self.param_groups for p in group["params"] if self.state[p]['g_v'] is not None]),
+                            p="fro")
+
         self.base_optimizer.step()  # do the actual "sharpness-aware" update
 
     @torch.no_grad()
@@ -92,7 +120,6 @@ class SAMOptimizer(torch.optim.Optimizer):
         assert closure is not None, "Sharpness Aware Minimization requires closure, but it was not provided"
         closure = torch.enable_grad()(closure)  # the closure should do a full forward-backward pass
         loss = None
-        breakpoint()
         #if (self.global_step + 1) % self.interval == 0:
         if self.interval_class.run_check(self.global_step):
             # Compute gradient at (w) per-GPU, and do not sync
@@ -106,6 +133,13 @@ class SAMOptimizer(torch.optim.Optimizer):
         else:
             loss = closure()
             if loss:
+                if self.use_LookSAM:
+                    grad_norm = self._grad_norm()
+                    for group in self.param_groups:
+                        for p in group["params"]:
+                            if p.grad is None or 'g_v' not in self.state[p]:
+                                continue
+                            p.grad.add_(self.alpha_LookSAM * self.state[p]['g_v'] * grad_norm / self.gv_norm)
                 self.base_optimizer.step()
 
         self.global_step += 1
@@ -116,6 +150,8 @@ class SAMOptimizer(torch.optim.Optimizer):
             [p.grad.norm(p=2) for group in self.param_groups for p in group["params"] if p.grad is not None]),
                           p="fro")
         return norm
+
+    #def zero_grad(self, set_to_none: bool = False):
 
 
 class SAM(Algorithm):
