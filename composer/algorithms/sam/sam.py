@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from typing import Optional, Type, Union
+import random
 
 import torch
 
@@ -48,6 +49,7 @@ class SAMOptimizer(torch.optim.Optimizer):
                  alpha_LookSAM: float = 0.7,
                  use_ESAM_SWP: bool = False,
                  beta_ESAM_SWP: float = 0.6,
+                 use_ASAM: bool = False,
                  **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         self.base_optimizer = base_optimizer
@@ -66,8 +68,8 @@ class SAMOptimizer(torch.optim.Optimizer):
         self.beta_ESAM_SWP = beta_ESAM_SWP
         if self.use_ESAM_SWP:
             self.original_grad_states = {}
-            # stores the original grad states to revert to
-
+            # stores the original grad states to revert to'''
+        self.use_ASAM = use_ASAM
         defaults = dict(rho=rho, epsilon=epsilon, **kwargs)
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 
@@ -85,7 +87,7 @@ class SAMOptimizer(torch.optim.Optimizer):
 
     @torch.no_grad()
     def first_step(self):
-        grad_norm = self._grad_norm()
+        grad_norm = self._grad_norm(adaptive=self.use_ASAM)
         for group in self.param_groups:
             scale = group["rho"] / (grad_norm + group["epsilon"])
             if self.use_ESAM_SWP:
@@ -94,6 +96,14 @@ class SAMOptimizer(torch.optim.Optimizer):
                 if p.grad is None:
                     continue
                 e_w = p.grad * scale.to(p)
+                if self.use_ASAM:
+                    #e_w.mul_(torch.pow(self.compute_tw(p), 2))
+                    # as of now, compute_tw just returns the absolute value of
+                    # p, which is a waster operation when squaring. So in this
+                    # case, we can save one operation by just passing p
+                    # directly. However if a different Tw calculation is
+                    # chosen, this may not work and should be revisited.
+                    e_w.mul_(torch.pow(p, 2))
                 p.add_(e_w)  # climb to the local maximum "w + e(w)"
                 self.state[p]["e_w"] = e_w
                 if self.use_LookSAM:
@@ -106,9 +116,12 @@ class SAMOptimizer(torch.optim.Optimizer):
     def second_step(self):
         if self.use_LookSAM:
             old_grad_norm = torch.norm(torch.stack(
-                [self.state[p]['prev_grad'].norm(p=2) for group in self.param_groups for p in group["params"] if self.state[p]['prev_grad'] is not None]),
-                            p="fro")
-            new_grad_norm = self._grad_norm()
+                [((self.compute_tw(self.state[p]['prev_grad']) if self.use_ASAM else 1.0) * self.state[p]['prev_grad']).norm(p=2)
+                 for group in self.param_groups for p in group["params"]
+                 if self.state[p].get('prev_grad') is not None]),
+                    p="fro")
+
+            new_grad_norm = self._grad_norm(adaptive=self.use_ASAM)
             grad_norm_prod = new_grad_norm * old_grad_norm
         for group in self.param_groups:
             for p in group["params"]:
@@ -123,7 +136,9 @@ class SAMOptimizer(torch.optim.Optimizer):
             # calculate and store gv_norm once so don't need to recalculate
             # for future steps.
             self.gv_norm = torch.norm(torch.stack(
-                [self.state[p]['g_v'].norm(p=2) for group in self.param_groups for p in group["params"] if self.state[p]['g_v'] is not None]),
+                [((self.compute_tw(self.state[p]['g_v']) if self.use_ASAM else 1.0) * self.state[p]['g_v']).norm(p=2)
+                 for group in self.param_groups for p in group["params"]
+                 if self.state[p].get('g_v') is not None]),
                             p="fro")
 
         self.base_optimizer.step()  # do the actual "sharpness-aware" update
@@ -147,7 +162,7 @@ class SAMOptimizer(torch.optim.Optimizer):
             loss = closure()
             if loss:
                 if self.use_LookSAM:
-                    grad_norm = self._grad_norm()
+                    grad_norm = self._grad_norm(adaptive=self.use_ASAM)
                     for group in self.param_groups:
                         for p in group["params"]:
                             if p.grad is None or 'g_v' not in self.state[p]:
@@ -158,12 +173,43 @@ class SAMOptimizer(torch.optim.Optimizer):
         self.global_step += 1
         return loss
 
-    def _grad_norm(self):
+    def _grad_norm(self, adaptive=False):
         norm = torch.norm(torch.stack(
-            [p.grad.norm(p=2) for group in self.param_groups for p in group["params"] if p.grad is not None]),
+            [((self.compute_tw(p) if adaptive else 1.0) * p.grad).norm(p=2)
+             for group in self.param_groups
+             for p in group["params"] if p.grad is not None]),
                           p="fro")
         return norm
 
+    def compute_tw(self,p):
+        """Computes Tw for ASAM."""
+        return torch.abs(p)
+
+    def zero_grad(self, set_to_none: bool = False):
+        super(SAMOptimizer, self).zero_grad(set_to_none=set_to_none)
+        # For ESAM, SWP chooses a subset of the weights to perform
+        # backpropogation. It is easiest to include that calculation here,
+        # since zero_grad is called for every step.
+        if self.use_ESAM_SWP:
+            for group in self.param_groups:
+                for p in group["params"]:
+                    if p not in self.original_grad_states:
+                        self.original_grad_states[p] = p.requires_grad
+
+                    if random.random() > self.beta_ESAM_SWP:
+                        p.requires_grad = False
+                    else:
+                        # Can;t just set p.required_grad=True, since then
+                        # ESAM will revert all gradients not
+                        # caught in the probability above to be captured. However,
+                        # this may not be desired as it could be paired with another
+                        # algorithm that may be freezing some layers. Instead, this
+                        # will revert requires_grad back to what it was originally.
+                        # This has some drawbacks, like extra memory, and won't
+                        # support a situation where requres_grad changes from some
+                        # other source after its been encountered here (ex: frozen
+                        # after the Xth epoch)
+                        p.requires_grad = self.original_grad_states[p]
 
 class SAM(Algorithm):
     """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
