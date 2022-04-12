@@ -43,7 +43,8 @@ def _split_mapping(m, num_microbatches):
             chunked[k] = _split_tensor(v, num_microbatches)
         if isinstance(v, (List, Tuple)):
             chunked[k] = _split_list(v, num_microbatches)
-    return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_microbatches)]
+    num_chunks = len(list(chunked.values())[0])
+    return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
 def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
