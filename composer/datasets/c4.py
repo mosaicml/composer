@@ -106,11 +106,12 @@ class C4DatasetHparams(DatasetHparams):
                                                                   mlm=self.mlm,
                                                                   mlm_probability=self.mlm_probability)
 
-        return dataloader_hparams.initialize_object(dataset=c4_dataset,  # type: ignore
-                                                    batch_size=batch_size,
-                                                    sampler=None,
-                                                    drop_last=self.drop_last,
-                                                    collate_fn=collate_fn)
+        return dataloader_hparams.initialize_object(
+            dataset=c4_dataset,  # type: ignore
+            batch_size=batch_size,
+            sampler=None,
+            drop_last=self.drop_last,
+            collate_fn=collate_fn)
 
 
 class C4Dataset(IterableDataset):

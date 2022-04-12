@@ -180,8 +180,9 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             drop_last=self.drop_last,
             shuffle=self.shuffle)
 
-        return dataloader_hparams.initialize_object(dataset=dataset,  # type: ignore
-                                                    batch_size=batch_size,
-                                                    sampler=sampler,
-                                                    drop_last=self.drop_last,
-                                                    collate_fn=data_collator)
+        return dataloader_hparams.initialize_object(
+            dataset=dataset,  # type: ignore
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=self.drop_last,
+            collate_fn=data_collator)
