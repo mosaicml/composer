@@ -30,12 +30,14 @@ import composer.functional as cf
 from composer.algorithms.utils import augmentation_sets
 
 def augmix_image(image: Union[PillowImage, torch.Tensor]):
-    augmixed_image = cf.augmix_image(img=image,
-                                     severity=3,
-                                     width=3,
-                                     depth=-1,
-                                     alpha=1.0,
-                                     augmentation_set=augmentation_sets["all"])
+    augmixed_image = cf.augmix_image(
+        img=image,
+        severity=3,
+        width=3,
+        depth=-1,
+        alpha=1.0,
+        augmentation_set=augmentation_sets["all"]
+    )
     return augmixed_image
 ```
 
@@ -73,12 +75,14 @@ augmix_algorithm = AugMix(severity=3,
                           alpha=1.0,
                           augmentation_set="all")
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  eval_dataloader=eval_dataloader,
-                  max_duration="1ep",
-                  algorithms=[augmix_algorithm],
-                  optimizers=[optimizer])
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
+    max_duration="1ep",
+    algorithms=[augmix_algorithm],
+    optimizers=[optimizer]
+)
 ```
 
 ### Implementation Details
@@ -97,14 +101,14 @@ The class form of AugMix runs on `Event.FIT_START` and inserts `AugmentAndMixTra
 
 > ❗ Potential CPU Bottleneck
 > 
-> Further increasing `width` or `depth` significantly decreased throughput when training ResNet-50 on ImageNet due to bottlenecks in performing data augmentation on the CPU.
+> Further increasing `width` or `depth` significantly decreases throughput when training ResNet-50 on ImageNet due to bottlenecks in performing data augmentation on the CPU.
 
 ## Technical Details
 
 AugMix randomly samples `depth` image augmentations (with replacement) from the set of {`translate_x`, `translate_y`, `shear_x`, `shear_y`, `rotate`, `solarize`, `equalize`, `posterize`, `autocontrast`, `color`, `brightness`, `contrast`, `sharpness`}.
-The augmentations use the PILLOW Image library (specifically Pillow-SIMD); we found OpenCV-based augmentations resulted in similar or worse performance.
-AugMix is applied after "standard" image transformations such as resizing and cropping, and before normalization.
-Each augmentation is applied with an intensity randomly sampled uniformly from 0.1-`severity` (`severity` ≤ 10). where `severity` is a unit-free upper bound on the intensity of an augmentation and is mapped to the unit specific for each augmentation. For example, `severity` would be mapped to degrees for the rotation augmentation, and `severity=10` corresponds to 30°.
+The augmentations use the PILLOW Image library (specifically Pillow-SIMD); we found that OpenCV-based augmentations result in similar or worse performance.
+AugMix is applied after "standard" image transformations, such as resizing and cropping, and before normalization.
+Each augmentation is applied with an intensity that is randomly sampled uniformly from \[0.1-`severity`\] (`severity` ≤ 10). where `severity` is a unit-free upper bound on the intensity of an augmentation and is mapped to the unit specific for each augmentation. For example, `severity` would be mapped to degrees for the rotation augmentation with `severity=10` corresponding to 30°.
 
 Hendrycks et al.’s original implementation of AugMix also includes a custom loss function computed across three samples (an image and two AugMix’d versions of that image).
 We omit this custom loss function from our AugMix implementation because it effectively triples the number of samples required for a parameter update step, imposing a significant computational burden.
@@ -118,7 +122,7 @@ However, the increased CPU load imposed by AugMix substantially reduces throughp
 > ❗ Potential CPU Bottleneck
 > 
 > We found that using AugMix with the hyperparameters recommended by Hendrycks et al. can increase the data augmentation load on the CPU so much that it bottlenecks training.
-> Depending on the hardware configuration and model, we found that those hyperparameters increased training time by 1.1x-10x.
+> Depending on the hardware configuration and model, we found that those hyperparameters increase training time by 1.1x-10x.
 
 AugMix will be more useful in overparameterized regimes (i.e. larger models) and for longer training runs.
 Larger models typically take longer to run on a deep learning accelerator (e.g., a GPU), meaning there is more headroom to perform work on the CPU before augmentation becomes a bottleneck.
