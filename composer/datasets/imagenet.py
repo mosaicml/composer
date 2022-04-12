@@ -244,6 +244,7 @@ class StreamingImagenet(StreamingImageClassDataset):
 class StreamingImagenet1kHparams(WebDatasetHparams):
     """Streaming Imagenet1k hyperparameters.
 
+    Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         local (str): Local filesystem directory where dataset is cached during operation.
         resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.

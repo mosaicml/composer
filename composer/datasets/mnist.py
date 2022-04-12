@@ -77,7 +77,7 @@ class StreamingMNIST(StreamingImageClassDataset):
 class StreamingMNISTHparams(StreamingDatasetHparams):
     """Streaming MNIST hyperparameters.
 
-    Args
+    Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         local (str): Local filesystem directory where dataset is cached during operation.
     """

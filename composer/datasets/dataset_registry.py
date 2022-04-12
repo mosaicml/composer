@@ -2,7 +2,7 @@
 
 """Mapping between dataset names and corresponding HParams classes."""
 
-from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams
+from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams, StreamingADE20kHparams
 from composer.datasets.brats import BratsDatasetHparams
 from composer.datasets.c4 import C4DatasetHparams
 from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHparams, CIFAR20WebDatasetHparams,
@@ -38,6 +38,7 @@ registry = {
     'streaming_cifar100': StreamingCIFAR100Hparams,
     'streaming_tinyimagenet200': StreamingTinyImagenet200Hparams,
     'streaming_imagenet1k': StreamingImagenet1kHparams,
+    'streaming_ade20k': StreamingADE20kHparams,
 }
 
 

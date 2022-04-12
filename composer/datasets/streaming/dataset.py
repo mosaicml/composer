@@ -1,15 +1,15 @@
-from io import BytesIO
 import math
 import os
-from PIL import Image
+from io import BytesIO
 from threading import Lock, Thread
 from time import sleep
-from torchvision import transforms
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
+from PIL import Image
 from torch import Tensor
 from torch.utils.data import IterableDataset, get_worker_info
+from torchvision import transforms
 
 from composer.datasets.streaming.download import safe_download
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,

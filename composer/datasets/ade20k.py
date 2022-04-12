@@ -9,7 +9,7 @@ dataset.
 import os
 from dataclasses import dataclass
 from math import ceil
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -20,8 +20,9 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from composer.core import DataSpec
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
+from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
+from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
@@ -383,6 +384,134 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         return DataSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
                                                                         batch_size=batch_size,
                                                                         sampler=sampler,
+                                                                        collate_fn=collate_fn,
+                                                                        drop_last=self.drop_last),
+                        device_transforms=device_transform_fn)
+
+
+class StreamingADE20k(StreamingDataset):
+    """Streaming CIFAR."""
+
+    def decode_uid(self, data: bytes) -> Any:
+        return data.decode('utf-8')
+
+    def decode_image(self, data: bytes) -> Any:
+        return Image.open(BytesIO(data))
+
+    def decode_annotation(self, data: bytes) -> Any:
+        return Image.open(BytesIO(data))
+
+    def __init__(self,
+                 remote: str,
+                 local: str,
+                 shuffle: bool,
+                 both_transform=None,
+                 image_transform=None,
+                 annotation_transform=None):
+        decoders = {
+            'image': self.decode_image,
+            'annotation': self.decode_annotation,
+        }
+        super().__init__(remote, local, shuffle, decoders)
+        self.both_transform = both_transform
+        self.image_transform = image_transform
+        self.annotation_transform = annotation_transform
+
+    def __getitem__(self, idx: int) -> Any:
+        obj = super().__getitem__(idx)
+        x = obj['image']
+        y = obj['annotation']
+        if self.both_transform:
+            x, y = self.both_transform(x, y)
+        if self.image_transform:
+            x = self.image_transform(x)
+        if self.annotation_transform:
+            y = self.annotation_transform(y)
+        return x, y
+
+
+@dataclass
+class StreamingADE20kHparams(StreamingDatasetHparams):
+    """Streaming ADE20k hyperparameters.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
+        min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
+        max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
+        final_size (int): the final size of the image and target. Default: ``512``.
+        ignore_background (bool): if true, ignore the background class when calculating the training loss.
+            Default: ``true``.
+    """
+
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-ade20k/mds/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-ade20k/')
+    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
+
+    base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
+    min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)
+    max_resize_scale: float = hp.optional("Maximum value that the image and target can be scaled", default=2.0)
+    final_size: int = hp.optional("Final size of the image and target", default=512)
+    ignore_background: bool = hp.optional("If true, ignore the background class in training loss", default=True)
+
+    def validate(self):
+        if self.split not in ['train', 'val', 'test']:
+            raise ValueError(f"split value {self.split} must be one of ['train', 'val', 'test'].")
+
+        if self.base_size <= 0:
+            raise ValueError("base_size cannot be zero or negative.")
+
+        if self.min_resize_scale <= 0:
+            raise ValueError("min_resize_scale cannot be zero or negative")
+
+        if self.max_resize_scale < self.min_resize_scale:
+            raise ValueError("max_resize_scale cannot be less than min_resize_scale")
+
+    def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
+        self.validate()
+
+        if self.split == 'train':
+            both_transform = torch.nn.Sequential(
+                RandomResizePair(min_scale=self.min_resize_scale,
+                                 max_scale=self.max_resize_scale,
+                                 base_size=(self.base_size, self.base_size)),
+                RandomCropPair(
+                    crop_size=(self.final_size, self.final_size),
+                    class_max_percent=0.75,
+                    num_retry=10,
+                ),
+                RandomHFlipPair(),
+            )
+
+            # Photometric distoration values come from mmsegmentation:
+            # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+            r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
+            image_transform = torch.nn.Sequential(
+                PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
+                PadToSize(size=(self.final_size, self.final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
+
+            annotation_transform = PadToSize(size=(self.final_size, self.final_size), fill=0)
+        else:
+            both_transform = None
+            image_transform = transforms.Resize(size=(self.final_size, self.final_size),
+                                                interpolation=TF.InterpolationMode.BILINEAR)
+            annotation_transform = transforms.Resize(size=(self.final_size, self.final_size),
+                                                     interpolation=TF.InterpolationMode.NEAREST)
+
+        remote = os.path.join(self.remote, self.split)
+        local = os.path.join(self.local, self.split)
+        dataset = ADE20l(remote, local, self.shuffle, both_transform, image_transform, annotation_transform)
+        collate_fn = pil_image_collate
+        device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
+                                              std=IMAGENET_CHANNEL_STD,
+                                              ignore_background=self.ignore_background)
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
+                                                                        batch_size=batch_size,
+                                                                        sampler=None,
                                                                         collate_fn=collate_fn,
                                                                         drop_last=self.drop_last),
                         device_transforms=device_transform_fn)
