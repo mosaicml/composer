@@ -74,12 +74,6 @@ class StreamingDataset(IterableDataset):
         self._downloaded_ids = []
         self._are_all_shards_downloaded = False
 
-    @classmethod
-    def split(cls, split: str, remote: str, local: str, decoders: Dict[str, Optional[Callable]], shuffle: bool):
-        remote = os.path.join(remote, split)
-        local = os.path.join(local, split)
-        return cls(remote, local, decoders, shuffle)
-
     def _download_if_missing(self, basename: str) -> str:
         """Safely download a shard from remote to local cache.
 
@@ -350,22 +344,6 @@ class StreamingBatchPairDataset(StreamingDataset):
         self.target_transform = target_transform
         self.data_key = data_key
         self.target_key = target_key
-
-    @classmethod
-    def split(cls,
-              split: str,
-              remote: str,
-              local: str,
-              decoders: Dict[str, Optional[Callable]],
-              shuffle: bool,
-              transforms: Optional[Callable],
-              transform: Optional[Callable],
-              target_transform: Optional[Callable],
-              data_key: str = 'x',
-              target_key: str = 'y'):
-        remote = os.path.join(remote, split)
-        local = os.path.join(local, split)
-        return cls(remote, local, decoders, shuffle, transforms, transform, target_transform, data_key, target_key)
 
     def __getitem__(self, idx: int) -> Tuple[Any, Any]:
         obj = super().__getitem__(idx)

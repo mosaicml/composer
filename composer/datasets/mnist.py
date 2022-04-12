@@ -85,12 +85,6 @@ class StreamingMNIST(StreamingBatchPairDataset):
     def __init__(self, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
         super().__init__(remote, local, self.decoders, shuffle, transforms, transform, target_transform)
 
-    @classmethod
-    def split(cls, split, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
-        remote = os.path.join(remote, split)
-        local = os.path.join(local, split)
-        return cls(remote, local, shuffle, transforms, transform, target_transform)
-
 
 @dataclass
 class StreamingMNISTHparams(StreamingDatasetHparams):
@@ -109,7 +103,9 @@ class StreamingMNISTHparams(StreamingDatasetHparams):
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         split = 'train' if self.is_train else 'val'
         transform = transforms.ToTensor()
-        dataset = StreamingMNIST.split(split, self.remote, self.local, self.shuffle, transform=transform)
+        remote = os.path.join(self.remote, split)
+        local = os.path.join(self.local, split)
+        dataset = StreamingMNIST(remote, local, self.shuffle, transform=transform)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,

@@ -198,12 +198,6 @@ class StreamingCIFAR(StreamingBatchPairDataset):
     def __init__(self, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
         super().__init__(remote, local, self.decoders, shuffle, transforms, transform, target_transform)
 
-    @classmethod
-    def split(cls, split, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
-        remote = os.path.join(remote, split)
-        local = os.path.join(local, split)
-        return cls(remote, local, shuffle, transforms, transform, target_transform)
-
 
 @dataclass
 class StreamingCIFAR10Hparams(StreamingDatasetHparams):
@@ -236,7 +230,9 @@ class StreamingCIFAR10Hparams(StreamingDatasetHparams):
                 transforms.ToTensor(),
                 transforms.Normalize(channel_means, channel_stds),
             ])
-        dataset = StreamingCIFAR.split(split, self.remote, self.local, self.shuffle, transform=transform)
+        remote = os.path.join(self.remote, split)
+        local = os.path.join(self.local, split)
+        dataset = StreamingCIFAR(remote, local, self.shuffle, transform=transform)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
@@ -274,7 +270,9 @@ class StreamingCIFAR20Hparams(StreamingDatasetHparams):
                 transforms.ToTensor(),
                 transforms.Normalize(channel_means, channel_stds),
             ])
-        dataset = StreamingCIFAR.split(split, self.remote, self.local, self.shuffle, transform=transform)
+        remote = os.path.join(self.remote, split)
+        local = os.path.join(self.local, split)
+        dataset = StreamingCIFAR(remote, local, self.shuffle, transform=transform)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
@@ -312,7 +310,9 @@ class StreamingCIFAR100Hparams(StreamingDatasetHparams):
                 transforms.ToTensor(),
                 transforms.Normalize(channel_means, channel_stds),
             ])
-        dataset = StreamingCIFAR.split(split, self.remote, self.local, self.shuffle, transform=transform)
+        remote = os.path.join(self.remote, split)
+        local = os.path.join(self.local, split)
+        dataset = StreamingCIFAR(remote, local, self.shuffle, transform=transform)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,

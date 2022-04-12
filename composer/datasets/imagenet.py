@@ -211,12 +211,6 @@ class StreamingTinyImagenet200(StreamingBatchPairDataset):
     def __init__(self, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
         super().__init__(remote, local, self.decoders, shuffle, transforms, transform, target_transform)
 
-    @classmethod
-    def split(cls, split, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
-        remote = os.path.join(remote, split)
-        local = os.path.join(local, split)
-        return cls(remote, local, shuffle, transforms, transform, target_transform)
-
 
 @dataclass
 class StreamingTinyImagenet200Hparams(StreamingDatasetHparams):
@@ -245,7 +239,9 @@ class StreamingTinyImagenet200Hparams(StreamingDatasetHparams):
             transform = transforms.Compose([
                 transforms.ToTensor(),
             ])
-        dataset = StreamingTinyImagenet200.split(split, self.remote, self.local, self.shuffle, transform=transform)
+        remote = os.path.join(self.remote, split)
+        local = os.path.join(self.local, split)
+        dataset = StreamingTinyImagenet200(remote, local, self.shuffle, transform=transform)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
@@ -270,12 +266,6 @@ class StreamingImagenet(StreamingBatchPairDataset):
 
     def __init__(self, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
         super().__init__(remote, local, self.decoders, shuffle, transforms, transform, target_transform)
-
-    @classmethod
-    def split(cls, split, remote, local, shuffle, transforms=None, transform=None, target_transform=None):
-        remote = os.path.join(remote, split)
-        local = os.path.join(local, split)
-        return cls(remote, local, shuffle, transforms, transform, target_transform)
 
 
 @dataclass
@@ -316,7 +306,9 @@ class StreamingImagenet1kHparams(WebDatasetHparams):
                 transforms.Resize(self.resize_size),
                 transforms.CenterCrop(self.crop_size),
             ])
-        dataset = StreamingImagenet.split(split, self.remote, self.local, self.shuffle, transform=transform)
+        remote = os.path.join(self.remote, split)
+        local = os.path.join(self.local, split)
+        dataset = StreamingImagenet(remote, local, self.shuffle, transform=transform)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
