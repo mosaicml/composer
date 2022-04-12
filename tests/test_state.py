@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.functional import Tensor
 
 from composer.algorithms import ChannelsLastHparams
-from composer.core import DataSpec, Evaluator, Precision, State
+from composer.core import DataSpec, Precision, State
 from composer.core.types import Batch, DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
@@ -90,14 +90,18 @@ def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHpa
     raise RuntimeError("No batch in dataloader")
 
 
-def test_state_serialize(tmpdir: pathlib.Path, dummy_model: ComposerModel, dummy_dataloader_hparams: DataLoaderHparams,
-                         dummy_train_dataset_hparams: DatasetHparams, dummy_train_dataloader: DataLoader,
-                         dummy_val_dataset_hparams: DatasetHparams, dummy_val_dataloader: DataLoader):
+def test_state_serialize(
+    tmpdir: pathlib.Path,
+    dummy_model: ComposerModel,
+    dummy_dataloader_hparams: DataLoaderHparams,
+    dummy_train_dataset_hparams: DatasetHparams,
+    dummy_train_dataloader: DataLoader,
+):
 
     assert isinstance(dummy_model, SimpleBatchPairModel)
 
-    state1 = get_dummy_state(dummy_model, dummy_train_dataloader, dummy_val_dataloader)
-    state2 = get_dummy_state(dummy_model, dummy_train_dataloader, dummy_val_dataloader)
+    state1 = get_dummy_state(dummy_model, dummy_train_dataloader)
+    state2 = get_dummy_state(dummy_model, dummy_train_dataloader)
 
     # train one step to set the optimizer states
     batch = get_batch(dummy_train_dataset_hparams, dummy_dataloader_hparams)
