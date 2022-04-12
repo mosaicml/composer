@@ -80,7 +80,7 @@ class C4DatasetHparams(DatasetHparams):
         if self.mlm and self.mlm_probability <= 0:
             raise ValueError("Must provide a positive 'mlm_probability' when using masked language modeling.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> "DataLoader":
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         try:
             import transformers
         except ImportError:
@@ -106,7 +106,7 @@ class C4DatasetHparams(DatasetHparams):
                                                                   mlm=self.mlm,
                                                                   mlm_probability=self.mlm_probability)
 
-        return dataloader_hparams.initialize_object(dataset=c4_dataset,
+        return dataloader_hparams.initialize_object(dataset=c4_dataset,  # type: ignore
                                                     batch_size=batch_size,
                                                     sampler=None,
                                                     drop_last=self.drop_last,

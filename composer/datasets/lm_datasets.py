@@ -90,7 +90,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         if (self.max_seq_length % 8 != 0):
             log.warning("For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> "DataLoader":
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         try:
             import datasets
             import transformers
@@ -180,7 +180,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             drop_last=self.drop_last,
             shuffle=self.shuffle)
 
-        return dataloader_hparams.initialize_object(dataset=dataset,
+        return dataloader_hparams.initialize_object(dataset=dataset,  # type: ignore
                                                     batch_size=batch_size,
                                                     sampler=sampler,
                                                     drop_last=self.drop_last,
