@@ -3,13 +3,21 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Optional, Type, Union
 
 import torch
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.utils import ensure_tuple
+
+from composer.algorithms.sam.sam_interval import (
+    get_max_duration_as_steps,
+    SAMInterval,
+    SAM_FixedInterval,
+    #SAM_Piecewise,
+    #SAM_CosProb
+)
 
 log = logging.getLogger(__name__)
 
@@ -19,13 +27,32 @@ class SAMOptimizer(torch.optim.Optimizer):
     See :class:`SAM` for details.
 
     Implementation based on https://github.com/davda54/sam
+
+    Args:
+        rho (float, optional): neighborhood size
+        epsilon (float, optional): float to add to avoid division by 0
+        interval (optional): either an int or an uninstantiated SAMInterval class.
+            If an int, will set to using a fixed interval (SAM_FixedInterval).
+            (Note: the reason it also supports an int is for backwards compatibility).
+        num_max_steps (int, optional): the number of maximum steps taken during
+            learning. Some SAMInterval classes require this. For ones that don't,
+            (ex: SAM_FixedInterval) this parameter is ignored.
     """
 
-    def __init__(self, base_optimizer, rho: float = 0.05, epsilon: float = 1.0e-12, interval: int = 1, **kwargs):
+    def __init__(self, base_optimizer, rho: float = 0.05,
+                 epsilon: float = 1.0e-12,
+                 #interval: int = 1,
+                 interval: Union[int, Type[SAMInterval]] = 1,
+                 num_max_steps:int = None, # only necessary for some interval schedules
+                 **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         self.base_optimizer = base_optimizer
         self.global_step = 0
-        self.interval = interval
+        if isinstance(interval, int):
+            self.interval_class = SAM_FixedInterval(num_max_steps, interval)
+        else:
+            self.interval_class = interval(num_max_steps, **kwargs)
+        #self.interval = interval
         self._step_supports_amp_closure = True  # Flag for Composer trainer
         defaults = dict(rho=rho, epsilon=epsilon, **kwargs)
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
@@ -65,8 +92,9 @@ class SAMOptimizer(torch.optim.Optimizer):
         assert closure is not None, "Sharpness Aware Minimization requires closure, but it was not provided"
         closure = torch.enable_grad()(closure)  # the closure should do a full forward-backward pass
         loss = None
-
-        if (self.global_step + 1) % self.interval == 0:
+        breakpoint()
+        #if (self.global_step + 1) % self.interval == 0:
+        if self.interval_class.run_check(self.global_step):
             # Compute gradient at (w) per-GPU, and do not sync
             loss = closure(ddp_sync=False)  # type: ignore
             if loss:
@@ -95,6 +123,7 @@ class SAM(Algorithm):
     existing optimizer with a :class:`SAMOptimizer`.
 
     Args:
+        T (int):
         rho (float, optional): The neighborhood size parameter of SAM. Must be greater than 0.
             Default: ``0.05``.
         epsilon (float, optional): A small value added to the gradient norm for numerical stability.
@@ -108,12 +137,15 @@ class SAM(Algorithm):
         self,
         rho: float = 0.05,
         epsilon: float = 1.0e-12,
-        interval: int = 1,
+        #interval: int = 1,
+        interval: Union[int, Type[SAMInterval]] = 1,
+        **kwargs
     ):
         """__init__ is constructed from the same fields as in hparams."""
         self.rho = rho
         self.epsilon = epsilon
         self.interval = interval
+        self.kwargs = kwargs
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.INIT.
@@ -136,10 +168,13 @@ class SAM(Algorithm):
         """
         assert state.optimizers is not None
 
+        num_max_steps = get_max_duration_as_steps(state)
         state.optimizers = tuple(
             SAMOptimizer(
                 base_optimizer=optimizer,
                 rho=self.rho,
                 epsilon=self.epsilon,
                 interval=self.interval,
+                num_max_steps=num_max_steps,
+                **self.kwargs
             ) for optimizer in ensure_tuple(state.optimizers))
