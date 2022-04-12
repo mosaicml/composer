@@ -195,7 +195,5 @@ ARG MOFED_VERSION
 ARG MOFED_OS_VERSION
 
 RUN wget http://content.mellanox.com/ofed/${MOFED_VERSION}/${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
-
 RUN tar -zxvf ${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
-
 RUN ${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force
