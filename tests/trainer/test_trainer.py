@@ -311,8 +311,10 @@ config management to retrieve the objects to test.
 @pytest.mark.timeout(15)
 class TestTrainerAssets:
 
-    @pytest.fixture
-    def config(self, rank_zero_seed: int):
+    @pytest.fixture(params=[1, 2], ids=['ga-1', 'ga-2'])
+    def config(self, rank_zero_seed: int, request):
+        grad_accum = request.param
+
         return {
             'model': SimpleConvModel(),
             'train_dataloader': DataLoader(
@@ -326,6 +328,7 @@ class TestTrainerAssets:
             'max_duration': '2ep',
             'loggers': [],  # no progress bar
             'seed': rank_zero_seed,
+            'grad_accum': grad_accum,
         }
 
     # Note: Not all algorithms, callbacks, and loggers are compatible
