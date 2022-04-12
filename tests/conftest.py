@@ -6,6 +6,7 @@ import pathlib
 from typing import List, Optional
 
 import pytest
+import torch
 
 import composer
 from composer.utils import dist, reproducibility
@@ -37,6 +38,12 @@ if _include_deprecated_fixtures:
     pytest_plugins += [
         "tests.fixtures.dummy_fixtures",
     ]
+
+if torch.cuda.is_available():
+    # torch.cuda takes a few seconds to initialize on first load
+    # pre-initialize cuda so individual tests, which are subject to a timeout,
+    # load cuda instantly.
+    torch.Tensor([0]).cuda()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

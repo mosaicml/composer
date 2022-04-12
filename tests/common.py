@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Contains several commonly used objects (models, dataloaders) that are shared across the test suite."""
+"""Contains several commonly used objects (models, dataloaders, and batches) that are shared across the test suite."""
 
 from typing import Sequence
 
@@ -156,7 +156,7 @@ class RandomClassificationDataset(Dataset):
         return self.size
 
     def __getitem__(self, index: int):
-        return (self.x[index], self.y[index])
+        return self.x[index], self.y[index]
 
 
 class RandomImageDataset(VisionDataset):

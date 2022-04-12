@@ -31,7 +31,5 @@ def empty_logger(minimal_state: State) -> Logger:
 
 
 @pytest.fixture(autouse=True)
-def disable_wandb(monkeypatch):
+def disable_wandb(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("WANDB_MODE", "disabled")
-
-    yield

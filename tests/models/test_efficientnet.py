@@ -6,7 +6,6 @@ import torch
 from composer.models.efficientnetb0.efficientnets import EfficientNet
 
 
-@pytest.mark.timeout(15)
 @pytest.mark.gpu
 def test_efficientb0_activate_shape():
     # Running this test on cuda as convolutions are slow on CPU

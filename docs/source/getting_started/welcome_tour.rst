@@ -1,7 +1,7 @@
 |:bus:| Welcome Tour
 ====================
 
-Welcome to MosaicML Composer! This guide will walk you through the basics of how the Composer trainer works and how it interacts with our methods libary. This guide will assume you've already gone through the :doc:`installation instructions <installation>`.
+Welcome to MosaicML Composer! This guide will walk you through the basics of how the Composer trainer works and how it interacts with our methods libary. This guide will assume that you've already gone through the :doc:`installation instructions <installation>`.
 
 Our First Method!
 -----------------
@@ -42,17 +42,15 @@ training loop:
 
     for epoch in range(NUM_EPOCHS):
         for inputs, targets in dataloader:
-
-            inputs, targets = cf.mixup_batch(inputs, targets)
-
+            inputs, targets_perm, mixing = cf.mixup_batch(inputs, targets, alpha=0.2)
             outputs = model.forward(inputs)
-            loss = model.loss(outputs, targets)
+            loss = (1 - mixing) * model.loss(outputs, targets) + mixing * model.loss(outputs, targets_perm)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
-This works, and is recommend if you want to quickly modify an existing training loop to use our implementation of
-MixUp! However, the goal of the Composer library is to be able to rapidly experiment with different combinations of
+This works and is recommended if you want to quickly modify an existing training loop to use our implementation of
+MixUp! However, the goal of Composer is to be able to rapidly experiment with different combinations of
 algorithms. Our methods library contains over 20 different methods to experiment with, and it would be unwieldy to
 have to add conditional logic to the trainer for enabling/disabling each new method. This is where the composer trainer comes in.
 
@@ -61,7 +59,8 @@ Events, Engines, and State
 
 The core principle of the Composer trainer is to avoid the need to introduce algorithm-specific logic to the trainer
 by instead relying on callbacks tied to *events*. Events describe specific stages of the training lifecycle, such as
-``BATCH_START`` and ``BEFORE_FORWARD``. This is based on the two-way callback system from (`Howard et al, 2020`_) We could add events to our training loop as follows:
+``BATCH_START`` and ``BEFORE_FORWARD``. This is based on the two-way callback system from (`Howard et al, 2020`_).
+We could add events to our training loop as follows:
 
 .. code-block:: python
 
@@ -92,14 +91,14 @@ by instead relying on callbacks tied to *events*. Events describe specific stage
             # <BATCH_END>
         # <EPOCH_END>
 
-Now we need a way to tie events to algorithms, so that we know which algorithms to run, and when to run them.
+Now we need a way to tie events to algorithms, so that we know which algorithms to run and when to run them.
 This is the purpose of the :class:`~composer.core.Engine`. The :class:`~composer.core.Engine` is initialized with a
-list of algorithms to run, and provides a :meth:`composer.core.Engine.run_event` method that the trainer can call to
-execute algorithms for the given event. The :class:`~composer.core.Engine` also is responsible for handling potential
+list of algorithms to run and provides a :meth:`composer.core.Engine.run_event` method that the trainer can call to
+execute algorithms for the given event. The :class:`~composer.core.Engine` is also responsible for handling potential
 conflicts between multiple algorithms.
 
 One piece is missing. Algorithms are no longer running from within the body of the training loop, but they still need
-to be able to modify the training loop's state. For this, we introduce :class:`~composer.core.State`, which stores all
+to be able to modify the training loop's state. For this, we introduce :class:`~composer.core.State` which stores all
 objects relevant to training that algorithms need access to. The :class:`~composer.core.Engine` is initialized with a
 reference to the :class:`~composer.core.State` and passes it to algorithms when it invokes them.
 
@@ -112,17 +111,34 @@ simple:
     class MixUp(Algorithm):
         def match(self, event: Event, state: State) -> bool:
             """Determine whether the algorithm should run on a given event."""
-            return event == "after_dataloader"
+            return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
 
         def apply(self, event: Event, state: State, logger: Logger) -> None:
             """Run the algorithm by modifying the State."""
-            state.inputs, state.targets = mixup_batch(state.inputs, state.targets)
+            input, target = state.batch_pair
+
+            if event == Event.AFTER_DATALOADER:
+                new_input, self.permuted_target, self.mixing = mixup_batch(input, target, alpha=0.2)
+                state.batch = (new_input, target)
+
+            if event == Event.AFTER_LOSS:
+                modified_batch = (input, self.permuted_target)
+                new_loss = state.model.loss(state.outputs, modified_batch)
+                state.loss *= (1 - self.mixing)
+                state.loss += self.mixing * new_loss
 
 Putting all the pieces together, our trainer looks something like this:
 
 .. code-block:: python
 
-    state = State(...)
+    from composer import Time
+
+    state = State(
+        model=your_model,  # ComposerModel
+        max_duration=Time(10, 'epoch'),
+        rank_zero_seed=0,
+        dataloader=your_dataloader  # torch.utils.DataLoader,
+    )
 
     engine = Engine(state=state, algorithms=[MixUp()])
 
@@ -153,13 +169,12 @@ Putting all the pieces together, our trainer looks something like this:
             engine.run_event("batch_end")
         engine.run_event("epoch_end")
 
-That's it! Mixup will automatically run on ``"after_dataloader"``. And thanks to all of the events being present in the training loop, we can easily start using new algorithms as well!
+That's it! Mixup will automatically run on ``"after_dataloader"`` and ``"after_loss"``. And thanks to all of the events being present in the training loop, we can easily start using new algorithms as well!
 For more information on events, state, and engines, check out :class:`~composer.core.event.Event`,
 :class:`~composer.core.state.State`, and :class:`~composer.core.engine.Engine`.
 
 For advanced experimentation, we recommend using the Composer :doc:`Trainer<../trainer/using_the_trainer>`.
 The trainer not only takes care of all the state management and event callbacks from above,
-but also adds advanced features like hyperparameter management,
-gradient accumulation, and closure support.
+but also adds advanced features like hyperparameter management, gradient accumulation, and closure support.
 
 .. _Howard et al, 2020: https://arxiv.org/abs/2002.04688

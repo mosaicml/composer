@@ -25,7 +25,6 @@ from tests.common import (RandomClassificationDataset, RandomImageDataset, Simpl
                           world_size)
 
 
-@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerInit():
 
     @pytest.fixture
@@ -115,7 +114,6 @@ class TestTrainerInit():
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
-@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerEquivalence():
 
     reference_model: torch.nn.Module
@@ -261,7 +259,6 @@ class AssertDataAugmented(Callback):
         assert not torch.allclose(original_outputs[0], state.outputs[0])
 
 
-@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
 class TestTrainerEvents():
 
     @pytest.fixture
@@ -311,11 +308,13 @@ config management to retrieve the objects to test.
 """
 
 
-@pytest.mark.timeout(30)  # TODO lower the timeout. See https://github.com/mosaicml/composer/issues/774.
+@pytest.mark.timeout(15)
 class TestTrainerAssets:
 
-    @pytest.fixture
-    def config(self, rank_zero_seed: int):
+    @pytest.fixture(params=[1, 2], ids=['ga-1', 'ga-2'])
+    def config(self, rank_zero_seed: int, request):
+        grad_accum = request.param
+
         return {
             'model': SimpleConvModel(),
             'train_dataloader': DataLoader(
@@ -329,6 +328,7 @@ class TestTrainerAssets:
             'max_duration': '2ep',
             'loggers': [],  # no progress bar
             'seed': rank_zero_seed,
+            'grad_accum': grad_accum,
         }
 
     # Note: Not all algorithms, callbacks, and loggers are compatible
@@ -357,7 +357,7 @@ class TestTrainerAssets:
             pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
         # create the algorithms
-        if name in ('cutmix, mixup'):  # these algos have required algorithms
+        if name in ('cutmix'):  # these algos have required hparams
             algorithm = hparams(num_classes=2).initialize_object()
         else:
             algorithm = hparams().initialize_object()
@@ -393,6 +393,7 @@ class TestTrainerAssets:
             pytest.importorskip('wandb', reason='Required wandb')
         if name == 'object_store':
             required_args['object_store_hparams'] = provider_hparams
+            required_args['use_procs'] = False
 
         if name == 'object_store_logger':
             monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
@@ -416,7 +417,6 @@ class TestTrainerAssets:
         trainer = Trainer(**config)
         trainer.fit()
 
-    @pytest.mark.timeout(10)
     def test_callbacks(self, config, callback):
         config['callbacks'] = [callback]
         trainer = Trainer(**config)

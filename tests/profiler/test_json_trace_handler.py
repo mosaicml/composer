@@ -10,6 +10,7 @@ from composer.profiler.profiler_hparams import CyclicProfilerScheduleHparams, JS
 from composer.trainer import TrainerHparams
 
 
+# This test shouldn't run with the Torch profiler enabled, not providing a model or data can cause a seg fault
 @pytest.mark.timeout(10)
 def test_json_trace_profiler_handler(composer_trainer_hparams: TrainerHparams, tmpdir: pathlib.Path):
     profiler_file = os.path.join(tmpdir, 'trace.json')
@@ -27,6 +28,10 @@ def test_json_trace_profiler_handler(composer_trainer_hparams: TrainerHparams, t
     composer_trainer_hparams.sys_prof_net = False
     composer_trainer_hparams.sys_prof_disk = False
     composer_trainer_hparams.sys_prof_memory = False
+    composer_trainer_hparams.torch_prof_record_shapes = False
+    composer_trainer_hparams.torch_prof_profile_memory = False
+    composer_trainer_hparams.torch_prof_with_stack = False
+    composer_trainer_hparams.torch_prof_with_flops = False
 
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()

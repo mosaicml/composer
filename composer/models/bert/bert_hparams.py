@@ -25,7 +25,7 @@ class BERTForClassificationHparams(TransformerHparams):
     Args:
         pretrained_model_name (str): Pretrained model name to pull from Hugging Face Model Hub.
         model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
-        tokenizer_name (str): The tokenizer used for this model,
+        tokenizer_name (Optional[str]): The tokenizer used for this model,
             necessary to assert required model inputs.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
@@ -57,7 +57,10 @@ class BERTForClassificationHparams(TransformerHparams):
         config.num_labels = self.num_labels
 
         # setup the tokenizer in the hparams interface
-        tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        if self.tokenizer_name is not None:
+            tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        else:
+            tokenizer = None
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
@@ -110,7 +113,10 @@ class BERTHparams(TransformerHparams):
         config.num_labels = config.vocab_size
 
         # setup the tokenizer in the hparams interface
-        tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        if self.tokenizer_name is not None:
+            tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        else:
+            tokenizer = None
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
