@@ -71,6 +71,9 @@ class SAMOptimizer(torch.optim.Optimizer):
                     continue
                 e_w = self.state[p]["e_w"]  # retrieve stale e(w)
                 p.sub_(e_w)  # get back to "w" from "w + e(w)"
+                if self.use_LookSAM:
+                    # don't use stored g_v
+                    del self.state[p]['g_v']
 
     @torch.no_grad()
     def first_step(self):
