@@ -5,56 +5,49 @@ from unittest.mock import MagicMock
 import pytest
 
 from composer.core import State
-from composer.profiler import Profiler, ProfilerAction
+from composer.profiler import Profiler, ProfilerAction, cyclic_schedule
 
 
 @pytest.mark.parametrize("repeat", [1, 0])
-def test_profiler_get_action(dummy_state: State, repeat: int):
+def test_cyclic_schedule(dummy_state: State, repeat: int):
     # tests that get_action works correctly given the state
     skip_first = 1
     wait = 2
     warmup = 3
     active = 4
-    profiler = Profiler(
-        state=dummy_state,
-        event_handlers=[],
-        skip_first=skip_first,
-        warmup=warmup,
-        wait=wait,
-        active=active,
-        repeat=repeat,
-    )
+    schedule = cyclic_schedule(skip_first=1, wait=2, warmup=3, active=4, repeat=repeat)
 
-    assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.SKIP  # skip first epoch
+    assert schedule(dummy_state) == ProfilerAction.SKIP  # skip first epoch
 
     for _ in range(skip_first):
         dummy_state.timer.on_batch_complete()
-    assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.SKIP
+    assert schedule(dummy_state) == ProfilerAction.SKIP
 
     for _ in range(wait):
         dummy_state.timer.on_batch_complete()
 
-    assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.WARMUP
+    assert schedule(dummy_state) == ProfilerAction.WARMUP
 
     for _ in range(warmup):
         dummy_state.timer.on_batch_complete()
 
-    assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.ACTIVE
+    assert schedule(dummy_state) == ProfilerAction.ACTIVE
 
     for _ in range(active + wait + warmup):
         dummy_state.timer.on_batch_complete()
 
     if repeat == 0:
-        assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.ACTIVE
+        assert schedule(dummy_state) == ProfilerAction.ACTIVE
     else:
-        assert profiler.get_action(int(dummy_state.timer.batch_in_epoch)) == ProfilerAction.SKIP
+        assert schedule(dummy_state) == ProfilerAction.SKIP
 
 
 def test_marker(dummy_state: State):
-    mock_event_handler = MagicMock()
+    mock_trace_handler = MagicMock()
     profiler = Profiler(
         state=dummy_state,
-        event_handlers=[mock_event_handler],
+        trace_handlers=[mock_trace_handler],
+        schedule=cyclic_schedule(),
     )
     marker = profiler.marker("name",
                              actions=[ProfilerAction.SKIP, ProfilerAction.WARMUP, ProfilerAction.ACTIVE],
@@ -83,5 +76,5 @@ def test_marker(dummy_state: State):
 
     marker.instant()
 
-    assert mock_event_handler.process_duration_event.call_count == 8
-    assert mock_event_handler.process_instant_event.call_count == 1
+    assert mock_trace_handler.process_duration_event.call_count == 8
+    assert mock_trace_handler.process_instant_event.call_count == 1

@@ -4,14 +4,23 @@
 
 import importlib
 import textwrap
-from typing import Any
+from typing import Any, Optional
 
 __all__ = ["import_object", "MissingConditionalImportError"]
 
 
 class MissingConditionalImportError(ImportError):
 
-    def __init__(self, extra_deps_group: str, conda_package: str, conda_channel: str = 'conda-forge'):
+    def __init__(self, extra_deps_group: str, conda_package: str, conda_channel: Optional[str] = 'conda-forge'):
+        """Handles errors for external packages that might not be installed.
+
+        Args:
+            extra_deps_group (str): the pip package group, found in setup.py. For example, nlp for `mosaicml[nlp]`.
+            conda_package (str): the conda packages to install.
+            conda_channel (Optional[str]): the conda channel to install packages from.
+
+        Raises: ImportError
+        """
         super().__init__(
             textwrap.dedent(f"""\
             Composer was installed without {extra_deps_group} support. To use {extra_deps_group} related packages, with Composer, run `pip install mosaicml[{extra_deps_group}]`
