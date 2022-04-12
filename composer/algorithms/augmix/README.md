@@ -132,7 +132,13 @@ Doing so can allow models to reach higher quality, but this typically requires (
 > 🚧 AugMix May Reduce Quality for Smaller Models and Shorter Training Runs
 > 
 > AugMix is a regularization technique that makes training more difficult for the model.
-> This can lead to higher model quality for longer training runs but may decrease accuracy for shorter training runs and require a larger model to overcome this difficulty.
+> Because AugMix is a regularization technique, it can allow models to reach higher quality for
+>
+> (1) longer training runs and...
+>
+> (2) overparameterized models
+>
+> However, for shorter training runs or smaller models it may reduce quality.
 
 > 🚧 Composing Regularization Methods
 >
