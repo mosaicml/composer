@@ -62,7 +62,7 @@ def select_using_loss(input: torch.Tensor,
                       loss_fun: Callable,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Prunes minibatches as a subroutine of SelectiveBackprop (`Jiang et al, 2019.<https://\\
+    """Prunes minibatches as a subroutine of SelectiveBackprop (`Jiang et al, 2019. <https://\\
     arxiv.org/abs/1910.00762>`_). Computes the loss function on the provided training examples and runs
     minibatches according to the difficulty. The fraction of the minibatch that is kept for gradient computation is
     specified by the argument ``0 <= keep <= 1``.
@@ -75,8 +75,8 @@ def select_using_loss(input: torch.Tensor,
         input (torch.Tensor): Input tensor to prune
         target (torch.Tensor): Output tensor to prune
         model (Callable): Model with which to predict outputs
-        loss_fun (Callable): Loss function of the form ``loss(outputs, targets, reduction=\'none\')``.
-            The function must take the keyword argument ``reduction=\'none\'``
+        loss_fun (Callable): Loss function of the form ``loss(outputs, targets, reduction='none')``.
+            The function must take the keyword argument ``reduction='none'``
             to ensure that per-sample losses are returned.
         keep (float, optional): Fraction of examples in the batch to keep. Default: ``0.5``.
         scale_factor (float, optional): Multiplier between 0 and 1 for spatial size. Downsampling
@@ -146,9 +146,8 @@ def select_using_loss(input: torch.Tensor,
 
 
 class SelectiveBackprop(Algorithm):
-    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al, 2019.
-
-     <https://arxiv.org/abs/1910.00762>`_).
+    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al, 2019 <https://\\
+    arxiv.org/abs/1910.00762>`_).
 
      Selective Backprop (SB) prunes minibatches according to the difficulty
      of the individual training examples, and only computes weight gradients
