@@ -157,7 +157,6 @@ class ResNet9(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
             BasicBlock(inplanes=256, planes=256, stride=1),
-            #nn.MaxPool2d(kernel_size=2, stride=2),
         )
 
         self.fc = nn.Linear(in_features=256, out_features=num_classes, bias=True)
