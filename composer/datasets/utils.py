@@ -115,10 +115,7 @@ def pil_image_collate(
     return image_tensor, target_tensor
 
 
-def add_vision_dataset_transform(dataset: VisionDataset,
-                                 transform: Callable,
-                                 is_tensor_transform: bool = False,
-                                 is_target_transformed: bool = False):
+def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is_tensor_transform: bool = False):
     """Add a transform to a dataset's collection of transforms.
 
     Args:
@@ -142,35 +139,20 @@ def add_vision_dataset_transform(dataset: VisionDataset,
 
     transform_added_logstring = textwrap.dedent(f"""\
         Transform {transform} added to dataset.
-        Dataset now has the following transforms: {dataset.transforms}""")
+        Dataset now has the following transforms: {dataset.transform}""")
 
-    if is_target_transformed:
-        if dataset.transforms is None:
-            dataset.transforms = transform
-            log.warning(transform_added_logstring)
-
-    elif dataset.transform is None:
+    if dataset.transform is None:
         dataset.transform = transform
         log.warning(transform_added_logstring)
-
-    data_transforms = dataset.transforms if is_target_transformed else dataset.transform
-
-    if isinstance(data_transforms, transforms.Compose):
-
-        insertion_index = len(data_transforms.transforms)
-        for i, t in enumerate(data_transforms.transforms):
+    elif isinstance(dataset.transform, transforms.Compose):
+        insertion_index = len(dataset.transform.transforms)
+        for i, t in enumerate(dataset.transform.transforms):
             if isinstance(t, transforms.ToTensor):
                 insertion_index = i
                 break
         if is_tensor_transform:
             insertion_index += 1
-
-        if is_target_transformed:
-            assert dataset.transforms is not None
-            dataset.transforms.transforms.insert(insertion_index, transform)
-        else:
-            assert dataset.transform is not None
-            dataset.transform.transforms.insert(insertion_index, transform)
+        dataset.transform.transforms.insert(insertion_index, transform)
         log.warning(transform_added_logstring)
     else:  # transform is some other basic transform, join using Compose
         if isinstance(dataset.transform, transforms.ToTensor) and not is_tensor_transform:

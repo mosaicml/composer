@@ -237,7 +237,7 @@ class ColOut(Algorithm):
                 textwrap.dedent(f"""\
                 To use {type(self).__name__}, the dataset must be a
                 {VisionDataset.__qualname__}, not {type(dataset).__name__}"""))
-        add_vision_dataset_transform(dataset, transform, is_tensor_transform=False, is_target_transformed=True)
+        add_vision_dataset_transform(dataset, transform, is_tensor_transform=False)
         self._transformed_datasets.add(dataset)
 
     def _apply_batch(self, state: State) -> None:
@@ -246,12 +246,11 @@ class ColOut(Algorithm):
         assert isinstance(inputs, Tensor) and isinstance(targets, Tensor), \
             "Multiple tensors not supported for this method yet."
 
-        if self.resize_targets:
-            colout_input, colout_target = colout_batch(inputs, targets, p_row=self.p_row, p_col=self.p_col)
-        else:
-            colout_input = colout_batch(inputs, p_row=self.p_row, p_col=self.p_col)
-
-        state.batch = new_batch
+        state.batch = colout_batch(inputs,
+                                   targets,
+                                   p_row=self.p_row,
+                                   p_col=self.p_col,
+                                   resize_targets=self.resize_targets)
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         if self.batch:
