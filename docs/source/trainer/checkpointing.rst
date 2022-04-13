@@ -83,7 +83,7 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
-    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timer', 'rank_zero_seed', 'computed_metrics']
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timer', 'rank_zero_seed', 'current_metrics']
 
 Resume training
 ---------------
@@ -159,7 +159,7 @@ state from the checkpoint are not compatible with these new objects.
     +-----------------------+-------------------------------------------------------------+
     | rank_zero_seed        | The seed of the rank zero process.                          |
     +-----------------------+-------------------------------------------------------------+
-    | computed_metrics      | The computed metrics.                                       |
+    | current_metrics       | The current metrics.                                        |
     +-----------------------+-------------------------------------------------------------+
 
     All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use either the defaults 
