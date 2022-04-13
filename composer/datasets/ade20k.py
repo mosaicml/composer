@@ -409,12 +409,13 @@ class StreamingADE20k(StreamingDataset):
                  shuffle: bool,
                  both_transform: Optional[Callable] = None,
                  image_transform: Optional[Callable] = None,
-                 annotation_transform: Optional[Callable] = None):
+                 annotation_transform: Optional[Callable] = None,
+                 device_batch_size: Optional[int] = None):
         decoders = {
             'image': self.decode_image,
             'annotation': self.decode_annotation,
         }
-        super().__init__(remote, local, shuffle, decoders)
+        super().__init__(remote, local, shuffle, decoders, device_batch_size)
         self.both_transform = both_transform
         self.image_transform = image_transform
         self.annotation_transform = annotation_transform
@@ -506,7 +507,7 @@ class StreamingADE20kHparams(StreamingDatasetHparams):
 
         remote = os.path.join(self.remote, self.split)
         local = os.path.join(self.local, self.split)
-        dataset = StreamingADE20k(remote, local, self.shuffle, both_transform, image_transform, annotation_transform)
+        dataset = StreamingADE20k(remote, local, self.shuffle, both_transform, image_transform, annotation_transform, batch_size)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
                                               std=IMAGENET_CHANNEL_STD,
