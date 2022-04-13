@@ -6,9 +6,9 @@ Please refer to the `ADE20K dataset <https://groups.csail.mit.edu/vision/dataset
 dataset.
 """
 
-from io import BytesIO
 import os
 from dataclasses import dataclass
+from io import BytesIO
 from math import ceil
 from typing import Any, Callable, Optional, Tuple, Union
 
