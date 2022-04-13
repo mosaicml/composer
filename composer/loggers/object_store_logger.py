@@ -309,6 +309,7 @@ class ObjectStoreLogger(LoggerDestination):
         # Add .symlink extension so we can identify as emulated symlink when downloading
         object_name = self._object_name(symlink_artifact_name) + ".symlink"
         self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
+        print(self._file_upload_queue)
 
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded

@@ -294,13 +294,18 @@ class ObjectStore:
         Args:
             object_name (str): The name of the object.
         """
-        obj = self._provider.get_object(self._container.name, object_name)
-        # Object not found, check for potential symlink
-        if obj is None:
-            object_name += ".symlink"
+        obj = None
+        try:
             obj = self._provider.get_object(self._container.name, object_name)
+        except Exception as e:
+            # Object not found, check for potential symlink
+            if "ObjectDoesNotExistError" in str(e):
+                object_name += ".symlink"
+                obj = self._provider.get_object(self._container.name, object_name)
+            else:
+                raise
         # Recursively trace any symlinks
-        if obj is not None and obj.name.endswith(".symlink"):
+        if obj.name.endswith(".symlink"):
             # Download symlink object to temporary folder
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmppath = os.path.join(tmpdir, str(uuid.uuid4()))
