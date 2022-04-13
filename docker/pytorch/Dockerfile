@@ -20,6 +20,7 @@ RUN apt-get update && \
         dirmngr \
         apt-utils \
         gpg-agent \
+        openssh-client \
         # For PILLOW:
         zlib1g-dev \
         libtiff-dev \
@@ -179,6 +180,7 @@ ARG PYTHON_VERSION
 RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
     ffcv==0.0.3 \
     'opencv-python>=4.5.5.64,<4.6' \
-    'numba>=0.55.0,<0.56' && \
+    'numba>=0.55.0,<0.56' \
+    cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`>=10.2.0 && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir mmcv-full==1.4.4 -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir 'mmsegmentation>=0.22.0,<0.23'

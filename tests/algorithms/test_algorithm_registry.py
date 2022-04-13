@@ -59,7 +59,6 @@ default_required_fields = {
     },
     MixUpHparams: {
         'alpha': 0.2,
-        'num_classes': 1000
     },
     GhostBatchNormHparams: {
         'ghost_batch_size': 32
