@@ -307,7 +307,6 @@ class ObjectStore:
                 with open(tmppath) as f:
                     symlinked_object_name = f.read()
                     return self._get_object(symlinked_object_name)
-                pass
         return obj
 
     def get_object_size(self, object_name: str) -> int:
