@@ -145,6 +145,10 @@ extra_deps["nlp"] = [
     "datasets>=1.14,<2",
 ]
 
+extra_deps["streaming"] = [
+    "boto3==1.21.42",
+]
+
 extra_deps["webdataset"] = [
     # PyPI does not permit git dependencies. See https://github.com/mosaicml/composer/issues/771
     # "webdataset @ git+https://github.com/mosaicml/webdataset.git@dev"
