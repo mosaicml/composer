@@ -1056,13 +1056,6 @@ class Trainer:
                         full_loss = total_loss.cpu().item()
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
-                    if self.train_metrics is not None:
-                        self._compute_and_log_metrics(
-                            dataloader_label='train',
-                            log_level=LogLevel.BATCH,
-                            metrics=self.train_metrics,
-                        )
-
                     self.state.timer.on_batch_complete(
                         samples=int(num_samples_in_batch.item()),
                         tokens=int(num_tokens_in_batch.item()),
@@ -1071,6 +1064,13 @@ class Trainer:
                     if self._step_schedulers_every_batch:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
+
+                    if self.train_metrics is not None:
+                        self._compute_and_log_metrics(
+                            dataloader_label='train',
+                            log_level=LogLevel.BATCH,
+                            metrics=self.train_metrics,
+                        )
 
                     self.engine.run_event(Event.BATCH_END)
 
@@ -1090,6 +1090,13 @@ class Trainer:
                 log.info(f'Skipping the rest of Epoch {int(self.state.timer.epoch)}')
 
             self.state.timer.on_epoch_complete()
+
+            if self.train_metrics is not None:
+                self._compute_and_log_metrics(
+                    dataloader_label='train',
+                    log_level=LogLevel.EPOCH,
+                    metrics=self.train_metrics,
+                )
 
             if not self._step_schedulers_every_batch:
                 for scheduler in self.state.schedulers:
