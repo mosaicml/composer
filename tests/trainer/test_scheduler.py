@@ -90,6 +90,7 @@ def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: Li
 
     state = dummy_schedulers_state
     assert state.dataloader_len is not None
+    assert state.max_duration is not None
     state.max_duration = Time(value=int(state.max_duration.value * ssr), unit=state.max_duration.unit)
     for test_time, expected_lr in zip(test_times, expected_lrs):
         parsed_time = Time.from_timestring(test_time)

@@ -93,7 +93,7 @@ class State(Serializable):
         model (torch.nn.Module): The model, typically as a subclass of :class:`~.ComposerModel`.
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
-        grad_accum (int): The number of gradient accumulation steps to use. With this argument, micro batch size for
+        grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch size for
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         dataloader (types.DataLoader, optional): The active DataLoader.
         dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
@@ -102,7 +102,7 @@ class State(Serializable):
         dataloader_label (str, optional): The name for the dataloader. Required if ``dataloader`` is specified. (default: ``None``)
             By convention, the training dataloader is called ``'train'``. The evaluator dataloader is called
             ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
-        max_duration (str | Time): The maximum duration to train for.
+        max_duration (str | Time, optional): The maximum duration to train for. (default: ``None``)
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
         precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
@@ -152,7 +152,7 @@ class State(Serializable):
     _dataloader: Optional[types.DataLoader]
     _dataloader_label: Optional[str]
     _dataloader_len: Optional[Time[int]]
-    _max_duration: Time[int]
+    _max_duration: Optional[Time[int]]
     batch: types.Batch
     batch_num_samples: int
     batch_num_tokens: int
@@ -165,9 +165,11 @@ class State(Serializable):
         # model
         model: torch.nn.Module,
 
-        # stopping conditions
-        max_duration: Union[str, Time[int]],
+        # determinism
         rank_zero_seed: int,
+
+        # stopping conditions
+        max_duration: Optional[Union[str, Time[int]]] = None,
 
         # data configurations
         grad_accum: int = 1,
@@ -240,20 +242,26 @@ class State(Serializable):
         return self._max_duration
 
     @max_duration.setter
-    def max_duration(self, max_duration: Union[str, Time[int]]):
+    def max_duration(self, max_duration: Optional[Union[str, Time[int]]]):
+        if max_duration is None:
+            self._max_duration = None
+            return
         if isinstance(max_duration, str):
             max_duration = cast(Time[int], Time.from_timestring(max_duration))
         if max_duration.unit == TimeUnit.DURATION:
             raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
         self._max_duration = max_duration
 
-    def get_elapsed_duration(self) -> Time[float]:
+    def get_elapsed_duration(self) -> Optional[Time[float]]:
         """Get the elapsed training duration.
 
         Returns:
-            Time: The elapsed duration, in :attr:`TimeUnit.DURATION`. ``Time(0.0, TimeUnit.DURATION)`` represents the
-                beginning of training and ``Time(1.0, TimeUnit.DURATION)`` represents a completed training process.
+            Optional[Time[float]]: The elapsed duration, in :attr:`TimeUnit.DURATION`.
+                ``Time(0.0, TimeUnit.DURATION)`` represents the beginning of training and ``Time(1.0, TimeUnit.DURATION)``
+                represents a completed training process. Returns ``None`` if ``max_duration`` is None.
         """
+        if self.max_duration is None:
+            return None
         return self.timer.get(self.max_duration.unit) / self.max_duration
 
     @property

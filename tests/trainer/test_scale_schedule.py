@@ -121,6 +121,7 @@ class TestScaleScheduleTrainer():
         trainer = composer_trainer_hparams.initialize_object()
         trainer.state.callbacks.append(CheckScaleSchedule())
 
+        assert trainer.state.max_duration is not None
         assert trainer.state.max_duration.unit == TimeUnit.EPOCH
         assert trainer.state.max_duration.value == int(10 * ssr)
 

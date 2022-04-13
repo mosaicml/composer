@@ -109,6 +109,7 @@ class TestTrainerInit():
     def test_init_with_max_duration_in_batches(self, config):
         config["max_duration"] = '1ba'
         trainer = Trainer(**config)
+        assert trainer.state.max_duration is not None
         assert trainer.state.max_duration.to_timestring() == "1ba"
 
 

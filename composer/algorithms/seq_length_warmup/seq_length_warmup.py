@@ -183,6 +183,7 @@ class SeqLengthWarmup(Algorithm):
             return
 
         assert state.dataloader is not None, "dataloader should be set on AFTER_DATALOADER"
+        assert state.max_duration is not None, "max_duration should be set on AFTER_DATALOADER"
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.
         if not self._activated:

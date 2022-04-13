@@ -678,7 +678,6 @@ class Trainer:
             raise ValueError("grad_accum must be an int or ``auto``")
 
         self.state = State(
-            max_duration=max_duration,
             rank_zero_seed=rank_zero_seed,
             algorithms=algorithms,
             model=model,
@@ -689,7 +688,6 @@ class Trainer:
             optimizers=optimizers,
         )
 
-        self._train_dataloader = train_dataloader.dataloader
         self.train_subset_num_batches = train_subset_num_batches
 
         pytorch_schedulers = [
@@ -799,6 +797,12 @@ class Trainer:
             reproducibility.configure_deterministic_mode()
 
         self.engine.run_event(Event.INIT)
+
+        # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
+        # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
+        self.state.set_dataloader(train_dataloader.dataloader, 'train')
+        self.state.dataloader_len = self.train_subset_num_batches
+        self.state.max_duration = max_duration
 
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
@@ -982,12 +986,7 @@ class Trainer:
         else:
             train_metrics = None
 
-        if self.state.dataloader is None:
-            # If the dataloader is not already set on State, then set it from what was passed in on init
-            self.state.set_dataloader(self._train_data_spec.dataloader, "train")
-            self.state.dataloader_len = self.train_subset_num_batches
-
-        assert self.state.dataloader is not None
+        assert self.state.dataloader is not None, "dataloader is set in __init__"
 
         for scheduler in ensure_tuple(self._schedulers):
             if isinstance(scheduler, PyTorchScheduler):

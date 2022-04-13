@@ -130,6 +130,8 @@ def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: f
     if isinstance(time, str):
         time = Time.from_timestring(time)
 
+    assert state.max_duration is not None, "max_duration should be set whenever schedulers are invoked"
+
     if time.unit == TimeUnit.DURATION:
         if state.dataloader_len is None:
             raise RuntimeError("Cannot convert time, as state.dataloader_len is None.")

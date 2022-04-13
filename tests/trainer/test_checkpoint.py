@@ -414,6 +414,7 @@ def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
 def _validate_events_called_expected_number_of_times(trainer: Trainer):
     state = trainer.state
     assert trainer.train_subset_num_batches is not None
+    assert state.max_duration is not None
     assert state.max_duration.unit == TimeUnit.EPOCH
     num_epochs = state.max_duration.value
     num_total_steps = num_epochs * trainer.train_subset_num_batches

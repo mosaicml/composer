@@ -232,6 +232,7 @@ class TestStochasticDepthDropRate:
         new_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=new_drop_rates)
 
+        assert state.max_duration is not None
         assert state.max_duration.unit == TimeUnit.EPOCH
         assert state.dataloader_len is not None
         drop_warmup_iters = int(int(state.dataloader_len) * int(state.max_duration.value) * algorithm.drop_warmup)
