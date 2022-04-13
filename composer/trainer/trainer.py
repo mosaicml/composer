@@ -907,13 +907,19 @@ class Trainer:
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
-        """Computes metrics, logs the results, and updates the state."""
+        """Computes metrics, logs the results, and updates the state.
+
+        Args:
+            dataloader_label (str): The dataloader label.
+            metrics (MetricCollection): The metrics to compute.
+            log_level (LogLevel): The LogLevel for logging metrics.
+        """
         computed_metrics = metrics.compute()
         self.logger.data(
             log_level=log_level,
             data={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
         )
-        self.state.computed_metrics[dataloader_label] = computed_metrics
+        self.state.current_metrics[dataloader_label] = computed_metrics
 
     def _spin_dataloaders(self):
         """Spin the dataloaders to restore sampler state.
@@ -1088,13 +1094,6 @@ class Trainer:
             if not self._step_schedulers_every_batch:
                 for scheduler in self.state.schedulers:
                     scheduler.step()
-
-            if self.train_metrics is not None:
-                self._compute_and_log_metrics(
-                    dataloader_label='train',
-                    log_level=LogLevel.EPOCH,
-                    metrics=self.train_metrics,
-                )
 
             self.engine.run_event(Event.EPOCH_END)
 

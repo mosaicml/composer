@@ -21,40 +21,40 @@ class TestMetricsCallback(Callback):
         self._eval_batch_end_accuracy = None
 
     def init(self, state: State, logger: Logger) -> None:
-        # on init, the `computed_metrics` should be empty
+        # on init, the `current_metrics` should be empty
         del logger  # unused
-        assert state.computed_metrics == {}, "no metrics should be defined on init()"
+        assert state.current_metrics == {}, "no metrics should be defined on init()"
 
     def batch_end(self, state: State, logger: Logger) -> None:
         # The metric should be computed and updated on state every batch.
         del logger  # unused
         if self.compute_training_metrics:
             # assuming that at least one sample was correctly classified
-            assert state.computed_metrics["train"]["Accuracy"] != 0.0
-            self._train_batch_end_train_accuracy = state.computed_metrics["train"]["Accuracy"]
+            assert state.current_metrics["train"]["Accuracy"] != 0.0
+            self._train_batch_end_train_accuracy = state.current_metrics["train"]["Accuracy"]
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         # The metric at epoch end should be the same as on batch end.
         del logger  # unused
         if self.compute_training_metrics:
-            assert state.computed_metrics["train"]["Accuracy"] == self._train_batch_end_train_accuracy
+            assert state.current_metrics["train"]["Accuracy"] == self._train_batch_end_train_accuracy
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         # The validation accuracy should be defined after each eval batch
         if self.compute_val_metrics:
             # assuming that at least one sample was correctly classified
-            assert state.computed_metrics["eval"]["Accuracy"] != 0.0
-            self._eval_batch_end_accuracy = state.computed_metrics["eval"]["Accuracy"]
+            assert state.current_metrics["eval"]["Accuracy"] != 0.0
+            self._eval_batch_end_accuracy = state.current_metrics["eval"]["Accuracy"]
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.compute_val_metrics:
-            assert state.computed_metrics["eval"]["Accuracy"] == self._eval_batch_end_accuracy
+            assert state.current_metrics["eval"]["Accuracy"] == self._eval_batch_end_accuracy
 
 
 @pytest.mark.parametrize('compute_training_metrics', [True, False])
 @pytest.mark.parametrize('validate_every_n_batches', [-1, 1])
 @pytest.mark.parametrize('validate_every_n_epochs', [-1, 1])
-def test_computed_metrics(
+def test_current_metrics(
     dummy_train_dataloader: DataLoader,
     dummy_val_dataloader: DataLoader,
     dummy_num_classes: int,
@@ -94,14 +94,14 @@ def test_computed_metrics(
         return
     # The metrics should not be reset after training is finished
     if compute_training_metrics:
-        assert trainer.state.computed_metrics["train"]["Accuracy"] != 0.0
+        assert trainer.state.current_metrics["train"]["Accuracy"] != 0.0
     else:
-        assert "train" not in trainer.state.computed_metrics
+        assert "train" not in trainer.state.current_metrics
 
     if compute_val_metrics:
-        assert trainer.state.computed_metrics["eval"]["Accuracy"] != 0.0
+        assert trainer.state.current_metrics["eval"]["Accuracy"] != 0.0
     else:
-        assert "eval" not in trainer.state.computed_metrics
+        assert "eval" not in trainer.state.current_metrics
 
     # Inspect the logger calls
     num_expected_calls = 0
