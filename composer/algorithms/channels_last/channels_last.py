@@ -18,22 +18,20 @@ __all__ = ['ChannelsLast', 'apply_channels_last']
 
 
 def apply_channels_last(model: torch.nn.Module) -> None:
-    """Changes the memory format of the model to `torch.channels_last.
-
-    <https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html>`_.
+    """Changes the memory format of the model to `torch.channels_last`_
 
     This usually yields improved GPU utilization.
 
     Args:
         model: model or module to modify
+
+    .. _torch.channels_last: https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html
     """
     model.to(memory_format=torch.channels_last)  # type: ignore
 
 
 class ChannelsLast(Algorithm):
-    """Changes the memory format of the model to `torch.channels_last.
-
-    <https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html>`_. This usually improves GPU utilization.
+    """Changes the memory format of the model to `torch.channels_last`_. This usually improves GPU utilization.
 
     Runs on ``Event.INIT``, so it can set the memory format before the model is DDP wrapped. Has no hyperparameters.
 
@@ -50,6 +48,8 @@ class ChannelsLast(Algorithm):
                 algorithms=[algorithm],
                 optimizers=[optimizer]
             )
+
+    .. _torch.channels_last: https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html
     """
 
     def match(self, event: Event, state: State) -> bool:

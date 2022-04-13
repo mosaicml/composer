@@ -62,11 +62,9 @@ def select_using_loss(input: torch.Tensor,
                       loss_fun: Callable,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Prunes minibatches as a subroutine of SelectiveBackprop (`Jiang et al, 2019.
-
-    <https://arxiv.org/abs/1910.00762>`_). Computes the loss function on the provided training examples and runs
-    minibatches according to the difficulty. The fraction of the minibatch that is kept for gradient computation is
-    specified by the argument ``0 <= keep <= 1``.
+    """Prunes minibatches as a subroutine of SelectiveBackprop (`Jiang et al, 2019`_). Computes the loss function on the
+    provided training examples and runs minibatches according to the difficulty. The fraction of the minibatch that is
+    kept for gradient computation is specified by the argument ``0 <= keep <= 1``.
 
     To speed up SB's selection forward pass, the argument ``scale_factor`` can
     be used to spatially downsample input tensors. The full-sized inputs
@@ -100,6 +98,8 @@ def select_using_loss(input: torch.Tensor,
 
         with torch.cuda.amp.autocast(True):
             X_new, y_new = selective_backprop(X, y, model, loss_fun, keep, scale_factor)
+
+    .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
     """
     INTERPOLATE_MODES = {3: "linear", 4: "bilinear", 5: "trilinear"}
 
@@ -147,9 +147,7 @@ def select_using_loss(input: torch.Tensor,
 
 
 class SelectiveBackprop(Algorithm):
-    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al, 2019.
-
-     <https://arxiv.org/abs/1910.00762>`_).
+    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al, 2019`_)
 
      Selective Backprop (SB) prunes minibatches according to the difficulty
      of the individual training examples, and only computes weight gradients
@@ -191,6 +189,8 @@ class SelectiveBackprop(Algorithm):
                  algorithms=[algorithm],
                  optimizers=[optimizer]
              )
+
+    .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
     """
 
     def __init__(self,
