@@ -44,7 +44,6 @@ def get_model_algs(model_name: str) -> List[str]:
         algs.remove('squeeze_excite')
         algs.remove('swa')
         algs.remove('mixup')
-        algs.remove('scale_schedule')
         algs.remove('stochastic_depth')
         algs.remove('colout')
         algs.remove('progressive_resizing')
