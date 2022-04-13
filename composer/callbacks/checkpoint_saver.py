@@ -193,7 +193,7 @@ class CheckpointSaver(Callback):
 
             The same format variables as for ``name`` are available.
 
-            To disable symlinks, set this parameter to ``None``.
+            To disable symlinks, set this parameter or ``save_latest_artifact_name`` to ``None``.
 
             Consider the following scenario, where:
 
@@ -222,6 +222,19 @@ class CheckpointSaver(Callback):
                 awesome-training-run/checkpoints/latest-rank1.tar -> awesome-training-run/checkpoints/ep1-ba42-rank1.tar
                 awesome-training-run/checkpoints/latest-rank2.tar -> awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
+        save_latest_artifact_name (str, optional): Format string for the checkpoint's latest symlink artifact name.
+            (default: ``'{{run_name}}/checkpoints/latest-rank{{rank}}"``)
+        
+            After the symlink is saved, it will be periodically logged as a file artifact.
+            The artifact name will be determined by this format string.
+
+            .. seealso:: :meth:`~composer.loggers.logger.Logger.log_symlink_artifact` for symlink artifact logging.
+
+            The same format variables for ``filename`` are available.
+
+            Leading slashes (``'/'``) will be stripped.
+
+            To disable symlinks, set this parameter or ``latest_filename`` to ``None``.
 
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
             If ``False`` (the default), then the ``folder`` must not exist or be empty.
@@ -278,6 +291,7 @@ class CheckpointSaver(Callback):
         filename: str = "ep{epoch}-ba{batch}-rank{rank}",
         artifact_name: Optional[str] = "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
         latest_filename: Optional[str] = "latest-rank{rank}",
+        latest_artifact_name: Optional[str] = "{run_name}/checkpoints/latest-rank{rank}",
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = "1ep",
         *,
         overwrite: bool = False,
@@ -291,6 +305,7 @@ class CheckpointSaver(Callback):
         self.filename = filename
         self.artifact_name = artifact_name
         self.latest_filename = latest_filename
+        self.latest_artifact_name = latest_artifact_name
         self.overwrite = overwrite
 
         self.save_interval = save_interval
@@ -346,13 +361,14 @@ class CheckpointSaver(Callback):
                                      file_path=checkpoint_filepath,
                                      overwrite=self.overwrite)
 
-            if self.latest_filename is not None:
-                symlink_artifact_name = format_name_with_dist_and_time(self.latest_filename, logger.run_name,
-                                                                       state.timer.get_timestamp()).lstrip("/")
+            if self.latest_filename is not None and self.latest_artifact_name is not None:
                 symlink_name = os.path.join(
                     format_name_with_dist(self.folder, logger.run_name),
-                    symlink_artifact_name,
+                    format_name_with_dist_and_time(self.latest_filename, logger.run_name,
+                                                   state.timer.get_timestamp()).lstrip("/"),
                 )
+                symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, logger.run_name,
+                                                                       state.timer.get_timestamp()).lstrip("/")
                 if state.is_model_deepspeed and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     symlink_name += ".tar"

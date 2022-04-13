@@ -184,8 +184,10 @@ class TrainerHparams(hp.Hparams):
         load_chunk_size (int, optional): See :class:`.Trainer`.
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_latest_filename (str, optional): See
             :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_latest_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_interval (str, optional): See
@@ -350,6 +352,8 @@ class TrainerHparams(hp.Hparams):
     save_artifact_name: str = hp.optional("Checkpoint artifact name format",
                                           default="{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}")
     save_latest_filename: str = hp.optional("Latest checkpoint symlink format string.", default="latest-rank{rank}")
+    save_latest_artifact_name: str = hp.optional("Checkpoint symlink artifact name format",
+                                                 default="{run_name}/checkpoints/latest-rank{rank}")
     save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     save_interval: str = hp.optional(textwrap.dedent("""\

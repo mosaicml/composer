@@ -288,14 +288,19 @@ class ObjectStore:
                                                 headers=headers)
 
     def _get_object(self, object_name: str):
-        """Get object from object store. Recursively follow any symlinks.
+        """Get object from object store. Recursively follow any symlinks. If an object does not exist, automatically
+        check if it is a symlink by appending ``.symlink``.
 
         Args:
             object_name (str): The name of the object.
         """
         obj = self._provider.get_object(self._container.name, object_name)
+        # Object not found, check for potential symlink
+        if obj is None:
+            object_name += ".symlink"
+            obj = self._provider.get_object(self._container.name, object_name)
         # Recursively trace any symlinks
-        if obj.name.endswith(".symlink"):
+        if obj is not None and obj.name.endswith(".symlink"):
             # Download symlink object to temporary folder
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmppath = os.path.join(tmpdir, str(uuid.uuid4()))

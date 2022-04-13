@@ -296,6 +296,8 @@ class ObjectStoreLogger(LoggerDestination):
 
     def log_symlink_artifact(self, state: State, log_level: LogLevel, existing_artifact_name: str,
                              symlink_artifact_name: str, overwrite: bool):
+        """Object stores do not natively support symlinks, so we emulate symlinks by adding a .symlink file to the
+        object store, which is a text file containing the name of the object it is pointing to."""
         # Only symlink if we're logging artifact to begin with
         if not self.should_log_artifact(state, log_level, existing_artifact_name):
             return
