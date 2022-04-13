@@ -2,7 +2,7 @@
 
 import textwrap
 from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import Optional, Union
 
 import yahp as hp
 
@@ -113,6 +113,7 @@ class ColOutHparams(AlgorithmHparams):
     p_row: float = hp.optional(doc="Fraction of rows to drop", default=0.15)
     p_col: float = hp.optional(doc="Fraction of cols to drop", default=0.15)
     batch: bool = hp.optional(doc="Run ColOut at the batch level", default=True)
+    resize_target: Union[bool, str] = hp.optional(doc="something", default='auto')
 
     def initialize_object(self) -> ColOut:
         return ColOut(**asdict(self))
