@@ -146,7 +146,7 @@ extra_deps["nlp"] = [
 ]
 
 extra_deps["streaming"] = [
-    "boto3==1.21.42",
+    "boto3==1.21.40",
 ]
 
 extra_deps["webdataset"] = [
