@@ -3,22 +3,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Type, Union
 import random
+from typing import Optional, Type, Union
 
 import torch
 
+from composer.algorithms.sam.sam_interval import SAM_FixedInterval, SAMInterval, get_max_duration_as_steps
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.utils import ensure_tuple
-
-from composer.algorithms.sam.sam_interval import (
-    get_max_duration_as_steps,
-    SAMInterval,
-    SAM_FixedInterval,
-    #SAM_Piecewise,
-    #SAM_CosProb
-)
 
 log = logging.getLogger(__name__)
 
@@ -40,17 +33,20 @@ class SAMOptimizer(torch.optim.Optimizer):
             (ex: SAM_FixedInterval) this parameter is ignored.
     """
 
-    def __init__(self, base_optimizer, rho: float = 0.05,
-                 epsilon: float = 1.0e-12,
-                 #interval: int = 1,
-                 interval: Union[int, Type[SAMInterval]] = 1,
-                 num_max_steps:int = None, # only necessary for some interval schedules
-                 use_LookSAM: bool = False,
-                 alpha_LookSAM: float = 0.7,
-                 use_ESAM_SWP: bool = False,
-                 beta_ESAM_SWP: float = 0.6,
-                 use_ASAM: bool = False,
-                 **kwargs):
+    def __init__(
+            self,
+            base_optimizer,
+            rho: float = 0.05,
+            epsilon: float = 1.0e-12,
+            #interval: int = 1,
+            interval: Union[int, Type[SAMInterval]] = 1,
+            num_max_steps: int = None,  # only necessary for some interval schedules
+            use_LookSAM: bool = False,
+            alpha_LookSAM: float = 0.7,
+            use_ESAM_SWP: bool = False,
+            beta_ESAM_SWP: float = 0.6,
+            use_ASAM: bool = False,
+            **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         self.base_optimizer = base_optimizer
         self.global_step = 0
@@ -60,11 +56,11 @@ class SAMOptimizer(torch.optim.Optimizer):
         else:
             self.interval_class = interval(num_max_steps, **kwargs)
         self._step_supports_amp_closure = True  # Flag for Composer trainer
-        self.use_LookSAM = use_LookSAM # can also be added to param_groups if want to support doing LookSAM for only some layers
+        self.use_LookSAM = use_LookSAM  # can also be added to param_groups if want to support doing LookSAM for only some layers
         self.alpha_LookSAM = alpha_LookSAM
         if self.use_LookSAM:
             self.gv_norm = None
-        self.use_ESAM_SWP = use_ESAM_SWP # to support SDS from ESAM paper, need to either recompute loss or ensure that current loss reduction='none'
+        self.use_ESAM_SWP = use_ESAM_SWP  # to support SDS from ESAM paper, need to either recompute loss or ensure that current loss reduction='none'
         self.beta_ESAM_SWP = beta_ESAM_SWP
         if self.use_ESAM_SWP:
             self.original_grad_states = {}
@@ -91,7 +87,7 @@ class SAMOptimizer(torch.optim.Optimizer):
         for group in self.param_groups:
             scale = group["rho"] / (grad_norm + group["epsilon"])
             if self.use_ESAM_SWP:
-                scale.div_(1-self.beta_ESAM_SWP)
+                scale.div_(1 - self.beta_ESAM_SWP)
             for p in group["params"]:
                 if p.grad is None:
                     continue
@@ -115,11 +111,14 @@ class SAMOptimizer(torch.optim.Optimizer):
     @torch.no_grad()
     def second_step(self):
         if self.use_LookSAM:
-            old_grad_norm = torch.norm(torch.stack(
-                [((self.compute_tw(self.state[p]['prev_grad']) if self.use_ASAM else 1.0) * self.state[p]['prev_grad']).norm(p=2)
-                 for group in self.param_groups for p in group["params"]
-                 if self.state[p].get('prev_grad') is not None]),
-                    p="fro")
+            old_grad_norm = torch.norm(torch.stack([
+                ((self.compute_tw(self.state[p]['prev_grad']) if self.use_ASAM else 1.0) *
+                 self.state[p]['prev_grad']).norm(p=2)
+                for group in self.param_groups
+                for p in group["params"]
+                if self.state[p].get('prev_grad') is not None
+            ]),
+                                       p="fro")
 
             new_grad_norm = self._grad_norm(adaptive=self.use_ASAM)
             grad_norm_prod = new_grad_norm * old_grad_norm
@@ -130,16 +129,19 @@ class SAMOptimizer(torch.optim.Optimizer):
                 p.sub_(self.state[p]["e_w"])  # get back to "w" from "w + e(w)"
                 if self.use_LookSAM:
                     cos_theta = (p.grad * self.state[p]['prev_grad']) / grad_norm_prod
-                    self.state[p]['g_v'] = p.grad - new_grad_norm * cos_theta * self.state[p]['prev_grad'] / old_grad_norm
+                    self.state[p][
+                        'g_v'] = p.grad - new_grad_norm * cos_theta * self.state[p]['prev_grad'] / old_grad_norm
 
         if self.use_LookSAM:
             # calculate and store gv_norm once so don't need to recalculate
             # for future steps.
-            self.gv_norm = torch.norm(torch.stack(
-                [((self.compute_tw(self.state[p]['g_v']) if self.use_ASAM else 1.0) * self.state[p]['g_v']).norm(p=2)
-                 for group in self.param_groups for p in group["params"]
-                 if self.state[p].get('g_v') is not None]),
-                            p="fro")
+            self.gv_norm = torch.norm(torch.stack([
+                ((self.compute_tw(self.state[p]['g_v']) if self.use_ASAM else 1.0) * self.state[p]['g_v']).norm(p=2)
+                for group in self.param_groups
+                for p in group["params"]
+                if self.state[p].get('g_v') is not None
+            ]),
+                                      p="fro")
 
         self.base_optimizer.step()  # do the actual "sharpness-aware" update
 
@@ -174,14 +176,14 @@ class SAMOptimizer(torch.optim.Optimizer):
         return loss
 
     def _grad_norm(self, adaptive=False):
-        norm = torch.norm(torch.stack(
-            [((self.compute_tw(p) if adaptive else 1.0) * p.grad).norm(p=2)
-             for group in self.param_groups
-             for p in group["params"] if p.grad is not None]),
+        norm = torch.norm(torch.stack([((self.compute_tw(p) if adaptive else 1.0) * p.grad).norm(p=2)
+                                       for group in self.param_groups
+                                       for p in group["params"]
+                                       if p.grad is not None]),
                           p="fro")
         return norm
 
-    def compute_tw(self,p):
+    def compute_tw(self, p):
         """Computes Tw for ASAM."""
         return torch.abs(p)
 
@@ -211,6 +213,7 @@ class SAMOptimizer(torch.optim.Optimizer):
                         # after the Xth epoch)
                         p.requires_grad = self.original_grad_states[p]
 
+
 class SAM(Algorithm):
     """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
     existing optimizer with a :class:`SAMOptimizer`.
@@ -227,13 +230,12 @@ class SAM(Algorithm):
     """
 
     def __init__(
-        self,
-        rho: float = 0.05,
-        epsilon: float = 1.0e-12,
-        #interval: int = 1,
-        interval: Union[int, Type[SAMInterval]] = 1,
-        **kwargs
-    ):
+            self,
+            rho: float = 0.05,
+            epsilon: float = 1.0e-12,
+            #interval: int = 1,
+            interval: Union[int, Type[SAMInterval]] = 1,
+            **kwargs):
         """__init__ is constructed from the same fields as in hparams."""
         self.rho = rho
         self.epsilon = epsilon
@@ -263,11 +265,9 @@ class SAM(Algorithm):
 
         num_max_steps = get_max_duration_as_steps(state)
         state.optimizers = tuple(
-            SAMOptimizer(
-                base_optimizer=optimizer,
-                rho=self.rho,
-                epsilon=self.epsilon,
-                interval=self.interval,
-                num_max_steps=num_max_steps,
-                **self.kwargs
-            ) for optimizer in ensure_tuple(state.optimizers))
+            SAMOptimizer(base_optimizer=optimizer,
+                         rho=self.rho,
+                         epsilon=self.epsilon,
+                         interval=self.interval,
+                         num_max_steps=num_max_steps,
+                         **self.kwargs) for optimizer in ensure_tuple(state.optimizers))

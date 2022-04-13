@@ -1,11 +1,12 @@
-import random
 import math
+import random
 from abc import abstractmethod
 
 from composer.core.time import TimeUnit
 
+
 def get_max_duration_as_steps(state):
-    """Returns the max duration of the state in steps
+    """Returns the max duration of the state in steps.
 
     Args:
         state (:class:`State`): The current state.
@@ -22,15 +23,17 @@ def get_max_duration_as_steps(state):
 
     return max_dur
 
+
 class SAMInterval():
-    """Abstract class for determinining if SAM should be run for each interval
-    or not. Each implementation of this should overrride run_check."""
+    """Abstract class for determinining if SAM should be run for each interval or not.
+
+    Each implementation of this should overrride run_check.
+
+    Args:
+        T (int): The total number of steps that will be taken
+    """
 
     def __init__(self, T, **kwargs):
-        """
-        Args:
-            T (int): The total number of steps that will be taken
-        """
         self.T = T
         if self.T is None and self.requires_max_steps:
             raise ValueError("This SAMInterval algorithm requires that the number of max_steps not be None")
@@ -39,8 +42,8 @@ class SAMInterval():
 
     @abstractmethod
     def run_check(self, t):
-        """Checks if should run SAM for this iteration. Can either use a
-        self-maintained global counter (t) or the tracker in State (or both).
+        """Checks if should run SAM for this iteration. Can either use a self-maintained global counter (t) or the
+        tracker in State (or both).
 
         Args:
             t (int): The global step
@@ -49,9 +52,12 @@ class SAMInterval():
         """
 
     def requires_max_steps(self):
-        """If the interval checker requires knowledge of the number of max
-        steps. Default is False."""
+        """If the interval checker requires knowledge of the number of max steps.
+
+        Default is False.
+        """
         return False
+
 
 class SAM_FixedInterval(SAMInterval):
     """Will run SAM at a fixed interval (once every t steps)."""
@@ -61,12 +67,11 @@ class SAM_FixedInterval(SAMInterval):
         self.interval_num = interval_num
 
     def run_check(self, t):
-        return (t + 1) %  self.interval_num == 0
+        return (t + 1) % self.interval_num == 0
 
 
 class SAM_ConstantRandom(SAMInterval):
-    """Will run SAM with a constant probability.
-    (`Zhao et al, 2020 <https://arxiv.org/abs/2203.09962>`_)."""
+    """Will run SAM with a constant probability (`Zhao et al, 2020 <https://arxiv.org/abs/2203.09962>`_)."""
 
     def __init__(self, T, prob, **kwargs):
         super(SAM_ConstantRandom, self).__init__(T)
@@ -75,9 +80,9 @@ class SAM_ConstantRandom(SAMInterval):
     def run_check(self, t):
         return random.random() < self.prob
 
+
 class SAM_Piecewise(SAMInterval):
-    """Will run SAM with piecewise probability
-    (`Zhao et al, 2020 <https://arxiv.org/abs/2203.09962>`_)."""
+    """Will run SAM with piecewise probability (`Zhao et al, 2020 <https://arxiv.org/abs/2203.09962>`_)."""
 
     def __init__(self, T, prob, boundary_frac, **kwargs):
         super(SAM_Piecewise, self).__init__(T)
@@ -95,11 +100,10 @@ class SAM_Piecewise(SAMInterval):
 
 
 class SAM_CosProb(SAMInterval):
-    """Will run SAM with cosine scheduling function
-    (`Zhao et al, 2020 <https://arxiv.org/abs/2203.09962>`_)."""
+    """Will run SAM with cosine scheduling function (`Zhao et al, 2020 <https://arxiv.org/abs/2203.09962>`_)."""
 
     def run_check(self, t):
-        return random.random() < (0.5 + 0.5 * math.cos( t / self.T * math.pi))
+        return random.random() < (0.5 + 0.5 * math.cos(t / self.T * math.pi))
 
     def requires_max_steps(self):
         return True
