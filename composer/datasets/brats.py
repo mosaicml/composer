@@ -1,9 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""BraTS (Brain Tumor Segmentation) dataset.
+
+Please refer to the `Brain Tumor Segmentation (BraTS) challenge <https://www.med.upenn.edu/cbica/brats2021/>`_ for more
+details about this dataset.
+"""
+
 import glob
 import os
 import random
-import textwrap
 from dataclasses import dataclass
 
 import numpy as np
@@ -13,11 +18,14 @@ import torchvision
 import yahp as hp
 
 from composer.core.types import DataLoader, Dataset
-from composer.datasets.dataloader import DataloaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 PATCH_SIZE = [1, 192, 160]
+
+__all__ = ["BratsDatasetHparams"]
 
 
 def _my_collate(batch):
@@ -32,18 +40,18 @@ def _my_collate(batch):
 class BratsDatasetHparams(DatasetHparams):
     """Defines an instance of the BraTS dataset for image segmentation.
 
-    Parameters:
-        oversampling (float): The oversampling ratio to use.
+    Args:
+        oversampling (float): The oversampling ratio to use. Default: ``0.33``.
     """
 
     oversampling: float = hp.optional("oversampling", default=0.33)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataloaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
 
         oversampling = self.oversampling
 
         if self.datadir is None:
-            raise ValueError("datadir must be specified if self.synthetic is False")
+            raise ValueError("datadir must be specified.")
         x_train, y_train, x_val, y_val = get_data_split(self.datadir)
         dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
         collate_fn = None if self.is_train else _my_collate
@@ -91,7 +99,7 @@ class Crop(object):
 
         def rand_foreg_cropd(image, label):
 
-            import scipy
+            import scipy.ndimage
             cl = np.random.choice(np.unique(label[label > 0]))
             foreg_slices = scipy.ndimage.find_objects(scipy.ndimage.measurements.label(label == cl)[0])
             foreg_slices = [x for x in foreg_slices if x is not None]
@@ -257,11 +265,9 @@ def get_data_split(path: str):
     try:
         from sklearn.model_selection import KFold
     except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without unet support. To use timm with Composer, run `pip install mosaicml[unet]`
-            if using pip or `conda install -c conda-forge scikit-learn` if using Anaconda.""")) from e
-
+        raise MissingConditionalImportError(extra_deps_group="unet",
+                                            conda_channel="conda-forge",
+                                            conda_package="scikit-learn") from e
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
     imgs = load_data(path, "*_x.npy")
     lbls = load_data(path, "*_y.npy")

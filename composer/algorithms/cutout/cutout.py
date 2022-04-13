@@ -5,14 +5,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, TypeVar, Union
+from typing import Optional, TypeVar
 
 import numpy as np
 import torch
 from PIL.Image import Image as PillowImage
+from torch import Tensor
 
 from composer.algorithms.utils.augmentation_common import image_as_type
-from composer.core.types import Algorithm, Event, Logger, State, Tensor
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
@@ -21,50 +23,53 @@ __all__ = ["CutOut", "cutout_batch"]
 ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 
 
-def cutout_batch(X: ImgT, n_holes: int = 1, length: Union[int, float] = 0.5) -> ImgT:
+def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_sampling: bool = False) -> ImgT:
     """See :class:`CutOut`.
+
+    Args:
+        input (PIL.Image.Image or torch.Tensor): Image or batch of images. If
+            a :class:`torch.Tensor`, must be a single image of shape ``(C, H, W)``
+            or a batch of images of shape ``(N, C, H, W)``.
+        num_holes: Integer number of holes to cut out. Default: ``1``.
+        length (float, optional): Relative side length of the masked region.
+            If specified, ``length`` is interpreted as a fraction of ``H`` and
+            ``W``, and the resulting box is a square with side length
+            ``length * min(H, W)``. Must be in the interval :math:`(0, 1)`.
+            Default: ``0.5``.
+        uniform_sampling (bool, optional): If ``True``, sample the bounding
+            box such that each pixel has an equal probability of being masked.
+            If ``False``, defaults to the sampling used in the original paper
+            implementation. Default: ``False``.
+
+    Returns:
+        X_cutout: Batch of images with ``num_holes`` square holes with
+            dimension determined by ``length`` replaced with zeros.
 
     Example:
          .. testcode::
 
             from composer.algorithms.cutout import cutout_batch
-            new_input_batch = cutout_batch(
-                X=X_example,
-                n_holes=1,
-                length=16
-            )
-
-    Args:
-        X: :class:`PIL.Image.Image` or :class:`torch.Tensor` of image data. In
-            the latter case, must be a single image of shape ``CHW`` or a batch
-            of images of shape ``NCHW``.
-        n_holes: Integer number of holes to cut out
-        length: Side length of the square holes to cut out. Must be greater than
-            0. If ``0 < length < 1``, ``length`` is interpreted as a fraction
-            of ``min(H, W)`` and converted to ``int(length * min(H, W))``.
-            If ``length >= 1``, ``length`` is used as an integer size directly.
-
-    Returns:
-        X_cutout: Batch of images with ``n_holes`` holes of dimension
-            ``length x length`` replaced with zeros.
+            new_input_batch = cutout_batch(X_example, num_holes=1, length=0.25)
     """
-    X_tensor = image_as_type(X, torch.Tensor)
+    X_tensor = image_as_type(input, torch.Tensor)
     h = X_tensor.shape[-2]
     w = X_tensor.shape[-1]
 
-    if 0 < length < 1:
-        length = min(h, w) * length
-    length = int(length)
+    length = int(min(h, w) * length)
 
     mask = torch.ones_like(X_tensor)
-    for _ in range(n_holes):
-        y = np.random.randint(h)
-        x = np.random.randint(w)
+    for _ in range(num_holes):
+        if uniform_sampling is True:
+            y = np.random.randint(-length // 2, high=h + length // 2)
+            x = np.random.randint(-length // 2, high=w + length // 2)
+        else:
+            y = np.random.randint(h)
+            x = np.random.randint(w)
 
         mask = _generate_mask(mask, w, h, x, y, length)
 
     X_cutout = X_tensor * mask
-    X_out = image_as_type(X_cutout, X.__class__)  # pyright struggling with unions
+    X_out = image_as_type(X_cutout, input.__class__)  # pyright struggling with unions
     return X_out
 
 
@@ -79,7 +84,7 @@ class CutOut(Algorithm):
 
             from composer.algorithms import CutOut
             from composer.trainer import Trainer
-            cutout_algorithm = CutOut(n_holes=1, length=0.25)
+            cutout_algorithm = CutOut(num_holes=1, length=0.25)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
@@ -90,17 +95,19 @@ class CutOut(Algorithm):
             )
 
     Args:
-        X (Tensor): Batch Tensor image of size (B, C, H, W).
-        n_holes: Integer number of holes to cut out
-        length: Side length of the square holes to cut out. Must be greater than
-            0. If ``0 < length < 1``, ``length`` is interpreted as a fraction
-            of ``min(H, W)`` and converted to ``int(length * min(H, W))``.
-            If ``length >= 1``, ``length`` is used as an integer size directly.
+        num_holes (int, optional): Integer number of holes to cut out.
+            Default: ``1``.
+        length (float, optional): Relative side length of the masked region.
+            If specified, ``length`` is interpreted as a fraction of ``H`` and
+            ``W``, and the resulting box is a square with side length
+            ``length * min(H, W)``. Must be in the interval :math:`(0, 1)`.
+            Default: ``0.5``.
     """
 
-    def __init__(self, n_holes: int = 1, length: Union[int, float] = 0.5):
-        self.n_holes = n_holes
+    def __init__(self, num_holes: int = 1, length: float = 0.5, uniform_sampling: bool = False):
+        self.num_holes = num_holes
         self.length = length
+        self.uniform_sampling = uniform_sampling
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.AFTER_DATALOADER."""
@@ -111,7 +118,7 @@ class CutOut(Algorithm):
         x, y = state.batch_pair
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 
-        new_x = cutout_batch(X=x, n_holes=self.n_holes, length=self.length)
+        new_x = cutout_batch(x, num_holes=self.num_holes, length=self.length, uniform_sampling=self.uniform_sampling)
         state.batch = (new_x, y)
 
 

@@ -26,7 +26,7 @@ default_required_fields = {
         'blur_first': True
     },
     LabelSmoothingHparams: {
-        'alpha': 0.1
+        'smoothing': 0.1
     },
     LayerFreezingHparams: {
         'freeze_start': 0.5,
@@ -54,12 +54,11 @@ default_required_fields = {
         'num_classes': 1000
     },
     CutOutHparams: {
-        'n_holes': 1,
-        'length': 112
+        'num_holes': 1,
+        'length': 0.5
     },
     MixUpHparams: {
         'alpha': 0.2,
-        'num_classes': 1000
     },
     GhostBatchNormHparams: {
         'ghost_batch_size': 32
@@ -94,9 +93,10 @@ default_required_fields = {
     SWAHparams: {
         'swa_start': "0.7dur",
         'swa_end': "0.97dur",
+        'update_interval': "1ep",
         'schedule_swa_lr': False,
         'anneal_strategy': 'cos',
-        'anneal_epochs': 10,
+        'anneal_steps': 10,
         'swa_lr': None
     },
     AugMixHparams: {

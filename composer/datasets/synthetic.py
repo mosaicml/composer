@@ -1,5 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Synthetic datasets used for testing, profiling, and debugging."""
+
+from __future__ import annotations
+
 from typing import Callable, Optional, Sequence, Union
 
 import torch
@@ -10,13 +14,29 @@ from torchvision.datasets import VisionDataset
 from composer.core.types import MemoryFormat
 from composer.utils.string_enum import StringEnum
 
+__all__ = ["SyntheticDataType", "SyntheticDataLabelType", "SyntheticBatchPairDataset", "SyntheticPILDataset"]
+
 
 class SyntheticDataType(StringEnum):
+    """Defines the distribution of the synthetic data.
+
+    Attributes:
+        GAUSSIAN: Standard Guassian distribution.
+        SEPARABLE: Gaussian distributed, but classes will be mean-shifted for
+            separability.
+    """
+
     GAUSSIAN = "gaussian"
     SEPARABLE = "separable"
 
 
 class SyntheticDataLabelType(StringEnum):
+    """Defines the class label type of the synthetic data.
+
+    Attributes:
+        CLASSIFICATION_INT: Class labels are ints.
+        CLASSIFICATION_ONE_HOT: Class labels are one-hot vectors.
+    """
     CLASSIFICATION_INT = "classification_int"
     CLASSIFICATION_ONE_HOT = "classification_one_hot"
 
@@ -29,14 +49,21 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
         data_shape (List[int]): Shape of the tensor for input samples.
         num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
         data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
-        label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
+            Default: ``SyntheticDataType.GAUSSIAN``.
+        label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to
+            create. Default: ``SyntheticDataLabelType.CLASSIFICATION_INT``.
         num_classes (int, optional): Number of classes to use. Required if
-            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT`` or``CLASSIFICATION_ONE_HOT``. Otherwise, should be ``None``.
-        label_shape (List[int]): Shape of the tensor for each sample label.
-        device (str): Device to store the sample pool. Set to ``cuda`` to store samples
-            on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to `cpu`
-            to move data between host memory and the gpu on every batch.
+            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT``
+            or``CLASSIFICATION_ONE_HOT``. Default: ``None``.
+        label_shape (List[int], optional): Shape of the tensor for each sample label.
+            Default: ``None``.
+        device (str): Device to store the sample pool. Set to ``'cuda'`` to store samples
+            on the GPU and eliminate PCI-e bandwidth with the dataloader. Set to ``'cpu'``
+            to move data between host memory and the gpu on every batch. Default:
+            ``'cpu'``.
         memory_format (MemoryFormat, optional): Memory format for the sample pool.
+            Default: `MemoryFormat.CONTIGUOUS_FORMAT`.
+        transform (Callable, optional): Transform(s) to apply to data. Default: ``None``.
     """
 
     def __init__(self,
@@ -111,7 +138,7 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
             if self.data_type == SyntheticDataType.SEPARABLE:
                 assert self.label_type == SyntheticDataLabelType.CLASSIFICATION_INT, \
                     "SyntheticDataType.SEPARABLE requires integer classes."
-                assert max(input_target) == 1 and min(input_target) == 0, \
+                assert torch.max(input_target) == 1 and torch.min(input_target) == 0, \
                     "SyntheticDataType.SEPARABLE only supports binary labels"
                 # Make positive examples have mean = 3 and negative examples have mean = -3
                 # so they are easier to separate with a classifier
@@ -130,20 +157,23 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
 
 
 class SyntheticPILDataset(VisionDataset):
-    """Similar to :class:`SyntheticBatchPairDataset`, but yields samples of type :class:`~Image.Image` and supports
+    """Similar to :class:`SyntheticBatchPairDataset`, but yields samples of type :class:`~PIL.Image.Image` and supports
     dataset transformations.
 
     Args:
         total_dataset_size (int): The total size of the dataset to emulate.
-        data_shape (List[int]): Shape of the image for input samples. Default = [64, 64]
+        data_shape (List[int]): Shape of the tensor for input samples.
         num_unique_samples_to_create (int): The number of unique samples to allocate memory for.
         data_type (str or SyntheticDataType, optional), Type of synthetic data to create.
-        label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to create.
+            Default: ``SyntheticDataType.GAUSSIAN``.
+        label_type (str or SyntheticDataLabelType, optional), Type of synthetic data to
+            create. Default: ``SyntheticDataLabelType.CLASSIFICATION_INT``.
         num_classes (int, optional): Number of classes to use. Required if
-            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT`` or
-            ``CLASSIFICATION_ONE_HOT``. Otherwise, should be ``None``.
-        label_shape (List[int]): Shape of the tensor for each sample label.
-        transform (Callable): Dataset transforms
+            ``SyntheticDataLabelType`` is ``CLASSIFICATION_INT``
+            or ``CLASSIFICATION_ONE_HOT``. Default: ``None``.
+        label_shape (List[int], optional): Shape of the tensor for each sample label.
+            Default: ``None``.
+        transform (Callable, optional): Transform(s) to apply to data. Default: ``None``.
     """
 
     def __init__(self,

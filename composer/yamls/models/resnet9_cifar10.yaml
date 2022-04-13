@@ -5,6 +5,7 @@ train_dataset:
     download: false
     shuffle: true
     drop_last: true
+    use_ffcv: false
 val_dataset:
   cifar10:
     datadir: /datasets/CIFAR10
@@ -12,6 +13,7 @@ val_dataset:
     download: false
     shuffle: false
     drop_last: false
+    use_ffcv: false
 optimizer:
   decoupled_sgdw:
     lr: 1.2
@@ -19,19 +21,17 @@ optimizer:
     weight_decay: 2.0e-3
 schedulers:
   - multistep_with_warmup:
-      warmup_time: "5ep"
+      t_warmup: "5ep"
       milestones:
         - "80ep"
         - "120ep"
       gamma: 0.1
 model:
-  resnet9_cifar10:
+  resnet_cifar:
+    model_name: resnet_9
     initializers:
       - kaiming_normal
       - bn_uniform
-    num_classes: 10
-loggers:
-  - tqdm: {}
 max_duration: 160ep
 train_batch_size: 1024
 eval_batch_size: 1000

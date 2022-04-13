@@ -4,9 +4,10 @@ import pytest
 import torch
 
 from composer.algorithms.progressive_resizing import ProgressiveResizing, resize_batch
-from composer.core import Event, Logger
+from composer.core import Event
 from composer.core.state import State
 from composer.core.time import TimeUnit
+from composer.loggers import Logger
 
 
 def check_scaled_shape(orig: torch.Tensor, scaled: torch.Tensor, scale_factor: float) -> bool:
@@ -102,6 +103,12 @@ class TestResizeInputs:
 
         _, yc = resize_batch(X, y, scale_factor, mode, resize_targets=True)
         assert check_scaled_shape(y, yc, scale_factor)
+
+    def test_resize_outputs_crop(self, X: torch.Tensor, scale_factor: float):
+        """Test that resizing outputs in crop mode gives the right targets."""
+
+        xc, yc = resize_batch(X, X, scale_factor, "crop", resize_targets=True)
+        assert torch.equal(xc, yc)
 
     @pytest.mark.parametrize("Wx,Hx,Wy,Hy", [(32, 32, 16, 16)])
     def test_resize_outputs_different_shape(self, X, y, scale_factor: float, mode: str):

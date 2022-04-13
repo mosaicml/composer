@@ -2,12 +2,12 @@
 
 import os
 import pathlib
-import random
+import shutil
 import tarfile
 import tempfile
 import textwrap
-from logging import Logger
-from typing import Dict, Optional
+import time
+from typing import Any, Dict, Optional
 
 import pytest
 import torch
@@ -15,37 +15,36 @@ import torch.distributed
 from _pytest.monkeypatch import MonkeyPatch
 
 from composer.callbacks.callback_hparams import CallbackHparams
+from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
-from composer.core.time import TimeUnit
-from composer.core.types import Logger, StateDict
-from composer.datasets import SyntheticHparamsMixin
-from composer.optim import AdamWHparams
-from composer.optim.scheduler import ConstantLRHparams, CosineAnnealingLRHparams
-from composer.trainer._checkpoint import CheckpointLoader
+from composer.core.time import Time, TimeUnit
+from composer.datasets import DatasetHparams, SyntheticHparamsMixin
+from composer.loggers import Logger
+from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
-from composer.utils import run_directory
-from composer.utils.object_store import ObjectStoreProviderHparams
+from composer.utils import dist, is_tar
 from tests.test_state import assert_state_equivalent
 from tests.utils.deep_compare import deep_compare
+from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
 
 
 class DummyStatefulCallback(Callback):
 
     def __init__(self) -> None:
         super().__init__()
-        self.random_value = random.random()
+        self.random_value = time.time_ns()
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         return {
             "random_value": self.random_value,
         }
 
-    def load_state_dict(self, state: StateDict) -> None:
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
         self.random_value = state["random_value"]
 
 
@@ -64,12 +63,13 @@ class EventCounterCallback(Callback):
             self.event_to_num_calls[event] = 0
 
     def run_event(self, event: Event, state: State, logger: Logger):
+        del state, logger  # unused
         self.event_to_num_calls[event] += 1
 
-    def state_dict(self) -> StateDict:
+    def state_dict(self) -> Dict[str, Any]:
         return {"events": self.event_to_num_calls}
 
-    def load_state_dict(self, state: StateDict) -> None:
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
         self.event_to_num_calls.update(state["events"])
 
 
@@ -89,10 +89,12 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
     original_trainer_hparams.load_path = new_trainer_hparams.load_path
     original_trainer_hparams.load_weights_only = False
     original_trainer_hparams.load_strict_model_weights = False
+    original_trainer_hparams.save_overwrite = True
 
     original_trainer = original_trainer_hparams.initialize_object()
     original_weights = original_trainer.state.model.parameters()
 
+    new_trainer_hparams.save_overwrite = True
     new_trainer = new_trainer_hparams.initialize_object()
     recovered_weights = new_trainer.state.model.parameters()
 
@@ -100,21 +102,9 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trai
         assert (p1.data == p2.data).all()
 
 
-@pytest.fixture
-def checkpointing_trainer_hparams(composer_trainer_hparams: TrainerHparams) -> TrainerHparams:
-    composer_trainer_hparams.grad_accum = 2
-    composer_trainer_hparams.max_duration = "2ep"
-    composer_trainer_hparams.save_folder = "checkpoints"
-    composer_trainer_hparams.save_interval = "1ba"
-    composer_trainer_hparams.callbacks.append(DummyStatefulCallbackHparams())
-    composer_trainer_hparams.callbacks.append(EventCounterCallbackHparams())
-    composer_trainer_hparams.train_subset_num_batches = 5
-    return composer_trainer_hparams
-
-
 def _load_checkpoint(checkpoint_dir: str, filename: str):
-    filename = filename.format(RANK=0)
-    if filename.endswith('.pt'):
+    filename = filename.format(rank=0)
+    if not is_tar(filename):
         return torch.load(filename, map_location='cpu')
 
     with tarfile.open(filename) as tarball:
@@ -123,8 +113,12 @@ def _load_checkpoint(checkpoint_dir: str, filename: str):
     return torch.load(states_path, map_location='cpu')
 
 
-def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: str, hparams_b: TrainerHparams,
-                                  checkpoint_file_b: str) -> None:
+def assert_checkpoints_equivalent(
+    hparams_a: TrainerHparams,
+    checkpoint_file_a: str,
+    hparams_b: TrainerHparams,
+    checkpoint_file_b: str,
+) -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         a_checkpoint_dir = os.path.join(tmpdir, 'a')
@@ -139,8 +133,10 @@ def assert_checkpoints_equivalent(hparams_a: TrainerHparams, checkpoint_file_a: 
     assert hparams_b.save_folder is not None
     hparams_a.load_path = hparams_b.load_path
     hparams_a.load_weights_only = False
+    hparams_a.save_overwrite = True
     hparams_a.load_strict_model_weights = False
     hparams_a.save_folder = hparams_b.save_folder
+    hparams_b.save_overwrite = True
 
     assert hparams_a.to_dict() == hparams_b.to_dict()
 
@@ -198,6 +194,7 @@ def test_load_weights(
     composer_trainer_hparams.device = device_hparams
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
+    composer_trainer_hparams.save_filename = "ep{epoch}.pt"
     composer_trainer_hparams.save_interval = "1ep"
     composer_trainer_hparams.seed = None
     composer_trainer_hparams.validate_every_n_batches = 1
@@ -208,18 +205,19 @@ def test_load_weights(
     # re-create the trainer from the YAML
     second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
 
-    checkpoint_a_file_path = os.path.join(run_directory.get_run_directory(), checkpoint_a_folder, final_checkpoint)
+    # Reduce the filepath to get the location on the rank zero process
+    checkpoint_a_file_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]
+    dist.broadcast_object_list(checkpoint_a_file_path)
 
     # load only model weights
-    second_trainer_hparams.load_path = checkpoint_a_file_path
+    second_trainer_hparams.load_path = checkpoint_a_file_path[0]
     second_trainer_hparams.load_weights_only = True
     second_trainer_hparams.load_strict_model_weights = True
     # setup a new optimizer
     second_trainer_hparams.optimizer = AdamWHparams()
 
     # setup a new LR scheduler
-    scheduler_options = [ConstantLRHparams(), CosineAnnealingLRHparams(t_max=second_trainer_hparams.max_duration)]
-    second_trainer_hparams.schedulers = [random.choice(scheduler_options)]
+    second_trainer_hparams.schedulers = [CosineAnnealingSchedulerHparams(t_max=second_trainer_hparams.max_duration)]
 
     # ensure our new choice of scheduler is different than the original scheduler
     for idx in range(len(second_trainer_hparams.schedulers)):
@@ -233,7 +231,7 @@ def test_load_weights(
     )
 
 
-@pytest.mark.timeout(90000)
+@pytest.mark.timeout(180)
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
@@ -246,8 +244,18 @@ def test_load_weights(
     pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
-    "seed,checkpoint_filename,compression",
-    [[None, "ep1", None], [42, "ep1", None], [42, "ep1", "gzip"], [42, "it4", None], [42, "it6", None]])
+    "seed,save_interval,save_filename,resume_file,final_checkpoint",
+    [
+        [None, "1ep", "ep{epoch}-rank{rank}", "ep1-rank{rank}", "latest-rank{rank}"
+        ],  # test randomized seed saving and symlinking
+        [42, "1ep", "ep{epoch}-rank{rank}", "ep1-rank{rank}", "ep2-rank{rank}"],  # test save at epoch end
+        [42, "1ep", "ep{epoch}-rank{rank}.tgz", "ep1-rank{rank}.tgz", "ep2-rank{rank}.tgz"
+        ],  # test tarball with compression
+        [42, "2ba", "ba{batch}-rank{rank}", "ba4-rank{rank}", "ba8-rank{rank}"],  # test save batch in partial epoch
+        [42, "1ba", "ba{batch}-rank{rank}", "ba5-rank{rank}", "ba8-rank{rank}"],  # test save batch at epoch end
+        [42, "2ba", "ba{batch}-rank{rank}", "ba6-rank{rank}", "ba8-rank{rank}"],  # test save batch after complete epoch
+    ],
+)
 @pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
 def test_checkpoint(
     device_hparams: DeviceHparams,
@@ -255,10 +263,13 @@ def test_checkpoint(
     deepspeed_enabled: bool,
     zero_stage: Optional[int],
     composer_trainer_hparams: TrainerHparams,
-    checkpoint_filename: str,
-    compression: Optional[str],
+    save_interval: str,
+    save_filename: str,
+    resume_file: str,
+    final_checkpoint: str,
     seed: Optional[int],
     model_name: Optional[str],
+    tmpdir: pathlib.Path,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
@@ -266,11 +277,15 @@ def test_checkpoint(
     - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
     """
     del world_size  # unused. Read via env variable
-    if deepspeed_enabled:
-        pytest.skip("Deepspeed tests are unstable. See https://github.com/mosaicml/composer/issues/610.")
 
     if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
         pytest.skip("DeepSpeed tests must be ran on GPU")
+
+    if deepspeed_enabled:
+        if not is_tar(resume_file):
+            resume_file += ".tar"
+        if not is_tar(final_checkpoint):
+            final_checkpoint += ".tar"
 
     if model_name is not None:
         if not isinstance(device_hparams, GPUDeviceHparams):
@@ -281,6 +296,7 @@ def test_checkpoint(
         composer_trainer_hparams.model = model_hparams.model
         composer_trainer_hparams.optimizer = model_hparams.optimizer
         composer_trainer_hparams.schedulers = model_hparams.schedulers
+
     if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
@@ -288,18 +304,17 @@ def test_checkpoint(
         pytest.skip("Checkpointing tests require synthetic data")
         return
 
-    checkpoint_extension = ".pt"
-    if deepspeed_enabled:
-        # deepspeed checkpoints use .tar because they store multiple files
-        checkpoint_extension = ".tar"
-    if compression == "gzip":
-        checkpoint_extension = ".tar.gz"
-    checkpoint_filename += checkpoint_extension
+    configure_model_for_synthetic(composer_trainer_hparams.model)
 
-    composer_trainer_hparams.train_dataset.use_synthetic = True
+    assert isinstance(composer_trainer_hparams.train_dataset, DatasetHparams)
+    configure_dataset_for_synthetic(composer_trainer_hparams.train_dataset, composer_trainer_hparams.model)
+    composer_trainer_hparams.save_filename = save_filename
     composer_trainer_hparams.train_dataset.shuffle = False
-    composer_trainer_hparams.val_dataset.use_synthetic = True
+
+    assert isinstance(composer_trainer_hparams.val_dataset, DatasetHparams)
+    configure_dataset_for_synthetic(composer_trainer_hparams.val_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.val_dataset.shuffle = False
+
     composer_trainer_hparams.grad_accum = 2
     composer_trainer_hparams.loggers = []
     composer_trainer_hparams.train_batch_size = 8
@@ -319,50 +334,70 @@ def test_checkpoint(
                 pytest.skip(
                     textwrap.dedent(f"""\
                         Skipping test since deterministic mode is required for
-                        non-trivial models, but deterministic mode isn't compatible with deepsped
+                        non-trivial models, but deterministic mode isn't compatible with deepspeed
                         zero stage {zero_stage}"""))
-        composer_trainer_hparams.deepspeed = {"zero_stage": zero_stage}
+        composer_trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
 
-    checkpoint_a_folder = "first"
+    checkpoint_a_folder = str(tmpdir / "first")
     composer_trainer_hparams.save_folder = checkpoint_a_folder
-    save_interval_epochs = 1
-    save_interval_batches = 2
-    composer_trainer_hparams.save_interval = f"{save_interval_epochs}ep" if checkpoint_filename.startswith(
-        "ep") else f"{save_interval_batches}ba"
-    composer_trainer_hparams.save_compression = compression
+    composer_trainer_hparams.save_interval = save_interval
     composer_trainer_hparams.seed = seed
 
-    composer_trainer_hparams.validate_every_n_batches = 0 if checkpoint_filename.startswith("it") else 1
-    composer_trainer_hparams.validate_every_n_epochs = 0 if checkpoint_filename.startswith("ep") else 1
-    final_checkpoint = ("ep2" if checkpoint_filename.startswith("ep") else "it8") + checkpoint_extension
+    composer_trainer_hparams.validate_every_n_batches = 1 if resume_file.startswith("ba") else 0
+    composer_trainer_hparams.validate_every_n_epochs = 1 if resume_file.startswith("ep") else 0
     first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
-    expected_num_checkpoints = num_epochs / save_interval_epochs if checkpoint_filename.startswith(
-        "ep") else (composer_trainer_hparams.train_subset_num_batches + 1) / save_interval_batches * num_epochs
-    assert first_trainer._checkpoint_saver is not None
-    assert len(first_trainer.saved_checkpoints) == expected_num_checkpoints
-    checkpoint_a_file_path = os.path.join(checkpoint_a_folder, checkpoint_filename)
-    checkpoint_b_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_a_folder,
-                                          final_checkpoint)
+    save_interval_time = Time.from_timestring(save_interval)
+    if save_interval_time.unit == TimeUnit.EPOCH:
+        expected_num_checkpoints = ((num_epochs - 1) // save_interval_time.value) + 1
+    else:
+        expected_num_checkpoints = (
+            (composer_trainer_hparams.train_subset_num_batches * num_epochs - 1) // save_interval_time.value) + 1
+    checkpoint_saver = None
+    for callback in first_trainer.state.callbacks:
+        if isinstance(callback, CheckpointSaver):
+            checkpoint_saver = callback
+    assert checkpoint_saver is not None
+    assert len(checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
+
+    rank_to_checkpoint_a_folder = dist.all_gather_object(os.path.abspath(checkpoint_a_folder))
+
+    checkpoint_to_resume_filepath = os.path.join(rank_to_checkpoint_a_folder[0], resume_file)
+    first_trainer_final_checkpoint_filepath = os.path.join(rank_to_checkpoint_a_folder[0], final_checkpoint)
+
+    # Move the resume and final file to the rank 0 folder
+    try:
+        rank_checkpoint_filepath = os.path.join(checkpoint_a_folder, resume_file.format(rank=dist.get_global_rank()))
+        shutil.copy2(rank_checkpoint_filepath,
+                     checkpoint_to_resume_filepath.format(rank=dist.get_global_rank()),
+                     follow_symlinks=True)
+    except (shutil.SameFileError, FileNotFoundError):
+        pass
+
+    try:
+        rank_checkpoint_filepath = os.path.join(checkpoint_a_folder,
+                                                final_checkpoint.format(rank=dist.get_global_rank()))
+        shutil.copy2(rank_checkpoint_filepath,
+                     first_trainer_final_checkpoint_filepath.format(rank=dist.get_global_rank()),
+                     follow_symlinks=True)
+    except (shutil.SameFileError, FileNotFoundError):
+        pass
 
     second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
-    checkpoint_b_folder = "second"
+    checkpoint_b_folder = os.path.join(rank_to_checkpoint_a_folder[0], "second")
 
     second_trainer_hparams.save_folder = checkpoint_b_folder
-    second_trainer_filepath = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}",
-                                           checkpoint_a_file_path)
-    second_trainer_hparams.load_path = second_trainer_filepath
+    second_trainer_hparams.load_path = checkpoint_to_resume_filepath
     second_trainer_hparams.load_weights_only = False
     second_trainer_hparams.load_strict_model_weights = False
 
     _test_checkpoint_trainer(second_trainer_hparams)
-    checkpoint_c_file_path = os.path.join(run_directory.get_node_run_directory(), "rank_{RANK}", checkpoint_b_folder,
-                                          final_checkpoint)
+    second_trainer_final_checkpoint_filepath = os.path.join(checkpoint_b_folder, final_checkpoint)
 
     assert_checkpoints_equivalent(
         hparams_a=composer_trainer_hparams,
-        checkpoint_file_a=checkpoint_b_file_path,
+        checkpoint_file_a=first_trainer_final_checkpoint_filepath,
         hparams_b=second_trainer_hparams,
-        checkpoint_file_b=checkpoint_c_file_path,
+        checkpoint_file_b=second_trainer_final_checkpoint_filepath,
     )
 
 
@@ -409,7 +444,9 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer):
         Event.BEFORE_TRAIN_BATCH: num_total_steps,
         Event.AFTER_TRAIN_BATCH: num_total_steps,
         Event.BATCH_END: num_total_steps,
+        Event.BATCH_CHECKPOINT: num_total_steps,
         Event.EPOCH_END: num_epochs,
+        Event.EPOCH_CHECKPOINT: num_epochs,
         Event.EVAL_START: num_evals,
         Event.EVAL_BATCH_START: num_eval_steps,
         Event.EVAL_BEFORE_FORWARD: num_eval_steps,
@@ -425,29 +462,3 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer):
                 assert expected == actual, f"Event {event} expected to be called {expected} times, but instead it was called {actual} times"
             return
     assert False, "EventCounterCallback not found in callbacks"
-
-
-def test_checkpoint_load_uri(tmpdir: pathlib.Path):
-    pytest.xfail("example.com sometimes returns a 404. Need to mock out the actual download")
-    loader = CheckpointLoader("https://example.com")
-    loader._retrieve_checkpoint(destination_filepath=str(tmpdir / "example"), rank=0, ignore_not_found_errors=False)
-    with open(str(tmpdir / "example"), "r") as f:
-        assert f.readline().startswith("<!doctype html>")
-
-
-def test_checkpoint_load_object_uri(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    remote_dir = tmpdir / "remote_dir"
-    os.makedirs(remote_dir)
-    monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
-    provider = ObjectStoreProviderHparams(
-        provider='local',
-        key_environ="OBJECT_STORE_KEY",
-        container=".",
-    ).initialize_object()
-    with open(str(remote_dir / "checkpoint.txt"), 'wb') as f:
-        f.write(b"checkpoint1")
-    loader = CheckpointLoader("checkpoint.txt", object_store=provider)
-
-    loader._retrieve_checkpoint(destination_filepath=str(tmpdir / "example"), rank=0, ignore_not_found_errors=False)
-    with open(str(tmpdir / "example"), "rb") as f:
-        f.read() == b"checkpoint1"

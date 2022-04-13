@@ -1,17 +1,18 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""Utility and helper functions for datasets."""
+
 import logging
 import textwrap
 from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import torch
-import torch.utils.data
 from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
-from composer.core.types import Batch, Tensor
+from composer.core.types import Batch
 
 __all__ = [
     "add_vision_dataset_transform",
@@ -27,13 +28,15 @@ class NormalizationFn:
 
     An instance of this class can be used as the ``device_transforms`` argument
     when constructing a :class:`~composer.core.data_spec.DataSpec`. When used here,
-    the data will normalized after it has been loaded onto the device (i.e. GPU).
+    the data will normalized after it has been loaded onto the device (i.e., GPU).
 
     Args:
-        mean (Tuple[float, float, float]): The mean pixel value for each channel (RGB) for the dataset.
-        std (Tuple[float, float, float]): The standard deviation pixel value for each channel (RGB) for the dataset.
-        ignore_background (bool): If ``True``, ignore the background class in the training loss.
-            Only used in semantic segmentation. Default is ``False``.
+        mean (Tuple[float, float, float]): The mean pixel value for each channel (RGB) for
+            the dataset.
+        std (Tuple[float, float, float]): The standard deviation pixel value for each
+            channel (RGB) for the dataset.
+        ignore_background (bool): If ``True``, ignore the background class in the training
+            loss. Only used in semantic segmentation. Default: ``False``.
     """
 
     def __init__(self,
@@ -46,8 +49,8 @@ class NormalizationFn:
 
     def __call__(self, batch: Batch):
         xs, ys = batch
-        assert isinstance(xs, Tensor)
-        assert isinstance(ys, Tensor)
+        assert isinstance(xs, torch.Tensor)
+        assert isinstance(ys, torch.Tensor)
         device = xs.device
 
         if not isinstance(self.mean, torch.Tensor):
@@ -64,8 +67,9 @@ class NormalizationFn:
         return xs, ys
 
 
-def pil_image_collate(batch: List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]],
-                      memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[Tensor, Tensor]:
+def pil_image_collate(
+        batch: List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]],
+        memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[torch.Tensor, torch.Tensor]:
     """Constructs a :class:`~composer.core.types.BatchPair` from datasets that yield samples of type
     :class:`PIL.Image.Image`.
 
@@ -117,9 +121,9 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
     Args:
         dataset (VisionDataset): A torchvision dataset.
         transform (Callable): Function to be added to the dataset's collection of
-            :attr:`~torchvision.dataset.transform`\\s.
-        is_tensor_transform (bool): Whether ``transform`` acts on data of the type :class:`~torch.Tensor`.
-            (default: ``False``)
+            transforms.
+        is_tensor_transform (bool): Whether ``transform`` acts on data of the type
+            :class:`~torch.Tensor`. default: ``False``.
 
             * If ``True``, and :class:`~torchvision.transforms.ToTensor` is present in
               ``dataset``'s transforms, ``transform`` will be inserted after the

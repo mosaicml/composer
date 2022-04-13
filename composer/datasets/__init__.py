@@ -1,40 +1,43 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Datasets  TODO -- more description.
+"""Natively supported datasets.
 
-:class:`DataloaderHparams` contains the :class:`torch.utils.data.dataloader` settings that are common across both training and eval datasets:
+Modules in datasets namespace define utilities and mechanisms to create dataloaders from the given hyperparameters.  Two
+of the important classes in this module are described below:
 
-* ``num_workers``
-* ``prefetch_factor``
-* ``persistent_workers``
-* ``pin_memory``
-* ``timeout``
+* All datasets derive from the abstract base class :class:`~.DatasetHparams` and it contains common parameters such as
+  ``shuffle``. :class:`~.DatasetHparams` returns a dataloader (a :class:`torch.utils.data.DataLoader` or a
+  :class:`~.DataSpec`) for the trainer.
 
-Each :class:`DatasetHparams` is then responsible for settings such as:
-
-* ``dataset``
-* ``drop_last``
-* ``shuffle``
-* ``collate_fn``
-
-A :class:`DatasetHparams` is responsible for returning a :class:`torch.utils.data.dataloader` or a :class:`DataloaderSpec`.
+* :class:`~.DataLoaderHparams` contains the :class:`torch.utils.data.DataLoader` settings that are common across
+  both training and eval datasets. See the documentation of :class:`~.DataLoaderHparams` for more details on these
+  settings.
 """
-from composer.datasets.ade20k import ADE20kDatasetHparams as ADE20kDatasetHparams
-from composer.datasets.brats import BratsDatasetHparams as BratsDatasetHparams
-from composer.datasets.c4 import C4DatasetHparams as C4DatasetHparams
-from composer.datasets.cifar10 import CIFAR10DatasetHparams as CIFAR10DatasetHparams
-from composer.datasets.dataloader import DataloaderHparams as DataloaderHparams
-from composer.datasets.dataloader import WrappedDataLoader as WrappedDataLoader
-from composer.datasets.dataset_registry import get_dataset_registry as get_dataset_registry
-from composer.datasets.evaluator import EvaluatorHparams as EvaluatorHparams
-from composer.datasets.glue import GLUEHparams as GLUEHparams
-from composer.datasets.hparams import DatasetHparams as DatasetHparams
-from composer.datasets.hparams import SyntheticHparamsMixin as SyntheticHparamsMixin
-from composer.datasets.imagenet import ImagenetDatasetHparams as ImagenetDatasetHparams
-from composer.datasets.lm_datasets import LMDatasetHparams as LMDatasetHparams
-from composer.datasets.mnist import MNISTDatasetHparams as MNISTDatasetHparams
-from composer.datasets.synthetic import MemoryFormat as MemoryFormat
-from composer.datasets.synthetic import SyntheticBatchPairDataset as SyntheticBatchPairDataset
-from composer.datasets.synthetic import SyntheticDataLabelType as SyntheticDataLabelType
-from composer.datasets.synthetic import SyntheticDataType as SyntheticDataType
-from composer.datasets.synthetic import SyntheticPILDataset as SyntheticPILDataset
+
+from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams
+from composer.datasets.brats import BratsDatasetHparams
+from composer.datasets.c4 import C4DatasetHparams
+from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHparams, CIFAR20WebDatasetHparams,
+                                     CIFAR100WebDatasetHparams)
+from composer.datasets.coco import COCODatasetHparams
+from composer.datasets.dataloader import DataLoaderHparams, WrappedDataLoader
+from composer.datasets.dataset_registry import get_dataset_registry
+from composer.datasets.evaluator import EvaluatorHparams
+from composer.datasets.glue import GLUEHparams
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
+from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams,
+                                        TinyImagenet200WebDatasetHparams)
+from composer.datasets.lm_datasets import LMDatasetHparams
+from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams
+from composer.datasets.synthetic import (MemoryFormat, SyntheticBatchPairDataset, SyntheticDataLabelType,
+                                         SyntheticDataType, SyntheticPILDataset)
+
+__all__ = [
+    "ADE20kDatasetHparams", "ADE20kWebDatasetHparams", "BratsDatasetHparams", "C4DatasetHparams",
+    "CIFAR10DatasetHparams", "CIFAR10WebDatasetHparams", "CIFAR20WebDatasetHparams", "CIFAR100WebDatasetHparams",
+    "COCODatasetHparams", "DataLoaderHparams", "WrappedDataLoader", "get_dataset_registry", "EvaluatorHparams",
+    "GLUEHparams", "DatasetHparams", "SyntheticHparamsMixin", "WebDatasetHparams", "Imagenet1kWebDatasetHparams",
+    "ImagenetDatasetHparams", "TinyImagenet200WebDatasetHparams", "LMDatasetHparams", "MNISTDatasetHparams",
+    "MNISTWebDatasetHparams", "MemoryFormat", "SyntheticBatchPairDataset", "SyntheticDataLabelType",
+    "SyntheticDataType", "SyntheticPILDataset"
+]

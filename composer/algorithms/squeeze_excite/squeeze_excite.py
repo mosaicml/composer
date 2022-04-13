@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Optional, Sequence, Union
 
 import torch
+from torch.optim import Optimizer
 
-from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Optimizers
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ def apply_squeeze_excite(
     model: torch.nn.Module,
     latent_channels: float = 64,
     min_channels: int = 128,
-    optimizers: Optional[Optimizers] = None,
+    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 ):
     """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after
     :class:`~torch.nn.Conv2d` layers.
@@ -31,14 +32,18 @@ def apply_squeeze_excite(
     like in a convolutional layer.
 
     Args:
+        model (torch.nn.Module): The module to apply squeeze excite replacement.
         latent_channels (float, optional): Dimensionality of the hidden layer within the added
             MLP. If less than 1, interpreted as a fraction of the number of
             output channels in the :class:`~torch.nn.Conv2d` immediately
-            preceding each Squeeze-and-Excitation block.
-        optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
-            All optimizers that have already been constructed with
-            ``model.parameters()`` must be specified here so they will optimize
-            the correct parameters.
+            preceding each Squeeze-and-Excitation block. Default: ``64``.
+        min_channels (int, optional): An SE block is added after a :class:`~torch.nn.Conv2d`
+            module ``conv`` only if one of the layer's input or output channels is greater than
+            this threshold. Default: ``128``.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
+            Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
+            constructed with ``model.parameters()`` must be specified here so
+            they will optimize the correct parameters.
 
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
@@ -79,7 +84,7 @@ class SqueezeExcite2d(torch.nn.Module):
     Args:
         num_features (int): Number of features or channels in the input
         latent_channels (float, optional): Dimensionality of the hidden layer within the added
-            MLP. If less than 1, interpreted as a fraction of ``num_features``.
+            MLP. If less than 1, interpreted as a fraction of ``num_features``. Default: ``0.125``.
     """
 
     def __init__(self, num_features: int, latent_channels: float = .125):
@@ -122,18 +127,18 @@ class SqueezeExcite(Algorithm):
     Runs on :attr:`~composer.core.event.Event.INIT`. See :class:`SqueezeExcite2d` for more information.
 
     Args:
-        latent_channels: Dimensionality of the hidden layer within the added
+        latent_channels (float, optional): Dimensionality of the hidden layer within the added
             MLP. If less than 1, interpreted as a fraction of the number of
             output channels in the :class:`~torch.nn.Conv2d` immediately
-            preceding each Squeeze-and-Excitation block.
-        min_channels: An SE block is added after a :class:`~torch.nn.Conv2d`
+            preceding each Squeeze-and-Excitation block. Default: ``64``.
+        min_channels (int, optional): An SE block is added after a :class:`~torch.nn.Conv2d`
             module ``conv`` only if
             ``min(conv.in_channels, conv.out_channels) >= min_channels``.
             For models that reduce spatial size and increase channel count
             deeper in the network, this parameter can be used to only
             add SE blocks deeper in the network. This may be desirable
             because SE blocks add less overhead when their inputs have
-            smaller spatial size.
+            smaller spatial size. Default: ``128``.
     """
 
     def __init__(
@@ -174,6 +179,6 @@ class SqueezeExcite(Algorithm):
                  f'min_channels={self.min_channels}. '
                  f'Model now has {layer_count} SqueezeExcite layers.')
 
-        logger.metric_fit({
+        logger.data_fit({
             'squeeze_excite/num_squeeze_excite_layers': layer_count,
         })

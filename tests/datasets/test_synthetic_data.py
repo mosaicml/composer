@@ -3,6 +3,7 @@
 from typing import Optional
 
 import pytest
+import torch
 
 from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticDataType,
                                          SyntheticPILDataset)
@@ -16,10 +17,10 @@ from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDat
     SyntheticDataLabelType.CLASSIFICATION_ONE_HOT,
     SyntheticDataLabelType.CLASSIFICATION_INT,
 ])
-def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
+def test_synthetic_batch_pair_creation(data_type: SyntheticDataType, label_type: SyntheticDataLabelType):
     if data_type == SyntheticDataType.SEPARABLE:
         if label_type != SyntheticDataLabelType.CLASSIFICATION_INT:
-            pytest.skip("Seperable data requires classification int labels")
+            pytest.skip("Separable data requires classification int labels")
         num_classes = 2
         label_shape = None
     else:
@@ -47,8 +48,8 @@ def test_synthetic_data_creation(data_type: SyntheticDataType, label_type: Synth
         assert isinstance(y.item(), int)
     elif label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
         assert y.size() == (num_classes,)
-        assert min(y) == 0
-        assert max(y) == 1
+        assert torch.min(y) == 0
+        assert torch.max(y) == 1
 
     # check that points were allocated in memory after the first call to __getitem__
     assert dataset.input_data is not None
@@ -116,8 +117,8 @@ def test_synthetic_image_data_creation(data_type: SyntheticDataType, label_type:
         assert isinstance(y.item(), int)
     elif label_type == SyntheticDataLabelType.CLASSIFICATION_ONE_HOT:
         assert y.size() == (num_classes,)
-        assert min(y) == 0
-        assert max(y) == 1
+        assert torch.min(y) == 0
+        assert torch.max(y) == 1
 
     # check that points were allocated in memory after the first call to __getitem__
     assert dataset._dataset.input_data is not None

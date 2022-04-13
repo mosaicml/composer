@@ -9,12 +9,13 @@ import logging
 import math
 from operator import attrgetter
 from types import MethodType, ModuleType
-from typing import Any, Callable, Optional, Tuple, Type, Union, cast
+from typing import Any, Callable, Optional, Sequence, Tuple, Type, Union, cast
 
 import torch
+from torch.optim import Optimizer
 
-from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Optimizers
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ def apply_alibi(
     attr_to_replace: str,
     alibi_attention: Callable,
     mask_replacement_function: Optional[Callable[[torch.nn.Module, int], torch.nn.Module]] = None,
-    optimizers: Optional[Optimizers] = None,
+    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
     according as per :class:`~composer.algorithms.alibi.alibi.Alibi`. Note that the
@@ -39,13 +40,12 @@ def apply_alibi(
     shorter sequence lengths; this function does not scale the training sequence length as
     :class:`~composer.algorithms.alibi.alibi.Alibi` does, so little speedup will be
     observed from using it alone. See the :doc:`Method Card </method_cards/alibi>` for
-    more details.
+    more details. This function should be called after the model is instantiated and
+    before training begins.
 
     Example:
 
     .. code-block:: python
-
-        import torch.nn.functional as F
 
         import composer.functional as cf
 
@@ -81,12 +81,12 @@ def apply_alibi(
             necessary for evaluating on sequence lengths longer than the model was
             initialized to accommodate. Takes positional arguments ``module`` and
             ``max_sequence_length``. For example,
-            ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default = ``None``,
+            ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default: ``None``,
             which means no modification of the model's default attention mask.
-        optimizers (Optimizers, optional): Existing optimizers bound to ``model.parameters()``.
-            All optimizers that have already been constructed with
-            ``model.parameters()`` must be specified here so they will optimize
-            the correct parameters.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
+            Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
+            constructed with ``model.parameters()`` must be specified here so
+            they will optimize the correct parameters.
 
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see the correct
@@ -183,12 +183,12 @@ class Alibi(Algorithm):
         max_sequence_length (int): Maximum sequence length that the
             model will be able to accept. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to
-            accommodate.
+            accommodate. Default: ``8192``.
         train_sequence_length_scaling (float, optional): Amount by which to scale
             training sequence length. One batch of training data will be
             reshaped from shape :math:`(sequence\\_length, batch)` to
             :math:`(sequence\\_length \\times train\\_sequence\\_length\\_scaling,
-            \\frac{batch}{train\\_sequence\\_length\\_scaling})`. Default = ``0.25``.
+            \\frac{batch}{train\\_sequence\\_length\\_scaling})`. Default: ``0.25``.
     """
 
     def __init__(self,

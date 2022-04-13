@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Optional, Type, Union
+from typing import Optional, Sequence, Type, Union
 
 import torch
+from torch.optim import Optimizer
 from torchvision.models.resnet import Bottleneck
 
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck
-from composer.core import Algorithm, Event, Logger, State
+from composer.core import Algorithm, Event, State
 from composer.core.time import Time, TimeUnit
-from composer.core.types import Optimizers
+from composer.loggers import Logger
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
                            drop_rate: float = 0.2,
                            drop_distribution: str = 'linear',
                            use_same_gpu_seed: bool = True,
-                           optimizers: Optional[Optimizers] = None) -> torch.nn.Module:
+                           optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
     """Applies Stochastic Depth (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_) to the specified model.
 
     The algorithm replaces the specified target layer with a stochastic version
@@ -58,19 +59,20 @@ def apply_stochastic_depth(model: torch.nn.Module,
             Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
         stochastic_method (str, optional): The version of stochastic depth to use. ``"block"``
             randomly drops blocks during training. ``"sample"`` randomly drops
-            samples within a block during training.
+            samples within a block during training. Default: ``"block"``.
         drop_rate (float, optional): The base probability of dropping a layer or sample. Must be
-            between 0.0 and 1.0.
+            between 0.0 and 1.0. Default: `0.2``.
         drop_distribution (str, optional): How ``drop_rate`` is distributed across
             layers. Value must be one of ``"uniform"`` or ``"linear"``.
             ``"uniform"`` assigns the same ``drop_rate`` across all layers.
             ``"linear"`` linearly increases the drop rate across layer depth
-            starting with 0 drop rate and ending with ``drop_rate``.
+            starting with 0 drop rate and ending with ``drop_rate``. Default: ``"linear"``.
         use_same_gpu_seed (bool, optional): Set to ``True`` to have the same layers dropped
             across GPUs when using multi-GPU training. Set to ``False`` to
             have each GPU drop a different set of layers. Only used
-            with ``"block"`` stochastic method.
-        optimizers (Optimizers, optional):  Existing optimizers bound to ``model.parameters()``.
+            with ``"block"`` stochastic method. Default: ``True``.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
+            Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
             the correct parameters.
@@ -138,21 +140,21 @@ class StochasticDepth(Algorithm):
             Currently, only :class:`torchvision.models.resnet.Bottleneck` is supported.
         stochastic_method (str, optional): The version of stochastic depth to use. ``"block"``
             randomly drops blocks during training. ``"sample"`` randomly drops
-            samples within a block during training.
+            samples within a block during training. Default: ``"block"``.
         drop_rate (float, optional): The base probability of dropping a layer or sample. Must be
-            between 0.0 and 1.0.
+            between 0.0 and 1.0. Default: ``0.2``.
         drop_distribution (str, optional): How ``drop_rate`` is distributed across
             layers. Value must be one of ``"uniform"`` or ``"linear"``.
             ``"uniform"`` assigns the same ``drop_rate`` across all layers.
             ``"linear"`` linearly increases the drop rate across layer depth
-            starting with 0 drop rate and ending with ``drop_rate``.
+            starting with 0 drop rate and ending with ``drop_rate``. Default: ``"linear"``.
         drop_warmup (str | Time | float, optional): A :class:`Time` object, time-string, or float
             on [0.0; 1.0] representing the fraction of the training duration to linearly
-            increase the drop probability to `linear_drop_rate`. (default: ``0.0``)
+            increase the drop probability to `linear_drop_rate`. Default: ``0.0``.
         use_same_gpu_seed (bool, optional): Set to ``True`` to have the same layers dropped
             across GPUs when using multi-GPU training. Set to ``False`` to
             have each GPU drop a different set of layers. Only used
-            with ``"block"`` stochastic method.
+            with ``"block"`` stochastic method. Default: ``True``.
     """
 
     def __init__(self,
@@ -227,7 +229,7 @@ class StochasticDepth(Algorithm):
                                    drop_distribution=self.drop_distribution,
                                    use_same_gpu_seed=self.use_same_gpu_seed)
             num_stochastic_layers = module_surgery.count_module_instances(state.model, stochastic_layer)
-            logger.metric_epoch({'stochastic_depth/num_stochastic_layers': num_stochastic_layers})
+            logger.data_epoch({'stochastic_depth/num_stochastic_layers': num_stochastic_layers})
 
         elif event == Event.BATCH_START:
             if state.get_elapsed_duration() < self.drop_warmup:
@@ -235,7 +237,7 @@ class StochasticDepth(Algorithm):
                 _update_drop_rate(state.model, stochastic_layer, current_drop_rate, self.drop_distribution)
             else:
                 current_drop_rate = self.drop_rate
-            logger.metric_batch({'stochastic_depth/drop_rate': current_drop_rate})
+            logger.data_batch({'stochastic_depth/drop_rate': current_drop_rate})
 
 
 def _validate_stochastic_hparams(target_layer_name: str,

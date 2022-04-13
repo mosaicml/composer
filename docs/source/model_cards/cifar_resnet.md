@@ -27,6 +27,7 @@ There are a total 6n+2 stacked weighted layers. Each family member is specified 
 
 The biggest differences between CIFAR ResNet models and ImageNet ResNet models are:
 
+- ImageNet ResNets substantially downsample their input compared to CIFAR ResNets. The input layer of ImageNet ResNets is a 7x7 convolutional layer with stride 2, followed shortly thereafter by a 3x3 maxpool with stride 2, after which the input continues on to the convolutional blocks. CIFAR ResNets only have a single 3x3, stride 1 convolutional input layer.
 - CIFAR ResNet models use fewer filters for each convolution.
 - The ImageNet ResNets contain four stages, while the CIFAR ResNets contain three stages. In addition, CIFAR ResNets uniformly distribute blocks across each stage while ImageNet ResNets have a specific number of blocks for each stage.
 

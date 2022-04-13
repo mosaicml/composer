@@ -5,23 +5,23 @@ import torch
 
 from composer.algorithms import CutOutHparams
 from composer.algorithms.cutout.cutout import _generate_mask
-from composer.core.types import Event, Tensor
+from composer.core import Event
 
 
-def _is_square(cutout_box: Tensor) -> bool:
+def _is_square(cutout_box: torch.Tensor) -> bool:
     height, width = cutout_box.size()
 
     return height == width
 
 
 # Box validaton checks for a continuous rectangle, cannot handle multiple/coalesced boxes along x, y dimensions
-def _box_validate(mask_box: Tensor) -> None:
+def _box_validate(mask_box: torch.Tensor) -> None:
     # Box is not contiguous if there are any 0's in the tensor
     box_is_contiguous = not (0 in mask_box)
     assert box_is_contiguous
 
 
-def _find_box(img_2d: Tensor) -> Tensor:
+def _find_box(img_2d: torch.Tensor) -> torch.Tensor:
     height, width = img_2d.size()
 
     # Generate helper tensors
@@ -60,7 +60,7 @@ def tensor_sizes(request):
 # cutout_length=4 should produce 4x4 box due except when boundary clipping
 # cutout_length=0.5 should produce a box with half the side length of the input
 @pytest.fixture(params=[1, 3, 4])
-def cutout_length(request):
+def cutout_length_pixels(request):
     return request.param
 
 
@@ -70,13 +70,13 @@ def anchors(request):
     return request.param
 
 
-def test_cutout_mask(tensor_sizes, cutout_length, anchors):
+def test_cutout_mask(tensor_sizes, cutout_length_pixels, anchors):
 
     batch_size, channels, height, width = tensor_sizes
     x, y = anchors
 
     test_mask = torch.ones(tensor_sizes)
-    test_mask = _generate_mask(mask=test_mask, width=width, height=height, x=x, y=y, cutout_length=cutout_length)
+    test_mask = _generate_mask(mask=test_mask, width=width, height=height, x=x, y=y, cutout_length=cutout_length_pixels)
 
     check_box(batch_size, channels, test_mask)
 
@@ -85,16 +85,18 @@ def test_cutout_mask(tensor_sizes, cutout_length, anchors):
 @pytest.mark.parametrize('channels', [1, 4])
 @pytest.mark.parametrize('height', [32, 64])
 @pytest.mark.parametrize('width', [32, 71])
-@pytest.mark.parametrize('cutout_length', [16, 23, 0.25, 0.5])
-def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, empty_logger, minimal_state):
+@pytest.mark.parametrize('cutout_length', [0.25, 0.5])
+@pytest.mark.parametrize('uniform_sampling', [True, False])
+def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, empty_logger, minimal_state,
+                          uniform_sampling):
 
     # Initialize input tensor
     #   - Add bias to prevent 0. pixels, causes check_box() to fail since based on search for 0's
     #   - Real data can have 0. pixels but this will not affect cutout algorithm since mask is generated independent of input data
     input = torch.rand((batch_size, channels, height, width)) + 1
 
-    # Fix cutout_n_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
-    algorithm = CutOutHparams(n_holes=1, length=cutout_length).initialize_object()
+    # Fix cutout_num_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
+    algorithm = CutOutHparams(num_holes=1, length=cutout_length, uniform_sampling=uniform_sampling).initialize_object()
     state = minimal_state
     state.batch = (input, torch.Tensor())
 

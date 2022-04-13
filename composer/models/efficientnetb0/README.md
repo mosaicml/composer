@@ -52,7 +52,7 @@ optimizer:
     weight_decay: 1.0e-5
 schedulers:
   - cosine_decay_with_warmup:
-      warmup_time: "16ep"
+      t_warmup: "16ep"
 train_batch_size: 4096
 max_duration: 400ep
 ```
