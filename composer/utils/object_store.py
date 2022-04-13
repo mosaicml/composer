@@ -306,7 +306,7 @@ class ObjectStore:
                 # Read object name in symlink and recurse
                 with open(tmppath) as f:
                     symlinked_object_name = f.read()
-                    self._get_object(symlinked_object_name)
+                    return self._get_object(symlinked_object_name)
                 pass
         return obj
 
