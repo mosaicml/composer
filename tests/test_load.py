@@ -83,7 +83,7 @@ def test_load(model_name: str):
 
     # Only one of val_dataset or evaluators should be set
     assert trainer_hparams.val_dataset is not None or trainer_hparams.evaluators is not None
-    assert trainer_hparams.val_dataset is None or trainer_hparams.val_dataset is None
+    assert trainer_hparams.val_dataset is None or trainer_hparams.evaluators is None
     if trainer_hparams.evaluators is not None:
         for evaluator in trainer_hparams.evaluators:
             configure_dataset_for_synthetic(evaluator.eval_dataset)
