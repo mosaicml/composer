@@ -123,7 +123,7 @@ class LoggerDestination(Callback, ABC):
         .. note::
 
             *   This method will block the training loop. For optimal performance, it is recommended that this
-                method copy the file to a temporary directory, enqueue the copied file for processing, and return.
+                method enqueue creating the symlink in the background and return immediately.
                 Then, use a background thread(s) or process(s) to read from this queue to perform any I/O.
             *   After this method returns, training can resume, and the contents of ``existing_artifact_name`` and
                 ``symlink_artifact_name`` may change (or be may deleted). Thus, if processing the file in the background
