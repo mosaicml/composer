@@ -222,7 +222,7 @@ class StreamingDatasetIndex(object):
         w_per_d = world.workers_per_device
         if not device_batch_size:
             worker_min_id = device_min_id + device_samples * w_of_d // w_per_d
-            worker_max_id = device_min_id + (device_samples * (w_of_d + 1) // w_per_d) - 1
+            worker_max_id = device_min_id + device_samples * (w_of_d + 1) // w_per_d - 1
         else:
             device_batches = math.ceil(device_samples / device_batch_size)
             worker_min_id = device_min_id + (device_batches * w_of_d // w_per_d) * device_batch_size

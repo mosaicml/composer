@@ -6,10 +6,11 @@ Please refer to the `ADE20K dataset <https://groups.csail.mit.edu/vision/dataset
 dataset.
 """
 
+from io import BytesIO
 import os
 from dataclasses import dataclass
 from math import ceil
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -20,6 +21,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from composer.core import DataSpec
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.streaming import StreamingDataset
@@ -405,9 +407,9 @@ class StreamingADE20k(StreamingDataset):
                  remote: str,
                  local: str,
                  shuffle: bool,
-                 both_transform=None,
-                 image_transform=None,
-                 annotation_transform=None):
+                 both_transform: Optional[Callable] = None,
+                 image_transform: Optional[Callable] = None,
+                 annotation_transform: Optional[Callable] = None):
         decoders = {
             'image': self.decode_image,
             'annotation': self.decode_annotation,
@@ -422,7 +424,7 @@ class StreamingADE20k(StreamingDataset):
         x = obj['image']
         y = obj['annotation']
         if self.both_transform:
-            x, y = self.both_transform(x, y)
+            x, y = self.both_transform((x, y))
         if self.image_transform:
             x = self.image_transform(x)
         if self.annotation_transform:
@@ -471,7 +473,7 @@ class StreamingADE20kHparams(StreamingDatasetHparams):
         if self.max_resize_scale < self.min_resize_scale:
             raise ValueError("max_resize_scale cannot be less than min_resize_scale")
 
-    def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         self.validate()
 
         if self.split == 'train':
@@ -504,7 +506,7 @@ class StreamingADE20kHparams(StreamingDatasetHparams):
 
         remote = os.path.join(self.remote, self.split)
         local = os.path.join(self.local, self.split)
-        dataset = ADE20l(remote, local, self.shuffle, both_transform, image_transform, annotation_transform)
+        dataset = StreamingADE20k(remote, local, self.shuffle, both_transform, image_transform, annotation_transform)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
                                               std=IMAGENET_CHANNEL_STD,
