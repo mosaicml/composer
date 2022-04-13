@@ -20,6 +20,7 @@ RUN apt-get update && \
         dirmngr \
         apt-utils \
         gpg-agent \
+        openssh-client \
         # For PILLOW:
         zlib1g-dev \
         libtiff-dev \
