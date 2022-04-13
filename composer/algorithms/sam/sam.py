@@ -66,6 +66,7 @@ class SAMOptimizer(torch.optim.Optimizer):
             self.original_grad_states = {}
             # stores the original grad states to revert to'''
         self.use_ASAM = use_ASAM
+        self.do_sam_this_iter = True  # variable to track if doing a SAM update at current iter
         defaults = dict(rho=rho, epsilon=epsilon, **kwargs)
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 
@@ -151,7 +152,7 @@ class SAMOptimizer(torch.optim.Optimizer):
         closure = torch.enable_grad()(closure)  # the closure should do a full forward-backward pass
         loss = None
         #if (self.global_step + 1) % self.interval == 0:
-        if self.interval_class.run_check(self.global_step):
+        if self.do_sam_this_iter:
             # Compute gradient at (w) per-GPU, and do not sync
             loss = closure(ddp_sync=False)  # type: ignore
             if loss:
@@ -189,6 +190,9 @@ class SAMOptimizer(torch.optim.Optimizer):
 
     def zero_grad(self, set_to_none: bool = False):
         super(SAMOptimizer, self).zero_grad(set_to_none=set_to_none)
+        # needs to be called here because if not doing SAM, then ESAM shouldn't
+        # change the grad.
+        self.do_sam_this_iter = self.interval_class.run_check(self.global_step)
         # For ESAM, SWP chooses a subset of the weights to perform
         # backpropogation. It is easiest to include that calculation here,
         # since zero_grad is called for every step.
@@ -198,7 +202,7 @@ class SAMOptimizer(torch.optim.Optimizer):
                     if p not in self.original_grad_states:
                         self.original_grad_states[p] = p.requires_grad
 
-                    if random.random() > self.beta_ESAM_SWP:
+                    if self.do_sam_this_iter and random.random() > self.beta_ESAM_SWP:
                         p.requires_grad = False
                     else:
                         # Can;t just set p.required_grad=True, since then
