@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 import textwrap
@@ -409,7 +410,7 @@ class TrainerHparams(hp.Hparams):
     )
     torch_prof_profile_memory: bool = hp.optional(
         "Track tensor memory allocations and frees. Ignored if `prof_trace_handlers` is not specified.",
-        default=True,
+        default=False,
     )
     torch_prof_with_stack: bool = hp.optional(
         "Record stack information. Ignored if `prof_trace_handlers` is not specified.",
@@ -417,7 +418,7 @@ class TrainerHparams(hp.Hparams):
     )
     torch_prof_with_flops: bool = hp.optional(
         "Estimate flops for operators. Ignored if `prof_trace_handlers` is not specified.",
-        default=True,
+        default=False,
     )
 
     def validate(self):
@@ -473,6 +474,11 @@ class TrainerHparams(hp.Hparams):
 
         # devices and systems
         device = self.device.initialize_object()
+
+        # initialize distributed early so that it's already initialized when dataloders
+        # are created.
+        if dist.get_world_size() > 1:
+            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
 
         seed = self.seed if self.seed else reproducibility.get_random_seed()
         # need to set seed before model initialization for determinism
