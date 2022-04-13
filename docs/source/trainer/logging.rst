@@ -54,11 +54,11 @@ Automatically Logged Data
 
 The :class:`~composer.trainer.trainer.Trainer` automatically logs the following data:
 
--  ``trainer/algorithms``: a list of specified algorithms names.
+-  ``trainer/algorithms``: a list of specified algorithm names.
 -  ``epoch``: the current epoch.
 -  ``trainer/global_step``: the total number of training steps that have
    been performed.
--  ``trainer/batch_idx``: the current training step within the epoch.
+-  ``trainer/batch_idx``: the current training step (batch) within the epoch.
 -  ``loss/train``: the training loss calculated from the current batch.
 -  All the validation metrics specified in the :class:`.ComposerModel`
    object passed to :class:`.Trainer`.
@@ -71,13 +71,13 @@ Each of its methods has access to the :class:`.Logger`.
 
 .. testcode::
 
-   from composer import Callback, State
-   from composer.loggers import Logger
+    from composer import Callback, State
+    from composer.loggers import Logger
 
-   class EpochMonitor(Callback):
+    class EpochMonitor(Callback):
 
-       def epoch_end(state: State, logger: Logger):
-           logger.data_epoch({"Epoch": state.epoch})
+        def epoch_end(state: State, logger: Logger):
+            logger.data_epoch({"Epoch": state.epoch})
 
 Similarly, :class:`.Algorithm` classes are also provided the :class:`.Logger`
 to log any desired information.
