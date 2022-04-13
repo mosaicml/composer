@@ -63,6 +63,7 @@ def test_current_metrics(
     validate_every_n_batches: int,
     validate_every_n_epochs: int,
 ):
+    # Configure the trainer
     num_channels = dummy_in_shape[0]
     mock_logger_destination = MagicMock()
     model = SimpleBatchPairModel(num_channels=num_channels, num_classes=dummy_num_classes)
@@ -70,6 +71,12 @@ def test_current_metrics(
     train_subset_num_batches = 2
     eval_subset_num_batches = 2
     num_epochs = 2
+    metrics_callback = TestMetricsCallback(
+        compute_training_metrics=compute_training_metrics,
+        compute_val_metrics=compute_val_metrics,
+    )
+
+    # Create the trainer
     trainer = Trainer(
         model=model,
         train_dataloader=dummy_train_dataloader,
@@ -79,20 +86,18 @@ def test_current_metrics(
         train_subset_num_batches=train_subset_num_batches,
         eval_subset_num_batches=eval_subset_num_batches,
         loggers=[mock_logger_destination],
-        callbacks=[
-            TestMetricsCallback(
-                compute_training_metrics=compute_training_metrics,
-                compute_val_metrics=compute_val_metrics,
-            )
-        ],
+        callbacks=[metrics_callback],
         validate_every_n_batches=validate_every_n_batches,
         validate_every_n_epochs=validate_every_n_epochs,
     )
+
+    # Train the model
     trainer.fit()
 
     if not compute_training_metrics and not compute_val_metrics:
         return
-    # The metrics should not be reset after training is finished
+
+    # Validate the metrics
     if compute_training_metrics:
         assert trainer.state.current_metrics["train"]["Accuracy"] != 0.0
     else:
@@ -103,7 +108,7 @@ def test_current_metrics(
     else:
         assert "eval" not in trainer.state.current_metrics
 
-    # Inspect the logger calls
+    # Validate that the logger was called the correct number of times for metric calls
     num_expected_calls = 0
     if compute_training_metrics:
         # computed once per batch
