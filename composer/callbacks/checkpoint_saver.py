@@ -347,9 +347,11 @@ class CheckpointSaver(Callback):
                                      overwrite=self.overwrite)
 
             if self.latest_filename is not None:
+                symlink_artifact_name = format_name_with_dist_and_time(self.latest_filename, logger.run_name,
+                                                                       state.timer.get_timestamp()).lstrip("/")
                 symlink_name = os.path.join(
                     format_name_with_dist(self.folder, logger.run_name),
-                    format_name_with_dist_and_time(self.latest_filename, logger.run_name, state.timer.get_timestamp()),
+                    symlink_artifact_name,
                 )
                 if state.is_model_deepspeed and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
@@ -362,6 +364,13 @@ class CheckpointSaver(Callback):
                 except FileNotFoundError:
                     pass
                 os.symlink(checkpoint_filepath, symlink_name)
+                if self.artifact_name is not None:
+                    artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
+                                                                   state.timer.get_timestamp()).lstrip("/")
+                    logger.symlink_artifact(log_level=log_level,
+                                            existing_artifact_name=artifact_name,
+                                            symlink_artifact_name=symlink_artifact_name,
+                                            overwrite=self.overwrite)
 
         timestamp = state.timer.get_timestamp()
 

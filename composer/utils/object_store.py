@@ -4,7 +4,9 @@
 import dataclasses
 import os
 import sys
+import tempfile
 import textwrap
+import uuid
 from typing import Any, Dict, Iterator, Optional, Union
 
 import yahp as hp
@@ -286,7 +288,27 @@ class ObjectStore:
                                                 headers=headers)
 
     def _get_object(self, object_name: str):
-        return self._provider.get_object(self._container.name, object_name)
+        """Get object from object store. Recursively follow any symlinks.
+
+        Args:
+            object_name (str): The name of the object.
+        """
+        obj = self._provider.get_object(self._container.name, object_name)
+        # Recursively trace any symlinks
+        if obj.name.endswith(".symlink"):
+            # Download symlink object to temporary folder
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmppath = os.path.join(tmpdir, str(uuid.uuid4()))
+                self._provider.download_object(obj=obj,
+                                               destination_path=tmppath,
+                                               overwrite_existing=True,
+                                               delete_on_failure=True)
+                # Read object name in symlink and recurse
+                with open(tmppath) as f:
+                    symlinked_object_name = f.read()
+                    self._get_object(symlinked_object_name)
+                pass
+        return obj
 
     def get_object_size(self, object_name: str) -> int:
         """Get the size of an object, in bytes.
