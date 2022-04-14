@@ -2,7 +2,7 @@
 
 import pathlib
 import random
-from typing import List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import torch
 import torch.nn.functional as F
@@ -10,12 +10,10 @@ from torch.functional import Tensor
 
 from composer.algorithms import ChannelsLastHparams
 from composer.core import DataSpec, Evaluator, Precision, State
-from composer.core.state import _STATE_DICT_SERIALIZED_ATTRIBUTES
 from composer.core.types import Batch, DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.base import ComposerModel
-from composer.utils.iter_helpers import ensure_tuple
 from tests.fixtures.models import SimpleBatchPairModel
 
 
@@ -42,7 +40,41 @@ def get_dummy_state(model: ComposerModel, train_dataloader: DataLoader, val_data
     state.outputs = random_tensor()
     return state
 
-def _check_dict_recursively()
+
+def _check_item(item1: Any, item2: Any, path: str):
+    if item1 is None:
+        assert item2 is None, f"{path} differs: {item1} != {item2}"
+        return
+    if isinstance(item1, (str, float, int, bool)):
+        assert type(item1) == type(item2)
+        assert item1 == item2, f"{path} differs: {item1} != {item2}"
+        return
+    if isinstance(item1, torch.Tensor):
+        assert isinstance(item2, torch.Tensor)
+        torch.testing.assert_allclose(item1, item2, rtol=1e-2, atol=1e-2, msg=f"{path} differs")
+        return
+    if isinstance(item1, dict):
+        assert isinstance(item2, dict), f"{path} differs: {item1} != {item2}"
+        _check_dict_recursively(item1, item2, path)
+        return
+    if isinstance(item1, list):
+        assert isinstance(item2, list), f"{path} differs: {item1} != {item2}"
+        _check_list_recursively(item1, item2, path)
+        return
+    raise NotImplementedError(f"Unsupported item type: {type(item1)}")
+
+
+def _check_list_recursively(list1: List[Any], list2: List[Any], path: str):
+    assert len(list1) == len(list2), f"{path} differs: {list1} != {list2}"
+    for i, (item1, item2) in enumerate(zip(list1, list2)):
+        _check_item(item1, item2, f"{path}/{i}")
+
+
+def _check_dict_recursively(dict1: Dict[str, Any], dict2: Dict[str, Any], path: str):
+    assert len(dict1) == len(dict2), f"{path} differs: {dict1} != {dict2}"
+    for k, val1 in dict1.items():
+        val2 = dict2[k]
+        _check_item(val1, val2, f"{path}/{k}")
 
 
 def assert_state_equivalent(state1: State, state2: State, skip_attrs: Union[Tuple[str], List[str]] = tuple()):
@@ -51,24 +83,7 @@ def assert_state_equivalent(state1: State, state2: State, skip_attrs: Union[Tupl
     assert state1.serialized_attributes == state2.serialized_attributes
     assert state1.is_model_deepspeed == state2.is_model_deepspeed
 
-    for attr_name in state1.serialized_attributes:
-        if attr_name in skip_attrs:
-            continue
-        var1 = getattr(state1, attr_name)
-        var2 = getattr(state2, attr_name)
-
-        if attr_name == "model":
-            
-            for p, q in zip(state1.model.parameters(), state2.model.parameters()):
-                torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
-        elif isinstance(var1, torch.Tensor):
-            assert (var1 == var2).all()
-        elif attr_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
-            assert len(ensure_tuple(var1)) == len(ensure_tuple(var2))
-            for x1, x2 in zip(ensure_tuple(var1), ensure_tuple(var2)):
-                assert x1.state_dict() == x2.state_dict()
-        else:
-            assert var1 == var2
+    _check_dict_recursively(state1.state_dict(), state2.state_dict(), "")
 
 
 def train_one_step(state: State, batch: Batch) -> None:

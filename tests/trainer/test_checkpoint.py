@@ -149,6 +149,12 @@ def assert_checkpoints_equivalent(
     trainer_b = hparams_b.initialize_object()
     state_b = trainer_b.state
 
+    # patch the event counter callback, since they will have a different number of INIT and FIT_START
+    for callback_a, callback_b in zip(state_a.callbacks, state_b.callbacks):
+        if isinstance(callback_a, EventCounterCallback):
+            assert isinstance(callback_b, EventCounterCallback)
+            callback_b.load_state_dict(callback_a.state_dict())
+
     assert_state_equivalent(state_a, state_b)
 
 
