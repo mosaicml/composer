@@ -164,6 +164,23 @@ class StreamingDataset(IterableDataset):
             self._load_shards(shards, part_min_id, part_max_id)
         self._done_loading()
 
+    def _load(self) -> None:
+        """Load shards."""
+        # We find out num workers, and therefore num partitions, when __iter__ is called.
+        # From the partition, derive our shard overlap range and exact sample range.
+        world = World.from_env()
+        todo_shards, part_min_id, part_max_id = self.index.get_partition(world, self.device_batch_size)
+
+        # Preload all of our shards that are already available in the cache.
+        todo_shards = self._load_shards_if_downloaded(todo_shards, part_min_id, part_max_id)
+
+        # Start downloading our missing shards in a background thread, if there are any.
+        if todo_shards:
+            thread = Thread(target=self._download_thread, args=(todo_shards, part_min_id, part_max_id), daemon=True)
+            thread.start()
+        else:
+            self._done_loading()
+
     def __len__(self) -> int:
         """Get the length of the dataset.
 
@@ -259,6 +276,8 @@ class StreamingDataset(IterableDataset):
         Returns:
             Iterator[int]: Each sample ID.
         """
+        self._load()
+
         with self._lock:
             have_full_epoch = self._are_all_shards_downloaded
 
@@ -286,22 +305,6 @@ class StreamingDataset(IterableDataset):
         Returns:
             Iterator[Tuple[Tensor, Tensor]]: Each sample.
         """
-        # We find out num workers, and therefore num partitions, when __iter__ is called.
-        # From the partition, derive our shard overlap range and exact sample range.
-        world = World.from_env()
-        todo_shards, part_min_id, part_max_id = self.index.get_partition(world, self.device_batch_size)
-
-        # Preload all of our shards that are already available in the cache.
-        todo_shards = self._load_shards_if_downloaded(todo_shards, part_min_id, part_max_id)
-
-        # Start downloading our missing shards in a background thread, if there are any.
-        if todo_shards:
-            thread = Thread(target=self._download_thread, args=(todo_shards, part_min_id, part_max_id), daemon=True)
-            thread.start()
-        else:
-            self._done_loading()
-
-        # Iterate over the samples we have while the rest are begin loaded.
         for idx in self._iter_ids():
             yield self[idx]
 
