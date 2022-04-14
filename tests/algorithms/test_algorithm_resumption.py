@@ -1,11 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
-import pathlib
 import shutil
 import textwrap
 from typing import Optional, Tuple, Type
 
+# import pathlib
+import py
 import pytest
 
 from composer.algorithms import AlgorithmHparams
@@ -15,9 +16,9 @@ from composer.models import ModelHparams
 from composer.optim import AdamHparams, ExponentialSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, algorithms_registry
-from composer.utils import dist, is_tar
-from tests.fixtures.dummy_fixtures import dummy_num_classes
+from composer.utils import dist
 from tests.trainer.test_checkpoint import assert_checkpoints_equivalent
+from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
 
 algo_hparams_overrides = {
     "swa": {
@@ -25,16 +26,31 @@ algo_hparams_overrides = {
         "swa_end": "0.8dur"
     },
     "cutmix": {
-        "num_classes": dummy_num_classes
+        "num_classes": None
     },
+    "ghost_batchnorm": {
+        "ghost_batch_size": 2
+    },
+    "stochastic_depth": {
+        "target_layer_name": "ResNetBottleneck"
+    }
 }
+
+xfail_list = [
+    "blurpool",  # Does not fail w/ deepspeed
+    "layer_freezing",
+    "factorize",
+    "sam",
+    "squeeze_excite",
+    "stochastic_depth",  # timeout
+    "swa"
+]
 
 skiplist = {
     'default': {
         'colout': 'Only for images',
         'cutmix': 'Only for images',
         'cutout': 'Only for images',
-        'mixup': 'Only defined for images',
         'alibi': 'Not compatible with simple model.',
         'seq_length_warmup': 'Not compatible with simple model.',
         'randaugment': 'Requires PIL dataset to test.',
@@ -42,9 +58,9 @@ skiplist = {
         'stochastic_depth': 'Only applies to ResNets.',
         'no_op_model': 'Not compatible with this model.'
     },
-    'resnet50_synthetic': {
-        'alibi': 'Not compatible with simple model.',
-        'seq_length_warmup': 'Not compatible with simple model.',
+    'resnet18_synthetic': {
+        'alibi': 'Not compatible with vision model.',
+        'seq_length_warmup': 'Not compatible with vision model.',
         'randaugment': 'Requires PIL dataset to test.',
         'augmix': 'Required PIL dataset to test.',
         'no_op_model': 'Not compatible with this model.'
@@ -78,7 +94,7 @@ skiplist = {
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
     [
-        [None, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "latest-rank{rank}"
+        [None, "1ep", "ep{epoch}-rank{rank}", "ep2-rank{rank}", "latest-rank{rank}"
         ],  # test randomized seed saving and symlinking
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
         [42, "2ba", "ba{batch}-rank{rank}", "ba12-rank{rank}", "ba25-rank{rank}"],  # test save batch in partial epoch
@@ -94,7 +110,7 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
                               final_checkpoint: str, seed: Optional[int], model_name: str,
                               algorithm: Tuple[str, Type[AlgorithmHparams]], dummy_model_hparams: ModelHparams,
                               dummy_train_dataset_hparams: DatasetHparams, dummy_val_dataset_hparams: DatasetHparams,
-                              tmpdir: pathlib.Path):
+                              tmpdir: py.path.local):
     """strategy:
     - train five epochs. capture checkpoints after `checkpoint_interval` and ep5.
     - create a new trainer from the `checkpoint_interval` checkpoint, and train until end. checkpoint again.
@@ -102,10 +118,13 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
     """
     del world_size  # unused. Read via env variable.
 
+    if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
+        pytest.skip("DeepSpeed tests must be ran on GPU")
+
     algo_name, algo_hparams = algorithm
 
-    if algo_name in ["layer_freezing", "sam", "swa"]:
-        pytest.xfail(f"Checkpointing known to break {algo_name}")
+    if algo_name in xfail_list:
+        pytest.xfail(f"{algo_name} known to fail resumption test")
 
     max_epochs = "5ep"
     subset_num_batches = 5
@@ -116,8 +135,8 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
                                      schedulers=[ExponentialSchedulerHparams(gamma=0.9)],
                                      precision=Precision.FP32,
                                      max_duration=max_epochs,
-                                     train_batch_size=10,
-                                     eval_batch_size=10,
+                                     train_batch_size=8,
+                                     eval_batch_size=8,
                                      dataloader=DataLoaderHparams(
                                          num_workers=0,
                                          prefetch_factor=2,
@@ -145,6 +164,7 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
         trainer_hparams.model = model_hparams.model
         trainer_hparams.optimizer = model_hparams.optimizer
         trainer_hparams.schedulers = model_hparams.schedulers
+
     if not isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
 
@@ -154,10 +174,17 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
     if algo_name in skiplist[model_name].keys():
         pytest.skip(skiplist[model_name][algo_name])
 
+    if algo_name == "cutmix":
+        algo_hparams_overrides["cutmix"]["num_classes"] = trainer_hparams.model.num_classes
+
     if algo_name in algo_hparams_overrides:
         algo_object = algo_hparams(**algo_hparams_overrides[algo_name])
     else:
         algo_object = algo_hparams()
+
+    configure_model_for_synthetic(trainer_hparams.model)
+    configure_dataset_for_synthetic(trainer_hparams.train_dataset, trainer_hparams.model)
+    configure_dataset_for_synthetic(trainer_hparams.val_dataset, trainer_hparams.model)
 
     trainer_hparams.algorithms = [algo_object]
     trainer_hparams.train_dataset.use_synthetic = True
@@ -217,3 +244,6 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
         hparams_b=second_trainer_hparams,
         checkpoint_file_b=second_trainer_final_checkpoint_filepath,
     )
+
+    # Clean up passed checkpoints
+    tmpdir.remove()

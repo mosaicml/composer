@@ -3,31 +3,33 @@
 
 Callbacks provide hooks that run at each training loop's |Event|.
 By convention, callbacks should not modify the
-training loop by changing the :class:`.State`, but rather be reading and
+training loop by changing the :class:`.State`, but rather by reading and
 logging various metrics. Typical callback use cases include logging, timing,
 or model introspection.
 
 Using Callbacks
 ---------------
 
-Built-in callbacks can be accessed in :mod:`composer.callbacks`, and
+Built-in callbacks can be accessed in :mod:`composer.callbacks` and
 registered with the ``callbacks`` argument to the :class:`.Trainer`.
 
 .. code:: python
 
-   from composer import Trainer
-   from composer.callbacks import SpeedMonitor, LRMonitor
-   from composer.loggers import WandBLogger
+    from composer import Trainer
+    from composer.callbacks import SpeedMonitor, LRMonitor
+    from composer.loggers import WandBLogger
 
-   Trainer(model=model,
-           train_dataloader=train_dataloader,
-           eval_dataloader=None,
-           max_duration='1ep',
-           callbacks=[SpeedMonitor(window_size=100), LRMonitor()],
-           loggers=[WandBLogger()])
+    Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        eval_dataloader=None,
+        max_duration='1ep',
+        callbacks=[SpeedMonitor(window_size=100), LRMonitor()],
+        loggers=[WandBLogger()],
+    )
 
-This example includes callbacks that measure the model throughput (and
-the learning rate) and logs them to Weights & Biases.
+This example includes callbacks that measure the model throughput and
+learning rate and logs them to Weights & Biases.
 Callbacks control *what* is being logged, whereas loggers specify
 *where* the information is being saved. For more information on
 loggers, see :doc:`Logging<logging>`.
@@ -58,29 +60,29 @@ event-related hooks. For example, below is a simple callback that runs on
 
 .. code:: python
 
-   from composer import Callback, State, Logger
+    from composer import Callback, State, Logger
 
-   class EpochMonitor(Callback):
+    class EpochMonitor(Callback):
 
-       def epoch_start(self, state: State, logger: Logger):
-           print(f'Epoch: {state.timer.epoch}')
+        def epoch_start(self, state: State, logger: Logger):
+            print(f'Epoch: {state.timer.epoch}')
 
 Alternatively, one can override :meth:`.Callback.run_event` to run code
 at every event. The below is an equivalent implementation for ``EpochMonitor``:
 
 .. code:: python
 
-   from composer import Callback, Event, Logger, State
+    from composer import Callback, Event, Logger, State
 
-   class EpochMonitor(Callback):
+    class EpochMonitor(Callback):
 
-       def run_event(self, event: Event, state: State, logger: Logger):
-           if event == Event.EPOCH_START:
-               print(f'Epoch: {state.timer.epoch}')
+        def run_event(self, event: Event, state: State, logger: Logger):
+            if event == Event.EPOCH_START:
+                print(f'Epoch: {state.timer.epoch}')
 
 .. warning::
 
-    If :meth:`.Callback.run_event` is overriden, the individual methods corresponding
+    If :meth:`.Callback.run_event` is overridden, the individual methods corresponding
     to each event will be ignored.
 
 The new callback can then be provided to the trainer.
@@ -97,7 +99,7 @@ The new callback can then be provided to the trainer.
 Events
 ------
 
-Here is the list supported |Event| for callbacks to hook into.
+Here is the list of supported |Event| for callbacks to hook into.
 
 .. currentmodule:: composer.core
 
