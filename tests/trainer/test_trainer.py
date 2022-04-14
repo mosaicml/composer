@@ -114,6 +114,7 @@ class TestTrainerInit():
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
+@pytest.mark.timeout(15)  # higher timeout since each model is trained twice
 class TestTrainerEquivalence():
 
     reference_model: torch.nn.Module
