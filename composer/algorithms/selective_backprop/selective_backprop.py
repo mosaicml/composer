@@ -171,7 +171,7 @@ class SelectiveBackprop(Algorithm):
         keep (float, optional): fraction of minibatch to select and keep for gradient computation
             Default: ``0.5``.
         scale_factor (float, optional): scale for downsampling input for selection forward pass
-            Default: ``0.5``.
+            Default: ``1.``.
         interrupt (int, optional): interrupt SB with a vanilla minibatch step every
             ``interrupt`` batches. Default: ``2``.
     """
@@ -180,7 +180,7 @@ class SelectiveBackprop(Algorithm):
                  start: float = 0.5,
                  end: float = 0.9,
                  keep: float = 0.5,
-                 scale_factor: float = 0.5,
+                 scale_factor: float = 1.,
                  interrupt: int = 2):
         self.start = start
         self.end = end
