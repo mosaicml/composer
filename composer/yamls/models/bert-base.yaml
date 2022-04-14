@@ -30,9 +30,8 @@ evaluators:
           mlm_probability: 0.15
           max_seq_length: 128
       metric_names:
-        - Accuracy
-        - BinaryF1Score
-        - MatthewsCorrCoef
+        - LanguageCrossEntropy
+        - MaskedAccuracy
 model:
   bert:
     use_pretrained: false
