@@ -41,8 +41,8 @@ schedulers:
       t_warmup: 0.01dur
 max_duration: 1ep
 train_batch_size: 512 # 0.5e6 tok ~= 512[bs] * 1024[msl]
-grad_accum: 64 # 512[bs] // 8[devices] // 1[micro_bs_per_device] = 64[ga], assuming 8xA100-40GB
-eval_batch_size: 8 # 8[devices] * 1[micro_bs_per_device] = 8[bs], assuming 8xA100-40GB
+grad_accum: 32 # 512[bs] // 8[devices] // 2[micro_bs_per_device] = 64[ga], assuming 8xA100-40GB and ZERO-1
+eval_batch_size: 16 # 8[devices] * 2[micro_bs_per_device] = 8[bs], assuming 8xA100-40GB and ZERO-1
 seed: 17
 device:
   gpu: {}
