@@ -248,7 +248,7 @@ def _launch_processes(
                     node_rank=node_rank,
                 )
                 return open(filename, 'x+')
-            
+
             stderr_file = _get_file(stderr_file_format)
             stdout_file = _get_file(stdout_file_format)
 
