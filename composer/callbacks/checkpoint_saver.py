@@ -378,7 +378,7 @@ class CheckpointSaver(Callback):
                 except FileNotFoundError:
                     pass
                 os.symlink(checkpoint_filepath, symlink_name)
-                if self.artifact_name is not None:
+                if self.artifact_name is not None and self.latest_artifact_name is not None:
                     symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, logger.run_name,
                                                                            state.timer.get_timestamp()).lstrip("/")
                     artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
