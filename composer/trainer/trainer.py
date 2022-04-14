@@ -1169,7 +1169,7 @@ class Trainer:
                     # catch non-transient timeout errors they will be later reraised if no rank OOMed.
                     caught_timeout_error = e
                 else:
-                    raise e
+                    raise
 
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
