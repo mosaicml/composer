@@ -129,11 +129,8 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
 
     algo_name, algo_hparams = algorithm
 
-    # if algo_name != "blurpool":
-    # pytest.xfail("skip")
-
-    if algo_name in ["layer_freezing", "sam", "swa"]:
-        pytest.xfail(f"Checkpointing known to break {algo_name}")
+    if algo_name in xfail_list:
+        pytest.xfail(f"{algo_name} known to fail resumption test")
 
     if deepspeed_enabled:
         if not is_tar(resume_file):
@@ -189,9 +186,6 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
 
     if algo_name in skiplist[model_name].keys():
         pytest.skip(skiplist[model_name][algo_name])
-
-    if algo_name in xfail_list:
-        pytest.xfail(f"{algo_name} known to fail resumption test")
 
     if algo_name == "cutmix":
         algo_hparams_overrides["cutmix"]["num_classes"] = trainer_hparams.model.num_classes
