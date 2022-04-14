@@ -36,6 +36,9 @@ algo_hparams_overrides = {
 }
 
 xfail_list = [
+    "blurpool",
+    "squeeze_excite",
+    "factorize",
     "layer_freezing",
     "sam",
     "stochastic_depth",  # timeout
@@ -54,7 +57,7 @@ skiplist = {
         'stochastic_depth': 'Only applies to ResNets.',
         'no_op_model': 'Not compatible with this model.'
     },
-    'resnet18_synthetic': {
+    'resnet50_synthetic': {
         'alibi': 'Not compatible with vision model.',
         'seq_length_warmup': 'Not compatible with vision model.',
         'randaugment': 'Requires PIL dataset to test.',
@@ -95,7 +98,7 @@ skiplist = {
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
-@pytest.mark.parametrize("model_name", ["default", "resnet18_synthetic", "gpt2_52m"])
+@pytest.mark.parametrize("model_name", ["default", "resnet50_synthetic", "gpt2_52m"])
 @pytest.mark.parametrize("algorithm", algorithms_registry.items(), ids=algorithms_registry.keys())
 def test_algorithm_resumption(
     device_hparams: DeviceHparams,
