@@ -1,1 +1,0 @@
-../../../composer/algorithms/scale_schedule/README.md
