@@ -39,8 +39,6 @@ optimizer:
 schedulers:
   - constant_with_warmup:
       t_warmup: 0.01dur
-loggers:
-  - tqdm: {}
 max_duration: 1ep
 train_batch_size: 512 # 0.5e6 tok ~= 512[bs] * 1024[msl]
 grad_accum: 32 # 512[bs] // 8[devices] // 2[micro_bs_per_device] = 32[ga], assuming 8xA100-40GB
