@@ -478,7 +478,14 @@ different microbatches.
     )
 
 If ``grad_accum=auto``, Composer will try to automatically determine the 
-smallest ``grad_accum`` which the current hardware supports.
+smallest ``grad_accum`` which the current hardware supports. In order to support automatic
+gradient accumulation, Composer initially sets ``grad_accum=1``. During the training process,
+if a Cuda Out of Memory Exception is encountered, indicating the current batch size is too
+large for the hardware, Composer catches this exception and continues training after doubling
+``grad_accum``. As a secondary benefit, automatic gradient accumulation is able to dynamically
+adjust throughout the training process. For example, when using ``ProgressiveResizing``, input
+size increases throughout training. Composer automatically increases ``grad_accum`` only when
+required, allowing for faster training at the start until image sizes are scaled up.
 
 Reproducibility
 ~~~~~~~~~~~~~~~
