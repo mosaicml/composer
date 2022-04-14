@@ -258,7 +258,7 @@ def tensor_to_rgb(x: torch.Tensor) -> torch.Tensor:
 
 
 @dataclass
-class StreamingImagenet1kHparams(WebDatasetHparams):
+class StreamingImagenet1kHparams(StreamingDatasetHparams):
     """Streaming Imagenet1k hyperparameters.
 
     Args:
