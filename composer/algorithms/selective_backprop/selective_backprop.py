@@ -208,7 +208,7 @@ class SelectiveBackprop(Algorithm):
         assert elapsed_duration is not None, "elapsed duration should be set on Event.AFTER_DATALOADER"
 
         is_chosen = should_selective_backprop(
-            current_duration=float(),
+            current_duration=float(elapsed_duration),
             batch_idx=state.timer.batch_in_epoch.value,
             start=self.start,
             end=self.end,
