@@ -225,7 +225,7 @@ class CheckpointSaver(Callback):
         save_latest_artifact_name (str, optional): Format string for the checkpoint's latest symlink artifact name.
             (default: ``'{{run_name}}/checkpoints/latest-rank{{rank}}"``)
         
-            After the symlink is saved, it will be periodically logged as a file artifact.
+            Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
             The artifact name will be determined by this format string.
 
             .. seealso:: :meth:`~composer.loggers.logger.Logger.log_symlink_artifact` for symlink artifact logging.
