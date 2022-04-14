@@ -2,7 +2,7 @@
 
 import pathlib
 import random
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List
 
 import torch
 import torch.nn.functional as F
@@ -77,9 +77,7 @@ def _check_dict_recursively(dict1: Dict[str, Any], dict2: Dict[str, Any], path: 
         _check_item(val1, val2, f"{path}/{k}")
 
 
-def assert_state_equivalent(state1: State, state2: State, skip_attrs: Union[Tuple[str], List[str]] = tuple()):
-    # Assert that each serialied field in state1 is equal to each field in state2, skipping
-    # the fields in `skip_attrs`
+def assert_state_equivalent(state1: State, state2: State):
     assert state1.serialized_attributes == state2.serialized_attributes
     assert state1.is_model_deepspeed == state2.is_model_deepspeed
 
@@ -131,7 +129,7 @@ def test_state_serialize(tmpdir: pathlib.Path, dummy_model: ComposerModel, dummy
     state_dict_2 = torch.load(filepath, map_location="cpu")
     state2.load_state_dict(state_dict_2)
     # Make sure there was nothing wrong serialization/deserialization of permanent
-    assert_state_equivalent(state1, state2, ["optimizers"])
+    assert_state_equivalent(state1, state2)
 
     # train both for one step on another sample
     batch = get_batch(dummy_train_dataset_hparams, dummy_dataloader_hparams)
