@@ -2,7 +2,6 @@
 
 import os
 import shutil
-import textwrap
 from typing import Optional, Tuple, Type
 
 # import pathlib
@@ -37,11 +36,8 @@ algo_hparams_overrides = {
 }
 
 xfail_list = [
-    "blurpool",  # Does not fail w/ deepspeed
     "layer_freezing",
-    "factorize",
     "sam",
-    "squeeze_excite",
     "stochastic_depth",  # timeout
     "swa"
 ]
@@ -87,9 +83,9 @@ skiplist = {
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-@pytest.mark.parametrize("device_hparams,deepspeed_enabled,zero_stage", [
-    pytest.param(CPUDeviceHparams(), False, None, id="cpu-ddp"),
-    pytest.param(GPUDeviceHparams(), False, None, id="gpu-ddp", marks=pytest.mark.gpu),
+@pytest.mark.parametrize("device_hparams", [
+    pytest.param(CPUDeviceHparams(), id="cpu-ddp"),
+    pytest.param(GPUDeviceHparams(), id="gpu-ddp", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
@@ -97,29 +93,31 @@ skiplist = {
         [None, "1ep", "ep{epoch}-rank{rank}", "ep2-rank{rank}", "latest-rank{rank}"
         ],  # test randomized seed saving and symlinking
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
-        [42, "2ba", "ba{batch}-rank{rank}", "ba12-rank{rank}", "ba25-rank{rank}"],  # test save batch in partial epoch
-        [42, "1ba", "ba{batch}-rank{rank}", "ba15-rank{rank}", "ba25-rank{rank}"],  # test save final batch in epoch
-        [42, "2ba", "ba{batch}-rank{rank}", "ba16-rank{rank}", "ba25-rank{rank}"
-        ],  # test save batch after complete epoch
     ],
 )
 @pytest.mark.parametrize("model_name", ["default", "resnet18_synthetic", "gpt2_52m"])
 @pytest.mark.parametrize("algorithm", algorithms_registry.items(), ids=algorithms_registry.keys())
-def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, deepspeed_enabled: bool,
-                              zero_stage: Optional[int], save_interval: str, save_filename: str, resume_file: str,
-                              final_checkpoint: str, seed: Optional[int], model_name: str,
-                              algorithm: Tuple[str, Type[AlgorithmHparams]], dummy_model_hparams: ModelHparams,
-                              dummy_train_dataset_hparams: DatasetHparams, dummy_val_dataset_hparams: DatasetHparams,
-                              tmpdir: py.path.local):
+def test_algorithm_resumption(
+    device_hparams: DeviceHparams,
+    world_size: int,
+    save_interval: str,
+    save_filename: str,
+    resume_file: str,
+    final_checkpoint: str,
+    seed: Optional[int],
+    model_name: str,
+    algorithm: Tuple[str, Type[AlgorithmHparams]],
+    dummy_model_hparams: ModelHparams,
+    dummy_train_dataset_hparams: DatasetHparams,
+    dummy_val_dataset_hparams: DatasetHparams,
+    tmpdir: py.path.local,
+):
     """strategy:
     - train five epochs. capture checkpoints after `checkpoint_interval` and ep5.
     - create a new trainer from the `checkpoint_interval` checkpoint, and train until end. checkpoint again.
     - assert that the checkpoint from the new trainer at the end is the same as the checkpoint from the first trainer at the end.
     """
     del world_size  # unused. Read via env variable.
-
-    if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
-        pytest.skip("DeepSpeed tests must be ran on GPU")
 
     algo_name, algo_hparams = algorithm
 
