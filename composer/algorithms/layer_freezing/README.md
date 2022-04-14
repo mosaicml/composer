@@ -6,7 +6,7 @@
  `Computer Vision`
 
 Layer Freezing gradually makes early modules untrainable ("freezing" them), saving the cost of backpropagating to and updating frozen modules.
-The hypothesis behind Layer Freezing is that early layers may learn their features sooner than later layers, meaning they do not need to be updated as late into training.
+The hypothesis behind Layer Freezing is that early layers may learn their features sooner than later layers, meaning they do not need to be updated later in training.
 
 <!--| ![LayerFreezing](https://storage.googleapis.com/docs.mosaicml.com/images/methods/layer-freezing.png) |
 |:--:
@@ -60,7 +60,7 @@ Modules are frozen by removing their parameters from the optimizer’s `param_gr
 
 Layer Freezing works best when the entire network is trainable before freezing begins.
 We have found that `freeze_start` should be at least `0.1`.
-The setting of `freeze_level` is context specific. TODO(CORY): Say what we used for ResNet-50 on ImageNet in the explorer runs.
+The setting of `freeze_level` is context specific. <!-- TODO(CORY): Say what we used for ResNet-50 on ImageNet in the explorer runs. -->
 
 ## Technical Details
 
@@ -70,19 +70,19 @@ Over the remainder of training, it progressively freezes later layers in the net
 It freezes these layers linearly over time until the latest layer to be frozen (specified by `freeze_level`) gets frozen prior to the end of training.
 
 We have yet to observe a significant improvement in the tradeoff between speed and accuracy using this Layer Freezing on our computer vision benchmarks.
-We’ve observed that layer freezing can increase throughput by ~5% for ResNet-50 on ImageNet, but decreases accuracy by 0.5-1%. This is not an especially good speed vs accuracy tradeoff. Existing papers have generally also not found effective tradeoffs on large-scale problems.
-For ResNet-56 on CIFAR-100, we have observed an accuracy lift from 75.82% to 76.22% with a similar ~5% speed increase. However, these results used specific hyperparameters without replicates, and so should be interpreted with caution.
+We’ve observed that layer freezing can increase throughput by ~5% for ResNet-50 on ImageNet but decreases accuracy by 0.5-1%. This is not an especially good speed vs accuracy tradeoff. Existing papers have generally also not found effective tradeoffs on large-scale problems.
+For ResNet-56 on CIFAR-100, we have observed an accuracy lift from 75.82% to 76.22% with a similar ~5% speed increase. However, these results used specific hyperparameters without replicates and should be interpreted with caution.
 
 
 > ❗ There is No Evidence that Layer Freezing Improves the Tradeoff Between Model Quality and Training Speed
 >
->  Although layer freezing does improve throughput, it also leads to accuracy reductions we observed on ResNet-50 on ImageNet.
+>  Although layer freezing does improve throughput, it can also leads to accuracy reductions (as we observed for ResNet-50 on ImageNet).
 >  This tradeoff between improved throughput and reduced quality was not worthwhile in our experiments: it did not improve the pareto frontier of the tradoeff between quality and training speed.
 
 
 > 🚧 Composing Regularization Methods
 >
-> Layer freezing is a relaxed version of early stopping that stops training the model gradually, rather than all at once. It can therefore be understood as a form of regularization. As general rule, composing regularization methods may lead to diminishing returns in quality improvements.
+> Layer freezing is a relaxed version of early stopping that stops training the model gradually rather than all at once. It can therefore be understood as a form of regularization. As a general rule, composing regularization methods may lead to diminishing returns in quality improvements.
 
 ## Attribution
 
