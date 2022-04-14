@@ -8,17 +8,18 @@ from typing import List, Optional, Type
 
 import yahp as hp
 
-from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, CosineAnnealingScheduler,
-                                      CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
-                                      ExponentialScheduler, LinearScheduler, LinearWithWarmupScheduler,
-                                      MultiStepScheduler, MultiStepWithWarmupScheduler, PolynomialScheduler,
-                                      StepScheduler)
+from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, ConstantWithWarmupScheduler,
+                                      CosineAnnealingScheduler, CosineAnnealingWarmRestartsScheduler,
+                                      CosineAnnealingWithWarmupScheduler, ExponentialScheduler, LinearScheduler,
+                                      LinearWithWarmupScheduler, MultiStepScheduler, MultiStepWithWarmupScheduler,
+                                      PolynomialScheduler, StepScheduler)
 
 __all__ = [
     "SchedulerHparams", "StepSchedulerHparams", "MultiStepSchedulerHparams", "ConstantSchedulerHparams",
     "LinearSchedulerHparams", "ExponentialSchedulerHparams", "CosineAnnealingSchedulerHparams",
-    "CosineAnnealingWarmRestartsSchedulerHparams", "PolynomialSchedulerHparams", "MultiStepWithWarmupSchedulerHparams",
-    "LinearWithWarmupSchedulerHparams", "CosineAnnealingWithWarmupSchedulerHparams"
+    "CosineAnnealingWarmRestartsSchedulerHparams", "PolynomialSchedulerHparams", "ConstantWithWarmupSchedulerHparams",
+    "MultiStepWithWarmupSchedulerHparams", "LinearWithWarmupSchedulerHparams",
+    "CosineAnnealingWithWarmupSchedulerHparams"
 ]
 
 
@@ -182,6 +183,25 @@ class PolynomialSchedulerHparams(SchedulerHparams):
     alpha_f: float = hp.optional(default=0.0, doc="Learning rate multiplier to decay to.")
 
     _scheduler_cls = PolynomialScheduler
+
+
+@dataclass
+class ConstantWithWarmupSchedulerHparams(SchedulerHparams):
+    """Hyperparameters for the :class:`~.ConstantWithWarmupScheduler` scheduler.
+
+    See :class:`~.ConstantWithWarmupScheduler` for documentation.
+
+    Args:
+        t_warmup (str,): See :class:`~.MultiStepWithWarmupScheduler`.
+        alpha (float, optional): See :class:`~.ConstantScheduler`.
+        t_max (str, optional): See :class:`~.ConstantScheduler`.
+    """
+
+    t_warmup: str = hp.required(doc="Warmup time.")
+    alpha: float = hp.optional(default=1.0, doc="Learning rate multiplier to maintain while this scheduler is active.")
+    t_max: str = hp.optional(default="1dur", doc="Duration of this scheduler.")
+
+    _scheduler_cls = ConstantWithWarmupScheduler
 
 
 @dataclass

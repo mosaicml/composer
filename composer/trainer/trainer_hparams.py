@@ -28,12 +28,13 @@ from composer.loggers.logger import LogLevel
 from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
                              GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
                              SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
-from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams, CosineAnnealingSchedulerHparams,
-                            CosineAnnealingWarmRestartsSchedulerHparams, CosineAnnealingWithWarmupSchedulerHparams,
-                            DecoupledAdamWHparams, DecoupledSGDWHparams, ExponentialSchedulerHparams,
-                            LinearSchedulerHparams, LinearWithWarmupSchedulerHparams, MultiStepSchedulerHparams,
-                            MultiStepWithWarmupSchedulerHparams, OptimizerHparams, PolynomialSchedulerHparams,
-                            RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
+from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams, ConstantWithWarmupSchedulerHparams,
+                            CosineAnnealingSchedulerHparams, CosineAnnealingWarmRestartsSchedulerHparams,
+                            CosineAnnealingWithWarmupSchedulerHparams, DecoupledAdamWHparams, DecoupledSGDWHparams,
+                            ExponentialSchedulerHparams, LinearSchedulerHparams, LinearWithWarmupSchedulerHparams,
+                            MultiStepSchedulerHparams, MultiStepWithWarmupSchedulerHparams, OptimizerHparams,
+                            PolynomialSchedulerHparams, RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams,
+                            StepSchedulerHparams)
 from composer.profiler.profiler_hparams import (ProfileScheduleHparams, TraceHandlerHparams,
                                                 profiler_scheduler_registry, trace_handler_registory)
 from composer.trainer.ddp import DDPSyncStrategy
@@ -69,6 +70,7 @@ scheduler_registry = {
     "multistep_with_warmup": MultiStepWithWarmupSchedulerHparams,
     "linear_decay_with_warmup": LinearWithWarmupSchedulerHparams,
     "cosine_decay_with_warmup": CosineAnnealingWithWarmupSchedulerHparams,
+    "constant_with_warmup": ConstantWithWarmupSchedulerHparams,
 }
 
 model_registry = {
@@ -282,7 +284,7 @@ class TrainerHparams(hp.Hparams):
     # training hparams
     grad_accum: Union[int, str] = hp.optional(textwrap.dedent("""\
         Determines the number of microbatches to split a per-gpu batch into,
-        used to compensate for low-memory-capacity devices. If set to auto, 
+        used to compensate for low-memory-capacity devices. If set to auto,
         dynamically increases grad_accum if microbatch size is too large for
         GPU. Defaults to ``1``"""),
                                               default=1)

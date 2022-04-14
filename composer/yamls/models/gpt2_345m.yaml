@@ -1,8 +1,8 @@
 train_dataset:
   c4:
     split: train
-    num_samples: 51200000 # 1e11 tok ~= 51200000[sa] * 2048[msl] = 200000[ba] * 256[bs] * 2048[msl]
-    max_seq_len: 2048
+    num_samples: 10240000 # 1e10 tok ~= 10240000[sa] * 1024[msl] = 20000[ba] * 512[bs] * 1024[msl]
+    max_seq_len: 1024
     tokenizer_name: gpt2
     group_method: concat
     seed: 17
@@ -11,8 +11,8 @@ train_dataset:
 val_dataset:
   c4:
     split: validation
-    num_samples: 364608 # approx total validation set
-    max_seq_len: 2048
+    num_samples: 102400 # 1e8 tok ~= 102400[sa] * 1024[msl]
+    max_seq_len: 1024
     tokenizer_name: gpt2
     group_method: truncate
     seed: 17
@@ -24,25 +24,27 @@ model:
     tokenizer_name: gpt2
     gradient_checkpointing: false
     model_config:
-      n_embd: 768
-      n_head: 12
-      n_layer: 12
-      n_positions: 2048
+      n_embd: 1024
+      n_head: 16
+      n_layer: 24
+      n_positions: 1024
 optimizer:
   decoupled_adamw:
-    lr: 6.0e-4
+    lr: 3.0e-4
     betas:
       - 0.9
       - 0.95
     eps: 1.0e-08
     weight_decay: 0.0
 schedulers:
-  - cosine_decay_with_warmup:
+  - constant_with_warmup:
       t_warmup: 0.01dur
+loggers:
+  - tqdm: {}
 max_duration: 1ep
-train_batch_size: 256 # 0.5e6 tok ~= 256[bs] * 2048[msl]
-grad_accum: 4 # 256[bs] / 8[devices] / 8[micro_bs_per_device] = 4[ga], assuming 8xA100-80GB
-eval_batch_size: 64 # 8[devices] * 8[micro_bs_per_device] = 32[bs], assuming 8xA100-80GB
+train_batch_size: 512 # 0.5e6 tok ~= 512[bs] * 1024[msl]
+grad_accum: 32 # 512[bs] // 8[devices] // 2[micro_bs_per_device] = 32[ga], assuming 8xA100-40GB
+eval_batch_size: 16 # 8[devices] * 2[micro_bs_per_device] = 16[bs], assuming 8xA100-40GB
 seed: 17
 device:
   gpu: {}
@@ -52,10 +54,7 @@ dataloader:
   num_workers: 1
   timeout: 0
   prefetch_factor: 2
-deepspeed:
-  zero_optimization:
-    stage: 2
-precision: fp16
+precision: amp
 grad_clip_norm: 1.0
-validate_every_n_batches: 10000
+validate_every_n_batches: 1000
 validate_every_n_epochs: 1
