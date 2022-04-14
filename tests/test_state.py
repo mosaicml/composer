@@ -2,6 +2,7 @@
 
 import pathlib
 import random
+from typing import List, Tuple, Union
 
 import torch
 import torch.nn.functional as F
@@ -9,10 +10,12 @@ from torch.functional import Tensor
 
 from composer.algorithms import ChannelsLastHparams
 from composer.core import DataSpec, Evaluator, Precision, State
+from composer.core.state import _STATE_DICT_SERIALIZED_ATTRIBUTES
 from composer.core.types import Batch, DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.base import ComposerModel
+from composer.utils.iter_helpers import ensure_tuple
 from tests.fixtures.models import SimpleBatchPairModel
 
 
@@ -39,30 +42,31 @@ def get_dummy_state(model: ComposerModel, train_dataloader: DataLoader, val_data
     state.outputs = random_tensor()
     return state
 
+def _check_dict_recursively()
 
-def assert_state_equivalent(state1: State, state2: State):
 
-    # tested separately
-    IGNORE_FIELDS = [
-        '_optimizers',
-        '_schedulers',
-        '_algorithms',
-        '_callbacks',
-    ]
+def assert_state_equivalent(state1: State, state2: State, skip_attrs: Union[Tuple[str], List[str]] = tuple()):
+    # Assert that each serialied field in state1 is equal to each field in state2, skipping
+    # the fields in `skip_attrs`
+    assert state1.serialized_attributes == state2.serialized_attributes
+    assert state1.is_model_deepspeed == state2.is_model_deepspeed
 
-    for field_name in state1.__dict__.keys():
-        if field_name in IGNORE_FIELDS or field_name.lstrip("_") not in state1.serialized_attributes:
+    for attr_name in state1.serialized_attributes:
+        if attr_name in skip_attrs:
             continue
+        var1 = getattr(state1, attr_name)
+        var2 = getattr(state2, attr_name)
 
-        var1 = getattr(state1, field_name)
-        var2 = getattr(state2, field_name)
-
-        if field_name == "model":
-            assert state1.is_model_deepspeed == state2.is_model_deepspeed
+        if attr_name == "model":
+            
             for p, q in zip(state1.model.parameters(), state2.model.parameters()):
                 torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
         elif isinstance(var1, torch.Tensor):
             assert (var1 == var2).all()
+        elif attr_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
+            assert len(ensure_tuple(var1)) == len(ensure_tuple(var2))
+            for x1, x2 in zip(ensure_tuple(var1), ensure_tuple(var2)):
+                assert x1.state_dict() == x2.state_dict()
         else:
             assert var1 == var2
 
@@ -112,7 +116,7 @@ def test_state_serialize(tmpdir: pathlib.Path, dummy_model: ComposerModel, dummy
     state_dict_2 = torch.load(filepath, map_location="cpu")
     state2.load_state_dict(state_dict_2)
     # Make sure there was nothing wrong serialization/deserialization of permanent
-    assert_state_equivalent(state1, state2)
+    assert_state_equivalent(state1, state2, ["optimizers"])
 
     # train both for one step on another sample
     batch = get_batch(dummy_train_dataset_hparams, dummy_dataloader_hparams)

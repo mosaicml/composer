@@ -7,7 +7,7 @@ import contextlib
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Mapping, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -268,7 +268,7 @@ class State(Serializable):
             "current_metrics",
         ]
 
-        self.current_metrics: Dict[str, Mapping[str, Any]] = {}
+        self.current_metrics: Dict[str, Dict[str, Any]] = {}
 
     @property
     def seed(self):
