@@ -5,8 +5,8 @@
 `Computer Vision`
 
 ColOut is a data augmentation technique that drops a fraction of the rows or columns of an input image for a computer vision model.
-If the fraction of rows/columns isn't too large, the image content is not significantly altered but the image size is reduced, speeding up training.
-This modification modestly reduces accuracy, but it is a worthwhile tradeoff for the improved speed.
+If the fraction of rows/columns dropped isn't too large, the image content is not significantly altered but the image size is reduced, speeding up training.
+This modification modestly reduces accuracy, but it is a worthwhile tradeoff for the increased speed.
 
 | ![ColOut](https://storage.googleapis.com/docs.mosaicml.com/images/methods/col_out.png) |
 |:--:
@@ -28,7 +28,11 @@ import composer.functional as cf
 from composer.algorithms.utils import augmentation_sets
 
 def colout_batch(image: Union[PillowImage, torch.Tensor]):
-    colout_batch = cf.colout_batch(img=image, p_row=0.15, p_col=0.15)
+    colout_batch = cf.colout_batch(
+        img=image,
+        p_row=0.15,
+        p_col=0.15
+    )
     return colout_batch
 ```
 
@@ -56,12 +60,18 @@ dataset = VisionDataset("data_path", transform=composed)
 from composer.algorithms import ColOut
 from composer.trainer import Trainer
 
-colout = ColOut(p_row=0.15, p_col=0.15, batch=True)
+colout = ColOut(
+    p_row=0.15,
+    p_col=0.15,
+    batch=True
+)
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[colout])
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration='1ep',
+    algorithms=[colout]
+)
 
 trainer.fit()
 ```
@@ -69,8 +79,8 @@ trainer.fit()
 ### Implementation Details
 
 ColOut currently has two implementations.
-One implementation acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example.
-A second implementation runs immediately before the training example is provided to the model. It runs on the GPU and drops the same rows and columns for all training examples in a mini-batch.
+One implementation, accessed by passing `batch=False`, acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example. 
+A second implementation, accessed by passing `batch=True`, runs immediately before the training example is provided to the model. It runs on the GPU and drops the same rows and columns for all training examples in a mini-batch.
 
 ## Suggested Hyperparameters
 
@@ -84,13 +94,13 @@ The variability induced by randomly dropping rows and columns can negatively aff
 > 🚧 Quality/Speed Tradeoff
 >
 > In our experiments, ColOut presents a tradeoff in that it increases training speed at the cost of lower model quality.
-> On ResNet-50 on ImageNet and ResNet-56 on CIFAR-10, we found this tradeoff to be worthwhile: it is a pareto improvement over the standard versions of those benchmarks.
+> On ResNet-50 applied to ImageNet and ResNet-56 applied to CIFAR-10, we found this tradeoff to be worthwhile: it is a pareto improvement over the standard versions of those benchmarks.
 > We also found it to be worthwhile in composition with other methods.
 > We recommend that you carefully evaluate whether ColOut is also a pareto improvement in the context of your application.
 
 ColOut currently has two implementations.
-One implementation acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example.
-A second implementation runs immediately before the training example is provided to the model. It runs on the GPU and drops the same rows and columns for all training examples in a mini-batch.
+One implementation, accessed by passing `batch=False`, acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example.
+A second implementation, accessed by passing `batch=True`, runs immediately before the training example is provided to the model. It runs on the GPU and drops the same rows and columns for all training examples in a mini-batch.
 The GPU-based, batch-wise implementation suffers a drop in validation accuracy compared to the CPU-based example-wise implementation (0.2% on CIFAR-10 and 0.1% on ImageNet)
 
 > 🚧 CPU/GPU Tradeoff
