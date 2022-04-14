@@ -74,9 +74,6 @@ skiplist = {
 @pytest.mark.parametrize("device_hparams,deepspeed_enabled,zero_stage", [
     pytest.param(CPUDeviceHparams(), False, None, id="cpu-ddp"),
     pytest.param(GPUDeviceHparams(), False, None, id="gpu-ddp", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, 0, id="deepspeed-zero0", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
@@ -84,15 +81,13 @@ skiplist = {
         [None, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "latest-rank{rank}"
         ],  # test randomized seed saving and symlinking
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
-        [42, "1ep", "ep{epoch}-rank{rank}.tgz", "ep3-rank{rank}.tgz", "ep5-rank{rank}.tgz"
-        ],  # test tarball with compression
         [42, "2ba", "ba{batch}-rank{rank}", "ba12-rank{rank}", "ba25-rank{rank}"],  # test save batch in partial epoch
         [42, "1ba", "ba{batch}-rank{rank}", "ba15-rank{rank}", "ba25-rank{rank}"],  # test save final batch in epoch
         [42, "2ba", "ba{batch}-rank{rank}", "ba16-rank{rank}", "ba25-rank{rank}"
         ],  # test save batch after complete epoch
     ],
 )
-@pytest.mark.parametrize("model_name", ["default", "resnet50_synthetic", "gpt2_52m"])
+@pytest.mark.parametrize("model_name", ["default", "resnet18_synthetic", "gpt2_52m"])
 @pytest.mark.parametrize("algorithm", algorithms_registry.items(), ids=algorithms_registry.keys())
 def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, deepspeed_enabled: bool,
                               zero_stage: Optional[int], save_interval: str, save_filename: str, resume_file: str,
@@ -111,12 +106,6 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
 
     if algo_name in ["layer_freezing", "sam", "swa"]:
         pytest.xfail(f"Checkpointing known to break {algo_name}")
-
-    if deepspeed_enabled:
-        if is_tar(resume_file):
-            resume_file += ".tar"
-        if not is_tar(final_checkpoint):
-            final_checkpoint += ".tar"
 
     max_epochs = "5ep"
     subset_num_batches = 5
@@ -158,10 +147,9 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
         trainer_hparams.schedulers = model_hparams.schedulers
     if not isinstance(trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
-        return
+
     if not isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
-        return
 
     if algo_name in skiplist[model_name].keys():
         pytest.skip(skiplist[model_name][algo_name])
@@ -177,18 +165,6 @@ def test_algorithm_resumption(device_hparams: DeviceHparams, world_size: int, de
     trainer_hparams.train_dataset.shuffle = False
     trainer_hparams.val_dataset.use_synthetic = True
     trainer_hparams.val_dataset.shuffle = False
-
-    if deepspeed_enabled:
-        assert zero_stage is not None
-        if zero_stage > 0:
-            trainer_hparams.deterministic_mode = False
-            if model_name is not None:
-                pytest.skip(
-                    textwrap.dedent(f"""\
-                        Skipping test since deterministic mode is required for
-                        non-trivial models, but deterministic mode isn't compatible with deepspeed
-                        zero stage {zero_stage}"""))
-        trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
 
     checkpoint_a_folder = str(tmpdir / "first")
     trainer_hparams.save_folder = checkpoint_a_folder
