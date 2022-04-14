@@ -104,9 +104,10 @@ def pil_image_collate(
             nump_array = np.expand_dims(nump_array, axis=-1)
 
         nump_array = np.rollaxis(nump_array, 2).copy()
-        if nump_array.shape[0] != 3:
-            assert nump_array.shape[0] == 1, "unexpected shape"
+        if nump_array.shape[0] == 1:
             nump_array = np.resize(nump_array, (3, h, w))
+        elif nump_array.shape[0] == 4:
+            nump_array = nump_array[:3]
         assert image_tensor.shape[1:] == nump_array.shape, "shape mismatch"
 
         image_tensor[i] += torch.from_numpy(nump_array)

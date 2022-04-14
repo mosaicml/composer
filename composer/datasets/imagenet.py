@@ -249,23 +249,6 @@ class StreamingImagenet1k(StreamingImageClassDataset):
     pass
 
 
-def tensor_to_rgb(x: torch.Tensor) -> torch.Tensor:
-    """Normalize the cnannels of the tensor to RGB.
-
-    Args:
-        x (torch.Tensor): Input tensor.
-
-    Returns:
-        torch.Tensor: Output tensor.
-    """
-    channels = x.shape[0]
-    if channels == 1:
-        x = x.repeat(3, 1, 1)
-    elif channels == 4:
-        x = x[:3]
-    return x
-
-
 @dataclass
 class StreamingImagenet1kHparams(StreamingDatasetHparams):
     """Streaming Imagenet1k hyperparameters.
@@ -297,9 +280,6 @@ class StreamingImagenet1kHparams(StreamingDatasetHparams):
             train_transforms += [
                 transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
                 transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Lambda(tensor_to_rgb),
-                transforms.Normalize(IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD),
             ]
             transform = transforms.Compose(train_transforms)
         else:
@@ -307,19 +287,20 @@ class StreamingImagenet1kHparams(StreamingDatasetHparams):
             transform = transforms.Compose([
                 transforms.Resize(self.resize_size),
                 transforms.CenterCrop(self.crop_size),
-                transforms.ToTensor(),
-                transforms.Lambda(tensor_to_rgb),
-                transforms.Normalize(IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD),
             ])
+        collate_fn = pil_image_collate
+        device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
         dataset = StreamingImagenet1k(remote, local, self.shuffle, transform)
-        return dataloader_hparams.initialize_object(
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,
             sampler=None,
             drop_last=self.drop_last,
-        )
+            collate_fn=collate_fn,
+        ),
+                        device_transforms=device_transform_fn)
 
 
 @dataclass
