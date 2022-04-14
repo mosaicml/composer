@@ -134,7 +134,7 @@ class LayerFreezing(Algorithm):
         optimizers = state.optimizers
         assert optimizers is not None
         elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, "elapsed duration is available on epoch end"
+        assert elapsed_duration is not None, "elapsed duration should be set on Event.EPOCH_END"
         freeze_depth, freeze_percentage = freeze_layers(
             model=state.model,
             optimizers=optimizers,

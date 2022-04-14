@@ -76,6 +76,28 @@ class TestScaleSchedule():
         raise NotImplementedError
 
 
+class CheckScaleSchedule(Callback):
+
+    def __init__(self, ssr: float) -> None:
+        self.ssr = ssr
+
+    def fit_start(self, state: State, logger: Logger) -> None:
+        scheduler = state.schedulers[0]
+
+        test_steps = [int(20 * self.ssr), int(40 * self.ssr), int(60 * self.ssr)]
+        target_lrs = [1.0, 0.1, 0.01]
+        current_step = 0
+        for test_step, target_lr in zip(test_steps, target_lrs):
+
+            while current_step < test_step:
+                state.timer.on_batch_complete()
+                current_step += 1
+
+            scheduler.step()
+
+            assert scheduler.get_last_lr()[0] == pytest.approx(target_lr)
+
+
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
 @pytest.mark.parametrize('use_algorithm', [
     False,
@@ -100,26 +122,8 @@ class TestScaleScheduleTrainer():
         else:
             composer_trainer_hparams.scale_schedule_ratio = ssr
 
-        class CheckScaleSchedule(Callback):
-
-            def fit_start(self, state: State, logger: Logger) -> None:
-                scheduler = state.schedulers[0]
-
-                test_steps = [int(20 * ssr), int(40 * ssr), int(60 * ssr)]
-                target_lrs = [1.0, 0.1, 0.01]
-                current_step = 0
-                for test_step, target_lr in zip(test_steps, target_lrs):
-
-                    while current_step < test_step:
-                        trainer.state.timer.on_batch_complete()
-                        current_step += 1
-
-                    scheduler.step()
-
-                    assert scheduler.get_last_lr()[0] == pytest.approx(target_lr)
-
         trainer = composer_trainer_hparams.initialize_object()
-        trainer.state.callbacks.append(CheckScaleSchedule())
+        trainer.state.callbacks.append(CheckScaleSchedule(ssr))
 
         assert trainer.state.max_duration is not None
         assert trainer.state.max_duration.unit == TimeUnit.EPOCH

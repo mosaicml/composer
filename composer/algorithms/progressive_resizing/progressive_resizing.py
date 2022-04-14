@@ -198,7 +198,7 @@ class ProgressiveResizing(Algorithm):
         initial_size = self.initial_scale
         finetune_fraction = self.finetune_fraction
         elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, "elapsed duration is set on Event.AFTER_DATALOADER"
+        assert elapsed_duration is not None, "elapsed duration should be set on Event.AFTER_DATALOADER"
         scale_frac_elapsed = min([elapsed_duration.value / (1 - finetune_fraction), 1])
 
         # Linearly increase to full size at the start of the fine tuning period
