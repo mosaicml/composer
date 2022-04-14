@@ -327,11 +327,9 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
 
 
 def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
-    living_processes_at_end = set()
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
-            living_processes_at_end.add(process)
             log.info("Killing global rank %s (PID %s) with SIGTERM", global_rank, process.pid)
             try:
                 os.killpg(os.getpgid(process.pid), signal.SIGTERM)
@@ -358,9 +356,10 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
                 pass
     for global_rank, process in processes.items():
         process.poll()
-        if process.returncode != 0 and process not in living_processes_at_end:
+        if process.returncode > 0:
             # only print the processes that have actually crashed,
-            # not the ones we killed
+            # not the ones that were killed, which would result in
+            # a negative exit code
             _print_process_exit_status(global_rank, process)
 
 
