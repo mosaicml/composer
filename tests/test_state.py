@@ -51,7 +51,7 @@ def _check_item(item1: Any, item2: Any, path: str):
         return
     if isinstance(item1, torch.Tensor):
         assert isinstance(item2, torch.Tensor)
-        torch.testing.assert_allclose(item1, item2, rtol=1e-2, atol=1e-2, msg=f"{path} differs")
+        assert item1.allclose(item2, rtol=1e-2, atol=1e-2), f"{path} differs"
         return
     if isinstance(item1, dict):
         assert isinstance(item2, dict), f"{path} differs: {item1} != {item2}"
