@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterator, Optional, Union
 
 import yahp as hp
 from libcloud.storage.providers import get_driver
+from libcloud.storage.types import ObjectDoesNotExistError
 
 __all__ = ["ObjectStoreHparams", "ObjectStore"]
 
@@ -289,7 +290,7 @@ class ObjectStore:
 
     def _get_object(self, object_name: str):
         """Get object from object store. Recursively follow any symlinks. If an object does not exist, automatically
-        check if it is a symlink by appending ``.symlink``.
+        checks if it is a symlink by appending ``.symlink``.
 
         Args:
             object_name (str): The name of the object.
@@ -297,13 +298,10 @@ class ObjectStore:
         obj = None
         try:
             obj = self._provider.get_object(self._container.name, object_name)
-        except Exception as e:
+        except ObjectDoesNotExistError:
             # Object not found, check for potential symlink
-            if "ObjectDoesNotExistError" in str(e):
-                object_name += ".symlink"
-                obj = self._provider.get_object(self._container.name, object_name)
-            else:
-                raise
+            object_name += ".symlink"
+            obj = self._provider.get_object(self._container.name, object_name)
         # Recursively trace any symlinks
         if obj.name.endswith(".symlink"):
             # Download symlink object to temporary folder

@@ -193,7 +193,7 @@ class CheckpointSaver(Callback):
 
             The same format variables as for ``name`` are available.
 
-            To disable symlinks, set this parameter or ``save_latest_artifact_name`` to ``None``.
+            To disable symlinks, set this parameter to ``None``.
 
             Consider the following scenario, where:
 
@@ -222,11 +222,11 @@ class CheckpointSaver(Callback):
                 awesome-training-run/checkpoints/latest-rank1.tar -> awesome-training-run/checkpoints/ep1-ba42-rank1.tar
                 awesome-training-run/checkpoints/latest-rank2.tar -> awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
-        save_latest_artifact_name (str, optional): Format string for the checkpoint's latest symlink artifact name.
+        latest_artifact_name (str, optional): Format string for the checkpoint's latest symlink artifact name.
             (default: ``'{{run_name}}/checkpoints/latest-rank{{rank}}"``)
         
             After the symlink is saved, it will be periodically logged as a file artifact.
-            The artifact name will be determined by this format string.
+            The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is None."
 
             .. seealso:: :meth:`~composer.loggers.logger.Logger.log_symlink_artifact` for symlink artifact logging.
 
@@ -234,7 +234,7 @@ class CheckpointSaver(Callback):
 
             Leading slashes (``'/'``) will be stripped.
 
-            To disable symlinks, set this parameter or ``latest_filename`` to ``None``.
+            To disable symlinks in logger, set this parameter to ``None``.
 
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
             If ``False`` (the default), then the ``folder`` must not exist or be empty.
@@ -361,14 +361,12 @@ class CheckpointSaver(Callback):
                                      file_path=checkpoint_filepath,
                                      overwrite=self.overwrite)
 
-            if self.latest_filename is not None and self.latest_artifact_name is not None:
+            if self.latest_filename is not None:
                 symlink_name = os.path.join(
                     format_name_with_dist(self.folder, logger.run_name),
                     format_name_with_dist_and_time(self.latest_filename, logger.run_name,
                                                    state.timer.get_timestamp()).lstrip("/"),
                 )
-                symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, logger.run_name,
-                                                                       state.timer.get_timestamp()).lstrip("/")
                 if state.is_model_deepspeed and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     symlink_name += ".tar"
@@ -381,6 +379,8 @@ class CheckpointSaver(Callback):
                     pass
                 os.symlink(checkpoint_filepath, symlink_name)
                 if self.artifact_name is not None:
+                    symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, logger.run_name,
+                                                                           state.timer.get_timestamp()).lstrip("/")
                     artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
                                                                    state.timer.get_timestamp()).lstrip("/")
                     logger.symlink_artifact(log_level=log_level,

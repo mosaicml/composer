@@ -125,18 +125,13 @@ class LoggerDestination(Callback, ABC):
             *   This method will block the training loop. For optimal performance, it is recommended that this
                 method enqueue creating the symlink in the background and return immediately.
                 Then, use a background thread(s) or process(s) to read from this queue to perform any I/O.
-            *   After this method returns, training can resume, and the contents of ``existing_artifact_name`` and
-                ``symlink_artifact_name`` may change (or be may deleted). Thus, if processing the file in the background
-                (as is recommended), it is necessary to first copy the file to a temporary directory. Otherwise, the
-                original file may no longer exist, or the logged artifact can be corrupted (e.g., if the logger destination
-                is reading from file while the training loop is writing to it).
 
         Args:
             state (State): The training state.
             log_level (Union[str, LogLevel]): A :class:`LogLevel`.
             existing_artifact_name (str): The name of symlinked artifact.
             symlink_artifact_name (str): The symlink name of artifact.
-            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
+            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
                 (default: ``False``)
         """
         del state, log_level, existing_artifact_name, symlink_artifact_name, overwrite  # unused

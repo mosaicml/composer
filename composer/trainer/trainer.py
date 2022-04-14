@@ -340,13 +340,13 @@ class Trainer:
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
-            To disable symlinking, set this or ``save_latest_artifact_name`` to ``None``. (default: ``"latest-rank{rank}"``)
+            To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
         save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
-            This parameter has no effect if ``save_folder`` is ``None``.
-            To disable symlinking, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
+            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
+            To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 

@@ -202,7 +202,7 @@ def _download_checkpoint(
             # every NODE needs the GLOBAL rank zero checkpoint
             path = _format_path_with_rank_zero(path)
             get_file(destination=rank_zero_checkpoint_filepath,
-                     path=_format_path_with_rank_zero(path),
+                     path=path,
                      object_store=object_store,
                      chunk_size=chunk_size,
                      progress_bar=progress_bar)
