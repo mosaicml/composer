@@ -101,7 +101,9 @@ skiplist = {
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
-@pytest.mark.parametrize("model_name", ["default", "resnet50_synthetic"])
+@pytest.mark.parametrize(
+    "model_name",
+    [pytest.param("default"), pytest.param("resnet50_synthetic", marks=pytest.mark.daily)])
 @pytest.mark.parametrize("algorithm", algorithms_registry.items(), ids=algorithms_registry.keys())
 def test_algorithm_resumption(
     device_hparams: DeviceHparams,
