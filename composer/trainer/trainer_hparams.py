@@ -317,8 +317,9 @@ class TrainerHparams(hp.Hparams):
     run_name: Optional[str] = hp.optional("Experiment name", default=None)
     progress_bar: bool = hp.optional("Whether to show a progress bar.", default=True)
     log_to_console: Optional[bool] = hp.optional("Whether to print log statements to the console.", default=None)
-    log_level: LogLevel = hp.optional("The maximum log level.", default=LogLevel.EPOCH)
-    console_stream: str = hp.optional("The stream at which to write the progress bar and log statements.", default="stderr")
+    log_level: LogLevel = hp.optional("The maximum log level for console logging.", default=LogLevel.EPOCH)
+    console_stream: str = hp.optional("The stream at which to write the progress bar and log statements.",
+                                      default="stderr")
 
     # load checkpoint
     load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\

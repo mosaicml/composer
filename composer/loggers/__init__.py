@@ -16,7 +16,8 @@ from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
-                                             ObjectStoreLoggerHparams, ProgressBarLoggerHparams, WandBLoggerHparams, logger_registry)
+                                             ObjectStoreLoggerHparams, ProgressBarLoggerHparams, WandBLoggerHparams,
+                                             logger_registry)
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
