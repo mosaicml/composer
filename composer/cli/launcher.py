@@ -7,11 +7,12 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 import warnings
 from argparse import ArgumentParser
-from typing import Any, List, Optional, Set
+from typing import Any, Dict, List
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
@@ -26,8 +27,8 @@ def get_parser():
     required_args.add_argument("-n",
                                "--nproc",
                                type=int,
-                               help="The number of processes to launch on this node. Overrides env var "
-                               "LOCAL_WORLD_SIZE.")
+                               help=("The number of processes to launch on this node. Overrides env var "
+                                     "LOCAL_WORLD_SIZE."))
 
     parser.add_argument(
         "--stdout",
@@ -59,47 +60,47 @@ def get_parser():
 
     multinode_args = parser.add_argument_group(
         "multi-node arguments",
-        description="These arguments generally only need to be set when training in a multi-node "
-        "environment, i.e. when the world_size is bigger than nproc.")
+        description=("These arguments generally only need to be set when training in a multi-node "
+                     "environment, i.e. when the world_size is bigger than nproc."))
     multinode_args.add_argument("--world_size",
                                 type=int,
-                                help="The total number of processes to launch across all nodes. "
-                                "Setting this to a value greater than nproc indicates a multi-node "
-                                "environment. Overrides env var WORLD_SIZE. Defaults to nproc.")
+                                help=("The total number of processes to launch across all nodes. "
+                                      "Setting this to a value greater than nproc indicates a multi-node "
+                                      "environment. Overrides env var WORLD_SIZE. Defaults to nproc."))
     multinode_args.add_argument("--base_rank",
                                 type=int,
-                                help="The rank of the lowest ranked process to launch on this node. "
-                                "Specifying a base_rank B and an nproc N will spawn processes with "
-                                "global ranks [B, B+1, ... B+N-1]. In a multi-node environment, "
-                                "at least one of base_rank and node_rank must be specified. "
-                                "If only one of base_rank and node_rank are provided, it is assumed "
-                                "that all nodes have the same amount of processes, and that the two "
-                                "values are related as node_rank * nproc = base_rank. If this is "
-                                "not the case, both base_rank and node_rank must be provided. "
-                                "Overrides env var BASE_RANK. Defaults to 0 in a single-node "
-                                "environment.")
+                                help=("The rank of the lowest ranked process to launch on this node. "
+                                      "Specifying a base_rank B and an nproc N will spawn processes with "
+                                      "global ranks [B, B+1, ... B+N-1]. In a multi-node environment, "
+                                      "at least one of base_rank and node_rank must be specified. "
+                                      "If only one of base_rank and node_rank are provided, it is assumed "
+                                      "that all nodes have the same amount of processes, and that the two "
+                                      "values are related as node_rank * nproc = base_rank. If this is "
+                                      "not the case, both base_rank and node_rank must be provided. "
+                                      "Overrides env var BASE_RANK. Defaults to 0 in a single-node "
+                                      "environment."))
     multinode_args.add_argument("--node_rank",
                                 type=int,
-                                help="The rank of this node. See base_rank for information on when "
-                                "this must be provided. Overrides env var NODE_RANK. Defaults to 0 "
-                                "in a single-node environment.")
+                                help=("The rank of this node. See base_rank for information on when "
+                                      "this must be provided. Overrides env var NODE_RANK. Defaults to 0 "
+                                      "in a single-node environment."))
     multinode_args.add_argument("--master_addr",
                                 type=str,
-                                help="The FQDN of the node hosting the C10d TCP store. For single-node "
-                                "operation, this can generally be left as 127.0.0.1. Overrides env var "
-                                "MASTER_ADDR. Defaults to 127.0.0.1 in a single-node environment.")
+                                help=("The FQDN of the node hosting the C10d TCP store. For single-node "
+                                      "operation, this can generally be left as 127.0.0.1. Overrides env var "
+                                      "MASTER_ADDR. Defaults to 127.0.0.1 in a single-node environment."))
     multinode_args.add_argument("--master_port",
                                 type=int,
-                                help="The port on the master hosting the C10d TCP store. If you are "
-                                "running multiple trainers on a single node, this generally needs "
-                                "to be unique for each one. Overrides env var MASTER_PORT. Defaults "
-                                "to a random free port in a single-node environment.")
+                                help=("The port on the master hosting the C10d TCP store. If you are "
+                                      "running multiple trainers on a single node, this generally needs "
+                                      "to be unique for each one. Overrides env var MASTER_PORT. Defaults "
+                                      "to a random free port in a single-node environment."))
 
     required_args.add_argument("training_script",
                                type=str,
-                               help="The path to the training script used to initialize a single training "
-                               "process. Should be followed by any command-line arguments the script "
-                               "should be launched with.")
+                               help=("The path to the training script used to initialize a single training "
+                                     "process. Should be followed by any command-line arguments the script "
+                                     "should be launched with."))
     required_args.add_argument("training_script_args",
                                nargs="...",
                                help="Any arguments for the training script, given in the expected order.")
@@ -197,10 +198,20 @@ def _parse_args():
     return args
 
 
-def _launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: int, master_addr: str, master_port: int,
-                      module_mode: bool, training_script: str, stdout_file_format: Optional[str],
-                      stderr_file_format: Optional[str], training_script_args: List[Any],
-                      processes: Set[subprocess.Popen]):
+def _launch_processes(
+    nproc: int,
+    world_size: int,
+    base_rank: int,
+    node_rank: int,
+    master_addr: str,
+    master_port: int,
+    module_mode: bool,
+    training_script: str,
+    stdout_file_format: str,
+    stderr_file_format: str,
+    training_script_args: List[Any],
+    processes: Dict[int, subprocess.Popen],
+):
     log.info("Starting distributed environment on local node for global_rank(%s-%s)", base_rank, base_rank + nproc - 1)
     log.info("Distributed KV store: tcp://%s:%s", master_addr, master_port)
 
@@ -228,61 +239,70 @@ def _launch_processes(nproc: int, world_size: int, base_rank: int, node_rank: in
             process = subprocess.Popen(cmd, env=current_env, text=True, shell=True)
         else:
 
-            def _get_file(format: Optional[str]):
-                if format is None:
-                    return subprocess.DEVNULL
-                else:
-                    filename = format.format(
-                        rank=global_rank,
-                        world_size=world_size,
-                        local_rank=local_rank,
-                        local_world_size=nproc,
-                        node_rank=node_rank,
-                    )
-                    return open(filename, 'x')
+            def _get_file(format: str):
+                filename = format.format(
+                    rank=global_rank,
+                    world_size=world_size,
+                    local_rank=local_rank,
+                    local_world_size=nproc,
+                    node_rank=node_rank,
+                )
+                return open(filename, 'x+')
+
+            stderr_file = _get_file(stderr_file_format)
+            stdout_file = _get_file(stdout_file_format)
 
             process = subprocess.Popen(
                 cmd,
                 # Using a shell to execute the command, so the env variables will be available to the CLI arguments
                 shell=True,
                 env=current_env,
-                stdout=_get_file(stdout_file_format),
-                stderr=_get_file(stderr_file_format),
+                stdout=stdout_file,
+                stderr=stderr_file,
                 text=True,
             )
-        processes.add(process)
+            process.stderr = stderr_file
+            process.stdout = stdout_file
+        processes[global_rank] = process
 
 
-def _monitor_processes(processes: Set[subprocess.Popen]):
+def _monitor_processes(processes: Dict[int, subprocess.Popen]):
     while len(processes) > 0:
         process_has_crashed = False
-        for process in processes:
+        cleanly_exited_ranks = []
+        for global_rank, process in processes.items():
             if process.poll() is None:
                 # the process is still running
                 continue
             else:
                 # return code of 0 implies clean exit
                 if process.returncode != 0:
+                    log.error(f"Rank {global_rank} crashed.")
                     process_has_crashed = True
                     break
                 else:
                     # exited cleanly
-                    processes.remove(process)
+                    log.info(f"Rank {global_rank} finished successfully.")
+                    cleanly_exited_ranks.append(global_rank)
                     break
+        for rank in cleanly_exited_ranks:
+            del processes[rank]
         if process_has_crashed:
             break
         time.sleep(1)
 
 
-def _print_process_exit_status(process: subprocess.Popen):
+def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
     if process.stdout is None:
         output = None
     else:
+        process.stdout.seek(0)
         output = process.stdout.read()
 
     if process.stderr is None:
         stderr = None
     else:
+        process.stderr.seek(0)
         stderr = process.stderr.read()
     exc = subprocess.CalledProcessError(
         process.returncode,
@@ -290,29 +310,27 @@ def _print_process_exit_status(process: subprocess.Popen):
         output=output,
         stderr=stderr,
     )
-    error_msg = [f"Process {process.pid} excited with code {process.returncode}"]
+    error_msg = [f"Global rank {global_rank} (PID {process.pid}) excited with code {process.returncode}"]
     if output is not None:
         error_msg.extend([
-            "----------Begin subprocess STDOUT----------",
+            f"----------Begin global rank {global_rank} STDOUT----------",
             output,
-            "----------End subprocess STDOUT----------",
+            f"----------End global rank {global_rank} STDOUT----------",
         ])
     if stderr is not None:
         error_msg.extend([
-            "----------Begin subprocess STDERR----------",
+            f"----------Begin global rank {global_rank} STDERR----------",
             exc.stderr,
-            "----------End subprocess STDERR----------",
+            f"----------End global rank {global_rank} STDERR----------",
         ])
     print("\n".join(error_msg))
 
 
-def _cleanup_processes(processes: Set[subprocess.Popen]):
-    living_processes_at_end = set()
-    for process in processes:
+def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
+    for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
-            living_processes_at_end.add(process)
-            log.info("Killing subprocess %s with SIGTERM", process.pid)
+            log.info("Killing global rank %s (PID %s) with SIGTERM", global_rank, process.pid)
             try:
                 os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             except ProcessLookupError:
@@ -321,36 +339,38 @@ def _cleanup_processes(processes: Set[subprocess.Popen]):
     current_time = datetime.datetime.now()
     print(f"Waiting up to {CLEANUP_TIMEOUT.seconds} seconds for all training processes to terminate...")
     while datetime.datetime.now() - current_time < CLEANUP_TIMEOUT:
-        for process in processes:
+        for process in processes.values():
             process.poll()
-        if all(process.returncode is not None for process in processes):
+        if all(process.returncode is not None for process in processes.values()):
             break
         time.sleep(0.1)
 
-    for process in processes:
+    for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
-            log.warning("Failed to kill subprocess %s with SIGTERM; using SIGKILL instead", process.pid)
+            log.warning("Failed to kill global rank %s (PID %s) with SIGTERM; using SIGKILL instead", global_rank,
+                        process.pid)
             try:
                 os.killpg(os.getpgid(process.pid), signal.SIGKILL)
             except ProcessLookupError:
                 pass
-    for process in processes:
+    for global_rank, process in processes.items():
         process.poll()
-        if process.returncode != 0 and process not in living_processes_at_end:
+        if process.returncode > 0:
             # only print the processes that have actually crashed,
-            # not the ones we killed
-            _print_process_exit_status(process)
+            # not the ones that were killed, which would result in
+            # a negative exit code
+            _print_process_exit_status(global_rank, process)
 
 
-def _aggregate_process_returncode(processes: Set[subprocess.Popen]) -> int:
-    for process in processes:
+def _aggregate_process_returncode(processes: Dict[int, subprocess.Popen]) -> int:
+    for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
-            log.error("Subprocess %s has still not exited; return exit code 1.", process.pid)
+            log.error("Global rank %s (PID %s) has still not exited; return exit code 1.", global_rank, process.pid)
             return 1
         if process.returncode != 0:
-            log.error("Subprocess %s exited with code %s", process.pid, process.returncode)
+            log.error("Global rank %s (PID %s) exited with code %s", global_rank, process.pid, process.returncode)
             return process.returncode
 
     return 0
@@ -362,7 +382,13 @@ def main():
     logging.basicConfig()
     log.setLevel(logging.INFO if args.verbose else logging.WARN)
 
-    processes = set()
+    processes = {}
+
+    log_tmpdir = tempfile.TemporaryDirectory()
+    if args.stdout is None:
+        args.stdout = f"{log_tmpdir.name}/rank{{rank}}.stdout.txt"
+    if args.stderr is None:
+        args.stderr = f"{log_tmpdir.name}/rank{{rank}}.stderr.txt"
 
     try:
         _launch_processes(nproc=args.nproc,
@@ -387,6 +413,7 @@ def main():
         print("Killing training processes")
     finally:
         _cleanup_processes(processes)
+        log_tmpdir.cleanup()
         return _aggregate_process_returncode(processes)
 
 

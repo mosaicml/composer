@@ -81,8 +81,15 @@ def test_load(model_name: str):
     configure_dataset_for_synthetic(trainer_hparams.train_dataset, model_hparams=trainer_hparams.model)
     trainer_hparams.train_subset_num_batches = 1
 
-    assert trainer_hparams.val_dataset is not None
-    configure_dataset_for_synthetic(trainer_hparams.val_dataset)
+    # Only one of val_dataset or evaluators should be set
+    assert trainer_hparams.val_dataset is not None or trainer_hparams.evaluators is not None
+    assert trainer_hparams.val_dataset is None or trainer_hparams.evaluators is None
+    if trainer_hparams.evaluators is not None:
+        for evaluator in trainer_hparams.evaluators:
+            configure_dataset_for_synthetic(evaluator.eval_dataset)
+    if trainer_hparams.val_dataset is not None:
+        configure_dataset_for_synthetic(trainer_hparams.val_dataset)
+
     trainer_hparams.eval_subset_num_batches = 1
 
     trainer_hparams.dataloader.num_workers = 0

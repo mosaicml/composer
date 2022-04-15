@@ -4,7 +4,7 @@
 
 `Computer Vision`
 
-Channels Last changes improves the throughput of convolution operations in networks for computer vision by changing the memory format of activation and weight tensors to contain channels as their last dimension (i.e., NHWC format) rather than the default format in which the height and width dimensions are the last dimensions (i.e., NCHW format).
+Channels Last improves the throughput of convolution operations in networks for computer vision by changing the memory format of activation and weight tensors to contain channels as their last dimension (i.e., NHWC format) rather than the default format in which the height and width are the last dimensions (i.e., NCHW format).
 NVIDIA GPUs natively perform convolution operations in NHWC format, so storing the tensors this way eliminates transpositions that would otherwise need to take place, increasing throughput.
 This is a systems-level method that does not change the math or outcome of training in any way.
 
@@ -48,10 +48,12 @@ from composer.trainer import Trainer
 
 channels_last = ChannelsLast()
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[channels_last])
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration='1ep',
+    algorithms=[channels_last]
+)
 
 trainer.fit()
 ```
@@ -69,13 +71,13 @@ Channels Last does not have any hyperparameters.
 At a high level, NVIDIA tensor cores require tensors to be in NHWC format in order to get the best performance, but PyTorch creates tensors in NCHW format.
 Every time a convolution operation is called by a layer like `torch.nn.Conv2D`, the cuDNN library performs a transpose operation to convert the tensor into NHWC format. This transpose introduces overhead.
 
-If the model weights are instead initialized in NHWC format, Pytorch will automatically convert the first input activation tensor to NHWC to match, and it will persist the memory format across all subsequent activations and gradients. This means that convolution operations no longer need to perform transposes, speeding up training.
+If the model weights are instead initialized in NHWC format, PyTorch will automatically convert the first input activation tensor to NHWC to match, and it will persist the memory format across all subsequent activations and gradients. This means that convolution operations no longer need to perform transposes, speeding up training.
 
 We currently implement this method by casting the user’s model to channels-last format (no changes to the dataloader are necessary). When the first convolution operation receives its input activation, it will automatically convert it to NHWC format, after which the memory format will persist for the remainder of the network (or until it reaches a layer that cannot support having channels last).
 
 > ❗ Overhead from Operations Incompatible with Channels Last Memory Format
 > 
-> If a model has layers that cannot support the channels last memory format, there will be overhead due to Pytorch switching activation tensors back and forth between NCHW and NHWC memory formats. We believe this problem currently affects placing channels last on UNet.
+> If a model has layers that cannot support the channels last memory format, there will be overhead due to PyTorch switching activation tensors back and forth between NCHW and NHWC memory formats. We believe this problem currently affects placing channels last on UNet.
 
 ## Attribution
 
