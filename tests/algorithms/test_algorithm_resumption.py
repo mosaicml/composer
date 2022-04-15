@@ -242,12 +242,16 @@ def test_algorithm_resumption(
     second_trainer.fit()
     second_trainer_final_checkpoint_filepath = os.path.join(checkpoint_b_folder, final_checkpoint)
 
-    assert_checkpoints_equivalent(
-        hparams_a=trainer_hparams,
-        checkpoint_file_a=first_trainer_final_checkpoint_filepath,
-        hparams_b=second_trainer_hparams,
-        checkpoint_file_b=second_trainer_final_checkpoint_filepath,
-    )
+    assert_checkpoints_equivalent(hparams_a=trainer_hparams,
+                                  checkpoint_file_a=first_trainer_final_checkpoint_filepath,
+                                  hparams_b=second_trainer_hparams,
+                                  checkpoint_file_b=second_trainer_final_checkpoint_filepath,
+                                  state_attrs_to_skip=[
+                                      '_optimizers',
+                                      '_schedulers',
+                                      '_algorithms',
+                                      '_callbacks',
+                                  ])
 
     # Clean up passed checkpoints
     tmpdir.remove()
