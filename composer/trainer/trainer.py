@@ -223,6 +223,15 @@ class Trainer:
             If ``None``, will be set to ``[ProgressBarLogger()]``. (default: ``None``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
+
+        console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level which
+            should be printed to the console. It can either be :class:`.LogLevel`, a string corresponding to a
+            :class:`.LogLevel`, or a callable that takes the training :class:`.State` and the :class:`.LogLevel`
+            and returns a boolean of whether this statement should be printed. Set to ``None`` to disable printing
+            log statements to the console. (default: :attr:`.LogLevel.EPOCH`)
+
+        console_log_Stream (TextIO | str)
+
         callbacks (Callback | Sequence[Callback], optional): The callbacks to run during training. If ``None``,
             then no callbacks will be run. (default: ``None``).
 
@@ -483,6 +492,7 @@ class Trainer:
         run_name: Optional[str] = None,
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
         callbacks: Union[Callback, Sequence[Callback]] = tuple(),
+        console_log_level: Optional[Union[LogLevel, str, Callable[[State, LogLevel], bool]]] = LogLevel.EPOCH,
 
         # load checkpoint
         load_path: Optional[str] = None,

@@ -21,6 +21,7 @@ from composer.loggers.logger_hparams import (FileLoggerHparams, InMemoryLoggerHp
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
+from composer.loggers.console_logger import ConsoleLogger
 
 # All needs to be defined properly for sphinx autosummary
 __all__ = [
@@ -36,6 +37,7 @@ __all__ = [
     "WandBLoggerHparams",
     "ProgressBarLogger",
     "WandBLogger",
+    "ConsoleLogger",
     "ObjectStoreLogger",
     "ObjectStoreLoggerHparams",
     "logger_registry",
