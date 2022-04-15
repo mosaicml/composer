@@ -203,7 +203,6 @@ def composer_trainer_hparams(
             timeout=0.0,
         ),
         device=CPUDeviceHparams(),
-        deterministic_mode=True,
         loggers=[],
         model=dummy_model_hparams,
         val_dataset=dummy_val_dataset_hparams,
