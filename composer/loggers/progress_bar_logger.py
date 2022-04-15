@@ -65,11 +65,10 @@ class ProgressBarLogger(LoggerDestination):
 
     .. note::
 
-        This logger is automatically instainatied by the trainer via the
-        ``show_pbar``, ``log_level`` and ``console_stream`` options.
-        This logger does not need to be created manually.
+        This logger is automatically instainatied by the trainer via the ``progress_bar``, ``log_to_console``,
+        ``log_level``, and ``console_stream`` options. This logger does not need to be created manually.
 
-     `TQDM <https://github.com/tqdm/tqdm>`_ is used to display progress bars.
+    `TQDM <https://github.com/tqdm/tqdm>`_ is used to display progress bars.
 
     During training, the progress bar logs the batch and training loss.
     During validation, the progress bar logs the batch and validation accuracy.
@@ -82,16 +81,17 @@ class ProgressBarLogger(LoggerDestination):
     Args:
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
+
             The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is
             ``False``.
-        log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level for which statements
+        console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level for which statements
             should be printed. (default: :attr:`.LogLevel.EPOCH`)
 
             It can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable that
             takes the training :class:`.State` and the :class:`.LogLevel` and returns a boolean of whether this
             statement should be printed.
 
-            This parameter has no effect if ``log_to_console`` is ``False``, or is unspecified and ``progress_bar`` is
+            This parameter has no effect if ``log_to_console`` is ``False`` or is unspecified when ``progress_bar`` is
             ``True``.
         stream (str | TextIO, optional): The console stream to use. If a string, it can either be ``'stdout'`` or
             ``'stderr'``. (default: :attr:`sys.stderr`)
@@ -101,27 +101,27 @@ class ProgressBarLogger(LoggerDestination):
         self,
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
-        log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
+        console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         stream: Union[str, TextIO] = sys.stderr,
     ) -> None:
         self.show_pbar = progress_bar
         log_to_console = not progress_bar if log_to_console is None else log_to_console
         if not log_to_console:
-            log_level = lambda state, ll: False
+            console_log_level = lambda state, ll: False
         self.pbars: Dict[bool, _ProgressBarLoggerInstance] = {}
         self.is_train: Optional[bool] = None
 
-        if isinstance(log_level, str):
-            log_level = LogLevel(log_level)
-        if isinstance(log_level, LogLevel):
+        if isinstance(console_log_level, str):
+            console_log_level = LogLevel(console_log_level)
+        if isinstance(console_log_level, LogLevel):
 
-            def should_log(state: State, log_level: LogLevel, maximum_log_level: LogLevel = log_level):
+            def should_log(state: State, log_level: LogLevel, console_log_level: LogLevel = console_log_level):
                 del state  # unused
-                return log_level <= maximum_log_level
+                return log_level <= console_log_level
 
             self.should_log = should_log
         else:
-            self.should_log = log_level
+            self.should_log = console_log_level
         if isinstance(stream, str):
             if stream.lower() == "stdout":
                 stream = sys.stdout
@@ -142,12 +142,13 @@ class ProgressBarLogger(LoggerDestination):
         data_str = format_log_data_value(data)
         log_str = f'[{log_level.name}][batch={int(state.timer.batch)}]: {data_str}'
 
-        if self.is_train is None:
-            # write directly to stderr; no active progress bar
-            print(log_str, file=self.stream, flush=True)
-        else:
+        if self.is_train in self.pbars:
             # use tqdm.write to avoid interleaving with a progress bar
+            assert self.is_train is not None
             self.pbars[self.is_train].pbar.write(log_str)
+        else:
+            # write directly to self.stream; no active progress bar
+            print(log_str, file=self.stream, flush=True)
 
     def _start(self, state: State):
         if dist.get_local_rank() != 0 or not self.show_pbar:

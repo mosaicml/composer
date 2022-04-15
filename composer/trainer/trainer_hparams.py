@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 import os
 import textwrap
 import warnings
@@ -170,7 +171,11 @@ class TrainerHparams(hp.Hparams):
             to log to. (default: ``[]``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        log_level (str): The Python log level to use for log statements in the :mod:`composer`
+        progress_bar (bool, optional): See :class:`.Trainer`.
+        log_to_console (bool, optional): See :class:`.Trainer`.
+        console_log_level (bool, optional): See :class:`.Trainer`.
+        stream (bool, optional): See :class:`.Trainer`.
+        python_log_level (str): The Python log level to use for log statements in the :mod:`composer`
             module. (default: ``INFO``)
 
             .. seealso:: The :mod:`logging` module in Python.
@@ -314,10 +319,11 @@ class TrainerHparams(hp.Hparams):
 
     # logging
     loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
+    python_log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
     run_name: Optional[str] = hp.optional("Experiment name", default=None)
     progress_bar: bool = hp.optional("Whether to show a progress bar.", default=True)
     log_to_console: Optional[bool] = hp.optional("Whether to print log statements to the console.", default=None)
-    log_level: LogLevel = hp.optional("The maximum log level for console logging.", default=LogLevel.EPOCH)
+    console_log_level: LogLevel = hp.optional("The maximum log level for console logging.", default=LogLevel.EPOCH)
     console_stream: str = hp.optional("The stream at which to write the progress bar and log statements.",
                                       default="stderr")
 
@@ -475,6 +481,8 @@ class TrainerHparams(hp.Hparams):
 
     def initialize_object(self) -> Trainer:
         self.validate()
+        import composer
+        logging.getLogger(composer.__name__).setLevel(self.python_log_level)
         # devices and systems
         device = self.device.initialize_object()
 
@@ -579,7 +587,7 @@ class TrainerHparams(hp.Hparams):
             loggers=loggers,
             progress_bar=self.progress_bar,
             log_to_console=self.log_to_console,
-            log_level=self.log_level,
+            console_log_level=self.console_log_level,
             console_stream=self.console_stream,
 
             # Profiler

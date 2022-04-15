@@ -231,7 +231,7 @@ class Trainer:
 
             The default behavior (when set to ``None``) only prints logging statements when ``show_pbar`` is ``False``.
 
-        log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level which
+        console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level which
             should be printed to the console. (default: :attr:`.LogLevel.EPOCH`)
 
             It can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable
@@ -506,7 +506,7 @@ class Trainer:
         callbacks: Union[Callback, Sequence[Callback]] = tuple(),
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
-        log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
+        console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         console_stream: Union[str, TextIO] = sys.stderr,
 
         # load checkpoint
@@ -805,15 +805,13 @@ class Trainer:
                      f"{type(ProgressBarLogger).__name__} was already created.")))
 
         else:
-
-            if log_level is not None:
-                loggers.append(
-                    ProgressBarLogger(
-                        progress_bar=progress_bar,
-                        log_to_console=log_to_console,
-                        log_level=log_level,
-                        stream=console_stream,
-                    ),)
+            loggers.append(
+                ProgressBarLogger(
+                    progress_bar=progress_bar,
+                    log_to_console=log_to_console,
+                    console_log_level=console_log_level,
+                    stream=console_stream,
+                ))
 
         self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
         self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
