@@ -104,6 +104,18 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.py
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
 
+###################################
+# Mellanox OFED driver installation
+###################################
+
+ARG MOFED_VERSION
+ARG MOFED_OS_VERSION
+
+RUN if [ -n "$CUDA_VERSION" ] ; then \
+        wget -P /tmp http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz && \
+        tar -zxvf /tmp/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz && \
+        /tmp/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force
+
 #########
 # Cleanup
 #########
@@ -185,19 +197,3 @@ RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
     cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`>=10.2.0 && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir mmcv-full==${MMCV_VERSION} -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir 'mmsegmentation>=0.22.0,<0.23'
-
-
-FROM pytorch_stage AS mofed_stage
-ARG DEBIAN_FRONTEND=noninteractive
-
-###################################
-# Mellanox OFED driver installation
-###################################
-
-ARG MOFED_VERSION
-ARG MOFED_OS_VERSION
-
-RUN wget http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
-RUN tar -zxvf MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz
-RUN sudo MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force
-RUN rm -rf MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}
