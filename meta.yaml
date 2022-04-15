@@ -2,7 +2,7 @@
 
 package:
   name: mosaicml
-  version: "0.4.0"
+  version: "0.6.0"
 
 source:
   git_url: ./
@@ -27,7 +27,7 @@ requirements:
     - pytorch >=1.9,<2
     - torch-optimizer >=0.1.0,<0.2
     - torchmetrics >=0.7.0,<0.8
-    - torchvision >=0.9.0   # torchvision has strict pytorch requirements
+    - torchvision >=0.9.0 # torchvision has strict pytorch requirements
     - tqdm >=4.62.3,<5
     - yahp ==0.1.0
     - requests >=2.26.0,<3
