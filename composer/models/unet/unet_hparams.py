@@ -21,4 +21,4 @@ class UnetHparams(ModelHparams):
 
     def initialize_object(self):
         from composer.models.unet.unet import UNet
-        return UNet(**asdict(self))
+        return UNet(num_classes=self.num_classes)
