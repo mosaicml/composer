@@ -1320,7 +1320,7 @@ class Trainer:
 
                 # This is the same loss scaling and reporting we skipped earlier.
                 for loss in ensure_tuple(self.state.loss):
-                    loss.mul_(self.state.batch_num_samples / current_batch_size)
+                    loss.mul_(microbatch_num_samples / current_batch_size)
                     total_loss += loss.detach().clone()
             else:
                 for loss in ensure_tuple(self.state.loss):
