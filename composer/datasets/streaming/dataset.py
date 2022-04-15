@@ -227,7 +227,7 @@ class StreamingDataset(IterableDataset):
 
         basename = get_shard_basename(shard)
         shard_filename = os.path.join(self.local, basename)
-        fp = open(shard_filename, 'rb')
+        fp = open(shard_filename, 'rb', 0)
         fp.seek(offset)
         data = fp.read(size)
         fp.close()
