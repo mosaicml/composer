@@ -89,12 +89,9 @@ skiplist = {
 
 
 @pytest.mark.timeout(180)
-@pytest.mark.parametrize("world_size", [
-    pytest.param(1),
-])
 @pytest.mark.parametrize("device_hparams", [
-    pytest.param(CPUDeviceHparams(), id="cpu-ddp"),
-    pytest.param(GPUDeviceHparams(), id="gpu-ddp", marks=pytest.mark.gpu),
+    pytest.param(CPUDeviceHparams(), id="cpu"),
+    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
@@ -108,7 +105,6 @@ skiplist = {
 @pytest.mark.parametrize("algorithm", algorithms_registry.items(), ids=algorithms_registry.keys())
 def test_algorithm_resumption(
     device_hparams: DeviceHparams,
-    world_size: int,
     save_interval: str,
     save_filename: str,
     resume_file: str,
