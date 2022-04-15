@@ -34,7 +34,6 @@ def main() -> None:
 
     args, _ = parser.parse_known_args()
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
-    logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
     # Configure the Composer profiler
     hparams.prof_trace_handlers = [JSONTraceHparams(folder="composer_traces")]
