@@ -121,7 +121,8 @@ class SAM(Algorithm):
                 eval_dataloader=eval_dataloader,
                 max_duration="1ep",
                 algorithms=[algorithm],
-                optimizers=[optimizer]
+                optimizers=[optimizer],
+            )
     """
 
     def __init__(

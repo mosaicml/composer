@@ -97,8 +97,8 @@ def select_using_loss(input: torch.Tensor,
 
     .. testcode::
 
-        with torch.cuda.amp.autocast(True):
-            X_new, y_new = selective_backprop(X, y, model, loss_fun, keep, scale_factor)
+        with torch.cuda.amp.autocast(true):
+            x_new, y_new = select_using_loss(X, y, model, loss_fun, keep, scale_factor)
     """
     INTERPOLATE_MODES = {3: "linear", 4: "bilinear", 5: "trilinear"}
 
