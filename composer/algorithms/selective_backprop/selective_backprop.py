@@ -62,10 +62,9 @@ def select_using_loss(input: torch.Tensor,
                       loss_fun: Callable,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Prunes minibatches as a subroutine of SelectiveBackprop.
-    Computes the loss function on the provided training examples and runs minibatches
-    according to the difficulty. The fraction of the minibatch that is kept for gradient computation is specified by the
-    argument ``0 <= keep <= 1``.
+    """Prunes minibatches as a subroutine of SelectiveBackprop. Computes the loss function on the provided training
+    examples and runs minibatches according to the difficulty. The fraction of the minibatch that is kept for gradient
+    computation is specified by the argument ``0 <= keep <= 1``.
 
     To speed up SB's selection forward pass, the argument ``scale_factor`` can
     be used to spatially downsample input tensors. The full-sized inputs
@@ -94,7 +93,7 @@ def select_using_loss(input: torch.Tensor,
         This function runs an extra forward pass through the model on the batch of data.
         If you are using a non-default precision, ensure that this forward pass
         runs in your desired precision. For example:
-    
+
     .. testsetup::
         N_sb, D_sb = 16, 8
         X_sb, y_sb = torch.randn(N_sb, D_sb), torch.randint(2, (N_sb,))
