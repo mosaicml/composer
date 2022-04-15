@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import datetime
-import logging
 import os
 import textwrap
 import warnings
@@ -24,6 +23,7 @@ from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import LoggerDestinationHparams, logger_registry
+from composer.loggers.logger import LogLevel
 from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
                              GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
                              SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
@@ -309,11 +309,16 @@ class TrainerHparams(hp.Hparams):
         deterministic implementations, which will result in a crash."""),
                                            default=False)
 
-    # logging and callbacks
-    run_name: Optional[str] = hp.optional("Experiment name", default=None)
-    loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
-    log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
+    # callbacks
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
+
+    # logging
+    loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
+    run_name: Optional[str] = hp.optional("Experiment name", default=None)
+    progress_bar: bool = hp.optional("Whether to show a progress bar.", default=True)
+    log_to_console: Optional[bool] = hp.optional("Whether to print log statements to the console.", default=None)
+    log_level: LogLevel = hp.optional("The maximum log level.", default=LogLevel.EPOCH)
+    console_stream: str = hp.optional("The stream at which to write the progress bar and log statements.", default="stderr")
 
     # load checkpoint
     load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
@@ -469,9 +474,6 @@ class TrainerHparams(hp.Hparams):
 
     def initialize_object(self) -> Trainer:
         self.validate()
-        import composer
-        logging.getLogger(composer.__name__).setLevel(self.log_level)
-
         # devices and systems
         device = self.device.initialize_object()
 
@@ -568,10 +570,16 @@ class TrainerHparams(hp.Hparams):
             seed=seed,
             deterministic_mode=self.deterministic_mode,
 
-            # Callbacks and logging
+            # Callbacks
+            callbacks=callbacks,
+
+            # Logging
             run_name=self.run_name,
             loggers=loggers,
-            callbacks=callbacks,
+            progress_bar=self.progress_bar,
+            log_to_console=self.log_to_console,
+            log_level=self.log_level,
+            console_stream=self.console_stream,
 
             # Profiler
             prof_trace_handlers=[x.initialize_object() for x in self.prof_trace_handlers],
