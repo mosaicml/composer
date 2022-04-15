@@ -686,6 +686,7 @@ class Trainer:
             grad_accum=grad_accum,
             precision=precision,
             precision_context=precision_context,
+            optimizers=optimizers,
         )
 
         pytorch_schedulers = [
@@ -719,11 +720,8 @@ class Trainer:
             step_schedulers_every_batch = True
 
         self._step_schedulers_every_batch = step_schedulers_every_batch
-        self._scale_schedule_ratio = scale_schedule_ratio
 
-        self._schedulers = ensure_tuple(schedulers)
-
-        if len(self._schedulers) == 0:
+        if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Configure profilers if profiling is enabled
@@ -800,7 +798,6 @@ class Trainer:
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
         self.state.set_dataloader(train_dataloader.dataloader, 'train', train_subset_num_batches)
         self.state.max_duration = max_duration
-        self.state.optimizers = optimizers
 
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
@@ -829,6 +826,14 @@ class Trainer:
 
             if "optimizers" in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove("optimizers")
+
+        # Compile and bind the schedulers, after deepspeed might have potentially changed the Optimizers
+        for scheduler in ensure_tuple(schedulers):
+            if isinstance(scheduler, PyTorchScheduler):
+                scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
+                self.state.schedulers.append(scheduler)
+            else:  # it's a composer scheduler
+                self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
 
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
@@ -985,14 +990,6 @@ class Trainer:
             train_metrics = None
 
         assert self.state.dataloader is not None, "dataloader is set in __init__"
-
-        for scheduler in self._schedulers:
-            if isinstance(scheduler, PyTorchScheduler):
-                scale_pytorch_scheduler(scheduler, self._scale_schedule_ratio)
-                self.state.schedulers.append(scheduler)
-            else:  # it's a composer scheduler
-                self.state.schedulers.append(
-                    compile_composer_scheduler(scheduler, self.state, self._scale_schedule_ratio))
 
         self.engine.run_event(Event.FIT_START)
 
