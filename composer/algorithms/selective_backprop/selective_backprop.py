@@ -62,8 +62,8 @@ def select_using_loss(input: torch.Tensor,
                       loss_fun: Callable,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Prunes minibatches as a subroutine of SelectiveBackprop (`Jiang et al, 2019. <https://\\
-    arxiv.org/abs/1910.00762>`_). Computes the loss function on the provided training examples and runs minibatches
+    """Prunes minibatches as a subroutine of SelectiveBackprop.
+    Computes the loss function on the provided training examples and runs minibatches
     according to the difficulty. The fraction of the minibatch that is kept for gradient computation is specified by the
     argument ``0 <= keep <= 1``.
 
@@ -146,12 +146,13 @@ def select_using_loss(input: torch.Tensor,
 
 
 class SelectiveBackprop(Algorithm):
-    """Selectively backpropagate gradients from a subset of each batch (`Jiang et al, 2019 <https://\\
-    arxiv.org/abs/1910.00762>`_).
+    """Selectively backpropagate gradients from a subset of each batch.
 
-     Selective Backprop (SB) prunes minibatches according to the difficulty
-     of the individual training examples, and only computes weight gradients
-     over the pruned subset, reducing iteration time and speeding up training.
+     Based on (`Jiang et al, 2019`_), Selective Backprop (SB) prunes minibatches
+     according to the difficulty of the individual training examples, and only
+     computes weight gradients over the pruned subset, reducing iteration time and
+     speeding up training.
+
      The fraction of the minibatch that is kept for gradient computation is
      specified by the argument ``0 <= keep <= 1``.
 
@@ -163,6 +164,8 @@ class SelectiveBackprop(Algorithm):
      gradient steps every ``interrupt`` steps. When ``interrupt=0``, SB will be
      used at every step during the SB interval. When ``interrupt=2``, SB will
      alternate with vanilla minibatch steps.
+
+     .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
 
      Args:
          start (float, optional): SB interval start as fraction of training duration
