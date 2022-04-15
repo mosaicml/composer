@@ -6,14 +6,20 @@ train_dataset:
     max_seq_length: 256
     shuffle: false
     drop_last: false
-val_dataset:
-  glue:
-    task: qqp
-    tokenizer_name: bert-base-uncased
-    split: validation
-    max_seq_length: 256
-    shuffle: false
-    drop_last: false
+evaluators:
+  - evaluator:
+      label: glue_qqp
+      eval_dataset:
+        glue:
+          task: qqp
+          tokenizer_name: bert-base-uncased
+          split: validation
+          max_seq_length: 256
+          shuffle: false
+          drop_last: false
+      metric_names:
+        - Accuracy
+        - BinaryF1Score
 model:
   bert_classification:
     num_labels: 2

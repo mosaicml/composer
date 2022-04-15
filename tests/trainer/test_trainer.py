@@ -114,6 +114,7 @@ class TestTrainerInit():
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
+@pytest.mark.timeout(15)  # higher timeout as each model is trained twice
 class TestTrainerEquivalence():
 
     reference_model: torch.nn.Module
@@ -155,7 +156,6 @@ class TestTrainerEquivalence():
             'seed': rank_zero_seed,
             'device': device,
             'precision': precision,
-            'deterministic_mode': True,  # testing equivalence
             'loggers': [],  # no progress bar
         }
 
