@@ -102,7 +102,7 @@ def select_using_loss(input: torch.Tensor,
         def loss_function(output, target, reduction="none"):
             return torch.ones_like(target)
 
-    .. testcode::
+    .. doctest::
 
         from composer.algorithms.selective_backprop import select_using_loss
         with torch.cuda.amp.autocast(True):
