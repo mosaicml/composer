@@ -1316,20 +1316,52 @@ class Trainer:
 
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
-            
-    def predict(self, loader, batchsize):
 
+    def predict(self, loader: Union[DataLoader, DataSpec], _predict_subset_num_batches: Optional[int] = None):
+        """Output model prediction on the provided data and log appropriate metrics.
+        Args:
+            loader (DataLoader | DataSpec): The :class:`.DataLoader` or
+            :class:`.DataSpec` for the prediction data.
+            If a :class:`.DataLoader` is passed in, then all
+            metrics returned by ``model.metrics()`` will be used during evaluation.
+            :class:`.DataSpec` is not supported right now.
+
+            predict_subset_num_batches (int, optional): If specified, only perform model prediction
+            on this many batches. This parameter has no effect if it is greater than ``len(loader)``.
+            If ``None``, then the entire loader will be iterated over. (default: ``None``)
+        """
+
+        if isinstance(loader, DataSpec):
+            raise NotImplementedError
+
+        restore_model_train = self.state.model.training
         self.state.model.eval()
-        for batch_idx, self.state.batch in enumerate(
-            itertools.islice(loader, batchsize)):
+        with torch.no_grad():
 
-            self.state.batch = self._device.batch_to_device(self.state.batch)
-            if self.deepspeed_enabled:
-                self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+            self.engine.run_event(Event.PREDICT_START)
 
-            with torch.no_grad():
-                outputs, targets = self._original_model.validate(self.state.batch)
-        return outputs, targets
+            for self.state.batch in itertools.islice(loader, _predict_subset_num_batches):
+
+                self.state.batch = self._device.batch_to_device(self.state.batch)
+                if self.deepspeed_enabled:
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+
+                self.engine.run_event(Event.PREDICT_BATCH_START)
+
+                self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
+                with self.state.precision_context:
+                    outputs = self.state.model(self.state.batch)
+                self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
+
+                self.engine.run_event(Event.PREDICT_BATCH_END)
+
+            self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
+            self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
+
+            self.engine.run_event(Event.PREDICT_END)
+
+        if restore_model_train:
+            self.state.model.train()
 
     def eval(self, is_batch: bool):
         """Evaluate the model on the provided evaluation data and log appropriate metrics.

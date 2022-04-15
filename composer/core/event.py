@@ -128,7 +128,7 @@ class Event(StringEnum):
     EVAL_AFTER_FORWARD = "eval_after_forward"
     EVAL_BATCH_END = "eval_batch_end"
     EVAL_END = "eval_end"
-    
+
     PREDICT_START = "predict_start"
     PREDICT_BATCH_START = "predict_batch_start"
     PREDICT_BEFORE_FORWARD = "predict_before_forward"
@@ -173,7 +173,8 @@ class Event(StringEnum):
 
 _BEFORE_EVENTS = (Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD,
                   Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START, Event.EVAL_BATCH_START,
-                  Event.EVAL_BEFORE_FORWARD, Event.PREDICT_START, Event.PREDICT_BATCH_START, Event.PREDICT_BEFORE_FORWARD)
+                  Event.EVAL_BEFORE_FORWARD, Event.PREDICT_START, Event.PREDICT_BATCH_START,
+                  Event.PREDICT_BEFORE_FORWARD)
 _AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD, Event.AFTER_LOSS,
                  Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD,
                  Event.PREDICT_END, Event.PREDICT_BATCH_END, Event.PREDICT_AFTER_FORWARD)
