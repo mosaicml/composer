@@ -97,6 +97,7 @@ def select_using_loss(input: torch.Tensor,
 
     .. testcode::
 
+        from composer.algorithms.selectiveBackprop import select_using_loss
         with torch.cuda.amp.autocast(True):
             x_new, y_new = select_using_loss(X, y, model, loss_fun, keep, scale_factor)
     """
