@@ -15,13 +15,13 @@ def minimal_state(rank_zero_seed: int):
 
     Tests should configure the state for their specific needs.
     """
-    state = State(
+    return State(
         model=SimpleModel(),
         rank_zero_seed=rank_zero_seed,
         max_duration='100ep',
+        dataloader=DataLoader(RandomClassificationDataset()),
+        dataloader_label="train",
     )
-    state.set_dataloader(DataLoader(RandomClassificationDataset()), "train")
-    return state
 
 
 @pytest.fixture

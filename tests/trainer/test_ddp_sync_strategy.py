@@ -51,13 +51,16 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
     original_model = MinimalConditionalModel()
     # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
-    state = State(model=original_model,
-                  rank_zero_seed=rank_zero_seed,
-                  optimizers=optimizer,
-                  grad_accum=2,
-                  max_duration="1ep",
-                  precision='fp32')
-    state.set_dataloader(dummy_train_dataloader, "train")
+    state = State(
+        model=original_model,
+        rank_zero_seed=rank_zero_seed,
+        optimizers=optimizer,
+        grad_accum=2,
+        max_duration="1ep",
+        dataloader=dummy_train_dataloader,
+        dataloader_label="train",
+        precision='fp32',
+    )
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
     state.model = _prepare_ddp_module(state.model, find_unused_parameters=True)

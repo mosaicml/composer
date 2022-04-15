@@ -215,16 +215,15 @@ def simple_conv_model_input():
 
 @pytest.fixture()
 def state_with_model(simple_conv_model: torch.nn.Module, dummy_train_dataloader: DataLoader, rank_zero_seed: int):
-    state = State(
+    return State(
         grad_accum=1,
         rank_zero_seed=rank_zero_seed,
         max_duration="100ep",
         model=simple_conv_model,
         precision=Precision.FP32,
+        dataloader=dummy_train_dataloader,
+        dataloader_label="train",
     )
-    state.set_dataloader(dummy_train_dataloader, "train")
-
-    return state
 
 
 @pytest.fixture()

@@ -195,7 +195,6 @@ class State(Serializable):
         self.model = model
         self.grad_accum = grad_accum
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
-        self.dataloader_len = dataloader_len
         self.max_duration = max_duration
 
         self.timer = Timer()

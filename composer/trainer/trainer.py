@@ -457,7 +457,8 @@ class Trainer:
         eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         optimizers: Optional[torch.optim.Optimizer] = None,
-        schedulers: Optional[Union[ComposerScheduler, Sequence[ComposerScheduler]]] = None,
+        schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
+                                                                                       PyTorchScheduler]]]] = None,
 
         # device
         device: Optional[Union[str, Device]] = None,
@@ -685,10 +686,7 @@ class Trainer:
             grad_accum=grad_accum,
             precision=precision,
             precision_context=precision_context,
-            optimizers=optimizers,
         )
-
-        self.train_subset_num_batches = train_subset_num_batches
 
         pytorch_schedulers = [
             scheduler for scheduler in ensure_tuple(schedulers) if isinstance(scheduler, PyTorchScheduler)
@@ -800,9 +798,9 @@ class Trainer:
 
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
-        self.state.set_dataloader(train_dataloader.dataloader, 'train')
-        self.state.dataloader_len = self.train_subset_num_batches
+        self.state.set_dataloader(train_dataloader.dataloader, 'train', train_subset_num_batches)
         self.state.max_duration = max_duration
+        self.state.optimizers = optimizers
 
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
@@ -988,7 +986,7 @@ class Trainer:
 
         assert self.state.dataloader is not None, "dataloader is set in __init__"
 
-        for scheduler in ensure_tuple(self._schedulers):
+        for scheduler in self._schedulers:
             if isinstance(scheduler, PyTorchScheduler):
                 scale_pytorch_scheduler(scheduler, self._scale_schedule_ratio)
                 self.state.schedulers.append(scheduler)

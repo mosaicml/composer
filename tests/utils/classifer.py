@@ -14,16 +14,16 @@ from tests.utils.model import SimpleModel
 
 def _get_state(train_dataloader: DataLoader, eval_dataloader: DataLoader, rank_zero_seed: int):
     model = SimpleModel()
-    state = State(
+    return State(
         model=model,
         rank_zero_seed=rank_zero_seed,
         optimizers=SGD(model.parameters(), lr=.001, momentum=0.0),
         max_duration="1ep",
         grad_accum=1,
+        dataloader=train_dataloader,
+        dataloader_label="train",
         precision=Precision.FP32,
     )
-    state.set_dataloader(train_dataloader, "train")
-    return state
 
 
 def test_classifier_trains(
