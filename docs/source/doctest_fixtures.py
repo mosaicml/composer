@@ -134,6 +134,11 @@ logits = torch.randn(batch_size, num_classes)  # type: ignore
 # error: "randint" is not a known member of module (reportGeneralTypeIssues)
 y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
+# for selective backprop example
+N_sb, D_sb = 16, 8
+X_sb, y_sb = torch.randn(N_sb, D_sb), torch.randint(2, (N_sb,))
+lin_model = torch.nn.Linear(X_sb.shape[1], 1)
+
 def loss_function(output, target, reduction="none"):
     return torch.ones_like(target)
 
