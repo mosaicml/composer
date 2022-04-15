@@ -8,7 +8,6 @@ import sys
 import warnings
 from typing import Type
 
-import composer
 from composer.profiler import CyclicProfilerScheduleHparams, JSONTraceHparams
 from composer.trainer import TrainerHparams
 

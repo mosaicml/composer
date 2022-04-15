@@ -41,6 +41,7 @@ class _ProgressBarLoggerInstance:
             position=state.position,
             bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}",
             file=file,
+            dynamic_ncols=True,
         )
         self.pbar.set_postfix(state.epoch_metrics)
 
