@@ -33,14 +33,14 @@ class _ProgressBarLoggerInstanceState:
 
 class _ProgressBarLoggerInstance:
 
-    def __init__(self, state: _ProgressBarLoggerInstanceState) -> None:
+    def __init__(self, file: TextIO, state: _ProgressBarLoggerInstanceState) -> None:
         self.state = state
         self.pbar = tqdm.auto.tqdm(
             total=state.total,
             desc=state.description,
             position=state.position,
             bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}",
-            file=sys.stderr,
+            file=file,
         )
         self.pbar.set_postfix(state.epoch_metrics)
 
@@ -167,12 +167,16 @@ class ProgressBarLogger(LoggerDestination):
         if not self.is_train:
             desc += f", Batch {int(state.timer.batch)} (val)"
         self.pbars[self.is_train] = _ProgressBarLoggerInstance(
-            _ProgressBarLoggerInstanceState(total=total_steps,
-                                            position=position,
-                                            n=0,
-                                            keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
-                                            description=desc,
-                                            epoch_metrics={}))
+            file=self.stream,
+            state=_ProgressBarLoggerInstanceState(
+                total=total_steps,
+                position=position,
+                n=0,
+                keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],
+                description=desc,
+                epoch_metrics={},
+            ),
+        )
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -235,7 +239,11 @@ class ProgressBarLogger(LoggerDestination):
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.pbars = {
-            k: _ProgressBarLoggerInstance(_ProgressBarLoggerInstanceState(**v)) for (k, v) in state["pbars"].items()
-        }
+        self.pbars = {}
+        for is_train, pbar_state in state["pbars"].items():
+            self.pbars[is_train] = _ProgressBarLoggerInstance(
+                file=self.stream,
+                state=_ProgressBarLoggerInstanceState(**pbar_state),
+            )
+
         self.is_train = state["is_train"]
