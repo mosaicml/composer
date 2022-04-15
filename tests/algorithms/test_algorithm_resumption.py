@@ -32,6 +32,9 @@ algo_hparams_overrides = {
     },
     "stochastic_depth": {
         "target_layer_name": "ResNetBottleneck"
+    },
+    "selective_backprop": {
+        "scale_factor": 1,
     }
 }
 
@@ -65,7 +68,11 @@ skiplist = {
         'no_op_model': 'Not compatible with this model.'
     },
     'gpt2_52m': {
+        'seq_length_warmup': "issue with dataset",
         'blurpool': 'Only for CNNs',
+        'ghost_batchnorm': 'No BatchNorm',
+        'label_smoothing': 'Not applicable',
+        'selective_backprop': 'Not applicable',
         'channels_last': 'Only for CNNs',
         'colout': 'Only for images',
         'cutmix': 'Only for images',
@@ -84,7 +91,6 @@ skiplist = {
 @pytest.mark.timeout(180)
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
-    pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
 @pytest.mark.parametrize("device_hparams", [
     pytest.param(CPUDeviceHparams(), id="cpu-ddp"),
@@ -126,6 +132,9 @@ def test_algorithm_resumption(
 
     if algo_name in xfail_list:
         pytest.xfail(f"{algo_name} known to fail resumption test")
+
+    if algo_name in skiplist[model_name].keys():
+        pytest.skip(skiplist[model_name][algo_name])
 
     max_epochs = "5ep"
     subset_num_batches = 5
@@ -171,9 +180,6 @@ def test_algorithm_resumption(
 
     if not isinstance(trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
-
-    if algo_name in skiplist[model_name].keys():
-        pytest.skip(skiplist[model_name][algo_name])
 
     if algo_name == "cutmix":
         algo_hparams_overrides["cutmix"]["num_classes"] = trainer_hparams.model.num_classes
