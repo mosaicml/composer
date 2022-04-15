@@ -59,7 +59,7 @@ We implement this as a pre-processing step during the forward pass when training
 
 ## Suggested Hyperparameters
 
-We found that running Sequence Length Warmup for 30% of training (i.e., setting `duration=0.3`) provided the largest speedup that could still maintain full model quality on GPT-2 125M. We also recommend to always ensure that the sequence length is a multiple of eight in order to take advantage of hardware acceleration, such as Tensor Cores.
+We found that running Sequence Length Warmup for 30% of training (i.e., setting `duration=0.3`) provided the largest speedup that could still maintain full model quality on GPT-2 125M. We also recommend always ensuring that the sequence length is a multiple of eight in order to take advantage of hardware acceleration, such as Tensor Cores.
 
 ## Technical Details
 
@@ -75,17 +75,16 @@ Note that our implementation of Sequence Length Warmup (which follows that of [L
 > This design decision is in line with [Li et al., 2021](https://arxiv.org/abs/2108.06084), whose implementation was the basis for ours. 
 
 As the name suggests, Sequence Length Warmup starts by training on shorter sentences (determined by the `min_seq_length` hyperparameter) and linearly increases sentence length to the full value (determined by the `max_seq_length` hyperparameter) over the course of the beginning of training (the fraction of training specified by the `duration` hyperparameter).
-After this point, the model is trained exclusively on sentences of up to maximum sequence length.
+After this point, the model is trained exclusively on sentences of up to `max_seq_length`.
 
 Our experiments found that Sequence Length Warmup could speed up training by a factor of ~1.5x while achieving the same loss.
 [Li et al., 2021](https://arxiv.org/abs/2108.06084) claim that Sequence Length Warmup also reduces the outliers in Adam’s variance term, which makes training more stable and permits training on larger batch sizes and larger learning rates without divergence.
 
-> ✅ Sequence Length Warmup the Tradeoff Between Quality and Training Speed
+> ✅ Sequence Length Warmup's Tradeoff Between Quality and Training Speed
 > 
 > In our experiments, Sequence Length Warmup improves the attainable tradeoffs between training speed and the final quality of the trained model.
 
-One of the key design decisions when performing Sequence Length Warmup is the manner in which the sentences are shortened to the appropriate length.
-There are two options for doing so:
+One of the key design decisions when performing Sequence Length Warmup is the manner in which the sentences are shortened to the appropriate length. There are two options for doing this:
 * Truncating the sentence, discarding everything beyond the desired sequence length.
 * Segmenting the sentence, breaking it up into segments of the desired sequence lenght and making all segments into separate trianing examples.
 

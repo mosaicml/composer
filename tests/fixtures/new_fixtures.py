@@ -1,6 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """These fixtures are shared globally across the test suite."""
+import shutil
+
 import pytest
 from torch.utils.data import DataLoader
 
@@ -33,3 +35,12 @@ def empty_logger(minimal_state: State) -> Logger:
 @pytest.fixture(autouse=True)
 def disable_wandb(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("WANDB_MODE", "disabled")
+
+
+# Class-scoped temporary directory. That deletes itself. This is useful for e.g. not
+# writing too many checkpoints.
+@pytest.fixture(scope='class')
+def self_destructing_tmp(tmp_path_factory: pytest.TempPathFactory):
+    my_tmpdir = tmp_path_factory.mktemp("checkpoints")
+    yield my_tmpdir
+    shutil.rmtree(str(my_tmpdir))
