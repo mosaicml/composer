@@ -51,7 +51,9 @@ def _check_item(item1: Any, item2: Any, path: str):
         return
     if isinstance(item1, torch.Tensor):
         assert isinstance(item2, torch.Tensor)
-        assert item1.allclose(item2, rtol=1e-2, atol=1e-2), f"{path} differs"
+        # Using a high tolerance, as deepspeed non-determinisim can cause
+        # metric values to be off.
+        assert item1.allclose(item2, rtol=0.1, atol=0.1), f"{path} differs"
         return
     if isinstance(item1, dict):
         assert isinstance(item2, dict), f"{path} differs: {item1} != {item2}"
