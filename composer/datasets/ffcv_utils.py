@@ -1,16 +1,44 @@
 import json
 import logging
-import textwrap
 from typing import Optional
 
 import numpy as np
 
 from composer.core.types import Dataset
 from composer.datasets.webdataset_utils import init_webdataset_meta
+from composer.utils import MissingConditionalImportError
+
+try:
+    import ffcv  # type: ignore
+    ffcv_installed = True
+except ImportError:
+    ffcv_installed = False
 
 log = logging.getLogger(__name__)
 
-__all__ = ["write_ffcv_dataset"]
+__all__ = ["write_ffcv_dataset", "ffcv_monkey_patches"]
+
+
+def _require_ffcv():
+    if not ffcv_installed:
+        raise MissingConditionalImportError(extra_deps_group="ffcv", conda_package="ffcv")
+
+
+def ffcv_monkey_patches():
+    _require_ffcv()
+
+    # ffcv's __len__ function is expensive as it always calls self.next_traversal_order which does shuffling.
+    # Composer calls len(dataloader) function in training loop for every batch and thus len function causes 2x slowdown.
+    # ffcv's __len__ is fixed in 1.0.0 branch but for another reason (https://github.com/libffcv/ffcv/issues/163).
+    def new_len(self):
+        if not hasattr(self, "init_traversal_order"):
+            self.init_traversal_order = self.next_traversal_order()
+        if self.drop_last:
+            return len(self.init_traversal_order) // self.batch_size
+        else:
+            return int(np.ceil(len(self.init_traversal_order) / self.batch_size))
+
+    ffcv.loader.loader.Loader.__len__ = new_len
 
 
 def write_ffcv_dataset(dataset: Optional[Dataset] = None,
@@ -35,14 +63,8 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
         jpeg_quality (float): Quality to use for jpeg compression. Default: ``90``.
         chunk_size (int): Size of chunks processed by each worker during conversion. Default: ``100``.
     """
-    try:
-        import ffcv  # type: ignore
-    except ImportError:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without ffcv support.
-            To use ffcv with Composer, please install ffcv in your environment."""))
 
+    _require_ffcv()
     if dataset is None and remote is None:
         raise ValueError("At least one of dataset or remote should not be None.")
 
@@ -84,5 +106,3 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
         # We call this internal API instead of writer.from_webdataset because with writer.from_webdataset
         # FFCV downloads the whole dataset twice.
         writer._write_common(total_len, todos, ffcv.writer.worker_job_webdataset, (pipeline,))
-
-        #writer.from_webdataset(urls, pipeline)
