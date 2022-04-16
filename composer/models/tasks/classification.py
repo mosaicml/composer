@@ -51,6 +51,7 @@ class ComposerClassifier(ComposerModel):
         self.val_acc = Accuracy()
         self.val_loss = CrossEntropy()
         self.module = module
+        self._loss_fxn = soft_cross_entropy
 
         if hasattr(self.module, "num_classes"):
             self.num_classes = getattr(self.module, "num_classes")
@@ -61,7 +62,7 @@ class ComposerClassifier(ComposerModel):
             raise ValueError("Loss expects input as Tensor")
         if not isinstance(targets, Tensor):
             raise ValueError("Loss does not support multiple target Tensors")
-        return soft_cross_entropy(outputs, targets, *args, **kwargs)
+        return self._loss_fxn(outputs, targets, *args, **kwargs)
 
     def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])

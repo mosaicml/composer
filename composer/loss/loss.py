@@ -11,7 +11,10 @@ from torch.nn import functional as F
 
 from composer.loss.utils import infer_target_type
 
-__all__ = ["soft_cross_entropy"]
+__all__ = ["bce", "loss_registry", "soft_cross_entropy"]
+
+
+bce = F.binary_cross_entropy_with_logits
 
 
 def soft_cross_entropy(input: Tensor,
@@ -21,7 +24,8 @@ def soft_cross_entropy(input: Tensor,
                        ignore_index: int = -100,
                        reduce: Optional[bool] = None,
                        reduction: str = 'mean'):
-    r"""Drop-in replacement for :class:`~torch.nn.CrossEntropyLoss` that can handle class indices or one-hot labels.
+    r"""Drop-in replacement for :class:`~torch.nn.functional.cross_entropy` that can
+     handle class indices or one-hot labels. 
     Args:
         input (torch.Tensor) : :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
             in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`
@@ -91,3 +95,9 @@ def soft_cross_entropy(input: Tensor,
         return xentropy
     else:
         raise ValueError(f"Unrecognized target type {target_type}")
+
+
+loss_registry = {
+    "bce": bce,
+    "soft_cross_entropy": soft_cross_entropy
+}
