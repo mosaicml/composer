@@ -72,6 +72,11 @@ def train_model(model, train_dataloader):
 The Composer implementation of BlurPool uses model surgery to replace instances of pooling and downsampling operations with the BlurPool equivalents.
 For max pooling, it replaces `torch.nn.MaxPool2d` instances with instances of a custom `nn.Module` subclass that decouples the computation of the max within a given spatial window from the pooling and adds a spatial low-pass filter in between. This change roughly doubles the data movement required for the op, although it shouldn’t add significant overhead unless there are many maxpools in the network. For convolutions, it replaces strided `torch.nn.Conv2d` instances (i.e., those where the stride is larger than 1) with a custom module class that 1) applies a low-pass filter to the input, and then 2) applies a copy of the original convolution operation.
 
+🚧 Implementation Note
+>
+> Blurpool refuses to blur the input layer of a network (since at that point you're just reducing the input), as measured by whether the layer has [too few channels](https://github.com/mosaicml/composer/blob/4945b85dcaf65ce7f79ba9fdfd37b25a4b83a070/composer/algorithms/blurpool/blurpool.py#L169).
+> If you'd like to override this behavior, make sure the input layer has `stride > 1` and `in_channels >= 16`, though for most scenarios, we recommend keeping this default behavior.
+
 ## Suggested Hyperparameters
 
 We suggest setting `blur_first=True` to avoid unnecessarily increasing computational cost.
