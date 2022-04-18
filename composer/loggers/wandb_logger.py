@@ -131,7 +131,7 @@ class WandBLogger(LoggerDestination):
 
             if self._enabled and self._log_artifacts:
                 import wandb
-                extension = file_path.name.split(".")[-1]
+                extension = new_artifact_name.split(".")[-1]
                 artifact = wandb.Artifact(name=new_artifact_name, type=extension)
                 artifact.add_file(os.path.abspath(file_path))
                 wandb.log_artifact(artifact, aliases=aliases)
