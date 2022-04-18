@@ -164,7 +164,7 @@ class StreamingDatasetIndex(object):
             bytes: The serialized form.
         """
         header = np.array([self.total_samples, self.total_bytes, self.num_shards, self.num_fields], np.int64)
-        bytes_per_field = list(map(len, self.fields))
+        bytes_per_field = np.array(list(map(len, self.fields)), np.int64)
         arrays = header, self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, bytes_per_field
         arrays = np.concatenate(arrays, dtype=np.int64).tobytes()
         fields = b''.join(map(lambda s: s.encode('utf-8'), self.fields))
