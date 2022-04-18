@@ -47,7 +47,7 @@ def main() -> None:
     with tempfile.NamedTemporaryFile(mode="x+") as f:
         f.write(hparams.to_yaml())
         trainer.logger.file_artifact(LogLevel.FIT,
-                                     artifact_name="{run_name}/hparams.yaml",
+                                     artifact_name=f"{trainer.logger.run_name}/hparams.yaml",
                                      file_path=f.name,
                                      overwrite=True)
 
