@@ -9,7 +9,7 @@ from composer.utils import MissingConditionalImportError
 try:
     import boto3
 except ImportError as e:
-    raise MissingConditionalImportError(extra_deps_group="streaming") from e
+    raise MissingConditionalImportError(extra_deps_group="streaming", conda_package="boto3") from e
 
 
 def wait_for_download(local: str, timeout: Optional[float] = 10) -> None:
