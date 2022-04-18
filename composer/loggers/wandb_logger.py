@@ -7,7 +7,9 @@ from __future__ import annotations
 import os
 import pathlib
 import re
+import shutil
 import sys
+import tempfile
 import textwrap
 import warnings
 from typing import Any, Dict, Optional
@@ -64,6 +66,10 @@ class WandBLogger(LoggerDestination):
             init_params = {}
         self._init_params = init_params
 
+        # Temporary directory for staging artifact upload
+        tempdir = tempfile.TemporaryDirectory()
+        self._upload_staging_folder = tempdir.name
+
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         import wandb
         del log_level  # unused
@@ -107,11 +113,28 @@ class WandBLogger(LoggerDestination):
 
     def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
                           overwrite: bool):
-        del state, log_level, overwrite  # unused
+        del log_level, overwrite  # unused
 
         if self._enabled and self._log_artifacts:
             import wandb
-            wandb.run.save(glob_str=os.path.abspath(file_path), policy='now')
+
+            # Some WandB-specific alias extraction
+            timestamp = state.timer.get_timestamp()
+            aliases = ["latest", f"ep{int(timestamp.epoch)}-ba{int(timestamp.batch)}"]
+
+            # replace all unsupported characters with periods
+            # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
+            new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
+            if new_artifact_name != artifact_name:
+                warnings.warn(("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
+                               f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
+
+            if self._enabled and self._log_artifacts:
+                import wandb
+                extension = file_path.name.split(".")[-1]
+                artifact = wandb.Artifact(name=new_artifact_name, type=extension)
+                artifact.add_file(os.path.abspath(file_path))
+                wandb.log_artifact(artifact, aliases=aliases)
 
     def post_close(self) -> None:
         import wandb
