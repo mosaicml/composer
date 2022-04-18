@@ -51,7 +51,8 @@ class StreamingDataset(IterableDataset):
         # Precomputes the shard and offset in bytes of each sample (for direct
         # access).
         index_filename = self._download_if_missing(get_index_basename())
-        self.index = StreamingDatasetIndex.load(open(index_filename, 'rb'))
+        with open(index_filename, 'rb') as fp:
+            self.index = StreamingDatasetIndex.load(fp)
 
         # Fields, protected by the lock, relating to loading shards in the background.
         self._lock = Lock()
