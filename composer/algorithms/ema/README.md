@@ -1,12 +1,12 @@
-# 🏋️‍♂️ EMA
+# 🏋️‍♂EMA
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
 Exponential Moving Average (EMA) is a model averaging technique that maintains an exponentially weighted moving average of the model parameters during training. The averaged parameters are used for model evaluation. EMA typically results in less noisy validation metrics over the course of training, and sometimes increased generalization.
 
-| ![EMA](https://storage.googleapis.com/docs.mosaicml.com/images/methods/ema.png) |
+<!--| ![EMA](https://storage.googleapis.com/docs.mosaicml.com/images/methods/ema.png) |
 |:--:
-|*An image caption*|
+|*An image caption*| -->
 
 ## How to Use
 
