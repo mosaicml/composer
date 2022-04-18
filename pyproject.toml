@@ -67,6 +67,8 @@ markers = [
     "notebooks",
     # Whether the test should run in a container based on the vision dockerimage, which contains ffcv and opencv
     "vision",
+    # Should be run during daily regression
+    "daily",
 ]
 filterwarnings = [
     # "error",  # warnings should be treated like errors, but still need to fix some warnings
