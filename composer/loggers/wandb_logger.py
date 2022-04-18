@@ -58,6 +58,7 @@ class WandBLogger(LoggerDestination):
                     restore from checkpoints."""))
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
+        self._rank_zero_only = rank_zero_only
         self._log_artifacts = log_artifacts
         if init_params is None:
             init_params = {}
@@ -89,9 +90,16 @@ class WandBLogger(LoggerDestination):
     def init(self, state: State, logger: Logger) -> None:
         import wandb
         del state  # unused
-        if "name" not in self._init_params:
-            # Use the logger run name if the name is not set.
-            self._init_params["name"] = logger.run_name
+
+        # Use the logger run name if the name is not set.
+        self._init_params["name"] = self._init_params.get("name", logger.run_name)
+
+        # Adjust name and group based on `rank_zero_only`.
+        if not self._rank_zero_only:
+            name = self._init_params["name"]
+            group = self._init_params.get("group", None)
+            self._init_params["name"] = f"{name} [RANK_{dist.get_global_rank()}]"
+            self._init_params["group"] = group if group else name
 
         if self._enabled:
             wandb.init(**self._init_params)
