@@ -112,7 +112,7 @@ ARG MOFED_VERSION
 ARG MOFED_OS_VERSION
 
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        wget -P /tmp http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz && \
+        wget -nv -P /tmp http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz && \
         tar -zxvf /tmp/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz -C /tmp && \
         /tmp/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force ; \
     fi
