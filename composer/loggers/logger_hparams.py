@@ -16,7 +16,7 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.utils import ObjectStoreHparams, dist, import_object
+from composer.utils import ObjectStoreHparams, import_object
 
 __all__ = [
     "FileLoggerHparams",

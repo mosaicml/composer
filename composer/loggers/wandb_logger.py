@@ -7,9 +7,7 @@ from __future__ import annotations
 import os
 import pathlib
 import re
-import shutil
 import sys
-import tempfile
 import textwrap
 import warnings
 from typing import Any, Dict, Optional
@@ -65,10 +63,6 @@ class WandBLogger(LoggerDestination):
         if init_params is None:
             init_params = {}
         self._init_params = init_params
-
-        # Temporary directory for staging artifact upload
-        tempdir = tempfile.TemporaryDirectory()
-        self._upload_staging_folder = tempdir.name
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         import wandb
