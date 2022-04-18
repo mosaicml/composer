@@ -410,7 +410,7 @@ class StreamingADE20k(StreamingDataset):
                  both_transform: Optional[Callable] = None,
                  image_transform: Optional[Callable] = None,
                  annotation_transform: Optional[Callable] = None,
-                 device_batch_size: Optional[int] = None):
+                 device_batch_size: int = 0):
         decoders = {
             'image': self.decode_image,
             'annotation': self.decode_annotation,
