@@ -335,10 +335,13 @@ class StreamingImageClassDataset(StreamingDataset):
         """
         return np.frombuffer(data, np.int64)[0]
 
-    def __init__(self, remote: str, local: str, shuffle: bool, transform: Optional[Callable] = None,
+    def __init__(self,
+                 remote: str,
+                 local: str,
+                 shuffle: bool,
+                 transform: Optional[Callable] = None,
                  device_batch_size: int = 0) -> None:
         """Initialize the streaming image classification dataset.
-
 
         Args:
             remote (str): Download shards from this remote directory.
