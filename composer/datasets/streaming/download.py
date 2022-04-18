@@ -4,13 +4,6 @@ from time import sleep, time
 from typing import Optional
 from urllib.parse import urlparse
 
-from composer.utils import MissingConditionalImportError
-
-try:
-    import boto3
-except ImportError as e:
-    raise MissingConditionalImportError(extra_deps_group="streaming", conda_package="boto3") from e
-
 
 def wait_for_download(local: str, timeout: Optional[float] = 10) -> None:
     """Block until another worker's shard download completes.
@@ -38,6 +31,7 @@ def download_from_s3(remote: str, local: str) -> None:
         remote (str): Remote path (S3).
         local (str): Local path (local filesystem).
     """
+    import boto3
     obj = urlparse(remote)
     assert obj.scheme == 's3'
     s3 = boto3.client('s3')
