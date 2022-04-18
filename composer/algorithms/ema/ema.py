@@ -76,11 +76,12 @@ class EMA(Algorithm):
         half_life (str): The time string specifying the half life for terms in the average. A longer half life means
             old information is remembered longer, a shorter half life means old information is discared sooner.
             A half life of ``0`` means no averaging is done, an infinite half life means no update is done. Currently
-            only units of epoch ('ep') and batch ('ba').
+            only units of epoch ('ep') and batch ('ba'). Value must be an integer.
         update_interval (str, optional): The time string specifying the period at which updates are done. For example,
             an ``update_interval='1ep'`` means updates are done every epoch, while ``update_interval='10ba'`` means
             updates are done once every ten batches. Units must match the units used to specify ``half_life``. If not
-            specified, ``update_interval`` will default to ``1`` in the units of ``half_life``. Default: ``None``.
+            specified, ``update_interval`` will default to ``1`` in the units of ``half_life``. Value must be an
+            integer. Default: ``None``.
         train_with_ema_weights (bool, optional): An experimental feature that uses the ema weights as the training
             weights. In most cases should be left as ``False``. Default ``False``.
 
@@ -147,8 +148,10 @@ class EMA(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         if event == Event.FIT_START:
             # Initialize the ema model
-            self.ema_model = copy.deepcopy(state.model)
-            self.training_model = copy.deepcopy(state.model)
+            if self.ema_model is None:
+                self.ema_model = copy.deepcopy(state.model)
+            if self.training_model is None:
+                self.training_model = copy.deepcopy(state.model)
 
         if self.train_with_ema_weights:
             if event in [Event.BATCH_END, Event.EPOCH_END]:
