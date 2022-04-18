@@ -11,23 +11,27 @@ train_dataset:
     subsample_ratio: 1.0
     use_masked_lm: true
     mlm_probability: 0.15
-    train_sequence_length: 128
-    val_sequence_length: 128
-val_dataset:
-  lm:
-    split: validation
-    datadir:
-      - /datasets/wikipedia_saved_bert_128
-      - /datasets/bookcorpus_saved_bert_128
-    tokenizer_name: bert-base-uncased
-    seed: 19
-    shuffle: true
-    drop_last: false
-    subsample_ratio: 0.02
-    use_masked_lm: true
-    mlm_probability: 0.15
-    train_sequence_length: 128
-    val_sequence_length: 128
+    max_seq_length: 128
+evaluators:
+  - evaluator:
+      label: bert-base
+      eval_dataset:
+        lm:
+          split: validation
+          datadir:
+            - /datasets/wikipedia_saved_bert_128
+            - /datasets/bookcorpus_saved_bert_128
+          tokenizer_name: bert-base-uncased
+          seed: 19
+          shuffle: true
+          drop_last: false
+          subsample_ratio: 0.02
+          use_masked_lm: true
+          mlm_probability: 0.15
+          max_seq_length: 128
+      metric_names:
+        - LanguageCrossEntropy
+        - MaskedAccuracy
 model:
   bert:
     use_pretrained: false

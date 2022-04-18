@@ -57,7 +57,7 @@ TODO(ABHI): Briefly describe what happens under the hood here.-->
 
 ## Suggested Hyperparameters
 
-We recommend setting `start=0.5` and `end=0.9`, which starts performing Selective Backprop halfway through training and stops performing Selective Backprop 90% of the way through training.
+We recommend setting `start=0.5` and `end=0.9`. This performs Selective Backprop halfway through training and stops performing Selective Backprop at 90% of the way through training.
 We found that the network performs better when it has time at both the beginning and end of training where it is exposed to all training examples.
 
 We recommend setting `keep=0.5`, which keeps half of the examples on each step where Selective Backprop is performed.
@@ -70,14 +70,14 @@ We recommend setting `scale_factor=0.5`, which downsamples the height and width 
 
 > ❗ The Network Must Be Able to Handle Lower Resolution Images to Use `scale_factor`
 > 
-> Using the `scale_factor` hyperparameter require a network and data preparation pipeline capable of handling lower resolution images. If your pipeline and network are not capable of doing so, set this hyperparameter to 1.0.
-> 
+> Using the `scale_factor` hyperparameter requires a network and data preparation pipeline capable of handling lower resolution images. If your pipeline and network are not capable of doing so, set this hyperparameter to 1.0.
+
 ## Technical Details
 
-The goal of Selective Backprop is to reduce the number of examples the model sees to only those that still have high loss.
-This lets the model learn on fewer examples, speeding up forward and back propagation with limited impact on final model quality.
+The goal of Selective Backprop is to reduce the number of examples the model sees to only those with high loss.
+This lets the model learn on fewer examples, speeding up forward and backward propagation with limited impact on final model quality.
 To determine the per-example loss and which examples to skip, an additional, initial forward pass must be performed.
-These loss values are then used to weight the examples, and the network is trained on a sample of examples selected based on those weights.
+The loss values from this pass are then used to weight the examples, and the network is trained on a sample of examples selected based on those weights.
 
 > 🚧 Requires an Additional Forward Pass on Each Step
 > 
@@ -92,12 +92,12 @@ These loss values are then used to weight the examples, and the network is train
 > As such, this first forward pass can be approximate.
 > Our implementation of Selective Backprop for image datasets provides the option to perform the first forward pass at lower resolution (see the `scale_factor` hyperparameter), reducing the burden imposed by this additional forward pass.
 
-Depending on the precise hyperparameters chosen, we see decreases in training time of around 10% without any degradation in performance. Larger values are possible but run into speed-accuracy tradeoffs.
-Namely, the more data that is eliminated for longer periods of training, the larger the potential impact in model performance.
-The default hyperparameters listed above have worked well for us and strike a good balance between speedup and maintaining model quality.
+Depending on the precise hyperparameters chosen, we see decreases in training time of around 10% without any degradation in performance. Larger values are possible, but these run into speed-accuracy tradeoffs.
+Namely, the more data that is eliminated for longer periods of training, the larger the potential impact on model performance.
+The default hyperparameters listed above have worked well for us and strike a good balance between attaining speedup and maintaining model quality.
 We found several techniques for mitigating accuracy degradation, including starting Selective Backprop mid-way through training (see the `start` hyperparameter), disabling it before the end of training to allow fine-tuning with the standard training regime (see the `end` hyperparameter), and mixing in occasional iterations where all data is used (see the `interrupt` hyperparameter).
 
-We have explored Selective Backprop primarily on image recognition tasks such as ImageNet and CIFAR-10. For both of these, we see large improvements in training time with little degradation in accuracy. The table below shows some examples using the default hyperparameters from above. For CIFAR-10, ResNet-56 was trained on 1x NVIDIA 3080 GPU for 160 epochs. For ImageNet, ResNet-50 was trained on 8x NVIDIA 3090 GPUs for 90 epochs.
+We have explored Selective Backprop primarily on image recognition tasks such as ImageNet and CIFAR-10. For both of these, we see large improvements in training time with little degradation in accuracy. The table below shows some examples using the default hyperparameters from above. For CIFAR-10, ResNet-56 was trained on 1 x NVIDIA 3080 GPU for 160 epochs. For ImageNet, ResNet-50 was trained on 8 x NVIDIA 3090 GPUs for 90 epochs.
 
 | Dataset | Run | Validation Accuracy | Time to Train |
 |---------|-----|---------------------|---------------|

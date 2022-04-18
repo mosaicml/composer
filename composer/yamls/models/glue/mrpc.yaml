@@ -6,14 +6,20 @@ train_dataset:
     max_seq_length: 256
     shuffle: false
     drop_last: false
-val_dataset:
-  glue:
-    task: mrpc
-    tokenizer_name: bert-base-uncased
-    split: validation
-    max_seq_length: 256
-    shuffle: false
-    drop_last: false
+evaluators:
+  - evaluator:
+      label: glue_mrpc
+      eval_dataset:
+        glue:
+          task: mrpc
+          tokenizer_name: bert-base-uncased
+          split: validation
+          max_seq_length: 256
+          shuffle: false
+          drop_last: false
+      metric_names:
+        - Accuracy
+        - BinaryF1Score
 model:
   bert_classification:
     num_labels: 2
@@ -50,7 +56,7 @@ validate_every_n_batches: 100
 validate_every_n_epochs: 1
 callbacks:
   - lr_monitor: {}
-load_path_format: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt
+load_path: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt
 load_weights_only: true
 load_strict_model_weights: false
 load_chunk_size: 8192

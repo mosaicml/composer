@@ -24,7 +24,7 @@ from tests.fixtures.models import (SimpleBatchPairModel, SimpleConvModel, _Simpl
 
 @pytest.fixture
 def dummy_in_shape() -> Tuple[int, ...]:
-    return (1, 5, 5)
+    return 1, 5, 5
 
 
 @pytest.fixture
@@ -40,6 +40,11 @@ def dummy_train_batch_size() -> int:
 @pytest.fixture()
 def dummy_val_batch_size() -> int:
     return 32
+
+
+@pytest.fixture()
+def dummy_train_n_samples() -> int:
+    return 1000
 
 
 @pytest.fixture
@@ -189,7 +194,7 @@ def composer_trainer_hparams(
     return TrainerHparams(
         algorithms=[],
         optimizer=AdamHparams(),
-        schedulers=[ExponentialSchedulerHparams(gamma=0.1)],
+        schedulers=[ExponentialSchedulerHparams(gamma=0.9)],
         max_duration="2ep",
         precision=Precision.FP32,
         train_batch_size=dummy_train_batch_size,
@@ -203,7 +208,6 @@ def composer_trainer_hparams(
             timeout=0.0,
         ),
         device=CPUDeviceHparams(),
-        deterministic_mode=True,
         loggers=[],
         model=dummy_model_hparams,
         val_dataset=dummy_val_dataset_hparams,

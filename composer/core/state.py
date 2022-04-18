@@ -119,6 +119,43 @@ class State(Serializable):
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
         batch_num_samples (int): The number of samples in the :attr:`batch`.
         batch_num_tokens (int): The number of tokens in the :attr:`batch`.
+        current_metrics (Dict[str, Dict[str, Any]]): The current computed metrics, organized by dataloader label
+            and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
+            the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
+
+            For example:
+
+            >>> trainer = Trainer(
+            ...     ...,
+            ...     compute_training_metrics=True,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ... )
+            >>> trainer.fit()
+            >>> trainer.state.current_metrics
+            {'train': {'Accuracy': tensor(...)}, 'eval': {'Accuracy': tensor(...)}}
+
+            Or, when using an :class:`.Evaluator`:
+
+            .. testsetup::
+
+                eval_1_dl = eval_dataloader
+                eval_2_dl = eval_dataloader
+
+            >>> from torchmetrics import Accuracy
+            >>> from composer.core import Evaluator
+            >>> trainer = Trainer(
+            ...     ...,
+            ...     compute_training_metrics=True,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=[
+            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metrics=Accuracy()),
+            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metrics=Accuracy()),
+            ...     ],
+            ... )
+            >>> trainer.fit()
+            >>> trainer.state.current_metrics
+            {'train': {'Accuracy': tensor(...)}, 'eval1': {'Accuracy': tensor(...)}, 'eval2': {'Accuracy': tensor(...)}}
 
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward pass.
@@ -144,10 +181,9 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | timer                 | The timer that tracks training loop progress.               |
             +-----------------------+-------------------------------------------------------------+
-            | is_model_ddp          | Whether the model is an instance of                         |
-            |                       | :class:`~torch.nn.parallel.DistributedDataParallel`.        |
-            +-----------------------+-------------------------------------------------------------+
             | rank_zero_seed        | The seed of the rank zero process.                          |
+            +-----------------------+-------------------------------------------------------------+
+            | current_metrics       | The current metrics.                                        |
             +-----------------------+-------------------------------------------------------------+
     """
 
@@ -222,7 +258,6 @@ class State(Serializable):
         # as the "_optimizers" attribute, here we specify just "optimizers"
         self.serialized_attributes = [
             "model",
-            "is_model_ddp",
             "optimizers",
             "schedulers",
             "algorithms",
@@ -230,7 +265,10 @@ class State(Serializable):
             "scaler",
             "timer",
             "rank_zero_seed",
+            "current_metrics",
         ]
+
+        self.current_metrics: Dict[str, Dict[str, Any]] = {}
 
     @property
     def seed(self):
@@ -299,7 +337,11 @@ class State(Serializable):
             attribute_value = getattr(self, attribute_name)
             if attribute_name == "model":
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-                serialized_value = attribute_value.state_dict()
+                # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
+                model_state = attribute_value.state_dict()
+                if self.is_model_ddp:
+                    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, "module.")
+                serialized_value = model_state
             else:
                 if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                     serialized_value = {
@@ -320,7 +362,9 @@ class State(Serializable):
             strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
                 perfectly match the keys in the model instance.
         """
-        if state_dict["is_model_ddp"] and not self.is_model_ddp:
+        if state_dict.get("is_model_ddp", False) and not self.is_model_ddp:
+            # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
+            # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
         missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:

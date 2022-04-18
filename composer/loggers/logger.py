@@ -112,6 +112,7 @@ class Logger:
             # ensure all ranks have the same experiment name
             dist.broadcast_object_list(run_name_list)
             run_name = run_name_list[0]
+        assert run_name is not None, "run name is set above if not specified."
         self.run_name = run_name
         self._state = state
 
@@ -154,6 +155,33 @@ class Logger:
                 log_level=log_level,
                 artifact_name=artifact_name,
                 file_path=file_path,
+                overwrite=overwrite,
+            )
+
+    def symlink_artifact(
+        self,
+        log_level: Union[str, int, LogLevel],
+        existing_artifact_name: str,
+        symlink_artifact_name: str,
+        overwrite: bool = False,
+    ):
+        """Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
+
+        Args:
+            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
+                :class:`LogLevel`.
+            existing_artifact_name (str): The name of symlinked artifact.
+            symlink_artifact_name (str): The symlink name of artifact.
+            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
+                (default: ``False``)
+        """
+        log_level = LogLevel(log_level)
+        for destination in self.destinations:
+            destination.log_symlink_artifact(
+                state=self._state,
+                log_level=log_level,
+                existing_artifact_name=existing_artifact_name,
+                symlink_artifact_name=symlink_artifact_name,
                 overwrite=overwrite,
             )
 
