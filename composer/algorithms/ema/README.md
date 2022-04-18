@@ -1,4 +1,4 @@
-# 🏋️‍♂EMA
+# 🚚 EMA
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
