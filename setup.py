@@ -70,7 +70,6 @@ install_requires = [
     "apache-libcloud>=3.3.1,<4",
     "psutil>=5.8.0,<6",
     "coolname>=1.1.0,<2",
-    "boto3==1.24.42",
 ]
 extra_deps = {}
 

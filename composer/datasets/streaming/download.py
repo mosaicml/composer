@@ -4,7 +4,12 @@ from time import sleep, time
 from typing import Optional
 from urllib.parse import urlparse
 
-import boto3
+from composer.utils import MissingConditionalImportError
+
+try:
+    import boto3
+except ImportError as e:
+    raise MissingConditionalImportError(extra_deps_group="streaming") from e
 
 
 def wait_for_download(local: str, timeout: Optional[float] = 10) -> None:
