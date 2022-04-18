@@ -4,24 +4,27 @@ import os
 import platform
 import sys
 import warnings
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Sized
 
-import cpuinfo
-import psutil
 import torch
 
 import composer
-from composer import Callback, State
+from composer.core import State
+from composer.core.callback import Callback
 from composer.loggers import Logger
 from composer.utils import dist
 
 try:
+    import cpuinfo
+    import psutil
     from mlperf_logging import mllog
     from mlperf_logging.mllog import constants
+
     mlperf_available = True
 except ImportError:
     mlperf_available = False
 
+# this callback only supports the following options:
 BENCHMARKS = ("resnet")
 DIVISIONS = ("open")
 STATUS = ("onprem", "cloud", "preview")
@@ -133,9 +136,10 @@ class MLPerfCallback(Callback):
                 constants.SUBMISSION_STATUS: status,
             })
 
+        self.success = False
+
     def _create_submission_folders(self, root_folder: str, system_name: str, benchmark: str):
-        if not os.path.isdir(root_folder):
-            raise FileNotFoundError(f"{root_folder} not found.")
+        os.makedirs(root_folder, exist_ok=True)
 
         results_folder = os.path.join(root_folder, 'results')
         log_folder = os.path.join(root_folder, 'results', system_name)
@@ -151,10 +155,21 @@ class MLPerfCallback(Callback):
         for key, value in data.items():
             self.mllogger.event(key=key, value=value)
 
+    def _get_accuracy(self, state: State):
+        if 'Accuracy' not in state.current_metrics['eval']:
+            raise ValueError('Accuracy must be a validation metric.')
+        return state.current_metrics['eval']['Accuracy']
+
     def fit_start(self, state: State, logger: Logger) -> None:
         if rank_zero():
             if state.train_dataloader.batch_size is None:
                 raise ValueError("Batch size is required to be set for dataloader.")
+            if len(state.evaluators) > 1:
+                raise ValueError("Only one evaluator is supported for the MLPerfCallback.")
+            if not isinstance(state.train_dataloader.dataset, Sized):
+                raise ValueError("Train dataset must have __len__ property")
+            if not isinstance(state.evaluators[0].dataloader.dataloader.dataset, Sized):
+                raise ValueError("Train dataset must have __len__ property")
 
             self._log_dict({
                 constants.SEED: state.seed,
@@ -189,7 +204,7 @@ class MLPerfCallback(Callback):
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if rank_zero():
-            accuracy = 0.99  # TODO: retrieve accuracy from metrics
+            accuracy = self._get_accuracy(state)
 
             self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': state.timer.epoch.value})
             self.mllogger.event(key=constants.EVAL_ACCURACY,
@@ -197,9 +212,10 @@ class MLPerfCallback(Callback):
                                 metadata={'epoch_num': state.timer.epoch.value})
             self.mllogger.event(key=constants.BLOCK_STOP, metadata={'first_epoch_num': state.timer.epoch.value})
 
-            if accuracy > self.target:
+            if accuracy > self.target and not self.success:
                 self.mllogger.event(key=constants.RUN_STOP, metadata={"status": "success"})
                 self.mllogger.logger.removeHandler(self._file_handler)
+                self.success = True  # only log once
 
 
 def get_system_description(
@@ -255,9 +271,10 @@ def get_system_description(
         "accelerator_interconnect_topology": "",
         "cooling": "",
         "hw_notes": "",
-        "framework": f"PyTorch v{torch.__version__} and MosaicML composer v{composer.__version__}",
+        "framework":
+            f"PyTorch v{torch.__version__} and MosaicML composer v{composer.__version__}",  # type: ignore (third-party missing stub)
         "other_software_stack": {
-            "cuda_version": torch.version.cuda if is_cuda else "",
+            "cuda_version": torch.version.cuda if is_cuda else "",  # type: ignore (third-party missing stub)
             "composer_version": composer.__version__,
             "python_version": sys.version,
         },
