@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple, Union
 
 import torch
-import torch.nn.functional as F
 import torch.utils.data
 import torchmetrics
 import yahp as hp
@@ -15,6 +14,7 @@ from composer.core.types import BatchPair, DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticPILDataset
+from composer.loss import soft_cross_entropy
 from composer.models import ComposerModel, ModelHparams
 
 
@@ -52,7 +52,7 @@ class SimpleBatchPairModel(ComposerModel):
              **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         _, target = batch
         assert isinstance(target, torch.Tensor)
-        return F.cross_entropy(outputs, target, *args, **kwargs)
+        return soft_cross_entropy(outputs, target, *args, **kwargs)
 
     def validate(self, batch: BatchPair) -> Tuple[torch.Tensor, torch.Tensor]:
         x, target = batch
