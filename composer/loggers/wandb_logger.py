@@ -92,7 +92,8 @@ class WandBLogger(LoggerDestination):
         del state  # unused
 
         # Use the logger run name if the name is not set.
-        self._init_params["name"] = self._init_params.get("name", logger.run_name)
+        if "name" not in self._init_params or self._init_params["name"] is None:
+            self._init_params["name"] = logger.run_name
 
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
@@ -108,19 +109,9 @@ class WandBLogger(LoggerDestination):
                           overwrite: bool):
         del state, log_level, overwrite  # unused
 
-        # replace all unsupported characters with periods
-        # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
-        new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
-        if new_artifact_name != artifact_name:
-            warnings.warn(("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
-                           f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
-
         if self._enabled and self._log_artifacts:
             import wandb
-            extension = file_path.name.split(".")[-1]
-            artifact = wandb.Artifact(name=new_artifact_name, type=extension)
-            artifact.add_file(os.path.abspath(file_path))
-            wandb.log_artifact(artifact)
+            wandb.run.save(glob_str=os.path.abspath(file_path), policy='now')
 
     def post_close(self) -> None:
         import wandb
