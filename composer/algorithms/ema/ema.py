@@ -66,8 +66,8 @@ class EMA(Algorithm):
         smoothing = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
 
     Model evaluation is done with the moving average weights, which can result in better generalization. Because of the
-    shadow model, EMA doubles the model's memory consumption. Note that this does not mean that the total memory
-    required doubles, however, since stored activations and the optimizer state are not doubled. EMA also uses a small
+    shadow models, EMA triples the model's memory consumption. Note that this does not mean that the total memory
+    required doubles, since stored activations and the optimizer state are not duplicated. EMA also uses a small
     amount of extra compute to update the moving average weights.
 
     See the :doc:`Method Card </method_cards/ema>` for more details.
@@ -77,9 +77,10 @@ class EMA(Algorithm):
             old information is remembered longer, a shorter half life means old information is discared sooner.
             A half life of ``0`` means no averaging is done, an infinite half life means no update is done. Currently
             only units of epoch ('ep') and batch ('ba').
-        update_interval (str): The time string specifying the period at which updates are done. For example, an
-            ``update_interval='1ep'`` means updates are done every epoch, while ``update_interval='10ba'`` means
-            updates are done once every ten batches. Units must match the units used to specify ``half_life``
+        update_interval (str, optional): The time string specifying the period at which updates are done. For example,
+            an ``update_interval='1ep'`` means updates are done every epoch, while ``update_interval='10ba'`` means
+            updates are done once every ten batches. Units must match the units used to specify ``half_life``. If not
+            specified, ``update_interval`` will default to ``1`` in the units of ``half_life``. Default: ``None``.
         train_with_ema_weights (bool, optional): An experimental feature that uses the ema weights as the training
             weights. In most cases should be left as ``False``. Default ``False``.
 
@@ -98,7 +99,7 @@ class EMA(Algorithm):
             )
     """
 
-    def __init__(self, half_life: str, update_interval: str, train_with_ema_weights: bool = False):
+    def __init__(self, half_life: str, update_interval: Optional[str] = None, train_with_ema_weights: bool = False):
         self.half_life = half_life
         self.update_interval = update_interval
         self.train_with_ema_weights = train_with_ema_weights
@@ -112,10 +113,14 @@ class EMA(Algorithm):
         except ValueError as error:
             raise ValueError(f"Invalid time string for parameter half_life") from error
 
-        try:
-            self.update_interval = Time.from_timestring(update_interval)
-        except ValueError as error:
-            raise ValueError(f"Invalid time string for parameter update_interval") from error
+        # Create the update interval if none is specified
+        if self.update_interval is None:
+            self.update_interval = Time(1, self.half_life.unit)
+        else:
+            try:
+                self.update_interval = Time.from_timestring(update_interval)
+            except ValueError as error:
+                raise ValueError(f"Invalid time string for parameter update_interval") from error
 
         # Verify that the units of half_life and update_interval are compatible
         if self.half_life.unit != self.update_interval.unit:
@@ -123,7 +128,7 @@ class EMA(Algorithm):
 
         # Verify that the time strings have supported units.
         if self.half_life.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
-            raise ValueError(f"Invalid unit string for parameter half_life: "
+            raise ValueError(f"Invalid time unit for parameter half_life: "
                              f"{self.update_interval.unit}")
 
         # Calculate the appropriate weighting for the moving average
@@ -157,7 +162,6 @@ class EMA(Algorithm):
             if event in [Event.BATCH_END, Event.EPOCH_END]:
                 # Check if an update should happen
                 if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
-                    print(state.timer.get(self.update_interval.unit), "Updating", self.smoothing)
                     # Update the ema model
                     ema(state.model, self.ema_model, smoothing=self.smoothing)
             if event == Event.EVAL_START:
