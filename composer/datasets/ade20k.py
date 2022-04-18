@@ -507,7 +507,8 @@ class StreamingADE20kHparams(StreamingDatasetHparams):
 
         remote = os.path.join(self.remote, self.split)
         local = os.path.join(self.local, self.split)
-        dataset = StreamingADE20k(remote, local, self.shuffle, both_transform, image_transform, annotation_transform, batch_size)
+        dataset = StreamingADE20k(remote, local, self.shuffle, both_transform, image_transform, annotation_transform,
+                                  batch_size)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
                                               std=IMAGENET_CHANNEL_STD,

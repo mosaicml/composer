@@ -219,7 +219,7 @@ class StreamingCIFAR10Hparams(StreamingDatasetHparams):
             ])
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
-        dataset = StreamingCIFAR(remote, local, self.shuffle, transform)
+        dataset = StreamingCIFAR(remote, local, self.shuffle, transform, batch_size)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
@@ -259,7 +259,7 @@ class StreamingCIFAR20Hparams(StreamingDatasetHparams):
             ])
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
-        dataset = StreamingCIFAR(remote, local, self.shuffle, transform)
+        dataset = StreamingCIFAR(remote, local, self.shuffle, transform, batch_size)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
@@ -299,7 +299,7 @@ class StreamingCIFAR100Hparams(StreamingDatasetHparams):
             ])
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
-        dataset = StreamingCIFAR(remote, local, self.shuffle, transform)
+        dataset = StreamingCIFAR(remote, local, self.shuffle, transform, batch_size)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,

@@ -92,7 +92,7 @@ class StreamingMNISTHparams(StreamingDatasetHparams):
         transform = transforms.ToTensor()
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
-        dataset = StreamingMNIST(remote, local, self.shuffle, transform)
+        dataset = StreamingMNIST(remote, local, self.shuffle, transform, batch_size)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,

@@ -236,7 +236,7 @@ class StreamingTinyImagenet200Hparams(StreamingDatasetHparams):
             ])
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
-        dataset = StreamingTinyImagenet200(remote, local, self.shuffle, transform)
+        dataset = StreamingTinyImagenet200(remote, local, self.shuffle, transform, batch_size)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
@@ -288,11 +288,11 @@ class StreamingImagenet1kHparams(StreamingDatasetHparams):
                 transforms.Resize(self.resize_size),
                 transforms.CenterCrop(self.crop_size),
             ])
-        collate_fn = pil_image_collate
-        device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
-        dataset = StreamingImagenet1k(remote, local, self.shuffle, transform)
+        dataset = StreamingImagenet1k(remote, local, self.shuffle, transform, batch_size)
+        collate_fn = pil_image_collate
+        device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             batch_size=batch_size,

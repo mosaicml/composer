@@ -37,7 +37,8 @@ class StreamingDataset(IterableDataset):
             remote (str): Download shards from this remote directory.
             local (str): Download shards to this local filesystem directory for reuse.
             shuffle (bool): Whether to shuffle the samples.
-            decoders (Dict[str, Optional[Callable]): Raw bytes decoder per sample field.
+            decoders (Dict[str, Callable]): Raw bytes decoder per sample field.
+            device_batch_size (int): Batch size per device.
         """
         self.remote = remote
         self.local = local
@@ -334,17 +335,34 @@ class StreamingImageClassDataset(StreamingDataset):
         """
         return np.frombuffer(data, np.int64)[0]
 
-    def __init__(self, remote: str, local: str, shuffle: bool, transform: Optional[Callable] = None):
-        """Initialize the streaming image classification dataset."""
+    def __init__(self, remote: str, local: str, shuffle: bool, transform: Optional[Callable] = None,
+                 device_batch_size: int = 0) -> None:
+        """Initialize the streaming image classification dataset.
+
+
+        Args:
+            remote (str): Download shards from this remote directory.
+            local (str): Download shards to this local filesystem directory for reuse.
+            shuffle (bool): Whether to shuffle the samples.
+            transform (Optional[Callable]): Optional input data transform for data augmentation, etc.
+            device_batch_size (int): Batch size per device.
+        """
         decoders = {
             'x': self.decode_image,
             'y': self.decode_class,
         }
-        super().__init__(remote, local, shuffle, decoders)
+        super().__init__(remote, local, shuffle, decoders, device_batch_size)
         self.transform = transform or transforms.ToTensor()
 
     def __getitem__(self, idx: int) -> Tuple[Any, Any]:
-        """Get the decoded and transformemd (image, class) pair by ID."""
+        """Get the decoded and transformemd (image, class) pair by ID.
+
+        Args:
+            idx (int): Sample ID.
+
+        Returns:
+            Tuple[Any, Any]: Pair of (x, y) for this sample.
+        """
         obj = super().__getitem__(idx)
         x = obj['x']
         x = self.transform(x)
