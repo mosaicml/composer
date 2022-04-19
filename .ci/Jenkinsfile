@@ -7,7 +7,7 @@ dependenciesChanged = null
 pytorchDockerBuildMatrix = null
 isPathModified = null
 builds = []
-jenkinsShellJobName = "scratch/command2"
+jenkinsShellJobName = "scratch/commandNext"  // TODO switch back to command2
 numDaysOfBuildsToKeep = '7'
 jenkinsfileRepo = 'https://github.com/mosaicml/testing'
 gitCredentialsId = "9cf9add1-2cdd-414b-8160-94bd4ac4a13d"
@@ -156,7 +156,7 @@ stage('Prepare') {
 
         def jenkinsfileWorkspace = cloneJenkinsfilesRepo()
 
-        def getDockerBuildMatrix = load "$jenkinsfileWorkspace/utils/getDockerBuildMatrix.groovy"
+        def getDockerBuildMatrix = load "$jenkinsfileWorkspace/utils/getDockerBuildMatrix2.groovy"  // TODO switch back to getDockerBuildMatrix.groovy
 
         isPathModified = load "$jenkinsfileWorkspace/utils/isPathModified.groovy"
 
@@ -164,7 +164,7 @@ stage('Prepare') {
             def shouldPush = gitBranch == "dev" || gitBranch == "main"
             def dockerfile = 'Dockerfile'
             def buildContext = './docker/pytorch'
-            def buildMatrix = './docker/pytorch/build_matrix.sh'
+            def buildMatrix = './docker/pytorch/build_matrix.yaml'
             pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile, shouldPush)
         }
         // Keep track of whether dependencies changed, in which case a conda build should be tested
@@ -198,6 +198,7 @@ stage('Build') {
                         string(name: 'P_TIMEOUT', value: pTimeout),
                         string(name: 'P_CPU_LIMIT', value: '4'),
                         string(name: 'P_MEM_LIMIT', value: '15Gi'),
+                        booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
                 if (isMergeCommit) {
