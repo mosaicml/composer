@@ -76,6 +76,7 @@ class TestMLPerfCallbackEvents:
 
         return state
 
+    @pytest.mark.timeout(5)
     def test_eval_start(self, mlperf_callback, mock_state, world_size):
         mlperf_callback.eval_start(mock_state, Mock())
 
@@ -85,6 +86,7 @@ class TestMLPerfCallbackEvents:
 
         assert mlperf_callback.mllogger.logs == [{'key': 'eval_start', 'value': None, 'metadata': {'epoch_num': 1}}]
 
+    @pytest.mark.timeout(5)
     def test_eval_end(self, mlperf_callback, mock_state, world_size):
         mlperf_callback.eval_end(mock_state, Mock())
 
