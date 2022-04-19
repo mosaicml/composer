@@ -8,7 +8,6 @@ import sys
 import warnings
 from typing import Type
 
-import composer
 from composer.profiler import CyclicProfilerScheduleHparams, JSONTraceHparams
 from composer.trainer import TrainerHparams
 
@@ -34,7 +33,6 @@ def main() -> None:
 
     args, _ = parser.parse_known_args()
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
-    logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
     # Configure the Composer profiler
     hparams.prof_trace_handlers = [JSONTraceHparams(folder="composer_traces")]
