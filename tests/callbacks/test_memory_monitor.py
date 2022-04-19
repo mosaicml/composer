@@ -47,7 +47,7 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, testing_with_gpu: 
 def test_memory_monitor_cpu(composer_trainer_hparams: TrainerHparams):
     log_destination, _ = _do_trainer_fit(composer_trainer_hparams, testing_with_gpu=False)
 
-    if torch.cuda.is_available():
+    if torch.cuda.device_count() > 0:
         pytest.skip('Skip CPU memory monitor tests if CUDA is available.')
 
     memory_monitor_called = False
