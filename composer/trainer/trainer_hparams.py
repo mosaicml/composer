@@ -17,7 +17,7 @@ import yahp as hp
 import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
-                                SpeedMonitorHparams)
+                                MLPerfCallbackHparams, SpeedMonitorHparams)
 from composer.core import Precision
 from composer.core.types import JSON
 from composer.datasets import DataLoaderHparams, DatasetHparams
@@ -95,6 +95,7 @@ callback_registry = {
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
+    "mlperf": MLPerfCallbackHparams,
 }
 
 device_registry = {
@@ -282,7 +283,7 @@ class TrainerHparams(hp.Hparams):
     # training hparams
     grad_accum: Union[int, str] = hp.optional(textwrap.dedent("""\
         Determines the number of microbatches to split a per-gpu batch into,
-        used to compensate for low-memory-capacity devices. If set to auto, 
+        used to compensate for low-memory-capacity devices. If set to auto,
         dynamically increases grad_accum if microbatch size is too large for
         GPU. Defaults to ``1``"""),
                                               default=1)

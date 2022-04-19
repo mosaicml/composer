@@ -6,7 +6,8 @@ Each callback inherits from the :class:`~composer.core.callback.Callback` base c
 examples for writing your own callbacks at the :class:`~composer.core.callback.Callback` base class.
 """
 from composer.callbacks.callback_hparams import (CallbackHparams, CheckpointSaverHparams, GradMonitorHparams,
-                                                 LRMonitorHparams, MemoryMonitorHparams, SpeedMonitorHparams)
+                                                 LRMonitorHparams, MemoryMonitorHparams, MLPerfCallbackHparams,
+                                                 SpeedMonitorHparams)
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.grad_monitor import GradMonitor
 from composer.callbacks.lr_monitor import LRMonitor
@@ -28,4 +29,5 @@ __all__ = [
     "LRMonitorHparams",
     "MemoryMonitorHparams",
     "SpeedMonitorHparams",
+    "MLPerfCallbackHparams",
 ]

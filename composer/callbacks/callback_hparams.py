@@ -9,11 +9,13 @@ from dataclasses import dataclass
 from typing import Optional
 
 import yahp as hp
+from attr import asdict
 
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.grad_monitor import GradMonitor
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
+from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.core.callback import Callback
 from composer.core.time import Time
@@ -48,7 +50,7 @@ class GradMonitorHparams(CallbackHparams):
     """:class:`~.GradMonitor` hyperparamters.
 
     Args:
-        log_layer_grad_norms (bool, optional): 
+        log_layer_grad_norms (bool, optional):
             See :class:`~.GradMonitor` for documentation.
     """
 
@@ -120,9 +122,35 @@ class SpeedMonitorHparams(CallbackHparams):
 
 
 @dataclass
+class MLPerfCallbackHparams(CallbackHparams):
+    """:class:`~.MLPerfCallback` hyperparameters.
+    """
+
+    root_folder: str = hp.required("The root submission folder.")
+    index: int = hp.required("The repetition index of this run.")
+    submitter: str = hp.optional("Submitting organization. Default: MosaicML", default='MosaicML')
+    system_name: str = hp.optional("Name of the system, defaults to [world_size]x[device_name]", default=None)
+    benchmark: str = hp.optional("Benchmark name. Default: resnet", default="resnet")
+    divison: str = hp.optional("Division of submission. Currently only open division"
+                               "is supported. Default: open",
+                               default="open")
+    status: str = hp.optional("Submission status. Default: onprem", default="onprem")
+    target: float = hp.optional("The target metric before mllogger marks run_stop. Default: 0.759 (resnet)",
+                                default=0.759)
+
+    def initialize_object(self) -> MLPerfCallback:
+        """Initialize the MLPerf Callback.
+
+        Returns:
+            MLPerfCallback: An instance of :class:`~.MLPerfCallback`
+        """
+        return MLPerfCallback(**asdict(self))
+
+
+@dataclass
 class CheckpointSaverHparams(CallbackHparams):
     """:class:`~.CheckpointSaver` hyperparameters.
-    
+
     Args:
         save_folder (str, optional): See :class:`~.CheckpointSaver`.
         filename (str, optional): See :class:`~.CheckpointSaver`.
