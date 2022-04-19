@@ -43,20 +43,21 @@ def main() -> None:
 
     trainer = hparams.initialize_object()
 
+    # Log the config to an artifact store if global rank 0
+    if dist.get_global_rank() == 0:
+        with tempfile.NamedTemporaryFile(mode="x+") as f:
+            f.write(hparams.to_yaml())
+            trainer.logger.file_artifact(LogLevel.FIT,
+                                         artifact_name=f"{trainer.logger.run_name}/hparams.yaml",
+                                         file_path=f.name,
+                                         overwrite=True)
+
     # Print the config to the terminal and log to artifact store if on each local rank 0
     if dist.get_local_rank() == 0:
         print("*" * 30)
         print("Config:")
         print(hparams.to_yaml())
         print("*" * 30)
-
-        with tempfile.NamedTemporaryFile(mode="x+") as f:
-            f.write(hparams.to_yaml())
-            trainer.logger.file_artifact(
-                LogLevel.FIT,
-                artifact_name=f"{trainer.logger.run_name}/hparams-rank{dist.get_global_rank()}.yaml",
-                file_path=f.name,
-                overwrite=True)
 
     trainer.fit()
 
