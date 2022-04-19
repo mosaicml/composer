@@ -366,7 +366,10 @@ class TestTrainerAssets:
 
     @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
     def callback(self, request):
-        _, hparams = request.param
+        name, hparams = request.param
+
+        if name == 'mlperf':
+            pytest.skip('mlperf callback tested separately.')
 
         callback = hparams().initialize_object()
 
