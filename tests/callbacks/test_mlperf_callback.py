@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from composer import State, Trainer
 from composer.callbacks import MLPerfCallback
 from composer.utils import dist
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common import RandomClassificationDataset, SimpleModel, world_size
 
 
 def rank_zero() -> bool:
@@ -55,6 +55,7 @@ class MockMLLogger:
         self.logs.append({'key': key, 'value': value, 'metadata': metadata})
 
 
+@world_size(1, 2)
 class TestMLPerfCallbackEvents:
 
     @pytest.fixture
@@ -75,7 +76,7 @@ class TestMLPerfCallbackEvents:
 
         return state
 
-    def test_eval_start(self, mlperf_callback, mock_state):
+    def test_eval_start(self, mlperf_callback, mock_state, world_size):
         mlperf_callback.eval_start(mock_state, Mock())
 
         if not rank_zero():
@@ -84,7 +85,7 @@ class TestMLPerfCallbackEvents:
 
         assert mlperf_callback.mllogger.logs == [{'key': 'eval_start', 'value': None, 'metadata': {'epoch_num': 1}}]
 
-    def test_eval_end(self, mlperf_callback, mock_state):
+    def test_eval_end(self, mlperf_callback, mock_state, world_size):
         mlperf_callback.eval_end(mock_state, Mock())
 
         if not rank_zero():
@@ -102,11 +103,12 @@ class TestMLPerfCallbackEvents:
         }
 
 
+@world_size(1, 2)
 class TestWithMLPerfChecker:
     """Ensures that the logs created by the MLPerfCallback pass the official package checker."""
 
     @pytest.mark.timeout(15)
-    def test_mlperf_callback_passes(self, config, tmpdir, monkeypatch):
+    def test_mlperf_callback_passes(self, config, tmpdir, monkeypatch, world_size):
 
         def mock_accuracy(self, state: State):
             if state.timer.epoch >= 2:
@@ -122,7 +124,7 @@ class TestWithMLPerfChecker:
             self.run_mlperf_checker(tmpdir, monkeypatch)
 
     @pytest.mark.timeout(15)
-    def test_mlperf_callback_fails(self, config, tmpdir, monkeypatch):
+    def test_mlperf_callback_fails(self, config, tmpdir, monkeypatch, world_size):
 
         def mock_accuracy(self, state: State):
             return 0.01
