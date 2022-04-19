@@ -54,7 +54,7 @@ class MLPerfCallback(Callback):
     and best effort made to populate the fields, but should be manually
     checked prior to submission.
 
-    Currently, only OPEN division submissions are supported with this Callback.
+    Currently, only open division submissions are supported with this Callback.
 
     Args:
         root_folder (str): The root submission folder
