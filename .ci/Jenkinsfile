@@ -184,8 +184,9 @@ stage('Build') {
         pytorchDockerBuildMatrix.each { entry ->
             def command = entry[0]  // command is the command to run
             def stagingImage = entry[1]  // stagingImage is where the built docker image is pushed
-            def buildConfigListOfTuples = entry[2]  // buildConfigListOfTuples is a list of (key, value) pairs of the build args from the matrix
-            jobs << [ "$buildConfigListOfTuples": { -> 
+            // buildArgs contains the entry from the build matrix. It has the format [{key: key, value: value}, ...].
+            def buildArgs = entry[2]
+            jobs << [ "$buildArgs": { -> 
                 trackBuild(
                     job: jenkinsShellJobName,
                     parameters: [
@@ -210,9 +211,9 @@ stage('Build') {
                 def isVisionImage = false
                 def isGpuImage = false
                 def tag = null
-                buildConfigListOfTuples.each { item ->
-                    def key = item[0]
-                    def val = item[1]
+                buildArgs.each { item ->
+                    def key = item['key']
+                    def val = item['value']
 
                     if (key == 'CUDA_VERSION') {
                         if (val != 'cpu') {
