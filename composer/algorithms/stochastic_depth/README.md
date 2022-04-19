@@ -13,8 +13,9 @@
 ```python
 # Run the Stochastic Depth algorithm directly on the model using the Composer functional API
 
-import composer.functional as cf
 import torch
+import composer.functional as cf
+
 from torchvision.models import resnet50
 
 # Training
@@ -26,12 +27,14 @@ opt = torch.optim.Adam(model.parameters())
 
 # only need to pass in opt if apply_stochastic_depth is used after the optimizer
 # creation; otherwise only the model needs to be passed in
-cf.apply_stochastic_depth(model,
-                          target_layer_name='ResNetBottleneck',
-                          stochastic_method='sample',
-                          drop_rate=0.2,
-                          drop_distribution='linear',
-                          optimizers=opt)
+cf.apply_stochastic_depth(
+    model,
+    target_layer_name='ResNetBottleneck',
+    stochastic_method='sample',
+    drop_rate=0.2,
+    drop_distribution='linear',
+    optimizers=opt
+)
 
 loss_fn = F.cross_entropy
 model.train()
@@ -59,15 +62,20 @@ from composer.trainer import Trainer
 # Stochastic depth can only be run on ResNet-50/101/152
 model = resnet50()
 
-stochastic_depth = StochasticDepth(target_layer_name='ResNetBottleneck',
-                                   stochastic_method='sample',
-                                   drop_rate=0.2,
-                                   drop_distribution='linear')
+stochastic_depth = StochasticDepth(
+    target_layer_name='ResNetBottleneck',
+    stochastic_method='sample',
+    drop_rate=0.2,
+    drop_distribution='linear'
+)
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='10ep',
-                  algorithms=[stochastic_depth])
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration='10ep',
+    algorithms=[stochastic_depth]
+)
+
 trainer.fit()
 ```
 
@@ -77,11 +85,11 @@ The Composer implementation of Stochastic Depth uses model surgery to replace re
 
 ## Suggested Hyperparameters
 
-We observed that `drop_rate=0.1` and `drop_distribution=linear` yielded maximum accuracy improvements on both ResNet-50 and ResNet-101.
+We observe that `drop_rate=0.1` and `drop_distribution=linear` yield maximum accuracy improvements on both ResNet-50 and ResNet-101.
 
 ## Technical Details
 
-For both ResNet-50 and ResNet-101 on ImageNet, we measure a +0.4% absolute accuracy improvement when using `drop_rate=0.1` and `drop_distribution=linear`. The training wall-clock time is approximately 5% longer when using sample-wise stochastic depth
+For both ResNet-50 and ResNet-101 on ImageNet, we measure a +0.4% absolute accuracy improvement when using `drop_rate=0.1` and `drop_distribution=linear`. The training wall-clock time is approximately 5% longer when using sample-wise stochastic depth.
 
 ## Attribution
 
