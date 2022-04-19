@@ -870,6 +870,8 @@ class Trainer:
 
         self.engine.run_event(Event.INIT)
 
+        self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
+
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 
