@@ -160,7 +160,7 @@ composer_data_files += package_files("composer", "yamls", ".yaml")
 composer_data_files += package_files("composer", "algorithms", ".json")
 
 setup(name="mosaicml",
-      version="0.4.0",
+      version="0.6.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="Composer provides well-engineered implementations of efficient training methods to give "
