@@ -630,6 +630,7 @@ class Trainer:
         assert isinstance(rank_zero_seed, int)
         seed = rank_zero_seed + dist.get_global_rank()
         log.info(f"Setting seed to {seed}")
+        self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
