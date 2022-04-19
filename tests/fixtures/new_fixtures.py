@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 """These fixtures are shared globally across the test suite."""
+import datetime
 import shutil
 
 import pytest
@@ -8,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from composer.core import State
 from composer.loggers import Logger
+from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
@@ -27,14 +29,23 @@ def minimal_state(rank_zero_seed: int):
 
 
 @pytest.fixture
-def empty_logger(minimal_state: State) -> Logger:
+def empty_logger(minimal_state: State, configure_dist: None) -> Logger:
     """Logger without any output configured."""
+    # need to configure dist as the logger depends on it
+    del configure_dist  # unused
     return Logger(state=minimal_state, destinations=[])
 
 
 @pytest.fixture(autouse=True)
 def disable_wandb(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("WANDB_MODE", "disabled")
+
+
+@pytest.fixture
+def configure_dist(request: pytest.FixtureRequest):
+    backend = 'gloo' if request.node.get_closest_marker('gpu') is None else 'nccl'
+    if not dist.is_initialized():
+        dist.initialize_dist(backend, timeout=datetime.timedelta(seconds=300))
 
 
 # Class-scoped temporary directory. That deletes itself. This is useful for e.g. not
