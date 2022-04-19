@@ -20,6 +20,7 @@ from typing import Type
 from composer.loggers.logger import LogLevel
 from composer.loggers.logger_hparams import WandBLoggerHparams
 from composer.trainer import TrainerHparams
+from composer.utils import dist
 
 
 def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
@@ -46,15 +47,16 @@ def main() -> None:
     with tempfile.NamedTemporaryFile(mode="x+") as f:
         f.write(hparams.to_yaml())
         trainer.logger.file_artifact(LogLevel.FIT,
-                                     artifact_name="{run_name}/hparams.yaml",
+                                     artifact_name=f"{trainer.logger.run_name}/hparams.yaml",
                                      file_path=f.name,
                                      overwrite=True)
 
-    # Print the config to the terminal
-    print("*" * 30)
-    print("Config:")
-    print(hparams.to_yaml())
-    print("*" * 30)
+    # Print the config to the terminal on each local rank 0
+    if dist.get_local_rank() == 0:
+        print("*" * 30)
+        print("Config:")
+        print(hparams.to_yaml())
+        print("*" * 30)
 
     trainer.fit()
 

@@ -4,11 +4,14 @@
 import dataclasses
 import os
 import sys
+import tempfile
 import textwrap
+import uuid
 from typing import Any, Dict, Iterator, Optional, Union
 
 import yahp as hp
 from libcloud.storage.providers import get_driver
+from libcloud.storage.types import ObjectDoesNotExistError
 
 __all__ = ["ObjectStoreHparams", "ObjectStore"]
 
@@ -286,7 +289,33 @@ class ObjectStore:
                                                 headers=headers)
 
     def _get_object(self, object_name: str):
-        return self._provider.get_object(self._container.name, object_name)
+        """Get object from object store. Recursively follow any symlinks. If an object does not exist, automatically
+        checks if it is a symlink by appending ``.symlink``.
+
+        Args:
+            object_name (str): The name of the object.
+        """
+        obj = None
+        try:
+            obj = self._provider.get_object(self._container.name, object_name)
+        except ObjectDoesNotExistError:
+            # Object not found, check for potential symlink
+            object_name += ".symlink"
+            obj = self._provider.get_object(self._container.name, object_name)
+        # Recursively trace any symlinks
+        if obj.name.endswith(".symlink"):
+            # Download symlink object to temporary folder
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmppath = os.path.join(tmpdir, str(uuid.uuid4()))
+                self._provider.download_object(obj=obj,
+                                               destination_path=tmppath,
+                                               overwrite_existing=True,
+                                               delete_on_failure=True)
+                # Read object name in symlink and recurse
+                with open(tmppath) as f:
+                    symlinked_object_name = f.read()
+                    return self._get_object(symlinked_object_name)
+        return obj
 
     def get_object_size(self, object_name: str) -> int:
         """Get the size of an object, in bytes.

@@ -200,11 +200,33 @@ class WandBLoggerHparams(LoggerDestinationHparams):
 @dataclass
 class ProgressBarLoggerHparams(LoggerDestinationHparams):
     """:class:`~composer.loggers.progress_bar_logger.ProgressBarLogger`
-    hyperparameters. This class takes no parameters.
+    hyperparameters.
+
+    .. deprecated:: 0.6.0
+
+        This class is deprecated. Instead, please specify the :class:`.ProgressBarLogger` arguments
+        directly in the :class:`~composer.trainer.trainer_hparams.TrainerHparams`. This class will be removed
+        in v0.7.0.
+
+    Args:
+        progress_bar (bool, optional): See :class:`.ProgressBarLogger`.
+        log_to_console (bool, optional): See :class:`.ProgressBarLogger`.
+        console_log_level (bool, optional): See :class:`.ProgressBarLogger`.
+        stream (bool, optional): See :class:`.ProgressBarLogger`.
     """
 
+    progress_bar: bool = hp.optional("Whether to show a progress bar.", default=True)
+    log_to_console: Optional[bool] = hp.optional("Whether to print log statements to the console.", default=None)
+    console_log_level: LogLevel = hp.optional("The maximum log level.", default=LogLevel.EPOCH)
+    stream: str = hp.optional("The stream at which to write the progress bar and log statements.", default="stderr")
+
     def initialize_object(self) -> ProgressBarLogger:
-        return ProgressBarLogger()
+        return ProgressBarLogger(
+            progress_bar=self.progress_bar,
+            log_to_console=self.log_to_console,
+            console_log_level=self.console_log_level,
+            stream=self.stream,
+        )
 
 
 @dataclass
