@@ -98,14 +98,13 @@ def select_using_loss(input: torch.Tensor,
         N_sb, D_sb = 16, 8
         X_sb, y_sb = torch.randn(N_sb, D_sb), torch.randint(2, (N_sb,))
         lin_model = torch.nn.Linear(X_sb.shape[1], 1)
-        def loss_function(output, target, reduction="none"):
-            return torch.ones_like(target)
+        loss_fun = lambda output, target reduction="none" : torch.ones_like(target)
 
     .. doctest::
 
         from composer.algorithms.selective_backprop import select_using_loss
         with torch.cuda.amp.autocast(True):
-            X_new, y_new = select_using_loss(X_sb, y_sb, lin_model, loss_function, keep=0.5, scale_factor=1)
+            X_new, y_new = select_using_loss(X_sb, y_sb, lin_model, loss_fun, keep=0.5, scale_factor=1)
     """
     INTERPOLATE_MODES = {3: "linear", 4: "bilinear", 5: "trilinear"}
 
