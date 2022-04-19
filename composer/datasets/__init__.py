@@ -26,9 +26,8 @@ from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.datasets.glue import GLUEHparams
 from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
-from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams,
-                                        StreamingImagenet1kHparams, StreamingTinyImagenet200Hparams,
-                                        TinyImagenet200WebDatasetHparams)
+from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams, StreamingImagenet1kHparams,
+                                        StreamingTinyImagenet200Hparams, TinyImagenet200WebDatasetHparams)
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams, StreamingMNISTHparams
 from composer.datasets.synthetic import (MemoryFormat, SyntheticBatchPairDataset, SyntheticDataLabelType,

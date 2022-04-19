@@ -6,8 +6,8 @@ import pytest
 
 from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, C4DatasetHparams, CIFAR10DatasetHparams,
                                COCODatasetHparams, DataLoaderHparams, DatasetHparams, GLUEHparams,
-                               ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, SyntheticHparamsMixin,
-                               WebDatasetHparams, StreamingDatasetHparams)
+                               ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, StreamingDatasetHparams,
+                               SyntheticHparamsMixin, WebDatasetHparams)
 from composer.trainer.trainer_hparams import dataset_registry
 
 # for testing, we provide values for required hparams fields
