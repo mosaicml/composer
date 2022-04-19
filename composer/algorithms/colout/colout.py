@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from typing import Optional, Sequence, Tuple, TypeVar, Union
+from typing import Optional, Tuple, TypeVar, Union
 
 import torch
 from PIL.Image import Image as PillowImage
@@ -124,7 +124,7 @@ def colout_batch(input: ImgT,
 
 class ColOutTransform:
     """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
-    a single image.
+        up to two images.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
@@ -146,40 +146,43 @@ class ColOutTransform:
         self.p_col = p_col
         self.resize_target = resize_target
 
-    def __call__(self, sample: Union[ImgT, Sequence[ImgT]]) -> ImgT:
-        """Drops random rows and columns from a single image.
+    def __call__(self, sample: Union[ImgT, Tuple[ImgT, ImgT]]) -> ImgT:
+        """Drops random rows and columns from up to two images.
 
         Args:
-            img (torch.Tensor or PIL Image): An input image as a torch.Tensor or PIL image
+            sample (torch.Tensor | PIL.Image | Sequence[torch.Tensor | PIL.Image]): A single image or a sequence of
+                two images as either torch.Tensor or PIL.Image.
 
         Returns:
-            torch.Tensor or PIL Image: A smaller image with rows and columns dropped
+            torch.Tensor | PIL.Image | Sequence[torch.Tensor | PIL.Image: A smaller image or sequence of images with
+                random rows and columns dropped.
         """
         sample = ensure_tuple(sample)
 
         if len(sample) == 1 or self.resize_target is False:
             img = sample[0]
-            sample[0], _ = colout_batch(img, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
-            return sample
-        elif len(sample) >= 2:
+            sample, _ = colout_batch(img, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
+
+        elif len(sample) == 2:
             img, target = sample[0], sample[1]
-            sample[0], sample[1] = colout_batch(img,
-                                                target,
-                                                p_row=self.p_row,
-                                                p_col=self.p_col,
-                                                resize_target=self.resize_target)
-            return sample
+            sample = colout_batch(img, target, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
+
+        elif len(sample) > 2:
+            raise ValueError(f"Colout transform does not support sample tuple of length {len(sample)} > 2")
+
+        return sample
 
 
 class ColOut(Algorithm):
-    """Drops a fraction of the rows and columns of an input image. If the fraction of rows/columns dropped isn't too
-    large, this does not significantly alter the content of the image, but reduces its size and provides extra
-    variability.
+    """Drops a fraction of the rows and columns of an input image and (optionally) a target image. If the fraction of
+    rows/columns dropped isn't too large, this does not significantly alter the content of the image, but reduces its
+    size and provides extra variability.
 
-    If ``batch`` is True (the default), this algorithm runs on :attr:`Event.INIT` to insert a dataset transformation.
-    It is a no-op if this algorithm already applied itself on the :attr:`State.train_dataloader.dataset`.
+    If ``batch`` is True (the default), then this algorithm runs on :attr:`Event.AFTER_DATALOADER` to modify the batch.
 
-    Otherwise, if ``batch`` is False, then this algorithm runs on :attr:`Event.AFTER_DATALOADER` to modify the batch.
+    Otherwise, if ``batch`` is False (the default), this algorithm runs on :attr:`Event.INIT` to insert a dataset
+    transformation. It is a no-op if this algorithm already applied itself on the
+    :attr:`State.train_dataloader.dataset`.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
@@ -219,6 +222,9 @@ class ColOut(Algorithm):
         if (not isinstance(resize_target, bool)) and (isinstance(resize_target, str) and resize_target != 'auto'):
             raise ValueError(f"resize_target must be a boolean or ``auto``. Received: {resize_target}")
 
+        if resize_target is True and batch is False:
+            raise NotImplementedError(f"Resizing targets is not currently support with batch=``False``")
+
         self.p_row = p_row
         self.p_col = p_col
         self.batch = batch
@@ -249,7 +255,7 @@ class ColOut(Algorithm):
         """Transform a batch of images using the ColOut augmentation."""
         inputs, target = state.batch_pair
         assert isinstance(inputs, Tensor) and isinstance(target, Tensor), \
-            "Multiple tensors not supported for this method yet."
+            "Inputs and targets must be of type torch.Tensor for batch-wise ColOut"
 
         state.batch = colout_batch(inputs, target, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
 
