@@ -6,13 +6,13 @@ Kind of Task: ``Autoregressive Language Modeling``
 
 ## Overview
 
-The GPT-2 model family is set of transformer-based networks for autoregressive language modeling at various scales. This family was originally proposed by OpenAI, and is trained on the OpenWebText dataset. It is useful for downstream language generation tasks, such as summarization, translation, and dialog.
+The GPT-2 model family is a set of transformer-based networks for autoregressive language modeling at various scales. This family was originally proposed by OpenAI and is trained on the OpenWebText dataset. It is useful for downstream language generation tasks such as summarization, translation, and dialog.
 
 ## Attribution
 
 The GPT model family is described in *[Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)* by Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, and Ilya Sutskever.
 
-The Scaling Law that we use to choose the members of this model family are described in *[Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361)* by Jared Kaplan, Sam McCandish, Tom Henighan, Tom B. Brown, Benjamin Chess, Rewon Child, Scott Gray, Alec Radford, Jeffrey Wu, and Dario Amodei.
+The scaling law that we use to choose the members of this model family is described in *[Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361)* by Jared Kaplan, Sam McCandish, Tom Henighan, Tom B. Brown, Benjamin Chess, Rewon Child, Scott Gray, Alec Radford, Jeffrey Wu, and Dario Amodei.
 
 ## Architecture
 
@@ -40,8 +40,8 @@ Our codebase builds off of the Hugging Face *[Transformers](https://huggingface.
 
 ## Exploring Tradeoffs Between Quality and Training Speed / Cost
 
-There are two ways of varying the amount of time necessary to train a model or the cost necessary to do so: varying the size of the model or varying the number of steps (and therefore data) for which the model is trained. With the GPT family of models, we explore both of these axes. To develop methods for these models, we generally begin with the smallest members of this model family for initial experimentation and scale up once the ideas have been refined.
+There are two ways of varying the amount of time necessary to train a model and the cost necessary to do so: varying the size of the model or varying the number of steps (and therefore data) for which the model is trained. With the GPT family of models, we explore both of these axes. To develop methods for these models, we generally begin with the smallest members of this model family for initial experimentation and scale up once the ideas have been refined.
 
-To explore tradeoffs between quality and number of training steps: we have ablated both number of training steps, and number of data points to train on. We do this by checkpointing the model throughout training.
+To explore tradeoffs between quality and the number of training steps, we have ablated both the number of training steps and the number of data points to train on. We do this by checkpointing the model throughout training.
 
-To explore tradeoffs between quality and the size of the model, we use "Scaling Laws for Neural Language Models" to provide suggestions on model capacity and dataset size, and then sweep hyperparameters such as learning rate and batch size to minimize loss.
+To explore tradeoffs between quality and the size of the model, we use "Scaling Laws for Neural Language Models" to provide suggestions on model capacity and dataset size and then sweep hyperparameters such as learning rate and batch size to minimize loss.

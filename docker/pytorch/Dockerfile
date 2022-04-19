@@ -104,6 +104,19 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.py
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
 
+###################################
+# Mellanox OFED driver installation
+###################################
+
+ARG MOFED_VERSION
+ARG MOFED_OS_VERSION
+
+RUN if [ -n "$CUDA_VERSION" ] && [ "$LINUX_DISTRO" == "ubuntu:20.04" ] ; then \
+        wget -nv -P /tmp http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz && \
+        tar -zxvf /tmp/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz -C /tmp && \
+        /tmp/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force ; \
+    fi
+
 #########
 # Cleanup
 #########
