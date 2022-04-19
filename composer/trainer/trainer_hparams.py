@@ -205,7 +205,7 @@ class TrainerHparams(hp.Hparams):
             to the trainer for the ``deepspeed_config`` parameter signaling that DeepSpeed will not be used
             for training.
         prof_schedule (ProfileScheduleHparams, optional): Profile schedule hparams. Must be specified to enable the profiler.
-        prof_event_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.        prof_skip_first (int, optional): See :class:`.Trainer`.        prof_wait (int, optional): See :class:`.Trainer`.
+        prof_trace_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.        prof_skip_first (int, optional): See :class:`.Trainer`.        prof_wait (int, optional): See :class:`.Trainer`.
 
         sys_prof_cpu (bool, optional): See :class:`.Trainer`.
         sys_prof_memory (bool, optional): See :class:`.Trainer`.
@@ -213,25 +213,25 @@ class TrainerHparams(hp.Hparams):
         sys_prof_net (bool, optional): See :class:`.Trainer`.
         sys_prof_stats_thread_interval_seconds (float, optional): See :class:`.Trainer`.
         torch_prof_folder (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_event_handlers`` are not specified.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
         torch_prof_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_event_handlers`` are not specified.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
         torch_prof_artifact_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_event_handlers`` are not specified.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
         torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_event_handlers`` are not specified.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
         torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_event_handlers`` are not specified.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
         torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_event_handlers`` are not specified.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
         torch_prof_profile_memory (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_event_handlers`` are not specified.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
         torch_prof_with_stack (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_event_handlers`` are not specified.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
         torch_prof_with_flops (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_event_handlers`` are not specified.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
         torch_prof_num_traces_to_keep (int, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_event_handlers`` are not specified.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
     """
 
     hparams_registry = {  # type: ignore
