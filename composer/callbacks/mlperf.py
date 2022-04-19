@@ -251,7 +251,7 @@ def get_system_description(
         "host_processor_model_name": str(cpu_info.get('brand_raw', "CPU")),
         "host_processor_core_count": str(psutil.cpu_count(logical=False)),
         "host_processor_vcpu_count": "",
-        "host_processor_frequency": cpu_info.get('hz_advertised_friendly', ""),
+        "host_processor_frequency": "",
         "host_processor_caches": "",
         "host_processor_interconnect": "",
         "host_memory_capacity": "",
