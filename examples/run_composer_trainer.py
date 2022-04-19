@@ -43,7 +43,7 @@ def main() -> None:
 
     trainer = hparams.initialize_object()
 
-    # Log the config to an artifact store if global rank 0
+    # Only log the config once, since it should be the same on all ranks.
     if dist.get_global_rank() == 0:
         with tempfile.NamedTemporaryFile(mode="x+") as f:
             f.write(hparams.to_yaml())
