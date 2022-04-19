@@ -21,7 +21,7 @@ from composer.core.state import State
 from composer.core.types import DataLoader
 from composer.loggers import Logger
 from composer.trainer.trainer import Trainer
-from tests.common import RandomClassificationDataset, SimpleConvModel
+from tests.common import (RandomClassificationDataset, SimpleModel)
 
 
 class EventCounterCallback(Callback):
