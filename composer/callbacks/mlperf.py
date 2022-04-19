@@ -40,15 +40,15 @@ class MLPerfCallback(Callback):
     A submission folder structure will be created with the ``root_folder``
     as the base and the following directories::
 
-    root_folder/
-        results/
-            [system_name]/
-                [benchmark]/
-                    results_0.txt
-                    results_1.txt
-                    ...
-        systems/
-            [system_name].json
+        root_folder/
+            results/
+                [system_name]/
+                    [benchmark]/
+                        results_0.txt
+                        results_1.txt
+                        ...
+            systems/
+                [system_name].json
 
     A required systems description will be automatically generated,
     and best effort made to populate the fields, but should be manually
@@ -63,7 +63,7 @@ class MLPerfCallback(Callback):
         submitter (str, optional): Submitting organization. Default: MosaicML.
         system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
             not provided, system name will default to ``[world_size]x[device_name]_composer``,
-            e.g. ``8xNVIDIA_A100_80GB_composer.
+            e.g. ``8xNVIDIA_A100_80GB_composer``.
         benchmark (str, optional): Benchmark name. Default: ``"resnet"``.
         division (str, optional): Division of submission. Currently only open division is
             supported. Default: ``"open"``.
