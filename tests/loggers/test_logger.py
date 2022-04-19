@@ -10,9 +10,7 @@ from composer.utils import dist, reproducibility
 
 
 @pytest.mark.world_size(2)
-def test_logger_run_name(dummy_state: State, configure_dist: None):
-    # need to configure dist as the logger depends on it
-    del configure_dist  # unused
+def test_logger_run_name(dummy_state: State):
     # seeding with the global rank to ensure that each rank has a different seed
     reproducibility.seed_all(dist.get_global_rank())
 

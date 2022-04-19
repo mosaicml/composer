@@ -29,10 +29,8 @@ def minimal_state(rank_zero_seed: int):
 
 
 @pytest.fixture
-def empty_logger(minimal_state: State, configure_dist: None) -> Logger:
+def empty_logger(minimal_state: State) -> Logger:
     """Logger without any output configured."""
-    # need to configure dist as the logger depends on it
-    del configure_dist  # unused
     return Logger(state=minimal_state, destinations=[])
 
 
@@ -41,8 +39,10 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("WANDB_MODE", "disabled")
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def configure_dist(request: pytest.FixtureRequest):
+    # Configure dist globally, so individual tests that do not use the trainer
+    # do not need to worry about manually configuring dist.
     backend = 'gloo' if request.node.get_closest_marker('gpu') is None else 'nccl'
     if not dist.is_initialized():
         dist.initialize_dist(backend, timeout=datetime.timedelta(seconds=300))
