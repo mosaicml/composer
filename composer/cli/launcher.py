@@ -274,11 +274,13 @@ def _launch_processes(
 
 def _monitor_processes(processes: Dict[int, subprocess.Popen]):
     try:
-        while len(processes) > 0:
+        while True:
             process_has_crashed = False
+            all_processes_finished = True
             for global_rank, process in processes.items():
                 if process.poll() is None:
                     # the process is still running
+                    all_processes_finished = False
                     continue
                 else:
                     # return code of 0 implies clean exit
@@ -289,8 +291,7 @@ def _monitor_processes(processes: Dict[int, subprocess.Popen]):
                     else:
                         # exited cleanly
                         log.info(f"Rank {global_rank} finished successfully.")
-                        break
-            if process_has_crashed:
+            if process_has_crashed or all_processes_finished:
                 break
             time.sleep(0.1)
     except KeyboardInterrupt:
