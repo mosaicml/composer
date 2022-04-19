@@ -153,19 +153,20 @@ extra_deps["webdataset"] = [
     "wurlitzer>=3.0.2,<4",
 ]
 
-extra_deps['mlperf'] = [
+extra_deps["mlperf"] = [
     # TODO: switch to pip package when available: https://github.com/mlcommons/logging/issues/218
     "mlperf_logging @ git+https://github.com/mlperf/logging.git",
     "py-cpuinfo>=8.0.0,<9",
 ]
-extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
+
+extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ["py.typed"]
 composer_data_files += package_files("composer", "yamls", ".yaml")
 composer_data_files += package_files("composer", "algorithms", ".json")
 
 setup(name="mosaicml",
-      version="0.4.0",
+      version="0.6.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="Composer provides well-engineered implementations of efficient training methods to give "
