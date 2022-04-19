@@ -10,7 +10,9 @@ from typing import Generator, TypeVar, Union
 
 import torch
 
-from composer.core.types import Precision, StateDict, Tensor
+#from composer.core.types import Precision, StateDict, Tensor
+#from composer.core.types import StateDict, Tensor
+from composer.core.precision import Precision
 from composer.trainer.devices.device import Device, T_nnModule
 import torch_xla
 
