@@ -58,6 +58,7 @@ class WandBLogger(LoggerDestination):
                     restore from checkpoints."""))
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
+        self._rank_zero_only = rank_zero_only
         self._log_artifacts = log_artifacts
         if init_params is None:
             init_params = {}
@@ -89,30 +90,45 @@ class WandBLogger(LoggerDestination):
     def init(self, state: State, logger: Logger) -> None:
         import wandb
         del state  # unused
-        if "name" not in self._init_params:
-            # Use the logger run name if the name is not set.
+
+        # Use the logger run name if the name is not set.
+        if "name" not in self._init_params or self._init_params["name"] is None:
             self._init_params["name"] = logger.run_name
+
+        # Adjust name and group based on `rank_zero_only`.
+        if not self._rank_zero_only:
+            name = self._init_params["name"]
+            group = self._init_params.get("group", None)
+            self._init_params["name"] = f"{name} [RANK_{dist.get_global_rank()}]"
+            self._init_params["group"] = group if group else name
 
         if self._enabled:
             wandb.init(**self._init_params)
 
     def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
                           overwrite: bool):
-        del state, log_level, overwrite  # unused
-
-        # replace all unsupported characters with periods
-        # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
-        new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
-        if new_artifact_name != artifact_name:
-            warnings.warn(("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
-                           f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
+        del log_level, overwrite  # unused
 
         if self._enabled and self._log_artifacts:
             import wandb
-            extension = file_path.name.split(".")[-1]
-            artifact = wandb.Artifact(name=new_artifact_name, type=extension)
-            artifact.add_file(os.path.abspath(file_path))
-            wandb.log_artifact(artifact)
+
+            # Some WandB-specific alias extraction
+            timestamp = state.timer.get_timestamp()
+            aliases = ["latest", f"ep{int(timestamp.epoch)}-ba{int(timestamp.batch)}"]
+
+            # replace all unsupported characters with periods
+            # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
+            new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
+            if new_artifact_name != artifact_name:
+                warnings.warn(("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
+                               f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
+
+            if self._enabled and self._log_artifacts:
+                import wandb
+                extension = new_artifact_name.split(".")[-1]
+                artifact = wandb.Artifact(name=new_artifact_name, type=extension)
+                artifact.add_file(os.path.abspath(file_path))
+                wandb.log_artifact(artifact, aliases=aliases)
 
     def post_close(self) -> None:
         import wandb
