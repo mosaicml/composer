@@ -848,7 +848,6 @@ class Trainer:
             state=self.state,
             logger=self.logger,
         )
-        self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
         self._validate_every_n_batches = validate_every_n_batches
         self._validate_every_n_epochs = validate_every_n_epochs
@@ -870,6 +869,8 @@ class Trainer:
             self.train_metrics = None
 
         self.engine.run_event(Event.INIT)
+
+        self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
