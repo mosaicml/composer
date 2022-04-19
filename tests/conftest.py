@@ -7,6 +7,7 @@ from typing import List, Optional
 
 import pytest
 import torch
+from torch import distributed
 
 import composer
 from composer.utils import dist, reproducibility
@@ -154,6 +155,14 @@ def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture(autouse=True)
 def chdir_to_tmpdir(tmpdir: pathlib.Path):
     os.chdir(tmpdir)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def destroy_process_group():
+    """Teardown any existing process groups between tests."""
+    yield
+    if distributed.is_available() and distributed.is_initialized():
+        distributed.destroy_process_group()
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
