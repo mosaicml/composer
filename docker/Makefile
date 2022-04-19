@@ -38,8 +38,8 @@ TARGET ?= pytorch_stage
 MMCV_VERSION ?= '1.4.4'
 MMCV_TORCH_VERSION ?= 'torch1.10.0'
 
-MOFED_VERSION ?= '5.5-1.0.3.2'
-MOFED_OS_VERSION ?= 'ubuntu20.04-x86_64'
+MOFED_VERSION ?= ''
+MOFED_OS_VERSION ?= ''
 
 .PHONY: build pytorch composer
 
