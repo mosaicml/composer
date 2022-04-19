@@ -349,7 +349,7 @@ stage('Build') {
                 sh "mkdir -p $buildOutputFolder"
 
                 archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
-                junit(allowEmptyResults: true, testResults: junitGlob)
+                junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Jenkins')
                 publishCoverage(
                     adapters: [cobertura(path: coverageGlob, mergeToOneReport: true)],
                     calculateDiffForChangeRequests: true,
