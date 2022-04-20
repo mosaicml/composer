@@ -5,13 +5,12 @@
 import copy
 import itertools
 import logging
-from typing import List, Optional, Tuple, Union
+from typing import Optional
 
 import torch
 
 from composer.core import Algorithm, Event, State, Time, TimeUnit
 from composer.loggers import Logger
-from composer.models import ComposerModel
 
 log = logging.getLogger(__name__)
 
@@ -117,11 +116,13 @@ class EMA(Algorithm):
         # Create the update interval if none is specified
         if self.update_interval is None:
             self.update_interval = Time(1, self.half_life.unit)
-        else:
+        elif type(update_interval) is str:
             try:
                 self.update_interval = Time.from_timestring(update_interval)
             except ValueError as error:
                 raise ValueError(f"Invalid time string for parameter update_interval") from error
+        else:
+            raise ValueError(f"update_interval must be None or a time string.")
 
         # Verify that the units of half_life and update_interval are compatible
         if self.half_life.unit != self.update_interval.unit:
@@ -146,14 +147,17 @@ class EMA(Algorithm):
         return event in self.match_events
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
+        assert isinstance(self.update_interval, Time)
+
         if event == Event.FIT_START:
             # Initialize the ema model
             if self.ema_model is None:
                 self.ema_model = copy.deepcopy(state.model)
-            if self.training_model is None:
+            if self.training_model is None and self.train_with_ema_weights is False:
                 self.training_model = copy.deepcopy(state.model)
 
         if self.train_with_ema_weights:
+            assert self.ema_model is not None, "ema_model should be set on Event.FIT_START"
             if event in [Event.BATCH_END, Event.EPOCH_END]:
                 # Check if an update should happen
                 if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
@@ -162,6 +166,8 @@ class EMA(Algorithm):
                     # Use the ema weights for further training
                     state.model.load_state_dict(self.ema_model.state_dict())
         else:
+            assert self.ema_model is not None, "ema_model should be set on Event.FIT_START"
+            assert self.training_model is not None, "training_model should be set on Event.FIT_START"
             if event in [Event.BATCH_END, Event.EPOCH_END]:
                 # Check if an update should happen
                 if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
