@@ -57,6 +57,7 @@ addopts = "--strict-markers -m 'not notebooks and not gpu and not vision'"
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
 timeout = 2
 markers = [
+    # !!!!!!!!!!!IMPORTANT!!!!!!!!!: when updating the markers, also make sure to update .ci/Jenkinsfile and meta.yaml
     # Tests that require a world_size of two should be annotated with `@pytest.mark.world_size(2)`.
     # If not specified, the test will be assumed to have a world-size of one, which is
     # equivalent to `@pytest.mark.world_size(1)`
