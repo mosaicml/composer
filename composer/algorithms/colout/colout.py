@@ -68,9 +68,9 @@ def colout_batch(input: ImgT,
             ``CHW`` or a batch of images of shape ``NCHW``.
         target (PIL.Image.Image | torch.Tensor): Target data. When a tensor, colout is only applied to this object if
             it is at least 3 dimensional and has the same spatial dimensions as ``input``. Default: ``None``.
-        p_row (float): Fraction of rows to drop (drop along H). Default: ``0.15``.
-        p_col (float): Fraction of columns to drop (drop along W). Default: ``0.15``.
-        resize_target (bool | str): Whether to resize the target in addition to the input. If set to 'auto', resizing
+        p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
+        p_col (float, optional): Fraction of columns to drop (drop along W). Default: ``0.15``.
+        resize_target (bool | str, optional): Whether to resize the target in addition to the input. If set to 'auto', resizing
             the target will be based on if the target has the same spatial dimensions as the input. Default: ``auto``.
 
     Returns:
@@ -137,8 +137,10 @@ class ColOutTransform:
             transforms = transforms.Compose([colout_transform, transforms.ToTensor()])
 
     Args:
-        p_row (float): Fraction of rows to drop (drop along H). Default: ``0.15``.
-        p_col (float): Fraction of columns to drop (drop along W). Default: ``0.15``.
+        p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
+        p_col (float, optional): Fraction of columns to drop (drop along W). Default: ``0.15``.
+        resize_target (bool | str, optional): Whether to resize the target in addition to the input. If set to 'auto', resizing
+            the target will be based on if the target has the same spatial dimensions as the input. Default: ``auto``.
     """
 
     def __init__(self, p_row: float = 0.15, p_col: float = 0.15, resize_target: Union[bool, str] = 'auto'):
@@ -150,16 +152,17 @@ class ColOutTransform:
         """Drops random rows and columns from up to two images.
 
         Args:
-            sample (torch.Tensor | PIL.Image | Sequence[torch.Tensor | PIL.Image]): A single image or a sequence of
-                two images as either torch.Tensor or PIL.Image.
+            sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]):
+                A single image or a 2-tuple of images as either torch.Tensor or PIL.Image.
 
         Returns:
-            torch.Tensor | PIL.Image | Sequence[torch.Tensor | PIL.Image: A smaller image or sequence of images with
-                random rows and columns dropped.
+            torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:
+                A smaller image or a 2-tuple of images with random rows and columns dropped.
         """
+
         sample = ensure_tuple(sample)
 
-        if len(sample) == 1 or self.resize_target is False:
+        if len(sample) == 1:
             img = sample[0]
             sample, _ = colout_batch(img, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
 
@@ -205,7 +208,8 @@ class ColOut(Algorithm):
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
         p_col (float, optional): Fraction of columns to drop (drop along W). Default: ``0.15``.
         batch (bool, optional): Run ColOut at the batch level. Default: ``True``.
-        resize_target (bool, optional): If True, resize target also. Default: ``False``.
+        resize_target (bool | str, optional): Whether to resize the target in addition to the input. If set to 'auto', resizing
+            the target will be based on if the target has the same spatial dimensions as the input. Default: ``auto``.
     """
 
     def __init__(self,
@@ -255,7 +259,7 @@ class ColOut(Algorithm):
         """Transform a batch of images using the ColOut augmentation."""
         inputs, target = state.batch_pair
         assert isinstance(inputs, Tensor) and isinstance(target, Tensor), \
-            "Inputs and targets must be of type torch.Tensor for batch-wise ColOut"
+            "Inputs and target must be of type torch.Tensor for batch-wise ColOut"
 
         state.batch = colout_batch(inputs, target, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
 
