@@ -2,7 +2,7 @@
 
 """Exponential moving average maintains a moving average of model parameters and uses these at test time.
 
-See the :doc:`Method Card </method_cards/exponential_moving_average>` for more details.
+See the :doc:`Method Card </method_cards/ema>` for more details.
 """
 
 from composer.algorithms.ema.ema import EMA as EMA
