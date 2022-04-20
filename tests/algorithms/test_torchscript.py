@@ -2,8 +2,8 @@ import pytest
 import torch
 from torchvision.models import resnet50
 
-from composer.functional import (apply_blurpool, apply_factorization, apply_ghost_batchnorm, apply_squeeze_excite,
-                                 apply_stochastic_depth)
+from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
+                                 apply_squeeze_excite, apply_stochastic_depth)
 
 algo_kwargs = {apply_stochastic_depth: {'stochastic_method': 'block', 'target_layer_name': 'ResNetBottleneck'}}
 
@@ -19,6 +19,7 @@ def input():
     pytest.param(apply_ghost_batchnorm, marks=pytest.mark.xfail),
     pytest.param(apply_squeeze_excite),
     pytest.param(apply_stochastic_depth, marks=pytest.mark.xfail),
+    pytest.param(apply_channels_last)
 ])
 @pytest.mark.timeout(5)
 def test_surgery_torchscript_train(surgery_method, input):
@@ -26,7 +27,7 @@ def test_surgery_torchscript_train(surgery_method, input):
     model = resnet50()
     kwargs = algo_kwargs.get(surgery_method, {})
 
-    model = surgery_method(model, **kwargs)
+    surgery_method(model, **kwargs)
     model.train()
 
     scripted_func = torch.jit.script(model)
@@ -41,6 +42,7 @@ def test_surgery_torchscript_train(surgery_method, input):
     pytest.param(apply_ghost_batchnorm, marks=pytest.mark.xfail),
     pytest.param(apply_squeeze_excite),
     pytest.param(apply_stochastic_depth),
+    pytest.param(apply_channels_last)
 ])
 @pytest.mark.timeout(5)
 def test_surgery_torchscript_eval(surgery_method, input):
@@ -48,7 +50,7 @@ def test_surgery_torchscript_eval(surgery_method, input):
     model = resnet50()
     kwargs = algo_kwargs.get(surgery_method, {})
 
-    model = surgery_method(model, **kwargs)
+    surgery_method(model, **kwargs)
     model.eval()
 
     scripted_func = torch.jit.script(model)
