@@ -86,7 +86,7 @@ void runLint(String pDockerImage) {
             string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
             string(name: 'P_TIMEOUT', value: pTimeout),
             string(name: 'P_CPU_LIMIT', value: '2'),
-            string(name: 'P_MEM_LIMIT', value: '4Gi'),
+            string(name: 'P_MEM_LIMIT', value: '7Gi'), // must include the ephemeral storage limit
             string(name: 'P_COMMAND', value: './.ci/lint_doctests.sh'),
             string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
             string(name: 'P_JUNIT_GLOB', value: junitGlob),
@@ -101,13 +101,11 @@ void runPytest(String pDockerImage, String markers, String extraDeps, Boolean is
     // markers (str): Pyetst markers
     // isGpu (Boolean): Whether the test requires gpus
     String nGpus = '0'
-    String memLimit = '4Gi'
     String cpuLimit = '2'
 
     if (isGpu) {
         nGpus = '2'
         cpuLimit = '16' // 8 cpu per gpu
-        memLimit = '15Gi'  // 7.5Gb per gpu
     }
 
     trackBuild(
@@ -118,10 +116,10 @@ void runPytest(String pDockerImage, String markers, String extraDeps, Boolean is
             string(name: 'P_GIT_COMMIT', value: gitCommit),
             string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
             string(name: 'P_CPU_LIMIT', value: cpuLimit),
-            string(name: 'P_MEM_LIMIT', value: memLimit),
+            string(name: 'P_MEM_LIMIT', value: '30Gi'),  // must include the ephemeral storage limit
             string(name: 'P_TIMEOUT', value: pTimeout),
             string(name: 'P_N_GPUS', value: nGpus),
-            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
+            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '30Gi'),
             text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
             string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
             string(name: 'P_JUNIT_GLOB', value: junitGlob),
@@ -198,11 +196,11 @@ stage('Build') {
                         string(name: 'P_GIT_REPO', value: gitUrl),
                         string(name: 'P_GIT_COMMIT', value: gitCommit),
                         string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
-                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '30Gi'),
                         text(name: 'P_COMMAND', value: command),
                         string(name: 'P_TIMEOUT', value: pTimeoutDocker),
                         string(name: 'P_CPU_LIMIT', value: '4'),
-                        string(name: 'P_MEM_LIMIT', value: '15Gi'),
+                        string(name: 'P_MEM_LIMIT', value: '30Gi'),  // must include the ephemeral storage limit
                         booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
@@ -319,11 +317,11 @@ stage('Build') {
                         string(name: 'P_CLOUD', value: pCloud),
                         string(name: 'P_GIT_REPO', value: gitUrl),
                         string(name: 'P_GIT_COMMIT', value: gitCommit),
-                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '30Gi'),
                         string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
                         string(name: 'P_TIMEOUT', value: '3600'), // Conda builds take longer
                         string(name: 'P_CPU_LIMIT', value: '4'),
-                        string(name: 'P_MEM_LIMIT', value: '8Gi'),
+                        string(name: 'P_MEM_LIMIT', value: '30Gi'),  // must include the ephemeral storage limit
                         string(name: 'P_COMMAND', value: './.ci/build_conda.sh')
                     ]
                 )
