@@ -2,6 +2,7 @@ pCloud = "colo-research-01"
 gitUrl = null
 gitBranch = null
 gitCommit = null
+pTimeoutDocker = '3600'
 pTimeout = '1800' // in seconds
 dependenciesChanged = null
 pytorchDockerBuildMatrix = null
@@ -85,7 +86,10 @@ def runLint(pDockerImage) {
             string(name: 'P_TIMEOUT', value: pTimeout),
             string(name: 'P_CPU_LIMIT', value: "2"),
             string(name: 'P_MEM_LIMIT', value: "4Gi"),
-            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
+            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh"),
+            string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
+            string(name: 'P_JUNIT_GLOB', value: junitGlob),
+            string(name: 'P_COVERAGE_GLOB', value: coverageGlob),
         ]
     )
 }
@@ -129,11 +133,15 @@ def runPytest(pDockerImage, markers, extraDeps, isGpu) {
 
 stage('Prepare') {
     node (pCloud) {
-        // Automatically cancel old builds
+        // Automatically cancel old builds only on PR builds
         // From https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
-        def buildNumber = env.BUILD_NUMBER as int
-        if (buildNumber > 1) milestone(buildNumber - 1)
-        milestone(buildNumber)
+        if (env.CHANGE_ID) {  // if it is a PR build
+            def buildNumber = env.BUILD_NUMBER as int
+            if (buildNumber > 1) {
+                milestone(buildNumber - 1)
+            }
+            milestone(buildNumber)
+        }
 
         def loadedSCM = checkout scm
 
@@ -191,7 +199,7 @@ stage('Build') {
                         string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
                         text(name: 'P_COMMAND', value: command),
-                        string(name: 'P_TIMEOUT', value: pTimeout),
+                        string(name: 'P_TIMEOUT', value: pTimeoutDocker),
                         string(name: 'P_CPU_LIMIT', value: '4'),
                         string(name: 'P_MEM_LIMIT', value: '15Gi'),
                     ]
@@ -345,7 +353,7 @@ stage('Build') {
                 sh "mkdir -p $buildOutputFolder"
 
                 archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
-                junit(allowEmptyResults: true, testResults: junitGlob)
+                junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests')
                 publishCoverage(
                     adapters: [cobertura(path: coverageGlob, mergeToOneReport: true)],
                     calculateDiffForChangeRequests: true,

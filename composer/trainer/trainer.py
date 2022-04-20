@@ -69,9 +69,10 @@ import datetime
 import itertools
 import logging
 import pathlib
+import sys
 import textwrap
 import warnings
-from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import torch
 import torch.distributed
@@ -223,6 +224,26 @@ class Trainer:
             If ``None``, will be set to ``[ProgressBarLogger()]``. (default: ``None``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
+
+        progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
+
+        log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
+
+            The default behavior (when set to ``None``) only prints logging statements when ``show_pbar`` is ``False``.
+
+        console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level which
+            should be printed to the console. (default: :attr:`.LogLevel.EPOCH`)
+
+            It can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable
+            that takes the training :class:`.State` and the :class:`.LogLevel` and returns a boolean of whether this
+            statement should be printed.
+
+            This parameter has no effect if ``log_to_console`` is ``False``, or is unspecified and ``progres_bar`` is
+            ``True``.
+
+        console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
+            ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
+
         callbacks (Callback | Sequence[Callback], optional): The callbacks to run during training. If ``None``,
             then no callbacks will be run. (default: ``None``).
 
@@ -331,10 +352,22 @@ class Trainer:
 
             .. seealso:: :class:`~.CheckpointSaver`
 
+        save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
+            This parameter has no effect if ``save_folder`` is ``None``.
+            (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
-            To disable symlinking, set to ``None``. (default: ``"latest-rank{rank}"``)
+            To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}"``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
+        save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
+            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
+            To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
@@ -485,6 +518,10 @@ class Trainer:
         run_name: Optional[str] = None,
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
         callbacks: Union[Callback, Sequence[Callback]] = tuple(),
+        progress_bar: bool = True,
+        log_to_console: Optional[bool] = None,
+        console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
+        console_stream: Union[str, TextIO] = sys.stderr,
 
         # load checkpoint
         load_path: Optional[str] = None,
@@ -499,6 +536,7 @@ class Trainer:
         save_filename: str = "ep{epoch}-ba{batch}-rank{rank}",
         save_artifact_name: str = "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
         save_latest_filename: str = "latest-rank{rank}",
+        save_latest_artifact_name: str = "{run_name}/checkpoints/latest-rank{rank}",
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,
@@ -760,8 +798,25 @@ class Trainer:
             # Append the trace handlers at the end, so profilers will log events before the traces are written.
             self.state.callbacks.extend(self.state.profiler.trace_handlers)
 
-        if loggers is None:
-            loggers = [ProgressBarLogger()]
+        loggers = list(ensure_tuple(loggers))
+
+        if any(isinstance(x, ProgressBarLogger) for x in loggers):
+            warnings.warn(
+                DeprecationWarning(
+                    (f"Specifying the {type(ProgressBarLogger).__name__} via `loggers` is deprecated. Instead, "
+                     "please specify `progress_bar`, `log_to_console`, `log_level`, and `stream` arguments when "
+                     "constructing the trainer. If specified, these arguments will be ignored, as the "
+                     f"{type(ProgressBarLogger).__name__} was already created.")))
+
+        else:
+            loggers.append(
+                ProgressBarLogger(
+                    progress_bar=progress_bar,
+                    log_to_console=log_to_console,
+                    console_log_level=console_log_level,
+                    stream=console_stream,
+                ))
+
         self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
         self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
@@ -772,6 +827,7 @@ class Trainer:
                 filename=save_filename,
                 artifact_name=save_artifact_name,
                 latest_filename=save_latest_filename,
+                latest_artifact_name=save_latest_artifact_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
@@ -809,6 +865,7 @@ class Trainer:
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
         self.state.set_dataloader(train_dataloader.dataloader, 'train', train_subset_num_batches)
         self.state.max_duration = max_duration
+        self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
