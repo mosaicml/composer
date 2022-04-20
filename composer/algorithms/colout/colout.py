@@ -119,7 +119,7 @@ def colout_batch(input: ImgT,
 
         return X_colout, Y_colout
 
-    return X_colout, target
+    return X_colout
 
 
 class ColOutTransform:
@@ -164,7 +164,7 @@ class ColOutTransform:
 
         if len(sample) == 1:
             img = sample[0]
-            sample, _ = colout_batch(img, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
+            sample = colout_batch(img, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
 
         elif len(sample) == 2:
             img, target = sample[0], sample[1]
@@ -261,7 +261,13 @@ class ColOut(Algorithm):
         assert isinstance(inputs, Tensor) and isinstance(target, Tensor), \
             "Inputs and target must be of type torch.Tensor for batch-wise ColOut"
 
-        state.batch = colout_batch(inputs, target, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
+        resize_target = _should_resize_target(inputs, target, resize_target=self.resize_target)
+        colout_result = colout_batch(inputs, target, p_row=self.p_row, p_col=self.p_col, resize_target=resize_target)
+
+        if resize_target:
+            state.batch = colout_result
+        else:
+            state.batch = (colout_result, target)
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         if self.batch:
