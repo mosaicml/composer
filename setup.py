@@ -31,6 +31,7 @@ class develop(develop_orig):
 # From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
 site.ENABLE_USER_SITE = _IS_USER
 
+
 def package_files(prefix: str, directory: str, extension: str):
     # from https://stackoverflow.com/a/36693250
     paths = []
@@ -39,6 +40,7 @@ def package_files(prefix: str, directory: str, extension: str):
             if filename.endswith(extension):
                 paths.append(os.path.relpath(os.path.join(path, filename), prefix))
     return paths
+
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -158,7 +160,7 @@ composer_data_files += package_files("composer", "yamls", ".yaml")
 composer_data_files += package_files("composer", "algorithms", ".json")
 
 setup(name="mosaicml",
-      version="0.4.0",
+      version="0.6.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="Composer provides well-engineered implementations of efficient training methods to give "
