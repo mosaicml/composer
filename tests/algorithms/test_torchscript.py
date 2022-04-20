@@ -36,9 +36,10 @@ def test_surgery_torchscript_train(surgery_method, input):
     kwargs = algo_kwargs.get(surgery_method, {})
 
     surgery_method(model, **kwargs)
-    model.train()
 
     scripted_func = torch.jit.script(model)
+    scripted_func.train()  # type: ignore (third-party)
+    model.train()
     torch.testing.assert_allclose(scripted_func(input), model(input))  # type: ignore (third-party)
 
 
@@ -57,7 +58,8 @@ def test_surgery_torchscript_eval(surgery_method, input):
     kwargs = algo_kwargs.get(surgery_method, {})
 
     surgery_method(model, **kwargs)
-    model.eval()
 
     scripted_func = torch.jit.script(model)
+    scripted_func.eval()  # type: ignore (third-party)
+    model.eval()
     torch.testing.assert_allclose(scripted_func(input), model(input))  # type: ignore (third-party)
