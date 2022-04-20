@@ -219,6 +219,13 @@ class TestColOutFunctional:
         assert isinstance(new_batch, torch.Tensor)
         verify_shape_batch(fake_image_batch, new_batch, p_row, p_col)
 
+    def test_batch_pair_drop_size(self, fake_image_batch: torch.Tensor, p_row: float, p_col: float):
+        colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
+        sample = (fake_image_batch, fake_image_batch)
+        new_batch = colout(sample)
+        assert isinstance(new_batch[0], torch.Tensor) and isinstance(new_batch[1], torch.Tensor)
+        verify_shape_batch_pair(sample, new_batch, p_row, p_col)
+
     @pytest.mark.parametrize("p_col", [0.05, 0.25])
     def test_rectangle_batch_drop_size(self, fake_image_batch: torch.Tensor, p_row: float, p_col: float):
         """Test that unequal values of p_row and p_col work properly."""

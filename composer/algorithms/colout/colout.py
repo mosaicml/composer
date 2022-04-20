@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from typing import Optional, Tuple, TypeVar, Union
+from typing import Tuple, TypeVar, Union
 
 import torch
 from PIL.Image import Image as PillowImage
@@ -27,18 +27,24 @@ ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 __all__ = ["ColOut", "ColOutTransform", "colout_batch"]
 
 
-def _should_resize_target(input: ImgT, target: Optional[ImgT], resize_target: Union[bool, str]):
-    """ Helper function to determine if the target should be resized based on ``resize_target`` and if ``input`` and
-        ``target`` have the same spatial size."""
+def _should_resize_target(sample: Union[ImgT, Tuple[ImgT, ImgT]], resize_target: Union[bool, str]):
+    """ Helper function to determine if both objects in the tuple should be resized. Decision is based on
+        ``resize_target`` and if both objects in the tuple have the same spatial size."""
+
+    sample = ensure_tuple(sample)
+    if len(sample) > 2:
+        raise ValueError("sample must either be single object or a tuple with a max length of 2")
+    input = sample[0]
 
     if isinstance(resize_target, bool):
         return resize_target
 
-    if target is None:
+    if len(sample) == 1:
         return False
 
     if isinstance(resize_target, str) and resize_target.lower() == 'auto':
         input_size = input.shape[-2:] if isinstance(input, torch.Tensor) else input.size[::-1]
+        target = sample[1]
         if isinstance(target, PillowImage):
             return target.size[::-1] == input_size
         else:
@@ -47,8 +53,7 @@ def _should_resize_target(input: ImgT, target: Optional[ImgT], resize_target: Un
     raise ValueError("resize_target must either be a boolean or 'auto'")
 
 
-def colout_batch(input: ImgT,
-                 target: Optional[ImgT] = None,
+def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
                  p_row: float = 0.15,
                  p_col: float = 0.15,
                  resize_target: Union[bool, str] = 'auto') -> Union[ImgT, Tuple[ImgT, ImgT]]:
@@ -64,20 +69,24 @@ def colout_batch(input: ImgT,
             new_X = colout_batch(X_example, p_row=0.15, p_col=0.15)
 
     Args:
-        input (PIL.Image.Image | torch.Tensor): Image data. When a tensor, must be a single image of shape
-            ``CHW`` or a batch of images of shape ``NCHW``.
-        target (PIL.Image.Image | torch.Tensor): Target data. When a tensor, colout is only applied to this object if
-            it is at least 3 dimensional and has the same spatial dimensions as ``input``. Default: ``None``.
+        sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:):
+            Either a single tensor or image or a 2-tuple of tensors or images. When tensor(s), the tensor must be of shape
+            ``CHW`` for a single image or ``NCHW`` for a batch of images of shape.
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
         p_col (float, optional): Fraction of columns to drop (drop along W). Default: ``0.15``.
-        resize_target (bool | str, optional): Whether to resize the target in addition to the input. If set to 'auto', resizing
-            the target will be based on if the target has the same spatial dimensions as the input. Default: ``auto``.
+        resize_target (bool | str, optional): If ``sample`` is a tuple, whether to resize both objects in the tuple.
+            If set to 'auto', resizing both objects will be based on if the objects hav the same spatial dimensions.
+            Otherwise, only the first object is resized. Default: ``auto``.
 
     Returns:
-        X_colout (torch.Tensor): Input batch tensor with randomly dropped columns and rows.
-        Y_colout (torch.Tensor): If resizing ``target``, target batch tensor with randomly dropped columns and rows.
-            If not resizing ``target``, ``target`` is returned unchanged.
+        torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:
+                A smaller image or 2-tuple of images with random rows and columns dropped.
     """
+
+    sample = ensure_tuple(sample)
+    if len(sample) > 2:
+        raise ValueError("sample must either be single object or a tuple with a max length of 2")
+    input = sample[0]
 
     # Convert image to Tensor if needed
     X_tensor = image_as_type(input, torch.Tensor)
@@ -104,9 +113,10 @@ def colout_batch(input: ImgT,
         X_colout = X_colout.reshape(X_colout.shape[-3:])
     X_colout = image_as_type(X_colout, type(input))
 
-    resize_target = _should_resize_target(input, target, resize_target)
+    resize_target = _should_resize_target(sample, resize_target)
 
     if resize_target:
+        target = sample[1]
         Y_tensor = image_as_type(target, torch.Tensor)
         Y_colout = Y_tensor[..., kept_row_idx, :]
         Y_colout = Y_colout[..., :, kept_col_idx]
@@ -157,23 +167,14 @@ class ColOutTransform:
 
         Returns:
             torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:
-                A smaller image or a 2-tuple of images with random rows and columns dropped.
+                A smaller image or 2-tuple of images with random rows and columns dropped.
         """
 
         sample = ensure_tuple(sample)
-
-        if len(sample) == 1:
-            img = sample[0]
-            sample = colout_batch(img, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
-
-        elif len(sample) == 2:
-            img, target = sample[0], sample[1]
-            sample = colout_batch(img, target, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
-
-        elif len(sample) > 2:
+        if len(sample) > 2:
             raise ValueError(f"Colout transform does not support sample tuple of length {len(sample)} > 2")
 
-        return sample
+        return colout_batch(sample, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
 
 
 class ColOut(Algorithm):
@@ -261,9 +262,11 @@ class ColOut(Algorithm):
         assert isinstance(inputs, Tensor) and isinstance(target, Tensor), \
             "Inputs and target must be of type torch.Tensor for batch-wise ColOut"
 
-        resize_target = _should_resize_target(inputs, target, resize_target=self.resize_target)
-        colout_result = colout_batch(inputs, target, p_row=self.p_row, p_col=self.p_col, resize_target=resize_target)
+        sample = (inputs, target)
+        resize_target = _should_resize_target(sample, resize_target=self.resize_target)
+        colout_result = colout_batch(sample, p_row=self.p_row, p_col=self.p_col, resize_target=resize_target)
 
+        # colout_result will be a tuple if the targets are resized and a single object otherwise
         if resize_target:
             state.batch = colout_result
         else:
