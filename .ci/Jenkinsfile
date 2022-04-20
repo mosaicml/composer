@@ -2,6 +2,7 @@ pCloud = "colo-research-01"
 gitUrl = null
 gitBranch = null
 gitCommit = null
+pTimeoutDocker = '3600'
 pTimeout = '1800' // in seconds
 dependenciesChanged = null
 pytorchDockerBuildMatrix = null
@@ -198,7 +199,7 @@ stage('Build') {
                         string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
                         text(name: 'P_COMMAND', value: command),
-                        string(name: 'P_TIMEOUT', value: pTimeout),
+                        string(name: 'P_TIMEOUT', value: pTimeoutDocker),
                         string(name: 'P_CPU_LIMIT', value: '4'),
                         string(name: 'P_MEM_LIMIT', value: '15Gi'),
                     ]
