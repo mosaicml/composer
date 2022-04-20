@@ -94,13 +94,12 @@ def select_using_loss(input: torch.Tensor,
         If you are using a non-default precision, ensure that this forward pass
         runs in your desired precision. For example:
 
-    .. testsetup::
+    .. doctest::
+    
         N_sb, D_sb = 16, 8
         X_sb, y_sb = torch.randn(N_sb, D_sb), torch.randint(2, (N_sb,))
         lin_model = torch.nn.Linear(X_sb.shape[1], 1)
         loss_fun = lambda output, target reduction="none" : torch.ones_like(target)
-
-    .. doctest::
 
         from composer.algorithms.selective_backprop import select_using_loss
         with torch.cuda.amp.autocast(True):
