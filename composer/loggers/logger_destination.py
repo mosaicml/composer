@@ -30,13 +30,14 @@ class LoggerDestination(Callback, ABC):
         >>> from composer.loggers import LoggerDestination
         >>> class MyLogger(LoggerDestination):
         ...     def log_data(self, state, log_level, data):
-        ...         print(f'Batch {int(state.timer.batch)}: {log_level} {data}')
+        ...         print(f'Batch {int(state.timer.batch)}: {data}')
         >>> logger = MyLogger()
         >>> trainer = Trainer(
         ...     ...,
         ...     loggers=[logger]
         ... )
-    
+        Batch 0: {'rank_zero_seed': ...}
+
     .. testcleanup::
 
         trainer.engine.close()

@@ -153,7 +153,6 @@ class _GhostBatchNorm(torch.nn.Module):
         super().__init__()
         self.ghost_batch_size = ghost_batch_size
         self.batchnorm = base_batchnorm
-        self.current_nchunks: Optional[int] = None
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # type: ignore
         batch_size = input.shape[0]
