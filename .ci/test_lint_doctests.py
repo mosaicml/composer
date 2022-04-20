@@ -1,7 +1,7 @@
 # Pytest stub for running lint tests and doctests
+
 # Running these checks through pytest allows us to report any errors in Junit format,
-# which is posted directly on the PR, and ensure that coverage reports capture any
-# additional coverage from doctests
+# which is posted directly on the PR
 
 import subprocess
 import os
