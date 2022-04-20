@@ -4,7 +4,7 @@ import dataclasses
 
 import pytest
 
-from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
+from composer.algorithms import (AGCHparams, AlgorithmHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
                                  ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams, GhostBatchNormHparams,
                                  LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
                                  ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, ScaleScheduleHparams,
@@ -13,6 +13,9 @@ from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, 
 from composer.core.algorithm import Algorithm
 
 default_required_fields = {
+    AGCHparams: {'clipping_threshold': 0.01, 
+                 'eps': 1e-3
+    },
     AlibiHparams: {
         'position_embedding_attribute': 'module.transformer.wpe',
         'attention_module_name': 'transformers.models.gpt2.modeling_gpt2.GPT2Attention',
