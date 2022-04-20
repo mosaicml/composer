@@ -5,7 +5,7 @@
 
  `Computer Vision`
 
-Progressive Resizing works by initially training on images that have been downsampled to a smaller size. It slowly grows the images back to their full size by a set point in training and uses full-size images for the remainder of training. Progressive resizing reduces costs during the early phase of training, when the network may learn coarse-grained features that do not require details lost by reducing image resolution.
+Progressive Resizing works by initially training on images that have been downsampled to a smaller size. It slowly grows the images back to their full size by a set point in training and uses full-size images for the remainder of training. Progressive resizing reduces costs during the early phase of training when the network may learn coarse-grained features that do not require details lost by reducing image resolution.
 
 | ![ProgressiveResizing](https://storage.googleapis.com/docs.mosaicml.com/images/methods/progressive_resizing_vision.png) |
 |:--|
@@ -55,14 +55,14 @@ TODO(Cory): A brief description of how this works under the hood.-->
 
 ## Suggested Hyperparameters
 
-We found `initial_scale = 0.5` (starting training on images where each side length has been reduced by 50%) and `finetune_fraction = 0.2` (reserving the final 20% of training for full-sized images) to work well on ResNet-50 on ImageNet.
+We found `initial_scale = 0.5` (starting training on images where each side length has been reduced by 50%) and `finetune_fraction = 0.2` (reserving the final 20% of training for full-sized images) to work well for ResNet-50 on ImageNet.
 These are the hyperparameters we used for our runs in the [MosaicML Explorer](https://app.mosaicml.com/explorer/imagenet).
 
 ## Technical Details
 
 When using Progressive Resizing, the early steps of training run faster than the later steps of training (which run at the original speed), since the smaller images reduce the amount of computation that the network must perform.
 Ideally, generalization performance is not impacted much by Progressive Resizing, but this depends on the specific dataset, network architecture, task, and hyperparameters.
-In our experience with ResNets on ImageNet, Progressive resizing improves training speed (as measured by wall clock time) with limited effects on classification accuracy.
+In our experience with ResNets on ImageNet, Progressive Resizing improves training speed (as measured by wall clock time) with limited effects on classification accuracy.
 
 > ✅ Progressive Resizing Improves the Tradeoff Between Quality and Training Speed
 > 
@@ -81,7 +81,7 @@ Progressive Resizing requires that the network architecture be capable of handli
 > Progressive resizing increases training throughput during the pre-training phase, when images are smaller, and especially so during the earliest parts of training.
 > It is possible that this increased throughput may lead other parts of the training pipeline, such as data loading or CPU image processing, to become bottlenecks during the early part of training.
 
-Additionally, while we have not investigated this, Progressive Resizing may also change how sensitive the network is to different sizes of objects, or how biased the network is in favor of shape or texture.
+Additionally, while we have not investigated this, Progressive Resizing may also change how sensitive the network is to different sizes of objects or how biased the network is in favor of shape or texture.
 
 Progressive Resizing will interact with other methods that change the size of the inputs, such as Selective Backprop with downsampling and ColOut
 
