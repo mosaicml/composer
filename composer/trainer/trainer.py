@@ -870,6 +870,14 @@ class Trainer:
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 
+        # Compile and bind the schedulers
+        for scheduler in ensure_tuple(schedulers):
+            if isinstance(scheduler, PyTorchScheduler):
+                scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
+                self.state.schedulers.append(scheduler)
+            else:  # it's a composer scheduler
+                self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
+
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
             try:
@@ -887,21 +895,18 @@ class Trainer:
                 model=self.state.model,
                 optimizer=optimizer,
             )
-            # The deepspeed engine is responsible for serializing the model and optimizer state,
+            # Since the DeepSpeed ZeRO optimizer does not inherit torch.optim.Optimizer, the schedulers must be
+            # compiled and bound BEFORE DeepSpeed initialization. However, this is OK, as the the DeepSpeed Zero
+            # optimizer uses the same underlying parameter groups as the original optimizer. See
+            # * https://github.com/microsoft/DeepSpeed/blob/fee73135980e78f8be7e1a3ff556751623ef6aaa/deepspeed/runtime/zero/stage_1_and_2.py#L1911-L1917
+            # * https://github.com/microsoft/DeepSpeed/blob/ef17c89570ceae5b26a5f886e9d8cd0941afc0ac/deepspeed/runtime/zero/stage3.py#L2532-L2538
+            # In addition, the deepspeed engine is responsible for serializing the model and optimizer state,
             # so these attributes should not be serialized with the composer state.
             if "model" in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove("model")
 
             if "optimizers" in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove("optimizers")
-
-        # Compile and bind the schedulers, after deepspeed might have potentially changed the Optimizers
-        for scheduler in ensure_tuple(schedulers):
-            if isinstance(scheduler, PyTorchScheduler):
-                scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
-                self.state.schedulers.append(scheduler)
-            else:  # it's a composer scheduler
-                self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
 
         # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
         # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
