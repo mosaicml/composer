@@ -1,263 +1,152 @@
-# File format: List of list of key/value pairs
-# Each key/value pair will be passed to the dockerfile as a build arg
-# The "TAG" and "TARGET" keys are special.
-# The `TARGET` specifies the ocker image stage that will be built.
-# On a merge into `dev` or `main`, the image will be pushed to each of the destinations as specified by `TAG`
+# File format: List of key/value dicts, where each dict represents one dockerimage build
+# The value for each dict should be a string, except for TAGs, which should be a list,
+# since an image can have multiple tags
+
+# Each key/value element, except for TAG and TARGET, will be passed to the dockerfile as a build arg.
+# TAG and TARGET are used as follows:
+  # TAG: On a merge into `dev` or `main`, the image will be pushed to each of the destinations as specified by `TAG`
+  # TARGET: The `TARGET` specifies the docker image stage that will be built.
 
 # IMPORTANT: For gcp and A100s, the base image must be the `devel` version, not the runtime version
 
 # `mosaicml/pytorch` images
-- - key: TAG
-    value: mosaicml/pytorch:1.9.1_cu111-python3.7-ubuntu20.04
-  - key: BASE_IMAGE
-    value: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
-  - key: PYTHON_VERSION
-    value: '3.7'
-  - key: CUDA_VERSION_TAG
-    value: 'cu111'
-  - key: CUDA_VERSION
-    value: '11.1.1'
-  - key: LINUX_DISTRO
-    value: ubuntu:20.04
-  - key: PYTORCH_VERSION
-    value: '1.9.1'
-  - key: TORCHVISION_VERSION
-    value: '0.10.1'
-  - key: MOFED_VERSION
-    value: '5.5-1.0.3.2'
-  - key: MOFED_OS_VERSION
-    value: ubuntu20.04-x86_64
-  - key: TARGET
-    value: pytorch_stage
-- - key: TAG
-    value: mosaicml/pytorch:1.9.1_cpu-python3.7-ubuntu20.04
-  - key: BASE_IMAGE
-    value: ubuntu:20.04
-  - key: PYTHON_VERSION
-    value: '3.7'
-  - key: CUDA_VERSION_TAG
-    value: cpu
-  - key: CUDA_VERSION
-    value: cpu
-  - key: LINUX_DISTRO
-    value: ubuntu:20.04
-  - key: PYTORCH_VERSION
-    value: '1.9.1'
-  - key: TORCHVISION_VERSION
-    value: '0.10.1'
-  - key: TARGET
-    value: pytorch_stage
-- - key: TAG
-    value: mosaicml/pytorch:1.9.1_cu111-python3.8-ubuntu20.04
-  - key: BASE_IMAGE
-    value: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
-  - key: PYTHON_VERSION
-    value: '3.8'
-  - key: CUDA_VERSION_TAG
-    value: cu111
-  - key: CUDA_VERSION
-    value: 11.1.1
-  - key: LINUX_DISTRO
-    value: ubuntu:20.04
-  - key: PYTORCH_VERSION
-    value: '1.9.1'
-  - key: TORCHVISION_VERSION
-    value: '0.10.1'
-  - key: MOFED_VERSION
-    value: 5.5-1.0.3.2
-  - key: MOFED_OS_VERSION
-    value: ubuntu20.04-x86_64
-  - key: TARGET
-    value: pytorch_stage
-- - key: TAG
-    value: mosaicml/pytorch:1.9.1_cpu-python3.8-ubuntu20.04
-  - key: BASE_IMAGE
-    value: ubuntu:20.04
-  - key: PYTHON_VERSION
-    value: '3.8'
-  - key: CUDA_VERSION_TAG
-    value: cpu
-  - key: CUDA_VERSION
-    value: cpu
-  - key: LINUX_DISTRO
-    value: ubuntu:20.04
-  - key: PYTORCH_VERSION
-    value: '1.9.1'
-  - key: TORCHVISION_VERSION
-    value: '0.10.1'
-  - key: TARGET
-    value: pytorch_stage
-- - key: TAG
-    value: mosaicml/pytorch:1.9.1_cu111-python3.8-ubuntu18.04
-  - key: BASE_IMAGE
-    value: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu18.04
-  - key: PYTHON_VERSION
-    value: '3.8'
-  - key: CUDA_VERSION_TAG
-    value: cu111
-  - key: CUDA_VERSION
-    value: '11.1.1'
-  - key: LINUX_DISTRO
-    value: ubuntu:18.04
-  - key: PYTORCH_VERSION
-    value: '1.9.1'
-  - key: TORCHVISION_VERSION
-    value: '0.10.1'
-  - key: TARGET
-    value: pytorch_stage
-- - key: TAG
-    value: mosaicml/pytorch:1.9.1_cpu-python3.8-ubuntu18.04
-  - key: BASE_IMAGE
-    value: ubuntu:18.04
-  - key: PYTHON_VERSION
-    value: '3.8'
-  - key: CUDA_VERSION_TAG
-    value: cpu
-  - key: CUDA_VERSION
-    value: cpu
-  - key: LINUX_DISTRO
-    value: ubuntu:18.04
-  - key: PYTORCH_VERSION
-    value: '1.9.1'
-  - key: TORCHVISION_VERSION
-    value: '0.10.1'
-  - key: TARGET
-    value: pytorch_stage
-- - key: TAG
-    value: mosaicml/pytorch:1.10.0_cu113-python3.9-ubuntu20.04
-  - key: TAG
-    value: mosaicml/pytorch:latest
-  - key: BASE_IMAGE
-    value: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
-  - key: PYTHON_VERSION
-    value: '3.9'
-  - key: CUDA_VERSION_TAG
-    value: cu113
-  - key: CUDA_VERSION
-    value: '11.3.1'
-  - key: LINUX_DISTRO
-    value: ubuntu:20.04
-  - key: PYTORCH_VERSION
-    value: '1.10.0'
-  - key: TORCHVISION_VERSION
-    value: '0.11.1'
-  - key: MOFED_VERSION
-    value: 5.5-1.0.3.2
-  - key: MOFED_OS_VERSION
-    value: ubuntu20.04-x86_64
-  - key: TARGET
-    value: pytorch_stage
-- - key: TAG
-    value: mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04
-  - key: BASE_IMAGE
-    value: ubuntu:20.04
-  - key: PYTHON_VERSION
-    value: '3.9'
-  - key: CUDA_VERSION_TAG
-    value: cpu
-  - key: CUDA_VERSION
-    value: cpu
-  - key: LINUX_DISTRO
-    value: ubuntu:20.04
-  - key: PYTORCH_VERSION
-    value: '1.10.0'
-  - key: TORCHVISION_VERSION
-    value: '0.11.1'
-  - key: TARGET
-    value: pytorch_stage
-- - key: TAG
-    value: mosaicml/pytorch:1.11.0_cu113-python3.9-ubuntu20.04
-  - key: BASE_IMAGE
-    value: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
-  - key: PYTHON_VERSION
-    value: '3.9'
-  - key: CUDA_VERSION_TAG
-    value: cu113
-  - key: CUDA_VERSION
-    value: '11.3.1'
-  - key: LINUX_DISTRO
-    value: ubuntu:20.04
-  - key: PYTORCH_VERSION
-    value: '1.11.0'
-  - key: TORCHVISION_VERSION
-    value: '0.12.0'
-  - key: MOFED_VERSION
-    value: 5.5-1.0.3.2
-  - key: MOFED_OS_VERSION
-    value: ubuntu20.04-x86_64
-  - key: TARGET
-    value: pytorch_stage
-- - key: TAG
-    value: mosaicml/pytorch:1.11.0_cpu-python3.9-ubuntu20.04
-  - key: BASE_IMAGE
-    value: ubuntu:20.04
-  - key: PYTHON_VERSION
-    value: '3.9'
-  - key: CUDA_VERSION_TAG
-    value: cpu
-  - key: CUDA_VERSION
-    value: cpu
-  - key: LINUX_DISTRO
-    value: ubuntu:20.04
-  - key: PYTORCH_VERSION
-    value: '1.11.0'
-  - key: TORCHVISION_VERSION
-    value: '0.12.0'
-  - key: TARGET
-    value: pytorch_stage
+- BASE_IMAGE: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
+  CUDA_VERSION: 11.1.1
+  CUDA_VERSION_TAG: cu111
+  LINUX_DISTRO: ubuntu:20.04
+  MOFED_OS_VERSION: ubuntu20.04-x86_64
+  MOFED_VERSION: 5.5-1.0.3.2
+  PYTHON_VERSION: '3.7'
+  PYTORCH_VERSION: 1.9.1
+  TAG:
+  - mosaicml/pytorch:1.9.1_cu111-python3.7-ubuntu20.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.10.1
+- BASE_IMAGE: ubuntu:20.04
+  CUDA_VERSION: cpu
+  CUDA_VERSION_TAG: cpu
+  LINUX_DISTRO: ubuntu:20.04
+  PYTHON_VERSION: '3.7'
+  PYTORCH_VERSION: 1.9.1
+  TAG:
+  - mosaicml/pytorch:1.9.1_cpu-python3.7-ubuntu20.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.10.1
+- BASE_IMAGE: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
+  CUDA_VERSION: 11.1.1
+  CUDA_VERSION_TAG: cu111
+  LINUX_DISTRO: ubuntu:20.04
+  MOFED_OS_VERSION: ubuntu20.04-x86_64
+  MOFED_VERSION: 5.5-1.0.3.2
+  PYTHON_VERSION: '3.8'
+  PYTORCH_VERSION: 1.9.1
+  TAG:
+  - mosaicml/pytorch:1.9.1_cu111-python3.8-ubuntu20.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.10.1
+- BASE_IMAGE: ubuntu:20.04
+  CUDA_VERSION: cpu
+  CUDA_VERSION_TAG: cpu
+  LINUX_DISTRO: ubuntu:20.04
+  PYTHON_VERSION: '3.8'
+  PYTORCH_VERSION: 1.9.1
+  TAG:
+  - mosaicml/pytorch:1.9.1_cpu-python3.8-ubuntu20.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.10.1
+- BASE_IMAGE: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu18.04
+  CUDA_VERSION: 11.1.1
+  CUDA_VERSION_TAG: cu111
+  LINUX_DISTRO: ubuntu:18.04
+  PYTHON_VERSION: '3.8'
+  PYTORCH_VERSION: 1.9.1
+  TAG:
+  - mosaicml/pytorch:1.9.1_cu111-python3.8-ubuntu18.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.10.1
+- BASE_IMAGE: ubuntu:18.04
+  CUDA_VERSION: cpu
+  CUDA_VERSION_TAG: cpu
+  LINUX_DISTRO: ubuntu:18.04
+  PYTHON_VERSION: '3.8'
+  PYTORCH_VERSION: 1.9.1
+  TAG:
+  - mosaicml/pytorch:1.9.1_cpu-python3.8-ubuntu18.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.10.1
+- BASE_IMAGE: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+  CUDA_VERSION: 11.3.1
+  CUDA_VERSION_TAG: cu113
+  LINUX_DISTRO: ubuntu:20.04
+  MOFED_OS_VERSION: ubuntu20.04-x86_64
+  MOFED_VERSION: 5.5-1.0.3.2
+  PYTHON_VERSION: '3.9'
+  PYTORCH_VERSION: 1.10.0
+  TAG:
+  - mosaicml/pytorch:1.10.0_cu113-python3.9-ubuntu20.04
+  - mosaicml/pytorch:latest
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.11.1
+- BASE_IMAGE: ubuntu:20.04
+  CUDA_VERSION: cpu
+  CUDA_VERSION_TAG: cpu
+  LINUX_DISTRO: ubuntu:20.04
+  PYTHON_VERSION: '3.9'
+  PYTORCH_VERSION: 1.10.0
+  TAG:
+  - mosaicml/pytorch:1.10.0_cpu-python3.9-ubuntu20.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.11.1
+- BASE_IMAGE: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+  CUDA_VERSION: 11.3.1
+  CUDA_VERSION_TAG: cu113
+  LINUX_DISTRO: ubuntu:20.04
+  MOFED_OS_VERSION: ubuntu20.04-x86_64
+  MOFED_VERSION: 5.5-1.0.3.2
+  PYTHON_VERSION: '3.9'
+  PYTORCH_VERSION: 1.11.0
+  TAG:
+  - mosaicml/pytorch:1.11.0_cu113-python3.9-ubuntu20.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.12.0
+- BASE_IMAGE: ubuntu:20.04
+  CUDA_VERSION: cpu
+  CUDA_VERSION_TAG: cpu
+  LINUX_DISTRO: ubuntu:20.04
+  PYTHON_VERSION: '3.9'
+  PYTORCH_VERSION: 1.11.0
+  TAG:
+  - mosaicml/pytorch:1.11.0_cpu-python3.9-ubuntu20.04
+  TARGET: pytorch_stage
+  TORCHVISION_VERSION: 0.12.0
 # `mosaicml/pytorch_vision` images
 # MMCV_TORCH_VERSION for the link https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html
-- - key: TAG
-    value: mosaicml/pytorch_vision:1.10.0_cu113-python3.9-ubuntu20.04
-  - key: TAG
-    value: mosaicml/pytorch_vision:latest
-  - key: BASE_IMAGE
-    value: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
-  - key: PYTHON_VERSION
-    value: '3.9'
-  - key: CUDA_VERSION_TAG
-    value: cu113
-  - key: CUDA_VERSION
-    value: '11.3.1'
-  - key: LINUX_DISTRO
-    value: ubuntu:20.04
-  - key: PYTORCH_VERSION
-    value: '1.10.0'
-  - key: TORCHVISION_VERSION
-    value: '0.11.1'
-  - key: MOFED_VERSION
-    value: '5.5-1.0.3.2'
-  - key: MOFED_OS_VERSION
-    value: ubuntu20.04-x86_64
-  - key: TARGET
-    value: vision_stage
-  - key: MMCV_VERSION
-    value: '1.4.4'
-  - key: MMCV_TORCH_VERSION
-    value: torch1.10.0
-- - key: TAG
-    value: mosaicml/pytorch_vision:1.11.0_cu113-python3.9-ubuntu20.04
-  - key: BASE_IMAGE
-    value: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
-  - key: PYTHON_VERSION
-    value: '3.9'
-  - key: CUDA_VERSION_TAG
-    value: cu113
-  - key: CUDA_VERSION
-    value: 11.3.1
-  - key: LINUX_DISTRO
-    value: ubuntu:20.04
-  - key: PYTORCH_VERSION
-    value: '1.11.0'
-  - key: TORCHVISION_VERSION
-    value: '0.12.0'
-  - key: MOFED_VERSION
-    value: 5.5-1.0.3.2
-  - key: MOFED_OS_VERSION
-    value: ubuntu20.04-x86_64
-  - key: TARGET
-    value: vision_stage
-  - key: MMCV_VERSION
-    value: '1.4.8'
-  - key: MMCV_TORCH_VERSION
-    value: torch1.11.0
+- BASE_IMAGE: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+  CUDA_VERSION: 11.3.1
+  CUDA_VERSION_TAG: cu113
+  LINUX_DISTRO: ubuntu:20.04
+  MMCV_TORCH_VERSION: torch1.10.0
+  MMCV_VERSION: 1.4.4
+  MOFED_OS_VERSION: ubuntu20.04-x86_64
+  MOFED_VERSION: 5.5-1.0.3.2
+  PYTHON_VERSION: '3.9'
+  PYTORCH_VERSION: 1.10.0
+  TAG:
+  - mosaicml/pytorch_vision:1.10.0_cu113-python3.9-ubuntu20.04
+  - mosaicml/pytorch_vision:latest
+  TARGET: vision_stage
+  TORCHVISION_VERSION: 0.11.1
+- BASE_IMAGE: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+  CUDA_VERSION: 11.3.1
+  CUDA_VERSION_TAG: cu113
+  LINUX_DISTRO: ubuntu:20.04
+  MMCV_TORCH_VERSION: torch1.11.0
+  MMCV_VERSION: 1.4.8
+  MOFED_OS_VERSION: ubuntu20.04-x86_64
+  MOFED_VERSION: 5.5-1.0.3.2
+  PYTHON_VERSION: '3.9'
+  PYTORCH_VERSION: 1.11.0
+  TAG:
+  - mosaicml/pytorch_vision:1.11.0_cu113-python3.9-ubuntu20.04
+  TARGET: vision_stage
+  TORCHVISION_VERSION: 0.12.0
