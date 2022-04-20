@@ -81,6 +81,7 @@ filterwarnings = [
     'ignore:No scheduler:UserWarning',  # testing defaults
     'ignore::DeprecationWarning:tensorboard',  # ignore tensorboard
 ]
+timeout_func_only = true  # exclude fixtures from the timeout
 
 # Coverage
 [tool.coverage.run]

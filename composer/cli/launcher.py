@@ -1,5 +1,4 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
-
 import datetime
 import logging
 import os
@@ -13,6 +12,8 @@ import traceback
 import warnings
 from argparse import ArgumentParser
 from typing import Any, Dict, List
+
+import psutil
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
@@ -217,7 +218,7 @@ def _launch_processes(
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
-        cmd = f"{sys.executable} -u"
+        cmd = f"exec {sys.executable} -u"
         if module_mode:
             cmd += " -m"
         training_script_args_quoted = [f'"{arg}"' for arg in training_script_args]
@@ -236,7 +237,12 @@ def _launch_processes(
         log.info("Launching process for local_rank(%s), global_rank(%s) with command(%s)", local_rank, global_rank, cmd)
 
         if local_rank == 0:
-            process = subprocess.Popen(cmd, env=current_env, text=True, shell=True)
+            process = subprocess.Popen(
+                cmd,
+                env=current_env,
+                text=True,
+                shell=True,
+            )
         else:
 
             def _get_file(format: str):
@@ -267,29 +273,30 @@ def _launch_processes(
 
 
 def _monitor_processes(processes: Dict[int, subprocess.Popen]):
-    while len(processes) > 0:
-        process_has_crashed = False
-        cleanly_exited_ranks = []
-        for global_rank, process in processes.items():
-            if process.poll() is None:
-                # the process is still running
-                continue
-            else:
-                # return code of 0 implies clean exit
-                if process.returncode != 0:
-                    log.error(f"Rank {global_rank} crashed.")
-                    process_has_crashed = True
-                    break
+    try:
+        while True:
+            process_has_crashed = False
+            all_processes_finished = True
+            for global_rank, process in processes.items():
+                if process.poll() is None:
+                    # the process is still running
+                    all_processes_finished = False
+                    continue
                 else:
-                    # exited cleanly
-                    log.info(f"Rank {global_rank} finished successfully.")
-                    cleanly_exited_ranks.append(global_rank)
-                    break
-        for rank in cleanly_exited_ranks:
-            del processes[rank]
-        if process_has_crashed:
-            break
-        time.sleep(1)
+                    # return code of 0 implies clean exit
+                    if process.returncode != 0:
+                        log.error(f"Rank {global_rank} crashed with exit code {process.returncode}.")
+                        process_has_crashed = True
+                        break
+                    else:
+                        # exited cleanly
+                        log.info(f"Rank {global_rank} finished successfully.")
+            if process_has_crashed or all_processes_finished:
+                break
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("Ctrl-C received; terminating training processes.")
+        pass
 
 
 def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
@@ -331,32 +338,46 @@ def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
         process.poll()
         if process.returncode is None:
             log.info("Killing global rank %s (PID %s) with SIGTERM", global_rank, process.pid)
+            # Assuming that child processes correctly handle SIGTERM to cleanup any children
             try:
-                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                os.kill(process.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
 
     current_time = datetime.datetime.now()
-    print(f"Waiting up to {CLEANUP_TIMEOUT.seconds} seconds for all training processes to terminate...")
-    while datetime.datetime.now() - current_time < CLEANUP_TIMEOUT:
-        for process in processes.values():
-            process.poll()
-        if all(process.returncode is not None for process in processes.values()):
-            break
-        time.sleep(0.1)
+
+    try:
+        print((f"Waiting up to {CLEANUP_TIMEOUT.seconds} seconds for all training processes to terminate. "
+               "Press Ctrl-C to exit immediately."))
+        while datetime.datetime.now() - current_time < CLEANUP_TIMEOUT:
+            for process in processes.values():
+                process.poll()
+            if all(process.returncode is not None for process in processes.values()):
+                break
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        pass
 
     for global_rank, process in processes.items():
         process.poll()
         if process.returncode is None:
-            log.warning("Failed to kill global rank %s (PID %s) with SIGTERM; using SIGKILL instead", global_rank,
-                        process.pid)
+            log.warning("Failed to kill global rank %s (PID %s) with SIGTERM; terminating with SIGKILL instead",
+                        global_rank, process.pid)
             try:
-                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            except ProcessLookupError:
+                proc = psutil.Process(process.pid)
+            except psutil.NoSuchProcess:
                 pass
+            else:
+                # If using SIGKILL, manually kill all child processes, since the main training process
+                # likely won't be able to intercept the signal and clean up its children.
+                for psutil_proc in [proc, *proc.children(recursive=True)]:
+                    try:
+                        os.kill(psutil_proc.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
     for global_rank, process in processes.items():
         process.poll()
-        if process.returncode > 0:
+        if process.returncode is not None and process.returncode > 0:
             # only print the processes that have actually crashed,
             # not the ones that were killed, which would result in
             # a negative exit code
