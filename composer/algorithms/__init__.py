@@ -77,7 +77,7 @@ __all__ = [
     "load_multiple",
     "get_algorithm_registry",
     "list_algorithms",
-    'AGC',
+    "AGC",
     "Alibi",
     "AugmentAndMixTransform",
     "AugMix",
