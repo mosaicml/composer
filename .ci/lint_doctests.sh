@@ -6,8 +6,8 @@ set -euxo pipefail
 # executed only once on an install with all dependencies
 
 # Install dependencies
-# sudo npm install -g pyright@1.1.224
-# pip install .[all]
+sudo npm install -g pyright@1.1.224
+pip install .[all]
 
 # Clean and make the output directory
 BUILD_DIR="build/output"
