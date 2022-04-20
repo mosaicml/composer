@@ -25,5 +25,3 @@ trap cleanup EXIT
 
 # Run lint and doctests through pytest
 coverage run -m pytest $(dirname $0)/test_lint_doctests.py --junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_lint_doctests.junit.xml
-
-cd docs && make html && make doctest && cd ..
