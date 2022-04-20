@@ -36,7 +36,6 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'alibi': AlibiHparams,
     'selective_backprop': SelectiveBackpropHparams,
     'agc': AGCHparams
-
 }
 
 

@@ -4,17 +4,18 @@ import dataclasses
 
 import pytest
 
-from composer.algorithms import (AGCHparams, AlgorithmHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                 ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams, GhostBatchNormHparams,
-                                 LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
-                                 ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, ScaleScheduleHparams,
-                                 SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
-                                 StochasticDepthHparams, SWAHparams, algorithm_registry)
+from composer.algorithms import (AGCHparams, AlgorithmHparams, AlibiHparams, AugMixHparams, BlurPoolHparams,
+                                 ChannelsLastHparams, ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams,
+                                 GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams,
+                                 NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams, SAMHparams,
+                                 ScaleScheduleHparams, SelectiveBackpropHparams, SeqLengthWarmupHparams,
+                                 SqueezeExciteHparams, StochasticDepthHparams, SWAHparams, algorithm_registry)
 from composer.core.algorithm import Algorithm
 
 default_required_fields = {
-    AGCHparams: {'clipping_threshold': 0.01, 
-                 'eps': 1e-3
+    AGCHparams: {
+        'clipping_threshold': 0.01,
+        'eps': 1e-3
     },
     AlibiHparams: {
         'position_embedding_attribute': 'module.transformer.wpe',

@@ -4,12 +4,13 @@
 
 from __future__ import annotations
 
-import textwrap
+import logging
 from typing import Optional
 
 import torch
-import logging
+
 from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
@@ -32,14 +33,14 @@ def apply_agc(
 
     Args:
         model (torch.nn.Module): The model being trained.
-        clipping_threshold (float, optional): The largest acceptable ratio between grad 
+        clipping_threshold (float, optional): The largest acceptable ratio between grad
             norms and parameter norms before clipping is done.
         eps (float, optional): Minimum value that weight norms are clamped to.
     """
     for param in model.parameters():
         if param.grad is None:
             continue
-        
+
         # Detach weights and gradients, so the clipping operation is not added to
         # computational graph.
         weights = param.detach()
@@ -51,8 +52,6 @@ def apply_agc(
         # Copy clipped gradients into param.grad attribute, so they can be accessed by
         # optimizer.
         grad.copy_(clipped_grad)
-
-    return model
 
 
 class AGC(Algorithm):
@@ -83,7 +82,7 @@ class AGC(Algorithm):
             )
 
     Args:
-        clipping_threshold (float, optional): The largest acceptable ratio between grad 
+        clipping_threshold (float, optional): The largest acceptable ratio between grad
             norms and parameter norms before clipping is done.
         eps (float, optional): Minimum value that weight norms are clamped to.
     """
@@ -98,31 +97,28 @@ class AGC(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Freeze layers in the model."""
-        apply_agc(
-            model=state.model,
-            clipping_threshold = self.clipping_threshold,
-            eps = self.eps
-        )
+        apply_agc(model=state.model, clipping_threshold=self.clipping_threshold, eps=self.eps)
 
 
 # Factored this to a function to enable easier testing.
-def _get_clipped_gradients(weights: torch.Tensor, grad: torch.Tensor,
+def _get_clipped_gradients(weights: torch.Tensor,
+                           grad: torch.Tensor,
                            clipping_threshold: float = 0.01,
-                           eps: float =1e-3):
+                           eps: float = 1e-3):
     """Clips all gradients in model based on ratio of gradient norms to parameter norms.
 
-    Gradients whose norms exceed weight_norm * clipping_threshold are scaled down by 
+    Gradients whose norms exceed weight_norm * clipping_threshold are scaled down by
     (weight_norm / grad_norm) * clipping_threshold.
 
     Args:
         weights (torch.Tensor): Tensor of weights (parameters) from the model.
         grad (torch.Tensor): Tensor of gradients of the loss with respect to the weights.
-        clipping_threshold (float, optional): The largest acceptable ratio between grad 
+        clipping_threshold (float, optional): The largest acceptable ratio between grad
             norms and parameter norms before clipping is done.
         eps (float, optional): Minimum value that weight norms are clamped to.
 
     Return:
-        clipped_grad (torch.Tensor): Gradients scaled down by 
+        clipped_grad (torch.Tensor): Gradients scaled down by
             (weight_norm / grad_norm) * clipping_threshold for gradients whose norms
             exceed weight_norm * clipping_threshold.
     """
@@ -134,9 +130,7 @@ def _get_clipped_gradients(weights: torch.Tensor, grad: torch.Tensor,
     # Gradients whose norms are greater than weight_norm * clipping_threhsold are
     # scaled down by (weight_norm * clipping_threhsold) / grad_norm.
     max_norm = w_norm * clipping_threshold
-    clipped_grad = torch.where(grad_norm > max_norm,
-                            grad * (max_norm / grad_norm),
-                            grad)
+    clipped_grad = torch.where(grad_norm > max_norm, grad * (max_norm / grad_norm), grad)
 
     return clipped_grad
 
@@ -148,20 +142,20 @@ def _unitwise_norm(tensor: torch.Tensor):
     For MLP Weight matrix (2D tensors): we normalize across rows (dim = 1)
     For CNNs (4D Tensors): we normalzie across the entire kernel (channel, height,
          and width) -> dim = (1, 2, 3).
-    
+
     Args:
         tensor (torch.Tensor): A parameter or gradient of the model.
-    
+
     Returns:
         The appropriate L2 norm of the parameter or gradient (norm of rows for 2D,
         norm of 3D kernels for 4D tensor (last three dims)).
     """
-    if tensor.ndim <=1:
+    if tensor.ndim <= 1:
         dim = None
         keepdim = False
     # 2D corresponds to MLPs and 4D corresponds to ConvNets.
-    else: 
+    else:
         dim = tuple(range(1, tensor.ndim))
         keepdim = True
-    # L2 Norm.    
-    return tensor.norm(p=2, dim=dim, keepdim=keepdim)
+    # L2 Norm.
+    return torch.linalg.vector_norm(tensor, ord=2, dim=dim, keepdim=keepdim)

@@ -6,8 +6,8 @@ from typing import Optional
 
 import yahp as hp
 
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.agc import AGC
+from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugMix
 from composer.algorithms.blurpool import BlurPool
@@ -40,11 +40,11 @@ class AGCHparams(AlgorithmHparams):
     clipping_threshold: float = hp.optional(
         doc="The largest acceptable ratio between grad norms and parameter norms before clipping is done.",
         default=0.01)
-    eps: float = hp.optional(
-        doc="Minimum value that weight norms are clamped to.",
-        default=1e-3)
+    eps: float = hp.optional(doc="Minimum value that weight norms are clamped to.", default=1e-3)
+
     def initialize_object(self) -> AGC:
         return AGC(**asdict(self))
+
 
 @dataclass
 class AlibiHparams(AlgorithmHparams):

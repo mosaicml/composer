@@ -36,9 +36,9 @@ For example, a simple algorithm that shortens training:
 
 For more information about events, see :class:`~composer.core.event.Event`.
 """
+from composer.algorithms.agc import AGC
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.algorithm_registry import get_algorithm_registry, list_algorithms
-from composer.algorithms.agc import AGC
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugmentAndMixTransform, AugMix
 from composer.algorithms.blurpool import BlurPool
