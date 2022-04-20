@@ -1,7 +1,8 @@
-from composer.functional import (apply_blurpool, apply_factorization, apply_ghost_batchnorm, apply_squeeze_excite)
+import pytest
 import torch
 from torchvision.models import densenet161
-import pytest
+
+from composer.functional import apply_blurpool, apply_factorization, apply_ghost_batchnorm, apply_squeeze_excite
 
 
 @pytest.mark.parametrize("surgery_method", [
