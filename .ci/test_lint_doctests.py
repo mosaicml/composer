@@ -15,9 +15,9 @@ def test_run_make_lint():
 
 @pytest.mark.timeout(0)
 def test_run_doctests():
-    # Remove the `api_reference` folder
     docs_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docs'
     api_reference_folder = docs_folder / 'source' / 'api_reference'
+    # Remove the `api_reference` folder, which isn't automatically removed via `make clean`
     shutil.rmtree(api_reference_folder, ignore_errors=True)
     subprocess.run(["make", "clean"], cwd=docs_folder, check=True)
     # Must build the html first to ensure that doctests in .. autosummary:: generated pages are included
