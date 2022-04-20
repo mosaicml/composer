@@ -20,6 +20,7 @@ def input():
     pytest.param(apply_squeeze_excite),
     pytest.param(apply_stochastic_depth, marks=pytest.mark.xfail),
 ])
+@pytest.mark.timeout(5)
 def test_surgery_torchscript_train(surgery_method, input):
     """Tests torchscript model in train mode."""
     model = resnet50()
@@ -29,7 +30,9 @@ def test_surgery_torchscript_train(surgery_method, input):
     model.train()
 
     scripted_func = torch.jit.script(model)
-    scripted_func(input)  # type: ignore (third-party)
+    torch.testing.assert_allclose(scripted_func(input), model(input))  # type: ignore (third-party)
+
+    scripted_func(input)
 
 
 @pytest.mark.parametrize("surgery_method", [
@@ -39,6 +42,7 @@ def test_surgery_torchscript_train(surgery_method, input):
     pytest.param(apply_squeeze_excite),
     pytest.param(apply_stochastic_depth),
 ])
+@pytest.mark.timeout(5)
 def test_surgery_torchscript_eval(surgery_method, input):
     """Tests torchscript model in eval mode."""
     model = resnet50()
@@ -48,4 +52,4 @@ def test_surgery_torchscript_eval(surgery_method, input):
     model.eval()
 
     scripted_func = torch.jit.script(model)
-    scripted_func(input)  # type: ignore (third-party)
+    torch.testing.assert_allclose(scripted_func(input), model(input))  # type: ignore (third-party)
