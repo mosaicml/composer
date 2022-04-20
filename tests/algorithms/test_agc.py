@@ -6,21 +6,8 @@ from unittest.mock import Mock, patch
 from composer.core import Engine
 from composer.core.event import Event
 
-def test_AGC():
-    """Ensure AGC.apply gets called when a AFTER_BACKWARD event occurs."""
-    state = Mock()
-    state.profiler.marker = Mock(return_value=None)
-    state.callbacks = []
-    logger = Mock()
-    mock_apply = Mock()
-
-    with patch('composer.algorithms.agc.agc.AGC.apply', mock_apply):
-        state.algorithms = [AGC()]
-        e = Engine(state, logger)
-        e.run_event(Event.AFTER_BACKWARD)
-        mock_apply.assert_called_once()
-
-def test_apply_agc():
+@pytest.fixture
+def simple_model_with_grads():
     # Set up small NN with one linear layer with no bias + softmax, so only
     # one set of params and get some gradients.
     N, hin, num_classes = 8, 4, 3
@@ -31,21 +18,10 @@ def test_apply_agc():
     loss_fn = nn.CrossEntropyLoss()
     loss = loss_fn(o, y)
     loss.backward()
+    return model
 
-    # Make sure after calling apply_agc, the gradients inside the model are
-    # the same as if we manually called _get_clipped_gradients on the weights and 
-    # gradients.
-    weights = next(model.parameters())
-    grad = weights.grad
-    expected_clipped_grad = _get_clipped_gradients(weights, grad)
-    apply_agc(model)
-    current_grad = next(model.parameters()).grad
-    torch.equal(current_grad, expected_clipped_grad)
-
-def test_apply_agc_with_cnn_does_not_error():
-    """This test is just to ensure that no errors are raised. 
-    
-    Accuracy of the AGC calculations are tested in other tests."""
+@pytest.fixture
+def cnn_model_with_grads():
     # Make a NN with all the common parameters: bias, weight matrix, conv filters.
     class myNN(nn.Module):
         def __init__(self, n_ch, num_fmaps, h, num_classes, filter_size):
@@ -76,7 +52,53 @@ def test_apply_agc_with_cnn_does_not_error():
     loss_fn = nn.CrossEntropyLoss()
     loss = loss_fn(o, y)
     loss.backward()
+    return model
 
+
+def test_AGC(simple_model_with_grads):
+    # Get weight and gradients from the fixture model.
+    model = simple_model_with_grads
+    weights = next(model.parameters())
+    grad = weights.grad
+    expected_clipped_grad = _get_clipped_gradients(weights, grad)
+
+    # Set up a mock engine.
+    state = Mock()
+    state.model = model
+    state.profiler.marker = Mock(return_value=None)
+    state.callbacks = []
+    state.algorithms = [AGC()]
+    logger = Mock()
+    engine = Engine(state, logger)
+
+    # Run the Event that should cause AGC.apply to be called.
+    engine.run_event(Event.AFTER_BACKWARD)
+
+    # Check that the gradients weights holds are equivalent to the calling
+    # _get_clipped_gradients on the weighta and grads.
+    current_grad = next(model.parameters()).grad
+    torch.equal(current_grad, expected_clipped_grad)
+
+
+def test_apply_agc(simple_model_with_grads):
+
+    model = simple_model_with_grads
+    # Make sure after calling apply_agc, the gradients inside the model are
+    # the same as if we manually called _get_clipped_gradients on the weights and 
+    # gradients.
+    weights = next(model.parameters())
+    grad = weights.grad
+    expected_clipped_grad = _get_clipped_gradients(weights, grad)
+    apply_agc(model)
+    current_grad = next(model.parameters()).grad
+    torch.equal(current_grad, expected_clipped_grad)
+
+def test_apply_agc_with_cnn_does_not_error(cnn_model_with_grads):
+    """This test is just to ensure that no errors are raised. 
+    
+    Accuracy of the AGC calculations are tested in other tests."""
+
+    model = cnn_model_with_grads
     # Call apply_agc. If this function returns then we know that nothing erroed out
     # We can test accuratc
     apply_agc(model)
