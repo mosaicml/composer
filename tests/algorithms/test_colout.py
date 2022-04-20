@@ -154,6 +154,7 @@ class TestColOutTransform:
         """Test application to single PIL image."""
         transform = ColOutTransform(p_row, p_col)
         new_image = transform(fake_image)
+        assert isinstance(new_image, Image.Image)
         verify_shape_image(fake_image, new_image, p_row, p_col)
 
     def test_image_pair_drop_size(self, fake_image: Image.Image, p_row: float, p_col: float):
@@ -161,6 +162,7 @@ class TestColOutTransform:
         transform = ColOutTransform(p_row, p_col)
         orig_sample = (fake_image, fake_image)
         new_sample = transform(orig_sample)
+        assert isinstance(new_sample, Tuple)
         verify_shape_image_pair(orig_sample, new_sample, p_row, p_col)
 
     @pytest.mark.parametrize("W", [48])
@@ -190,8 +192,10 @@ class TestColOutTransform:
 
         torch.manual_seed(42)
         new_image_1 = transform_1(fake_image_tensor)
+        assert isinstance(new_image_1, torch.Tensor)
         torch.manual_seed(42)
         new_image_2 = transform_2(fake_image_tensor)
+        assert isinstance(new_image_2, torch.Tensor)
 
         assert torch.allclose(new_image_1, new_image_2)
 
@@ -223,7 +227,8 @@ class TestColOutFunctional:
         colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
         sample = (fake_image_batch, fake_image_batch)
         new_batch = colout(sample)
-        assert isinstance(new_batch[0], torch.Tensor) and isinstance(new_batch[1], torch.Tensor)
+        assert isinstance(new_batch, Tuple) and isinstance(new_batch[0], torch.Tensor) and isinstance(
+            new_batch[1], torch.Tensor)
         verify_shape_batch_pair(sample, new_batch, p_row, p_col)
 
     @pytest.mark.parametrize("p_col", [0.05, 0.25])

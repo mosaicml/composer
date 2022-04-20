@@ -27,7 +27,7 @@ ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 __all__ = ["ColOut", "ColOutTransform", "colout_batch"]
 
 
-def _should_resize_target(sample: Union[ImgT, Tuple[ImgT, ImgT]], resize_target: Union[bool, str]):
+def _should_resize_target(sample: Union[ImgT, Tuple[ImgT, ImgT]], resize_target: Union[bool, str]) -> bool:
     """ Helper function to determine if both objects in the tuple should be resized. Decision is based on
         ``resize_target`` and if both objects in the tuple have the same spatial size."""
 
@@ -158,7 +158,7 @@ class ColOutTransform:
         self.p_col = p_col
         self.resize_target = resize_target
 
-    def __call__(self, sample: Union[ImgT, Tuple[ImgT, ImgT]]) -> ImgT:
+    def __call__(self, sample: Union[ImgT, Tuple[ImgT, ImgT]]) -> Union[ImgT, Tuple[ImgT, ImgT]]:
         """Drops random rows and columns from up to two images.
 
         Args:
