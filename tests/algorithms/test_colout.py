@@ -27,8 +27,8 @@ def verify_shape_image(orig: Image.Image, new: Image.Image, p_row: float, p_col:
     assert (H_n, W_n) == (H_t, W_t), f"Image shape mismatch: {(H_n, W_n)} != {(H_t, W_t)}"
 
 
-def verify_shape_image_pair(orig_sample: Tuple[torch.Tensor, torch.Tensor],
-                            new_sample: Tuple[torch.Tensor, torch.Tensor], p_row: float, p_col: float):
+def verify_shape_image_pair(orig_sample: Tuple[Image.Image, Image.Image], new_sample: Tuple[Image.Image, Image.Image],
+                            p_row: float, p_col: float):
     """Verify the shape of a pair of transformed PIL images."""
     H_o, W_o = orig_sample[0].height, orig_sample[0].width
 
