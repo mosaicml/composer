@@ -6,7 +6,7 @@ Kind of Task: `Image Classification`
 
 ## Overview
 
-The EfficientNet model family is a set of convolutional neural networks that can be used as the basis for a variety of vision tasks, but were initially designed for image classification. The model family was designed to reach the highest accuracy for a given computation budget during inference by simultaneously scaling model depth, model width, and image resolution according to an empirically determined scaling law.
+The EfficientNet model family is a set of convolutional neural networks that can be used as the basis for a variety of vision tasks, although they were initially designed for image classification. The model family was designed to reach the highest accuracy for a given computation budget during inference by simultaneously scaling model depth, model width, and image resolution according to an empirically determined scaling law.
 
 ## Attribution
 
