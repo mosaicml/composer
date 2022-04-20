@@ -9,7 +9,7 @@ dependenciesChanged = null
 pytorchDockerBuildMatrix = null
 isPathModified = null
 builds = []
-jenkinsShellJobName = 'scratch/commandNext'  //  TODO switch back to command2
+jenkinsShellJobName = 'scratch/command2'
 numDaysOfBuildsToKeep = '7'
 jenkinsfileRepo = 'https://github.com/mosaicml/testing'
 gitCredentialsId = '9cf9add1-2cdd-414b-8160-94bd4ac4a13d'
@@ -157,8 +157,7 @@ stage('Prepare') {
 
         def jenkinsfileWorkspace = cloneJenkinsfilesRepo()
 
-        // TODO switch back to getDockerBuildMatrix.groovy
-        def getDockerBuildMatrix = load "$jenkinsfileWorkspace/utils/getDockerBuildMatrix2.groovy"
+        def getDockerBuildMatrix = load "$jenkinsfileWorkspace/utils/getDockerBuildMatrix.groovy"
 
         isPathModified = load "$jenkinsfileWorkspace/utils/isPathModified.groovy"
 
