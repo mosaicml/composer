@@ -85,7 +85,10 @@ def runLint(pDockerImage) {
             string(name: 'P_TIMEOUT', value: pTimeout),
             string(name: 'P_CPU_LIMIT', value: "2"),
             string(name: 'P_MEM_LIMIT', value: "4Gi"),
-            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
+            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh"),
+            string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
+            string(name: 'P_JUNIT_GLOB', value: junitGlob),
+            string(name: 'P_COVERAGE_GLOB', value: coverageGlob),
         ]
     )
 }
@@ -349,7 +352,7 @@ stage('Build') {
                 sh "mkdir -p $buildOutputFolder"
 
                 archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
-                junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Jenkins')
+                junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests')
                 publishCoverage(
                     adapters: [cobertura(path: coverageGlob, mergeToOneReport: true)],
                     calculateDiffForChangeRequests: true,
