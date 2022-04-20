@@ -62,7 +62,7 @@ void trackBuild(Map buildArgs) {
     }
 }
 
-String getDockerImageName(String baseImage, String pythonVersion, bool gpu) {
+String getDockerImageName(String baseImage, String pythonVersion, Boolean gpu) {
     String pytorchVersion = pythonVersion == '3.9' ? '1.10.0' : '1.9.1'
     String cudaVersion = 'cpu'
     if (gpu) {
@@ -92,11 +92,11 @@ void runLint(String pDockerImage) {
     )
 }
 
-void runPytest(String pDockerImage, String markers, String extraDeps, bool isGpu) {
+void runPytest(String pDockerImage, String markers, String extraDeps, Boolean isGpu) {
     // pDockerImage (str): Base docker image to use.
     // extraDeps (str): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps].
     // markers (str): Pyetst markers
-    // isGpu (bool): Whether the test requires gpus
+    // isGpu (Boolean): Whether the test requires gpus
     String nGpus = '0'
     String memLimit = '4Gi'
     String cpuLimit = '2'
@@ -162,7 +162,7 @@ stage('Prepare') {
         isPathModified = load "$jenkinsfileWorkspace/utils/isPathModified.groovy"
 
         if (isPathModified('docker/pytorch/')) {
-            bool shouldPush = gitBranch == 'dev' || gitBranch == 'main'
+            Boolean shouldPush = gitBranch == 'dev' || gitBranch == 'main'
             String dockerfile = 'Dockerfile'
             String buildContext = './docker/pytorch'
             String buildMatrix = './docker/pytorch/build_matrix.yaml'
@@ -175,7 +175,7 @@ stage('Prepare') {
 
 stage('Build') {
     def jobs = [:]
-    bool isMergeCommit = true
+    Boolean isMergeCommit = true
     if (env.CHANGE_ID) {
         isMergeCommit = false
     }
@@ -200,7 +200,7 @@ stage('Build') {
                         string(name: 'P_TIMEOUT', value: pTimeoutDocker),
                         string(name: 'P_CPU_LIMIT', value: '4'),
                         string(name: 'P_MEM_LIMIT', value: '15Gi'),
-                        booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
+                        BooleaneanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
                 if (isMergeCommit) {
@@ -208,9 +208,9 @@ stage('Build') {
                     return
                 }
                 String markers = 'not notebooks and not gpu and not vision'
-                bool isLintImage = false
-                bool isVisionImage = false
-                bool isGpuImage = false
+                Boolean isLintImage = false
+                Boolean isVisionImage = false
+                Boolean isGpuImage = false
                 def tag = null
                 buildArgs.each { key, val ->
                     if (key == 'CUDA_VERSION') {
