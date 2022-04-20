@@ -155,9 +155,6 @@ class _GhostBatchNorm(torch.nn.Module):
         self.batchnorm = base_batchnorm
         self.current_nchunks: Optional[int] = None
 
-    def _has_momentum(self) -> bool:
-        return hasattr(self.batchnorm, 'momentum') and self.batchnorm.momentum is not None
-
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # type: ignore
         batch_size = input.shape[0]
 
@@ -165,20 +162,20 @@ class _GhostBatchNorm(torch.nn.Module):
             raise ValueError(f"Worker batch size {batch_size} < ghost_batch_size {self.ghost_batch_size}")
 
         nchunks: int = int(math.ceil(batch_size / self.ghost_batch_size))
-        scale = self.batchnorm.momentum is not None
+        has_momentum = self.batchnorm.momentum is not None
         original_momentum: float = self.batchnorm.momentum
 
-        if self.training and scale:
+        if self.training and has_momentum:
             # applying the same batchnorm multiple times greatly increases
             # the variance of the moving average statistics; reduce the
             # exponential moving average constant proportionally
             # to compensate.
-            self.scale_momentum(nchunks)
+            self._scale_momentum(nchunks)
 
         normalized_chunks = [self.batchnorm(chunk) for chunk in input.chunk(nchunks, 0)]
 
-        if self.training and scale:
-            self.unscale_momentum(original_momentum)
+        if self.training and has_momentum:
+            self._unscale_momentum(original_momentum)
 
         return torch.cat(normalized_chunks, dim=0)
 
@@ -189,11 +186,11 @@ class _GhostBatchNorm(torch.nn.Module):
         return bn_type(ghost_batch_size=ghost_batch_size, base_batchnorm=module)
 
     @torch.jit.unused
-    def scale_momentum(self, nchunks: int):
+    def _scale_momentum(self, nchunks: int):
         self.batchnorm.momentum = float(self.batchnorm.momentum) / nchunks
 
     @torch.jit.unused
-    def unscale_momentum(self, original_momentum: float):
+    def _unscale_momentum(self, original_momentum: float):
         self.batchnorm.momentum = original_momentum
 
 
