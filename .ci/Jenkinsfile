@@ -200,7 +200,7 @@ stage('Build') {
                         string(name: 'P_TIMEOUT', value: pTimeoutDocker),
                         string(name: 'P_CPU_LIMIT', value: '4'),
                         string(name: 'P_MEM_LIMIT', value: '15Gi'),
-                        BooleaneanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
+                        booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
                 if (isMergeCommit) {
