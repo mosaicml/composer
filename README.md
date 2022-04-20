@@ -45,7 +45,7 @@
 
 # 👋 Welcome
 
-Composer is a library written in PyTorch that enabled you to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. We've implemented more than two dozen speed-up methods that can be applied to your training loop in just a few lines of code, or used with our built-in Trainer. We continually integrate the latest state-of-the-art in efficient neural network training.
+Composer is a library written in PyTorch that enables you to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. We've implemented more than two dozen speed-up methods that can be applied to your training loop in just a few lines of code, or used with our built-in Trainer. We continually integrate the latest state-of-the-art in efficient neural network training.
 
 Composer features:
 - 20+ methods for speeding up training networks for computer vision and language modeling. Don't waste hours trying to reproduce research papers when Composer has done the work for you.
@@ -69,7 +69,7 @@ Composer features:
 
 With no additional tuning, you can apply our methods to:
 <!-- start numbers -->
-- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.8 hours) on AWS.
+- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.5 hours) on AWS.
 - Train a GPT-2 125M to a standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
 <!-- end numbers -->
 
@@ -107,8 +107,8 @@ from torchvision import models
 my_model = models.resnet18()
 
 # add blurpool and squeeze excite layers
-model = cf.apply_blurpool(my_model)
-model = cf.apply_squeeze_excite(my_model)
+my_model = cf.apply_blurpool(my_model)
+my_model = cf.apply_squeeze_excite(my_model)
 
 # your own training code starts here
 ```
@@ -128,12 +128,15 @@ from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
 from composer.models import MNIST_Classifier
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = datasets.MNIST("data", download=True, transform=transform)
-train_dataloader = DataLoader(dataset, batch_size=128)
+train_dataset = datasets.MNIST("data", download=True, train=True, transform=transform)
+eval_dataset = datasets.MNIST("data", download=True, train=False, transform=transform)
+train_dataloader = DataLoader(train_dataset, batch_size=128)
+eval_dataloader = DataLoader(eval_dataset, batch_size=128)
 
 trainer = Trainer(
     model=MNIST_Classifier(num_classes=10),
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration="2ep",
     algorithms=[
         BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
@@ -145,7 +148,7 @@ trainer = Trainer(
 trainer.fit()
 ```
 
-Composer's built-in trainer makes it easy to **add multiple speedup methods in a single line of code!**
+Composer's built-in [trainer](https://docs.mosaicml.com/en/stable/trainer/using_the_trainer.html) makes it easy to **add multiple speedup methods in a single line of code!**
 Trying out new methods or combinations of methods is as easy as changing a single list.
 As we continually implement more methods, they will be easy for you to add to your code.
 
@@ -301,7 +304,7 @@ Easily [add your own methods](https://colab.research.google.com/github/mosaicml/
 
 # 🧐 Why shouldn’t I use Composer?
 
-* Composer currently supports only standard computer vision (CV) and natural language processing (NLP) use cases, and may be difficult to use with very custom data modalities. We are working on adding more flexibility around the data types.
+* Composer is mostly optimized for computer vision (CV) and natural language processing (NLP) use cases, including [custom models](https://docs.mosaicml.com/en/stable/composer_model.html) and custom datasets. We strongly encourage exploration on integrating our algorithms into new domains, such as reinforcement learning. Feel free to [join our Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg) and discuss!
 * Composer currently supports NVIDIA GPUs. We are adding support for additional hardware platforms, and you should expect more soon.
 * Composer is an active and ongoing project. Since Composer is still in alpha, our API may not be stable. We recommend pegging your work to a Composer version, and we will respond quickly to issues posted to this repository.
 
@@ -339,10 +342,12 @@ Here's some resources actively maintained by the Composer community to help you 
 </tbody>
 </table>
 
-If you have any questions, please feel free to reach out to us on [Twiter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
+If you have any questions, please feel free to reach out to us on [Twitter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
 
 # 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!
+
+To start contributing, see our [Contributing](CONTRIBUTING.md) page. 
 
 # ✍️ Citation
 ```

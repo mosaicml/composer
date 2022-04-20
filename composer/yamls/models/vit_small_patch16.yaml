@@ -31,8 +31,6 @@ model:
     image_size: 224
     channels: 3
     dropout: 0.1
-loggers:
-  - tqdm: {}
 max_duration: 300ep
 train_batch_size: 4096
 eval_batch_size: 512

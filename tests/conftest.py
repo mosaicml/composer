@@ -3,13 +3,13 @@
 import logging
 import os
 import pathlib
-from typing import List
+from typing import List, Optional
 
 import pytest
-from pytest import MonkeyPatch
+import torch
 
 import composer
-from composer.utils import run_directory
+from composer.utils import dist, reproducibility
 
 # Allowed options for pytest.mark.world_size()
 # Important: when updating this list, make sure to also up ./.ci/test.sh
@@ -20,9 +20,8 @@ WORLD_SIZE_OPTIONS = (1, 2)
 # default timout threshold is 2 seconds for determinign long and short
 DEFAULT_TIMEOUT = 2.0
 
-# Enforce use of deterministic kernels
-# see composer.utils.reproducibility.configure_deterministic_mode
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+# Enforce deterministic mode before any tests start.
+reproducibility.configure_deterministic_mode()
 
 # during the pytest refactor transition, this flag
 # indicates whether to include the deprecated fixtures.
@@ -37,11 +36,22 @@ pytest_plugins = [
 if _include_deprecated_fixtures:
     pytest_plugins += [
         "tests.fixtures.dummy_fixtures",
-        "tests.fixtures.distributed_fixtures",
     ]
+
+if torch.cuda.is_available():
+    # torch.cuda takes a few seconds to initialize on first load
+    # pre-initialize cuda so individual tests, which are subject to a timeout,
+    # load cuda instantly.
+    torch.Tensor([0]).cuda()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--seed",
+                     default=0,
+                     type=int,
+                     help="""\
+        Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
+        before each test.""")
     parser.addoption("--duration",
                      default="all",
                      choices=["short", "long", "all"],
@@ -71,13 +81,13 @@ def _get_world_size(item: pytest.Item):
     return item.get_closest_marker("world_size", default=_default).args[0]
 
 
-def _validate_world_size(world_size: int):
+def _validate_world_size(world_size: Optional[int]):
     if "WORLD_SIZE" in os.environ and int(os.environ["WORLD_SIZE"]) != world_size:
         raise ValueError(f'--world-size ({world_size}) and WORLD_SIZE environment'
                          f'variable ({os.environ["WORLD_SIZE"]}) do not match.')
 
 
-def _validate_duration(duration: int):
+def _validate_duration(duration: Optional[str]):
     if duration not in ('short', 'long', 'all'):
         raise ValueError(f'duration ({duration}) must be one of short, long, all.')
 
@@ -87,6 +97,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
     threshold = float(getattr(config, "_env_timeout", DEFAULT_TIMEOUT))
     duration = config.getoption("duration")
     world_size = config.getoption("world_size")
+
+    assert isinstance(duration, str)
+    assert isinstance(world_size, int)
 
     _validate_world_size(world_size)
     _validate_duration(duration)
@@ -122,13 +135,25 @@ def set_loglevels():
     logging.getLogger(composer.__name__).setLevel(logging.DEBUG)
 
 
+@pytest.fixture
+def rank_zero_seed(request: pytest.FixtureRequest) -> int:
+    """Read the rank_zero_seed from the CLI option."""
+    seed = request.config.getoption("seed")
+    assert isinstance(seed, int)
+    return seed
+
+
 @pytest.fixture(autouse=True)
-def subfolder_run_directory(tmpdir: pathlib.Path, monkeypatch: MonkeyPatch) -> None:
-    tmpdir_test_folder_name = os.path.basename(os.path.normpath(str(tmpdir)))
-    test_folder_tmpdir = os.path.join(run_directory.get_node_run_directory(), tmpdir_test_folder_name)
-    monkeypatch.setenv(run_directory._RUN_DIRECTORY_KEY, test_folder_tmpdir)
-    os.makedirs(run_directory.get_run_directory(), exist_ok=True)
-    os.makedirs(run_directory.get_node_run_directory(), exist_ok=True)
+def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
+    """Monkeypatch reproducibility get_random_seed to always return the rank zero seed, and set the random seed before
+    each test to the rank local seed."""
+    monkeypatch.setattr(reproducibility, "get_random_seed", lambda: rank_zero_seed)
+    reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
+
+
+@pytest.fixture(autouse=True)
+def chdir_to_tmpdir(tmpdir: pathlib.Path):
+    os.chdir(tmpdir)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

@@ -2,18 +2,20 @@
 
 """Test Ghost Batch Normalization, both as an algorithm and module."""
 
+import contextlib
 import math
-from typing import Any, Tuple, cast
+from typing import Any, Sequence, Tuple, Union, cast
 from unittest.mock import MagicMock, Mock
 
 import pytest
 import torch
+from torchmetrics import Metric, MetricCollection
 
 from composer.algorithms import GhostBatchNormHparams
 from composer.algorithms import ghost_batchnorm as ghostbn
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm, _GhostBatchNorm
 from composer.core import Event, State
-from composer.core.types import Batch, Metrics, Tensors
+from composer.core.types import Batch
 from composer.models.base import ComposerModel
 from composer.utils import module_surgery
 
@@ -43,10 +45,10 @@ class ModuleWithBatchnorm(ComposerModel):
     def forward(self, input: torch.Tensor):
         return self.bn(input)
 
-    def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Tensors:
+    def loss(self, outputs: Any, batch: Batch, *args, **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         raise NotImplementedError()
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         raise NotImplementedError()
 
     def validate(self, batch: Batch) -> Tuple[Any, Any]:
@@ -69,17 +71,19 @@ def test_ghost_bn_hparams():
     assert isinstance(algorithm, GhostBatchNorm)
 
 
-@pytest.mark.parametrize('num_dims', [
-    1, 2, 3,
-    pytest.param(4, marks=pytest.mark.xfail(raises=KeyError)),
-    pytest.param(-1, marks=pytest.mark.xfail(raises=KeyError))
-])
+@pytest.mark.parametrize('num_dims', [1, 2, 3, 4, -1])
 def test_batchnorm_gets_replaced_functional(num_dims: int):
-    """GhostBatchNorm{1,2,3}d should work, but other ints should throw."""
-    module = ModuleWithBatchnorm(num_dims)
-    assert module_surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 0
-    ghostbn.apply_ghost_batchnorm(module, ghost_batch_size=1)
-    assert module_surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 1
+    if num_dims < 1 or num_dims > 3:
+        ctx = pytest.raises(KeyError)
+    else:
+        ctx = contextlib.nullcontext()
+
+    with ctx:
+        """GhostBatchNorm{1,2,3}d should work, but other ints should throw."""
+        module = ModuleWithBatchnorm(num_dims)
+        assert module_surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 0
+        ghostbn.apply_ghost_batchnorm(module, ghost_batch_size=1)
+        assert module_surgery.count_module_instances(module, _GHOSTBN_MODULE_CLASS) == 1
 
 
 @pytest.mark.parametrize('num_dims', _TEST_NUM_DIMS)
@@ -134,6 +138,6 @@ def test_incorrect_event_does_not_match(event: Event, algo_instance):
 def test_algorithm_logging(state, algo_instance):
     logger_mock = Mock()
     algo_instance.apply(Event.INIT, state, logger_mock)
-    logger_mock.metric_fit.assert_called_once_with({
+    logger_mock.data_fit.assert_called_once_with({
         'GhostBatchNorm/num_new_modules': 1,
     })

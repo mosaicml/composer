@@ -11,11 +11,11 @@ from typing import Callable, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
-from torchvision import transforms
+import torchvision.transforms.functional
 
-from composer.core import Algorithm, Event, Logger, State
-from composer.core.types import Tensor
-from composer.models.loss import _check_for_index_targets
+from composer.core import Algorithm, Event, State
+from composer.loggers import Logger
+from composer.loss.utils import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def resize_batch(input: torch.Tensor,
         return input, target
 
     # Prep targets for resizing if necessary
-    if _check_for_index_targets(target) and resize_targets is True:
+    if check_for_index_targets(target) and resize_targets is True:
         # Add a dimension to match shape of the input and change type for resizing
         y_sized = target.float().unsqueeze(1)
     else:
@@ -97,7 +97,7 @@ def resize_batch(input: torch.Tensor,
         raise ValueError(f"Progressive mode '{mode}' not supported.")
 
     # Revert targets to their original format if they were modified
-    if _check_for_index_targets(target) and resize_targets is True:
+    if check_for_index_targets(target) and resize_targets is True:
         # Convert back to original format for training
         y_sized = y_sized.squeeze(dim=1).to(target.dtype)
 
@@ -191,7 +191,7 @@ class ProgressiveResizing(Algorithm):
             logger (Logger): the training logger
         """
         input, target = state.batch_pair
-        assert isinstance(input, Tensor) and isinstance(target, Tensor), \
+        assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 
         # Calculate the current size of the inputs to use
@@ -210,7 +210,7 @@ class ProgressiveResizing(Algorithm):
         state.batch = (new_input, new_target)
 
         if logger is not None:
-            logger.metric_batch({
+            logger.data_batch({
                 "progressive_resizing/height": new_input.shape[2],
                 "progressive_resizing/width": new_input.shape[3],
                 "progressive_resizing/scale_factor": scale_factor
@@ -223,7 +223,11 @@ def _make_crop(tensor: torch.Tensor, scale_factor: float) -> T_ResizeTransform:
     Wc = int(scale_factor * tensor.shape[3])
     top = torch.randint(tensor.shape[2] - Hc, size=(1,))
     left = torch.randint(tensor.shape[3] - Wc, size=(1,))
-    resize_transform = partial(transforms.functional.crop, top=top, left=left, height=Hc, width=Wc)
+    resize_transform = partial(torchvision.transforms.functional.crop,
+                               top=int(top),
+                               left=int(left),
+                               height=Hc,
+                               width=Wc)
     return resize_transform
 
 
@@ -246,8 +250,8 @@ def _make_crop_pair(X: torch.Tensor, y: torch.Tensor,
     topy = int(height_ratio * topX)
     lefty = int(width_ratio * leftX)
     # Make the two transforms
-    resize_X = partial(transforms.functional.crop, top=topX, left=leftX, height=HcX, width=WcX)
-    resize_y = partial(transforms.functional.crop, top=topy, left=lefty, height=Hcy, width=Wcy)
+    resize_X = partial(torchvision.transforms.functional.crop, top=int(topX), left=int(leftX), height=HcX, width=WcX)
+    resize_y = partial(torchvision.transforms.functional.crop, top=topy, left=lefty, height=Hcy, width=Wcy)
     return resize_X, resize_y
 
 

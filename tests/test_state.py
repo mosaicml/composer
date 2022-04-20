@@ -2,13 +2,15 @@
 
 import pathlib
 import random
+from typing import Any, Dict, List
 
 import torch
 import torch.nn.functional as F
 from torch.functional import Tensor
 
 from composer.algorithms import ChannelsLastHparams
-from composer.core import DataSpec, State, types
+from composer.core import DataSpec, Evaluator, Precision, State
+from composer.core.types import Batch, DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.models.base import ComposerModel
@@ -19,14 +21,14 @@ def random_tensor(size=(4, 10)):
     return torch.rand(*size)
 
 
-def get_dummy_state(model: ComposerModel, train_dataloader: types.DataLoader, val_dataloader: types.DataLoader):
+def get_dummy_state(model: ComposerModel, train_dataloader: DataLoader, val_dataloader: DataLoader):
     optimizers = torch.optim.Adadelta(model.parameters())
 
-    evaluators = [types.Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=model.metrics(train=False))]
+    evaluators = [Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=model.metrics(train=False))]
     state = State(model=model,
                   grad_accum=random.randint(0, 100),
                   rank_zero_seed=random.randint(0, 100),
-                  precision=types.Precision.AMP,
+                  precision=Precision.AMP,
                   max_duration=f"{random.randint(0, 100)}ep",
                   train_dataloader=train_dataloader,
                   evaluators=evaluators,
@@ -39,34 +41,52 @@ def get_dummy_state(model: ComposerModel, train_dataloader: types.DataLoader, va
     return state
 
 
+def _check_item(item1: Any, item2: Any, path: str):
+    if item1 is None:
+        assert item2 is None, f"{path} differs: {item1} != {item2}"
+        return
+    if isinstance(item1, (str, float, int, bool)):
+        assert type(item1) == type(item2)
+        assert item1 == item2, f"{path} differs: {item1} != {item2}"
+        return
+    if isinstance(item1, torch.Tensor):
+        assert isinstance(item2, torch.Tensor)
+        # Using a high tolerance, as deepspeed non-determinisim can cause
+        # metric values to be off.
+        assert item1.allclose(item2, rtol=0.1, atol=0.1), f"{path} differs"
+        return
+    if isinstance(item1, dict):
+        assert isinstance(item2, dict), f"{path} differs: {item1} != {item2}"
+        _check_dict_recursively(item1, item2, path)
+        return
+    if isinstance(item1, list):
+        assert isinstance(item2, list), f"{path} differs: {item1} != {item2}"
+        _check_list_recursively(item1, item2, path)
+        return
+    raise NotImplementedError(f"Unsupported item type: {type(item1)}")
+
+
+def _check_list_recursively(list1: List[Any], list2: List[Any], path: str):
+    assert len(list1) == len(list2), f"{path} differs: {list1} != {list2}"
+    for i, (item1, item2) in enumerate(zip(list1, list2)):
+        _check_item(item1, item2, f"{path}/{i}")
+
+
+def _check_dict_recursively(dict1: Dict[str, Any], dict2: Dict[str, Any], path: str):
+    assert len(dict1) == len(dict2), f"{path} differs: {dict1} != {dict2}"
+    for k, val1 in dict1.items():
+        val2 = dict2[k]
+        _check_item(val1, val2, f"{path}/{k}")
+
+
 def assert_state_equivalent(state1: State, state2: State):
+    assert state1.serialized_attributes == state2.serialized_attributes
+    assert state1.is_model_deepspeed == state2.is_model_deepspeed
 
-    # tested separately
-    IGNORE_FIELDS = [
-        '_optimizers',
-        '_schedulers',
-        '_algorithms',
-        '_callbacks',
-    ]
-
-    for field_name in state1.__dict__.keys():
-        if field_name in IGNORE_FIELDS or field_name.lstrip("_") not in state1.serialized_attributes:
-            continue
-
-        var1 = getattr(state1, field_name)
-        var2 = getattr(state2, field_name)
-
-        if field_name == "model":
-            assert state1.is_model_deepspeed == state2.is_model_deepspeed
-            for p, q in zip(state1.model.parameters(), state2.model.parameters()):
-                torch.testing.assert_allclose(p, q, atol=1e-2, rtol=1e-2)
-        elif isinstance(var1, types.Tensor):
-            assert (var1 == var2).all()
-        else:
-            assert var1 == var2
+    _check_dict_recursively(state1.state_dict(), state2.state_dict(), "")
 
 
-def train_one_step(state: State, batch: types.Batch) -> None:
+def train_one_step(state: State, batch: Batch) -> None:
     _, y = batch
     state.batch = batch
 
@@ -82,7 +102,7 @@ def train_one_step(state: State, batch: types.Batch) -> None:
     state.timer.on_batch_complete(len(batch))
 
 
-def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHparams) -> types.Batch:
+def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHparams) -> Batch:
     dataloader = dataset_hparams.initialize_object(batch_size=2, dataloader_hparams=dataloader_hparams)
     if isinstance(dataloader, DataSpec):
         dataloader = dataloader.dataloader
@@ -92,8 +112,8 @@ def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHpa
 
 
 def test_state_serialize(tmpdir: pathlib.Path, dummy_model: ComposerModel, dummy_dataloader_hparams: DataLoaderHparams,
-                         dummy_train_dataset_hparams: DatasetHparams, dummy_train_dataloader: types.DataLoader,
-                         dummy_val_dataset_hparams: DatasetHparams, dummy_val_dataloader: types.DataLoader):
+                         dummy_train_dataset_hparams: DatasetHparams, dummy_train_dataloader: DataLoader,
+                         dummy_val_dataset_hparams: DatasetHparams, dummy_val_dataloader: DataLoader):
 
     assert isinstance(dummy_model, SimpleBatchPairModel)
 

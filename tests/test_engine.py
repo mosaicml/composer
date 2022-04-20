@@ -6,9 +6,10 @@ from unittest.mock import Mock
 import pytest
 
 from composer.algorithms import SelectiveBackprop
-from composer.core import Event, Logger, engine
+from composer.core import Event, engine
 from composer.core.algorithm import Algorithm
 from composer.core.state import State
+from composer.loggers import Logger
 
 
 @pytest.fixture

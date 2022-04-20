@@ -102,8 +102,8 @@ class TestSampleBernoulli:
             for module_id in module_ids:
                 generator = torch.Generator().manual_seed(144385)
                 mask_matrix[device_id, module_id] = _sample_bernoulli(probability=torch.tensor(probability),
-                                                                      device_id=device_id.item(),
-                                                                      module_id=module_id.item(),
+                                                                      device_id=int(device_id.item()),
+                                                                      module_id=int(module_id.item()),
                                                                       num_modules=len(module_ids),
                                                                       generator=generator,
                                                                       use_same_gpu_seed=True,
@@ -136,8 +136,8 @@ class TestSampleBernoulli:
             for module_id in module_ids:
                 generator = torch.Generator().manual_seed(144385)
                 mask_matrix[device_id, module_id] = _sample_bernoulli(probability=torch.tensor(probability),
-                                                                      device_id=device_id.item(),
-                                                                      module_id=module_id.item(),
+                                                                      device_id=int(device_id.item()),
+                                                                      module_id=int(module_id.item()),
                                                                       num_modules=len(module_ids),
                                                                       generator=generator,
                                                                       use_same_gpu_seed=False,
@@ -223,6 +223,7 @@ class TestStochasticDepthDropRate:
     @pytest.mark.parametrize("drop_distribution", ['uniform', 'linear'])
     @pytest.mark.parametrize("use_same_gpu_seed", [True])
     @pytest.mark.parametrize("drop_warmup", ["0.1dur"])
+    @pytest.mark.timeout(5)
     def test_drop_rate_warmup(self, algorithm: StochasticDepth, step: int, state: State):
         old_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=old_drop_rates)

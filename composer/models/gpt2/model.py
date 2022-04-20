@@ -7,17 +7,18 @@ Implemented as a wrapper using :class:`.ComposerTrainer`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
 
-from torchmetrics.collections import MetricCollection
+from torch import Tensor
+from torchmetrics import Metric, MetricCollection
 
-from composer.models.nlp_metrics import Perplexity
+from composer.metrics.nlp import Perplexity
 from composer.models.transformer_shared import ComposerTransformer
 
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, Metrics, Tensors
+    from composer.core.types import Batch
 
 __all__ = ["GPT2Model"]
 
@@ -51,12 +52,18 @@ class GPT2Model(ComposerTransformer):
     def __init__(self,
                  module: transformers.GPT2Model,
                  config: transformers.GPT2Config,
-                 tokenizer: transformers.GPT2Tokenizer,
+                 tokenizer: Optional[transformers.GPT2Tokenizer] = None,
                  gradient_checkpointing: bool = False) -> None:
+
+        if tokenizer is None:
+            model_inputs = {"input_ids", "attention_mask"}
+        else:
+            model_inputs = set(tokenizer.model_input_names)
+
         super().__init__(
             module=module,  #type: ignore (thirdparty)
             config=config,
-            tokenizer=tokenizer,
+            model_inputs=model_inputs,
             gradient_checkpointing=gradient_checkpointing)
 
         # If we ever have algorithms that modify the loss function, then this might be a bit inefficient
@@ -66,12 +73,12 @@ class GPT2Model(ComposerTransformer):
         self.train_perplexity = Perplexity()
         self.val_perplexity = Perplexity()
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
+    def loss(self, outputs: Mapping, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
         if outputs.get('loss', None) is not None:
             return outputs['loss']
         else:
             raise NotImplementedError('Calculating loss directly not supported yet.')
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return MetricCollection([self.train_loss, self.train_perplexity]) if train else MetricCollection(
             [self.val_loss, self.val_perplexity])

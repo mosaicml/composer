@@ -2,19 +2,19 @@
 
 import os
 import tempfile
-import textwrap
-from typing import Any, Tuple
+from typing import Any, Sequence, Tuple, Union
 
 import numpy as np
 import requests
 from torch import Tensor
-from torchmetrics import Metric
+from torchmetrics import Metric, MetricCollection
 
-from composer.core.types import BatchPair, Metrics, Tensors
+from composer.core.types import BatchPair
 from composer.models.base import ComposerModel
 from composer.models.ssd.base_model import Loss
 from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["SSD"]
 
@@ -60,9 +60,11 @@ class SSD(ComposerModel):
         from composer.datasets.coco import COCODetection
         self.val_coco = COCODetection(val_coco_root, val_annotate, val_trans)
 
-    def loss(self, outputs: Any, batch: BatchPair) -> Tensors:
+    def loss(self, outputs: Any, batch: BatchPair) -> Union[Tensor, Sequence[Tensor]]:
 
         (_, _, _, bbox, label) = batch  #type: ignore
+        if not isinstance(bbox, Tensor):
+            raise TypeError("bbox must be a singular tensor")
         trans_bbox = bbox.transpose(1, 2).contiguous()
 
         ploc, plabel = outputs
@@ -71,7 +73,7 @@ class SSD(ComposerModel):
         loss = self.loss_func(ploc, plabel, gloc, glabel)
         return loss
 
-    def metrics(self, train: bool = False) -> Metrics:
+    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.MAP
 
     def forward(self, batch: BatchPair) -> Tensor:
@@ -122,12 +124,10 @@ class coco_map(Metric):
         super().__init__()
         try:
             from pycocotools.coco import COCO
-        except ImportError:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without coco support.
-                To use coco with Composer, run `pip install mosaicml[coco]` if using pip or
-                `conda install -c conda-forge pycocotools` if using Anaconda.`"""))
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="coco",
+                                                conda_channel="conda-forge",
+                                                conda_package="pycocotools") from e
         self.add_state("predictions", default=[])
         val_annotate = os.path.join(data, "annotations/instances_val2017.json")
         self.cocogt = COCO(annotation_file=val_annotate)
@@ -139,12 +139,10 @@ class coco_map(Metric):
     def compute(self):
         try:
             from pycocotools.cocoeval import COCOeval
-        except ImportError:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without coco support.
-                To use coco with Composer, run `pip install mosaicml[coco]` if using pip or
-                `conda install -c conda-forge pycocotools` if using Anaconda.`"""))
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="coco",
+                                                conda_channel="conda-forge",
+                                                conda_package="pycocotools") from e
         cocoDt = self.cocogt.loadRes(np.array(self.predictions))
         E = COCOeval(self.cocogt, cocoDt, iouType='bbox')
         E.evaluate()

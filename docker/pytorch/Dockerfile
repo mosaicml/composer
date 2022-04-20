@@ -1,6 +1,6 @@
 ARG BASE_IMAGE
 
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE} AS pytorch_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
 # remove a bad symlink from the base composer image
@@ -20,6 +20,7 @@ RUN apt-get update && \
         dirmngr \
         apt-utils \
         gpg-agent \
+        openssh-client \
         # For PILLOW:
         zlib1g-dev \
         libtiff-dev \
@@ -149,3 +150,38 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
 WORKDIR /home/mosaicml
 
 USER mosaicml
+
+
+FROM pytorch_stage AS vision_stage
+ARG DEBIAN_FRONTEND=noninteractive
+
+##############################
+# MosaicML Vision Dependencies
+##############################
+
+RUN sudo apt-get update && \
+    sudo apt-get install -y --no-install-recommends \
+    # For FFCV:
+    pkg-config \
+    libturbojpeg-dev \
+    libopencv-dev \
+    # For deeplabv3:
+    ffmpeg \
+    libsm6 \
+    libxext6 && \
+    sudo apt-get autoclean && \
+    sudo apt-get clean && \
+    sudo rm -rf /var/lib/apt/lists/*
+
+ARG CUDA_VERSION_TAG
+ARG MMCV_VERSION
+ARG MMCV_TORCH_VERSION
+ARG PYTHON_VERSION
+
+RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
+    ffcv==0.0.3 \
+    'opencv-python>=4.5.5.64,<4.6' \
+    'numba>=0.55.0,<0.56' \
+    cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`>=10.2.0 && \
+    sudo pip${PYTHON_VERSION} install --no-cache-dir mmcv-full==${MMCV_VERSION} -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
+    sudo pip${PYTHON_VERSION} install --no-cache-dir 'mmsegmentation>=0.22.0,<0.23'

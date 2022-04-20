@@ -5,15 +5,17 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Mapping, Tuple
+from typing import TYPE_CHECKING, Mapping, Sequence, Tuple, Union
 
+from torch import Tensor
+
+from composer.metrics.nlp import HFCrossEntropy
 from composer.models.base import ComposerModel
-from composer.models.nlp_metrics import LanguageCrossEntropyLoss
 
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, Tensors
+    from composer.core.types import Batch
 
 log = logging.getLogger(__name__)
 
@@ -30,20 +32,18 @@ class ComposerTransformer(ComposerModel):
             contains the forward pass function.
         config (transformers.PretrainedConfig): The PretrainedConfig object that
             stores information about the model hyperparameters.
-        tokenizer (transformers.PreTrainedTokenizer): The tokenizer used for this model,
-            necessary to assert required model inputs.
+        model_inputs (set): The dictionary keys that should be required to be fed into the model's forward function.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
     """
 
     def __init__(self,
                  module: transformers.PreTrainedModel,
                  config: transformers.PretrainedConfig,
-                 tokenizer: transformers.PreTrainedTokenizer,
+                 model_inputs: set,
                  gradient_checkpointing: bool = False) -> None:
         super().__init__()
         self.module = module
         self.config = config
-        self.tokenizer = tokenizer
         log.info("Number of parameters in the model: " \
                  f"{sum(p.numel() for p in module.parameters()):,}")  # type: ignore (thirdparty)
         log.info("Number of trainable parameters in the model: "
@@ -51,17 +51,17 @@ class ComposerTransformer(ComposerModel):
 
         # the set of inputs that a model expects
         # if an algorithm modifies the loss function, it must remove "labels" from this set.
-        self.model_inputs = set(self.tokenizer.model_input_names)
+        self.model_inputs = model_inputs
         self.model_inputs.update(set({"labels"}))
 
         # define metrics for measurements
-        self.train_loss = LanguageCrossEntropyLoss()
-        self.val_loss = LanguageCrossEntropyLoss()
+        self.train_loss = HFCrossEntropy()
+        self.val_loss = HFCrossEntropy()
 
         if gradient_checkpointing:
             self.module.gradient_checkpointing_enable()  # type: ignore
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Tensors:
+    def loss(self, outputs: Mapping, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
         """Computes the loss of the tensor from the output.
 
         We don't implement this for the generic Transformer abstraction, since loss

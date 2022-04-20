@@ -5,7 +5,7 @@
 Primitives are tested in test_blurpool.py
 """
 import itertools
-from typing import List
+from typing import List, Sequence, Union
 from unittest.mock import Mock
 
 import pytest
@@ -14,8 +14,9 @@ import torch
 from composer.algorithms import BlurPool
 from composer.algorithms.blurpool import apply_blurpool
 from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
+from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Event, State
-from composer.core.types import Logger, Tensors
+from composer.loggers import Logger
 from composer.models import ComposerClassifier
 from composer.utils import module_surgery
 
@@ -38,7 +39,7 @@ class ConvModel(torch.nn.Module):
         self.linear1 = torch.nn.Linear(64, 48)
         self.linear2 = torch.nn.Linear(48, 10)
 
-    def forward(self, x: Tensors) -> Tensors:
+    def forward(self, x: Union[torch.Tensor, Sequence[torch.Tensor]]) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
 
         out = self.conv1(x)
         out = self.conv2(out)
@@ -129,10 +130,16 @@ def test_blurpool_algorithm_logging(state: State, blurpool_instance: BlurPool):
 
     blurpool_instance.apply(Event.INIT, state, mock_logger)
 
-    mock_logger.metric_fit.assert_called_once_with({
+    mock_logger.data_fit.assert_called_once_with({
         'blurpool/num_blurpool_layers': 1 if blurpool_instance.replace_maxpools else 0,
         'blurpool/num_blurconv_layers': 1 if blurpool_instance.replace_convs else 0,
     })
+
+
+def test_blurpool_noeffectwarning():
+    model = torch.nn.Linear(in_features=16, out_features=32)
+    with pytest.warns(NoEffectWarning):
+        apply_blurpool(model)
 
 
 def test_blurconv2d_optimizer_params_updated():

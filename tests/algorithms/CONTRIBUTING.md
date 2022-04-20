@@ -39,7 +39,7 @@ def test_myalgo_logging(state):
         algorithm = AlgorithmThatLogsSomething()
         algorithm.apply(Event.INIT, state, logger=logger_mock)
 
-        logger_mock.metric_fit.assert_called_one_with({
+        logger_mock.data_fit.assert_called_one_with({
             'some_key': some_value
         })
     """

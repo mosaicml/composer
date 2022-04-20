@@ -1,9 +1,10 @@
 |:hourglass:| Time
 ==================
 
-We use a |Time| class to represent and track time throughout
-the training loop. We track several quantities (epochs, batches,
-samples, and tokens) throughout training. Values
+We use the |Time| class to represent and track time throughout
+the training loop. We track several time-related quantities 
+(epochs, batches, samples, and tokens) throughout training and
+represent them as elements of the |TimeUnit| enum class. Values
 can be provided as a string:
 
 .. csv-table::
@@ -18,14 +19,14 @@ can be provided as a string:
    "Tokens", ``"tok"``, ``"93874tok"``, :attr:`.TimeUnit.TOKEN`
    "Duration", ``"dur"``, ``"0.7dur"``, :attr:`.TimeUnit.DURATION`
 
-Duration is defined as multiplier of the ``max_duration``.
+Duration is defined as a multiplier of the ``max_duration``.
 
 These above string inputs are valid when an argument accepts the |Time|
-type. There are some exceptions -- for example ``dur`` is not valid when setting
-``max_duration`` since that is circular.
+type. There are some exceptions -- for example ``dur`` is not valid when
+setting ``max_duration`` as that is circular.
 
 Users can also specify milestones for objects such as learning rate schedulers
-in units of ``duration``, such as ``0.1dur``. This makes it easy to build recipes
+in units of ``duration``, e.g. ``0.1dur``. This makes it easy to build recipes
 such as “decay the learning rate 10% into training”.
 
 .. warning::
@@ -44,17 +45,20 @@ The trainer has a :class:`.Timer` object stored in :attr:`.State.timer` that
 measures progress in all the time formats above. :attr:`.State.timer` can be
 read by algorithms and callbacks to trigger behavior at different times
 during training. This feature allows algorithms to specify time in whatever unit
-is most useful -- e.g. an algorithm could activate once every *n* batches, or
+is most useful -- e.g. an algorithm could activate once every *n* batches or
 during the last 20% of training.
 
-The trainer's timer increments time as data is consumed. As each batch of data is read,
-the timer accumulates the total number of samples and/or tokens consumed.
+When the trainer's timer unit is specified in terms of samples or tokens,
+the timer increments time in response to the data being consumed. As each 
+batch of data is read, the timer accumulates the total number of samples 
+and/or tokens consumed.
 
-By default, we attempt to infer the number of samples in batch:
+By default, we attempt to infer the number of samples based on the batch type:
 
-- If :class:`torch.Tensor`, we return the size of the first dimension
-- If ``list`` or ``tuple``, all elements must have the same first dimension size
-- If ``dict``, all elements must have the same first dimension size
+- If :class:`torch.Tensor`, the size of its first dimension is used.
+- If ``list`` or ``tuple``, the size of its first dimension is used. As such, all elements must have the same first dimension size.
+- If ``dict``, the size of its first dimension is used. As such, all elements must have the same first dimension size
+
 
 Users can supply their own ``get_num_samples_in_batch`` method to the trainer
 via the :class:`.DataSpec` for more complicated datasets:
@@ -80,17 +84,17 @@ via the :class:`.DataSpec` for more complicated datasets:
 
 
 To track tokens properly, users will need to supply the ``get_num_tokens_in_batch``
-function to the Trainer, otherwise tokens will not be tracked.
+function to the Trainer; otherwise, tokens will not be tracked.
 
 Samples Per Epoch
 -----------------
 
-To convert between samples and epochs, we infer the samples per epoch
+To convert between samples and epochs, we infer the number of samples per epoch
 from ``len(dataloader.dataset)`` if the property is available. If not, we assume
-the dataset is un-sized.
+the dataset is unsized.
 
-``num_samples`` can also be provided directly to the :class:`.DataSpec` to override this
-default behavior.
+``num_samples`` can also be provided directly to the :class:`.DataSpec` to override 
+this default behavior.
 
 .. code:: python
 

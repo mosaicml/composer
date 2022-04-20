@@ -26,7 +26,7 @@ Stochastic Weight Averaging is generally applicable across model architectures, 
 
 ## Example Effects
 
-SWA leads to accuracy improvements of about 1-1.5% on Resnet50-ImageNet. From the original paper and subsequent work by the authors (see their repo [here](https://github.com/izmailovpavel/torch_swa_examples)):
+SWA leads to accuracy improvements of about 1-1.5% for ResNet50 on ImageNet. From the original paper and subsequent work by the authors (see their repo [here](https://github.com/izmailovpavel/torch_swa_examples)):
 
 
 | Model      | Baseline SGD | SWA 5 epochs | SWA 10 epochs |
@@ -39,7 +39,7 @@ Note that the implementation in the original papers is slightly different than t
 
 ## Implementation Details
 
-The implementation is based off of the [PyTorch implementation](https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/), which treats SWA as an optimizer.  `SWALR` is imported from `torch.optim.swa_utils`. The current implementation first applies a cosine decay which then reaches a fixed learning rate value `swa_lr`, and then begins maintaining a running average.
+Our implementation is based off of the [PyTorch implementation](https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/), which treats SWA as an optimizer.  `SWALR` is imported from `torch.optim.swa_utils`. The current implementation first applies a cosine decay which reaches a fixed learning rate value, `swa_lr`, then begins maintaining a running average.
 
 ## Considerations
 

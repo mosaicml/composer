@@ -19,7 +19,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from composer.core.types import DataSpec
+from composer.core import DataSpec
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.synthetic import SyntheticBatchPairDataset
@@ -405,7 +405,7 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
             Default: ``True``.
     """
 
-    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-ade20k')
+    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-ade20k-3')
     name: str = hp.optional('WebDataset local cache name', default='ade20k')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
     base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
@@ -428,7 +428,7 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
             raise ValueError("max_resize_scale cannot be less than min_resize_scale")
 
     def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
-        from composer.datasets.webdataset import load_webdataset
+        from composer.datasets.webdataset_utils import load_webdataset
 
         self.validate()
         # Define data transformations based on data split
