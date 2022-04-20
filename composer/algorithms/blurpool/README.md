@@ -74,8 +74,7 @@ For max pooling, it replaces `torch.nn.MaxPool2d` instances with instances of a 
 
 🚧 Implementation Note
 >
-> Blurpool refuses to blur the input layer of a network (since at that point you're just reducing the input), as measured by whether the layer has [too few channels](https://github.com/mosaicml/composer/blob/4945b85dcaf65ce7f79ba9fdfd37b25a4b83a070/composer/algorithms/blurpool/blurpool.py#L169).
-> If you'd like to override this behavior, make sure the input layer has `stride > 1` and `in_channels >= 16`, though for most scenarios we recommend keeping this default behavior.
+> Blurpool does not replace strided convolutions with fewer than 16 input channels. This is a heuristic used to avoid blurpooling the network's input. Doing so is undesirable since it amounts to downsampling the input by more than the amount specified in the preprocessing pipeline. 
 
 ## Suggested Hyperparameters
 
