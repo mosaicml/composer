@@ -164,9 +164,10 @@ class CutOutHparams(AlgorithmHparams):
 class EMAHparams(AlgorithmHparams):
     """See :class:`EMA`"""
 
-    half_life: str = hp.required(doc='Time string specifying the time scale (half-life) on which old information is '
+    half_life: str = hp.optional(doc='Time string specifying the time scale (half-life) on which old information is '
                                  'forgotten. For example, "10ba" means old information decays with a half-life of 10 '
-                                 'batches.')
+                                 'batches.',
+                                 default="1ep")
     update_interval: Optional[str] = hp.optional(
         doc='Time string denoting how often the averaged model is updated.'
         'For example, "10ba" means the averaged model will be updated every 10 batches.'
