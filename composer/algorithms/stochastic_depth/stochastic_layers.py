@@ -66,18 +66,25 @@ class StochasticBottleneck(Bottleneck):
         self.use_same_depth_across_gpus = use_same_depth_across_gpus
         self.rand_generator = rand_generator
 
+    @torch.jit.unused
+    def _get_sample(self, device: int) -> torch.Tensor:
+        return _sample_bernoulli(probability=(1 - self.drop_rate),
+                                 device_id=device,
+                                 module_id=self.module_id,
+                                 num_modules=self.module_count,
+                                 generator=self.rand_generator,
+                                 use_same_gpu_seed=self.use_same_gpu_seed,
+                                 use_same_depth_across_gpus=self.use_same_depth_across_gpus)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         identity = x
 
-        sample = _sample_bernoulli(probability=(1 - self.drop_rate),
-                                   device_id=x.get_device(),
-                                   module_id=self.module_id,
-                                   num_modules=self.module_count,
-                                   generator=self.rand_generator,
-                                   use_same_gpu_seed=self.use_same_gpu_seed,
-                                   use_same_depth_across_gpus=self.use_same_depth_across_gpus)
+        if self.training:
+            sample = bool(self._get_sample(identity.get_device()))
+        else:
+            sample = True
 
-        if not self.training or sample:
+        if sample:
             out = self.conv1(x)
             out = self.bn1(out)
             out = self.relu(out)
