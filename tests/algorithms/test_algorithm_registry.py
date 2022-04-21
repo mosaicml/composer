@@ -11,6 +11,9 @@ from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, 
                                  SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
                                  StochasticDepthHparams, SWAHparams, algorithm_registry)
 from composer.core.algorithm import Algorithm
+from composer.models.base import ComposerModel
+from tests.algorithms.algorithm_settings import get_settings
+from torch.utils.data import Dataset
 
 default_required_fields = {
     AlibiHparams: {
@@ -132,3 +135,14 @@ def test_algorithm_registry(name, registry):
 
     algorithm = algorithm_registry.get_algorithm(hparams)
     assert isinstance(algorithm, Algorithm)
+
+
+@pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
+def test_algorithm_settings(name):
+    if name in ('alibi', 'seq_length_warmup', 'factorize', 'no_op_model', 'scale_schedule'):
+        pytest.skip()
+
+    setting = get_settings(name)
+    assert isinstance(setting['algorithm'], Algorithm)
+    assert isinstance(setting['model'], ComposerModel)
+    assert isinstance(setting['dataset'], Dataset)
