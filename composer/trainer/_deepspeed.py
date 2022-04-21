@@ -133,7 +133,7 @@ def _parse_deepspeed_config(
             in `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_.
         state (State): The state of the trainer.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1``
-            for no gradient clipping. (default: ``-1``)
+            for no gradient clipping. (default: ``-1.0``)
 
     Returns:
         Dict[str, Any]: The DeepSpeed config updated with values from the arguments passed to the

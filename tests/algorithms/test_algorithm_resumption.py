@@ -201,8 +201,10 @@ def test_algorithm_resumption(
     trainer_hparams.save_folder = checkpoint_a_folder
     trainer_hparams.save_interval = save_interval
 
-    trainer_hparams.validate_every_n_batches = 1 if resume_file.startswith("ba") else 0
-    trainer_hparams.validate_every_n_epochs = 1 if resume_file.startswith("ep") else 0
+    if resume_file.startswith("ba"):
+        trainer_hparams.eval_interval = "1ba"
+    if resume_file.startswith("ep"):
+        trainer_hparams.eval_interval = "1ep"
 
     first_trainer = trainer_hparams.initialize_object()
     first_trainer.fit()

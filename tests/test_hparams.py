@@ -62,7 +62,8 @@ class TestHparamsCreate:
         hparams.dataloader.pin_memory = False
         hparams.dataloader.prefetch_factor = 2
 
-        configure_dataset_for_synthetic(hparams.train_dataset, model_hparams=hparams.model)
+        if hparams.train_dataset is not None:
+            configure_dataset_for_synthetic(hparams.train_dataset, model_hparams=hparams.model)
         configure_model_for_synthetic(hparams.model)
         if hparams.val_dataset is not None:
             configure_dataset_for_synthetic(hparams.val_dataset)

@@ -18,8 +18,7 @@ def run_and_measure_memory(precision: Precision) -> int:
     hparams_f = os.path.join(os.path.dirname(composer.__file__), "yamls", "models", "resnet56_cifar10_synthetic.yaml")
     hparams = TrainerHparams.create(f=hparams_f, cli_args=False)
     hparams.train_subset_num_batches = 1
-    hparams.validate_every_n_batches = -1
-    hparams.validate_every_n_epochs = -1
+    hparams.eval_interval = "0ep"
     assert isinstance(hparams, TrainerHparams)
     assert isinstance(hparams.device, GPUDeviceHparams)
     hparams.precision = precision
