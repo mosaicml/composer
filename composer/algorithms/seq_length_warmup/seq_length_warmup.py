@@ -9,6 +9,7 @@ from typing import Dict, Mapping, Optional
 import torch
 
 from composer.core import Algorithm, Event, State
+from composer.core.precision import get_precision_context
 from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
@@ -223,7 +224,7 @@ class SeqLengthWarmup(Algorithm):
 
             # start by running a forward and backward pass
             # of the maximum sequence length to allocate cache.
-            with state.precision_context:
+            with get_precision_context(state.precision):
                 outputs = state.model.forward(model_inputs)
                 loss = self._original_model.loss(outputs, model_inputs)
 

@@ -85,6 +85,7 @@ import composer
 from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
+from composer.core.precision import get_precision_context
 from composer.core.types import Batch, BreakEpochException, DataLoader, PyTorchScheduler
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
@@ -773,10 +774,6 @@ class Trainer:
 
         self._train_data_spec = None if train_dataloader is None else _unpack_dataloader(train_dataloader)
 
-        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
-        # handle this with our version of Pytorch
-        precision_context = self._device.precision_context if not self.deepspeed_enabled else cast(
-            Callable[..., ContextManager], contextlib.nullcontext)
         if isinstance(precision, str):
             precision = Precision(precision)
 
@@ -798,7 +795,6 @@ class Trainer:
             callbacks=callbacks,
             grad_accum=grad_accum,
             precision=precision,
-            precision_context=precision_context,
             optimizers=optimizers,
         )
 
@@ -1503,7 +1499,7 @@ class Trainer:
             # forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            with self.state.precision_context:
+            with get_precision_context(self.state.precision):
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
@@ -1511,7 +1507,7 @@ class Trainer:
             # loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            with self.state.precision_context:
+            with get_precision_context(self.state.precision):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
             # We always want to scale loss by the grad_accum before the backwards pass and
@@ -1625,7 +1621,8 @@ class Trainer:
             self.state.model.train()
 
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
-        self.state.dataloader_len = original_num_batches
+        if original_num_batches is not None:
+            self.state.dataloader_len = original_num_batches
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.

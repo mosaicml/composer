@@ -3,10 +3,9 @@
 """The state of the trainer."""
 from __future__ import annotations
 
-import contextlib
 import logging
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -29,24 +28,6 @@ if TYPE_CHECKING:
 __all__ = ["State"]
 
 logger = logging.getLogger(__name__)
-
-
-def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextManager]:
-    """Returns a context manager to automatically cast to a specific precision.
-
-    Args:
-        precision (str or Precision): Precision for the context
-    """
-    if torch.cuda.is_available():
-        return lambda precision: torch.cuda.amp.autocast(Precision(precision) == Precision.AMP)
-    else:
-
-        def null(precision):
-            assert Precision(
-                precision) != Precision.AMP, "Precision AMP is only available when `torch.cuda.is_available() == True`."
-            return contextlib.nullcontext()
-
-        return null
 
 
 def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
@@ -97,7 +78,7 @@ class State(Serializable):
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         dataloader (types.DataLoader, optional): The active DataLoader.
         dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
-            The trainer will yield the first ``dataloader_len`` batches per iteration. If ``None`` (the default),
+            The trainer will yield the first ``dataloader_len`` batches per iteration. If ``-1`` (the default),
             the entire dataloader will be iterated over.
         dataloader_label (str, optional): The name for the dataloader. Required if ``dataloader`` is specified. (default: ``None``)
             By convention, the training dataloader is called ``'train'``. The evaluator dataloader is called
@@ -105,7 +86,6 @@ class State(Serializable):
         max_duration (str | Time, optional): The maximum duration to train for. (default: ``None``)
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
-        precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to train the model.
             Multiple optimizers are not currently supported.
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
@@ -218,7 +198,6 @@ class State(Serializable):
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
-        precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
 
         # optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
@@ -238,7 +217,6 @@ class State(Serializable):
 
         self.timer = Timer()
         self._precision = Precision(precision)
-        self._precision_context = precision_context
 
         if optimizers is None:
             self._optimizers = []
@@ -461,6 +439,11 @@ class State(Serializable):
     def dataloader_len(self):
         """The number of batches per dataloader iteration (e.g. epoch), as used by the trainer.
 
+        .. note::
+
+            If not explicitely specified, this value is an approximation, as it depends on ``len(self.dataloader)``.
+            See the :doc:`PyTorch DataLoader Documentation <torch:data>` for more information.
+
         Returns:
             Optional[Time[int]]: The number of batches per dataloader iteration (e.g. epoch), or None if no dataloader
             is defined or if the dataloader has an unknown length (e.g. streaming dataloaders).
@@ -524,10 +507,6 @@ class State(Serializable):
         """
         from composer.core.types import as_batch_dict
         return as_batch_dict(self.batch)
-
-    @property
-    def precision_context(self):
-        return self._precision_context(self.precision)
 
     @property
     def is_model_deepspeed(self) -> bool:
