@@ -31,11 +31,8 @@ def cnn_model_with_grads():
 
         def __init__(self, n_ch, num_fmaps, h, num_classes, filter_size):
             super().__init__()
-            self.conv_model = nn.Sequential(nn.Conv2d(n_ch, num_fmaps,
-                                                      kernel_size=filter_size),
-                                            nn.ReLU())
-            self.mlp = nn.Sequential(nn.Linear(num_fmaps, h), nn.ReLU(), nn.Linear(h, h),
-                                     nn.ReLU(),
+            self.conv_model = nn.Sequential(nn.Conv2d(n_ch, num_fmaps, kernel_size=filter_size), nn.ReLU())
+            self.mlp = nn.Sequential(nn.Linear(num_fmaps, h), nn.ReLU(), nn.Linear(h, h), nn.ReLU(),
                                      nn.Linear(h, num_classes), nn.Softmax(dim=1))
 
         def forward(self, x):
@@ -112,8 +109,7 @@ def test_get_clipped_gradients_1D():
     grad = torch.Tensor([7., 24.])
     clipping_threshold = 0.5
     expected = torch.tensor([0.7, 2.4])
-    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad,
-                                           clipping_threshold=clipping_threshold)
+    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -122,9 +118,7 @@ def test_get_clipped_gradients_1D_with_zeros():
     grad = torch.Tensor([0., 0.])
     clipping_threshold = 1e-4
     expected = torch.tensor([0., 0.])
-    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, 
-                                           clipping_threshold=clipping_threshold,
-                                           eps=1e-3)
+    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, clipping_threshold=clipping_threshold, eps=1e-3)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -133,8 +127,7 @@ def test_get_clipped_gradients_2D():
     grad = torch.Tensor([[7., 24.], [5., 12.]])
     clipping_threshold = 0.5
     expected = torch.tensor([[0.7, 2.4], [5., 12.]])
-    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad,
-                                           clipping_threshold=clipping_threshold)
+    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -143,10 +136,8 @@ def test_get_clipped_gradients_3D():
     weights = torch.Tensor([[[3., 8.], [2., 2.]], [[1., 3.], [3., 9.]]])
     grad = torch.Tensor([[[1., 1.], [3., 5.]], [[1., 1.], [1., 1.]]])
     clipping_threshold = 1 / 3.
-    expected = torch.Tensor([[[0.5000, 0.5000], [1.5000, 2.5000]],
-                             [[1.0000, 1.0000],[1.0000, 1.0000]]])
-    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad,
-                                           clipping_threshold=clipping_threshold)
+    expected = torch.Tensor([[[0.5000, 0.5000], [1.5000, 2.5000]], [[1.0000, 1.0000], [1.0000, 1.0000]]])
+    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -155,8 +146,6 @@ def test_get_clipped_gradients_4D():
     weights = torch.Tensor([[[[3.], [8.]], [[2.], [2.]]], [[[1.], [3.]], [[3.], [9.]]]])
     grad = torch.Tensor([[[[1.], [1.]], [[3.], [5.]]], [[[1.], [1.]], [[1.], [1.]]]])
     clipping_threshold = 1 / 3.
-    expected = torch.Tensor([[[[0.5], [0.5]], [[1.5], [2.5]]],
-                             [[[1.0], [1.0]], [[1.0], [1.0]]]])
-    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad,
-                                           clipping_threshold=clipping_threshold)
+    expected = torch.Tensor([[[[0.5], [0.5]], [[1.5], [2.5]]], [[[1.0], [1.0]], [[1.0], [1.0]]]])
+    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
