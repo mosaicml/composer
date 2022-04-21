@@ -6,8 +6,8 @@ import pytest
 
 from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, C4DatasetHparams, CIFAR10DatasetHparams,
                                COCODatasetHparams, DataLoaderHparams, DatasetHparams, GLUEHparams,
-                               ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, SyntheticHparamsMixin,
-                               WebDatasetHparams)
+                               ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, StreamingDatasetHparams,
+                               SyntheticHparamsMixin, WebDatasetHparams)
 from composer.trainer.trainer_hparams import dataset_registry
 
 # for testing, we provide values for required hparams fields
@@ -72,6 +72,8 @@ def test_dataset(dataset_name: str, dummy_dataloader_hparams: DataLoaderHparams)
     hparams_cls = dataset_registry[dataset_name]
     if issubclass(hparams_cls, WebDatasetHparams):
         return pytest.skip("Skipping test for webdatasets")
+    elif issubclass(hparams_cls, StreamingDatasetHparams):
+        return pytest.skip("Skipping test for streaming datasets")
     hparams = default_required_fields[hparams_cls]()
     if not isinstance(hparams, SyntheticHparamsMixin):
         pytest.xfail(f"{hparams.__class__.__name__} does not support synthetic data")
