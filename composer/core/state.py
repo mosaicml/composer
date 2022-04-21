@@ -214,7 +214,7 @@ class State(Serializable):
         grad_accum: int = 1,
         dataloader: Optional[types.DataLoader] = None,
         dataloader_label: Optional[str] = None,
-        dataloader_len: Optional[Union[int, Time[int]]] = None,
+        dataloader_len: Union[int, Time[int]] = -1,
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
@@ -318,7 +318,7 @@ class State(Serializable):
         return self._schedulers
 
     @schedulers.setter
-    def schedulers(self, schedulers: types.PyTorchScheduler):
+    def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
     @property
@@ -436,7 +436,7 @@ class State(Serializable):
         self,
         dataloader: Optional[types.DataLoader] = None,
         dataloader_label: Optional[str] = None,
-        dataloader_len: Optional[Union[int, Time[int]]] = None,
+        dataloader_len: Union[int, Time[int]] = -1,
     ):
         """Update the dataloader and dataloader label.
 
@@ -444,13 +444,18 @@ class State(Serializable):
             dataloader (types.DataLoader, optional): The dataloader. Defaults to None.
             dataloader_label (str, optional): The dataloader label. Must be ``None`` if and only if
                 ``dataloader`` is None. Defaults to None.
-            dataloader_len (int, int):
+            dataloader_len (int, int): The number of batches per dataloader iteration (e.g. epoch), as used by the trainer.
+                Set to ``-1`` to iterate over the entire dataset. (Default: ``-1``.)
         """
-        if (dataloader == None) != (dataloader_label == None):
-            raise ValueError("Both `dataloader` and `dataloader_label` should be None, or neither should be None.")
+        if dataloader is None:
+            dataloader_label = None
+        else:
+            if dataloader_label is None:
+                raise ValueError("If the `dataloader` is specified, then `dataloader_label` must not be None.")
         self._dataloader = dataloader
         self._dataloader_label = dataloader_label
-        self.dataloader_len = dataloader_len  # setting it to None will do a failsafe read of len(dataloader)
+        if dataloader is not None:
+            self.dataloader_len = dataloader_len  # setting it to -1 will do a failsafe read of len(dataloader)
 
     @property
     def dataloader_len(self):
@@ -463,13 +468,10 @@ class State(Serializable):
         return self._dataloader_len
 
     @dataloader_len.setter
-    def dataloader_len(self, num_batches: Optional[Union[int, Time[int]]]):
+    def dataloader_len(self, num_batches: Union[int, Time[int]]):
         if isinstance(num_batches, int):
             num_batches = Time(num_batches, TimeUnit.BATCH)
         if self._dataloader is None:
-            if num_batches is None:
-                self._dataloader_len = None
-                return
             raise RuntimeError("`State.dataloader_len` cannot be set if the dataloader is not defined.")
         try:
             dataloader_len = len(self._dataloader)
@@ -479,12 +481,16 @@ class State(Serializable):
             warnings.warn((f"DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) "
                            f"is greater than the length (i.e. number of batches) of the dataloader, which is "
                            f"{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}."))
-            num_batches = Time(dataloader_len, TimeUnit.BATCH)
-        if num_batches is None and dataloader_len is not None:
-            # len(dataloader) is an approximation -- see https://pytorch.org/docs/stable/data.html.
-            # However, in the worst case where additional last batches are dropped, this calculation should be
-            # an over-estimate, leading to the entire dataloader still being iterated over.
-            num_batches = Time(dataloader_len, TimeUnit.BATCH)
+            self._dataloader_len = Time(dataloader_len, TimeUnit.BATCH)
+        if num_batches == -1:
+            if dataloader_len is not None:
+                # len(dataloader) is an approximation -- see https://pytorch.org/docs/stable/data.html.
+                # However, in the worst case where additional last batches are dropped, this calculation should be
+                # an over-estimate, leading to the entire dataloader still being iterated over.
+                self._dataloader_len = Time(dataloader_len, TimeUnit.BATCH)
+            else:
+                # The dataloader length is unknown.
+                self._dataloader_len = None
         self._dataloader_len = num_batches
 
     @property

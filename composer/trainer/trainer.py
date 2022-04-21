@@ -106,7 +106,85 @@ log = logging.getLogger(__name__)
 
 __all__ = ["Trainer"]
 
+class MissingArgumentException(ValueError):
+    def __init__(self, arg_name: str) -> None:
+        super().__init__((
+            f"{arg_name} is a required argument and must be specified when constructing the "
+            f"{type(Trainer).__name__} or when calling {type(Trainer).__name__}.{Trainer.fit.__name__}(). "
+            f"To fix, please specify `arg_name` via {type(Trainer).__name__}({arg_name}=...) or "
+            f"{type(Trainer).__name__}.{Trainer.fit.__name__}({arg_name}=...)."
+        ))
 
+
+def _scale_max_duration_by_ssr(scale_schedule_ratio: float, orig_max_duration: Optional[Time[int]]) -> Optional[Time[int]]:
+    if orig_max_duration is None:
+        return None
+    max_duration = cast(Time[int], orig_max_duration * scale_schedule_ratio)
+    log.info(f'max_duration changed from {orig_max_duration} to {max_duration}')
+    if max_duration.value == 0:
+        raise ValueError(
+            'Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
+    return max_duration
+
+def _compile_schedulers(
+    schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]]],
+    state: State,
+    scale_schedule_ratio: float,
+) -> List[PyTorchScheduler]:
+    compiled_schedulers = []
+    for scheduler in ensure_tuple(schedulers):
+        if isinstance(scheduler, PyTorchScheduler):
+            scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
+            compiled_schedulers.append(scheduler)
+        else:  # it's a composer scheduler
+            compiled_schedulers.append(compile_composer_scheduler(scheduler, state, scale_schedule_ratio))
+
+    return compiled_schedulers
+
+def _unpack_dataloader(dataloader: Union[DataSpec, DataLoader, dict]) -> DataSpec:
+    if isinstance(dataloader, dict):
+        # treat as kwargs for DataSpec
+        dataloader = DataSpec(**dataloader)
+    if not isinstance(dataloader, DataSpec):
+        dataloader = DataSpec(dataloader)
+
+    data_spec = dataloader
+    unwrapped_data_loader = unwrap_data_loader(data_spec.dataloader)
+    if isinstance(unwrapped_data_loader, torch.utils.data.DataLoader):
+        if unwrapped_data_loader._iterator is not None:
+            raise ValueError(
+                textwrap.dedent("""\
+                The `train_dataloader` has an active iterator. This could occur
+                if `persistent_workers=True` and the dataloader has already been iterated,
+                or if the dataloader is mid-epoch. It is required that the training dataloader
+                does not have an active iterator, so CPU dataset augmentations can be
+                correctly inserted.
+
+                To fix, please do not iterate over the dataloader before passing it into
+                the trainer."""))
+    return data_spec
+
+
+def _unpack_evaluators(eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]], model: ComposerModel) -> List[Evaluator]:
+    # convert eval_dataloader to `List[Evaluator]`
+    evaluators: List[Evaluator] = []
+    for evaluator in ensure_tuple(eval_dataloader):
+        if isinstance(evaluator, Evaluator):
+            evaluators.append(evaluator)
+        else:
+            metrics = model.metrics(train=False)
+            evaluator = Evaluator(label="eval", dataloader=evaluator, metrics=metrics)
+            evaluators.append(evaluator)
+
+    return evaluators
+
+def _check_evaluators(evaluators: List[Evaluator]):
+    # do a check here to make sure there is at least one validation set
+    if len(evaluators) == 0:
+        warnings.warn(
+            textwrap.dedent("""No evaluation dataset was specified. Please specify `eval_dataloader` to periodically
+            evaluate your model while training."""),
+            category=UserWarning)
 class Trainer:
     """Trainer for training a models with Composer algorithms. See the Trainer guide for more information.
 
@@ -115,7 +193,7 @@ class Trainer:
             with Composer.
 
             .. seealso:: :mod:`composer.models` for models built into Composer.
-        train_dataloader (DataLoader, DataSpec, or dict): The :class:`.DataLoader`, :class:`.DataSpec`,
+        train_dataloader (DataLoader, DataSpec, or dict, optional): The :class:`.DataLoader`, :class:`.DataSpec`,
             or dict of :class:`.DataSpec` kwargs for the training data. In order to specify custom
             preprocessing steps on each data batch, specify a :class:`.DataSpec` instead of a
             :class:`.DataLoader`.
@@ -125,6 +203,10 @@ class Trainer:
                 desired optimization batch size is ``2048`` and training is happening across 8 GPUs, then each
                 ``train_dataloader`` should yield a batch of size ``2048 / 8 = 256``. If ``grad_accum = 2``,
                 then the per-rank batch will be divided into microbatches of size ``256 / 2 = 128``.
+        train_dataloader_label (str, optional): The label for the train dataloader. (default: ``'train'``)
+
+            This parameter is ignored if ``train_dataloader`` is not specified.
+
         max_duration (int, str, or Time): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
         eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.DataLoader`,
@@ -171,8 +253,12 @@ class Trainer:
             .. note::
                 ``fp16`` only works if ``deepspeed_config`` is also provided.
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
-            schedules. E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as
-            many epochs. ``1.0`` means no change. (default: ``1.0``)
+            schedules. (default: ``1.0``)
+            
+            E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as
+            many epochs. ``1.0`` means no change.
+
+            This parameter has no effect if ``schedulers`` is not specified.
 
             .. note ::
 
@@ -399,11 +485,13 @@ class Trainer:
             artifact stores.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
-            If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
+            If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
+
+            This parameter is ignored if ``train_dataloader`` is not specified.
 
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches per evaluation dataloader.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
-            If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
+            If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
         deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
             provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
@@ -485,8 +573,9 @@ class Trainer:
         self,
         *,
         model: ComposerModel,
-        train_dataloader: Union[DataLoader, DataSpec],
-        max_duration: Union[int, str, Time],
+        train_dataloader: Optional[Union[DataLoader, DataSpec, Dict[str, Any]]] = None,
+        train_dataloader_label: str = 'train',
+        max_duration: Optional[Union[int, str, Time]] = None,
         eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         optimizers: Optional[torch.optim.Optimizer] = None,
@@ -543,8 +632,8 @@ class Trainer:
         save_num_checkpoints_to_keep: int = -1,
 
         # subset parameters
-        train_subset_num_batches: Optional[int] = None,
-        eval_subset_num_batches: Optional[int] = None,
+        train_subset_num_batches: int = -1,
+        eval_subset_num_batches: int = -1,
 
         # DeepSpeed
         deepspeed_config: Union[bool, Dict[str, Any]] = False,
@@ -582,15 +671,6 @@ class Trainer:
             max_duration = Time.from_timestring(max_duration)
         elif isinstance(max_duration, int):
             max_duration = Time.from_epoch(max_duration)
-
-        orig_max_duration = max_duration
-
-        if scale_schedule_ratio != 1.0:
-            max_duration = cast(Time[int], orig_max_duration * scale_schedule_ratio)
-            log.info(f'max_duration changed from {orig_max_duration} to {max_duration}')
-            if max_duration.value == 0:
-                raise ValueError(
-                    'Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
 
         if isinstance(deepspeed_config, bool):
             self._deepspeed_config = {} if deepspeed_config else None
@@ -647,42 +727,11 @@ class Trainer:
         else:
             self._ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
-        # convert eval_dataloader to `List[Evaluator]`
-        self.evaluators: List[Evaluator] = []
-        for evaluator in ensure_tuple(eval_dataloader):
-            if isinstance(evaluator, Evaluator):
-                self.evaluators.append(evaluator)
-            else:
-                metrics = model.metrics(train=False)
-                evaluator = Evaluator(label="eval", dataloader=evaluator, metrics=metrics)
-                self.evaluators.append(evaluator)
-
         self.eval_subset_num_batches = eval_subset_num_batches
+        self.evaluators = _unpack_evaluators(eval_dataloader, model)
+        _check_evaluators(self.evaluators)
 
-        # do a check here to make sure there is at least one validation set
-        if len(self.evaluators) == 0:
-            warnings.warn(
-                textwrap.dedent("""No evaluation dataset was specified. Please specify `eval_dataloader` to periodically
-                evaluate your model while training."""),
-                category=UserWarning)
-
-        if not isinstance(train_dataloader, DataSpec):
-            train_dataloader = DataSpec(train_dataloader)
-
-        self._train_data_spec = train_dataloader
-        unwrapped_data_loader = unwrap_data_loader(self._train_data_spec.dataloader)
-        if isinstance(unwrapped_data_loader, torch.utils.data.DataLoader):
-            if unwrapped_data_loader._iterator is not None:
-                raise ValueError(
-                    textwrap.dedent("""\
-                    The `train_dataloader` has an active iterator. This could occur
-                    if `persistent_workers=True` and the dataloader has already been iterated,
-                    or if the dataloader is mid-epoch. It is required that the training dataloader
-                    does not have an active iterator, so CPU dataset augmentations can be
-                    correctly inserted.
-
-                    To fix, please do not iterate over the dataloader before passing it into
-                    the trainer."""))
+        self._train_data_spec = None if train_dataloader is None else _unpack_dataloader(train_dataloader)
 
         # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
         # handle this with our version of Pytorch
@@ -863,7 +912,8 @@ class Trainer:
 
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
-        self.state.set_dataloader(train_dataloader.dataloader, 'train', train_subset_num_batches)
+        if self._train_data_spec is not None:
+            self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label, train_subset_num_batches)
         self.state.max_duration = max_duration
         self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
@@ -871,12 +921,12 @@ class Trainer:
         self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
 
         # Compile and bind the schedulers
-        for scheduler in ensure_tuple(schedulers):
-            if isinstance(scheduler, PyTorchScheduler):
-                scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
-                self.state.schedulers.append(scheduler)
-            else:  # it's a composer scheduler
-                self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
+        self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
+
+        if scale_schedule_ratio != 1.0:
+            if len(self.state.schedulers) == 0:
+                raise ValueError("If specifying the `scale_schedule_ratio`, the `schedulers` must also be specified.")
+            self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, max_duration)
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -969,8 +1019,56 @@ class Trainer:
             return []
         return self._checkpoint_saver.saved_checkpoints
 
-    def fit(self):
+    def fit(
+        self,
+        train_dataloader: Optional[Union[DataLoader, DataSpec]] = None,
+        train_dataloader_label: str = "train",
+        train_subset_num_batches: Optional[int] = None,
+        max_duration: Optional[Time[int]] = None,
+        reset_timer: bool = False,
+        scale_schedule_ratio: float = 1.0,
+        optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]] = None,
+        schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
+                                                                                       PyTorchScheduler]]]] = None,
+        evaluators: ... = ...,
+
+
+    ):
         """Train and evaluate the model on the provided data."""
+        if train_dataloader is not None:
+            self._train_data_spec = _unpack_dataloader(train_dataloader)
+            self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
+        if self._train_data_spec is None:
+            raise MissingArgumentException("train_dataloader")
+        if train_subset_num_batches is not None:
+            self.state.dataloader_len = train_subset_num_batches
+
+        if max_duration is not None:
+            if isinstance(max_duration, str):
+                max_duration = Time.from_timestring(max_duration)
+            elif isinstance(max_duration, int):
+                max_duration = Time.from_epoch(max_duration)
+
+            self.state.max_duration = max_duration
+
+
+        if self.state.max_duration is None:
+            raise MissingArgumentException("max_duration")
+
+        if scale_schedule_ratio != 1.0:
+            if len(ensure_tuple(schedulers)) == 0:
+                raise ValueError("If specifying the `scale_schedule_ratio`, the `schedulers` must also be specified.")
+            self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
+        self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
+        if len(ensure_tuple(schedulers)) == 0:
+            warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
+
+        if optimizers is not None:
+            self.state.optimizers = optimizers
+
+        if reset_timer:
+            self.state.timer.reset()
+
         try:
             self._train_loop()
         finally:
