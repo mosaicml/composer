@@ -4,7 +4,7 @@
 
 import copy
 import warnings
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, cast
 
 import torch
 
@@ -23,9 +23,9 @@ def _add_batch_config(config: Dict[str, Any], state: State):
 
     if state.dataloader.batch_size % state.grad_accum != 0:
         # DeepSpeed will throw an error in this configuration.
-        raise ValueError("The Mosaic trainer has been configured to use batch size="
-                         f"{state.dataloader.batch_size}, but this is not divisible by the "
-                         f"grad accum={state.grad_accum}. This is unsupported when using DeepSpeed.")
+        raise ValueError(("The Mosaic trainer has been configured to use batch size="
+                          f"{state.dataloader.batch_size}, but this is not divisible by the "
+                          f"grad accum={state.grad_accum}. This is unsupported when using DeepSpeed."))
 
     train_batch_size = state.dataloader.batch_size * dist.get_world_size()
     grad_accum = state.grad_accum
@@ -35,21 +35,21 @@ def _add_batch_config(config: Dict[str, Any], state: State):
     if "train_batch_size" in config:
         ds_train_batch_size = config["train_batch_size"]
         if ds_train_batch_size != train_batch_size:
-            raise ValueError(f"Provided DeepSpeed configuration specifies batch size={ds_train_batch_size}, "
-                             f"but the Mosaic trainer has been configured with batch size={train_batch_size}.")
+            raise ValueError((f"Provided DeepSpeed configuration specifies batch size={ds_train_batch_size}, "
+                              f"but the Mosaic trainer has been configured with batch size={train_batch_size}."))
 
     if "gradient_accumulation_steps" in config:
         ds_grad_accum = config["gradient_accumulation_steps"]
         if ds_grad_accum != grad_accum:
-            raise ValueError(f"Provided DeepSpeed configuration specifies grad accum={ds_grad_accum}, "
-                             f"but the Mosaic trainer has been configured with grad accum={grad_accum}.")
+            raise ValueError((f"Provided DeepSpeed configuration specifies grad accum={ds_grad_accum}, "
+                              f"but the Mosaic trainer has been configured with grad accum={grad_accum}."))
 
     if "train_micro_batch_size_per_gpu" in config:
         ds_per_gpu_microbatch_size = config["train_micro_batch_size_per_gpu"]
         if ds_per_gpu_microbatch_size != per_gpu_microbatch_size:
-            raise ValueError("Provided DeepSpeed configuration specifies per-GPU microbatch size="
-                             f"{ds_per_gpu_microbatch_size}, but the Mosaic trainer has been "
-                             f"configured with per-GPU microbatch size={per_gpu_microbatch_size}.")
+            raise ValueError(("Provided DeepSpeed configuration specifies per-GPU microbatch size="
+                              f"{ds_per_gpu_microbatch_size}, but the Mosaic trainer has been "
+                              f"configured with per-GPU microbatch size={per_gpu_microbatch_size}."))
 
     config["train_batch_size"] = train_batch_size
     config["gradient_accumulation_steps"] = grad_accum
@@ -58,12 +58,12 @@ def _add_batch_config(config: Dict[str, Any], state: State):
 
 def _ensure_no_optim_in_config(config: Dict[str, Any]):
     if "optimizer" in config:
-        raise ValueError("The DeepSpeed configuration specifies an optimizer, but the Mosaic "
-                         "trainer will override this setting.")
+        raise ValueError(("The DeepSpeed configuration specifies an optimizer, but the Mosaic "
+                          "trainer will override this setting."))
 
     if "scheduler" in config:
-        raise ValueError("The DeepSpeed configuration specifies a scheduler, but the Mosaic "
-                         "trainer will override this setting.")
+        raise ValueError(("The DeepSpeed configuration specifies a scheduler, but the Mosaic "
+                          "trainer will override this setting."))
 
 
 def _add_precision_config(config: Dict[str, Any], state: State):
@@ -73,15 +73,15 @@ def _add_precision_config(config: Dict[str, Any], state: State):
     if "fp16" in config and "enabled" in config["fp16"] and config["fp16"]["enabled"]:
         ds_precision = Precision.FP16
     if "bf16" in config and "enabled" in config["bf16"] and config["bf16"]["enabled"]:
-        raise ValueError("DeepSpeed is configured to use BFLOAT16, but this is unsupported by the "
-                         "Mosaic trainer.")
+        raise ValueError(("DeepSpeed is configured to use BFLOAT16, but this is unsupported by the "
+                          "Mosaic trainer."))
     if "amp" in config and "enabled" in config["amp"] and config["amp"]["enabled"]:
-        raise ValueError("DeepSpeed is configured to use Apex AMP, but this is unsupported by the "
-                         "Mosaic trainer.")
+        raise ValueError(("DeepSpeed is configured to use Apex AMP, but this is unsupported by the "
+                          "Mosaic trainer."))
 
     if ds_precision is not None and ds_precision != precision:
-        raise ValueError(f"Provided DeepSpeed configuration specifies precision={ds_precision}, "
-                         f"but the Mosaic trainer has been configured with precision={precision}.")
+        raise ValueError((f"Provided DeepSpeed configuration specifies precision={ds_precision}, "
+                          f"but the Mosaic trainer has been configured with precision={precision}."))
 
     if precision == Precision.FP16:
         if "fp16" not in config:
@@ -94,28 +94,30 @@ def _add_precision_config(config: Dict[str, Any], state: State):
         fp16_config.setdefault("loss_scale_window", 2000)
 
 
-def _add_other_config(config: Dict[str, Any], grad_clip_norm: Optional[float]):
+def _add_other_config(config: Dict[str, Any], grad_clip_norm: float):
     if "gradient_clipping" in config:
         ds_grad_clip_norm = config["gradient_clipping"]
         if ds_grad_clip_norm != grad_clip_norm:
-            raise ValueError("Provided DeepSpeed configuration specifies grad clip norm="
-                             f"{ds_grad_clip_norm}, but the Mosaic trainer has been configured "
-                             f"with grad clip norm={grad_clip_norm}")
+            raise ValueError(("Provided DeepSpeed configuration specifies grad clip norm="
+                              f"{ds_grad_clip_norm}, but the Mosaic trainer has been configured "
+                              f"with grad clip norm={grad_clip_norm}"))
 
-    if grad_clip_norm is not None:
+    if grad_clip_norm != -1.0:
         config["gradient_clipping"] = grad_clip_norm
 
     if "zero_allow_untested_optimizer" in config and not config["zero_allow_untested_optimizer"]:
-        warnings.warn("Provided DeepSpeed configuration specifies zero_allow_untested_optimizer=False. "
-                      "This causes DeepSpeed to reject certain Mosaic optimizers that are known to "
-                      "work well with DeepSpeed.")
+        warnings.warn(("Provided DeepSpeed configuration specifies zero_allow_untested_optimizer=False. "
+                       "This causes DeepSpeed to reject certain Mosaic optimizers that are known to "
+                       "work well with DeepSpeed."))
 
     config["zero_allow_untested_optimizer"] = True
 
 
-def _parse_deepspeed_config(config: Dict[str, Any],
-                            state: State,
-                            grad_clip_norm: Optional[float] = None) -> Dict[str, Any]:
+def _parse_deepspeed_config(
+    config: Dict[str, Any],
+    state: State,
+    grad_clip_norm: float = -1.0,
+) -> Dict[str, Any]:
     """Parses the provided DeepSpeed config for compatibility with the Mosaic trainer.
 
     Broadly speaking, this function does three things.
@@ -130,8 +132,8 @@ def _parse_deepspeed_config(config: Dict[str, Any],
         config (Dict[str, Any]): The DeepSpeed config to use. Must follow the format specified
             in `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_.
         state (State): The state of the trainer.
-        grad_clip_norm (Optional[float]): The norm to clip gradient magnitudes to.
-            ``None`` results in no gradient clipping. (default: ``None``)
+        grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1``
+            for no gradient clipping. (default: ``-1``)
 
     Returns:
         Dict[str, Any]: The DeepSpeed config updated with values from the arguments passed to the

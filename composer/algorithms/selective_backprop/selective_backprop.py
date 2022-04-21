@@ -93,7 +93,7 @@ def select_using_loss(input: torch.Tensor,
         This function runs an extra forward pass through the model on the batch of data.
         If you are using a non-default precision, ensure that this forward pass
         runs in your desired precision. For example:
-    
+
     .. testsetup::
 
         N_sb, D_sb = 16, 8

@@ -106,28 +106,31 @@ log = logging.getLogger(__name__)
 
 __all__ = ["Trainer"]
 
+
 class MissingArgumentException(ValueError):
+
     def __init__(self, arg_name: str) -> None:
-        super().__init__((
-            f"{arg_name} is a required argument and must be specified when constructing the "
-            f"{type(Trainer).__name__} or when calling {type(Trainer).__name__}.{Trainer.fit.__name__}(). "
-            f"To fix, please specify `arg_name` via {type(Trainer).__name__}({arg_name}=...) or "
-            f"{type(Trainer).__name__}.{Trainer.fit.__name__}({arg_name}=...)."
-        ))
+        super().__init__(
+            (f"{arg_name} is a required argument and must be specified when constructing the "
+             f"{type(Trainer).__name__} or when calling {type(Trainer).__name__}.{Trainer.fit.__name__}(). "
+             f"To fix, please specify `arg_name` via {type(Trainer).__name__}({arg_name}=...) or "
+             f"{type(Trainer).__name__}.{Trainer.fit.__name__}({arg_name}=...)."))
 
 
-def _scale_max_duration_by_ssr(scale_schedule_ratio: float, orig_max_duration: Optional[Time[int]]) -> Optional[Time[int]]:
+def _scale_max_duration_by_ssr(scale_schedule_ratio: float,
+                               orig_max_duration: Optional[Time[int]]) -> Optional[Time[int]]:
     if orig_max_duration is None:
         return None
     max_duration = cast(Time[int], orig_max_duration * scale_schedule_ratio)
     log.info(f'max_duration changed from {orig_max_duration} to {max_duration}')
     if max_duration.value == 0:
-        raise ValueError(
-            'Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
+        raise ValueError('Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
     return max_duration
 
+
 def _compile_schedulers(
-    schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]]],
+    schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
+                                                                                   PyTorchScheduler]]]],
     state: State,
     scale_schedule_ratio: float,
 ) -> List[PyTorchScheduler]:
@@ -140,6 +143,7 @@ def _compile_schedulers(
             compiled_schedulers.append(compile_composer_scheduler(scheduler, state, scale_schedule_ratio))
 
     return compiled_schedulers
+
 
 def _unpack_dataloader(dataloader: Union[DataSpec, DataLoader, dict]) -> DataSpec:
     if isinstance(dataloader, dict):
@@ -165,7 +169,12 @@ def _unpack_dataloader(dataloader: Union[DataSpec, DataLoader, dict]) -> DataSpe
     return data_spec
 
 
-def _unpack_evaluators(eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]], model: ComposerModel) -> List[Evaluator]:
+def _unpack_evaluators(
+    eval_dataloader: Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]],
+    eval_interval: Union[int, str, Time, Callable[[State, Event], bool]],
+    subset_num_batches: int,
+    model: ComposerModel,
+) -> List[Evaluator]:
     # convert eval_dataloader to `List[Evaluator]`
     evaluators: List[Evaluator] = []
     for evaluator in ensure_tuple(eval_dataloader):
@@ -173,18 +182,37 @@ def _unpack_evaluators(eval_dataloader: Optional[Union[DataLoader, DataSpec, Eva
             evaluators.append(evaluator)
         else:
             metrics = model.metrics(train=False)
-            evaluator = Evaluator(label="eval", dataloader=evaluator, metrics=metrics)
+            evaluator = Evaluator(
+                label="eval",
+                dataloader=evaluator,
+                metrics=metrics,
+                subset_num_batches=subset_num_batches,
+                interval=eval_interval,
+            )
             evaluators.append(evaluator)
 
     return evaluators
 
-def _check_evaluators(evaluators: List[Evaluator]):
-    # do a check here to make sure there is at least one validation set
-    if len(evaluators) == 0:
-        warnings.warn(
-            textwrap.dedent("""No evaluation dataset was specified. Please specify `eval_dataloader` to periodically
-            evaluate your model while training."""),
-            category=UserWarning)
+
+def _unpack_grad_accum(grad_accum: Union[int, str], device: Device) -> Tuple[int, bool]:
+    # Set initial grad_accum to 1 if using adaptive
+    adaptive_grad_accum = grad_accum == "auto"
+    if adaptive_grad_accum:
+        grad_accum = 1
+        warnings.warn(textwrap.dedent("""Setting `grad_accum='auto'` is an experimental feature
+            which may cause uncaught Cuda Out of Memory errors. In this case, please manually
+            set grad_accum explicitly to an integer instead.
+            """),
+                      category=UserWarning)
+    # Cannot use adaptive grad accum on CPU
+    if isinstance(device, DeviceCPU) and adaptive_grad_accum:
+        raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
+    # grad_accum should be int as we've already handled "auto" case
+    if isinstance(grad_accum, str):
+        raise ValueError("grad_accum must be an int or ``auto``")
+    return grad_accum, adaptive_grad_accum
+
+
 class Trainer:
     """Trainer for training a models with Composer algorithms. See the Trainer guide for more information.
 
@@ -254,7 +282,7 @@ class Trainer:
                 ``fp16`` only works if ``deepspeed_config`` is also provided.
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
             schedules. (default: ``1.0``)
-            
+
             E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as
             many epochs. ``1.0`` means no change.
 
@@ -572,41 +600,48 @@ class Trainer:
     def __init__(
         self,
         *,
+        # The Model
         model: ComposerModel,
+
+        # Train Dataloader
         train_dataloader: Optional[Union[DataLoader, DataSpec, Dict[str, Any]]] = None,
         train_dataloader_label: str = 'train',
+        train_subset_num_batches: int = -1,
+        compute_training_metrics: bool = False,
+
+        # Stopping Condition
         max_duration: Optional[Union[int, str, Time]] = None,
-        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
-        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
+
+        # Optim and Scheduling
         optimizers: Optional[torch.optim.Optimizer] = None,
         schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
                                                                                        PyTorchScheduler]]]] = None,
-
-        # device
-        device: Optional[Union[str, Device]] = None,
-
-        # training hparams
-        grad_accum: Union[int, str] = 1,
-        grad_clip_norm: Optional[float] = None,
-        validate_every_n_batches: int = -1,
-        validate_every_n_epochs: int = 1,
-        compute_training_metrics: bool = False,
-        precision: Union[str, Precision] = Precision.FP32,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
-        # dist hparams
+        # System/Numerics
+        device: Optional[Union[str, Device]] = None,
+        precision: Union[str, Precision] = Precision.FP32,
+        grad_accum: Union[int, str] = 1,
+
+        # Evaluators
+        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+        eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
+        eval_subset_num_batches: int = -1,
+
+        # Distributed Training
         dist_timeout: float = 300.0,
         ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
-        # randomness
+        # Reproducibility
         seed: Optional[int] = None,
         deterministic_mode: bool = False,
 
-        # logging and callbacks
+        # Algorithms, Callbacks, and Logging
+        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
+        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
         run_name: Optional[str] = None,
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
-        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
@@ -631,12 +666,11 @@ class Trainer:
         save_weights_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
 
-        # subset parameters
-        train_subset_num_batches: int = -1,
-        eval_subset_num_batches: int = -1,
-
         # DeepSpeed
         deepspeed_config: Union[bool, Dict[str, Any]] = False,
+
+        # Extra
+        grad_clip_norm: float = -1.0,
 
         # profiling
         prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
@@ -727,9 +761,15 @@ class Trainer:
         else:
             self._ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
 
-        self.eval_subset_num_batches = eval_subset_num_batches
-        self.evaluators = _unpack_evaluators(eval_dataloader, model)
-        _check_evaluators(self.evaluators)
+        self.evaluators = [] if eval_dataloader is None else _unpack_evaluators(eval_dataloader,
+                                                                                subset_num_batches=eval_subset_num_batches,
+                                                                                eval_interval=eval_interval,
+                                                                                model=model,)
+        if len(self.evaluators) == 0:
+            if eval_subset_num_batches != -1:
+                warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
+            if eval_interval != 1:
+                warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
 
         self._train_data_spec = None if train_dataloader is None else _unpack_dataloader(train_dataloader)
 
@@ -749,21 +789,7 @@ class Trainer:
         if num_optimizers != 1:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
 
-        # Set initial grad_accum to 1 if using adaptive
-        self.adaptive_grad_accum = grad_accum == "auto"
-        if self.adaptive_grad_accum:
-            grad_accum = 1
-            warnings.warn(textwrap.dedent("""Setting `grad_accum='auto'` is an experimental feature
-                which may cause uncaught Cuda Out of Memory errors. In this case, please manually
-                set grad_accum explicitly to an integer instead.
-                """),
-                          category=UserWarning)
-        # Cannot use adaptive grad accum on CPU
-        if isinstance(self._device, DeviceCPU) and self.adaptive_grad_accum:
-            raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
-        # grad_accum should be int as we've already handled "auto" case
-        if isinstance(grad_accum, str):
-            raise ValueError("grad_accum must be an int or ``auto``")
+        grad_accum, self.adaptive_gradient_accumulation = _unpack_grad_accum(grad_accum, self._device)
 
         self.state = State(
             rank_zero_seed=rank_zero_seed,
@@ -889,8 +915,6 @@ class Trainer:
             logger=self.logger,
         )
 
-        self._validate_every_n_batches = validate_every_n_batches
-        self._validate_every_n_epochs = validate_every_n_epochs
         self._grad_clip_norm = grad_clip_norm
 
         if deterministic_mode:
@@ -913,7 +937,8 @@ class Trainer:
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
         if self._train_data_spec is not None:
-            self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label, train_subset_num_batches)
+            self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
+                                      train_subset_num_batches)
         self.state.max_duration = max_duration
         self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
@@ -925,7 +950,7 @@ class Trainer:
 
         if scale_schedule_ratio != 1.0:
             if len(self.state.schedulers) == 0:
-                raise ValueError("If specifying the `scale_schedule_ratio`, the `schedulers` must also be specified.")
+                warnings.warn("Specifying the `scale_schedule_ratio` without `schedulers` has no effect.")
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, max_duration)
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
@@ -936,9 +961,11 @@ class Trainer:
                 raise MissingConditionalImportError(extra_deps_group="deepspeed",
                                                     conda_package="deepspeed>=0.5.5") from e
             assert self._deepspeed_config is not None
-            self._deepspeed_config = _parse_deepspeed_config(self._deepspeed_config,
-                                                             state=self.state,
-                                                             grad_clip_norm=self._grad_clip_norm)
+            self._deepspeed_config = _parse_deepspeed_config(
+                self._deepspeed_config,
+                state=self.state,
+                grad_clip_norm=self._grad_clip_norm,
+            )
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
                 config=self._deepspeed_config,
@@ -1030,9 +1057,12 @@ class Trainer:
         optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]] = None,
         schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
                                                                                        PyTorchScheduler]]]] = None,
-        evaluators: ... = ...,
-
-
+        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+        eval_subset_num_batches: int = -1,
+        eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
+        grad_accum: Optional[Union[int, str]] = None,
+        grad_clip_norm: Optional[float] = None,
+        precision: Optional[Union[str, Precision]] = None,
     ):
         """Train and evaluate the model on the provided data."""
         if train_dataloader is not None:
@@ -1051,10 +1081,23 @@ class Trainer:
 
             self.state.max_duration = max_duration
 
-
         if self.state.max_duration is None:
             raise MissingArgumentException("max_duration")
 
+
+        # Optimizers
+        if self.state.is_model_deepspeed:
+            if optimizers is not None:
+                raise ValueError(
+                    ("When using DeepSpeed, the optimizers must be set when constructing the . "
+                     f"{type(self).__name__} -- e.g. via {type(self).__name__}(optimizers=...). They cannot be "
+                     f"specified on {type(self).__name__}.{type(self).fit.__name__}()."))
+
+        if optimizers is not None:
+            self.state.optimizers = optimizers
+
+
+        # Scale Schedule Ratio and Schedulers
         if scale_schedule_ratio != 1.0:
             if len(ensure_tuple(schedulers)) == 0:
                 raise ValueError("If specifying the `scale_schedule_ratio`, the `schedulers` must also be specified.")
@@ -1063,9 +1106,41 @@ class Trainer:
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
-        if optimizers is not None:
-            self.state.optimizers = optimizers
+        # Evaluators
+        if eval_dataloader is not None:
+            evaluators = _unpack_evaluators(
+                eval_dataloader,
+                eval_interval=eval_interval,
+                subset_num_batches=eval_subset_num_batches,
+                model=self._original_model,
+            )
+            if len(self.evaluators) == 0:
+                if eval_subset_num_batches != -1:
+                    warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
+                if eval_interval != 1:
+                    warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
+            self.evaluators = evaluators
 
+        if len(self.evaluators) == 0:
+            warnings.warn(("No `eval_dataloader` was specified. Please specify `eval_dataloader` to periodically "
+                           "evaluate your model while training."))
+
+        # Grad Accum
+        if grad_accum is not None:
+            self.state.grad_accum, self.adaptive_gradient_accumulation = _unpack_grad_accum(grad_accum, self._device)
+
+        # Grad Clip Norm
+        if grad_clip_norm is not None:
+            if self.state.is_model_deepspeed:
+                raise ValueError(
+                    ("When using DeepSpeed, the `grad_clip_norm` must be set when constructing the . "
+                     f"{type(self).__name__} -- e.g. via {type(self).__name__}(grad_clip_norm=...). It cannot be "
+                     f"specified on {type(self).__name__}.{type(self).fit.__name__}()."))
+            self._grad_clip_norm = grad_clip_norm
+
+
+
+        # Reset Timer
         if reset_timer:
             self.state.timer.reset()
 
@@ -1282,7 +1357,7 @@ class Trainer:
 
     def _is_cuda_oom(self, e: RuntimeError):
         """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
-        return self.adaptive_grad_accum and "CUDA out of memory" in str(e)
+        return "CUDA out of memory" in str(e)
 
     def _handle_cuda_oom(self):
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
@@ -1398,7 +1473,7 @@ class Trainer:
                     self.state.scaler.unscale_(optimizer)
 
             # clip gradients if the magnitude is too large
-            if not self.deepspeed_enabled and self._grad_clip_norm is not None:
+            if not self.deepspeed_enabled and self._grad_clip_norm != -1:
                 torch.nn.utils.clip_grad_norm_(
                     parameters=self.state.model.parameters(),
                     max_norm=self._grad_clip_norm,
@@ -1494,9 +1569,9 @@ class Trainer:
         with torch.no_grad():
 
             for evaluator in self.evaluators:
-                self.state.set_dataloader(evaluator.dataloader.dataloader, evaluator.label)
+                self.state.set_dataloader(evaluator.dataloader.dataloader, evaluator.label,
+                                          evaluator.subset_num_batches)
                 assert self.state.dataloader is not None, "dataloader is set"
-                self.state.dataloader_len = self.eval_subset_num_batches
 
                 self.engine.run_event(Event.EVAL_START)
 
