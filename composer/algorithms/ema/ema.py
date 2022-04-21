@@ -43,12 +43,13 @@ def ema(model: torch.nn.Module, ema_model: torch.nn.Module, smoothing: float = 0
             Must be in the interval :math:`(0, 1)`. ``Default: ``0.99``.
 
     Example:
-    .. testcode::
-        import composer.functional as cf
-        from torchvision import models
-        model = models.resnet50()
-        ema_model = models.resnet50()
-        cf.ema(model, ema_model, smoothing=0.9)
+        .. testcode::
+
+                import composer.functional as cf
+                from torchvision import models
+                model = models.resnet50()
+                ema_model = models.resnet50()
+                cf.ema(model, ema_model, smoothing=0.9)
     """
     with torch.no_grad():
         model_params = itertools.chain(model.parameters(), model.buffers())
