@@ -24,6 +24,7 @@ def apply_blurpool(model: torch.nn.Module,
                    replace_convs: bool = True,
                    replace_maxpools: bool = True,
                    blur_first: bool = True,
+                   min_channels: int = 16,
                    optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
     """Add anti-aliasing filters to the strided :class:`torch.nn.Conv2d` and/or :class:`torch.nn.MaxPool2d` modules
     within `model`.
@@ -43,6 +44,8 @@ def apply_blurpool(model: torch.nn.Module,
             overhead (though more closely matching
             `the paper <http://proceedings.mlr.press/v97/zhang19a.html>`_).
             See :class:`.BlurConv2d` for further discussion. Default: ``True``.
+        min_channels (int, optional): Skip replacing layers with in_channels < min_channels.
+            Commonly used to prevent the blurring of the first layer. Default: 16.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so
@@ -70,6 +73,7 @@ def apply_blurpool(model: torch.nn.Module,
         transforms[torch.nn.Conv2d] = functools.partial(
             _maybe_replace_strided_conv2d,
             blur_first=blur_first,
+            min_channels=min_channels,
         )
     module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     _log_surgery_result(model)
@@ -93,12 +97,21 @@ class BlurPool(Algorithm):
             applied with a stride of 1 before the blurring, resulting in
             significant overhead (though more closely matching the paper).
             See :class:`.BlurConv2d` for further discussion. Default: ``True``.
+        min_channels (int, optional): Skip replacing layers with less than ``min_channels``.
+            Commonly used to prevent the blurring of the first layer. Default: 16.
     """
 
-    def __init__(self, replace_convs: bool = True, replace_maxpools: bool = True, blur_first: bool = True) -> None:
+    def __init__(
+        self,
+        replace_convs: bool = True,
+        replace_maxpools: bool = True,
+        blur_first: bool = True,
+        min_channels: int = 16,
+    ) -> None:
         self.replace_convs = replace_convs
         self.replace_maxpools = replace_maxpools
         self.blur_first = blur_first
+        self.min_channels = min_channels
 
         if self.replace_maxpools is False and \
              self.replace_convs is False:
@@ -130,7 +143,8 @@ class BlurPool(Algorithm):
                        optimizers=state.optimizers,
                        replace_convs=self.replace_convs,
                        replace_maxpools=self.replace_maxpools,
-                       blur_first=self.blur_first)
+                       blur_first=self.blur_first,
+                       min_channels=self.min_channels)
         self._log_results(event, state, logger)
 
     def _log_results(self, event: Event, state: State, logger: Logger) -> None:
@@ -165,7 +179,12 @@ def _log_surgery_result(model: torch.nn.Module):
              f'and {num_blurconv_layers} BlurConv2D layers.')
 
 
-def _maybe_replace_strided_conv2d(module: torch.nn.Conv2d, module_index: int, blur_first: bool):
-    if (np.max(module.stride) > 1 and module.in_channels >= 16):
+def _maybe_replace_strided_conv2d(
+    module: torch.nn.Conv2d,
+    module_index: int,
+    blur_first: bool,
+    min_channels: int = 16,
+):
+    if (np.max(module.stride) > 1 and module.in_channels >= min_channels):
         return BlurConv2d.from_conv2d(module, module_index, blur_first=blur_first)
     return None
