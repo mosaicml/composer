@@ -56,7 +56,7 @@ class ComposerClassifier(ComposerModel):
         self.module = module
         if loss not in loss_registry.keys():
             raise ValueError(f"Unrecognized loss function: {loss}. Please ensure the "
-                "specified loss function is present in composer.loss.loss.py")
+                             "specified loss function is present in composer.loss.loss.py")
         self._loss_fxn = loss_registry[loss]
 
         if hasattr(self.module, "num_classes"):
