@@ -42,7 +42,7 @@ def test_algorithm_resumption(
     if algorithm in ('cutmix, mixup, label_smoothing'):
         # see: https://github.com/mosaicml/composer/issues/362
         pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
-    if algorithm in ('squeeze_excite', 'ghost_batchnorm', 'layer_freezing', 'blurpool'):
+    if algorithm in ('squeeze_excite', 'ghost_batchnorm', 'layer_freezing', 'blurpool', 'stochastic_depth'):
         pytest.xfail('Known issues.')
 
     setting = get_settings(algorithm)
