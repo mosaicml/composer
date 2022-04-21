@@ -52,7 +52,8 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
     state.batch = (input, torch.Tensor())
 
     # Start EMA
-    algorithm.apply(Event.FIT_START, state, empty_logger)
+    algorithm.ema_model = copy.deepcopy(state.model)
+    algorithm.training_model = copy.deepcopy(state.model)
     # Check if ema correctly calculated smoothing
     half_life = Time.from_timestring(params[0])
     update_interval = Time.from_timestring(params[1])

@@ -146,7 +146,7 @@ class EMA(Algorithm):
         self.smoothing = 2**(-(self.update_interval.value / self.half_life.value))
 
         # Construct the appropriate matching events
-        self.match_events = [Event.FIT_START, Event.EVAL_START, Event.EVAL_END]
+        self.match_events = [Event.EVAL_START, Event.EVAL_END]
         if self.half_life.unit == TimeUnit.EPOCH:
             self.match_events.append(Event.EPOCH_END)
         if self.half_life.unit == TimeUnit.BATCH:
@@ -158,31 +158,26 @@ class EMA(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         assert isinstance(self.update_interval, Time)
 
-        if event == Event.FIT_START:
-            # Initialize the ema model
-            if self.ema_model is None:
-                self.ema_model = copy.deepcopy(state.model)
-            if self.training_model is None and self.train_with_ema_weights is False:
-                self.training_model = copy.deepcopy(state.model)
-
         if event in [Event.BATCH_END, Event.EPOCH_END]:
-            assert self.ema_model is not None, "ema_model should be set on Event.FIT_START"
             # Check if an update should happen
             if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
+                # Initialize the shadow models if they don't exist yet
+                if self.ema_model is None:
+                    self.ema_model = copy.deepcopy(state.model)
+                if self.training_model is None and self.train_with_ema_weights is False:
+                    self.training_model = copy.deepcopy(state.model)
+
                 # Update the ema model
                 ema(state.model, self.ema_model, smoothing=self.smoothing)
                 if self.train_with_ema_weights:
                     # Use the ema weights for further training
                     state.model.load_state_dict(self.ema_model.state_dict())
 
-        if event == Event.EVAL_START:
-            assert self.ema_model is not None, "ema_model should be set on Event.FIT_START"
-            assert self.training_model is not None, "training_model should be set on Event.FIT_START"
+        if event == Event.EVAL_START and self.ema_model is not None and self.training_model is not None:
             # Swap out the training model for the ema model in state
             self.training_model.load_state_dict(state.model.state_dict())
             state.model.load_state_dict(self.ema_model.state_dict())
 
-        if event == Event.EVAL_END:
-            assert self.training_model is not None, "training_model should be set on Event.FIT_START"
+        if event == Event.EVAL_END and self.training_model is not None:
             # Swap out the ema model for the training model in state
             state.model.load_state_dict(self.training_model.state_dict())
