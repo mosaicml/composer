@@ -266,7 +266,11 @@ def test_load_weights(
         [42, "2ba", "ba{batch}-rank{rank}", "ba6-rank{rank}", "ba8-rank{rank}"],  # test save batch after complete epoch
     ],
 )
-@pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
+@pytest.mark.parametrize("model_name", [
+    None,
+    pytest.param("resnet50_synthetic", marks=pytest.mark.daily),
+    pytest.param("gpt2_52m", marks=pytest.mark.daily),
+])
 def test_checkpoint(
     device_hparams: DeviceHparams,
     world_size: int,
