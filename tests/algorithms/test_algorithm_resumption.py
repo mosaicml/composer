@@ -17,7 +17,7 @@ from tests.utils.deep_compare import deep_compare
 
 
 @pytest.mark.timeout(180)
-@device('gpu')
+@device('cpu')
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
     [
@@ -26,7 +26,8 @@ from tests.utils.deep_compare import deep_compare
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
-@pytest.mark.parametrize("algorithm", get_algorithm_registry().keys())
+@pytest.mark.parametrize("algorithm", ['blurpool'])
+# @pytest.mark.parametrize("algorithm", get_algorithm_registry().keys())
 def test_algorithm_resumption(
     algorithm: str,
     device,
@@ -42,8 +43,9 @@ def test_algorithm_resumption(
     if algorithm in ('cutmix, mixup, label_smoothing'):
         # see: https://github.com/mosaicml/composer/issues/362
         pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
-    if algorithm in ('squeeze_excite', 'ghost_batchnorm', 'layer_freezing', 'blurpool', 'stochastic_depth'):
-        pytest.xfail('Known issues.')
+
+    # if algorithm in ('squeeze_excite', 'ghost_batchnorm', 'layer_freezing', 'blurpool', 'stochastic_depth'):
+    #     pytest.xfail('Known issues.')
 
     setting = get_settings(algorithm)
     if setting is None:
