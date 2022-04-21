@@ -37,6 +37,8 @@ class ResNetHparams(ModelHparams):
         "Number of filter groups for the 3x3 convolution layer in bottleneck block. (default: ``1``)", default=1)
     width_per_group: int = hp.optional(
         "Initial width for each convolution group. Width doubles after each stage. (default: ``64``)", default=64)
+    loss: str = hp.optional(
+        "Name of loss function. E.g. 'soft_cross_entropy' or 'bce' (binary cross entropy. (default: ``soft_cross_entropy``)", default="soft_cross_entropy")
 
     def validate(self):
         if self.model_name not in ComposerResNet.valid_model_names:
@@ -51,4 +53,5 @@ class ResNetHparams(ModelHparams):
                               pretrained=self.pretrained,
                               groups=self.groups,
                               width_per_group=self.width_per_group,
-                              initializers=self.initializers)
+                              initializers=self.initializers,
+                              loss=self.loss)

@@ -14,7 +14,7 @@ from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import Accuracy
 
 from composer.core.types import BatchPair
-from composer.loss import soft_cross_entropy
+from composer.loss import loss_registry
 from composer.metrics import CrossEntropy
 from composer.models import ComposerModel
 
@@ -28,6 +28,9 @@ class ComposerClassifier(ComposerModel):
 
     Args:
         module (torch.nn.Module): A PyTorch neural network module.
+        loss (str, optional): Loss function to use. E.g. 'soft_cross_entropy' or 'bce'
+            (binary cross entropy). Loss function must be in :mod:`~composer.loss.loss`.
+            Default: ``'soft_cross_entropy'``".      
 
     Returns:
         ComposerClassifier: An instance of :class:`.ComposerClassifier`.
@@ -45,13 +48,16 @@ class ComposerClassifier(ComposerModel):
 
     num_classes: Optional[int] = None
 
-    def __init__(self, module: torch.nn.Module) -> None:
+    def __init__(self, module: torch.nn.Module, loss: str = "soft_cross_entropy") -> None:
         super().__init__()
         self.train_acc = Accuracy()
         self.val_acc = Accuracy()
         self.val_loss = CrossEntropy()
         self.module = module
-        self._loss_fxn = soft_cross_entropy
+        if loss not in loss_registry.keys():
+            raise ValueError(f"Unrecognized loss function: {loss}. Please ensure the "
+                "specified loss function is present in composer.loss.loss.py")
+        self._loss_fxn = loss_registry[loss]
 
         if hasattr(self.module, "num_classes"):
             self.num_classes = getattr(self.module, "num_classes")

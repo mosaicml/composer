@@ -27,6 +27,9 @@ class ComposerResNet(ComposerClassifier):
             Default: ``64``.
         initializers (List[Initializer], optional): Initializers for the model. ``None`` for no initialization.
             Default: ``None``.
+        loss (str, optional): Loss function to use. E.g. 'soft_cross_entropy' or 'bce'
+            (binary cross entropy). Loss function must be in :mod:`~composer.loss.loss`.
+            Default: ``'soft_cross_entropy'``".
 
     Example:
 
@@ -47,6 +50,7 @@ class ComposerResNet(ComposerClassifier):
         groups: int = 1,
         width_per_group: int = 64,
         initializers: Optional[List[Initializer]] = None,
+        loss: str = "soft_cross_entropy",
     ) -> None:
 
         if model_name not in self.valid_model_names:
@@ -65,4 +69,4 @@ class ComposerResNet(ComposerClassifier):
             initializer = Initializer(initializer)
             model.apply(initializer.get_initializer())
 
-        super().__init__(module=model)
+        super().__init__(module=model, loss=loss)
