@@ -1,12 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""SAM (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) wraps an existing optimizer with a
+:class:`SAMOptimizer` which makes the optimizer minimize both loss value and sharpness.This can improves model
+generalization and provide robustness to label noise.
+
+See the :doc:`Method Card </method_cards/sam>` for more details.
+"""
+
 from composer.algorithms.sam.sam import SAM as SAM
 from composer.algorithms.sam.sam import SAMOptimizer as SAMOptimizer
 
-_name = 'SAM'
-_class_name = 'SAM'
-_functional = ''
-_tldr = 'SAM optimizer measures sharpness of optimization space'
-_attribution = '(Foret et al, 2021)'
-_link = 'https://arxiv.org/abs/2010.01412'
-_method_card = ''
+__all__ = ['SAM', 'SAMOptimizer']
