@@ -27,32 +27,6 @@ ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
 __all__ = ["ColOut", "ColOutTransform", "colout_batch"]
 
 
-def _should_resize_target(sample: Union[ImgT, Tuple[ImgT, ImgT]], resize_target: Union[bool, str]) -> bool:
-    """ Helper function to determine if both objects in the tuple should be resized. Decision is based on
-        ``resize_target`` and if both objects in the tuple have the same spatial size."""
-
-    sample = ensure_tuple(sample)
-    if len(sample) > 2:
-        raise ValueError("sample must either be single object or a tuple with a max length of 2")
-    input = sample[0]
-
-    if isinstance(resize_target, bool):
-        return resize_target
-
-    if len(sample) == 1:
-        return False
-
-    if isinstance(resize_target, str) and resize_target.lower() == 'auto':
-        input_size = input.shape[-2:] if isinstance(input, torch.Tensor) else input.size[::-1]
-        target = sample[1]
-        if isinstance(target, PillowImage):
-            return target.size[::-1] == input_size
-        else:
-            return target.ndim > 2 and target.shape[-2:] == input_size
-
-    raise ValueError("resize_target must either be a boolean or 'auto'")
-
-
 def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
                  p_row: float = 0.15,
                  p_col: float = 0.15,
@@ -75,7 +49,7 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
         p_col (float, optional): Fraction of columns to drop (drop along W). Default: ``0.15``.
         resize_target (bool | str, optional): If ``sample`` is a tuple, whether to resize both objects in the tuple.
-            If set to 'auto', resizing both objects will be based on if the objects hav the same spatial dimensions.
+            If set to 'auto', both objects will be resized if they have the same spatial dimensions.
             Otherwise, only the first object is resized. Default: ``auto``.
 
     Returns:
@@ -134,7 +108,7 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
 
 class ColOutTransform:
     """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
-        up to two images.
+        up to two Torch tensors or two PIL images.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
@@ -277,3 +251,29 @@ class ColOut(Algorithm):
             self._apply_batch(state)
         else:
             self._apply_sample(state)
+
+
+def _should_resize_target(sample: Union[ImgT, Tuple[ImgT, ImgT]], resize_target: Union[bool, str]) -> bool:
+    """ Helper function to determine if both objects in the tuple should be resized. Decision is based on
+        ``resize_target`` and if both objects in the tuple have the same spatial size."""
+
+    sample = ensure_tuple(sample)
+    if len(sample) > 2:
+        raise ValueError("sample must either be single object or a tuple with a max length of 2")
+    input = sample[0]
+
+    if isinstance(resize_target, bool):
+        return resize_target
+
+    if len(sample) == 1:
+        return False
+
+    if isinstance(resize_target, str) and resize_target.lower() == 'auto':
+        input_size = input.shape[-2:] if isinstance(input, torch.Tensor) else input.size[::-1]
+        target = sample[1]
+        if isinstance(target, PillowImage):
+            return target.size[::-1] == input_size
+        else:
+            return target.ndim > 2 and target.shape[-2:] == input_size
+
+    raise ValueError("resize_target must either be a boolean or 'auto'")
