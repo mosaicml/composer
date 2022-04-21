@@ -16,10 +16,12 @@ from composer.callbacks import CheckpointSaver, LRMonitor
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
+from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
+from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
 from composer.trainer.devices.device import Device
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
-from composer.utils import dist
+from composer.utils import MissingConditionalImportError, dist
 from composer.utils.object_store import ObjectStoreHparams
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
@@ -455,4 +457,61 @@ class TestTrainerAssets:
     def _test_multiple_fits(self, trainer):
         trainer.fit()
         trainer.state.max_duration *= 2
+        trainer.fit()
+
+
+@pytest.mark.vision
+@pytest.mark.timeout(30)
+class TestFFCVDataloaders:
+    train_file: str
+    val_file: str
+    tmpdir: str
+
+    @pytest.fixture(autouse=True)
+    def create_dataset(self, tmpdir_factory):
+        dataset_train = RandomImageDataset(size=16, is_PIL=True)
+        output_train_file = str(tmpdir_factory.mktemp("ffcv").join("train.ffcv"))
+        write_ffcv_dataset(dataset_train, write_path=output_train_file, num_workers=1, write_mode='proportion')
+        dataset_val = RandomImageDataset(size=16, is_PIL=True)
+        tmp_dir = tmpdir_factory.mktemp("ffcv")
+        output_val_file = str(tmp_dir.join("val.ffcv"))
+        write_ffcv_dataset(dataset_val, write_path=output_val_file, num_workers=1, write_mode='proportion')
+        self.train_file = output_train_file
+        self.val_file = output_val_file
+        self.tmpdir = str(tmp_dir)
+
+    def _get_dataloader(self, is_train):
+        dl_hparams = DataLoaderHparams(num_workers=0)
+        ds_hparams = ImagenetDatasetHparams(is_train=is_train,
+                                            use_ffcv=True,
+                                            ffcv_dir=self.tmpdir,
+                                            ffcv_dest=self.train_file if is_train else self.val_file)
+        return ds_hparams.initialize_object(batch_size=4, dataloader_hparams=dl_hparams)
+
+    @pytest.fixture
+    def config(self):
+        try:
+            import ffcv  # type: ignore
+        except ImportError:
+            raise MissingConditionalImportError(extra_deps_group="ffcv", conda_package="ffcv")
+        train_dataloader = self._get_dataloader(is_train=True)
+        val_dataloader = self._get_dataloader(is_train=False)
+        assert isinstance(train_dataloader, ffcv.Loader)
+        assert isinstance(val_dataloader, ffcv.Loader)
+        return {
+            'model': SimpleConvModel(),
+            'train_dataloader': train_dataloader,
+            'eval_dataloader': val_dataloader,
+            'max_duration': '2ep',
+        }
+
+    """
+    Tests that training completes with ffcv dataloaders.
+    """
+
+    @device('gpu-amp', precision=True)
+    def test_ffcv(self, config, device, precision):
+        config['device'] = device
+        config['precision'] = precision
+        trainer = Trainer(**config)
         trainer.fit()
