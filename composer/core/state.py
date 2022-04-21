@@ -3,10 +3,9 @@
 """The state of the trainer."""
 from __future__ import annotations
 
-import contextlib
 import logging
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -29,24 +28,6 @@ if TYPE_CHECKING:
 __all__ = ["State"]
 
 logger = logging.getLogger(__name__)
-
-
-def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextManager]:
-    """Returns a context manager to automatically cast to a specific precision.
-
-    Args:
-        precision (str or Precision): Precision for the context
-    """
-    if torch.cuda.is_available():
-        return lambda precision: torch.cuda.amp.autocast(Precision(precision) == Precision.AMP)
-    else:
-
-        def null(precision):
-            assert Precision(
-                precision) != Precision.AMP, "Precision AMP is only available when `torch.cuda.is_available() == True`."
-            return contextlib.nullcontext()
-
-        return null
 
 
 def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
@@ -97,7 +78,7 @@ class State(Serializable):
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         dataloader (types.DataLoader, optional): The active DataLoader.
         dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
-            The trainer will yield the first ``dataloader_len`` batches per iteration. If ``None`` (the default),
+            The trainer will yield the first ``dataloader_len`` batches per iteration. If ``-1`` (the default),
             the entire dataloader will be iterated over.
         dataloader_label (str, optional): The name for the dataloader. Required if ``dataloader`` is specified. (default: ``None``)
             By convention, the training dataloader is called ``'train'``. The evaluator dataloader is called
@@ -105,7 +86,6 @@ class State(Serializable):
         max_duration (str | Time, optional): The maximum duration to train for. (default: ``None``)
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
-        precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to train the model.
             Multiple optimizers are not currently supported.
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
@@ -214,11 +194,10 @@ class State(Serializable):
         grad_accum: int = 1,
         dataloader: Optional[types.DataLoader] = None,
         dataloader_label: Optional[str] = None,
-        dataloader_len: Optional[Union[int, Time[int]]] = None,
+        dataloader_len: Union[int, Time[int]] = -1,
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
-        precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
 
         # optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
@@ -238,7 +217,6 @@ class State(Serializable):
 
         self.timer = Timer()
         self._precision = Precision(precision)
-        self._precision_context = precision_context
 
         if optimizers is None:
             self._optimizers = []
@@ -318,7 +296,7 @@ class State(Serializable):
         return self._schedulers
 
     @schedulers.setter
-    def schedulers(self, schedulers: types.PyTorchScheduler):
+    def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
     @property
@@ -436,7 +414,7 @@ class State(Serializable):
         self,
         dataloader: Optional[types.DataLoader] = None,
         dataloader_label: Optional[str] = None,
-        dataloader_len: Optional[Union[int, Time[int]]] = None,
+        dataloader_len: Union[int, Time[int]] = -1,
     ):
         """Update the dataloader and dataloader label.
 
@@ -444,17 +422,27 @@ class State(Serializable):
             dataloader (types.DataLoader, optional): The dataloader. Defaults to None.
             dataloader_label (str, optional): The dataloader label. Must be ``None`` if and only if
                 ``dataloader`` is None. Defaults to None.
-            dataloader_len (int, int):
+            dataloader_len (int, int): The number of batches per dataloader iteration (e.g. epoch), as used by the trainer.
+                Set to ``-1`` to iterate over the entire dataset. (Default: ``-1``.)
         """
-        if (dataloader == None) != (dataloader_label == None):
-            raise ValueError("Both `dataloader` and `dataloader_label` should be None, or neither should be None.")
+        if dataloader is None:
+            dataloader_label = None
+        else:
+            if dataloader_label is None:
+                raise ValueError("If the `dataloader` is specified, then `dataloader_label` must not be None.")
         self._dataloader = dataloader
         self._dataloader_label = dataloader_label
-        self.dataloader_len = dataloader_len  # setting it to None will do a failsafe read of len(dataloader)
+        if dataloader is not None:
+            self.dataloader_len = dataloader_len  # setting it to -1 will do a failsafe read of len(dataloader)
 
     @property
     def dataloader_len(self):
         """The number of batches per dataloader iteration (e.g. epoch), as used by the trainer.
+
+        .. note::
+
+            If not explicitely specified, this value is an approximation, as it depends on ``len(self.dataloader)``.
+            See the :doc:`PyTorch DataLoader Documentation <torch:data>` for more information.
 
         Returns:
             Optional[Time[int]]: The number of batches per dataloader iteration (e.g. epoch), or None if no dataloader
@@ -463,13 +451,10 @@ class State(Serializable):
         return self._dataloader_len
 
     @dataloader_len.setter
-    def dataloader_len(self, num_batches: Optional[Union[int, Time[int]]]):
+    def dataloader_len(self, num_batches: Union[int, Time[int]]):
         if isinstance(num_batches, int):
             num_batches = Time(num_batches, TimeUnit.BATCH)
         if self._dataloader is None:
-            if num_batches is None:
-                self._dataloader_len = None
-                return
             raise RuntimeError("`State.dataloader_len` cannot be set if the dataloader is not defined.")
         try:
             dataloader_len = len(self._dataloader)
@@ -479,12 +464,16 @@ class State(Serializable):
             warnings.warn((f"DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) "
                            f"is greater than the length (i.e. number of batches) of the dataloader, which is "
                            f"{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}."))
-            num_batches = Time(dataloader_len, TimeUnit.BATCH)
-        if num_batches is None and dataloader_len is not None:
-            # len(dataloader) is an approximation -- see https://pytorch.org/docs/stable/data.html.
-            # However, in the worst case where additional last batches are dropped, this calculation should be
-            # an over-estimate, leading to the entire dataloader still being iterated over.
-            num_batches = Time(dataloader_len, TimeUnit.BATCH)
+            self._dataloader_len = Time(dataloader_len, TimeUnit.BATCH)
+        if num_batches == -1:
+            if dataloader_len is not None:
+                # len(dataloader) is an approximation -- see https://pytorch.org/docs/stable/data.html.
+                # However, in the worst case where additional last batches are dropped, this calculation should be
+                # an over-estimate, leading to the entire dataloader still being iterated over.
+                self._dataloader_len = Time(dataloader_len, TimeUnit.BATCH)
+            else:
+                # The dataloader length is unknown.
+                self._dataloader_len = None
         self._dataloader_len = num_batches
 
     @property
@@ -518,10 +507,6 @@ class State(Serializable):
         """
         from composer.core.types import as_batch_dict
         return as_batch_dict(self.batch)
-
-    @property
-    def precision_context(self):
-        return self._precision_context(self.precision)
 
     @property
     def is_model_deepspeed(self) -> bool:

@@ -85,6 +85,7 @@ import composer
 from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
+from composer.core.precision import get_precision_context
 from composer.core.types import Batch, BreakEpochException, DataLoader, PyTorchScheduler
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
@@ -115,7 +116,7 @@ class Trainer:
             with Composer.
 
             .. seealso:: :mod:`composer.models` for models built into Composer.
-        train_dataloader (DataLoader, DataSpec, or dict): The :class:`.DataLoader`, :class:`.DataSpec`,
+        train_dataloader (DataLoader, DataSpec, or dict, optional): The :class:`.DataLoader`, :class:`.DataSpec`,
             or dict of :class:`.DataSpec` kwargs for the training data. In order to specify custom
             preprocessing steps on each data batch, specify a :class:`.DataSpec` instead of a
             :class:`.DataLoader`.
@@ -171,8 +172,12 @@ class Trainer:
             .. note::
                 ``fp16`` only works if ``deepspeed_config`` is also provided.
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
-            schedules. E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as
-            many epochs. ``1.0`` means no change. (default: ``1.0``)
+            schedules. (default: ``1.0``)
+
+            E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as
+            many epochs. ``1.0`` means no change.
+
+            This parameter has no effect if ``schedulers`` is not specified.
 
             .. note ::
 
@@ -399,11 +404,13 @@ class Trainer:
             artifact stores.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
-            If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
+            If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
+
+            This parameter is ignored if ``train_dataloader`` is not specified.
 
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches per evaluation dataloader.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
-            If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
+            If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
         deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
             provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
@@ -543,8 +550,8 @@ class Trainer:
         save_num_checkpoints_to_keep: int = -1,
 
         # subset parameters
-        train_subset_num_batches: Optional[int] = None,
-        eval_subset_num_batches: Optional[int] = None,
+        train_subset_num_batches: int = -1,
+        eval_subset_num_batches: int = -1,
 
         # DeepSpeed
         deepspeed_config: Union[bool, Dict[str, Any]] = False,
@@ -684,10 +691,6 @@ class Trainer:
                     To fix, please do not iterate over the dataloader before passing it into
                     the trainer."""))
 
-        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
-        # handle this with our version of Pytorch
-        precision_context = self._device.precision_context if not self.deepspeed_enabled else cast(
-            Callable[..., ContextManager], contextlib.nullcontext)
         if isinstance(precision, str):
             precision = Precision(precision)
 
@@ -723,7 +726,6 @@ class Trainer:
             callbacks=callbacks,
             grad_accum=grad_accum,
             precision=precision,
-            precision_context=precision_context,
             optimizers=optimizers,
         )
 
@@ -1330,7 +1332,7 @@ class Trainer:
             # forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            with self.state.precision_context:
+            with get_precision_context(self.state.precision):
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
@@ -1338,7 +1340,7 @@ class Trainer:
             # loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            with self.state.precision_context:
+            with get_precision_context(self.state.precision):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
             # We always want to scale loss by the grad_accum before the backwards pass and
@@ -1396,9 +1398,9 @@ class Trainer:
         with torch.no_grad():
 
             for evaluator in self.evaluators:
-                self.state.set_dataloader(evaluator.dataloader.dataloader, evaluator.label)
+                self.state.set_dataloader(evaluator.dataloader.dataloader, evaluator.label,
+                                          self.eval_subset_num_batches)
                 assert self.state.dataloader is not None, "dataloader is set"
-                self.state.dataloader_len = self.eval_subset_num_batches
 
                 self.engine.run_event(Event.EVAL_START)
 
@@ -1452,7 +1454,8 @@ class Trainer:
             self.state.model.train()
 
         self.state.set_dataloader(original_dataloader, original_dataloader_label)
-        self.state.dataloader_len = original_num_batches
+        if original_num_batches is not None:
+            self.state.dataloader_len = original_num_batches
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.

@@ -378,10 +378,10 @@ class TrainerHparams(hp.Hparams):
     )
 
     # subset parameters
-    train_subset_num_batches: Optional[int] = hp.optional(
-        "If specified, finish every epoch early after training on this many batches.", default=None)
-    eval_subset_num_batches: Optional[int] = hp.optional("If specified, stop each evaluation after this many batches.",
-                                                         default=None)
+    train_subset_num_batches: int = hp.optional(
+        "If specified, finish every epoch early after training on this many batches.", default=-1)
+    eval_subset_num_batches: int = hp.optional("If specified, stop each evaluation after this many batches.",
+                                               default=-1)
 
     # DeepSpeed
     deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)

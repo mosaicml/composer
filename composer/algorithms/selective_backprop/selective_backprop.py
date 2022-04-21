@@ -12,6 +12,7 @@ import torch
 from torch.nn import functional as F
 
 from composer.core import Algorithm, Event, State
+from composer.core.precision import get_precision_context
 from composer.loggers import Logger
 from composer.models import ComposerModel
 
@@ -93,7 +94,7 @@ def select_using_loss(input: torch.Tensor,
         This function runs an extra forward pass through the model on the batch of data.
         If you are using a non-default precision, ensure that this forward pass
         runs in your desired precision. For example:
-    
+
     .. testsetup::
 
         N_sb, D_sb = 16, 8
@@ -253,6 +254,6 @@ class SelectiveBackprop(Algorithm):
             assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
             return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
 
-        with state.precision_context:
+        with get_precision_context(state.precision):
             new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
         state.batch = (new_input, new_target)
