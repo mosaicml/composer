@@ -34,6 +34,12 @@ def rank_zero() -> bool:
     return dist.get_global_rank() == 0
 
 
+def require_mlperf_logging():
+    if not mlperf_available:
+        raise ImportError("""Please install with pip install mosaicml[mlperf] and also
+                          install the logging library from: https://github.com/mlcommons/logging""")
+
+
 class MLPerfCallback(Callback):
     """Creates a compliant results file for MLPerf Training benchmark.
 
@@ -55,6 +61,11 @@ class MLPerfCallback(Callback):
     checked prior to submission.
 
     Currently, only open division submissions are supported with this Callback.
+
+    .. note::
+
+        This is currently an experimental logger, that has not been used (yet)
+        to submit an actual result to MLPerf. Please use with caution.
 
     Args:
         root_folder (str): The root submission folder
@@ -84,6 +95,8 @@ class MLPerfCallback(Callback):
         status: str = "onprem",
         target: float = 0.759,
     ) -> None:
+
+        require_mlperf_logging()
 
         if benchmark not in BENCHMARKS:
             raise ValueError(f"benchmark: {benchmark} must be one of {BENCHMARKS}")

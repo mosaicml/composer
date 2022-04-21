@@ -154,8 +154,8 @@ extra_deps["webdataset"] = [
 ]
 
 extra_deps["mlperf"] = [
-    # TODO: switch to pip package when available: https://github.com/mlcommons/logging/issues/218
-    "mlperf_logging @ git+https://github.com/mlperf/logging.git",
+    # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218
+    # "mlperf_logging @ git+https://github.com/mlperf/logging.git",
     "py-cpuinfo>=8.0.0,<9",
 ]
 
