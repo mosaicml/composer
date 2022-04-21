@@ -36,7 +36,7 @@ simple_resnet_settings = {
 
 _settings = {
     'alibi': None,  # NLP settings needed
-    'augmix': simple_vision_pil_settings,  # requires PIL dataset to test
+    'augmix': None,  # requires PIL dataset to test
     'blurpool': simple_vision_settings,
     'channels_last': simple_vision_settings,
     'colout': simple_vision_settings,
@@ -54,7 +54,7 @@ _settings = {
     'layer_freezing': simple_vision_settings,
     'mixup': simple_vision_settings,
     'progressive_resizing': simple_vision_settings,
-    'randaugment': simple_vision_pil_settings,
+    'randaugment': None,  # requires PIL dataset to test
     'sam': simple_vision_settings,
     'selective_backprop': simple_vision_settings,
     'seq_length_warmup': None,  # NLP settings needed
@@ -82,11 +82,16 @@ _settings = {
 
 def get_settings(name: str):
     """For a given algorithm name, creates the canonical setting
-    (algorithm, model, dataset) for testing"""
-    if name not in _settings or _settings[name] is None:
+    (algorithm, model, dataset) for testing.
+
+    Returns ``None`` if no settings provided.
+    """
+    if name not in _settings:
         raise ValueError(f'No settings for {name} found, please add.')
 
     setting = _settings[name]
+    if setting is None:
+        return None
 
     result = {}
     for key in ('model', 'dataset'):
