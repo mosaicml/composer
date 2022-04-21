@@ -20,14 +20,19 @@ __all__ = ["EMA", "ema"]
 def ema(model: torch.nn.Module, ema_model: torch.nn.Module, smoothing: float = 0.99):
     r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model`` according to an exponential
     weighted average. Weights are updated according to
+
     .. math::
         W_{ema_model}^{(t+1)} = smoothing\times W_{ema_model}^{(t)}+(1-smoothing)\times W_{model}^{(t)}
+
     The update to ``ema_model`` happens in place.
 
     The half life of the weights for terms in the average is given by
+
     .. math::
         t_{1/2} = -\frac{\log(2)}{\log(smoothing)}
+
     Therefore to set smoothing to obtain a target half life, set smoothing according to
+
     .. math::
         smoothing = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
 
@@ -58,9 +63,12 @@ class EMA(Algorithm):
     r"""Maintains a shadow model with weights that follow the exponential moving average of the trained model weights.
 
     Weights are updated according to
+
     .. math::
         W_{ema_model}^{(t+1)} = smoothing\times W_{ema_model}^{(t)}+(1-smoothing)\times W_{model}^{(t)}
+
     Where the smoothing is determined from ``half_life`` according to
+
     .. math::
         smoothing = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
 
@@ -156,27 +164,24 @@ class EMA(Algorithm):
             if self.training_model is None and self.train_with_ema_weights is False:
                 self.training_model = copy.deepcopy(state.model)
 
-        if self.train_with_ema_weights:
+        if event in [Event.BATCH_END, Event.EPOCH_END]:
             assert self.ema_model is not None, "ema_model should be set on Event.FIT_START"
-            if event in [Event.BATCH_END, Event.EPOCH_END]:
-                # Check if an update should happen
-                if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
-                    # Update the ema model
-                    ema(state.model, self.ema_model, smoothing=self.smoothing)
+            # Check if an update should happen
+            if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
+                # Update the ema model
+                ema(state.model, self.ema_model, smoothing=self.smoothing)
+                if self.train_with_ema_weights:
                     # Use the ema weights for further training
                     state.model.load_state_dict(self.ema_model.state_dict())
-        else:
+
+        if event == Event.EVAL_START:
             assert self.ema_model is not None, "ema_model should be set on Event.FIT_START"
             assert self.training_model is not None, "training_model should be set on Event.FIT_START"
-            if event in [Event.BATCH_END, Event.EPOCH_END]:
-                # Check if an update should happen
-                if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
-                    # Update the ema model
-                    ema(state.model, self.ema_model, smoothing=self.smoothing)
-            if event == Event.EVAL_START:
-                # Swap out the training model for the ema model in state
-                self.training_model.load_state_dict(state.model.state_dict())
-                state.model.load_state_dict(self.ema_model.state_dict())
-            if event == Event.EVAL_END:
-                # Swap out the ema model for the training model in state
-                state.model.load_state_dict(self.training_model.state_dict())
+            # Swap out the training model for the ema model in state
+            self.training_model.load_state_dict(state.model.state_dict())
+            state.model.load_state_dict(self.ema_model.state_dict())
+
+        if event == Event.EVAL_END:
+            assert self.training_model is not None, "training_model should be set on Event.FIT_START"
+            # Swap out the ema model for the training model in state
+            state.model.load_state_dict(self.training_model.state_dict())
