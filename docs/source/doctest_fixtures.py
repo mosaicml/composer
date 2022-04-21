@@ -134,6 +134,9 @@ logits = torch.randn(batch_size, num_classes)  # type: ignore
 # error: "randint" is not a known member of module (reportGeneralTypeIssues)
 y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
+def loss_fun(output, target, reduction="none"):
+    return torch.ones_like(target)
+
 # patch the Trainer to accept ellipses and bind the required arguments to the Trainer
 # so it can be used without arguments in the doctests
 def Trainer(fake_ellipses: None = None, **kwargs: Any):

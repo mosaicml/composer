@@ -1,5 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""NoOpModel algorithm and class."""
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +27,11 @@ __all__ = ["NoOpModelClass", "NoOpModel"]
 
 
 class NoOpModelClass(ComposerModel):
+    """Dummy model used for testing. The NoOpModel algorithm uses this to replace a ComposerModel.
+
+    Args:
+        original_model (ComposerModel): model to replace.
+    """
 
     def __init__(self, original_model: torch.nn.Module):
         super().__init__()
@@ -57,12 +64,12 @@ class NoOpModelClass(ComposerModel):
 
 
 class NoOpModel(Algorithm):
+    """Runs on :attr:`Event.INIT` and replaces the model with a dummy model of type NoOpModelClass."""
 
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        # replace model with dummy model
         new_model = NoOpModelClass(state.model)
         module_surgery.update_params_in_optimizer(old_params=state.model.parameters(),
                                                   new_params=new_model.parameters(),

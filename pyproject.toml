@@ -50,13 +50,14 @@ reportUnusedCoroutine = "error"
 
 # Pytest
 [tool.pytest.ini_options]
-# By default, do not run gpu or notebook tests
-addopts = "--strict-markers -m 'not notebooks and not gpu and not vision'"
+# By default, do not run gpu, vision, notebook, or daily tests
+addopts = "--strict-markers -m 'not notebooks and not gpu and not vision and not daily'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
 timeout = 2
 markers = [
+    # !!!!!!!!!!!IMPORTANT!!!!!!!!!: when updating the markers, also make sure to update .ci/Jenkinsfile and meta.yaml
     # Tests that require a world_size of two should be annotated with `@pytest.mark.world_size(2)`.
     # If not specified, the test will be assumed to have a world-size of one, which is
     # equivalent to `@pytest.mark.world_size(1)`
@@ -81,6 +82,7 @@ filterwarnings = [
     'ignore:No scheduler:UserWarning',  # testing defaults
     'ignore::DeprecationWarning:tensorboard',  # ignore tensorboard
 ]
+timeout_func_only = true  # exclude fixtures from the timeout
 
 # Coverage
 [tool.coverage.run]
