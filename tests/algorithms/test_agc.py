@@ -3,8 +3,10 @@ from unittest.mock import Mock
 import pytest
 import torch
 from torch import nn
-
-from composer.algorithms.agc.agc import AGC, _get_clipped_gradients, apply_agc
+import composer.functional as cf
+from composer.algorithms.agc import AGC
+from composer.algorithms.agc.agc import _get_clipped_gradients
+from composer.algorithms.agc import apply_agc
 from composer.core import Engine
 from composer.core.event import Event
 
@@ -62,7 +64,7 @@ def test_agc_functional(simple_model_with_grads):
     weights = next(model.parameters())
     grad = weights.grad
     expected_clipped_grad = _get_clipped_gradients(weights, grad)
-    apply_agc(model)
+    cf.apply_agc(model)
     current_grad = next(model.parameters()).grad
     torch.equal(current_grad, expected_clipped_grad)
 
@@ -76,7 +78,7 @@ def test_agc_functional_with_cnn_does_not_error(cnn_model_with_grads):
     model = cnn_model_with_grads
     # Call apply_agc. If this function returns then we know that nothing errored out
     # We can test accuratc
-    apply_agc(model)
+    cf.apply_agc(model)
 
 
 def test_AGC_algorithm(simple_model_with_grads):
