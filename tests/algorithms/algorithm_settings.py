@@ -35,7 +35,7 @@ simple_resnet_settings = {
 _settings = {
     'alibi': None,  # NLP settings needed
     'augmix': None,  # requires PIL dataset to test
-    'blurpool': simple_vision_settings,
+    'blurpool': simple_resnet_settings,
     'channels_last': simple_vision_settings,
     'colout': simple_vision_settings,
     'cutmix': {

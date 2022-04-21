@@ -11,7 +11,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
 from composer import Trainer
-from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing, algorithm_registry
+from composer.algorithms import CutOut, LabelSmoothing, algorithm_registry
 from composer.callbacks import CheckpointSaver, LRMonitor
 from composer.core.callback import Callback
 from composer.core.event import Event
@@ -20,7 +20,7 @@ from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
 from composer.trainer.devices.device import Device
-from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
+from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import MissingConditionalImportError, dist
 from composer.utils.object_store import ObjectStoreHparams
 from tests.algorithms.algorithm_settings import get_settings

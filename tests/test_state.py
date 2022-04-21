@@ -72,7 +72,7 @@ def _check_list_recursively(list1: List[Any], list2: List[Any], path: str):
         _check_item(item1, item2, f"{path}/{i}")
 
 
-def _check_dict_recursively(dict1: Dict[str, Any], dict2: Dict[str, Any], path: str):
+def _check_dict_recursively(dict1: Dict[str, Any], dict2: Dict[str, Any], path: str = ""):
     assert len(dict1) == len(dict2), f"{path} differs: {dict1} != {dict2}"
     for k, val1 in dict1.items():
         val2 = dict2[k]

@@ -143,6 +143,9 @@ def test_algorithm_settings(name):
         pytest.skip()
 
     setting = get_settings(name)
+    if setting is None:
+        pytest.skip()
+
     assert isinstance(setting['algorithm'], Algorithm)
     assert isinstance(setting['model'], ComposerModel)
     assert isinstance(setting['dataset'], Dataset)
