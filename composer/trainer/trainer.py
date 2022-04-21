@@ -128,10 +128,56 @@ def _scale_max_duration_by_ssr(scale_schedule_ratio: float,
         raise ValueError('Scale schedule has reduced the max_duration to 0. Set a higher ratio or use more epochs.')
     return max_duration
 
+def _unpack_step_schedulers_every_batch(
+    schedulers: Union[None, ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]],
+    step_schedulers_every_batch: Optional[bool],
+):
+    pytorch_schedulers = [
+        scheduler for scheduler in ensure_tuple(schedulers) if isinstance(scheduler, PyTorchScheduler)
+    ]
+    if len(pytorch_schedulers) > 0:
+        if step_schedulers_every_batch is True:
+            log.info((
+                "Schedulers are being steped every batch, as `step_schedulers_every_batch` is True. "
+                "The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the "
+                "PyTorch {type(pytorch_schedulers[0]).__name__} scheduler to be in terms of batches. "
+                "Please ensure that the scheduler parameters are in terms of batches, not epochs. "
+                "Alternatively, use a ComposerScheduler. For more information, see "
+                f"https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html. "
+            ))
+
+        if step_schedulers_every_batch is None:
+            # only if all schedulers are ComposerSchedulers, then we can step every batch by default
+            step_schedulers_every_batch = False
+
+        log.info((
+            "Schedulers will be stepped every epoch because the Trainer was constructed with a PyTorch "
+            f"{type(pytorch_schedulers[0]).__name__} scheduler. To step the schedulers every batch, adjust the "
+            "scheduler parameters (e.g. step_size, T_max) to be in terms of batches and set "
+            "`step_schedulers_every_batch` to True, or alternatively use a ComposerScheduler. For more information, "
+            f"see https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html."))
+
+    else:
+        step_schedulers_every_batch = True
+
+    return step_schedulers_every_batch
+
+
+def _unpack_compute_training_metrics(compute_training_metrics: bool, model: ComposerModel):
+    if compute_training_metrics:
+        warnings.warn(('Computing model evaluation metrics during training doubles the number of forward passes '
+                        'and may lead to a throughput degradation.'))
+        train_metrics = model.metrics(train=True)
+        if isinstance(train_metrics, Metric):
+            # Forcing metrics to be a MetricCollection simplifies logging results
+            train_metrics = MetricCollection([train_metrics])
+
+        return train_metrics
+    else:
+        return None
 
 def _compile_schedulers(
-    schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
-                                                                                   PyTorchScheduler]]]],
+    schedulers: Union[None, ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]],
     state: State,
     scale_schedule_ratio: float,
 ) -> List[PyTorchScheduler]:
@@ -213,6 +259,9 @@ def _unpack_grad_accum(grad_accum: Union[int, str], device: Device) -> Tuple[int
         raise ValueError("grad_accum must be an int or ``auto``")
     return grad_accum, adaptive_grad_accum
 
+def _is_cuda_oom(e: RuntimeError):
+    """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
+    return "CUDA out of memory" in str(e)
 
 class Trainer:
     """Trainer for training a models with Composer algorithms. See the Trainer guide for more information.
@@ -518,9 +567,13 @@ class Trainer:
 
             This parameter is ignored if ``train_dataloader`` is not specified.
 
-        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches per evaluation dataloader.
-            This parameter has no effect if it is greater than ``len(eval_dataloader)``.
-            If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
+        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
+            which means to iterate over the entire dataloader.
+
+            This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
+            ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
+            ``Evaluator(subset_num_batches=...)``.)
+
         deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
             provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
@@ -798,37 +851,7 @@ class Trainer:
             optimizers=optimizers,
         )
 
-        pytorch_schedulers = [
-            scheduler for scheduler in ensure_tuple(schedulers) if isinstance(scheduler, PyTorchScheduler)
-        ]
-        if len(pytorch_schedulers) > 0:
-            if step_schedulers_every_batch is True:
-                log.info(
-                    textwrap.dedent(f"""\
-                    Schedulers are being steped every batch, as `step_schedulers_every_batch` is True.
-                    The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the
-                    PyTorch {type(pytorch_schedulers[0]).__name__} scheduler to be in terms of batches.
-                    Please ensure that the scheduler parameters are in terms of batches, not epochs.
-                    Alternatively, use a ComposerScheduler. For more information, see
-                    https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html.
-                    """))
-
-            if step_schedulers_every_batch is None:
-                # only if all schedulers are ComposerSchedulers, then we can step every batch by default
-                step_schedulers_every_batch = False
-
-            log.info(
-                textwrap.dedent(f"""\
-                Schedulers will be stepped every epoch because the Trainer was constructed with a PyTorch
-                {type(pytorch_schedulers[0]).__name__} scheduler. To step the schedulers every batch, adjust the
-                scheduler parameters (e.g. step_size, T_max) to be in terms of batches and set
-                `step_schedulers_every_batch` to True, or alternatively use a ComposerScheduler. For more information,
-                see https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html."""))
-
-        else:
-            step_schedulers_every_batch = True
-
-        self._step_schedulers_every_batch = step_schedulers_every_batch
+        self._step_schedulers_every_batch = _unpack_step_schedulers_every_batch(schedulers, step_schedulers_every_batch)
 
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
@@ -916,17 +939,7 @@ class Trainer:
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
 
-        if compute_training_metrics:
-            warnings.warn(('Computing model evaluation metrics during training doubles the number of forward passes '
-                           'and may lead to a throughput degradation.'))
-            train_metrics = model.metrics(train=True)
-            if isinstance(train_metrics, Metric):
-                # Forcing metrics to be a MetricCollection simplifies logging results
-                train_metrics = MetricCollection([train_metrics])
-
-            self.train_metrics = self._ensure_metrics_device_and_dtype(train_metrics)
-        else:
-            self.train_metrics = None
+        self.train_metrics = _unpack_compute_training_metrics(compute_training_metrics, model)
 
         self.engine.run_event(Event.INIT)
 
@@ -946,7 +959,7 @@ class Trainer:
 
         if scale_schedule_ratio != 1.0:
             if len(self.state.schedulers) == 0:
-                warnings.warn("Specifying the `scale_schedule_ratio` without `schedulers` has no effect.")
+                warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, max_duration)
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
@@ -1044,23 +1057,70 @@ class Trainer:
 
     def fit(
         self,
-        train_dataloader: Optional[Union[DataLoader, DataSpec]] = None,
+        *,
+        # Train Dataloader
+        train_dataloader: Optional[Union[DataLoader, DataSpec, Dict[str, Any]]] = None,
         train_dataloader_label: str = "train",
         train_subset_num_batches: Optional[int] = None,
-        max_duration: Optional[Time[int]] = None,
+        compute_training_metrics: Optional[bool] = None,
+
+        # Timing
+        max_duration: Optional[Union[int, str, Time[int]]] = None,
         reset_timer: bool = False,
-        scale_schedule_ratio: float = 1.0,
+
+        # Optimizers and Schedulers
         optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]] = None,
         schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
                                                                                        PyTorchScheduler]]]] = None,
+        scale_schedule_ratio: float = 1.0,
+        step_schedulers_every_batch: Optional[bool] = None,
+
+        # Evaluation
         eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
         eval_subset_num_batches: int = -1,
         eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
+
+        # Numerics
         grad_accum: Optional[Union[int, str]] = None,
-        grad_clip_norm: Optional[float] = None,
         precision: Optional[Union[str, Precision]] = None,
+
+        # Grad Clipping
+        grad_clip_norm: Optional[float] = None,
     ):
-        """Train and evaluate the model on the provided data."""
+        """Train the model.
+        
+        .. note::
+
+            All arguments to :meth:`.fit` are optional. Any values specified here will override
+            what was provided when constructing the :class:`.Trainer`.
+        
+        Args:
+            train_dataloader (DataLoader | DataSpec | Dict[str, Any], optional): See :class:`.Trainer`.
+            train_dataloader_label (str, optional): See :class:`.Trainer`.
+            train_subset_num_batches (int, optional): See :class:`.Trainer`.
+            compute_training_metrics (bool, optional): See :class:`.Trainer`.
+            max_duration (int | str | Time[int], optional): See :class:`.Trainer`.
+            reset_timer (bool): Whether to reset the :attr:`.State.timer`. Defaults to False.
+
+                If ``True``, the timer will be zeroed out, causing :class:`.ComposerScheduler` and :class:`.Algorithm`
+                instances to start from the beginning, as if it is a new training run.
+
+                .. note::
+
+                    Model gradients, optimizer states, and native PyTorch schedulers will not be reset.
+
+                If ``False`` (the default), the timer will resume from where the previous call to :meth:`.fit`
+                finished (or from zero, if a new training run).
+            optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): See :class:`.Trainer`.
+            schedulers (, optional): See :class:`.Trainer`.
+            eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
+            eval_subset_num_batches (int, optional): See :class:`.Trainer`.
+            eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
+            grad_accum (int | str, optional): See :class:`.Trainer`.
+            precision (str | Precision, optional): See :class:`.Trainer`.
+            grad_clip_norm (float, optional): See :class:`.Trainer`.
+        """
+        # Train Dataloader
         if train_dataloader is not None:
             self._train_data_spec = _unpack_dataloader(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
@@ -1068,7 +1128,10 @@ class Trainer:
             raise MissingArgumentException("train_dataloader")
         if train_subset_num_batches is not None:
             self.state.dataloader_len = train_subset_num_batches
+        if compute_training_metrics is not None:
+            self.train_metrics = _unpack_compute_training_metrics(compute_training_metrics, self._original_model)
 
+        # Max Duration
         if max_duration is not None:
             if isinstance(max_duration, str):
                 max_duration = Time.from_timestring(max_duration)
@@ -1092,15 +1155,18 @@ class Trainer:
         if optimizers is not None:
             self.state.optimizers = optimizers
 
-
         # Scale Schedule Ratio and Schedulers
-        if scale_schedule_ratio != 1.0:
-            if len(ensure_tuple(schedulers)) == 0:
-                raise ValueError("If specifying the `scale_schedule_ratio`, the `schedulers` must also be specified.")
+        if scale_schedule_ratio != 1.0:                
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
         self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
+        self._step_schedulers_every_batch = _unpack_step_schedulers_every_batch(schedulers, step_schedulers_every_batch)
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
+            if scale_schedule_ratio != 1.0:
+                warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
+            
+            if step_schedulers_every_batch is not None:
+                warnings.warn("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
 
         # Evaluators
         if eval_dataloader is not None:
@@ -1134,7 +1200,9 @@ class Trainer:
                      f"specified on {type(self).__name__}.{type(self).fit.__name__}()."))
             self._grad_clip_norm = grad_clip_norm
 
-
+        # Precision
+        if precision is not None:
+            self.state.precision = precision
 
         # Reset Timer
         if reset_timer:
@@ -1205,7 +1273,8 @@ class Trainer:
         # print training start
         self.logger.data_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
-        assert self.state.dataloader is not None, "dataloader is set in __init__"
+        assert self.state.dataloader is not None, "dataloader is set in __init__() or fit()"
+        assert self._train_data_spec is not None, "The train data spec is set in __init__() or fit()"
 
         self.engine.run_event(Event.FIT_START)
 
@@ -1218,6 +1287,9 @@ class Trainer:
             # only restore the rng state here if the step in the current epoch is zero.
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
+
+        if self.train_metrics is not None:
+            self.train_metrics = self._ensure_metrics_device_and_dtype(self.train_metrics)
 
         while self.state.timer < self.state.max_duration:
             try:
@@ -1316,9 +1388,15 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    if self._validate_every_n_batches > 0 and int(
-                            self.state.timer.batch) % self._validate_every_n_batches == 0:
-                        self.eval(log_level=LogLevel.BATCH)
+                    for evaluator in self.evaluators:
+                        if evaluator.should_eval(self.state, Event.BATCH_END):
+                            self.eval(
+                                dataloader=evaluator.dataloader,
+                                dataloader_label=evaluator.label,
+                                subset_num_batches=evaluator.subset_num_batches,
+                                metrics=evaluator.metrics,
+                                log_level=LogLevel.BATCH,
+                            )
 
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
 
@@ -1346,14 +1424,17 @@ class Trainer:
 
             self.engine.run_event(Event.EPOCH_END)
 
-            if self._validate_every_n_epochs > 0 and int(self.state.timer.epoch) % self._validate_every_n_epochs == 0:
-                self.eval(log_level=LogLevel.EPOCH)
+            for evaluator in self.evaluators:
+                if evaluator.should_eval(self.state, Event.EPOCH_END):
+                    self.eval(
+                        dataloader=evaluator.dataloader,
+                        dataloader_label=evaluator.label,
+                        subset_num_batches=evaluator.subset_num_batches,
+                        metrics=evaluator.metrics,
+                        log_level=LogLevel.EPOCH,
+                    )
 
             self.engine.run_event(Event.EPOCH_CHECKPOINT)
-
-    def _is_cuda_oom(self, e: RuntimeError):
-        """Determines if error is CUDA Out of Memory and if adaptive_grad_accum is enabled."""
-        return "CUDA out of memory" in str(e)
 
     def _handle_cuda_oom(self):
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
@@ -1373,6 +1454,8 @@ class Trainer:
         Args:
             use_grad_scaling (bool): Enables gradient scaling
         """
+        assert self._train_data_spec is not None, "The train data spec should be set on __init__ or fit()"
+
         # Retry until we successfully complete training and return loss
         while True:
             total_loss = None
@@ -1400,7 +1483,7 @@ class Trainer:
                         else:
                             optimizer.step()
             except RuntimeError as e:
-                if self._is_cuda_oom(e):
+                if _is_cuda_oom(e):
                     log.debug(
                         textwrap.dedent(f"""Rank {dist.get_global_rank()} OOM'd. 
                         grad_accum will be increased prior to reattempting training on the current batch."""))
@@ -1442,6 +1525,8 @@ class Trainer:
             context = contextlib.nullcontext
         else:
             context = cast(Callable[[], ContextManager], self.state.model.no_sync)
+
+        assert self._train_data_spec is not None
 
         with context():
             self.engine.run_event(Event.BEFORE_TRAIN_BATCH)
@@ -1490,6 +1575,7 @@ class Trainer:
             is_final_microbatch (bool): If current microbatch is the last one.
         """
         assert self.state.scaler is not None
+        assert self._train_data_spec is not None
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         sync_context = contextlib.nullcontext() if self.deepspeed_enabled else _ddp_sync_context(
@@ -1547,12 +1633,30 @@ class Trainer:
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
-    def eval(self, log_level: LogLevel = LogLevel.FIT):
-        """Evaluate the model on the provided evaluation data and log appropriate metrics.
+    def eval(
+        self,
+        dataloader: Union[DataLoader, DataSpec, dict],
+        dataloader_label: str = 'eval',
+        *,
+        metrics: Union[Metric, MetricCollection],
+        subset_num_batches: int = -1,
+        log_level: LogLevel = LogLevel.FIT,
+    ):
+        """Evaluate the model and log appropriate metrics.
 
         Args:
-            log_level (LogLevel, optional): The log level to use for metric logging during evaluation.
-                Defaults to :attr:`~.LogLevel.FIT`.
+            dataloader (DataLoader | DataSpec | dict): The class:`.DataLoader`, :class:`.DataSpec`, or
+                dict of :class:`.DataSpec` kwargs to use for evaluation
+            dataloader_label (str, optional): The dataloader label to use for logging metrics. Defaults to ``'eval'``.
+            metrics (Metric | MetricCollection): The metrics to log.
+            subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
+                which means to iterate over the entire dataloader.
+
+                This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
+                ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
+                ``Evaluator(subset_num_batches=...)``.)
+            log_level (LogLevel, optional): The log level to use when logging metrics. Defaults to
+                :attr:`~.LogLevel.FIT`.
         """
         restore_model_train = self.state.model.training
 
@@ -1561,61 +1665,70 @@ class Trainer:
         original_dataloader_label = self.state.dataloader_label
         original_num_batches = self.state.dataloader_len
 
+        # Unpack the dataloader
+        if isinstance(dataloader, dict):
+            # treat as DataSpec kwargs
+            dataloader = DataSpec(**dataloader)
+        if not isinstance(dataloader, DataSpec):
+            dataloader = DataSpec(dataloader)
+        data_spec = dataloader
+
         self.state.model.eval()
         with torch.no_grad():
 
-            for evaluator in self.evaluators:
-                self.state.set_dataloader(evaluator.dataloader.dataloader, evaluator.label,
-                                          evaluator.subset_num_batches)
-                assert self.state.dataloader is not None, "dataloader is set"
+            self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
+            assert self.state.dataloader is not None, "dataloader is set"
 
-                self.engine.run_event(Event.EVAL_START)
+            self.engine.run_event(Event.EVAL_START)
 
-                metrics = self._ensure_metrics_device_and_dtype(evaluator.metrics)
-                metrics.reset()
-                # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-                if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
-                                                                            torch.utils.data.DistributedSampler):
-                    # The distributed sampler uses `set_epoch` to set the random seed
-                    # Because evaluation can run on each batch, we use the batch to seed the sampler
-                    # so each evaluation will get a proper shuffle.
-                    # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                    self.state.dataloader.sampler.set_epoch(int(self.state.timer.batch))
+            if not isinstance(metrics, MetricCollection):
+                metrics = MetricCollection(metrics)
 
-                if self.state.dataloader_len is None:
-                    iterable = self.state.dataloader
-                else:
-                    iterable = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
+            metrics = self._ensure_metrics_device_and_dtype(metrics)
+            metrics.reset()
+            # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
+            if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
+                                                                        torch.utils.data.DistributedSampler):
+                # The distributed sampler uses `set_epoch` to set the random seed
+                # Because evaluation can run on each batch, we use the batch to seed the sampler
+                # so each evaluation will get a proper shuffle.
+                # The epoch provided to `set_epoch` need not be sequential, so this is fine.
+                self.state.dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
-                for self.state.batch in iterable:
-                    self.state.batch = self._device.batch_to_device(self.state.batch)
-                    if evaluator.dataloader.device_transforms:
-                        self.state.batch = evaluator.dataloader.device_transforms(self.state.batch)
-                    self.state.batch_num_samples = evaluator.dataloader.get_num_samples_in_batch(self.state.batch)
-                    self.state.batch_num_tokens = evaluator.dataloader.get_num_tokens_in_batch(self.state.batch)
+            if self.state.dataloader_len is None:
+                iterable = self.state.dataloader
+            else:
+                iterable = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
 
-                    if self.deepspeed_enabled:
-                        self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+            for self.state.batch in iterable:
+                self.state.batch = self._device.batch_to_device(self.state.batch)
+                if data_spec.device_transforms is not None:
+                    self.state.batch = data_spec.device_transforms(self.state.batch)
+                self.state.batch_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
+                self.state.batch_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                    self.engine.run_event(Event.EVAL_BATCH_START)
+                if self.deepspeed_enabled:
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
-                    self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                    self.state.outputs, targets = self._original_model.validate(self.state.batch)
-                    self.engine.run_event(Event.EVAL_AFTER_FORWARD)
+                self.engine.run_event(Event.EVAL_BATCH_START)
 
-                    metrics.update(self.state.outputs, targets)
-                    self._compute_and_log_metrics(dataloader_label=evaluator.label,
-                                                  metrics=metrics,
-                                                  log_level=log_level)
+                self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
+                self.state.outputs, targets = self._original_model.validate(self.state.batch)
+                self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                    self.engine.run_event(Event.EVAL_BATCH_END)
+                metrics.update(self.state.outputs, targets)
+                self._compute_and_log_metrics(dataloader_label=dataloader_label,
+                                                metrics=metrics,
+                                                log_level=log_level)
 
-                self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
-                self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
+                self.engine.run_event(Event.EVAL_BATCH_END)
 
-                self._compute_and_log_metrics(dataloader_label=evaluator.label, metrics=metrics, log_level=log_level)
+            self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
+            self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
 
-                self.engine.run_event(Event.EVAL_END)
+            self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
+
+            self.engine.run_event(Event.EVAL_END)
 
         if restore_model_train:
             self.state.model.train()

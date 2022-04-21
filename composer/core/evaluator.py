@@ -104,4 +104,4 @@ class Evaluator:
 
             interval = interval_callable
 
-        self.interval = interval
+        self.should_eval: Callable[[State, Event], bool] = interval
