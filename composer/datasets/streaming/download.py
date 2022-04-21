@@ -56,8 +56,7 @@ def download(remote: str, local: str) -> None:
         local (str): Local path (local filesystem).
     """
     local_dir = os.path.dirname(local)
-    if not os.path.exists(local_dir):
-        os.makedirs(local_dir)
+    os.makedirs(local_dir, exist_ok=True)
     if remote.startswith('s3://'):
         download_from_s3(remote, local)
     else:
@@ -86,8 +85,7 @@ def safe_download(remote: str, local: str, timeout: Optional[float] = 10) -> Non
     # No temp download file when we checked, so attept to take it ourself. If
     # that fails, someone beat us to it.
     local_dir = os.path.dirname(local)
-    if not os.path.exists(local_dir):
-        os.makedirs(local_dir)
+    os.makedirs(local_dir, exist_ok=True)
     try:
         with open(local_tmp, 'xb') as out:
             out.write(b'')
