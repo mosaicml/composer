@@ -3,6 +3,7 @@
 import dataclasses
 
 import pytest
+from torch.utils.data import Dataset
 
 from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
                                  ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams, GhostBatchNormHparams,
@@ -13,7 +14,6 @@ from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, 
 from composer.core.algorithm import Algorithm
 from composer.models.base import ComposerModel
 from tests.algorithms.algorithm_settings import get_settings
-from torch.utils.data import Dataset
 
 default_required_fields = {
     AlibiHparams: {

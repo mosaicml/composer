@@ -1,14 +1,12 @@
-"""
-This file provides the canonical settings (dataset, model, algorithms, arguments)
-for each algorithm to be tested. This can be used throughout the
-codebase for functional tests, serialization tests, etc.
+"""This file provides the canonical settings (dataset, model, algorithms, arguments) for each algorithm to be tested.
+This can be used throughout the codebase for functional tests, serialization tests, etc.
 
 Each algorithm is keyed based on its name in the algorithm registry.
 """
 
-from tests import common
 from composer.algorithms import algorithm_registry
 from composer.models import ComposerResNet
+from tests import common
 
 simple_vision_settings = {
     'model': common.SimpleConvModel,
@@ -81,8 +79,7 @@ _settings = {
 
 
 def get_settings(name: str):
-    """For a given algorithm name, creates the canonical setting
-    (algorithm, model, dataset) for testing.
+    """For a given algorithm name, creates the canonical setting (algorithm, model, dataset) for testing.
 
     Returns ``None`` if no settings provided.
     """

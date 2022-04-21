@@ -9,7 +9,7 @@ import pytest
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
-from tests.algorithms.algorithm_settings import get_settings
+
 from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing, algorithm_registry
 from composer.callbacks import CheckpointSaver, LRMonitor
@@ -23,6 +23,7 @@ from composer.trainer.devices.device import Device
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from composer.utils import MissingConditionalImportError, dist
 from composer.utils.object_store import ObjectStoreHparams
+from tests.algorithms.algorithm_settings import get_settings
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 
@@ -424,7 +425,7 @@ class TestTrainerAlgorithms:
     @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
     @pytest.mark.timeout(5)
     @device('gpu')
-    def test_algorithm_trains(self, name, rank_zero_seed):
+    def test_algorithm_trains(self, name, rank_zero_seed, device):
         if name in ('no_op_model', 'scale_schedule'):
             pytest.skip('stub algorithms')
 
@@ -442,6 +443,7 @@ class TestTrainerAlgorithms:
             max_duration='2ep',
             loggers=[],
             seed=rank_zero_seed,
+            device=device,
         )
         trainer.fit()
 
