@@ -460,12 +460,13 @@ class State(Serializable):
             dataloader_len = len(self._dataloader)
         except (TypeError, NotImplementedError):
             dataloader_len = None
-        if dataloader_len is not None and num_batches is not None and int(num_batches) > dataloader_len:
+        if dataloader_len is not None and num_batches >= 0 and int(num_batches) > dataloader_len:
             warnings.warn((f"DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) "
                            f"is greater than the length (i.e. number of batches) of the dataloader, which is "
                            f"{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}."))
             self._dataloader_len = Time(dataloader_len, TimeUnit.BATCH)
-        if num_batches == -1:
+            return
+        if num_batches < 0:
             if dataloader_len is not None:
                 # len(dataloader) is an approximation -- see https://pytorch.org/docs/stable/data.html.
                 # However, in the worst case where additional last batches are dropped, this calculation should be
@@ -474,6 +475,7 @@ class State(Serializable):
             else:
                 # The dataloader length is unknown.
                 self._dataloader_len = None
+            return
         self._dataloader_len = num_batches
 
     @property
