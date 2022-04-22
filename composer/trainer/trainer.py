@@ -69,9 +69,10 @@ import datetime
 import itertools
 import logging
 import pathlib
+import sys
 import textwrap
 import warnings
-from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import torch
 import torch.distributed
@@ -84,6 +85,7 @@ import composer
 from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
+from composer.core.precision import get_precision_context
 from composer.core.types import Batch, BreakEpochException, DataLoader, PyTorchScheduler
 from composer.datasets.dataloader import unwrap_data_loader
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
@@ -114,7 +116,7 @@ class Trainer:
             with Composer.
 
             .. seealso:: :mod:`composer.models` for models built into Composer.
-        train_dataloader (DataLoader, DataSpec, or dict): The :class:`.DataLoader`, :class:`.DataSpec`,
+        train_dataloader (DataLoader, DataSpec, or dict, optional): The :class:`.DataLoader`, :class:`.DataSpec`,
             or dict of :class:`.DataSpec` kwargs for the training data. In order to specify custom
             preprocessing steps on each data batch, specify a :class:`.DataSpec` instead of a
             :class:`.DataLoader`.
@@ -170,8 +172,12 @@ class Trainer:
             .. note::
                 ``fp16`` only works if ``deepspeed_config`` is also provided.
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
-            schedules. E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as
-            many epochs. ``1.0`` means no change. (default: ``1.0``)
+            schedules. (default: ``1.0``)
+
+            E.g., ``0.5`` makes the schedule take half as many epochs and ``2.0`` makes it take twice as
+            many epochs. ``1.0`` means no change.
+
+            This parameter has no effect if ``schedulers`` is not specified.
 
             .. note ::
 
@@ -223,6 +229,26 @@ class Trainer:
             If ``None``, will be set to ``[ProgressBarLogger()]``. (default: ``None``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
+
+        progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
+
+        log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
+
+            The default behavior (when set to ``None``) only prints logging statements when ``show_pbar`` is ``False``.
+
+        console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level which
+            should be printed to the console. (default: :attr:`.LogLevel.EPOCH`)
+
+            It can either be :class:`.LogLevel`, a string corresponding to a :class:`.LogLevel`, or a callable
+            that takes the training :class:`.State` and the :class:`.LogLevel` and returns a boolean of whether this
+            statement should be printed.
+
+            This parameter has no effect if ``log_to_console`` is ``False``, or is unspecified and ``progres_bar`` is
+            ``True``.
+
+        console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
+            ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
+
         callbacks (Callback | Sequence[Callback], optional): The callbacks to run during training. If ``None``,
             then no callbacks will be run. (default: ``None``).
 
@@ -331,10 +357,22 @@ class Trainer:
 
             .. seealso:: :class:`~.CheckpointSaver`
 
+        save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
+            This parameter has no effect if ``save_folder`` is ``None``.
+            (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
-            To disable symlinking, set to ``None``. (default: ``"latest-rank{rank}"``)
+            To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}"``)
+
+            .. seealso:: :class:`~.CheckpointSaver`
+
+        save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
+            This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
+            To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
 
@@ -366,10 +404,13 @@ class Trainer:
             artifact stores.
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
-            If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
-        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches.
+            If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
+
+            This parameter is ignored if ``train_dataloader`` is not specified.
+
+        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches per evaluation dataloader.
             This parameter has no effect if it is greater than ``len(eval_dataloader)``.
-            If ``None``, then the entire dataloader will be iterated over. (default: ``None``)
+            If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
         deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
             provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
@@ -456,7 +497,8 @@ class Trainer:
         eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         optimizers: Optional[torch.optim.Optimizer] = None,
-        schedulers: Optional[Union[ComposerScheduler, Sequence[ComposerScheduler]]] = None,
+        schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
+                                                                                       PyTorchScheduler]]]] = None,
 
         # device
         device: Optional[Union[str, Device]] = None,
@@ -483,6 +525,10 @@ class Trainer:
         run_name: Optional[str] = None,
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
         callbacks: Union[Callback, Sequence[Callback]] = tuple(),
+        progress_bar: bool = True,
+        log_to_console: Optional[bool] = None,
+        console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
+        console_stream: Union[str, TextIO] = sys.stderr,
 
         # load checkpoint
         load_path: Optional[str] = None,
@@ -497,14 +543,15 @@ class Trainer:
         save_filename: str = "ep{epoch}-ba{batch}-rank{rank}",
         save_artifact_name: str = "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
         save_latest_filename: str = "latest-rank{rank}",
+        save_latest_artifact_name: str = "{run_name}/checkpoints/latest-rank{rank}",
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
 
         # subset parameters
-        train_subset_num_batches: Optional[int] = None,
-        eval_subset_num_batches: Optional[int] = None,
+        train_subset_num_batches: int = -1,
+        eval_subset_num_batches: int = -1,
 
         # DeepSpeed
         deepspeed_config: Union[bool, Dict[str, Any]] = False,
@@ -614,10 +661,10 @@ class Trainer:
                 self.evaluators.append(evaluator)
             else:
                 metrics = model.metrics(train=False)
-                evaluator = Evaluator(label="eval_dataset", dataloader=evaluator, metrics=metrics)
+                evaluator = Evaluator(label="eval", dataloader=evaluator, metrics=metrics)
                 self.evaluators.append(evaluator)
 
-        self._eval_subset_num_batches = eval_subset_num_batches
+        self.eval_subset_num_batches = eval_subset_num_batches
 
         # do a check here to make sure there is at least one validation set
         if len(self.evaluators) == 0:
@@ -644,10 +691,6 @@ class Trainer:
                     To fix, please do not iterate over the dataloader before passing it into
                     the trainer."""))
 
-        # TODO(#123): DeepSpeed still needs a precision context, but it's not completely clear how to
-        # handle this with our version of Pytorch
-        precision_context = self._device.precision_context if not self.deepspeed_enabled else cast(
-            Callable[..., ContextManager], contextlib.nullcontext)
         if isinstance(precision, str):
             precision = Precision(precision)
 
@@ -677,18 +720,13 @@ class Trainer:
             raise ValueError("grad_accum must be an int or ``auto``")
 
         self.state = State(
-            max_duration=max_duration,
             rank_zero_seed=rank_zero_seed,
             algorithms=algorithms,
             model=model,
             callbacks=callbacks,
             grad_accum=grad_accum,
             precision=precision,
-            precision_context=precision_context,
-            train_dataloader=train_dataloader.dataloader,
-            evaluators=self.evaluators,
             optimizers=optimizers,
-            steps_per_epoch=train_subset_num_batches,
         )
 
         pytorch_schedulers = [
@@ -723,14 +761,7 @@ class Trainer:
 
         self._step_schedulers_every_batch = step_schedulers_every_batch
 
-        for scheduler in ensure_tuple(schedulers):
-            if isinstance(scheduler, PyTorchScheduler):
-                scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
-                self.state.schedulers.append(scheduler)
-            else:  # it's a composer scheduler
-                self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
-
-        if len(self.state.schedulers) == 0:
+        if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Configure profilers if profiling is enabled
@@ -769,8 +800,25 @@ class Trainer:
             # Append the trace handlers at the end, so profilers will log events before the traces are written.
             self.state.callbacks.extend(self.state.profiler.trace_handlers)
 
-        if loggers is None:
-            loggers = [ProgressBarLogger()]
+        loggers = list(ensure_tuple(loggers))
+
+        if any(isinstance(x, ProgressBarLogger) for x in loggers):
+            warnings.warn(
+                DeprecationWarning(
+                    (f"Specifying the {type(ProgressBarLogger).__name__} via `loggers` is deprecated. Instead, "
+                     "please specify `progress_bar`, `log_to_console`, `log_level`, and `stream` arguments when "
+                     "constructing the trainer. If specified, these arguments will be ignored, as the "
+                     f"{type(ProgressBarLogger).__name__} was already created.")))
+
+        else:
+            loggers.append(
+                ProgressBarLogger(
+                    progress_bar=progress_bar,
+                    log_to_console=log_to_console,
+                    console_log_level=console_log_level,
+                    stream=console_stream,
+                ))
+
         self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
         self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
@@ -781,6 +829,7 @@ class Trainer:
                 filename=save_filename,
                 artifact_name=save_artifact_name,
                 latest_filename=save_latest_filename,
+                latest_artifact_name=save_latest_artifact_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
@@ -795,16 +844,41 @@ class Trainer:
 
         self._validate_every_n_batches = validate_every_n_batches
         self._validate_every_n_epochs = validate_every_n_epochs
-        self._compute_training_metrics = compute_training_metrics
         self._grad_clip_norm = grad_clip_norm
 
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
 
+        if compute_training_metrics:
+            warnings.warn(('Computing model evaluation metrics during training doubles the number of forward passes '
+                           'and may lead to a throughput degradation.'))
+            train_metrics = model.metrics(train=True)
+            if isinstance(train_metrics, Metric):
+                # Forcing metrics to be a MetricCollection simplifies logging results
+                train_metrics = MetricCollection([train_metrics])
+
+            self.train_metrics = self._ensure_metrics_device_and_dtype(train_metrics)
+        else:
+            self.train_metrics = None
+
         self.engine.run_event(Event.INIT)
+
+        # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
+        # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
+        self.state.set_dataloader(train_dataloader.dataloader, 'train', train_subset_num_batches)
+        self.state.max_duration = max_duration
+        self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
         assert isinstance(self.state.model, ComposerModel)
         self._original_model = self.state.model  # TODO(ravi) -- update the state to add an original model helper
+
+        # Compile and bind the schedulers
+        for scheduler in ensure_tuple(schedulers):
+            if isinstance(scheduler, PyTorchScheduler):
+                scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
+                self.state.schedulers.append(scheduler)
+            else:  # it's a composer scheduler
+                self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -823,7 +897,12 @@ class Trainer:
                 model=self.state.model,
                 optimizer=optimizer,
             )
-            # The deepspeed engine is responsible for serializing the model and optimizer state,
+            # Since the DeepSpeed ZeRO optimizer does not inherit torch.optim.Optimizer, the schedulers must be
+            # compiled and bound BEFORE DeepSpeed initialization. However, this is OK, as the the DeepSpeed Zero
+            # optimizer uses the same underlying parameter groups as the original optimizer. See
+            # * https://github.com/microsoft/DeepSpeed/blob/fee73135980e78f8be7e1a3ff556751623ef6aaa/deepspeed/runtime/zero/stage_1_and_2.py#L1911-L1917
+            # * https://github.com/microsoft/DeepSpeed/blob/ef17c89570ceae5b26a5f886e9d8cd0941afc0ac/deepspeed/runtime/zero/stage3.py#L2532-L2538
+            # In addition, the deepspeed engine is responsible for serializing the model and optimizer state,
             # so these attributes should not be serialized with the composer state.
             if "model" in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove("model")
@@ -912,33 +991,20 @@ class Trainer:
 
         return metrics
 
-    def _compute_and_log_metrics(self,
-                                 metrics: Union[Metric, MetricCollection],
-                                 *,
-                                 is_train: bool,
-                                 is_batch: bool,
-                                 logging_label: str = ''):
-        """Computes metrics, logs the results, and resets the metrics.
+    def _compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
+        """Computes metrics, logs the results, and updates the state.
 
         Args:
-            metrics (Metric | MetricCollection): The metrics to compute.
-            is_train (bool): True for training metrics, False for evaluation metrics.
-            is_batch (bool): True if logging at batch level, false for epoch level.
-            logging_label (str): Should be left as empty string if called for training metrics.
-                Should be the evaluator label if called on evaluator metrics.
+            dataloader_label (str): The dataloader label.
+            metrics (MetricCollection): The metrics to compute.
+            log_level (LogLevel): The LogLevel for logging metrics.
         """
         computed_metrics = metrics.compute()
-        for name, value in computed_metrics.items():
-            log_level = LogLevel.BATCH if is_batch else LogLevel.EPOCH
-            suffix = 'train' if is_train else 'val'
-
-            # default label given to evaluator created by val_dataset parameter
-            if not logging_label or logging_label == "eval_dataset":
-                label = f'{name.lower()}/{suffix}'
-            else:
-                label = f'{logging_label}/{name.lower()}_{suffix}'
-            self.logger.data(log_level, {label: value})
-        metrics.reset()
+        self.logger.data(
+            log_level=log_level,
+            data={f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},
+        )
+        self.state.current_metrics[dataloader_label] = computed_metrics
 
     def _spin_dataloaders(self):
         """Spin the dataloaders to restore sampler state.
@@ -948,7 +1014,7 @@ class Trainer:
         """
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
-        for evaluator in self.state.evaluators:
+        for evaluator in self.evaluators:
             dataloader = evaluator.dataloader.dataloader
             # FFCV dataloaders use their own sampling strategy
             if isinstance(dataloader, torch.utils.data.DataLoader) and isinstance(dataloader.sampler,
@@ -958,12 +1024,13 @@ class Trainer:
                 break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
+        assert self.state.dataloader is not None, "train dataloader is set on state after FIT_START"
         for epoch in range(int(self.state.timer.epoch)):
             # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-            if hasattr(self.state.train_dataloader, "sampler") and isinstance(self.state.train_dataloader.sampler,
-                                                                              torch.utils.data.DistributedSampler):
-                self.state.train_dataloader.sampler.set_epoch(epoch)
-            for _ in self.state.train_dataloader:
+            if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
+                                                                        torch.utils.data.DistributedSampler):
+                self.state.dataloader.sampler.set_epoch(epoch)
+            for _ in self.state.dataloader:
                 break
 
     def _train_loop(self) -> None:
@@ -971,18 +1038,7 @@ class Trainer:
         # print training start
         self.logger.data_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
 
-        if self._compute_training_metrics:
-            log.warning('Computing model evaluation metrics during training.'
-                        ' This doubles the number of forward passes and may lead'
-                        ' to a throughput degradation.')
-            train_metrics = self._original_model.metrics(train=True)
-            if isinstance(train_metrics, Metric):
-                # Forcing metrics to be a MetricCollection simplifies logging results
-                train_metrics = MetricCollection([train_metrics])
-
-            train_metrics = self._ensure_metrics_device_and_dtype(train_metrics)
-        else:
-            train_metrics = None
+        assert self.state.dataloader is not None, "dataloader is set in __init__"
 
         self.engine.run_event(Event.FIT_START)
 
@@ -1003,14 +1059,21 @@ class Trainer:
                 if int(self.state.timer.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
                     self.logger.data_epoch({"epoch": int(self.state.timer.epoch)})
+                    if self.train_metrics is not None:
+                        # reset the metrics before every epoch
+                        self.train_metrics.reset()
 
                 # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-                if hasattr(self.state.train_dataloader, "sampler") and isinstance(self.state.train_dataloader.sampler,
-                                                                                  torch.utils.data.DistributedSampler):
-                    self.state.train_dataloader.sampler.set_epoch(int(self.state.timer.epoch))
+                if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
+                                                                            torch.utils.data.DistributedSampler):
+                    self.state.dataloader.sampler.set_epoch(int(self.state.timer.epoch))
 
-                for batch_idx, self.state.batch in enumerate(
-                        itertools.islice(self.state.train_dataloader, self.state.steps_per_epoch)):
+                if self.state.dataloader_len is None:
+                    iterable = self.state.dataloader
+                else:
+                    iterable = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
+
+                for batch_idx, self.state.batch in enumerate(iterable):
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < int(self.state.timer.batch_in_epoch):
@@ -1028,7 +1091,14 @@ class Trainer:
                     if self.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
-                    self._compute_metrics(train_metrics)
+                    if self.train_metrics is not None:
+                        self.state.model.eval()
+                        with torch.no_grad():
+                            for eval_microbatch in self._train_data_spec.split_batch(
+                                    self.state.batch, self.state.grad_accum):
+                                # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
+                                # data and if so print a warning that metrics may return unexpected results
+                                self.train_metrics.update(*self._original_model.validate(eval_microbatch))
 
                     self.state.model.train()
 
@@ -1061,10 +1131,6 @@ class Trainer:
                         full_loss = total_loss.cpu().item()
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
-                    if self._compute_training_metrics:
-                        assert train_metrics is not None
-                        self._compute_and_log_metrics(train_metrics, is_train=True, is_batch=True)
-
                     self.state.timer.on_batch_complete(
                         samples=int(num_samples_in_batch.item()),
                         tokens=int(num_tokens_in_batch.item()),
@@ -1074,11 +1140,18 @@ class Trainer:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
 
+                    if self.train_metrics is not None:
+                        self._compute_and_log_metrics(
+                            dataloader_label='train',
+                            log_level=LogLevel.BATCH,
+                            metrics=self.train_metrics,
+                        )
+
                     self.engine.run_event(Event.BATCH_END)
 
                     if self._validate_every_n_batches > 0 and int(
                             self.state.timer.batch) % self._validate_every_n_batches == 0:
-                        self.eval(is_batch=True)
+                        self.eval(log_level=LogLevel.BATCH)
 
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
 
@@ -1093,6 +1166,13 @@ class Trainer:
 
             self.state.timer.on_epoch_complete()
 
+            if self.train_metrics is not None:
+                self._compute_and_log_metrics(
+                    dataloader_label='train',
+                    log_level=LogLevel.EPOCH,
+                    metrics=self.train_metrics,
+                )
+
             if not self._step_schedulers_every_batch:
                 for scheduler in self.state.schedulers:
                     scheduler.step()
@@ -1100,7 +1180,7 @@ class Trainer:
             self.engine.run_event(Event.EPOCH_END)
 
             if self._validate_every_n_epochs > 0 and int(self.state.timer.epoch) % self._validate_every_n_epochs == 0:
-                self.eval(is_batch=False)
+                self.eval(log_level=LogLevel.EPOCH)
 
             self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
@@ -1118,23 +1198,6 @@ class Trainer:
         else:
             self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
             self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
-
-    def _compute_metrics(self, train_metrics: Union[MetricCollection, None]):
-        """Compute training metrics.
-
-        Args:
-            train_metrics (Union[MetricCollection, None]): Existing train metrics
-        """
-        # Compute metrics on the training set
-        if self._compute_training_metrics:
-            assert train_metrics is not None
-            self.state.model.eval()
-            with torch.no_grad():
-                for eval_microbatch in self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum):
-                    # TODO: Detect if self.run_event(Event.AFTER_DATALOADER) changes the training
-                    # data and if so print a warning that metrics may return unexpected results
-                    outputs, targets = self._original_model.validate(eval_microbatch)
-                    train_metrics.update(outputs, targets)
 
     def _train_batch(self, use_grad_scaling: bool):
         """Compute loss by training on a full batch of data. Adaptively change microbatch size if enabled to maximize
@@ -1181,7 +1244,7 @@ class Trainer:
                     # catch non-transient timeout errors they will be later reraised if no rank OOMed.
                     caught_timeout_error = e
                 else:
-                    raise e
+                    raise
 
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
@@ -1269,7 +1332,7 @@ class Trainer:
             # forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            with self.state.precision_context:
+            with get_precision_context(self.state.precision):
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
@@ -1277,7 +1340,7 @@ class Trainer:
             # loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            with self.state.precision_context:
+            with get_precision_context(self.state.precision):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
             # We always want to scale loss by the grad_accum before the backwards pass and
@@ -1306,7 +1369,7 @@ class Trainer:
 
                 # This is the same loss scaling and reporting we skipped earlier.
                 for loss in ensure_tuple(self.state.loss):
-                    loss.mul_(self.state.batch_num_samples / current_batch_size)
+                    loss.mul_(microbatch_num_samples / current_batch_size)
                     total_loss += loss.detach().clone()
             else:
                 for loss in ensure_tuple(self.state.loss):
@@ -1363,33 +1426,47 @@ class Trainer:
         if restore_model_train:
             self.state.model.train()
 
-    def eval(self, is_batch: bool):
+    def eval(self, log_level: LogLevel = LogLevel.FIT):
         """Evaluate the model on the provided evaluation data and log appropriate metrics.
 
         Args:
-            is_batch (bool): True to log metrics with ``LogLevel.BATCH``
-                and False to log metrics with ``LogLevel.EPOCH``.
+            log_level (LogLevel, optional): The log level to use for metric logging during evaluation.
+                Defaults to :attr:`~.LogLevel.FIT`.
         """
         restore_model_train = self.state.model.training
+
+        # back up the original dataloader on the state, so we can restore it after evaluation is finished
+        original_dataloader = self.state.dataloader
+        original_dataloader_label = self.state.dataloader_label
+        original_num_batches = self.state.dataloader_len
 
         self.state.model.eval()
         with torch.no_grad():
 
-            self.engine.run_event(Event.EVAL_START)
+            for evaluator in self.evaluators:
+                self.state.set_dataloader(evaluator.dataloader.dataloader, evaluator.label,
+                                          self.eval_subset_num_batches)
+                assert self.state.dataloader is not None, "dataloader is set"
 
-            for evaluator in self.state.evaluators:
-                dataloader = evaluator.dataloader.dataloader
+                self.engine.run_event(Event.EVAL_START)
+
                 metrics = self._ensure_metrics_device_and_dtype(evaluator.metrics)
+                metrics.reset()
                 # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-                if hasattr(dataloader, "sampler") and isinstance(dataloader.sampler,
-                                                                 torch.utils.data.DistributedSampler):
+                if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
+                                                                            torch.utils.data.DistributedSampler):
                     # The distributed sampler uses `set_epoch` to set the random seed
                     # Because evaluation can run on each batch, we use the batch to seed the sampler
                     # so each evaluation will get a proper shuffle.
                     # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                    dataloader.sampler.set_epoch(int(self.state.timer.batch))
+                    self.state.dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
-                for self.state.batch in itertools.islice(dataloader, self._eval_subset_num_batches):
+                if self.state.dataloader_len is None:
+                    iterable = self.state.dataloader
+                else:
+                    iterable = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
+
+                for self.state.batch in iterable:
                     self.state.batch = self._device.batch_to_device(self.state.batch)
                     if evaluator.dataloader.device_transforms:
                         self.state.batch = evaluator.dataloader.device_transforms(self.state.batch)
@@ -1406,18 +1483,25 @@ class Trainer:
                     self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
                     metrics.update(self.state.outputs, targets)
+                    self._compute_and_log_metrics(dataloader_label=evaluator.label,
+                                                  metrics=metrics,
+                                                  log_level=log_level)
 
                     self.engine.run_event(Event.EVAL_BATCH_END)
 
                 self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
                 self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
 
-                self._compute_and_log_metrics(metrics, is_train=False, is_batch=is_batch, logging_label=evaluator.label)
+                self._compute_and_log_metrics(dataloader_label=evaluator.label, metrics=metrics, log_level=log_level)
 
-            self.engine.run_event(Event.EVAL_END)
+                self.engine.run_event(Event.EVAL_END)
 
         if restore_model_train:
             self.state.model.train()
+
+        self.state.set_dataloader(original_dataloader, original_dataloader_label)
+        if original_num_batches is not None:
+            self.state.dataloader_len = original_num_batches
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
         """Determines based on precision when to use grad scaling.

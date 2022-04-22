@@ -98,6 +98,7 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
             dummy_state.timer.epoch) + int(dummy_state.timer.epoch) + 1
 
 
+@pytest.mark.timeout(15)  # disk can be slow on Jenkins
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmpdir: pathlib.Path):
     log_file_name = os.path.join(tmpdir, "output.log")
     log_destination = FileLoggerHparams(filename=log_file_name,

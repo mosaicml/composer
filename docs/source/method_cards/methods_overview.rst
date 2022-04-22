@@ -21,7 +21,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Image-perserving data augmentations
+   Image-preserving data augmentations
 
    ---
    .. link-button:: blurpool.html
@@ -30,7 +30,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   applies blur before pooling
+   Apply blur before pooling
 
    ---
    .. link-button:: channels_last.html
@@ -39,7 +39,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Uses channels last memory format (NHWC)
+   Use channels last memory format (NHWC)
 
    ---
    .. link-button:: colout.html
@@ -48,7 +48,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Removes columns and rows from the image for augmentation and efficiency.
+   Remove columns and rows from images for augmentation and efficiency
 
    ---
    .. link-button:: cutmix.html
@@ -57,7 +57,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Combines pairs of examples in non-overlapping regions and mixes labels
+   Combine pairs of examples in non-overlapping regions and mix labels
 
    ---
    .. link-button:: cutout.html
@@ -66,7 +66,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Randomly erases rectangular blocks from the image.
+   Randomly erase rectangular blocks from the image
 
    ---
    .. link-button:: factorize.html
@@ -93,7 +93,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Smooths the labels with a uniform prior
+   Smooth labels with a uniform prior
 
    ---
    .. link-button:: layer_freezing.html
@@ -102,7 +102,7 @@
 
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
-   Progressively freezes layers during training.
+   Progressively freeze layers during training.
 
    ---
    .. link-button:: mixup.html
@@ -111,7 +111,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Blends pairs of examples and labels
+   Blend pairs of examples and labels
 
    ---
    .. link-button:: progressive_resizing.html
@@ -120,7 +120,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Increases the input image size during training
+   Increase the input image size during training
 
    ---
    .. link-button:: randaugment.html
@@ -129,7 +129,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Applies a series of random augmentations
+   Apply a series of random augmentations
 
    ---
    .. link-button:: sam.html
@@ -138,7 +138,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   SAM optimizer measures sharpness of optimization space
+  Measure sharpness of optimization space
 
    ---
    .. link-button:: scale_schedule.html
@@ -155,7 +155,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Drops examples with small loss contributions.
+   Drop examples with small loss contributions.
 
    ---
    .. link-button:: seq_length_warmup.html
@@ -164,7 +164,7 @@
 
    :badge:`NLP,badge-success`
    ++++++++++++++
-   Progressively increase sequence length.
+   Progressively increase sequence length
 
    ---
    .. link-button:: squeeze_excite.html
@@ -173,7 +173,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Replaces eligible layers with Squeeze-Excite layers
+   Replace eligible layers with Squeeze-Excite layers
 
    ---
    .. link-button:: stochastic_depth.html
@@ -182,7 +182,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training
+   Replace a specified layer with a stochastic verion that randomly drops the layer or samples during training
 
    ---
    .. link-button:: swa.html
@@ -191,4 +191,4 @@
 
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
-   Computes running average of model weights.
+   Compute running average of model weights

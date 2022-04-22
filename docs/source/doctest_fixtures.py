@@ -115,8 +115,8 @@ state = State(
     model=model,
     optimizers=optimizer,
     grad_accum=1,
-    train_dataloader=train_dataloader,
-    evaluators=[],
+    dataloader=train_dataloader,
+    dataloader_label="train",
     max_duration="1ep",
     precision="fp32",
 )
@@ -133,6 +133,9 @@ X_example = torch.randn(batch_size, num_channels, 32, 32)  # type: ignore
 logits = torch.randn(batch_size, num_classes)  # type: ignore
 # error: "randint" is not a known member of module (reportGeneralTypeIssues)
 y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
+
+def loss_fun(output, target, reduction="none"):
+    return torch.ones_like(target)
 
 # patch the Trainer to accept ellipses and bind the required arguments to the Trainer
 # so it can be used without arguments in the doctests
