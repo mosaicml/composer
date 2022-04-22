@@ -26,8 +26,7 @@ from tests.utils.deep_compare import deep_compare
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
-@pytest.mark.parametrize("algorithm", ['blurpool'])
-# @pytest.mark.parametrize("algorithm", get_algorithm_registry().keys())
+@pytest.mark.parametrize("algorithm", get_algorithm_registry().keys())
 def test_algorithm_resumption(
     algorithm: str,
     device,
@@ -40,12 +39,13 @@ def test_algorithm_resumption(
 ):
     if algorithm in ('no_op_model', 'scale_schedule'):
         pytest.skip('stub algorithms')
+
     if algorithm in ('cutmix, mixup, label_smoothing'):
         # see: https://github.com/mosaicml/composer/issues/362
         pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
-    # if algorithm in ('squeeze_excite', 'ghost_batchnorm', 'layer_freezing', 'blurpool', 'stochastic_depth'):
-    #     pytest.xfail('Known issues.')
+    if algorithm in ('layer_freezing', 'swa'):
+        pytest.xfail('Known issues')
 
     setting = get_settings(algorithm)
     if setting is None:
@@ -75,7 +75,11 @@ def test_algorithm_resumption(
 
     # create second trainer, load an intermediate checkpoint
     # and continue training
+    setting = get_settings(algorithm)
+    assert setting is not None
+
     config.update({
+        'model': setting['model'],
         'save_folder': folder2,
         'load_path': os.path.join(folder1, resume_file),
         'load_weights_only': False,

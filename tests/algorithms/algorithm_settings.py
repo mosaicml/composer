@@ -35,7 +35,13 @@ simple_resnet_settings = {
 _settings = {
     'alibi': None,  # NLP settings needed
     'augmix': None,  # requires PIL dataset to test
-    'blurpool': simple_resnet_settings,
+    'blurpool': {
+        'model': common.SimpleConvModel,
+        'dataset': common.RandomImageDataset,
+        'kwargs': {
+            'min_channels': 0,
+        },
+    },
     'channels_last': simple_vision_settings,
     'colout': simple_vision_settings,
     'cutmix': {
@@ -47,7 +53,18 @@ _settings = {
     },
     'cutout': simple_vision_settings,
     'factorize': None,
-    'ghost_batchnorm': simple_resnet_settings,
+    'ghost_batchnorm': {
+        'model': (ComposerResNet, {
+            'model_name': 'resnet18',
+            'num_classes': 2
+        }),
+        'dataset': (common.RandomImageDataset, {
+            'shape': (3, 224, 224)
+        }),
+        'kwargs': {
+            'ghost_batch_size': 2,
+        }
+    },
     'label_smoothing': simple_vision_settings,
     'layer_freezing': simple_vision_settings,
     'mixup': simple_vision_settings,
@@ -74,7 +91,16 @@ _settings = {
             'use_same_gpu_seed': False
         }
     },
-    'swa': simple_vision_settings,
+    'swa': {
+        'model': common.SimpleConvModel,
+        'dataset': common.RandomImageDataset,
+        'kwargs': {
+            'swa_start': "1ep",
+            'swa_end': "0.97dur",
+            'update_interval': '1ep',
+            'schedule_swa_lr': True,
+        }
+    }
 }
 
 
