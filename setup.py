@@ -31,6 +31,7 @@ class develop(develop_orig):
 # From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
 site.ENABLE_USER_SITE = _IS_USER
 
+
 def package_files(prefix: str, directory: str, extension: str):
     # from https://stackoverflow.com/a/36693250
     paths = []
@@ -39,6 +40,7 @@ def package_files(prefix: str, directory: str, extension: str):
             if filename.endswith(extension):
                 paths.append(os.path.relpath(os.path.join(path, filename), prefix))
     return paths
+
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -143,10 +145,6 @@ extra_deps["nlp"] = [
     "datasets>=1.14,<2",
 ]
 
-extra_deps["streaming"] = [
-    "boto3==1.21.40",
-]
-
 extra_deps["webdataset"] = [
     # PyPI does not permit git dependencies. See https://github.com/mosaicml/composer/issues/771
     # "webdataset @ git+https://github.com/mosaicml/webdataset.git@dev"
@@ -159,6 +157,10 @@ extra_deps["mlperf"] = [
     "py-cpuinfo>=8.0.0,<9",
 ]
 
+extra_deps["streaming"] = [
+    "boto3==1.21.40",
+]
+
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ["py.typed"]
@@ -166,7 +168,7 @@ composer_data_files += package_files("composer", "yamls", ".yaml")
 composer_data_files += package_files("composer", "algorithms", ".json")
 
 setup(name="mosaicml",
-      version="0.4.0",
+      version="0.6.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="Composer provides well-engineered implementations of efficient training methods to give "
