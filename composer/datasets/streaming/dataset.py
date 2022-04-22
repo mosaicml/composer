@@ -55,7 +55,7 @@ class StreamingDataset(IterableDataset):
             self.index = StreamingDatasetIndex.load(fp)
 
         # Fields, protected by the lock, relating to loading shards in the background.
-        self._lock = Lock()
+        self._lock = None
         self._next_epoch = 0
         self._epoch_to_todo_ids = {}
         self._downloaded_ids = []
@@ -278,6 +278,9 @@ class StreamingDataset(IterableDataset):
         Returns:
             Iterator[int]: Each sample ID.
         """
+        if self._lock is None:
+            self._lock = Lock()
+
         self._load()
 
         with self._lock:
