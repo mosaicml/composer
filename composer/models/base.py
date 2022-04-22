@@ -51,13 +51,13 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 return F.cross_entropy(outputs, targets)
 
     Attributes:
-        logger (Optional[Logger): The :class:`.Logger`. The trainer sets the :class:`.Logger` on the
+        logger (Optional[Logger]): The :class:`.Logger`. The trainer sets the :class:`.Logger` on the
             :attr:`~composer.core.event.Event.INIT` event.
     """
 
     def __init__(self) -> None:
-        self.logger: Optional[Logger] = None
         super().__init__()
+        self.logger: Optional[Logger] = None
 
     @abc.abstractmethod
     def forward(self, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
