@@ -68,3 +68,11 @@ def test_timer():
     assert timer.sample_in_epoch == 5
     assert timer.token == 20
     assert timer.token_in_epoch == 0
+    timer.reset()
+    assert timer.epoch == 0
+    assert timer.batch == 0
+    assert timer.batch_in_epoch == 0
+    assert timer.sample == 0
+    assert timer.sample_in_epoch == 0
+    assert timer.token == 0
+    assert timer.token_in_epoch == 0
