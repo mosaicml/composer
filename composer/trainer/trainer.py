@@ -1236,15 +1236,22 @@ class Trainer:
         # Scale Schedule Ratio and Schedulers
         if scale_schedule_ratio != 1.0:
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
-        self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
-        self._step_schedulers_every_batch = _unpack_step_schedulers_every_batch(schedulers, step_schedulers_every_batch)
-        if len(ensure_tuple(schedulers)) == 0:
-            warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
+        if schedulers is not None:
+            self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
+            self._step_schedulers_every_batch = _unpack_step_schedulers_every_batch(schedulers,
+                                                                                    step_schedulers_every_batch)
+        else:
             if scale_schedule_ratio != 1.0:
                 warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
 
             if step_schedulers_every_batch is not None:
                 warnings.warn("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
+
+            if step_schedulers_every_batch is not None:
+                warnings.warn("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
+
+        if len(ensure_tuple(schedulers)) == 0:
+            warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Evaluators
         if eval_dataloader is not None:
