@@ -868,6 +868,8 @@ class Trainer:
         else:
             self.train_metrics = None
 
+        model.logger = self.logger
+
         self.engine.run_event(Event.INIT)
 
         assert isinstance(self.state.model, ComposerModel)
