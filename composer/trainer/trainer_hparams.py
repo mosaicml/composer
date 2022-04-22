@@ -288,11 +288,8 @@ class TrainerHparams(hp.Hparams):
                                               default=1)
     grad_clip_norm: Optional[float] = hp.optional(
         default=None, doc='the norm to clip gradient magnitudes to. Default: None (no clip)')
-    validate_every_n_epochs: int = hp.optional(
-        doc="Validate every N epochs. Set to -1 to never validate on a epochwise frequency. Defaults to 1", default=1)
-    validate_every_n_batches: int = hp.optional(
-        doc="Validate every N batches. Set to -1 to never validate on a batchwise frequency. Defaults to -1.",
-        default=-1)
+    eval_interval: str = hp.optional(doc="Time string for the evaluation interval. Defaults to 1ep (every epoch)",
+                                     default="1ep")
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
     precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
     scale_schedule_ratio: float = hp.optional(
@@ -568,8 +565,7 @@ class TrainerHparams(hp.Hparams):
             # training hparams
             grad_accum=self.grad_accum,
             grad_clip_norm=self.grad_clip_norm,
-            validate_every_n_batches=self.validate_every_n_batches,
-            validate_every_n_epochs=self.validate_every_n_epochs,
+            eval_interval=self.eval_interval,
             compute_training_metrics=self.compute_training_metrics,
             precision=self.precision,
             scale_schedule_ratio=self.scale_schedule_ratio,

@@ -207,8 +207,7 @@ def test_load_weights(
     composer_trainer_hparams.save_filename = "ep{epoch}.pt"
     composer_trainer_hparams.save_interval = "1ep"
     composer_trainer_hparams.seed = None
-    composer_trainer_hparams.validate_every_n_batches = 1
-    composer_trainer_hparams.validate_every_n_epochs = 0
+    composer_trainer_hparams.eval_interval = "1ba"
     final_checkpoint = "ep2.pt"
     _test_checkpoint_trainer(composer_trainer_hparams)
 
@@ -356,8 +355,10 @@ def test_checkpoint(
     composer_trainer_hparams.save_interval = save_interval
     composer_trainer_hparams.seed = seed
 
-    composer_trainer_hparams.validate_every_n_batches = 1 if resume_file.startswith("ba") else 0
-    composer_trainer_hparams.validate_every_n_epochs = 1 if resume_file.startswith("ep") else 0
+    if resume_file.startswith("ba"):
+        composer_trainer_hparams.eval_interval = "1ba"
+    if resume_file.startswith("ep"):
+        composer_trainer_hparams.eval_interval = "1ep"
     first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
     save_interval_time = Time.from_timestring(save_interval)
     if save_interval_time.unit == TimeUnit.EPOCH:
@@ -422,11 +423,11 @@ def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
 
     trainer = trainer_hparams.initialize_object()
     trainer.fit()
-    _validate_events_called_expected_number_of_times(trainer)
+    _validate_events_called_expected_number_of_times(trainer, Time.from_timestring(trainer_hparams.eval_interval))
     return trainer
 
 
-def _validate_events_called_expected_number_of_times(trainer: Trainer):
+def _validate_events_called_expected_number_of_times(trainer: Trainer, eval_interval: Time):
     state = trainer.state
     assert state.dataloader_label == "train"
     assert state.dataloader_len is not None
@@ -436,16 +437,17 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer):
     num_total_steps = num_epochs * int(state.dataloader_len)
     num_total_microbatches = num_total_steps * state.grad_accum
     num_evals = 0
-    if trainer._validate_every_n_batches > 0:
-        num_evals = num_total_steps // trainer._validate_every_n_batches
-    if trainer._validate_every_n_epochs > 0:
-        num_evals = num_epochs // trainer._validate_every_n_epochs
+    if eval_interval.unit == TimeUnit.BATCH:
+        num_evals = num_total_steps // int(eval_interval)
+    if eval_interval.unit == TimeUnit.EPOCH:
+        num_evals = num_epochs // int(eval_interval)
 
     assert trainer.evaluators is not None
     for evaluator in trainer.evaluators:
         assert evaluator.dataloader is not None
-    assert trainer.eval_subset_num_batches is not None
-    num_eval_steps = num_evals * trainer.eval_subset_num_batches * len(trainer.evaluators)
+    assert trainer.evaluators[0].subset_num_batches != -1
+    assert trainer.evaluators[0].subset_num_batches is not None
+    num_eval_steps = num_evals * trainer.evaluators[0].subset_num_batches * len(trainer.evaluators)
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,
