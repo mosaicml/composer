@@ -9,7 +9,6 @@ train_dataset:
 evaluators:
   - evaluator:
       label: glue_qnli
-      eval_interval: 1000ba
       eval_dataset:
         glue:
           task: qnli
@@ -51,6 +50,7 @@ dataloader:
   prefetch_factor: 2
 grad_accum: 1
 precision: amp
+eval_interval: 1000ba
 callbacks:
   - lr_monitor: {}
 load_path: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt

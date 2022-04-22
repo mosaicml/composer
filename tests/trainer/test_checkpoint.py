@@ -447,6 +447,7 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer, eval_inte
     for evaluator in trainer.evaluators:
         assert evaluator.dataloader is not None
     assert trainer.evaluators[0].subset_num_batches != -1
+    assert trainer.evaluators[0].subset_num_batches is not None
     num_eval_steps = num_evals * trainer.evaluators[0].subset_num_batches * len(trainer.evaluators)
 
     event_to_num_expected_invocations = {

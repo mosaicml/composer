@@ -25,6 +25,10 @@ Train a model and save a checkpoint:
         optimizers=optimizer,
         schedulers=scheduler,
         device="cpu",
+<<<<<<< HEAD
+=======
+        eval_interval="1ep",
+>>>>>>> multi_eval_improvements
         save_folder="checkpoints",
         save_filename="ep{epoch}.pt",
         save_interval="1ep",
@@ -51,6 +55,7 @@ Load the checkpoint and resume training:
         optimizers=optimizer,
         schedulers=scheduler,
         device="cpu",
+        eval_interval="1ep",
         load_path=checkpoint_path,
     )
 
@@ -452,6 +457,12 @@ class Trainer:
             If a callable, it will be called with the training :class:`.State` and the evaluation event, which will be
             either :attr:`.Event.BATCH_END` or :attr:`.Event.EPOCH_END`. The callable should return a bool representing
             whether the evaluator should be invoked.
+
+            This ``eval_interval`` will apply to any
+            :class:`.Evaluator` that does not specify an ``eval_interval`` or if an ``eval_dataloader`` is passed in
+            directly.
+
+            This parameter has no effect if ``eval_dataloader`` is not specified.
         compute_training_metrics (bool, optional): ``True`` to compute metrics on training data and ``False`` to not.
             (default: ``False``)
         precision (str or Precision, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
@@ -699,10 +710,9 @@ class Trainer:
             which means to iterate over the entire dataloader.
 
             This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
-            ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
-            ``Evaluator(subset_num_batches=...)``.)
-
-        deepspeed_config (Dict[str, Any] | bool, optional): Configuration for DeepSpeed, formatted as a JSON
+            ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` and ``subset_num_batches``
+            was specified as part of the :class:`.Evaluator`.
+        deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
             provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
             or ``None``, DeepSpeed will not be used. (default: ``False``)
