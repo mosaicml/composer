@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import abc
-from typing import Any, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Tuple, Union
 
 import torch
 from torch import Tensor
 from torchmetrics import Metric, MetricCollection
 
 from composer.core.types import Batch
+from composer.loggers import Logger
 
 __all__ = ["ComposerModel"]
 
@@ -48,7 +49,15 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 # pass batches and `forward` outputs to the loss
                 _, targets = batch
                 return F.cross_entropy(outputs, targets)
+
+    Attributes:
+        logger (Optional[Logger): The :class:`.Logger`. The trainer sets the :class:`.Logger` on the
+            :attr:`~composer.core.event.Event.INIT` event.
     """
+
+    def __init__(self) -> None:
+        self.logger: Optional[Logger] = None
+        super().__init__()
 
     @abc.abstractmethod
     def forward(self, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
