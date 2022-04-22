@@ -5,6 +5,7 @@ from typing import List, Optional, Type, cast
 
 import pytest
 import torch
+import torch.utils.data
 
 from composer.core import State, Time
 from composer.core.time import TimeUnit
@@ -21,14 +22,14 @@ STEPS_PER_EPOCH = 1000
 
 
 @pytest.fixture
-def dummy_schedulers_state(dummy_model: torch.nn.Module, dummy_train_dataloader: DataLoader, rank_zero_seed: int):
-    return State(
+def dummy_schedulers_state(dummy_model: torch.nn.Module, rank_zero_seed: int):
+    state = State(
         model=dummy_model,
         rank_zero_seed=rank_zero_seed,
-        train_dataloader=dummy_train_dataloader,
         max_duration=MAX_DURATION,
-        steps_per_epoch=STEPS_PER_EPOCH,
     )
+    state.set_dataloader(cast(torch.utils.data.DataLoader, [None] * STEPS_PER_EPOCH), "train")
+    return state
 
 
 @pytest.mark.parametrize("scheduler,ssr,test_times,expected_lrs", [
@@ -88,16 +89,18 @@ def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: Li
                         dummy_schedulers_state: State):
 
     state = dummy_schedulers_state
-    state._max_duration = Time(value=int(state.max_duration.value * ssr), unit=state.max_duration.unit)
+    assert state.dataloader_len is not None
+    assert state.max_duration is not None
+    state.max_duration = Time(value=int(state.max_duration.value * ssr), unit=state.max_duration.unit)
     for test_time, expected_lr in zip(test_times, expected_lrs):
         parsed_time = Time.from_timestring(test_time)
         assert parsed_time.unit in [TimeUnit.EPOCH, TimeUnit.BATCH]
         if parsed_time.unit == TimeUnit.EPOCH:
             state.timer._epoch = parsed_time
-            state.timer._batch = Time(int(state.steps_per_epoch * state.timer._epoch.value), TimeUnit.BATCH)
+            state.timer._batch = Time(int(state.dataloader_len) * int(state.timer.epoch), TimeUnit.BATCH)
         else:
             state.timer._batch = parsed_time
-            state.timer._epoch = Time(int(state.timer._batch.value / state.steps_per_epoch), TimeUnit.EPOCH)
+            state.timer._epoch = Time(int(state.timer.batch) // int(state.dataloader_len), TimeUnit.EPOCH)
 
         lr = scheduler(state, ssr)
         assert lr == pytest.approx(expected_lr, abs=1e-3)

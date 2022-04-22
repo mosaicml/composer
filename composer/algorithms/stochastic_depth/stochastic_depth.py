@@ -232,8 +232,10 @@ class StochasticDepth(Algorithm):
             logger.data_epoch({'stochastic_depth/num_stochastic_layers': num_stochastic_layers})
 
         elif event == Event.BATCH_START:
-            if state.get_elapsed_duration() < self.drop_warmup:
-                current_drop_rate = float(state.get_elapsed_duration() / self.drop_warmup) * self.drop_rate
+            elapsed_duration = state.get_elapsed_duration()
+            assert elapsed_duration is not None, "elapsed duration is set on BATCH_START"
+            if elapsed_duration < self.drop_warmup:
+                current_drop_rate = float(elapsed_duration / self.drop_warmup) * self.drop_rate
                 _update_drop_rate(state.model, stochastic_layer, current_drop_rate, self.drop_distribution)
             else:
                 current_drop_rate = self.drop_rate
