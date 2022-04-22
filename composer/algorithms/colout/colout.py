@@ -214,11 +214,15 @@ class ColOut(Algorithm):
         if self.batch:
             return event == Event.AFTER_DATALOADER
         else:
-            return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
+            if event != Event.FIT_START:
+                return False
+            assert state.dataloader is not None, "dataloader should be defined on fit start"
+            return state.dataloader.dataset not in self._transformed_datasets
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""
-        dataset = state.train_dataloader.dataset
+        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        dataset = state.dataloader.dataset
 
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
 

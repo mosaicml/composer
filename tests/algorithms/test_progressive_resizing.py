@@ -149,6 +149,7 @@ class TestProgressiveResizingAlgorithm:
     def test_apply(self, epoch_frac: float, X: torch.Tensor, y: torch.Tensor, pr_algorithm: ProgressiveResizing,
                    minimal_state: State, empty_logger: Logger):
         """Test apply at different epoch fractions (fraction of max epochs)"""
+        assert minimal_state.max_duration is not None
         assert minimal_state.max_duration.unit == TimeUnit.EPOCH
         minimal_state.timer.epoch._value = int(epoch_frac * minimal_state.max_duration.value)
         s = pr_algorithm.initial_scale

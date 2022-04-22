@@ -224,18 +224,20 @@ class Time(Generic[TValue]):
         # parse ``other`` into a Time object
         if isinstance(other, Time):
             return other
+        if isinstance(other, int):
+            return Time(other, self.unit)
         if isinstance(other, str):
             other_parsed = Time.from_timestring(other)
             warnings.warn(
                 textwrap.dedent(f"""\
                     TimeImplicitStringConversion:
-                    Implicitly converting {other} to {other_parsed}.
-                    To fix this warning, replace {other} with {other_parsed}."""))
+                    Implicitly converting '{other}' to '{repr(other_parsed)}'.
+                    To fix this warning, replace '{other}' with '{repr(other_parsed)}'."""))
             return other_parsed
 
         raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
 
-    def _cmp(self, other: object) -> int:
+    def _cmp(self, other: Union[int, float, Time, str]) -> int:
         # When doing comparisions, and other is an integer (or float), we can safely infer
         # the unit from self.unit
         # E.g. calls like this should be allowed: if batch < 42: do_something()
@@ -254,40 +256,40 @@ class Time(Generic[TValue]):
         assert self.value > other.value
         return 1
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) == 0
 
-    def __ne__(self, other: object):
+    def __ne__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) != 0
 
-    def __lt__(self, other: object):
+    def __lt__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) < 0
 
-    def __le__(self, other: object):
+    def __le__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) <= 0
 
-    def __gt__(self, other: object):
+    def __gt__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) > 0
 
-    def __ge__(self, other: object):
+    def __ge__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) >= 0
 
-    def __add__(self, other: object) -> Time[TValue]:
+    def __add__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot add {self} to {other} since they have different units.")
         return Time(self.value + other.value, self.unit)
 
-    def __radd__(self, other: object) -> Time[TValue]:
+    def __radd__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         return self + other
 
-    def __sub__(self, other: object) -> Time[TValue]:
+    def __sub__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot subtract {other} from {self} since they have different units.")
         return Time(self.value - other.value, self.unit)
 
-    def __rsub__(self, other: object) -> Time[TValue]:
+    def __rsub__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         return (-self) + other
 
     def __neg__(self) -> Time[TValue]:
