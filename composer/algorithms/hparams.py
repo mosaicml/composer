@@ -94,6 +94,7 @@ class BlurPoolHparams(AlgorithmHparams):
     replace_convs: bool = hp.optional('Replace Conv2d with BlurConv2d if stride > 1', default=True)
     replace_maxpools: bool = hp.optional('Replace MaxPool2d with BlurMaxPool2d', default=True)
     blur_first: bool = hp.optional('Blur input before convolution', default=True)
+    min_channels: int = hp.optional('Skip layers with in_channels < min_channels', default=16)
 
     def initialize_object(self) -> "BlurPool":
         return BlurPool(**asdict(self))
