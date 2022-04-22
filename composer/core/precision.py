@@ -40,21 +40,21 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
     """
 
     precision = Precision(precision)
-    enabled = False
     if precision == Precision.FP32:
-        if not torch.cuda.is_available():
+        if torch.cuda.is_available():
+            with torch.cuda.amp.autocast(False):
+                yield
+        else:
             # Yield here to avoid warnings about cuda not being available
             yield
-            return
-        enabled = False
     elif precision == Precision.AMP:
-        enabled = True
+        # Retain compatibility with PyTorch < 1.10
+        with torch.cuda.amp.autocast(True):
+            yield
     elif precision == Precision.BF16:
         if version.parse(torch.__version__) < version.parse("1.10"):
             raise ValueError(f"BF16 precision requires torch > 1.10, got version {torch.__version__}")
-        with torch.cuda.amp.autocast(True, torch.bfloat16):  # type: ignore
+        with torch.cuda.amp.autocast(True, torch.bfloat16):
             yield
-        # Retain compatibility with PyTorch < 1.10
-        if precision != Precision.BF16:
-            with torch.cuda.amp.autocast(enabled):  # type: ignore
-                yield
+    else:
+        raise ValueError(f"Unsupported precision: {precision}")

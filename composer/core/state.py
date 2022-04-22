@@ -212,6 +212,7 @@ class State(Serializable):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.grad_accum = grad_accum
+        self._dataloader_len = None
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
         self.max_duration = max_duration
 
