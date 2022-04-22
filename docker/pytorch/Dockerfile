@@ -162,9 +162,6 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
 
 WORKDIR /home/mosaicml
 
-USER mosaicml
-
-
 FROM pytorch_stage AS vision_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
