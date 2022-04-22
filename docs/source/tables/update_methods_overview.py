@@ -26,8 +26,8 @@ overview_path = os.path.join(os.path.dirname(__file__), '..', 'method_cards', 'm
 print("table_path ", overview_path)
 with open(overview_path, 'w') as overview_file:
     overview_file.write("""
-Methods Overview
-===================
+|:black_joker:| Methods Overview
+================================
 
 .. panels::
    :card: shadow
