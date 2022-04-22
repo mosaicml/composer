@@ -9,8 +9,11 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import ExponentialLR
 
 from composer.algorithms import ScaleScheduleHparams
+from composer.core import State
+from composer.core.callback import Callback
 from composer.core.time import TimeUnit
 from composer.core.types import PyTorchScheduler
+from composer.loggers.logger import Logger
 from composer.optim import MultiStepSchedulerHparams, SGDHparams
 from composer.trainer import TrainerHparams
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
@@ -27,6 +30,7 @@ def flatten(lst: list):
 
 
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
+@pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")
 class TestScaleSchedule():
 
     @staticmethod
@@ -72,10 +76,36 @@ class TestScaleSchedule():
         raise NotImplementedError
 
 
+class CheckScaleSchedule(Callback):
+
+    def __init__(self, ssr: float) -> None:
+        self.ssr = ssr
+
+    def fit_start(self, state: State, logger: Logger) -> None:
+        scheduler = state.schedulers[0]
+
+        test_steps = [int(20 * self.ssr), int(40 * self.ssr), int(60 * self.ssr)]
+        target_lrs = [1.0, 0.1, 0.01]
+        current_step = 0
+        for test_step, target_lr in zip(test_steps, target_lrs):
+
+            while current_step < test_step:
+                state.timer.on_batch_complete()
+                current_step += 1
+
+            scheduler.step()
+
+            assert scheduler.get_last_lr()[0] == pytest.approx(target_lr)
+
+
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
-@pytest.mark.parametrize('use_algorithm', [False, True])
+@pytest.mark.parametrize('use_algorithm', [
+    False,
+    pytest.param(True, marks=pytest.mark.filterwarnings(r"ignore:.*ScaleScheduleDeprecationWarning.*")),
+])
 class TestScaleScheduleTrainer():
 
+    @pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")
     def test_epochs_scaled(
         self,
         ssr: float,
@@ -91,21 +121,12 @@ class TestScaleScheduleTrainer():
             composer_trainer_hparams.algorithms = [ScaleScheduleHparams(ratio=ssr)]
         else:
             composer_trainer_hparams.scale_schedule_ratio = ssr
-        trainer = composer_trainer_hparams.initialize_object()
 
+        trainer = composer_trainer_hparams.initialize_object()
+        trainer.state.callbacks.append(CheckScaleSchedule(ssr))
+
+        assert trainer.state.max_duration is not None
         assert trainer.state.max_duration.unit == TimeUnit.EPOCH
         assert trainer.state.max_duration.value == int(10 * ssr)
-        scheduler = trainer.state.schedulers[0]
 
-        test_steps = [int(20 * ssr), int(40 * ssr), int(60 * ssr)]
-        target_lrs = [1.0, 0.1, 0.01]
-        current_step = 0
-        for test_step, target_lr in zip(test_steps, target_lrs):
-
-            while current_step < test_step:
-                trainer.state.timer.on_batch_complete()
-                current_step += 1
-
-            scheduler.step()
-
-            assert scheduler.get_last_lr()[0] == pytest.approx(target_lr)
+        trainer.fit()
