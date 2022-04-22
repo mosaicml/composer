@@ -97,7 +97,7 @@ class BlurPool(Algorithm):
             applied with a stride of 1 before the blurring, resulting in
             significant overhead (though more closely matching the paper).
             See :class:`.BlurConv2d` for further discussion. Default: ``True``.
-        min_channels (int, optional): Skip replacing layers with less than ``min_channels``.
+        min_channels (int, optional): Skip replacing layers with in_channels < min_channels.
             Commonly used to prevent the blurring of the first layer. Default: 16.
     """
 
