@@ -2,6 +2,8 @@
 
 """Core Exponential Moving Average (EMA) classes and functions."""
 
+from __future__ import annotations
+
 import copy
 import itertools
 import logging
