@@ -139,7 +139,7 @@ class TestWithMLPerfChecker:
         """Generates submission files by training the benchark n=5 times."""
 
         for run in range(5):
-            mlperf_callback = MLPerfCallback(root_folder=directory, index=run)
+            mlperf_callback = MLPerfCallback(root_folder=directory, index=run, cache_clear_cmd="")
             config['callbacks'] = [mlperf_callback]
             config['seed'] = np.random.randint(low=2048)  # mlperf seeds are released near submission deadline
             trainer = Trainer(**config)

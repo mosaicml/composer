@@ -83,6 +83,13 @@ class MLPerfCallback(Callback):
         This is currently an experimental logger, that has not been used (yet)
         to submit an actual result to MLPerf. Please use with caution.
 
+    .. note::
+
+        MLPerf submissions require clearing the system cache prior to any training run.
+        By default, this callback does not clear the cache, as that is a system specific
+        operation. To enable cache clearing, and thus pass the mlperf compliance checker,
+        provide a ``cache_clear_cmd`` that will be executed with ``os.system``.
+
     Args:
         root_folder (str): The root submission folder
         index (int): The repetition index of this run. The filename created will be
@@ -99,6 +106,8 @@ class MLPerfCallback(Callback):
             e.g. ``8xNVIDIA_A100_80GB_composer``.
         status (str, optional): Submission status. One of (onprem, cloud, or preview).
             Default: ``"onprem"``.
+        cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
+            will call ``os.system(cache_clear_cmd)``. Default is disabled (None)
     """
 
     def __init__(
@@ -113,6 +122,7 @@ class MLPerfCallback(Callback):
         submitter: str = "MosaicML",
         system_name: Optional[str] = None,
         status: str = "onprem",
+        cache_clear_cmd: Optional[str] = None,
     ) -> None:
 
         require_mlperf_logging()
@@ -153,7 +163,10 @@ class MLPerfCallback(Callback):
         self._file_handler.setLevel(logging.INFO)
         self.mllogger.logger.addHandler(self._file_handler)
 
-        self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
+        if cache_clear_cmd is not None:
+            os.system(cache_clear_cmd)
+            self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
+
         self.mllogger.start(key=mllog.constants.INIT_START)
 
         if rank_zero():
