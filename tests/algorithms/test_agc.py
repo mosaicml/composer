@@ -3,10 +3,10 @@ from unittest.mock import Mock
 import pytest
 import torch
 from torch import nn
+
 import composer.functional as cf
-from composer.algorithms.agc import AGC
+from composer.algorithms.agc import AGC, apply_agc
 from composer.algorithms.agc.agc import _get_clipped_gradients
-from composer.algorithms.agc import apply_agc
 from composer.core import Engine
 from composer.core.event import Event
 
