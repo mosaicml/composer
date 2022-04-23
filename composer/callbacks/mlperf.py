@@ -12,6 +12,7 @@ import composer
 from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
+from composer.loggers.logger import LogLevel
 from composer.utils import dist
 
 try:
@@ -25,8 +26,8 @@ except ImportError:
     mlperf_available = False
 
 # this callback only supports the following options:
-BENCHMARKS = ("resnet")
-DIVISIONS = ("open")
+BENCHMARKS = ("resnet",)
+DIVISIONS = ("open",)
 STATUS = ("onprem", "cloud", "preview")
 
 
@@ -62,6 +63,21 @@ class MLPerfCallback(Callback):
 
     Currently, only open division submissions are supported with this Callback.
 
+    Example:
+
+    .. testcode::
+
+        callback = MLPerfCallback(
+            root_folder='/submission',
+            index=0,
+            metric_name='Accuracy',
+            metric_label='eval',
+            target='0.759',
+        )
+
+    During training, the metric found in ``state.current_metrics[metric_label][metric_name]``
+    will be compared against the target criterion.
+
     .. note::
 
         This is currently an experimental logger, that has not been used (yet)
@@ -71,29 +87,32 @@ class MLPerfCallback(Callback):
         root_folder (str): The root submission folder
         index (int): The repetition index of this run. The filename created will be
             ``result_[index].txt``.
+        benchmark (str, optional): Benchmark name. Currently only ``resnet`` supported.
+        target (float, optional): The target metric before the mllogger marks the stop
+            of the timing run. Default: ``0.759`` (resnet benchmark).
+        division (str, optional): Division of submission. Currently only ``open`` division supported.
+        metric_name (str, optional): name of the metric to compare against the target. Default: ``Accuracy``.
+        metric_label (str, optional): label name. The metric will be accessed via ``state.current_metrics[metric_label][metric_name]``.
         submitter (str, optional): Submitting organization. Default: MosaicML.
         system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
             not provided, system name will default to ``[world_size]x[device_name]_composer``,
             e.g. ``8xNVIDIA_A100_80GB_composer``.
-        benchmark (str, optional): Benchmark name. Default: ``"resnet"``.
-        division (str, optional): Division of submission. Currently only open division is
-            supported. Default: ``"open"``.
         status (str, optional): Submission status. One of (onprem, cloud, or preview).
             Default: ``"onprem"``.
-        target (float, optional): The target metric before the mllogger marks the stop
-            of the timing run. Default: ``0.759`` (resnet benchmark).
     """
 
     def __init__(
         self,
         root_folder: str,
         index: int,
+        benchmark: str = 'resnet',
+        target: float = 0.759,
+        division: str = 'open',
+        metric_name: str = 'Accuracy',
+        metric_label: str = 'eval',
         submitter: str = "MosaicML",
         system_name: Optional[str] = None,
-        benchmark: str = "resnet",
-        division: str = "open",
         status: str = "onprem",
-        target: float = 0.759,
     ) -> None:
 
         require_mlperf_logging()
@@ -104,39 +123,36 @@ class MLPerfCallback(Callback):
             raise ValueError(f"division: {division} must be one of {DIVISIONS}")
         if status not in STATUS:
             raise ValueError(f"status: {status} must be one of {STATUS}")
-        if not mlperf_available:
-            raise ValueError("MLperf logger is required")
+
         self.mllogger = mllog.get_mllogger()
         self.target = target
         self.system_name = system_name
         self.benchmark = benchmark
         self.root_folder = root_folder
+        self.metric_name = metric_name
+        self.metric_label = metric_label
 
         system_desc = get_system_description(submitter, division, status, system_name)
         system_name = system_desc['system_name']
 
-        self._create_submission_folders(root_folder, system_name, benchmark)
-
-        # save system description file
-        systems_path = os.path.join(root_folder, 'systems', f'{system_name}.json')
-        if os.path.exists(systems_path):
-            with open(systems_path, 'r') as f:
-                existing_systems_desc = json.load(f)
-                if sorted(existing_systems_desc.items()) != sorted(system_desc.items()):
-                    raise ValueError(f'Existing system description in {systems_path} does not match this machine.')
-        else:
+        if dist.get_local_rank() == 0:
+            self._create_submission_folders(root_folder, system_name, benchmark)
+            systems_path = os.path.join(root_folder, 'systems', f'{system_name}.json')
             with open(systems_path, 'w') as f:
                 json.dump(system_desc, f, indent=4)
 
-        filename = os.path.join(root_folder, 'results', system_name, benchmark, f'result_{index}.txt')
-        if os.path.exists(filename):
-            raise FileExistsError(f'{filename} already exists.')
+        dist.barrier()
 
-        self._file_handler = logging.FileHandler(filename)
+        self.filename = os.path.join(root_folder, 'results', system_name, benchmark, f'result_{index}.txt')
+        self.upload_name = '{run_name}' + f'/results/{system_name}/{benchmark}/result_{index}.txt'
+
+        if os.path.exists(self.filename):
+            raise FileExistsError(f'{self.filename} already exists.')
+
+        self._file_handler = logging.FileHandler(self.filename)
         self._file_handler.setLevel(logging.INFO)
         self.mllogger.logger.addHandler(self._file_handler)
 
-        # TODO: implement cache clearing
         self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
         self.mllogger.start(key=mllog.constants.INIT_START)
 
@@ -169,9 +185,9 @@ class MLPerfCallback(Callback):
             self.mllogger.event(key=key, value=value)
 
     def _get_accuracy(self, state: State):
-        if 'Accuracy' not in state.current_metrics['eval']:
+        if self.metric_name not in state.current_metrics[self.metric_label]:
             raise ValueError('Accuracy must be a validation metric.')
-        return state.current_metrics['eval']['Accuracy']
+        return state.current_metrics[self.metric_label][self.metric_name]
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if rank_zero():
@@ -210,6 +226,7 @@ class MLPerfCallback(Callback):
     def epoch_end(self, state: State, logger: Logger) -> None:
         if rank_zero():
             self.mllogger.event(key=constants.EPOCH_STOP, metadata={'epoch_num': state.timer.epoch.value})
+            logger.file_artifact(LogLevel.FIT, artifact_name=self.upload_name, file_path=self.filename)
 
     def eval_start(self, state: State, logger: Logger) -> None:
         if rank_zero():

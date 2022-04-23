@@ -5,11 +5,10 @@ from __future__ import annotations
 
 import abc
 import textwrap
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional
 
 import yahp as hp
-from attr import asdict
 
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.grad_monitor import GradMonitor
