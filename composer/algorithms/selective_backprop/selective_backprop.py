@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Callable, Optional, Sequence, Tuple, Union
+from typing import Callable, Optional, Sequence, Tuple, Union, Dict
 
 import numpy as np
 import torch
@@ -213,7 +213,7 @@ class SelectiveBackprop(Algorithm):
         )
         return is_chosen
 
-    def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
+     def apply(self, event: Event, state: State, logger: Optional[Logger] = None, input_pos: Union[int, str, list, None] = None, target_pos: Union[int, str, list, None] = None) -> None:
         """Apply selective backprop to the current batch."""
         if event == Event.INIT:
             if self._loss_fn is None:
@@ -221,7 +221,15 @@ class SelectiveBackprop(Algorithm):
                     raise RuntimeError("Model must be of type ComposerModel")
                 self._loss_fn = state.model.loss
             return
-        input, target = state.batch_pair
+            
+        if hasattr(state, "batch_pair"):
+            input, target = state.batch_pair
+        elif hasattr(state, "batch") and target_pos is not None:
+            target = state.batch[target_pos]
+            input = state.batch[input_pos]
+        else: 
+            assert "No batch information provided in state"
+
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 
