@@ -59,7 +59,7 @@ trainer.fit()
 
 ### Implementation Details
 
-AGC is implemented as follows. On `Event.AFTER_BACKWARD`:
+AGC is implemented as follows. On `Event.AFTER_TRAIN_BATCH`:
 1. For every parameter in the model that has gradients:
     a. The L2 norm of the parameter is computed (normalized across rows for MLP's, across entire filters for CNN's, and across the entire vector for biases).
     b. The L2 norm of each parameters corresponding gradients are computed in a similar fashion.

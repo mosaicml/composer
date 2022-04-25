@@ -98,7 +98,7 @@ def test_AGC_algorithm(simple_model_with_grads):
     engine = Engine(state, logger)
 
     # Run the Event that should cause AGC.apply to be called.
-    engine.run_event(Event.AFTER_BACKWARD)
+    engine.run_event(Event.AFTER_TRAIN_BATCH)
 
     # Check that the gradients weights holds are equivalent to the calling
     # _get_clipped_gradients on the weighta and grads.

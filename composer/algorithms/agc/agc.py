@@ -64,7 +64,7 @@ class AGC(Algorithm):
     rows for weight matrices in MLPs, across entire filters/kernels for CNNs (channel and
     spatial dimensions), and across the whole vector for biases.
 
-    Runs on ``Event.AFTER_BACKWARD``.
+    Runs on ``Event.AFTER_TRAIN_BATCH``.
 
     Example:
          .. testcode::
@@ -92,8 +92,8 @@ class AGC(Algorithm):
         self.eps = eps
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on ``Event.AFTER_BACKWARD``."""
-        return event == Event.AFTER_BACKWARD
+        """Run on ``Event.AFTER_TRAIN_BATCH``."""
+        return event == Event.AFTER_TRAIN_BATCH
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Freeze layers in the model."""
