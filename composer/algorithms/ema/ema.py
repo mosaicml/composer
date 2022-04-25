@@ -7,7 +7,7 @@ from __future__ import annotations
 import copy
 import itertools
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 
@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 __all__ = ["EMA", "ema"]
 
 
-def ema(model: torch.nn.Module, ema_model: torch.nn.Module, smoothing: float = 0.99):
+def ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
     r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model`` according to an exponential
     weighted average. Weights are updated according to
 
@@ -165,21 +165,46 @@ class EMA(Algorithm):
             if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
                 # Initialize the shadow models if they don't exist yet
                 if self.ema_model is None:
-                    self.ema_model = copy.deepcopy(state.model)
+                    self.ema_model = ShadowModel(state.model)
                 if self.training_model is None and self.train_with_ema_weights is False:
-                    self.training_model = copy.deepcopy(state.model)
+                    self.training_model = ShadowModel(state.model)
 
                 # Update the ema model
                 ema(state.model, self.ema_model, smoothing=self.smoothing)
                 if self.train_with_ema_weights:
                     # Use the ema weights for further training
-                    state.model.load_state_dict(self.ema_model.state_dict())
+                    _copy_model(self.ema_model, state.model)
 
         if event == Event.EVAL_START and self.ema_model is not None and self.training_model is not None:
             # Swap out the training model for the ema model in state
-            self.training_model.load_state_dict(state.model.state_dict())
-            state.model.load_state_dict(self.ema_model.state_dict())
+            _copy_model(state.model, self.training_model)
+            _copy_model(self.ema_model, state.model)
 
         if event == Event.EVAL_END and self.training_model is not None:
             # Swap out the ema model for the training model in state
-            state.model.load_state_dict(self.training_model.state_dict())
+            _copy_model(self.training_model, state.model)
+
+
+def _copy_model(source_model, destination_model):
+    with torch.no_grad():
+        source_params = itertools.chain(source_model.parameters(), source_model.buffers())
+        destination_params = itertools.chain(destination_model.parameters(), destination_model.buffers())
+
+        for source_param, destination_param in zip(source_params, destination_params):
+            destination_param.data = source_param.data
+
+
+class ShadowModel:
+
+    def __init__(self, model):
+        self.param_list = copy.deepcopy(list(model.parameters()))
+        self.buffer_list = copy.deepcopy(list(model.buffers()))
+
+    def parameters(self):
+        return self.param_list
+
+    def buffers(self):
+        return self.buffer_list
+
+
+T_Model = Union[torch.nn.Module, ShadowModel]

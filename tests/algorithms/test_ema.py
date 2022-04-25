@@ -1,31 +1,32 @@
 import copy
+import itertools
 
 import numpy as np
 import pytest
 import torch
 
 from composer.algorithms import EMAHparams
-from composer.algorithms.ema.ema import ema
+from composer.algorithms.ema.ema import ShadowModel, ema
 from composer.core import Event, Time, Timer, TimeUnit
 from tests.common import SimpleConvModel, SimpleModel
 
 
 def validate_ema(model, original_model, ema_model, smoothing):
-    model_dict = model.state_dict()
-    original_dict = original_model.state_dict()
-    ema_dict = ema_model.state_dict()
+    model_params = itertools.chain(model.parameters(), model.buffers())
+    original_params = itertools.chain(original_model.parameters(), original_model.buffers())
+    ema_params = itertools.chain(ema_model.parameters(), ema_model.buffers())
 
-    for key, param in original_dict.items():
-        model_param = model_dict[key].detach()
-        new_param = param * smoothing + (1. - smoothing) * model_param
-        torch.testing.assert_allclose(ema_dict[key], new_param)
+    for model_param, original_param, ema_param in zip(model_params, original_params, ema_params):
+        new_param = original_param * smoothing + (1. - smoothing) * model_param
+        torch.testing.assert_allclose(ema_param, new_param)
 
 
 def validate_model(model1, model2):
-    model1_dict = model1.state_dict()
-    model2_dict = model2.state_dict()
-    for key, param in model1_dict.items():
-        torch.testing.assert_allclose(param, model2_dict[key])
+    model1_params = itertools.chain(model1.parameters(), model1.buffers())
+    model2_params = itertools.chain(model2.parameters(), model2.buffers())
+
+    for model1_param, model2_param in zip(model1_params, model2_params):
+        torch.testing.assert_allclose(model1_param, model2_param)
 
 
 @pytest.mark.parametrize("smoothing", [0, 0.5, 0.99, 1])
@@ -52,8 +53,8 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
     state.batch = (input, torch.Tensor())
 
     # Start EMA
-    algorithm.ema_model = copy.deepcopy(state.model)
-    algorithm.training_model = copy.deepcopy(state.model)
+    algorithm.ema_model = ShadowModel(state.model)
+    algorithm.training_model = ShadowModel(state.model)
     # Check if ema correctly calculated smoothing
     half_life = Time.from_timestring(params[0])
     update_interval = Time.from_timestring(params[1])
