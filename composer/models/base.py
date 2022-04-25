@@ -49,9 +49,6 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 # pass batches and `forward` outputs to the loss
                 _, targets = batch
                 return F.cross_entropy(outputs, targets)
-
-    Attributes:
-        logger (Optional[Logger]): The :class:`.Logger`.
     """
 
     def __init__(self) -> None:
