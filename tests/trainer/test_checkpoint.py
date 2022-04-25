@@ -19,18 +19,16 @@ from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
-from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.datasets import DatasetHparams, SyntheticHparamsMixin
-from composer.loggers import Logger
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import dist, is_tar
+from tests.common import (EventCounterCallback, EventCounterCallbackHparams, configure_dataset_hparams_for_synthetic,
+                          configure_model_hparams_for_synthetic, deep_compare)
 from tests.test_state import assert_state_equivalent
-from tests.utils.deep_compare import deep_compare
-from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
 
 
 class DummyStatefulCallback(Callback):
@@ -52,31 +50,6 @@ class DummyStatefulCallbackHparams(CallbackHparams):
 
     def initialize_object(self) -> DummyStatefulCallback:
         return DummyStatefulCallback()
-
-
-class EventCounterCallback(Callback):
-
-    def __init__(self) -> None:
-        self.event_to_num_calls: Dict[Event, int] = {}
-
-        for event in Event:
-            self.event_to_num_calls[event] = 0
-
-    def run_event(self, event: Event, state: State, logger: Logger):
-        del state, logger  # unused
-        self.event_to_num_calls[event] += 1
-
-    def state_dict(self) -> Dict[str, Any]:
-        return {"events": self.event_to_num_calls}
-
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.event_to_num_calls.update(state["events"])
-
-
-class EventCounterCallbackHparams(CallbackHparams):
-
-    def initialize_object(self) -> EventCounterCallback:
-        return EventCounterCallback()
 
 
 def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trainer_hparams: TrainerHparams) -> None:
@@ -317,15 +290,15 @@ def test_checkpoint(
         pytest.skip("Checkpointing tests require synthetic data")
         return
 
-    configure_model_for_synthetic(composer_trainer_hparams.model)
+    configure_model_hparams_for_synthetic(composer_trainer_hparams.model)
 
     assert isinstance(composer_trainer_hparams.train_dataset, DatasetHparams)
-    configure_dataset_for_synthetic(composer_trainer_hparams.train_dataset, composer_trainer_hparams.model)
+    configure_dataset_hparams_for_synthetic(composer_trainer_hparams.train_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.save_filename = save_filename
     composer_trainer_hparams.train_dataset.shuffle = False
 
     assert isinstance(composer_trainer_hparams.val_dataset, DatasetHparams)
-    configure_dataset_for_synthetic(composer_trainer_hparams.val_dataset, composer_trainer_hparams.model)
+    configure_dataset_hparams_for_synthetic(composer_trainer_hparams.val_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.val_dataset.shuffle = False
 
     composer_trainer_hparams.grad_accum = 2

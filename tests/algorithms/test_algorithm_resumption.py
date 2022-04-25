@@ -16,8 +16,8 @@ from composer.optim import AdamHparams, ExponentialSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer_hparams import TrainerHparams, algorithms_registry
 from composer.utils import dist
+from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
 from tests.trainer.test_checkpoint import assert_checkpoints_equivalent
-from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
 
 algo_hparams_overrides = {
     "swa": {
@@ -186,9 +186,9 @@ def test_algorithm_resumption(
     else:
         algo_object = algo_hparams()
 
-    configure_model_for_synthetic(trainer_hparams.model)
-    configure_dataset_for_synthetic(trainer_hparams.train_dataset, trainer_hparams.model)
-    configure_dataset_for_synthetic(trainer_hparams.val_dataset, trainer_hparams.model)
+    configure_model_hparams_for_synthetic(trainer_hparams.model)
+    configure_dataset_hparams_for_synthetic(trainer_hparams.train_dataset, trainer_hparams.model)
+    configure_dataset_hparams_for_synthetic(trainer_hparams.val_dataset, trainer_hparams.model)
 
     trainer_hparams.algorithms = [algo_object]
     trainer_hparams.train_dataset.use_synthetic = True

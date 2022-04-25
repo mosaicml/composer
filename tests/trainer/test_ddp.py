@@ -23,7 +23,7 @@ from composer.models.model_hparams import ModelHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
-from tests.fixtures.models import SimpleBatchPairModel
+from tests.common import SimpleModel
 
 
 def get_file_path(*, is_train: bool, tmpdir: pathlib.Path) -> str:
@@ -144,7 +144,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
 
     dummy_model_hparams.num_classes = 100
     model = dummy_model_hparams.initialize_object()
-    assert isinstance(model, SimpleBatchPairModel)
+    assert isinstance(model, SimpleModel)
 
     dataloader_hparams = DataLoaderHparams(
         num_workers=0,
@@ -160,7 +160,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     train_dataset_hparams = TrackedDatasetHparams(
         synthetic_num_unique_samples=train_batch_size * train_subset_num_batches,
         is_train=True,
-        data_shape=[model.num_channels, 5, 5],
+        data_shape=[model.num_features, 5, 5],
         num_classes=model.num_classes,
         tmpdir=str(tmpdir),
     )
@@ -170,7 +170,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     val_dataset_hparams = TrackedDatasetHparams(
         synthetic_num_unique_samples=eval_batch_size * eval_subset_num_batches,
         is_train=False,
-        data_shape=[model.num_channels, 5, 5],
+        data_shape=[model.num_features, 5, 5],
         num_classes=model.num_classes,
         tmpdir=str(tmpdir),
     )

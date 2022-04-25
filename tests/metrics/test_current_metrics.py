@@ -9,7 +9,7 @@ from composer.core import Callback, State
 from composer.core.types import DataLoader
 from composer.loggers import Logger
 from composer.trainer import Trainer
-from tests.fixtures.models import SimpleBatchPairModel
+from tests.common import SimpleModel
 
 
 class TestMetricsCallback(Callback):
@@ -64,7 +64,7 @@ def test_current_metrics(
     # Configure the trainer
     num_channels = dummy_in_shape[0]
     mock_logger_destination = MagicMock()
-    model = SimpleBatchPairModel(num_channels=num_channels, num_classes=dummy_num_classes)
+    model = SimpleModel(num_features=num_channels, num_classes=dummy_num_classes)
     compute_val_metrics = eval_interval != "0ep"
     train_subset_num_batches = 2
     eval_subset_num_batches = 2
