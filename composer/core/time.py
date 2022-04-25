@@ -544,6 +544,16 @@ class Timer(Serializable):
         self_counter = self.get(other.unit)
         return self_counter >= other
 
+    def reset(self):
+        """Reset the timer."""
+        self._epoch = Time(0, TimeUnit.EPOCH)
+        self._batch = Time(0, TimeUnit.BATCH)
+        self._sample = Time(0, TimeUnit.SAMPLE)
+        self._token = Time(0, TimeUnit.TOKEN)
+        self._batch_in_epoch = Time(0, TimeUnit.BATCH)
+        self._sample_in_epoch = Time(0, TimeUnit.SAMPLE)
+        self._token_in_epoch = Time(0, TimeUnit.TOKEN)
+
     def get_timestamp(self):
         """Returns a snapshot of the current time.
 
