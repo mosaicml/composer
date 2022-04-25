@@ -236,7 +236,7 @@ class ColOut(Algorithm):
 
     def _apply_batch(self, state: State) -> None:
         """Transform a batch of images using the ColOut augmentation."""
-        inputs, target = state.batch_pair
+        inputs, target = state.batch
         assert isinstance(inputs, Tensor) and isinstance(target, Tensor), \
             "Inputs and target must be of type torch.Tensor for batch-wise ColOut"
 
