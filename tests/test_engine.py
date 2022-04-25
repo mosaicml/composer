@@ -22,6 +22,11 @@ def always_match_algorithms():
     ]
 
 
+@pytest.fixture()
+def dummy_logger(dummy_state: State):
+    return Logger(dummy_state)
+
+
 @pytest.fixture
 def never_match_algorithms():
     attrs = {'match.return_value': False}
