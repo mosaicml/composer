@@ -60,7 +60,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
         # directly. Hence, this helper getter, which the @property(logger) uses below, is monkey-patched.
         # This trick preserves the ability to `deepcopy` the model (which is required by some algorithms, such as SWA),
         # as the Logger cannot be deepcopied. (The Logger is attached to the state, and the state has file objects).
-        # This trick works because methods are not copied but are instead re-bound by reference).
+        # This trick works because methods are not copied but are instead re-bound by reference.
         return None
 
     @property
