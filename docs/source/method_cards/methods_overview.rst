@@ -21,7 +21,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Image-perserving data augmentations
+   Image-preserving data augmentations
 
    ---
    .. link-button:: blurpool.html
