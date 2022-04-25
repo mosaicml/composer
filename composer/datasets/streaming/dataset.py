@@ -264,7 +264,7 @@ class StreamingDataset(IterableDataset):
             with self._lock:
                 todo_ids = self._epoch_to_todo_ids[epoch]
                 if todo_ids:
-                    return todo_ids.pop()
+                    return todo_ids.pop(0)
                 elif self._are_all_shards_downloaded:
                     del self._epoch_to_todo_ids[epoch]
                     return None
