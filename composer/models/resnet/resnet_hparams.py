@@ -38,7 +38,8 @@ class ResNetHparams(ModelHparams):
     width_per_group: int = hp.optional(
         "Initial width for each convolution group. Width doubles after each stage. (default: ``64``)", default=64)
     loss: str = hp.optional(
-        "Name of loss function. E.g. 'soft_cross_entropy' or 'bce' (binary cross entropy. (default: ``soft_cross_entropy``)", default="soft_cross_entropy")
+        "Name of loss function. E.g. 'soft_cross_entropy' or 'bce' (binary cross entropy. (default: ``soft_cross_entropy``)",
+        default="soft_cross_entropy")
 
     def validate(self):
         if self.model_name not in ComposerResNet.valid_model_names:

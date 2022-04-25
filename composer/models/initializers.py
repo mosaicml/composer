@@ -38,7 +38,7 @@ class Initializer(StringEnum):
             if isinstance(w, torch.nn.BatchNorm2d):
                 w.weight.data = torch.rand(w.weight.data.shape)
                 w.bias.data = torch.zeros_like(w.bias.data)
-        
+
         def linear_uniform_bias(w: nn.Module):
             if isinstance(w, torch.nn.Linear):
                 w.bias.data = torch.ones(w.bias.shape) * -torch.log(torch.tensor(w.bias.shape[0]))

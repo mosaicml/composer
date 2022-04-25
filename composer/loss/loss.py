@@ -13,25 +13,6 @@ from composer.loss.utils import ensure_targets_one_hot, infer_target_type
 
 __all__ = ["bce", "loss_registry", "soft_cross_entropy"]
 
-# def bce(
-#     input: Tensor,
-#     target: Tensor,
-# ) -> torch.Tensor:
-#     r"""Similar to :class:`~torch.nn.functional.binary_cross_entropy_with_logits`. Can
-#      handle class indices or one-hot labels.
-#     Args:
-#         input (torch.Tensor) : :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
-#             in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`
-#             in the case of K-dimensional loss. `input` is expected to contain unnormalized scores
-#             (often referred to as logits).
-#         target (torch.Tensor) : If containing class indices, shape :math:`(N)` where each value is
-#             :math:`0 \leq \text{targets}[i] \leq C-1`, or :math:`(N, d_1, d_2, ..., d_K)` with
-#             :math:`K \geq 1` in the case of K-dimensional loss. If containing class probabilities,
-#             same shape as the input.
-#     """
-#     target = ensure_targets_one_hot(input, target)
-#     return ((-(target @ input.T).diag()) + torch.log(torch.exp(input) + 1).sum(dim=1)).mean()
-
 
 def bce(
     input: Tensor,
