@@ -2,7 +2,7 @@
 
 import dataclasses
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -10,7 +10,7 @@ import torchmetrics
 import yahp as hp
 from torchmetrics import Metric, MetricCollection
 
-from composer.core.types import BatchPair, DataLoader
+from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticPILDataset
@@ -48,20 +48,19 @@ class SimpleBatchPairModel(ComposerModel):
             torch.nn.Softmax(dim=-1),
         )
 
-    def loss(self, outputs: torch.Tensor, batch: BatchPair, *args,
-             **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
+    def loss(self, outputs: torch.Tensor, batch: Any, *args, **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         _, target = batch
         assert isinstance(target, torch.Tensor)
         return soft_cross_entropy(outputs, target, *args, **kwargs)
 
-    def validate(self, batch: BatchPair) -> Tuple[torch.Tensor, torch.Tensor]:
+    def validate(self, batch: Any) -> Tuple[torch.Tensor, torch.Tensor]:
         x, target = batch
         assert isinstance(x, torch.Tensor)
         assert isinstance(target, torch.Tensor)
         pred = self.forward(batch)
         return pred, target
 
-    def forward(self, batch: BatchPair) -> torch.Tensor:
+    def forward(self, batch: Any) -> torch.Tensor:
         x, _ = batch
         return self.net(x)
 

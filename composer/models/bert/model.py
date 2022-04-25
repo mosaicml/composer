@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 import torch
 from torchmetrics import MeanSquaredError, Metric, MetricCollection
@@ -89,7 +89,7 @@ class BERTModel(ComposerTransformer):
         else:
             raise NotImplementedError('Calculating loss directly not supported yet.')
 
-    def validate(self, batch: BatchDict) -> BatchPair:
+    def validate(self, batch: Any) -> Any:
         """Runs the validation step.
 
         Args:

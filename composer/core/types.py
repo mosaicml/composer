@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from typing import Protocol
 
 __all__ = [
-    "Batch", "BatchPair", "BatchDict", "PyTorchScheduler", "JSON", "MemoryFormat", "as_batch_dict", "as_batch_pair",
+    "Batch", "BatchPair", "BatchDict", "PyTorchScheduler", "JSON", "MemoryFormat",
     "DataLoader", "BreakEpochException"
 ]
 
@@ -48,40 +48,6 @@ Dataset = torch.utils.data.Dataset[Batch]
 PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
-
-
-def as_batch_dict(batch: Batch) -> BatchDict:
-    """Casts a :class:`Batch` as a :class:`BatchDict`.
-
-    Args:
-        batch (Batch): A batch.
-    Raises:
-        TypeError: If the ``batch`` is not a :class:`BatchDict`.
-    Returns:
-        BatchDict: The batch, represented as a :class:`BatchDict`.
-    """
-
-    if not isinstance(batch, dict):
-        raise TypeError(f'batch_dict requires batch of type dict, got {type(batch)}')
-    return batch
-
-
-def as_batch_pair(batch: Batch) -> BatchPair:
-    """Casts a :class:`Batch` as a :class:`BatchPair`.
-
-    Args:
-        batch (Batch): A batch.
-    Returns:
-        BatchPair: The batch, represented as a :class:`BatchPair`.
-    Raises:
-        TypeError: If the batch is not a :class:`BatchPair`.
-    """
-
-    if not isinstance(batch, (tuple, list)):
-        raise TypeError(f'batch_pair required batch to be a tuple or list, got {type(batch)}')
-    if not len(batch) == 2:
-        raise TypeError(f'batch has length {len(batch)}, expected length 2')
-    return batch
 
 
 class BreakEpochException(Exception):
