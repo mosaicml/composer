@@ -862,7 +862,7 @@ class Trainer:
             self.train_metrics = None
 
         # Set the logger
-        model._get_logger = lambda: self.logger
+        model.logger = self.logger
 
         self.engine.run_event(Event.INIT)
 

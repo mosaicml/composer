@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 from typing import Any, Optional, Sequence, Tuple, Union
 
 import torch
@@ -49,30 +50,43 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 # pass batches and `forward` outputs to the loss
                 _, targets = batch
                 return F.cross_entropy(outputs, targets)
+
+    Attributes:
+        logger (Optional[Logger]): The training :class:`.Logger`.
+            The trainer sets the :class:`.Logger` on the:attr:`~composer.core.event.Event.INIT` event.
     """
 
     def __init__(self) -> None:
         super().__init__()
+        self.logger: Optional[Logger] = None
 
-    def _get_logger(self) -> Optional[Logger]:
-        # The trainer monkey-patches this getter to set the logger.
-        # Since properties are bound to the class (and not the instance), the `logger` @property cannot be monkey-patched
-        # directly. Hence, this helper getter, which the @property(logger) uses below, is monkey-patched.
-        # This trick preserves the ability to `deepcopy` the model (which is required by some algorithms, such as SWA),
-        # as the Logger cannot be deepcopied. (The Logger is attached to the state, and the state has file objects).
-        # This trick works because methods are not copied but are instead re-bound by reference.
-        return None
+    def __deepcopy__(self, memo: dict):
+        # From https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
+        # The `logger` should not be copied
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k == "logger":
+                copied_v = v
+            else:
+                copied_v = copy.deepcopy(v, memo)
+            setattr(result, k, copied_v)
+        return result
 
-    @property
-    def logger(self) -> Optional[Logger]:
-        """The training :class:`.Logger`.
+    def __copy__(self):
+        # From https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
+        # Need to manually define `__copy__` so it does not rely on `__getstate__`, which would not copy the logger.
+        cls = self.__class__
+        result = cls.__new__(cls)
+        result.__dict__.update(self.__dict__)
+        return result
 
-        The trainer sets the :class:`.Logger` on the:attr:`~composer.core.event.Event.INIT` event.
-
-        Returns:
-            Optional[Logger]: The logger, if it is set, otherwise ``None``.
-        """
-        return self._get_logger()
+    def __getstate__(self):
+        # Don't pickle the logger
+        state = self.__dict__.copy()
+        state['logger'] = None
+        return state
 
     @abc.abstractmethod
     def forward(self, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
