@@ -371,7 +371,7 @@ class Trainer:
                     optimizers=optimizer,
                     schedulers=scheduler,
                     device="cpu",
-                    validate_every_n_epochs=1,
+                    eval_interval="1ep",
                     load_path=checkpoint_path,
                     load_object_store=store,
                 )

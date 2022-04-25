@@ -156,8 +156,7 @@ class TrainerHparams(hp.Hparams):
             (default: ``CPUDeviceHparams``)
         grad_accum (int, optional): See :class:`.Trainer`.
         grad_clip_norm (float, optional): See :class:`.Trainer`.
-        validate_every_n_batches (int, optional): See :class:`.Trainer`.
-        validate_every_n_epochs (int, optional): See :class:`.Trainer`.
+        eval_interval (str, optional): See :class:`.Trainer`.
         compute_training_metrics (bool, optional): See :class:`.Trainer`.
         precision (Precision, optional): See :class:`.Trainer`.
         scale_schedule_ratio (float, optional): See :class:`.Trainer`.
