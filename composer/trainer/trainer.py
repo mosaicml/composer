@@ -890,6 +890,9 @@ class Trainer:
         else:
             self.train_metrics = None
 
+        # Set the logger
+        model.logger = self.logger
+
         self.engine.run_event(Event.INIT)
 
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
