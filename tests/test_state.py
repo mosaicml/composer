@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.functional import Tensor
 
 from composer.algorithms import ChannelsLastHparams
-from composer.core import DataSpec, Evaluator, Precision, State
+from composer.core import DataSpec, Precision, State
 from composer.core.types import Batch, DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
@@ -21,23 +21,21 @@ def random_tensor(size=(4, 10)):
     return torch.rand(*size)
 
 
-def get_dummy_state(model: ComposerModel, train_dataloader: DataLoader, val_dataloader: DataLoader):
+def get_dummy_state(model: ComposerModel, train_dataloader: DataLoader):
     optimizers = torch.optim.Adadelta(model.parameters())
 
-    evaluators = [Evaluator(label="dummy_label", dataloader=val_dataloader, metrics=model.metrics(train=False))]
     state = State(model=model,
                   grad_accum=random.randint(0, 100),
                   rank_zero_seed=random.randint(0, 100),
                   precision=Precision.AMP,
                   max_duration=f"{random.randint(0, 100)}ep",
-                  train_dataloader=train_dataloader,
-                  evaluators=evaluators,
                   optimizers=optimizers,
                   algorithms=[ChannelsLastHparams().initialize_object()])
     state.schedulers = torch.optim.lr_scheduler.StepLR(optimizers, step_size=3)
     state.loss = random_tensor()
     state.batch = (random_tensor(), random_tensor())
     state.outputs = random_tensor()
+    state.set_dataloader(train_dataloader, "train")
     return state
 
 
@@ -111,14 +109,18 @@ def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHpa
     raise RuntimeError("No batch in dataloader")
 
 
-def test_state_serialize(tmpdir: pathlib.Path, dummy_model: ComposerModel, dummy_dataloader_hparams: DataLoaderHparams,
-                         dummy_train_dataset_hparams: DatasetHparams, dummy_train_dataloader: DataLoader,
-                         dummy_val_dataset_hparams: DatasetHparams, dummy_val_dataloader: DataLoader):
+def test_state_serialize(
+    tmpdir: pathlib.Path,
+    dummy_model: ComposerModel,
+    dummy_dataloader_hparams: DataLoaderHparams,
+    dummy_train_dataset_hparams: DatasetHparams,
+    dummy_train_dataloader: DataLoader,
+):
 
     assert isinstance(dummy_model, SimpleBatchPairModel)
 
-    state1 = get_dummy_state(dummy_model, dummy_train_dataloader, dummy_val_dataloader)
-    state2 = get_dummy_state(dummy_model, dummy_train_dataloader, dummy_val_dataloader)
+    state1 = get_dummy_state(dummy_model, dummy_train_dataloader)
+    state2 = get_dummy_state(dummy_model, dummy_train_dataloader)
 
     # train one step to set the optimizer states
     batch = get_batch(dummy_train_dataset_hparams, dummy_dataloader_hparams)

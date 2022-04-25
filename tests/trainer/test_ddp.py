@@ -190,7 +190,6 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
                       train_subset_num_batches=train_subset_num_batches,
                       deepspeed_config={} if deepspeed else False,
                       callbacks=[CheckBatch0(tmpdir)])
-    assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
 
     for evaluator in trainer.evaluators:
         assert isinstance(evaluator.dataloader, DataSpec)
