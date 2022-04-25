@@ -51,13 +51,31 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 return F.cross_entropy(outputs, targets)
 
     Attributes:
-        logger (Optional[Logger]): The :class:`.Logger`. The trainer sets the :class:`.Logger` on the
-            :attr:`~composer.core.event.Event.INIT` event.
+        logger (Optional[Logger]): The :class:`.Logger`.
     """
 
     def __init__(self) -> None:
         super().__init__()
-        self.logger: Optional[Logger] = None
+
+    def _get_logger(self) -> Optional[Logger]:
+        # The trainer monkey-patches this getter to set the logger.
+        # Since properties are bound to the class (and not the instance), the `logger` @property cannot be monkey-patched
+        # directly. Hence, this helper getter, which the @property(logger) uses below, is monkey-patched.
+        # This trick preserves the ability to `deepcopy` the model (which is required by some algorithms, such as SWA),
+        # as the Logger cannot be deepcopied. (The Logger is attached to the state, and the state has file objects).
+        # This trick works because methods are not copied but are instead re-bound by reference).
+        return None
+
+    @property
+    def logger(self) -> Optional[Logger]:
+        """The training :class:`.Logger`.
+
+        The trainer sets the :class:`.Logger` on the:attr:`~composer.core.event.Event.INIT` event.
+
+        Returns:
+            Optional[Logger]: The logger, if it is set, otherwise ``None``.
+        """
+        return self._get_logger()
 
     @abc.abstractmethod
     def forward(self, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
