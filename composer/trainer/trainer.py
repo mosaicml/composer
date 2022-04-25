@@ -25,10 +25,7 @@ Train a model and save a checkpoint:
         optimizers=optimizer,
         schedulers=scheduler,
         device="cpu",
-<<<<<<< HEAD
-=======
         eval_interval="1ep",
->>>>>>> multi_eval_improvements
         save_folder="checkpoints",
         save_filename="ep{epoch}.pt",
         save_interval="1ep",
