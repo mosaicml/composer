@@ -46,6 +46,7 @@ with open(overview_path, 'w') as overview_file:
    .. link-button:: {name}.html
       :text: {metadata[name]['class_name']}
       :classes: card-title
+
    {badge_string}
    ++++++++++++++
    {metadata[name]['tldr']}
