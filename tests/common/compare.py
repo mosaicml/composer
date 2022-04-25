@@ -6,6 +6,18 @@ import numpy as np
 import torch
 
 
+def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0):
+    """Compare two items recursively. Supports dicts, lists, tuples, tensors, and numpy arrays.
+
+    Args:
+        item1 (Any): The first item
+        item2 (Any): The second item
+        atol (bool): Atol tolerance for torch tensors and numpy arrays (default: 0.0)
+        rtol (float): Rtol tolerance for torch tensors and numpy arrays (default: 0.0)
+    """
+    return _check_item(item1, item2, path="", atol=atol, rtol=rtol)
+
+
 def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: float = 0.0):
     if item1 is None:
         assert item2 is None, f"{path} differs: {item1} != {item2}"
@@ -50,15 +62,3 @@ def _check_dict_recursively(dict1: Dict[str, Any], dict2: Dict[str, Any], path: 
     for k, val1 in dict1.items():
         val2 = dict2[k]
         _check_item(val1, val2, path=f"{path}/{k}", atol=atol, rtol=rtol)
-
-
-def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0):
-    """Compare two items recursively. Supports dicts, lists, tuples, tensors, and numpy arrays.
-
-    Args:
-        item1 (Any): The first item
-        item2 (Any): The second item
-        atol (bool): Atol tolerance (default: 0.0)
-        rtol (float): Rtol tolerance (default: 0.0)
-    """
-    return _check_item(item1, item2, path="", atol=atol, rtol=rtol)
