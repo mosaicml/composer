@@ -13,7 +13,6 @@ from composer.loss.utils import ensure_targets_one_hot, infer_target_type
 
 __all__ = ["bce", "loss_registry", "soft_cross_entropy"]
 
-
 # def bce(
 #     input: Tensor,
 #     target: Tensor,
@@ -28,10 +27,11 @@ __all__ = ["bce", "loss_registry", "soft_cross_entropy"]
 #         target (torch.Tensor) : If containing class indices, shape :math:`(N)` where each value is
 #             :math:`0 \leq \text{targets}[i] \leq C-1`, or :math:`(N, d_1, d_2, ..., d_K)` with
 #             :math:`K \geq 1` in the case of K-dimensional loss. If containing class probabilities,
-#             same shape as the input.      
+#             same shape as the input.
 #     """
 #     target = ensure_targets_one_hot(input, target)
 #     return ((-(target @ input.T).diag()) + torch.log(torch.exp(input) + 1).sum(dim=1)).mean()
+
 
 def bce(
     input: Tensor,
@@ -39,7 +39,7 @@ def bce(
     weight: Optional[Tensor] = None,
     size_average: Optional[bool] = None,
     reduce: Optional[bool] = None,
-    reduction: str = "mean",
+    reduction: str = "sum",
     pos_weight: Optional[Tensor] = None,
 ) -> torch.Tensor:
     r"""Drop-in replacement for 
@@ -76,7 +76,8 @@ def bce(
                 Must be a vector with length equal to the number of classes.        
     """
     target = ensure_targets_one_hot(input, target)
-    return F.binary_cross_entropy_with_logits(input, target, weight, size_average, reduce, reduction, pos_weight)
+    return F.binary_cross_entropy_with_logits(input, target, weight, size_average, reduce, reduction,
+                                              pos_weight) / torch.tensor(input.shape[0])
 
 
 def soft_cross_entropy(input: Tensor,
