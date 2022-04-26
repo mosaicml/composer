@@ -207,11 +207,9 @@ class Trainer:
             either :attr:`.Event.BATCH_END` or :attr:`.Event.EPOCH_END`. The callable should return a bool representing
             whether the evaluator should be invoked.
 
-            This ``eval_interval`` will apply to any
-            :class:`.Evaluator` that does not specify an ``eval_interval`` or if an ``eval_dataloader`` is passed in
-            directly.
-
-            This parameter has no effect if ``eval_dataloader`` is not specified.
+            This ``eval_interval`` will apply to any :class:`.Evaluator` in ``eval_dataloader`` that does not specify an
+            ``eval_interval`` or if a dataloader is passed in directly. This parameter has no effect if ``eval_dataloader``
+            is not specified.
         compute_training_metrics (bool, optional): ``True`` to compute metrics on training data and ``False`` to not.
             (default: ``False``)
         precision (str or Precision, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
@@ -574,11 +572,11 @@ class Trainer:
         # logging and callbacks
         run_name: Optional[str] = None,
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
-        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         console_stream: Union[str, TextIO] = sys.stderr,
+        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
 
         # load checkpoint
         load_path: Optional[str] = None,
@@ -607,8 +605,8 @@ class Trainer:
         deepspeed_config: Union[bool, Dict[str, Any]] = False,
 
         # profiling
-        prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
         prof_schedule: Optional[Callable[[State], ProfilerAction]] = None,
+        prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
         sys_prof_cpu: bool = True,
         sys_prof_memory: bool = False,
         sys_prof_disk: bool = False,

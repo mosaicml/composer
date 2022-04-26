@@ -28,7 +28,7 @@ class RandomClassificationDataset(Dataset):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, shape: Sequence[int] = (5, 1, 1), size: int = 100, num_classes: int = 2):
+    def __init__(self, shape: Sequence[int] = (1, 1, 1), size: int = 100, num_classes: int = 2):
         self.size = size
         self.x = torch.randn(size, *shape)
         self.y = torch.randint(0, num_classes, size=(size,))
@@ -43,7 +43,7 @@ class RandomClassificationDataset(Dataset):
 @dataclasses.dataclass
 class RandomClassificationDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
-    data_shape: List[int] = hp.optional("data shape", default_factory=lambda: [5])
+    data_shape: List[int] = hp.optional("data shape", default_factory=lambda: [1, 1, 1])
     num_classes: int = hp.optional("num_classes", default=2)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):

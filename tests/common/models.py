@@ -31,7 +31,7 @@ class SimpleModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_features: int = 5, num_classes: int = 2) -> None:
+    def __init__(self, num_features: int = 1, num_classes: int = 2) -> None:
 
         self.num_features = num_features
         self.num_classes = num_classes
@@ -60,7 +60,7 @@ class SimpleModel(ComposerClassifier):
 
 @dataclasses.dataclass
 class SimpleModelHparams(ModelHparams):
-    num_features: int = hp.optional("number of features", default=5)
+    num_features: int = hp.optional("number of features", default=1)
     num_classes: int = hp.optional("number of output classes", default=2)
 
     def initialize_object(self) -> SimpleModel:
