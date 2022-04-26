@@ -88,8 +88,8 @@ class EarlyStopper(Callback):
         label: str = None,
         comp: Callable = None,
         ceiling: Optional[float] = None,
-        min_delta=0.0,
-        patience=1,
+        min_delta: float =0.0,
+        patience: int =1,
     ):
         self.monitor = monitor
         self.label = label
