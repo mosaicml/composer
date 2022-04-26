@@ -142,6 +142,12 @@ def test_blurpool_noeffectwarning():
         apply_blurpool(model)
 
 
+def test_blurpool_min_channels():
+    model = torch.nn.Conv2d(in_channels=32, out_channels=64, stride=1, kernel_size=(3, 3))
+    with pytest.warns(NoEffectWarning):
+        apply_blurpool(model, min_channels=64)
+
+
 def test_blurconv2d_optimizer_params_updated():
 
     model = ConvModel()

@@ -4,14 +4,12 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
-from contextlib import contextmanager
-from typing import Any, Callable, Generator, TypeVar, Union
+from typing import Any, Callable, TypeVar
 
 import torch
 import torch.nn
 from torch.optim import Optimizer
 
-from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 
 __all__ = ["Device", "T_nnModule"]
@@ -89,35 +87,6 @@ class Device(Serializable, ABC):
                 if isinstance(v, torch.Tensor):
                     state[k] = self.tensor_to_device(v)
         return optimizer
-
-    @abstractmethod
-    @contextmanager
-    def precision_context(self, precision: Union[str, Precision]) -> Generator[None, None, None]:
-        """Precision returns a context manager that uses the specified precision.
-
-        Example usage:
-
-        .. doctest::
-
-            >>> from composer.core.precision import Precision
-            >>> from composer.trainer.devices import DeviceCPU
-            >>>
-            >>> device = DeviceCPU()
-            >>> for batch in train_dataloader:
-            ...     with device.precision_context(Precision.FP32):
-            ...         outputs = model.forward(batch)
-            ...
-            ...     with device.precision_context(Precision.FP32):
-            ...         loss = model.loss(outputs, batch)
-            >>>
-
-        Args:
-            precision (Precision): The desired precision for the device.
-
-        Yields:
-            Generator[None, None, None]: A context for the precision.
-        """
-        pass
 
 
 def _map_batch(batch: Any, map_fn: Callable) -> Any:

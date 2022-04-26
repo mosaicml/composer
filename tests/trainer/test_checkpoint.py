@@ -428,10 +428,12 @@ def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
 
 def _validate_events_called_expected_number_of_times(trainer: Trainer):
     state = trainer.state
-
+    assert state.dataloader_label == "train"
+    assert state.dataloader_len is not None
+    assert state.max_duration is not None
     assert state.max_duration.unit == TimeUnit.EPOCH
     num_epochs = state.max_duration.value
-    num_total_steps = num_epochs * state.steps_per_epoch
+    num_total_steps = num_epochs * int(state.dataloader_len)
     num_total_microbatches = num_total_steps * state.grad_accum
     num_evals = 0
     if trainer._validate_every_n_batches > 0:
@@ -439,11 +441,11 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer):
     if trainer._validate_every_n_epochs > 0:
         num_evals = num_epochs // trainer._validate_every_n_epochs
 
-    assert state.evaluators is not None
-    for evaluator in state.evaluators:
+    assert trainer.evaluators is not None
+    for evaluator in trainer.evaluators:
         assert evaluator.dataloader is not None
-    assert trainer._eval_subset_num_batches is not None
-    num_eval_steps = num_evals * trainer._eval_subset_num_batches * len(state.evaluators)
+    assert trainer.eval_subset_num_batches is not None
+    num_eval_steps = num_evals * trainer.eval_subset_num_batches * len(trainer.evaluators)
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,
