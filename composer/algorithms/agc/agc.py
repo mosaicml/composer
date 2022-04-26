@@ -129,8 +129,8 @@ def _get_clipped_gradient_coeff(weights: torch.Tensor,
 
     # Gradients whose norms are greater than weight_norm * clipping_threhsold are
     # scaled down by (weight_norm * clipping_threhsold) / grad_norm.
-    max_norm = w_norm * clipping_threshold
-    clipped_grad_coeff = torch.where(grad_norm > max_norm, max_norm / grad_norm, torch.ones_like(grad_norm))
+    max_norm = w_norm.mul_(clipping_threshold)
+    clipped_grad_coeff = max_norm.div_(grad_norm).clamp_(max=1.0)
 
     return clipped_grad_coeff
 
