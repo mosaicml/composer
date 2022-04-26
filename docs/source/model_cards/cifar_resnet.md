@@ -10,7 +10,7 @@ The ResNet model family is a set of convolutional neural networks that can be us
 
 ## Attribution
 
-Paper: [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) by He, Zhang, Ren and Sun 2015. Note that this paper set the standard for ResNet style architectures for both CIFAR-10/100 and ImageNet
+Paper: [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) by He, Zhang, Ren, and Sun 2015. Note that this paper set the standard for ResNet style architectures for both CIFAR-10/100 and ImageNet.
 
 ## Architecture
 
@@ -19,15 +19,15 @@ Residual Networks are feedforward convolutional networks with "residual" connect
 The model architecture is defined by the original paper:
 
 - The network inputs are of dimension 32×32x3.
-- The first layer is 3×3 convolutions
-- The subsequent layers are a stack of 6n layers with 3×3 convolutions on the feature maps of sizes {32,16,8}, with 2n layers for each feature map size. The number of filters are {16,32,64} for the respective feature map sizes. Subsampling is performed by convolutions with a stride of 2
-- The network ends with a global average pooling, a linear layer with the output dimension equal to the number of classes, and softmax function.
+- The first layer uses 3×3 convolutions.
+- The subsequent layers are a stack of 6n layers with 3×3 convolutions on the feature maps of sizes {32,16,8}, with 2n layers for each feature map size. The number of filters are {16,32,64} for the respective feature map sizes. Subsampling is performed by convolutions with a stride of 2.
+- The network ends with a global average pooling, followed by a linear layer with the output dimension equal to the number of classes and a softmax activation.
 
-There are a total 6n+2 stacked weighted layers. Each family member is specified by the number of layers, for example n=9 corresponds to ResNet56
+There are a total 6n+2 stacked weighted layers. Each family member is specified by the number of layers, for example n=9 corresponds to ResNet56.
 
 The biggest differences between CIFAR ResNet models and ImageNet ResNet models are:
 
-- ImageNet ResNets substantially downsample their input compared to CIFAR ResNets. The input layer of ImageNet ResNets is a 7x7 convolutional layer with stride 2, followed shortly thereafter by a 3x3 maxpool with stride 2, after which the input continues on to the convolutional blocks. CIFAR ResNets only have a single 3x3, stride 1 convolutional input layer.
+- ImageNet ResNets substantially downsample their input compared to CIFAR ResNets. The input layer of ImageNet ResNets is a 7x7 convolutional layer with stride 2, followed shortly thereafter by a 3x3 maxpool with stride 2, after which the input continues on to the convolutional blocks. CIFAR ResNets only have a single 3x3, stride 1, convolutional input layer.
 - CIFAR ResNet models use fewer filters for each convolution.
 - The ImageNet ResNets contain four stages, while the CIFAR ResNets contain three stages. In addition, CIFAR ResNets uniformly distribute blocks across each stage while ImageNet ResNets have a specific number of blocks for each stage.
 

@@ -63,7 +63,7 @@ _repo_root = os.path.dirname(_docs_dir)
 if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
-from tests.fixtures.models import SimpleBatchPairModel
+from tests.common import SimpleModel
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.TemporaryDirectory()
@@ -74,9 +74,9 @@ num_channels = 3
 num_classes = 10
 data_shape = (num_channels, 5, 5)
 
-Model = SimpleBatchPairModel
+Model = SimpleModel
 
-model = SimpleBatchPairModel(num_channels, num_classes)
+model = SimpleModel(num_channels, num_classes)
 
 optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
@@ -115,8 +115,8 @@ state = State(
     model=model,
     optimizers=optimizer,
     grad_accum=1,
-    train_dataloader=train_dataloader,
-    evaluators=[],
+    dataloader=train_dataloader,
+    dataloader_label="train",
     max_duration="1ep",
     precision="fp32",
 )
@@ -133,6 +133,9 @@ X_example = torch.randn(batch_size, num_channels, 32, 32)  # type: ignore
 logits = torch.randn(batch_size, num_classes)  # type: ignore
 # error: "randint" is not a known member of module (reportGeneralTypeIssues)
 y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
+
+def loss_fun(output, target, reduction="none"):
+    return torch.ones_like(target)
 
 # patch the Trainer to accept ellipses and bind the required arguments to the Trainer
 # so it can be used without arguments in the doctests

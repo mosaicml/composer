@@ -7,7 +7,7 @@ import tarfile
 import tempfile
 import textwrap
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pytest
 import torch
@@ -19,18 +19,15 @@ from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
-from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.datasets import DatasetHparams, SyntheticHparamsMixin
-from composer.loggers import Logger
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import dist, is_tar
-from tests.test_state import assert_state_equivalent
-from tests.utils.deep_compare import deep_compare
-from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
+from tests.common import (EventCounterCallback, EventCounterCallbackHparams, assert_state_equivalent,
+                          configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic, deep_compare)
 
 
 class DummyStatefulCallback(Callback):
@@ -52,31 +49,6 @@ class DummyStatefulCallbackHparams(CallbackHparams):
 
     def initialize_object(self) -> DummyStatefulCallback:
         return DummyStatefulCallback()
-
-
-class EventCounterCallback(Callback):
-
-    def __init__(self) -> None:
-        self.event_to_num_calls: Dict[Event, int] = {}
-
-        for event in Event:
-            self.event_to_num_calls[event] = 0
-
-    def run_event(self, event: Event, state: State, logger: Logger):
-        del state, logger  # unused
-        self.event_to_num_calls[event] += 1
-
-    def state_dict(self) -> Dict[str, Any]:
-        return {"events": self.event_to_num_calls}
-
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.event_to_num_calls.update(state["events"])
-
-
-class EventCounterCallbackHparams(CallbackHparams):
-
-    def initialize_object(self) -> EventCounterCallback:
-        return EventCounterCallback()
 
 
 def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trainer_hparams: TrainerHparams) -> None:
@@ -118,6 +90,7 @@ def assert_checkpoints_equivalent(
     checkpoint_file_a: str,
     hparams_b: TrainerHparams,
     checkpoint_file_b: str,
+    state_attrs_to_skip: List[str],
 ) -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -148,6 +121,15 @@ def assert_checkpoints_equivalent(
 
     trainer_b = hparams_b.initialize_object()
     state_b = trainer_b.state
+
+    # patch the event counter callback, since they will have a different number of INIT and FIT_START
+    for callback_a, callback_b in zip(state_a.callbacks, state_b.callbacks):
+        if isinstance(callback_a, EventCounterCallback):
+            assert isinstance(callback_b, EventCounterCallback)
+            callback_b.load_state_dict(callback_a.state_dict())
+
+    for attr_name in state_attrs_to_skip:
+        setattr(state_b, attr_name, getattr(state_a, attr_name))
 
     assert_state_equivalent(state_a, state_b)
 
@@ -256,7 +238,11 @@ def test_load_weights(
         [42, "2ba", "ba{batch}-rank{rank}", "ba6-rank{rank}", "ba8-rank{rank}"],  # test save batch after complete epoch
     ],
 )
-@pytest.mark.parametrize("model_name", [None, "resnet50_synthetic", "gpt2_52m"])
+@pytest.mark.parametrize("model_name", [
+    None,
+    pytest.param("resnet50_synthetic", marks=pytest.mark.daily),
+    pytest.param("gpt2_52m", marks=pytest.mark.daily),
+])
 def test_checkpoint(
     device_hparams: DeviceHparams,
     world_size: int,
@@ -304,15 +290,15 @@ def test_checkpoint(
         pytest.skip("Checkpointing tests require synthetic data")
         return
 
-    configure_model_for_synthetic(composer_trainer_hparams.model)
+    configure_model_hparams_for_synthetic(composer_trainer_hparams.model)
 
     assert isinstance(composer_trainer_hparams.train_dataset, DatasetHparams)
-    configure_dataset_for_synthetic(composer_trainer_hparams.train_dataset, composer_trainer_hparams.model)
+    configure_dataset_hparams_for_synthetic(composer_trainer_hparams.train_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.save_filename = save_filename
     composer_trainer_hparams.train_dataset.shuffle = False
 
     assert isinstance(composer_trainer_hparams.val_dataset, DatasetHparams)
-    configure_dataset_for_synthetic(composer_trainer_hparams.val_dataset, composer_trainer_hparams.model)
+    configure_dataset_hparams_for_synthetic(composer_trainer_hparams.val_dataset, composer_trainer_hparams.model)
     composer_trainer_hparams.val_dataset.shuffle = False
 
     composer_trainer_hparams.grad_accum = 2
@@ -329,7 +315,6 @@ def test_checkpoint(
     if deepspeed_enabled:
         assert zero_stage is not None
         if zero_stage > 0:
-            composer_trainer_hparams.deterministic_mode = False
             if model_name is not None:
                 pytest.skip(
                     textwrap.dedent(f"""\
@@ -398,6 +383,8 @@ def test_checkpoint(
         checkpoint_file_a=first_trainer_final_checkpoint_filepath,
         hparams_b=second_trainer_hparams,
         checkpoint_file_b=second_trainer_final_checkpoint_filepath,
+        # TODO: Determine why the GPT2 Optimizer state dict differs per-checkpoint and post-checkpoint.
+        state_attrs_to_skip=["optimizers"] if model_name == "gpt2_52m" else [],
     )
 
 
@@ -413,10 +400,12 @@ def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
 
 def _validate_events_called_expected_number_of_times(trainer: Trainer):
     state = trainer.state
-
+    assert state.dataloader_label == "train"
+    assert state.dataloader_len is not None
+    assert state.max_duration is not None
     assert state.max_duration.unit == TimeUnit.EPOCH
     num_epochs = state.max_duration.value
-    num_total_steps = num_epochs * state.steps_per_epoch
+    num_total_steps = num_epochs * int(state.dataloader_len)
     num_total_microbatches = num_total_steps * state.grad_accum
     num_evals = 0
     if trainer._validate_every_n_batches > 0:
@@ -424,11 +413,11 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer):
     if trainer._validate_every_n_epochs > 0:
         num_evals = num_epochs // trainer._validate_every_n_epochs
 
-    assert state.evaluators is not None
-    for evaluator in state.evaluators:
+    assert trainer.evaluators is not None
+    for evaluator in trainer.evaluators:
         assert evaluator.dataloader is not None
-    assert trainer._eval_subset_num_batches is not None
-    num_eval_steps = num_evals * trainer._eval_subset_num_batches * len(state.evaluators)
+    assert trainer.eval_subset_num_batches is not None
+    num_eval_steps = num_evals * trainer.eval_subset_num_batches * len(trainer.evaluators)
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,

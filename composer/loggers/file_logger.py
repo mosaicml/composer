@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logs to a file or to the terminal."""
+"""Logs to a file."""
 
 from __future__ import annotations
 

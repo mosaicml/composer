@@ -24,7 +24,7 @@ Applicable Settings
 -------------------
 
 Scaling laws were originally studied in the context of autoregressive
-language modeling, which is the setting that they are implemented for in
+language modeling which is the setting that they are implemented for in
 the Composer repository. However, there is emerging research on scaling laws
 in domains such as `Vision Transformers <https://arxiv.org/abs/2106.04560>`__ and `Generalized Autoregressive
 Modeling <https://arxiv.org/abs/2010.14701v1>`__. We
@@ -48,12 +48,12 @@ hardware accelerators:
 `Hardware Accelerator
 TFLOP/s <https://www.notion.so/e1199f4fdc484e63961e4f282438af1c>`__
 
-Scaling Laws describes the relationship between the compute budget for
+Scaling Laws describe the relationship between the compute budget for
 training a model (in PF-days) and the final loss. The compute budget can
-be allocated between two quantities: model size (parameters), and
+be allocated across two quantities: model size (parameters) and
 dataset size (tokens). For most neural network training regimes, we can
-also break the dataset size into the optimization batch size, and how
-many parameter updates need to happen (or "steps").
+also break the dataset size into the optimization batch size and the number of
+parameter updates that need to happen (or "steps").
 
 Scaling Laws predict that the loss is optimized by allocating the
 compute budget according the following ratio: 73% of FLOPs allocated to
@@ -66,7 +66,7 @@ test loss:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For most of supervised modeling, training for multiple epochs on a
-manually labeled dataset has been standard practice. However, for
+manually labeled dataset is standard practice. However, for
 self-supervised autoregressive modeling, data is relatively abundant.
 Therefore, one must ask: for a given model size, how much data should
 one train on?
@@ -109,7 +109,7 @@ fully determine a model architecture that should minimize loss for a
 given parameter budget.
 
 Similar to the equation for the optimal amount of training tokens, we
-can derive an equation regarding the optimal number of non-embedding
+can derive an equation for the optimal number of non-embedding
 parameters :math:`N` for a given compute budget :math:`C_{min}`:
 
 :math:`N_{opt} = N_e * C_{min}^{p_N}`, where :math:`p_N = 0.73` and
@@ -153,7 +153,7 @@ answer the question: "how should we train models in a compute-efficient
 manner?"
 
 The X axis on the plots above demonstrates that we can train the same
-model for nearly an order of magnitude more tokens or FLOPs, and still
+model for nearly an order of magnitude more tokens or FLOPs and still
 obtain the same loss. Therefore, applying Scaling Laws to determine our
 model capacity, dataset size, and architecture can help save orders of
 magnitude of compute while maintaining performance.

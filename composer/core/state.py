@@ -3,11 +3,9 @@
 """The state of the trainer."""
 from __future__ import annotations
 
-import contextlib
 import logging
-import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -25,30 +23,11 @@ if TYPE_CHECKING:
     import composer.core.types as types
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
-    from composer.core.evaluator import Evaluator
     from composer.profiler import Profiler
 
 __all__ = ["State"]
 
 logger = logging.getLogger(__name__)
-
-
-def _default_precision_factory() -> Callable[[Union[str, Precision]], ContextManager]:
-    """Returns a context manager to automatically cast to a specific precision.
-
-    Args:
-        precision (str or Precision): Precision for the context
-    """
-    if torch.cuda.is_available():
-        return lambda precision: torch.cuda.amp.autocast(Precision(precision) == Precision.AMP)
-    else:
-
-        def null(precision):
-            assert Precision(
-                precision) != Precision.AMP, "Precision AMP is only available when `torch.cuda.is_available() == True`."
-            return contextlib.nullcontext()
-
-        return null
 
 
 def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
@@ -95,16 +74,18 @@ class State(Serializable):
         model (torch.nn.Module): The model, typically as a subclass of :class:`~.ComposerModel`.
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
-        grad_accum (int): The number of gradient accumulation steps to use. With this argument, micro batch size for
+        grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch size for
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
-        train_dataloader (types.DataLoader, DataSpec, or dict):
-            The :class:`~.types.DataLoader`, :class:`~.DataSpec`, or dict of :class:`~.DataSpec` kwargs to used for training.
-        evaluators (evaluator.Evaluator | Sequence[evaluator.Evaluator]):
-            The evaluators contain the evaluation dataset(s) used for evaluation with specific metrics.
-        max_duration (str or Time): The maximum duration to train for.
+        dataloader (types.DataLoader, optional): The active DataLoader.
+        dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
+            The trainer will yield the first ``dataloader_len`` batches per iteration. If ``-1`` (the default),
+            the entire dataloader will be iterated over.
+        dataloader_label (str, optional): The name for the dataloader. Required if ``dataloader`` is specified. (default: ``None``)
+            By convention, the training dataloader is called ``'train'``. The evaluator dataloader is called
+            ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
+        max_duration (str | Time, optional): The maximum duration to train for. (default: ``None``)
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
-        precision_context (Callable[[Precision], ContextManager]): Function to produce a context manager to mandate precision.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to train the model.
             Multiple optimizers are not currently supported.
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
@@ -119,6 +100,43 @@ class State(Serializable):
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
         batch_num_samples (int): The number of samples in the :attr:`batch`.
         batch_num_tokens (int): The number of tokens in the :attr:`batch`.
+        current_metrics (Dict[str, Dict[str, Any]]): The current computed metrics, organized by dataloader label
+            and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
+            the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
+
+            For example:
+
+            >>> trainer = Trainer(
+            ...     ...,
+            ...     compute_training_metrics=True,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ... )
+            >>> trainer.fit()
+            >>> trainer.state.current_metrics
+            {'train': {'Accuracy': tensor(...)}, 'eval': {'Accuracy': tensor(...)}}
+
+            Or, when using an :class:`.Evaluator`:
+
+            .. testsetup::
+
+                eval_1_dl = eval_dataloader
+                eval_2_dl = eval_dataloader
+
+            >>> from torchmetrics import Accuracy
+            >>> from composer.core import Evaluator
+            >>> trainer = Trainer(
+            ...     ...,
+            ...     compute_training_metrics=True,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=[
+            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metrics=Accuracy()),
+            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metrics=Accuracy()),
+            ...     ],
+            ... )
+            >>> trainer.fit()
+            >>> trainer.state.current_metrics
+            {'train': {'Accuracy': tensor(...)}, 'eval1': {'Accuracy': tensor(...)}, 'eval2': {'Accuracy': tensor(...)}}
 
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward pass.
@@ -146,10 +164,14 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | rank_zero_seed        | The seed of the rank zero process.                          |
             +-----------------------+-------------------------------------------------------------+
+            | current_metrics       | The current metrics.                                        |
+            +-----------------------+-------------------------------------------------------------+
     """
 
-    _max_duration: Time[int]
-    _steps_per_epoch: Optional[int]
+    _dataloader: Optional[types.DataLoader]
+    _dataloader_label: Optional[str]
+    _dataloader_len: Optional[Time[int]]
+    _max_duration: Optional[Time[int]]
     batch: types.Batch
     batch_num_samples: int
     batch_num_tokens: int
@@ -162,18 +184,20 @@ class State(Serializable):
         # model
         model: torch.nn.Module,
 
-        # stopping conditions
-        max_duration: Union[str, Time[int]],
+        # determinism
         rank_zero_seed: int,
 
+        # stopping conditions
+        max_duration: Optional[Union[str, Time[int]]] = None,
+
         # data configurations
-        train_dataloader: types.DataLoader,
-        evaluators: Optional[Union[Evaluator, Sequence[Evaluator]]] = None,
         grad_accum: int = 1,
+        dataloader: Optional[types.DataLoader] = None,
+        dataloader_label: Optional[str] = None,
+        dataloader_len: Union[int, Time[int]] = -1,
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
-        precision_context: Callable[[Precision], ContextManager] = _default_precision_factory(),
 
         # optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
@@ -184,21 +208,16 @@ class State(Serializable):
         # algorithms and callbacks
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
-
-        # steps per epoch
-        steps_per_epoch: Optional[int] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.grad_accum = grad_accum
-        self.train_dataloader = train_dataloader
-        self.evaluators = list(ensure_tuple(evaluators))
+        self._dataloader_len = None
+        self.set_dataloader(dataloader, dataloader_label, dataloader_len)
         self.max_duration = max_duration
-        self.steps_per_epoch = steps_per_epoch
 
         self.timer = Timer()
         self._precision = Precision(precision)
-        self._precision_context = precision_context
 
         if optimizers is None:
             self._optimizers = []
@@ -212,6 +231,7 @@ class State(Serializable):
         self._callbacks = list(ensure_tuple(callbacks))
 
         self.profiler: Optional[Profiler] = None
+
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
         # All other attributes will not be serialized.
         # For simplicity, omit the leading underscore for private attributes.
@@ -226,7 +246,10 @@ class State(Serializable):
             "scaler",
             "timer",
             "rank_zero_seed",
+            "current_metrics",
         ]
+
+        self.current_metrics: Dict[str, Dict[str, Any]] = {}
 
     @property
     def seed(self):
@@ -239,20 +262,26 @@ class State(Serializable):
         return self._max_duration
 
     @max_duration.setter
-    def max_duration(self, max_duration: Union[str, Time[int]]):
+    def max_duration(self, max_duration: Optional[Union[str, Time[int]]]):
+        if max_duration is None:
+            self._max_duration = None
+            return
         if isinstance(max_duration, str):
             max_duration = cast(Time[int], Time.from_timestring(max_duration))
         if max_duration.unit == TimeUnit.DURATION:
             raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
         self._max_duration = max_duration
 
-    def get_elapsed_duration(self) -> Time[float]:
+    def get_elapsed_duration(self) -> Optional[Time[float]]:
         """Get the elapsed training duration.
 
         Returns:
-            Time: The elapsed duration, in :attr:`TimeUnit.DURATION`. ``Time(0.0, TimeUnit.DURATION)`` represents the
-                beginning of training and ``Time(1.0, TimeUnit.DURATION)`` represents a completed training process.
+            Optional[Time[float]]: The elapsed duration, in :attr:`TimeUnit.DURATION`.
+                ``Time(0.0, TimeUnit.DURATION)`` represents the beginning of training and ``Time(1.0, TimeUnit.DURATION)``
+                represents a completed training process. Returns ``None`` if ``max_duration`` is None.
         """
+        if self.max_duration is None:
+            return None
         return self.timer.get(self.max_duration.unit) / self.max_duration
 
     @property
@@ -268,7 +297,7 @@ class State(Serializable):
         return self._schedulers
 
     @schedulers.setter
-    def schedulers(self, schedulers: types.PyTorchScheduler):
+    def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
     @property
@@ -368,25 +397,87 @@ class State(Serializable):
                     pass
 
     @property
-    def steps_per_epoch(self):
-        """int: The maximum number of steps (batches) per epoch."""
-        if self._steps_per_epoch is None:
-            return len(self.train_dataloader)
-        return self._steps_per_epoch
+    def dataloader(self):
+        """The dataloader."""
+        return self._dataloader
 
-    @steps_per_epoch.setter
-    def steps_per_epoch(self, steps_per_epoch: Optional[int]):
+    @property
+    def dataloader_label(self):
+        """The dataloader label. By convention, the training dataloader is called ``'train'``. The evaluator dataloader
+        is called ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
+
+        Returns:
+            Optional[str]: The dataloader label, or None if no dataloader is set.
+        """
+        return self._dataloader_label
+
+    def set_dataloader(
+        self,
+        dataloader: Optional[types.DataLoader] = None,
+        dataloader_label: Optional[str] = None,
+        dataloader_len: Union[int, Time[int]] = -1,
+    ):
+        """Update the dataloader and dataloader label.
+
+        Args:
+            dataloader (types.DataLoader, optional): The dataloader. Defaults to None.
+            dataloader_label (str, optional): The dataloader label. Must be ``None`` if and only if
+                ``dataloader`` is None. Defaults to None.
+            dataloader_len (int, int): The number of batches per dataloader iteration (e.g. epoch), as used by the trainer.
+                Set to ``-1`` to iterate over the entire dataset. (Default: ``-1``.)
+        """
+        if dataloader is None:
+            dataloader_label = None
+        else:
+            if dataloader_label is None:
+                raise ValueError("If the `dataloader` is specified, then `dataloader_label` must not be None.")
+        self._dataloader = dataloader
+        self._dataloader_label = dataloader_label
+        if dataloader is not None:
+            self.dataloader_len = dataloader_len  # setting it to -1 will do a failsafe read of len(dataloader)
+
+    @property
+    def dataloader_len(self):
+        """The number of batches per dataloader iteration (e.g. epoch), as used by the trainer.
+
+        .. note::
+
+            If not explicitely specified, this value is an approximation, as it depends on ``len(self.dataloader)``.
+            See the :doc:`PyTorch DataLoader Documentation <torch:data>` for more information.
+
+        Returns:
+            Optional[Time[int]]: The number of batches per dataloader iteration (e.g. epoch), or None if no dataloader
+            is defined or if the dataloader has an unknown length (e.g. streaming dataloaders).
+        """
+        return self._dataloader_len
+
+    @dataloader_len.setter
+    def dataloader_len(self, num_batches: Union[int, Time[int]]):
+        if isinstance(num_batches, int):
+            num_batches = Time(num_batches, TimeUnit.BATCH)
+        if self._dataloader is None:
+            raise RuntimeError("`State.dataloader_len` cannot be set if the dataloader is not defined.")
         try:
-            dataloader_len = len(self.train_dataloader)
+            dataloader_len = len(self._dataloader)
         except (TypeError, NotImplementedError):
             dataloader_len = None
-        if dataloader_len is not None and steps_per_epoch is not None and steps_per_epoch > dataloader_len:
-            warnings.warn(
-                textwrap.dedent(f"""\
-                    SubsetNumBatchesWarning: The steps_per_epoch({steps_per_epoch})
-                    is greater than the number of batches in the training dataloader
-                    ({dataloader_len})"""))
-        self._steps_per_epoch = steps_per_epoch
+        if dataloader_len is not None and num_batches >= 0 and int(num_batches) > dataloader_len:
+            warnings.warn((f"DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) "
+                           f"is greater than the length (i.e. number of batches) of the dataloader, which is "
+                           f"{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}."))
+            self._dataloader_len = Time(dataloader_len, TimeUnit.BATCH)
+            return
+        if num_batches < 0:
+            if dataloader_len is not None:
+                # len(dataloader) is an approximation -- see https://pytorch.org/docs/stable/data.html.
+                # However, in the worst case where additional last batches are dropped, this calculation should be
+                # an over-estimate, leading to the entire dataloader still being iterated over.
+                self._dataloader_len = Time(dataloader_len, TimeUnit.BATCH)
+            else:
+                # The dataloader length is unknown.
+                self._dataloader_len = None
+            return
+        self._dataloader_len = num_batches
 
     @property
     def precision(self):
@@ -419,10 +510,6 @@ class State(Serializable):
         """
         from composer.core.types import as_batch_dict
         return as_batch_dict(self.batch)
-
-    @property
-    def precision_context(self):
-        return self._precision_context(self.precision)
 
     @property
     def is_model_deepspeed(self) -> bool:

@@ -515,7 +515,7 @@ determinism we recommend calling :func:`~composer.utils.reproducibility.seed_all
 
     warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
 
-    MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
+    MyModel = Model
 
 .. testcode::
 
