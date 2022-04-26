@@ -28,12 +28,12 @@ def training_loop(model, train_loader):
   
     for epoch in range(num_epochs):
         for X, y in train_loader:
+            opt.zero_grad()
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
             loss.backward()
             cf.apply_agc(model)
             opt.step()
-            opt.zero_grad()
 ```
 
 ### Composer Trainer
