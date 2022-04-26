@@ -49,7 +49,8 @@ def test_writer(num_samples: int, shard_size_limit: int) -> None:
 
 
 @pytest.mark.parametrize("share_remote_local", [False, True])
-def test_reader_disk_single_process(share_remote_local: bool):
+@pytest.mark.parametrize("shuffle", [False, True])
+def test_reader_disk_single_process(share_remote_local: bool, shuffle: bool):
     num_samples = 117
     shard_size_limit = 1 << 16
     samples, decoders = get_fake_samples_decoders(num_samples)
@@ -58,14 +59,24 @@ def test_reader_disk_single_process(share_remote_local: bool):
         local = remote
     else:
         local = tempfile.TemporaryDirectory().name
-    dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
+    dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders)
 
+    # Test length
     assert len(dataset) == num_samples
 
+    # Test basic sample order
+    shuffle_matches = 0
     for ix, sample in enumerate(dataset):
         uid = sample["uid"]
         value = sample["value"]
         expected_uid = f"{ix:06}"
         expected_value = 3 * ix
-        assert uid == expected_uid == uid, f"sample ix={ix} has uid={uid}, expected {expected_uid}"
-        assert value == expected_value, f"sample ix={ix} has value={value}, expected {expected_value}"
+        if shuffle:
+            shuffle_matches += (expected_uid == uid)
+        else:
+            assert uid == expected_uid == uid, f"sample ix={ix} has uid={uid}, expected {expected_uid}"
+            assert value == expected_value, f"sample ix={ix} has value={value}, expected {expected_value}"
+
+    # If shuffling, there should not be many matches
+    if shuffle:
+        assert shuffle_matches < 10  # The probability of k matches in a random permutation is ~1/(e*(k!))
