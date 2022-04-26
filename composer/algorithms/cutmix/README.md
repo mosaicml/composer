@@ -9,7 +9,7 @@ It is a regularization technique that improves the generalization accuracy of mo
 
 | ![CutMix](https://storage.googleapis.com/docs.mosaicml.com/images/methods/cutmix.png) |
 |:--:
-|*An image with CutMix applied. A picture of a cat has been placed over the top left corner of a picture of a dog. This is an image of [Figure 1 from Yun et al. (2019)](https://arxiv.org/abs/1905.04899).*|
+|*An image with CutMix applied. A picture of a cat has been placed over the top left corner of a picture of a dog. This image is taken from [Figure 1 from Yun et al. (2019)](https://arxiv.org/abs/1905.04899).*|
 
 ## How to Use
 
@@ -17,7 +17,8 @@ It is a regularization technique that improves the generalization accuracy of mo
 
 ```python
 # Run the CutMix algorithm directly on the batch data using the Composer functional API
-
+import torch
+import torch.nn.functional as F
 import composer.functional as cf
 
 def training_loop(model, train_loader):
@@ -28,7 +29,7 @@ def training_loop(model, train_loader):
     for epoch in range(num_epochs):
         for X, y in train_loader:
             X_cutmix, y_cutmix = cf.cutmix_batch(X,
-                                                 y_example,
+                                                 y,
                                                  num_classes=1000,
                                                  alpha=1.0)
 
@@ -50,19 +51,21 @@ from composer.trainer import Trainer
 
 cutmix = CutMix(num_classes=1000, alpha=1.0)
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[cutmix])
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration='1ep',
+    algorithms=[cutmix]
+)
 
 trainer.fit()
 ```
 
 ### Implementation Details
 
-CutMix is implemented following the [original paper](https://arxiv.org/abs/1905.04899). This means CutMix runs immediately before the training example is provided to the model, and on the GPU if one is being used.
+CutMix is implemented following the [original paper](https://arxiv.org/abs/1905.04899). This means CutMix runs immediately before the training example is provided to the model and on the GPU, if one is being used.
 
-The construction of the bounding box for the mixed region follows the [paper's implementation](https://github.com/clovaai/CutMix-PyTorch) which selects the center pixel of the bounding box uniformly at random from all locations in the image, and clips the bounding box to fit. This implies that the size of the region mixed by CutMix is not always square, and the area is not directly drawn from a beta distribution. It also implies that not all regions are equally likely to lie inside the bounding box.
+The construction of the bounding box for the mixed region follows the [paper's implementation](https://github.com/clovaai/CutMix-PyTorch) which selects the center pixel of the bounding box uniformly at random from all locations in the image and clips the bounding box to fit. This implies that the size of the region mixed by CutMix is not always square, and the area is not directly drawn from a beta distribution. It also implies that not all regions are equally likely to lie inside the bounding box.
 
 ## Suggested Hyperparameters
 
@@ -77,7 +80,7 @@ The final set of targets `y` is created by sampling a value `interpolation` (bet
 
 > ❗ CutMix Produces a Full Distribution, Not a Target Index
 >
-> Many classification tasks represent the target value using the index of the target value rather than the full one-hot encoding of the label value.
+> Many classification tasks represent the target value using the index of the target value rather than the full, one-hot encoding of the label value.
 > Since CutMix interpolates between two target values for each example, it must represent the final targets as a dense distribution.
 > Our implementation of CutMix turns each label into a dense distribution (if it has not already been converted into a distribution).
 > The loss function used for the model must be able to accept this dense distribution as the target.
@@ -90,9 +93,9 @@ CutMix is intended to improve generalization performance, and we empirically fou
 >
 > As general rule, composing regularization methods may lead to diminishing returns in quality improvements. CutMix is one such regularization method.
 
-Data augmentation techniques can sometimes put additional load on the CPU, potentially reaching the point where the CPU becomes a bottleneck for training.
-To prevent this from happening for CutMix, our implementation of CutMix (1) occurs on the GPU and (2) uses the same patch and interpolation for all examples in the minibatch.
-Doing so avoids putting additional work on the CPU (since augmentation occurs on the GPU) and minimizes additional work on the GPU (since all images are handled uniformly within a batch).
+Data augmentation techniques can sometimes put additional load on the CPU, potentially to the point where the CPU becomes a bottleneck for training.
+To prevent this from happening, our implementation of CutMix (1) takes place on the GPU and (2) uses the same patch and interpolation for all examples in the minibatch.
+Doing so avoids putting additional work on the CPU (since augmentation occurs on the GPU) and minimizes the additional work on the GPU (since all images are handled uniformly within a batch).
 
 > 🚧 CutMix Requires a Small Amount of Additional GPU Compute and Memory
 >

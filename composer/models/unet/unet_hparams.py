@@ -3,7 +3,7 @@
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for
 :class:`~composer.models.unet.unet.UNet`."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 from composer.models.model_hparams import ModelHparams
 
@@ -21,4 +21,5 @@ class UnetHparams(ModelHparams):
 
     def initialize_object(self):
         from composer.models.unet.unet import UNet
-        return UNet(**asdict(self))
+        assert self.num_classes is not None, "num_classes must be specified."
+        return UNet(num_classes=self.num_classes)

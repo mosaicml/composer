@@ -1,11 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from __future__ import annotations
-
 import logging
+import math
 from typing import Optional, Sequence, Union
 
-import numpy as np
 import torch
 from torch.optim import Optimizer
 
@@ -156,34 +154,43 @@ class _GhostBatchNorm(torch.nn.Module):
         self.ghost_batch_size = ghost_batch_size
         self.batchnorm = base_batchnorm
 
-    def _has_momentum(self) -> bool:
-        return hasattr(self.batchnorm, 'momentum') and self.batchnorm.momentum is not None
-
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # type: ignore
         batch_size = input.shape[0]
+
         if batch_size < self.ghost_batch_size:
             raise ValueError(f"Worker batch size {batch_size} < ghost_batch_size {self.ghost_batch_size}")
 
-        nchunks = int(np.ceil(batch_size / self.ghost_batch_size))
-        has_momentum = self._has_momentum()
-        if has_momentum:
+        nchunks: int = int(math.ceil(batch_size / self.ghost_batch_size))
+        has_momentum = self.batchnorm.momentum is not None
+        original_momentum: float = self.batchnorm.momentum
+
+        if self.training and has_momentum:
             # applying the same batchnorm multiple times greatly increases
             # the variance of the moving average statistics; reduce the
             # exponential moving average constant proportionally
-            # to partially compensate for this
-            original_momentum = self.batchnorm.momentum
-            self.batchnorm.momentum = float(original_momentum) / nchunks  # type: ignore
+            # to compensate.
+            self._scale_momentum(nchunks)
+
         normalized_chunks = [self.batchnorm(chunk) for chunk in input.chunk(nchunks, 0)]
-        if has_momentum:
-            self.batchnorm.momentum = original_momentum  # type: ignore
+
+        if self.training and has_momentum:
+            self._unscale_momentum(original_momentum)
 
         return torch.cat(normalized_chunks, dim=0)
 
     @staticmethod
-    def from_batchnorm(module: torch.nn.Module, ghost_batch_size: int) -> _GhostBatchNorm:
+    def from_batchnorm(module: torch.nn.Module, ghost_batch_size: int) -> "_GhostBatchNorm":
         assert isinstance(module, _TORCH_BATCHNORM_BASE_CLASS), "Module is not a BatchNorm subclass!"
         bn_type = _corresponding_ghost_batchnorm_type(module)
         return bn_type(ghost_batch_size=ghost_batch_size, base_batchnorm=module)
+
+    @torch.jit.unused
+    def _scale_momentum(self, nchunks: int):
+        self.batchnorm.momentum = float(self.batchnorm.momentum) / nchunks
+
+    @torch.jit.unused
+    def _unscale_momentum(self, original_momentum: float):
+        self.batchnorm.momentum = original_momentum
 
 
 class GhostBatchNorm1d(_GhostBatchNorm):
