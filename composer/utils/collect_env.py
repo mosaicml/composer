@@ -44,6 +44,8 @@ from typing import NamedTuple
 import cpuinfo
 import psutil
 
+from composer.utils.import_helpers import import_object
+
 __all__ = ["configure_excepthook", "print_env", "restore_excepthook"]
 
 # Check if PyTorch is installed
@@ -62,6 +64,17 @@ try:
     COMPOSER_AVAILABLE = True
 except (ImportError, NameError, AttributeError, OSError):
     COMPOSER_AVAILABLE = False
+
+# Check if we're running in a notebook
+try:
+    __IPYTHON__  #type: ignore
+    IPYTHON_AVAILABLE = True
+except (NameError,):
+    IPYTHON_AVAILABLE = False
+
+if IPYTHON_AVAILABLE:
+    get_ipython = import_object('IPython:get_ipython')
+    nb = get_ipython()
 
 COMPOSER_OPEN_ISSUE_URL = "https://github.com/mosaicml/composer/issues/new/choose"
 EXCEPTION_MSG = f"If you believe this exception was raised due to a Composer bug, " + \
@@ -111,16 +124,40 @@ def get_accel_model_name() -> str:
     return accel_device_name(None) if cuda_available() else "N/A"
 
 
+# Exception message and environment report
+def _exc_report(exc_type) -> None:
+    """Produces exception report (exception message + environment report)
+
+    Args:
+        exc_type (Exception): Type of exception.
+    """
+
+    # Don't print exception report for KeyboardInterrupt
+    if not issubclass(exc_type, KeyboardInterrupt):
+        print("\n-------------------\n" + EXCEPTION_MSG)
+        print_env()
+
+
 # Excepthook wrapper, wraps default excepthook and prints env info
-def _excepthook_wrapper(type, value, tb) -> None:
+def _custom_exception_handler(type, value, tb) -> None:
+    """Custom exception wrapper for sys.excepthook."""
     sys.__excepthook__(type, value, tb)
-    print("\n-------------------\n" + EXCEPTION_MSG)
-    print_env()
+    _exc_report(exc_type=type)
+
+
+# Custom exception handler for IPython notebooks
+def _nb_custom_exception_handler(self, type, value, tb, tb_offset=None):
+    """Custom exception handler for IPython."""
+    self.showtraceback((type, value, tb), tb_offset=tb_offset)  # standard IPython's printout
+    _exc_report(exc_type=type)
 
 
 # Public function to register excethook wrapper
 def configure_excepthook() -> None:
     """Collect and print system information when :func:`sys.excepthook` is called.
+
+    This function checks if the user is running from an IPython session and sets up the custom
+    exception handler accordingly.
 
     To override the default :func:`sys.excepthook` with the custom except hook:
 
@@ -133,14 +170,22 @@ def configure_excepthook() -> None:
 
         >>> configure_excepthook()
         >>> sys.excepthook 
-        <function _excepthook_wrapper at ...>
+        <function _custom_exception_handler at ...>
     """
-    sys.excepthook = _excepthook_wrapper
+
+    # Custom exceptions work differntly in notebooks
+    if IPYTHON_AVAILABLE:
+        # Set custom handler on Exception base class to apply to all exceptions
+        nb.set_custom_exc((Exception,), _nb_custom_exception_handler)
+    else:
+        sys.excepthook = _custom_exception_handler
 
 
 # Public function to restore original excepthook
 def restore_excepthook() -> None:
     """Restore default :func:`sys.excepthook` behavior.
+
+    Checks if user is running in an IPython notebook and restores the exception handler accordingly.
 
     To restore the default :func:`sys.__excepthook__`:
 
@@ -155,7 +200,11 @@ def restore_excepthook() -> None:
         >>> sys.excepthook
         <built-in function excepthook>
     """
-    sys.excepthook = sys.__excepthook__
+
+    if IPYTHON_AVAILABLE:
+        nb.set_custom_exc((Exception,), nb.showtraceback)
+    else:
+        sys.excepthook = sys.__excepthook__
 
 
 # Get Torch environment info
