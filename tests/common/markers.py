@@ -55,7 +55,7 @@ def world_size(*world_sizes: int, param_name: str = "world_size"):
     
     Example:
     >>> @world_size(1, 2)
-    def test_something():
+    def test_something(world_size: int):
         ...
     """
 

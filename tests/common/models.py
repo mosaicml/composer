@@ -27,7 +27,7 @@ class SimpleModel(ComposerClassifier):
     """Small classification model.
 
     Args:
-        num_features (int): number of input features (default: 5)
+        num_features (int): number of input features (default: 1)
         num_classes (int): number of classes (default: 2)
     """
 
