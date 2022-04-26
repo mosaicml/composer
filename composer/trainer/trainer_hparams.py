@@ -423,8 +423,10 @@ class TrainerHparams(hp.Hparams):
     )
 
     # Distributed
-    dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the distributed process group.",
-                                      default=300.0,)
+    dist_timeout: float = hp.optional(
+        doc="Timeout, in seconds, for initializing the distributed process group.",
+        default=300.0,
+    )
     ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
         doc=(("The strategy for synchronizing DDP. Default value ``None`` causes the "
               "trainer to auto-select a value depending on what algorithms are used.")),
