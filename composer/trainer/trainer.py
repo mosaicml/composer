@@ -275,7 +275,7 @@ def _is_cuda_oom(e: RuntimeError):
 
 def _unpack_device(device: Optional[Union[str, Device]], deepspeed_enabled: bool):
     if not device:
-        device = DeviceCPU() if not deepspeed_enabled else DeviceGPU()
+        device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
     elif isinstance(device, str):
         if device.lower() == 'cpu':
             device = DeviceCPU()
@@ -393,7 +393,7 @@ class Trainer:
             with Composer.
 
             .. seealso:: :mod:`composer.models` for models built into Composer.
-        train_dataloader (DataLoader, DataSpec, or dict, optional): The :class:`.DataLoader`, :class:`.DataSpec`,
+        train_dataloader (DataLoader | DataSpec | dict, optional): The :class:`.DataLoader`, :class:`.DataSpec`,
             or dict of :class:`.DataSpec` kwargs for the training data. In order to specify custom
             preprocessing steps on each data batch, specify a :class:`.DataSpec` instead of a
             :class:`.DataLoader`.
@@ -403,19 +403,29 @@ class Trainer:
                 desired optimization batch size is ``2048`` and training is happening across 8 GPUs, then each
                 ``train_dataloader`` should yield a batch of size ``2048 / 8 = 256``. If ``grad_accum = 2``,
                 then the per-rank batch will be divided into microbatches of size ``256 / 2 = 128``.
+
+            If ``train_dataloader`` is not specified when constructing the trainer, it must be specified when invoking
+            :meth:`.Trainer.fit`.
         train_dataloader_label (str, optional): The label for the train dataloader. (default: ``'train'``)
 
+            This label is used to index the training metrics (if ``compute_training_metrics`` is True) in
+            :attr:`.State.current_metrics`.
+
+            This parameter has no effect if ``train_dataloader`` or ``compute_training_metrics`` are not specified.
+        train_subset_num_batches (int, optional): If specified, finish every epoch early after training
+            on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
+            If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
+
             This parameter is ignored if ``train_dataloader`` is not specified.
+        compute_training_metrics (bool, optional): Whether to compute training metrics. (default: ``False``)
 
-        max_duration (int, str, or Time): The maximum duration to train. Can be an integer, which will be
+            Training metrics will be indexed on :attr:`.State.current_metrics` under the ``train_dataloader_label``
+            key (which defaults to ``'train'``).
+        max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
-        eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.DataLoader`,
-            :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
 
-            To evaluate one or more specific metrics across one or more datasets, pass in an
-            :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
-            metrics returned by ``model.metrics()`` will be used during evaluation.
-            ``None`` results in no evaluation. (default: ``None``)
+            If ``max_duration`` is not specified when constructing the trainer, it must be specified when invoking
+            :meth:`.Trainer.fit`.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms to use during training. If ``None``, then
             no algorithms will be used. (default: ``None``)
 
@@ -429,42 +439,6 @@ class Trainer:
             (default: ``None``).
 
             .. seealso:: :mod:`composer.optim.scheduler` for the different schedulers built into Composer.
-        device (str or Device, optional): The device to use for training. Either ``cpu`` or ``gpu``.
-            (default: ``cpu``)
-        grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
-            are summed over the microbatches per device. If set to ``auto``, dynamically increases grad_accum
-            if microbatch is too large for GPU. (default: ``1``)
-
-            .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
-                it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
-                If the batch size of the dataloader is not divisible by ``grad_accum``,
-                then the last section will be of size ``batch_size % grad_accum``.
-        grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``None`` for no gradient
-            clipping. (default: ``None``)
-        eval_interval (int | str | Time | (State, Event) -> bool, optional): An integer (in epochs),
-            :class:`.Time` string or instance, or a callable that takes the (State, Event) and returns whether to
-            evaluate the evaluator. Defaults to ``1`` (evaluate every epoch).
-
-            If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run
-            with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
-            :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
-
-            Set to ``0`` to disable evaluation.
-
-            If a callable, it will be called with the training :class:`.State` and the evaluation event, which will be
-            either :attr:`.Event.BATCH_END` or :attr:`.Event.EPOCH_END`. The callable should return a bool representing
-            whether the evaluator should be invoked.
-
-            This ``eval_interval`` will apply to any :class:`.Evaluator` in ``eval_dataloader`` that does not specify an
-            ``eval_interval`` or if a dataloader is passed in directly. This parameter has no effect if ``eval_dataloader``
-            is not specified.
-        compute_training_metrics (bool, optional): ``True`` to compute metrics on training data and ``False`` to not.
-            (default: ``False``)
-        precision (str or Precision, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
-            or ``amp`` (recommended). (default: ``Precision.FP32``)
-
-            .. note::
-                ``fp16`` only works if ``deepspeed_config`` is also provided.
         scale_schedule_ratio (float, optional): Ratio by which to scale the training duration and learning rate
             schedules. (default: ``1.0``)
 
@@ -485,50 +459,56 @@ class Trainer:
                 training ends while the learning rate is still ~0.5 of the initial LR.
                 If the schedule is rescaled with ``scale_schedule_ratio``, the LR schedule
                 would finish the entire cosine curve, ending with a learning rate near zero.
-
         step_schedulers_every_batch (bool, optional): By default, native
             `PyTorch schedulers <https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate>`_
             are updated every epoch, while :doc:`Composer Schedulers</trainer/schedulers>` are updated every step.
             Setting this to ``True`` will force schedulers to be stepped every batch,
             while ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.
             (default: ``None``)
-        dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
-            (default: ``15.0``)
-        ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
-            Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
-            for more details.
-        seed (int, optional): The seed used in randomization. If ``None``, then a random seed
-            will be created. (default: ``None``)
+        eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.DataLoader`,
+            :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
 
-            .. note:: In order to get reproducible results, call the
-                :func:`.seed_all` function at the start of your script with the seed
-                passed to the trainer. This will ensure any initialization done before the trainer init
-                (ex. model weight initialization) also uses the provided seed.
+            To evaluate one or more specific metrics across one or more datasets, pass in an
+            :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
+            metrics returned by ``model.metrics()`` will be used during evaluation.
+            ``None`` results in no evaluation. (default: ``None``)
+        eval_interval (Time | int | str | (State, Event) -> bool, optional): An integer (in epochs),
+            :class:`.Time` string or instance, or a callable that takes the (:class:`.State`, :class:`.Event`) and
+            returns whether to evaluate the evaluator. Defaults to ``1`` (evaluate every epoch).
 
-            .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
-        deterministic_mode (bool, optional): Run the model deterministically. (default: ``False``)
+            If an integer (in epochs) or :class:`.Time` string or instance, the evaluator will be run
+            with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
+            :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
 
-            .. note:: This is an experimental feature. Performance degradations expected. Certain Torch modules may
-                not have deterministic implementations, which will result in a crash.
+            Set to ``0`` to disable evaluation.
 
-            .. note:: In order to get reproducible results, call the
-                :func:`.configure_deterministic_mode` function at the start of your script.
-                This will ensure any initialization done before the trainer init also runs deterministically.
+            If a callable, it will be called with the training :class:`.State` and :attr:`.Event.BATCH_END` or
+            :attr:`.Event.EPOCH_END`, depending on when the evaluation runs. The callable should return a bool
+            representing whether the evaluator should be invoked.
 
-            .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
-        run_name (str, optional): A name for this training run. If not specified, one will be generated automatically.
+            This ``eval_interval`` will apply to any :class:`.Evaluator` in ``eval_dataloader`` that does not specify
+            an ``eval_interval`` or if a dataloader is passed in directly. This parameter has no effect if
+            ``eval_dataloader`` not specified.
+        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
+            which means to iterate over the entire dataloader.
 
-            .. seealso:: :class:`~composer.loggers.logger.Logger`
+            This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
+            ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` and ``subset_num_batches``
+            was specified as part of the :class:`.Evaluator`.
+        callbacks (Callback | Sequence[Callback], optional): The callbacks to run during training. If ``None``,
+            then no callbacks will be run. (default: ``None``).
+
+            .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
         loggers (LoggerDestination | Sequence[LoggerDestination], optional): The destinations to log training information to.
-            If ``None``, will be set to ``[ProgressBarLogger()]``. (default: ``None``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
+        run_name (str, optional): A name for this training run. If not specified, one will be generated automatically.
 
+            .. seealso:: :class:`~composer.loggers.logger.Logger` for a description of the run name.
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
-
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
-            The default behavior (when set to ``None``) only prints logging statements when ``show_pbar`` is ``False``.
+            The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is ``False``.
 
         console_log_level (LogLevel | str | (State, LogLevel) -> bool, optional): The maximum log level which
             should be printed to the console. (default: :attr:`.LogLevel.EPOCH`)
@@ -542,11 +522,6 @@ class Trainer:
 
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
-
-        callbacks (Callback | Sequence[Callback], optional): The callbacks to run during training. If ``None``,
-            then no callbacks will be run. (default: ``None``).
-
-            .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
@@ -617,10 +592,7 @@ class Trainer:
                     optimizers=optimizer,
                     schedulers=scheduler,
                     device="cpu",
-<<<<<<< HEAD
-=======
                     eval_interval="1ep",
->>>>>>> multi_eval_improvements
                     load_path=checkpoint_path,
                     load_object_store=store,
                 )
@@ -628,7 +600,6 @@ class Trainer:
             .. testcleanup::
 
                 trainer.engine.close()
-
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
@@ -647,48 +618,40 @@ class Trainer:
                 For fine-grained control on checkpoint saving (e.g. to save different types of checkpoints
                 at different intervals), leave this parameter as ``None``, and instead pass
                 instance(s) of :class:`~.CheckpointSaver` directly as ``callbacks``.
-
         save_filename (str, optional): A format string describing how to name checkpoints.
             This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"ep{epoch}-ba{batch}-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-
         save_artifact_name (str, optional): A format string describing how to name checkpoints in loggers.
             This parameter has no effect if ``save_folder`` is ``None``.
             (default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-
         save_latest_filename (str, optional): A format string for the name of a symlink
             (relative to ``save_folder``) that points to the last saved checkpoint.
             This parameter has no effect if ``save_folder`` is ``None``.
             To disable symlinking, set this to ``None``. (default: ``"latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-
         save_latest_artifact_name (str, optional): A format string describing how to name symlinks in loggers.
             This parameter has no effect if ``save_folder``, ``save_latest_filename``, or ``save_artifact_name`` are ``None``.
             To disable symlinking in logger, set this or ``save_latest_filename`` to ``None``. (default: ``"{run_name}/checkpoints/latest-rank{rank}"``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-
         save_overwrite (bool, optional): Whether existing checkpoints should be overridden.
             This parameter has no effect if ``save_folder`` is None. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-
         save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
             This parameter has no effect if ``save_folder`` is ``None``. (default: ``'1ep'``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-
         save_weights_only (bool, optional): Whether to save only the model weights instead of the entire training
             state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-
         save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
@@ -699,22 +662,54 @@ class Trainer:
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             artifact stores.
-        train_subset_num_batches (int, optional): If specified, finish every epoch early after training
-            on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
-            If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
-
-            This parameter is ignored if ``train_dataloader`` is not specified.
-
-        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
-            which means to iterate over the entire dataloader.
-
-            This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
-            ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` and ``subset_num_batches``
-            was specified as part of the :class:`.Evaluator`.
-        deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
+        deepspeed_config (Dict[str, Any] | bool, optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
             provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
             or ``None``, DeepSpeed will not be used. (default: ``False``)
+        device (Device | str, optional): The device to use for training, which can be ``'cpu'`` or ``'gpu'``.
+            (default: ``None``)
+
+            The default behavior sets the device to ``'gpu'`` if CUDA is available; otherwise, it sets the device to
+            ``'cpu'``.
+        precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
+            or ``amp`` (recommended). (default: ``Precision.FP32``)
+
+            .. note::
+                ``fp16`` only works if ``deepspeed_config`` is also provided.
+        grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
+            are summed over the microbatches per device. If set to ``auto``, dynamically increases grad_accum
+            if microbatch is too large for GPU. (default: ``1``)
+
+            .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
+                it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
+                If the batch size of the dataloader is not divisible by ``grad_accum``,
+                then the last section will be of size ``batch_size % grad_accum``.
+        seed (int, optional): The seed used in randomization. If ``None``, then a random seed
+            will be created. (default: ``None``)
+
+            .. note:: In order to get reproducible results, call the
+                :func:`.seed_all` function at the start of your script with the seed
+                passed to the trainer. This will ensure any initialization done before the trainer init
+                (ex. model weight initialization) also uses the provided seed.
+
+            .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
+        deterministic_mode (bool, optional): Run the model deterministically. (default: ``False``)
+
+            .. note:: This is an experimental feature. Performance degradations expected. Certain Torch modules may
+                not have deterministic implementations, which will result in a crash.
+
+            .. note:: In order to get reproducible results, call the
+                :func:`.configure_deterministic_mode` function at the start of your script.
+                This will ensure any initialization done before the trainer init also runs deterministically.
+
+            .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
+        dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
+            (default: ``15.0``)
+        ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
+            Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
+            for more details.
+        grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1`` for no gradient
+            clipping. (default: ``-1``)
         prof_schedule ((State) -> ProfilerAction, optional): The profiler scheduler.
 
             Must be specified in conjunction with ``prof_trace_handlers`` to use the profiler.
@@ -803,6 +798,9 @@ class Trainer:
         # Stopping Condition
         max_duration: Optional[Union[int, str, Time]] = None,
 
+        # Algorithms
+        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
+
         # Optim and Scheduling
         optimizers: Optional[torch.optim.Optimizer] = None,
         schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
@@ -810,35 +808,21 @@ class Trainer:
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
-        # System/Numerics
-        device: Optional[Union[str, Device]] = None,
-        precision: Union[str, Precision] = Precision.FP32,
-        grad_accum: Union[int, str] = 1,
-
         # Evaluators
         eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
         eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
         eval_subset_num_batches: int = -1,
 
-        # Distributed Training
-        dist_timeout: float = 300.0,
-        ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
-
-        # Reproducibility
-        seed: Optional[int] = None,
-        deterministic_mode: bool = False,
-
-        # Algorithms, Callbacks, and Logging
-        algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
-        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
-        run_name: Optional[str] = None,
+        # Callbacks and Logging
+        callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
+        run_name: Optional[str] = None,
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         console_stream: Union[str, TextIO] = sys.stderr,
 
-        # load checkpoint
+        # Load Checkpoint
         load_path: Optional[str] = None,
         load_object_store: Optional[ObjectStore] = None,
         load_weights_only: bool = False,
@@ -846,7 +830,7 @@ class Trainer:
         load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
 
-        # save_checkpoint
+        # Save Checkpoint
         save_folder: Optional[str] = None,
         save_filename: str = "ep{epoch}-ba{batch}-rank{rank}",
         save_artifact_name: str = "{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
@@ -860,10 +844,23 @@ class Trainer:
         # DeepSpeed
         deepspeed_config: Optional[Union[bool, Dict[str, Any]]] = False,
 
-        # Extra
+        # System/Numerics
+        device: Optional[Union[str, Device]] = None,
+        precision: Union[str, Precision] = Precision.FP32,
+        grad_accum: Union[int, str] = 1,
+
+        # Reproducibility
+        seed: Optional[int] = None,
+        deterministic_mode: bool = False,
+
+        # Distributed Training
+        dist_timeout: float = 300.0,
+        ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
+
+        # Grad Clip Norm
         grad_clip_norm: float = -1.0,
 
-        # profiling
+        # Profiling
         prof_schedule: Optional[Callable[[State], ProfilerAction]] = None,
         prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
         sys_prof_cpu: bool = True,
@@ -1195,7 +1192,7 @@ class Trainer:
             train_dataloader_label (str, optional): See :class:`.Trainer`.
             train_subset_num_batches (int, optional): See :class:`.Trainer`.
             compute_training_metrics (bool, optional): See :class:`.Trainer`.
-            max_duration (int | str | Time[int], optional): See :class:`.Trainer`.
+            max_duration (Time[int] | str | int, optional): See :class:`.Trainer`.
             reset_timer (bool): Whether to reset the :attr:`.State.timer`. Defaults to False.
 
                 If ``True``, the timer will be zeroed out, causing :class:`.ComposerScheduler` and :class:`.Algorithm`
@@ -1208,12 +1205,15 @@ class Trainer:
                 If ``False`` (the default), the timer will resume from where the previous call to :meth:`.fit`
                 finished (or from zero, if a new training run).
             optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): See :class:`.Trainer`.
-            schedulers (, optional): See :class:`.Trainer`.
+            schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional):
+                See :class:`.Trainer`.
+            scale_schedule_ratio (float, optional): See :class:`.Trainer`.
+            step_schedulers_every_batch (bool, optional): See :class:`.Trainer`.
             eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
             eval_subset_num_batches (int, optional): See :class:`.Trainer`.
             eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
             grad_accum (int | str, optional): See :class:`.Trainer`.
-            precision (str | Precision, optional): See :class:`.Trainer`.
+            precision (Precision | str, optional): See :class:`.Trainer`.
             grad_clip_norm (float, optional): See :class:`.Trainer`.
         """
         # Train Dataloader

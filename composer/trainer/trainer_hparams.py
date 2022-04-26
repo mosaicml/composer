@@ -7,7 +7,6 @@ from __future__ import annotations
 import datetime
 import logging
 import os
-import textwrap
 import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
@@ -115,33 +114,30 @@ class TrainerHparams(hp.Hparams):
         model (ModelHparams): Hparams for constructing the model to train.
 
             .. seealso:: :mod:`composer.models` for models built into Composer.
+
+        datadir (str, optional): Datadir to apply for both the training and validation datasets. If specified,
+            it will override both ``train_dataset.datadir`` and ``val_dataset.datadir``. (default: ``None``)
+        dataloader (DataLoaderHparams): Hparams used for constructing the dataloader which will be used
+            for loading the train dataset and (if provided) the validation dataset.
+
         train_dataset (DatasetHparams): Hparams used to construct the dataset used for training.
 
             .. seealso:: :mod:`composer.datasets` for datasets built into Composer.
+        train_dataloader_label (str): See :class:`.Trainer`.
         train_batch_size (int): The optimization batch size to use for training. This is the total batch
             size that is used to produce a gradient for the optimizer update step.
-        dataloader (DataLoaderHparams): Hparams used for constructing the dataloader which will be used
-            for loading the train dataset and (if provided) the validation dataset.
+        train_subset_num_batches (int, optional): See :class:`.Trainer`.
+        compute_training_metrics (bool, optional): See :class:`.Trainer`.
+
         max_duration (str): The maximum duration to train as a str (e.g. ``1ep``, or ``10ba``).
             Will be converted to a :class:`~composer.core.Time` object.
 
             .. seealso:: :class:`~composer.core.Time` for more details on time construction.
-        datadir (str, optional): Datadir to apply for both the training and validation datasets. If specified,
-            it will override both ``train_dataset.datadir`` and ``val_dataset.datadir``. (default: ``None``)
-        val_dataset (DatasetHparams, optional): Hparams for constructing the dataset used for evaluation.
-            (default: ``None``)
 
-            .. seealso:: :mod:`composer.datasets` for datasets built into Composer.
-        eval_batch_size (int, optional): The batch size to use for evaluation. Must be provided if one of
-            ``val_dataset`` or ``evaluators`` is set. (default: ``None``)
-        evaluators (List[EvaluatorHparams], optional): Hparams for constructing evaluators to be used during the
-            eval loop. Evaluators should be used when evaluating one or more specific metrics across one
-            or more datasets. (default: ``None``)
-
-            .. seealso:: :class:`~composer.core.evaluator.Evaluator` for more details on evaluators.
         algorithms (List[AlgorithmHparams], optional): The algorithms to use during training. (default: ``[]``)
 
             .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
+
         optimizers (OptimizerHparams, optional): The hparams for constructing the optimizer. (default: ``None``)
 
             .. seealso:: :class:`.Trainer` for the default optimizer behavior when ``None`` is provided.
@@ -152,24 +148,33 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: :class:`.Trainer` for the default scheduler behavior when ``[]`` is provided.
 
             .. seealso:: :mod:`composer.optim.scheduler` for the different schedulers built into Composer.
-        device (DeviceHparams): Hparams for constructing the device used for training.
-            (default: ``CPUDeviceHparams``)
-        grad_accum (int, optional): See :class:`.Trainer`.
-        grad_clip_norm (float, optional): See :class:`.Trainer`.
-        eval_interval (str, optional): See :class:`.Trainer`.
-        compute_training_metrics (bool, optional): See :class:`.Trainer`.
-        precision (Precision, optional): See :class:`.Trainer`.
         scale_schedule_ratio (float, optional): See :class:`.Trainer`.
         step_schedulers_every_batch (bool, optional): See :class:`.Trainer`.
-        dist_timeout (float, optional): See :class:`.Trainer`.
-        ddp_sync_strategy (DDPSyncStrategy, optional): See :class:`.Trainer`.
-        seed (int, optional): See :class:`.Trainer`.
-        deterministic_mode (bool, optional): See :class:`.Trainer`.
-        run_name (str, optional): See :class:`.Trainer`.
+
+        val_dataset (DatasetHparams, optional): Hparams for constructing the dataset used for evaluation.
+            (default: ``None``)
+
+            .. seealso:: :mod:`composer.datasets` for datasets built into Composer.
+        evaluators (List[EvaluatorHparams], optional): Hparams for constructing evaluators to be used during the
+            eval loop. Evaluators should be used when evaluating one or more specific metrics across one
+            or more datasets. (default: ``None``)
+
+            .. seealso:: :class:`~composer.core.evaluator.Evaluator` for more details on evaluators.
+        eval_batch_size (int, optional): The batch size to use for evaluation. Must be provided if one of
+            ``val_dataset`` or ``evaluators`` is set. (default: ``None``)
+        eval_interval (str, optional): See :class:`.Trainer`.
+        eval_subset_num_batches (int, optional): See :class:`.Trainer`.
+
+        callbacks (List[CallbackHparams], optional): Hparams to construct the callbacks to
+            run during training. (default: ``[]``)
+
+            .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
+
         loggers (List[LoggerDestinationHparams], optional): Hparams for constructing the destinations
             to log to. (default: ``[]``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
+        run_name (str, optional): See :class:`.Trainer`.
         progress_bar (bool, optional): See :class:`.Trainer`.
         log_to_console (bool, optional): See :class:`.Trainer`.
         console_log_level (bool, optional): See :class:`.Trainer`.
@@ -178,16 +183,14 @@ class TrainerHparams(hp.Hparams):
             module. (default: ``INFO``)
 
             .. seealso:: The :mod:`logging` module in Python.
-        callbacks (List[CallbackHparams], optional): Hparams to construct the callbacks to
-            run during training. (default: ``[]``)
 
-            .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
         load_path (str, optional): See :class:`.Trainer`.
         load_object_store (ObjectStore, optional): See :class:`.Trainer`.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_strict_model_weights (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
         load_progress_bar (bool, optional): See :class:`.Trainer`.
+
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -199,11 +202,25 @@ class TrainerHparams(hp.Hparams):
         save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
         save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        train_subset_num_batches (int, optional): See :class:`.Trainer`.
-        eval_subset_num_batches (int, optional): See :class:`.Trainer`.
+
         deepspeed (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
             config for training  (see :class:`.Trainer` for more details). If ``None`` (the default), DeepSpeed will not
             be used.
+
+        device (DeviceHparams, optional): Hparams for constructing the device used for training.
+            (default: ``None``)
+        precision (Precision, optional): See :class:`.Trainer`.
+        grad_accum (int, optional): See :class:`.Trainer`.
+
+        seed (int, optional): See :class:`.Trainer`.
+        deterministic_mode (bool, optional): See :class:`.Trainer`.
+
+        dist_timeout (float, optional): See :class:`.Trainer`.
+        ddp_sync_strategy (DDPSyncStrategy, optional): See :class:`.Trainer`.
+
+        grad_clip_norm (float, optional): See :class:`.Trainer`.
+
+
         prof_schedule (ProfileScheduleHparams, optional): Profile schedule hparams. Must be specified to enable the profiler.
         prof_trace_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.
         sys_prof_cpu (bool, optional): See :class:`.Trainer`.
@@ -249,73 +266,61 @@ class TrainerHparams(hp.Hparams):
     }
 
     model: ModelHparams = hp.required(doc="model")
-    datadir: Optional[str] = hp.optional(doc=textwrap.dedent("""\
-        Datadir to apply for both the training and validation datasets. If specified,
-        it will override train_dataset.datadir and val_dataset.datadir."""),
-                                         default=None)
+
+    # Shared data
+    datadir: Optional[str] = hp.optional(
+        doc=(("Datadir to apply for both the training and validation datasets. If specified, "
+              "it will override train_dataset.datadir and val_dataset.datadir.")),
+        default=None,
+    )
+    dataloader: DataLoaderHparams = hp.optional(doc="dataloader hparams", default=DataLoaderHparams())
 
     # Train Data
     train_dataset: Optional[DatasetHparams] = hp.optional(doc="Training dataset hparams", default=None)
+    train_dataloader_label: str = hp.optional(doc="Train dataset label", default="train")
     train_batch_size: Optional[int] = hp.optional(
-        doc="batch size for each optimization step, across all devices and gradient accumulations.", default=None)
+        doc="batch size for each optimization step, across all devices and gradient accumulations.",
+        default=None,
+    )
     train_subset_num_batches: int = hp.optional(
-        "If specified, finish every epoch early after training on this many batches.", default=-1)
+        doc="If specified, finish every epoch early after training on this many batches.",
+        default=-1,
+    )
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
 
     # Stopping Conditions
-    max_duration: Optional[str] = hp.optional(doc="Time string for the maximum training duration (e.g., 90ep)",
-                                              default=None)
-
-    # Evaluation
-    val_dataset: Optional[DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
-    eval_batch_size: Optional[int] = hp.optional(doc="batch size to use for each evaluation step", default=None)
-    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default=None)
-    eval_interval: str = hp.optional(doc="Time string for the evaluation interval. Defaults to 1ep (every epoch)",
-                                     default="1ep")
-    eval_subset_num_batches: int = hp.optional("If specified, stop each evaluation after this many batches.",
-                                               default=-1)
+    max_duration: Optional[str] = hp.optional(
+        doc="Time string for the maximum training duration (e.g., 90ep)",
+        default=None,
+    )
 
     # Algorithms
-    algorithms: List[AlgorithmHparams] = hp.optional(doc="Algorithms to employ", default_factory=list)
+    algorithms: List[AlgorithmHparams] = hp.optional(doc="Algorithms", default_factory=list)
 
     # Optimizer and Scheduler
     optimizer: Optional[OptimizerHparams] = hp.optional(doc="Optimizer to use", default=None)
-    schedulers: List[SchedulerHparams] = hp.optional(doc="Scheduler sequence", default_factory=list)
+    schedulers: List[SchedulerHparams] = hp.optional(doc="Schedulers", default_factory=list)
     scale_schedule_ratio: float = hp.optional(
-        doc="Ratio by which to scale the training duration and learning rate schedules.", default=1.0)
+        doc="Ratio by which to scale the training duration and learning rate schedules.",
+        default=1.0,
+    )
     step_schedulers_every_batch: bool = hp.optional(
-        doc="Whether schedulers will update after every optimizer step (True), or every epoch (False).", default=True)
+        doc="Whether schedulers will update after every optimizer step (True), or every epoch (False).",
+        default=True,
+    )
 
-    # System/Numerics
-    device: DeviceHparams = hp.optional(doc="Device Parameters", default_factory=CPUDeviceHparams)
-    grad_accum: Union[int, str] = hp.optional(textwrap.dedent("""\
-        Determines the number of microbatches to split a per-gpu batch into,
-        used to compensate for low-memory-capacity devices. If set to auto,
-        dynamically increases grad_accum if microbatch size is too large for
-        GPU. Defaults to ``1``"""),
-                                              default=1)
-    precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
-    dataloader: DataLoaderHparams = hp.optional(doc="dataloader hparams", default=DataLoaderHparams())
-
-    # Grad Clip Norm
-    grad_clip_norm: float = hp.optional(default=-1.0,
-                                        doc='the norm to clip gradient magnitudes to. Default: -1 (no clip)')
-
-    # Distributed
-    dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the dsitributed process group.",
-                                      default=15.0)
-    ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(doc=textwrap.dedent("""\
-            The strategy for synchronizing DDP. Default value ``None`` causes the
-            trainer to auto-select a value depending on what algorithms are used."""),
-                                                               default=None)
-
-    # Reproducibility
-    seed: Optional[int] = hp.optional(default=None, doc="random seed to set")
-    deterministic_mode: bool = hp.optional(textwrap.dedent("""\
-        Run the model deterministically. Experimental. Performance
-        degradations expected. Certain Torch modules may not have
-        deterministic implementations, which will result in a crash."""),
-                                           default=False)
+    # Evaluation
+    val_dataset: Optional[DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
+    evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default=None)
+    eval_batch_size: Optional[int] = hp.optional(doc="batch size to use for each evaluation step", default=None)
+    eval_interval: str = hp.optional(
+        doc="Time string for the evaluation interval. Defaults to 1ep (every epoch)",
+        default="1ep",
+    )
+    eval_subset_num_batches: int = hp.optional(
+        doc="If specified, stop each evaluation after this many batches.",
+        default=-1,
+    )
 
     # Callbacks
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
@@ -326,82 +331,139 @@ class TrainerHparams(hp.Hparams):
     progress_bar: bool = hp.optional("Whether to show a progress bar.", default=True)
     log_to_console: Optional[bool] = hp.optional("Whether to print log statements to the console.", default=None)
     console_log_level: LogLevel = hp.optional("The maximum log level for console logging.", default=LogLevel.EPOCH)
-    console_stream: str = hp.optional("The stream at which to write the progress bar and log statements.",
-                                      default="stderr")
+    console_stream: str = hp.optional(
+        doc="The stream at which to write the progress bar and log statements.",
+        default="stderr",
+    )
     python_log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
 
     # Load Checkpoint
-    load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
-        If specified, the path to an existing checkpoint file
-        (if the checkpoint is on the local disk) or the object name for the checkpoint
-        (if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint."""),
-                                           default=None)
-    load_object_store: Optional[ObjectStoreHparams] = hp.optional(doc=textwrap.dedent("""\
-        If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
-        connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
-        leave blank. This parameter has no effect if `load_path` is not specified."""),
-                                                                  default=None)
-    load_weights_only: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to only load the weights from the model.
-        This parameter has no effect if `load_path`is not specified."""),
-                                          default=False)
-    load_strict_model_weights: bool = hp.optional(doc=textwrap.dedent("""\
-        Ensure that the set of checkpoint weights in the checkpoint and model must exactly match.
-        This parameter has no effect if `load_path` is not specified."""),
-                                                  default=False)
+    load_path: Optional[str] = hp.optional(
+        doc=((
+            "If specified, the path to an existing checkpoint file "
+            "(if the checkpoint is on the local disk) or the object name for the checkpoint "
+            "(if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint.")),
+        default=None,
+    )
+    load_object_store: Optional[ObjectStoreHparams] = hp.optional(
+        doc=(("If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for "
+              "connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, "
+              "leave blank. This parameter has no effect if `load_path` is not specified.")),
+        default=None)
+    load_weights_only: bool = hp.optional(
+        doc=(("Whether to only load the weights from the model. "
+              "This parameter has no effect if `load_path`is not specified.")),
+        default=False,
+    )
+    load_strict_model_weights: bool = hp.optional(
+        doc=(("Ensure that the set of checkpoint weights in the checkpoint and model must exactly match. "
+              "This parameter has no effect if `load_path` is not specified.")),
+        default=False,
+    )
 
-    load_chunk_size: int = hp.optional(doc=textwrap.dedent("""\
-        Chunk size (in bytes) to use when downloading checkpoints.
-        This parameter has no effect if `load_path` is not specified or it is a local file path."""),
-                                       default=1_048_576)
-    load_progress_bar: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to show a progress bar when downloading checkpoints.
-        This parameter has no effect if `load_path` is not specified or it is a local file path."""),
-                                          default=True)
+    load_chunk_size: int = hp.optional(
+        doc=(("Chunk size (in bytes) to use when downloading checkpoints. "
+              "This parameter has no effect if `load_path` is not specified or it is a local file path.")),
+        default=1_048_576,
+    )
+    load_progress_bar: bool = hp.optional(
+        doc=(("Whether to show a progress bar when downloading checkpoints. "
+              "This parameter has no effect if `load_path` is not specified or it is a local file path.")),
+        default=True,
+    )
 
     # Save Checkpoint
     save_folder: Optional[str] = hp.optional(doc="Checkpoint folder format string.", default=None)
-    save_filename: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
-    save_artifact_name: str = hp.optional("Checkpoint artifact name format",
-                                          default="{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}")
-    save_latest_filename: str = hp.optional("Latest checkpoint symlink format string.", default="latest-rank{rank}")
-    save_latest_artifact_name: str = hp.optional("Checkpoint symlink artifact name format",
-                                                 default="{run_name}/checkpoints/latest-rank{rank}")
+    save_filename: str = hp.optional(doc="Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
+    save_artifact_name: str = hp.optional(
+        doc="Checkpoint artifact name format",
+        default="{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}",
+    )
+    save_latest_filename: str = hp.optional(
+        doc="Latest checkpoint symlink format string.",
+        default="latest-rank{rank}",
+    )
+    save_latest_artifact_name: str = hp.optional(
+        doc="Checkpoint symlink artifact name format",
+        default="{run_name}/checkpoints/latest-rank{rank}",
+    )
     save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
-    save_interval: str = hp.optional(textwrap.dedent("""\
-        Checkpoint interval or path to a `(State, Event) -> bool` function
-        returning whether a checkpoint should be saved."""),
-                                     default="1ep")
+    save_interval: str = hp.optional(
+        doc=(("Checkpoint interval or path to a `(State, Event) -> bool` function returning whether a checkpoint "
+              "should be saved.")),
+        default="1ep",
+    )
     save_num_checkpoints_to_keep: int = hp.optional(
-        "Number of checkpoints to persist locally. Set to -1 to never delete checkpoints.",
+        doc="Number of checkpoints to persist locally. Set to -1 to never delete checkpoints.",
         default=-1,
     )
 
     # DeepSpeed
     deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
+    # System/Numerics
+    device: DeviceHparams = hp.optional(doc="Device Parameters", default=None)
+    precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
+    grad_accum: Union[int, str] = hp.optional(
+        doc=(("Determines the number of microbatches to split a per-gpu batch into, "
+              "used to compensate for low-memory-capacity devices. If set to auto, "
+              "dynamically increases grad_accum if microbatch size is too large for "
+              "GPU. Defaults to ``1``")),
+        default=1,
+    )
+
+    # Reproducibility
+    seed: Optional[int] = hp.optional(default=None, doc="random seed to set")
+    deterministic_mode: bool = hp.optional(
+        doc=(("Run the model deterministically. Experimental. Performance "
+              "degradations expected. Certain Torch modules may not have "
+              "deterministic implementations, which will result in a crash.")),
+        default=False,
+    )
+
+    # Distributed
+    dist_timeout: float = hp.optional(doc="Timeout, in seconds, for initializing the distributed process group.",
+                                      default=300.0,)
+    ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
+        doc=(("The strategy for synchronizing DDP. Default value ``None`` causes the "
+              "trainer to auto-select a value depending on what algorithms are used.")),
+        default=None,
+    )
+
+    # Grad Clip Norm
+    grad_clip_norm: float = hp.optional(
+        default=-1.0,
+        doc='The norm to clip gradient magnitudes to. Default: -1 (no clip)',
+    )
+
     # Profiling
     prof_schedule: Optional[ProfileScheduleHparams] = hp.optional(doc="Profile scheduler hparams", default=None)
-    prof_trace_handlers: List[TraceHandlerHparams] = hp.optional(doc=textwrap.dedent("""\
-        Trace event handlers. Must be specified to activate the profiler."""),
-                                                                 default_factory=list)
+    prof_trace_handlers: List[TraceHandlerHparams] = hp.optional(
+        doc="Trace event handlers. Must be specified to activate the profiler.",
+        default_factory=list,
+    )
 
-    sys_prof_cpu: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record cpu statistics.  Ignored if `prof_trace_handlers` is not specified."""),
-                                     default=True)
-    sys_prof_memory: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record memory statistics.  Ignored if `prof_trace_handlers` is not specified."""),
-                                        default=False)
-    sys_prof_disk: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record disk statistics.  Ignored if `prof_trace_handlers` is not specified."""),
-                                      default=False)
-    sys_prof_net: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record network statistics.  Ignored if `prof_trace_handlers` is not specified."""),
-                                     default=False)
-    sys_prof_stats_thread_interval_seconds: float = hp.optional(doc=textwrap.dedent("""\
-        Interval to record stats, in seconds.  Ignored if `prof_trace_handlers` is not specified."""),
-                                                                default=0.5)
+    sys_prof_cpu: bool = hp.optional(
+        doc="Whether to record cpu statistics.  Ignored if `prof_trace_handlers` is not specified.",
+        default=True,
+    )
+    sys_prof_memory: bool = hp.optional(
+        doc="Whether to record memory statistics.  Ignored if `prof_trace_handlers` is not specified.",
+        default=False,
+    )
+    sys_prof_disk: bool = hp.optional(
+        doc="Whether to record disk statistics.  Ignored if `prof_trace_handlers` is not specified.",
+        default=False,
+    )
+    sys_prof_net: bool = hp.optional(
+        doc="Whether to record network statistics.  Ignored if `prof_trace_handlers` is not specified.",
+        default=False,
+    )
+    sys_prof_stats_thread_interval_seconds: float = hp.optional(
+        doc="Interval to record stats, in seconds.  Ignored if `prof_trace_handlers` is not specified.",
+        default=0.5,
+    )
 
     torch_prof_folder: str = hp.optional('Torch profiler folder format', default='{run_name}/torch_traces')
     torch_prof_filename: str = hp.optional(
@@ -525,10 +587,9 @@ class TrainerHparams(hp.Hparams):
             train_device_batch_size = self.train_batch_size // dist.get_world_size()
             if self.train_dataset.shuffle and self.train_subset_num_batches is not None:
                 warnings.warn(
-                    textwrap.dedent(f"""\
-                    SubsetNumBatchesWarning: When specifying train_subset_num_batches,
-                    (set to {self.train_subset_num_batches}), train_datset.shuffle should be set to False. Otherwise,
-                    each training epoch may load a different subset of samples."""))
+                    ("SubsetNumBatchesWarning: When specifying train_subset_num_batches, "
+                     f"(set to {self.train_subset_num_batches}), train_datset.shuffle should be set to False. "
+                     "Otherwise, each training epoch may load a different subset of samples."))
             train_dataloader = self.train_dataset.initialize_object(train_device_batch_size, self.dataloader)
 
         # Evaluation
@@ -536,12 +597,10 @@ class TrainerHparams(hp.Hparams):
         eval_dataloader = None
         if self.val_dataset is not None:
             if self.val_dataset.shuffle and self.eval_subset_num_batches is not None:
-                warnings.warn(
-                    textwrap.dedent(f"""\
-                        SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
-                        (set to {self.eval_subset_num_batches}), val_dataset.shuffle should be
-                        set to False. Otherwise, each evaluation epoch may load a different
-                        subset of samples."""))
+                warnings.warn(("SubsetNumBatchesWarning: When specifying eval_subset_num_batches, "
+                               f"(set to {self.eval_subset_num_batches}), val_dataset.shuffle should be "
+                               "set to False. Otherwise, each evaluation epoch may load a different "
+                               "subset of samples."))
             eval_dataloader = self.val_dataset.initialize_object(eval_device_batch_size, self.dataloader)
         if self.evaluators is not None and len(self.evaluators) > 0:
             eval_dataloader = [
@@ -550,10 +609,10 @@ class TrainerHparams(hp.Hparams):
             ]
             for evaluator in self.evaluators:
                 if evaluator.eval_dataset.shuffle and self.eval_subset_num_batches is not None:
-                    warnings.warn(
-                        textwrap.dedent(f"""SubsetNumBatchesWarning: When specifying eval_subset_num_batches,
-                    (set to {self.eval_subset_num_batches}), evaluator.dataloader.shuffle (for Evaluator: "{evaluator.label}") should be set to False. Otherwise,
-                    each evaluation epoch may load a different subset of samples."""))
+                    warnings.warn(("SubsetNumBatchesWarning: When specifying eval_subset_num_batches, "
+                                   f"(set to {self.eval_subset_num_batches}), evaluator.dataloader.shuffle "
+                                   f"(for Evaluator: '{evaluator.label}') should be set to False. Otherwise, "
+                                   "each evaluation epoch may load a different subset of samples."))
 
         # Optimizers and Schedulers
         optimizer = self.optimizer.initialize_object(model.parameters()) if self.optimizer is not None else None
@@ -565,25 +624,15 @@ class TrainerHparams(hp.Hparams):
 
             # Train Data
             train_dataloader=train_dataloader,
-            algorithms=algorithms,
+            train_dataloader_label=self.train_dataloader_label,
             compute_training_metrics=self.compute_training_metrics,
             train_subset_num_batches=self.train_subset_num_batches,
 
             # Stopping Condition
             max_duration=self.max_duration,
 
-            # Evaluation
-            eval_interval=self.eval_interval,
-            eval_dataloader=eval_dataloader,
-            eval_subset_num_batches=self.eval_subset_num_batches,
-
-            # System/Numerics
-            grad_accum=self.grad_accum,
-            device=device,
-            precision=self.precision,
-
-            # Grad Clip Norm
-            grad_clip_norm=self.grad_clip_norm,
+            # Algorithms
+            algorithms=algorithms,
 
             # Optimizers and Schedulers
             optimizers=optimizer,
@@ -591,31 +640,62 @@ class TrainerHparams(hp.Hparams):
             scale_schedule_ratio=self.scale_schedule_ratio,
             step_schedulers_every_batch=self.step_schedulers_every_batch,
 
-            # Distributed
-            dist_timeout=self.dist_timeout,
-            ddp_sync_strategy=self.ddp_sync_strategy,
-
-            # Reproducibility
-            seed=seed,
-            deterministic_mode=self.deterministic_mode,
+            # Evaluation
+            eval_dataloader=eval_dataloader,
+            eval_interval=self.eval_interval,
+            eval_subset_num_batches=self.eval_subset_num_batches,
 
             # Callbacks
             callbacks=callbacks,
 
             # Logging
-            run_name=self.run_name,
             loggers=loggers,
+            run_name=self.run_name,
             progress_bar=self.progress_bar,
             log_to_console=self.log_to_console,
             console_log_level=self.console_log_level,
             console_stream=self.console_stream,
 
+            # Checkpoint Loading
+            load_path=self.load_path,
+            load_object_store=None if self.load_object_store is None else self.load_object_store.initialize_object(),
+            load_weights_only=self.load_weights_only,
+            load_strict=self.load_strict_model_weights,
+            load_chunk_size=self.load_chunk_size,
+            load_progress_bar=self.load_progress_bar,
+
+            # Checkpoint Saving
+            save_folder=self.save_folder,
+            save_overwrite=self.save_overwrite,
+            save_filename=self.save_filename,
+            save_latest_filename=self.save_latest_filename,
+            save_artifact_name=self.save_artifact_name,
+            save_interval=self.save_interval,
+            save_weights_only=self.save_weights_only,
+            save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,
+
             # DeepSpeed
             deepspeed_config=self.deepspeed,
 
+            # System/Numerics
+            device=device,
+            precision=self.precision,
+            grad_accum=self.grad_accum,
+
+            # Reproducibility
+            seed=seed,
+            deterministic_mode=self.deterministic_mode,
+
+            # Distributed
+            dist_timeout=self.dist_timeout,
+            ddp_sync_strategy=self.ddp_sync_strategy,
+
+            # Grad Clip Norm
+            grad_clip_norm=self.grad_clip_norm,
+
             # Profiler
-            prof_trace_handlers=[x.initialize_object() for x in self.prof_trace_handlers],
             prof_schedule=None if self.prof_schedule is None else self.prof_schedule.initialize_object(),
+            prof_trace_handlers=[x.initialize_object() for x in self.prof_trace_handlers],
 
             # System profiler
             sys_prof_cpu=self.sys_prof_cpu,
@@ -635,22 +715,6 @@ class TrainerHparams(hp.Hparams):
             torch_prof_profile_memory=self.torch_prof_profile_memory,
             torch_prof_with_stack=self.torch_prof_with_flops,
             torch_prof_with_flops=self.torch_prof_with_flops,
-
-            # Checkpoint parameters
-            load_path=self.load_path,
-            load_object_store=None if self.load_object_store is None else self.load_object_store.initialize_object(),
-            load_weights_only=self.load_weights_only,
-            load_strict=self.load_strict_model_weights,
-            load_chunk_size=self.load_chunk_size,
-            load_progress_bar=self.load_progress_bar,
-            save_folder=self.save_folder,
-            save_overwrite=self.save_overwrite,
-            save_filename=self.save_filename,
-            save_latest_filename=self.save_latest_filename,
-            save_artifact_name=self.save_artifact_name,
-            save_interval=self.save_interval,
-            save_weights_only=self.save_weights_only,
-            save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,
         )
 
         return trainer
