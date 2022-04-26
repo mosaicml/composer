@@ -26,9 +26,8 @@ from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceH
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import dist, is_tar
-from tests.common import (EventCounterCallback, EventCounterCallbackHparams, configure_dataset_hparams_for_synthetic,
-                          configure_model_hparams_for_synthetic, deep_compare)
-from tests.test_state import assert_state_equivalent
+from tests.common import (EventCounterCallback, EventCounterCallbackHparams, assert_state_equivalent,
+                          configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic, deep_compare)
 
 
 class DummyStatefulCallback(Callback):
