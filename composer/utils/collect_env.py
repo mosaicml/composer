@@ -152,20 +152,19 @@ def get_torch_env() -> str:
     """Query Torch system environment via :mod:`torch.utils.collect_env`."""
     return torchenv.get_pretty_env_info()
 
+# Composer environment information string output format
+composer_env_info_fmt = """
+Composer version: {composer_version}
+Number of nodes: {number_of_nodes}
+Host processor model name: {host_processor_model_name}
+Host processor core count: {host_processor_core_count}
+Accelerators per node: {accelerators_per_node}
+Accelerator model name: {accelerator_model_name}
+""".strip()
 
 # Get Composer environment info
 def get_composer_env() -> str:
     """Query Composer pertinent system information."""
-
-    # Composer environment information string output format
-    composer_env_info_fmt = """
-        Composer version: {composer_version}
-        Number of nodes: {number_of_nodes}
-        Host processor model name: {host_processor_model_name}
-        Host processor core count: {host_processor_core_count}
-        Accelerators per node: {accelerators_per_node}
-        Accelerator model name: {accelerator_model_name}
-    """.strip()
 
     mutable_dict = ComposerEnv(
         composer_version=get_composer_version(),
