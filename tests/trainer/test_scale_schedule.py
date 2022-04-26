@@ -17,7 +17,7 @@ from composer.loggers.logger import Logger
 from composer.optim import MultiStepSchedulerHparams, SGDHparams
 from composer.trainer import TrainerHparams
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
-from tests.common import SimpleModel
+from tests.common.models import SimpleModel
 
 
 @pytest.fixture

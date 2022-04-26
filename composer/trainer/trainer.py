@@ -455,11 +455,9 @@ class Trainer:
             either :attr:`.Event.BATCH_END` or :attr:`.Event.EPOCH_END`. The callable should return a bool representing
             whether the evaluator should be invoked.
 
-            This ``eval_interval`` will apply to any
-            :class:`.Evaluator` that does not specify an ``eval_interval`` or if an ``eval_dataloader`` is passed in
-            directly.
-
-            This parameter has no effect if ``eval_dataloader`` is not specified.
+            This ``eval_interval`` will apply to any :class:`.Evaluator` in ``eval_dataloader`` that does not specify an
+            ``eval_interval`` or if a dataloader is passed in directly. This parameter has no effect if ``eval_dataloader``
+            is not specified.
         compute_training_metrics (bool, optional): ``True`` to compute metrics on training data and ``False`` to not.
             (default: ``False``)
         precision (str or Precision, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
@@ -619,6 +617,10 @@ class Trainer:
                     optimizers=optimizer,
                     schedulers=scheduler,
                     device="cpu",
+<<<<<<< HEAD
+=======
+                    eval_interval="1ep",
+>>>>>>> multi_eval_improvements
                     load_path=checkpoint_path,
                     load_object_store=store,
                 )
@@ -862,8 +864,8 @@ class Trainer:
         grad_clip_norm: float = -1.0,
 
         # profiling
-        prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
         prof_schedule: Optional[Callable[[State], ProfilerAction]] = None,
+        prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
         sys_prof_cpu: bool = True,
         sys_prof_memory: bool = False,
         sys_prof_disk: bool = False,
@@ -996,6 +998,9 @@ class Trainer:
 
         # The Engine
         self.engine = Engine(state=self.state, logger=self.logger)
+
+        # Set the logger
+        model.logger = self.logger
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)

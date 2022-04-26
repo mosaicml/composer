@@ -63,7 +63,7 @@ _repo_root = os.path.dirname(_docs_dir)
 if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
-from tests.fixtures.models import SimpleBatchPairModel
+from tests.common import SimpleModel
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.TemporaryDirectory()
@@ -74,9 +74,9 @@ num_channels = 3
 num_classes = 10
 data_shape = (num_channels, 5, 5)
 
-Model = SimpleBatchPairModel
+Model = SimpleModel
 
-model = SimpleBatchPairModel(num_channels, num_classes)
+model = SimpleModel(num_channels, num_classes)
 
 optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
@@ -153,8 +153,10 @@ def Trainer(fake_ellipses: None = None, **kwargs: Any):
         kwargs["train_dataloader"] = train_dataloader
     if "eval_dataloader" not in kwargs:
         kwargs["eval_dataloader"] = eval_dataloader
-    if "loggers" not in kwargs:
-        kwargs["loggers"] = []  # hide tqdm logging
+    if "progress_bar" not in kwargs:
+        kwargs["progress_bar"] = False  # hide tqdm logging
+    if "log_to_console" not in kwargs:
+        kwargs["log_to_console"] = False  # hide console logging
     trainer = OriginalTrainer(**kwargs)
 
     return trainer
