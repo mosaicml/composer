@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterator, Optional
 
 from composer.core.callback import Callback
+from composer.core.event import Event
 from composer.datasets.dataloader import WrappedDataLoader
 
 if TYPE_CHECKING:
@@ -60,17 +61,16 @@ class DataLoaderProfiler(Callback):
         instance of this :class:`.DataLoaderProfiler` callback.
     """
 
-    def fit_start(self, state: State, logger: Logger):
+    def run_event(self, event: Event, state: State, logger: Logger):
         del logger  # unused
+        if event not in (Event.FIT_START, Event.EVAL_START):
+            return
         if state.profiler is None:
             raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
                                 f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
 
-        if not _ProfiledDataLoader.is_dataloader_already_wrapped(state.train_dataloader):
-            state.train_dataloader = _ProfiledDataLoader(state.profiler, state.train_dataloader, "train")
-
-        for evaluator in state.evaluators:
-
-            if not _ProfiledDataLoader.is_dataloader_already_wrapped(evaluator.dataloader.dataloader):
-                evaluator.dataloader.dataloader = _ProfiledDataLoader(state.profiler, evaluator.dataloader.dataloader,
-                                                                      evaluator.label)
+        assert state.dataloader, "dataloader should be set on FIT_START or EVAL_START"
+        assert state.dataloader_label is not None, "dataloader label should be set on FIT_START or EVAL_START"
+        if not _ProfiledDataLoader.is_dataloader_already_wrapped(state.dataloader):
+            state.set_dataloader(_ProfiledDataLoader(state.profiler, state.dataloader, state.dataloader_label),
+                                 state.dataloader_label)

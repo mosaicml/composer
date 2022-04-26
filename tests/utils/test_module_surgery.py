@@ -9,7 +9,7 @@ from torch import nn
 from torch.optim import Optimizer
 
 from composer.utils import module_surgery
-from tests.fixtures.models import SimpleBatchPairModel
+from tests.common import SimpleModel
 
 
 class RecursiveLinear(nn.Linear):
@@ -118,7 +118,7 @@ class _CopyLinear(torch.nn.Module):
 def optimizer_surgery_state():
     num_channels = 1
     n_classes = 10
-    model = SimpleBatchPairModel(num_channels, n_classes)
+    model = SimpleModel(num_channels, n_classes)
     policy: Mapping[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
         torch.nn.Linear: _CopyLinear.from_linear
     }

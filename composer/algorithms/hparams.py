@@ -2,7 +2,7 @@
 
 import textwrap
 from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import Optional, Union
 
 import yahp as hp
 
@@ -114,6 +114,10 @@ class ColOutHparams(AlgorithmHparams):
     p_row: float = hp.optional(doc="Fraction of rows to drop", default=0.15)
     p_col: float = hp.optional(doc="Fraction of cols to drop", default=0.15)
     batch: bool = hp.optional(doc="Run ColOut at the batch level", default=True)
+    resize_target: Union[bool, str] = hp.optional(
+        doc=
+        "Whether to resize the target in addition to the input. If set to 'auto', target resizing is based on if the target has the same spatial dimensions as the input ",
+        default="auto")
 
     def initialize_object(self) -> ColOut:
         return ColOut(**asdict(self))
@@ -233,6 +237,8 @@ class ProgressiveResizingHparams(AlgorithmHparams):
     initial_scale: float = hp.optional(doc="Initial scale factor", default=0.5)
     finetune_fraction: float = hp.optional(doc="Fraction of training to reserve for finetuning on full-sized inputs",
                                            default=0.2)
+    delay_fraction: float = hp.optional(doc="Fraction of training before resizing ramp begins", default=0.0)
+    size_increment: int = hp.optional(doc="Align sizes to a multiple of this number.", default=1)
     resize_targets: bool = hp.optional(doc="Also resize targets", default=False)
 
     def initialize_object(self) -> ProgressiveResizing:
