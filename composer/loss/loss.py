@@ -22,10 +22,18 @@ def bce(
     reduce: Optional[bool] = None,
     reduction: str = "sum",
     pos_weight: Optional[Tensor] = None,
+    scale_by_batch_size: Optional[bool] = True,
 ) -> torch.Tensor:
-    r"""Drop-in replacement for 
+    r"""Replacement for 
     :class:`~torch.nn.functional.binary_cross_entropy_with_logits` that can handle class 
-    indices or one-hot labels. 
+    indices or one-hot labels.
+
+    :class:`~torch.nn.functional.binary_cross_entropy_with_logits` with ``reduction =
+    'mean'` will typically result in very small loss values (on the order of 1e-3), which
+    necessitates scaling the learning rate by 1e3 to allow the model to learn. This
+    implementation avoids this by using ``reduction = sum`` and scaling the loss inversely
+    proportionally to the batch size.
+
     Args:
         input (torch.Tensor) : :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
             in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`
@@ -52,13 +60,17 @@ def bce(
             elements in the output, ``'sum'``: the output will be summed. Note: ``size_average``
             and ``reduce`` are in the process of being deprecated, and in the meantime,
             specifying either of those two args will override ``reduction``. Default:
-            ``'mean'``
+            ``'sum'``
         pos_weight (Tensor, optional): a weight of positive examples.
-                Must be a vector with length equal to the number of classes.        
+                Must be a vector with length equal to the number of classes.
+        scale_by_batch_size (bool, optional): Whether to scale the loss by the batch size
+            (i.e. input.shape[0]). Default: ``True``.
     """
     target = ensure_targets_one_hot(input, target)
-    return F.binary_cross_entropy_with_logits(input, target, weight, size_average, reduce, reduction,
-                                              pos_weight) / torch.tensor(input.shape[0])
+    l = F.binary_cross_entropy_with_logits(input, target, weight, size_average, reduce, reduction, pos_weight)
+    if scale_by_batch_size:
+        l /= torch.tensor(input.shape[0])
+    return l
 
 
 def soft_cross_entropy(input: Tensor,
