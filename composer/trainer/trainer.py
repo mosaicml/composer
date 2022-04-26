@@ -77,6 +77,7 @@ from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence
 import torch
 import torch.distributed
 import torch.utils.data
+from debugpy import configure
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
@@ -98,7 +99,7 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
+from composer.utils import configure_excepthook, dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store import ObjectStore
@@ -575,6 +576,10 @@ class Trainer:
         torch_prof_with_flops: bool = True,
         torch_prof_num_traces_to_keep: int = -1,
     ):
+        # Override default sys.excepthook.  When an exception is caught we will print a custom debug message
+        # and automatically collect relevant system information
+        configure_excepthook()
+
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
