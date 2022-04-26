@@ -1,6 +1,6 @@
 import math
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
-from typing import Dict, Sequence, Tuple, Union
+from typing import Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from numpy.typing import DTypeLike, NDArray
@@ -202,12 +202,13 @@ class StreamingDatasetIndex(object):
         sample_shard_offsets = sample_begins - sample_shard_begins
         return sample_shards, sample_shard_offsets
 
-    def get_partition(self, world: World, device_batch_size: int = 0) -> Tuple[Sequence[int], int, int]:
+    def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[Sequence[int], int, int]:
         """Get the shards and sample range of a given partition of the dataset.
 
         Args:
             world (World): Context about workers, devices, and nodes.
-            device_batch_size (int): Device batch size.
+            batch_size (int): Hint the batch size that will be used on each device's DataLoader.
+                              Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
 
         Returns:
             shards (Sequence[int]): The shards that this partition overlaps.
@@ -220,13 +221,13 @@ class StreamingDatasetIndex(object):
 
         w_of_d = world.worker_of_device
         w_per_d = world.workers_per_device
-        if not device_batch_size:
+        if not batch_size:
             worker_min_id = device_min_id + device_samples * w_of_d // w_per_d
             worker_max_id = device_min_id + device_samples * (w_of_d + 1) // w_per_d - 1
         else:
-            device_batches = math.ceil(device_samples / device_batch_size)
-            worker_min_id = device_min_id + (device_batches * w_of_d // w_per_d) * device_batch_size
-            worker_max_id = device_min_id + (device_batches * (w_of_d + 1) // w_per_d) * device_batch_size - 1
+            device_batches = math.ceil(device_samples / batch_size)
+            worker_min_id = device_min_id + (device_batches * w_of_d // w_per_d) * batch_size
+            worker_max_id = device_min_id + (device_batches * (w_of_d + 1) // w_per_d) * batch_size - 1
             # Last batch may be incomplete.
             worker_max_id = min(device_max_id, worker_max_id)
 

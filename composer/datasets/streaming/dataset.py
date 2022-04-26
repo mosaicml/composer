@@ -26,7 +26,7 @@ class StreamingDataset(IterableDataset):
                  local: str,
                  shuffle: bool,
                  decoders: Dict[str, Callable],
-                 device_batch_size: int = 0) -> None:
+                 batch_size: Optional[int] = None) -> None:
         """Initialize with the given remote path and local cache.
 
         Loads all the samples that are available in local cache, then starts a
@@ -38,13 +38,14 @@ class StreamingDataset(IterableDataset):
             local (str): Download shards to this local filesystem directory for reuse.
             shuffle (bool): Whether to shuffle the samples.
             decoders (Dict[str, Callable]): Raw bytes decoder per sample field.
-            device_batch_size (int): Batch size per device.
+            batch_size (Optional[int]): Hint the batch size that will be used on each device's DataLoader.
+                                        Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
         """
         self.remote = remote
         self.local = local
         self.shuffle = shuffle
         self.decoders = decoders
-        self.device_batch_size = device_batch_size
+        self.batch_size = batch_size
 
         # Load the index file containing the shard metadata, either over the
         # network or cached locally.
@@ -171,7 +172,7 @@ class StreamingDataset(IterableDataset):
         # We find out num workers, and therefore num partitions, when __iter__ is called.
         # From the partition, derive our shard overlap range and exact sample range.
         world = World.from_env()
-        todo_shards, part_min_id, part_max_id = self.index.get_partition(world, self.device_batch_size)
+        todo_shards, part_min_id, part_max_id = self.index.get_partition(world, self.batch_size)
 
         # Preload all of our shards that are already available in the cache.
         todo_shards = self._load_shards_if_downloaded(todo_shards, part_min_id, part_max_id)
@@ -344,7 +345,7 @@ class StreamingImageClassDataset(StreamingDataset):
                  local: str,
                  shuffle: bool,
                  transform: Optional[Callable] = None,
-                 device_batch_size: int = 0) -> None:
+                 batch_size: Optional[int] = None) -> None:
         """Initialize the streaming image classification dataset.
 
         Args:
@@ -352,13 +353,14 @@ class StreamingImageClassDataset(StreamingDataset):
             local (str): Download shards to this local filesystem directory for reuse.
             shuffle (bool): Whether to shuffle the samples.
             transform (Optional[Callable]): Optional input data transform for data augmentation, etc.
-            device_batch_size (int): Batch size per device.
+            batch_size (Optional[int]): Hint the batch size that will be used on each device's DataLoader.
+                                        Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
         """
         decoders = {
             'x': self.decode_image,
             'y': self.decode_class,
         }
-        super().__init__(remote, local, shuffle, decoders, device_batch_size)
+        super().__init__(remote, local, shuffle, decoders, batch_size)
         self.transform = transform or transforms.ToTensor()
 
     def __getitem__(self, idx: int) -> Tuple[Any, Any]:
