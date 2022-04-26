@@ -4,12 +4,13 @@
 
 import os
 import pathlib
+import re
 from typing import Iterator, Optional, Union
 
 import requests
 import tqdm
 
-from composer.core.time import Timestamp
+from composer.core.time import Time, Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
 from composer.utils.object_store import ObjectStore
@@ -18,6 +19,7 @@ __all__ = [
     'GetFileNotFoundException',
     'get_file',
     'ensure_folder_is_empty',
+    'ensure_folder_has_no_conflicting_files',
     'format_name_with_dist',
     'format_name_with_dist_and_time',
     'is_tar',
@@ -58,6 +60,38 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
         for file in files:
             if not file.startswith("."):
                 raise FileExistsError(f"{folder_name} is not empty; {os.path.join(root, file)} exists.")
+
+
+def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path], filename: str, timestamp: Timestamp):
+    """Ensure that the given folder does not have any files conflicting with filename.
+
+    Args:
+        folder_name (str | pathlib.Path): The folder to inspect.
+        filename (str): The pattern string for potential files.
+        timestamp (Timestamp): Ignore any files that occur before the provided timestamp.
+
+    Raises:
+        FileExistsError: If ``folder_name`` contains any files matching the ``filename`` template before ``timestamp``.
+    """
+    # Prepare regex pattern by replacing f-string formatting with regex. Currently, we only capture and compare time values for
+    # epoch and batch.
+    pattern = f"^{filename}$".replace("{rank}", "\\d+")
+    consider_epoch = "{epoch}" in filename
+    if consider_epoch:
+        pattern = pattern.replace("{epoch}", "(?P<epoch>\\d+)")
+    consider_batch = "{batch}" in filename
+    if consider_batch:
+        pattern = pattern.replace("{batch}", "(?P<batch>\\d+)")
+    template = re.compile(pattern)
+
+    for file in os.listdir(folder_name):
+        match = template.match(file)
+        # Encountered an invalid match
+        if match is not None and (consider_epoch and Time.from_epoch(int(match.group("epoch"))) > timestamp.epoch or
+                                  consider_batch and Time.from_batch(int(match.group("batch"))) > timestamp.batch):
+            raise FileExistsError(
+                f"{os.path.join(folder_name, file)} exists and conflicts in namespace with a future checkpoint of the current run."
+            )
 
 
 FORMAT_NAME_WITH_DIST_TABLE = """

@@ -168,8 +168,8 @@ def test_load_weights(
     composer_trainer_hparams: TrainerHparams,
 ):
     """strategy:
-    - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
-    - create a new trainer from the `checkpoint_interval` checkpoint, but with a new optimizer and scheduler.
+    - train two epochs. capture checkpoints after `save_interval` and ep2.
+    - create a new trainer from the `save_interval` checkpoint, but with a new optimizer and scheduler.
     - assert that the model weights are the original model, even though the optimizer and scheduler are different.
     """
     if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
@@ -229,6 +229,88 @@ def test_load_weights(
         original_trainer_hparams=composer_trainer_hparams,
         new_trainer_hparams=second_trainer_hparams,
     )
+
+
+@pytest.mark.timeout(90)
+@pytest.mark.parametrize("device_hparams", [
+    pytest.param(CPUDeviceHparams(), id="cpu"),
+    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
+])
+@pytest.mark.parametrize("save_overwrite", [
+    True,
+    False,
+])
+def test_save_overwrite(
+    device_hparams: DeviceHparams,
+    composer_trainer_hparams: TrainerHparams,
+    save_overwrite: bool,
+):
+    """strategy:
+    - train two epochs. capture checkpoints after `save_interval` and ep2.
+    - create a new trainer from the `save_interval` checkpoint, but with a new optimizer and scheduler.
+    - assert that the model weights are the original model, even though the optimizer and scheduler are different.
+    """
+    if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
+        pytest.skip("Checkpointing tests require synthetic data")
+        return
+    if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
+        pytest.skip("Checkpointing tests require synthetic data")
+        return
+    composer_trainer_hparams.device = device_hparams
+    composer_trainer_hparams.train_dataset.use_synthetic = True
+    composer_trainer_hparams.train_dataset.shuffle = False
+    composer_trainer_hparams.val_dataset.use_synthetic = True
+    composer_trainer_hparams.val_dataset.shuffle = False
+    composer_trainer_hparams.grad_accum = 2
+    composer_trainer_hparams.loggers = []
+    composer_trainer_hparams.train_batch_size = 8
+    composer_trainer_hparams.eval_batch_size = 16
+    composer_trainer_hparams.max_duration = "2ep"
+    composer_trainer_hparams.precision = Precision.FP32
+    composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
+    composer_trainer_hparams.train_subset_num_batches = 5
+    composer_trainer_hparams.device = device_hparams
+    checkpoint_a_folder = "first"
+    composer_trainer_hparams.save_folder = checkpoint_a_folder
+    composer_trainer_hparams.save_filename = "ep{epoch}.pt"
+    composer_trainer_hparams.save_interval = "1ep"
+    composer_trainer_hparams.save_overwrite = save_overwrite
+    composer_trainer_hparams.seed = None
+    composer_trainer_hparams.validate_every_n_batches = 1
+    composer_trainer_hparams.validate_every_n_epochs = 0
+    middle_checkpoint = "ep1.pt"
+    final_checkpoint = "ep2.pt"
+    _test_checkpoint_trainer(composer_trainer_hparams)
+
+    # Make train loop noop for future calls. Note that we require training when testing save_overwrite as
+    # validation for save_overwrite occurs at Event.FIT_START. This is because the state of the loaded
+    # checkpoint is not available at Event.INIT.
+    composer_trainer_hparams.max_duration = "0ep"
+
+    # re-create the trainers from the YAMLs and move filepaths to rank zero process
+    middle_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
+    middle_checkpoint_path = [os.path.join(os.path.abspath(checkpoint_a_folder), middle_checkpoint)]
+    dist.broadcast_object_list(middle_checkpoint_path)
+    final_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
+    final_checkpoint_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]
+    dist.broadcast_object_list(final_checkpoint_path)
+
+    # load model from middle checkpoint
+    middle_trainer_hparams.load_path = middle_checkpoint_path[0]
+    if save_overwrite:
+        # succesfully load if save_overwrite is True
+        trainer = middle_trainer_hparams.initialize_object()
+        trainer.fit()
+    else:
+        # raise FileExistsError if save_overwrite is False
+        with pytest.raises(FileExistsError):
+            trainer = middle_trainer_hparams.initialize_object()
+            trainer.fit()
+
+    # load model from last checkpoint, which should work regardless of save_overwrite
+    final_trainer_hparams.load_path = final_checkpoint_path[0]
+    trainer = final_trainer_hparams.initialize_object()
+    trainer.fit()
 
 
 @pytest.mark.timeout(180)

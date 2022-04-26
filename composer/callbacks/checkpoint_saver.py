@@ -17,8 +17,8 @@ from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
 from composer.utils import checkpoint, dist
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
-                                         ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
-                                         is_tar)
+                                         ensure_folder_has_no_conflicting_files, format_name_with_dist,
+                                         format_name_with_dist_and_time, is_tar)
 
 log = logging.getLogger(__name__)
 
@@ -224,8 +224,8 @@ class CheckpointSaver(Callback):
                 ...
 
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
-            If ``False`` (the default), then the ``folder`` must not exist or be empty.
-            (default: ``False``)
+            If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
+            with the current run. (default: ``False``)
 
         save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
@@ -302,12 +302,15 @@ class CheckpointSaver(Callback):
         del state  # unused
         folder = format_name_with_dist(self.folder, logger.run_name)
         os.makedirs(folder, exist_ok=True)
-        if not self.overwrite:
-            ensure_folder_is_empty(folder)
-        # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is empty.
+        # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
         dist.barrier()
 
     def fit_start(self, state: State, logger: Logger) -> None:
+        # Verify safety with self.overwrite. Note that this has to be done at fit_start as opposed to init since it requires state.timer
+        # from any checkpoints which are loaded, and checkpoint loading happens after Event.INIT.
+        if not self.overwrite:
+            folder = format_name_with_dist(self.folder, logger.run_name)
+            ensure_folder_has_no_conflicting_files(folder, self.filename, state.timer.get_timestamp())
         if state.is_model_deepspeed:
             if self.weights_only:
                 NotImplementedError(
