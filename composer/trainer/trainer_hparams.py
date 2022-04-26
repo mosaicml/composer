@@ -335,11 +335,12 @@ class TrainerHparams(hp.Hparams):
         (if the checkpoint is on the local disk) or the object name for the checkpoint
         (if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint."""),
                                            default=None)
-    load_object_store: Optional[ObjectStoreHparams] = hp.optional(doc=textwrap.dedent("""\
+    load_object_store: Optional[Union[ObjectStoreHparams,
+                                      LoggerDestinationHparams]] = hp.optional(doc=textwrap.dedent("""\
         If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
         leave blank. This parameter has no effect if `load_path` is not specified."""),
-                                                                  default=None)
+                                                                               default=None)
     load_weights_only: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to only load the weights from the model.
         This parameter has no effect if `load_path`is not specified."""),

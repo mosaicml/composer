@@ -10,6 +10,7 @@ import requests
 import tqdm
 
 from composer.core.time import Timestamp
+from composer.loggers import LoggerDestination
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
 from composer.utils.object_store import ObjectStore
@@ -218,7 +219,7 @@ Args:
 def get_file(
     path: str,
     destination: str,
-    object_store: Optional[ObjectStore] = None,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     chunk_size: int = 2**20,
     progress_bar: bool = True,
 ):
@@ -259,20 +260,29 @@ def get_file(
     """
 
     if object_store is not None:
-        try:
-            total_size_in_bytes = object_store.get_object_size(path)
-        except Exception as e:
-            if "ObjectDoesNotExistError" in str(e):
-                raise GetFileNotFoundException(f"Object name {path} not found in object store {object_store}") from e
-            raise
-        _write_to_file_with_pbar(
-            destination=destination,
-            total_size=total_size_in_bytes,
-            iterator=object_store.download_object_as_stream(path, chunk_size=chunk_size),
-            progress_bar=progress_bar,
-            description=f"Downloading {path}",
-        )
-        return
+        if isinstance(object_store, LoggerDestination):
+            # Type LoggerDestination
+            object_store.get_file_artifact(artifact_name=path,
+                                           destination=destination,
+                                           chunk_size=chunk_size,
+                                           progress_bar=progress_bar)
+        else:
+            # Type ObjectStore
+            try:
+                total_size_in_bytes = object_store.get_object_size(path)
+            except Exception as e:
+                if "ObjectDoesNotExistError" in str(e):
+                    raise GetFileNotFoundException(
+                        f"Object name {path} not found in object store {object_store}") from e
+                raise
+            _write_to_file_with_pbar(
+                destination=destination,
+                total_size=total_size_in_bytes,
+                iterator=object_store.download_object_as_stream(path, chunk_size=chunk_size),
+                progress_bar=progress_bar,
+                description=f"Downloading {path}",
+            )
+            return
 
     if path.lower().startswith("http://") or path.lower().startswith("https://"):
         # it's a url

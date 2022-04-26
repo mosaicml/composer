@@ -123,12 +123,32 @@ class WandBLogger(LoggerDestination):
                 warnings.warn(("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
                                f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
 
-            if self._enabled and self._log_artifacts:
-                import wandb
-                extension = new_artifact_name.split(".")[-1]
-                artifact = wandb.Artifact(name=new_artifact_name, type=extension)
-                artifact.add_file(os.path.abspath(file_path))
-                wandb.log_artifact(artifact, aliases=aliases)
+            extension = new_artifact_name.split(".")[-1]
+            artifact = wandb.Artifact(name=new_artifact_name, type=extension)
+            artifact.add_file(os.path.abspath(file_path))
+            wandb.log_artifact(artifact, aliases=aliases)
+
+    def get_file_artifact(
+        self,
+        artifact_name: str,
+        destination: str,
+        chunk_size: int = 2**20,
+        progress_bar: bool = True,
+    ):
+        # Note: Wandb doesn't support progress bars for downloading
+        del chunk_size, progress_bar
+        import wandb
+
+        # replace all unsupported characters with periods
+        # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
+        new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
+        if new_artifact_name != artifact_name:
+            warnings.warn(
+                ("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
+                 f"The artifact with name '{artifact_name}' will be instead searched for as '{new_artifact_name}'."))
+
+        artifact = wandb.use_artifact(new_artifact_name)
+        artifact.download(root=destination)
 
     def post_close(self) -> None:
         import wandb

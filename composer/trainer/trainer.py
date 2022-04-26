@@ -287,10 +287,11 @@ class Trainer:
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (ObjectStore, optional): If the ``load_path`` is in an object store
-            (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` which
-            will be used to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath,
-            set to ``None``. Ignored if ``load_path`` is ``None``. (default: ``None``)
+        load_object_store (Union[ObjectStore, LoggerDestionation], optional): If the ``load_path`` is in an
+            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
+            :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
+            checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
+            (default: ``None``)
 
             Example:
 
@@ -532,7 +533,7 @@ class Trainer:
 
         # load checkpoint
         load_path: Optional[str] = None,
-        load_object_store: Optional[ObjectStore] = None,
+        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict: bool = False,
         load_chunk_size: int = 1_048_576,
