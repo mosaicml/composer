@@ -12,7 +12,7 @@ from composer.trainer import Trainer
 from tests.common import SimpleModel
 
 
-class TestMetricsCallback(Callback):
+class MetricsCallback(Callback):
 
     def __init__(self, compute_training_metrics: bool, compute_val_metrics: bool) -> None:
         self.compute_training_metrics = compute_training_metrics
@@ -71,7 +71,7 @@ def test_current_metrics(
     train_subset_num_batches = 2
     eval_subset_num_batches = 2
     num_epochs = 2
-    metrics_callback = TestMetricsCallback(
+    metrics_callback = MetricsCallback(
         compute_training_metrics=compute_training_metrics,
         compute_val_metrics=compute_val_metrics,
     )
