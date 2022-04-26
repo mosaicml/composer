@@ -11,9 +11,7 @@ from torch.utils.data import DataLoader
 from composer import Trainer
 from composer.algorithms import get_algorithm_registry
 from tests.algorithms.algorithm_settings import get_settings
-from tests.common import device
-from tests.test_state import _check_dict_recursively
-from tests.utils.deep_compare import deep_compare
+from tests.common import deep_compare, device
 
 
 @pytest.mark.timeout(180)
@@ -103,4 +101,4 @@ def _assert_checkpoints_equal(file1, file2):
     deep_compare(checkpoint1['rng'], checkpoint2['rng'])
 
     # compare state
-    _check_dict_recursively(checkpoint1['state'], checkpoint2['state'])
+    deep_compare(checkpoint1['state'], checkpoint2['state'])
