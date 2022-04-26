@@ -83,6 +83,25 @@ __all__ = ["Trace", "Engine", "Traces"]
 Traces = Dict[str, "Trace"]
 
 _ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
+_EVENTS_WHERE_DATALOADER_IS_SET = [e for e in Event if e != Event.INIT]
+_EVENTS_WHERE_MAX_DURATION_IS_SET = [
+    Event.FIT_START,
+    Event.EPOCH_START,
+    Event.BATCH_START,
+    Event.AFTER_DATALOADER,
+    Event.BEFORE_TRAIN_BATCH,
+    Event.BEFORE_FORWARD,
+    Event.AFTER_FORWARD,
+    Event.BEFORE_LOSS,
+    Event.AFTER_LOSS,
+    Event.BEFORE_BACKWARD,
+    Event.AFTER_BACKWARD,
+    Event.AFTER_TRAIN_BATCH,
+    Event.BATCH_END,
+    Event.BATCH_CHECKPOINT,
+    Event.EPOCH_END,
+    Event.EPOCH_CHECKPOINT,
+]
 
 
 @dataclass
@@ -173,6 +192,12 @@ class Engine():
 
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
+
+        if event in _EVENTS_WHERE_DATALOADER_IS_SET:
+            assert self.state.dataloader is not None, f"The trainer should have set state.dataloader for event {event}."
+
+        if event in _EVENTS_WHERE_MAX_DURATION_IS_SET:
+            assert self.state.max_duration is not None, f"The trainer should have set state.max_duration for event {event}."
 
         if event == Event.INIT:
             # For the INIT event, run the callbacks first to initialize the loggers
