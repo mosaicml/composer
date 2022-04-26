@@ -86,6 +86,33 @@ def test_reader(share_remote_local: bool, shuffle: bool):
         assert shuffle_matches < 10
 
 
+@pytest.mark.parametrize(
+    "share_remote_local",
+    [
+        True,
+        pytest.param(False, marks=pytest.mark.xfail(reason="__getitem__ currently expects shards to exist")),
+    ],
+)
+def test_reader_getitem(share_remote_local: bool):
+    num_samples = 117
+    shard_size_limit = 1 << 8
+    samples, decoders = get_fake_samples_decoders(num_samples)
+    remote = write_synthetic_streaming_dataset(samples=samples, shard_size_limit=shard_size_limit)
+    if share_remote_local:
+        local = remote
+    else:
+        local = tempfile.TemporaryDirectory().name
+
+    # Build StreamingDataset
+    dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
+
+    # Test retrieving random sample
+    try:
+        sample = dataset[17]
+    except Exception as e:
+        assert False, f"Unable to get random sample, got exception: {e}"
+
+
 @pytest.mark.parametrize("batch_size", [1, 2, 5, 128])
 @pytest.mark.parametrize("drop_last", [False, True])
 @pytest.mark.parametrize("num_workers", [0, 1, 8])
