@@ -330,7 +330,6 @@ class TrainerHparams(hp.Hparams):
                                       default="stderr")
     python_log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
 
-
     # Load Checkpoint
     load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
         If specified, the path to an existing checkpoint file

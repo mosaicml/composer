@@ -1267,7 +1267,7 @@ class Trainer:
 
         # Evaluators
         if eval_dataloader is not None:
-            evaluators = _unpack_evaluators(
+            self.evaluators = _unpack_evaluators(
                 eval_dataloader,
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
@@ -1278,7 +1278,6 @@ class Trainer:
                     warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
                 if eval_interval != 1:
                     warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
-            self.evaluators = evaluators
 
         if len(self.evaluators) == 0:
             warnings.warn(("No `eval_dataloader` was specified. Please specify `eval_dataloader` to periodically "

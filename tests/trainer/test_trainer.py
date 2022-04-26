@@ -1,103 +1,85 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import copy
 import os
 import pathlib
-from copy import deepcopy
-from typing import Dict
+from typing import Dict, List, Optional, Union
 
 import pytest
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
+from torchmetrics import Accuracy
 
 from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
 from composer.callbacks import CheckpointSaver, LRMonitor
 from composer.core.callback import Callback
+from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
+from composer.core.time import Time, TimeUnit
 from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
+from composer.loggers import FileLogger, WandBLogger
+from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.models.base import ComposerModel
+from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices.device import Device
 from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
 from composer.utils import MissingConditionalImportError, dist
 from composer.utils.object_store import ObjectStoreHparams
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
+from tests.common.events import EventCounterCallback
+from tests.test_state import assert_state_equivalent
 
 
 class TestTrainerInit():
 
     @pytest.fixture
-    def config(self, rank_zero_seed: int):
-        return {
-            'model': SimpleModel(),
-            'train_dataloader': DataLoader(dataset=RandomClassificationDataset()),
-            'eval_dataloader': DataLoader(dataset=RandomClassificationDataset()),
-            'max_duration': '2ep',
-            'seed': rank_zero_seed,
-        }
+    def model(self):
+        return SimpleModel()
 
-    def test_init(self, config):
-        trainer = Trainer(**config)
+    def test_minimal_init(self, model: ComposerModel):
+        trainer = Trainer(model=model)
         assert isinstance(trainer, Trainer)
 
-    def test_model_ddp_wrapped(self, config):
-        trainer = Trainer(**config)
-        should_be_ddp_wrapped = dist.get_world_size() > 1 and "deepspeed_config" not in config
+    @world_size(1, 2)
+    def test_model_ddp_wrapped(self, model: ComposerModel, world_size: int):
+        trainer = Trainer(model=model)
+        should_be_ddp_wrapped = dist.get_world_size() > 1
         assert isinstance(trainer.state.model, DistributedDataParallel) == should_be_ddp_wrapped
 
-    def test_loggers_before_callbacks(self, config):
-        config.update({
-            "loggers": [ProgressBarLogger()],
-            "callbacks": [LRMonitor()],
-        })
-
-        trainer = Trainer(**config)
-        assert isinstance(trainer.state.callbacks[0], ProgressBarLogger)
-        assert isinstance(trainer.state.callbacks[1], LRMonitor)
-
-    @device('gpu', 'cpu')
-    def test_optimizer_on_device(self, config, device):
-        config['device'] = device
-        trainer = Trainer(**config)
-
-        parameters = trainer.state.optimizers[0].param_groups[0]["params"]
-
-        target_device = 'cuda' if device == 'gpu' else 'cpu'
-        assert all(param.device.type == target_device for param in parameters)
-
-    def test_invalid_device(self, config):
-        config['device'] = "magic_device"
-
-        with pytest.raises(ValueError, match="magic_device"):
-            Trainer(**config)
-
-    @pytest.mark.timeout(5.0)
-    def test_active_iterator_error(self, config):
-        dataloader = DataLoader(
-            dataset=RandomClassificationDataset(),
-            persistent_workers=True,
-            num_workers=1,
+    def test_loggers_before_callbacks(self, model: ComposerModel):
+        trainer = Trainer(
+            model=model,
+            loggers=[InMemoryLogger()],
+            callbacks=[LRMonitor()],
+            progress_bar=False,
+            log_to_console=False,
         )
+        assert isinstance(trainer.state.callbacks[0], InMemoryLogger)
+        assert isinstance(trainer.state.callbacks[2], LRMonitor)
 
-        # spin one sample
-        _ = next(dataloader.__iter__())
-
-        config['train_dataloader'] = dataloader
-        with pytest.raises(ValueError, match="active iterator"):
-            Trainer(**config)
+    def test_invalid_device(self, model: ComposerModel):
+        with pytest.raises(ValueError, match="magic_device"):
+            Trainer(model=model, device="magic_device")
 
     @pytest.mark.timeout(5.0)
-    def test_init_with_integers(self, config, tmpdir: pathlib.Path):
-        config.update({
-            'max_duration': 1,
-            'save_interval': 10,
-            'save_folder': str(tmpdir),
-        })
-
-        trainer = Trainer(**config)
+    def test_checkpoint_saver(
+        self,
+        tmpdir: pathlib.Path,
+        model: ComposerModel,
+    ):
+        train_dataloader = DataLoader(RandomClassificationDataset())
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            save_interval=10,
+            max_duration=1,
+            save_folder=str(tmpdir),
+        )
         assert trainer.state.max_duration == "1ep"
         checkpoint_saver = None
         for callback in trainer.state.callbacks:
@@ -107,12 +89,379 @@ class TestTrainerInit():
         trainer.state.timer.epoch._value = 10
         assert checkpoint_saver.save_interval(trainer.state, Event.EPOCH_CHECKPOINT)
 
+
+class TestTrainerInitOrFit:
+    """Validate that certain parameters can be passed in on `Trainer.__init__()` or `Trainer.fit()`"""
+
+    @pytest.fixture
+    def train_dataloader(self):
+        return DataLoader(dataset=RandomClassificationDataset(), batch_size=2)
+
+    @pytest.fixture
+    def model(self):
+        return SimpleModel()
+
+    @pytest.fixture
+    def max_duration(self):
+        return Time(1, TimeUnit.EPOCH)
+
+    @pytest.mark.parametrize("train_subset_num_batches", [-1, 1])
+    @pytest.mark.parametrize("compute_training_metrics", [True, False])
+    def test_train_dataloader(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time,
+        train_subset_num_batches: int,
+        compute_training_metrics: bool,
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the train_dataloader params on Trainer.__init__()
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            train_subset_num_batches=train_subset_num_batches,
+            compute_training_metrics=compute_training_metrics,
+        )
+        init_trainer.fit()
+
+        # Train again with the train_dataloader params specified on Trainer.fit()
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+        )
+        fit_trainer.fit(
+            train_dataloader=train_dataloader,
+            train_subset_num_batches=train_subset_num_batches,
+            compute_training_metrics=compute_training_metrics,
+        )
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    @pytest.mark.parametrize("max_duration", [1, "1ep", "1ba", Time(1, TimeUnit.EPOCH)])
+    def test_max_duration(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time,
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the max_duration param on Trainer.__init__()
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
+        init_trainer.fit()
+
+        # Train again with the max_duration param specified on Trainer.fit()
+        fit_trainer = Trainer(
+            model=copied_model,
+            train_dataloader=train_dataloader,
+        )
+        fit_trainer.fit(max_duration=max_duration)
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    def test_reset_timer(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time,
+    ):
+        # Train once
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
+        trainer.fit()
+
+        # Get the timestamp
+        first_timestamp = trainer.state.timer.get_timestamp()
+
+        # Train again for the same amount of time, but reset the timer
+        trainer.fit(
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            reset_timer=True,
+        )
+
+        # Assert that the timestamps are equivalent
+        assert trainer.state.timer.get_timestamp() == first_timestamp
+
+    @device('gpu', 'cpu')
+    def test_optimizers(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time,
+        device: str,
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the optimizer param on Trainer.__init__()
+        init_optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            optimizers=init_optimizer,
+        )
+        init_trainer.fit()
+
+        # Train again with the optimizer param specified on Trainer.fit()
+        fit_optimizer = torch.optim.SGD(copied_model.parameters(), lr=0.01)
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
+        fit_trainer.fit(optimizers=fit_optimizer)
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+        # Assert that the parameters are on the correct devices
+        self.assert_optimizer_params_on_device(init_trainer, device)
+        self.assert_optimizer_params_on_device(fit_trainer, device)
+
+    def assert_optimizer_params_on_device(self, trainer: Trainer, device: str):
+        parameters = trainer.state.optimizers[0].param_groups[0]["params"]
+
+        target_device = 'cuda' if device == 'gpu' else 'cpu'
+        assert all(param.device.type == target_device for param in parameters)
+
+    @pytest.mark.parametrize("scale_schedule_ratio", [1.0, 2.0])
+    @pytest.mark.parametrize("step_schedulers_every_batch", [None, True, False])
+    def test_schedulers(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time,
+        scale_schedule_ratio: float,
+        step_schedulers_every_batch: Optional[bool],
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the scheduler params on Trainer.__init__()
+        scheduler = ExponentialScheduler(2.0)
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            schedulers=scheduler,
+            scale_schedule_ratio=scale_schedule_ratio,
+            step_schedulers_every_batch=step_schedulers_every_batch,
+        )
+        init_trainer.fit()
+
+        # Train again with the scheduler params specified on Trainer.fit()
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
+        fit_trainer.fit(
+            schedulers=scheduler,
+            scale_schedule_ratio=scale_schedule_ratio,
+            step_schedulers_every_batch=step_schedulers_every_batch,
+        )
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    @pytest.mark.parametrize("eval_subset_num_batches", [-1, 1])
+    @pytest.mark.parametrize("eval_interval", ["1ep", "1ba"])
+    @pytest.mark.parametrize(
+        "eval_dataloader",
+        [
+            DataLoader(RandomClassificationDataset(size=2)),  # a normal dataloader
+            Evaluator(label='eval', dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                      metrics=Accuracy()),  # an evaluator
+            [  # multiple evaluators
+                Evaluator(label='eval1', dataloader=DataLoader(RandomClassificationDataset(size=2)),
+                          metrics=Accuracy()),
+                Evaluator(label='eval2', dataloader=DataLoader(RandomClassificationDataset(size=2)), metrics=Accuracy())
+            ],
+        ])
+    def test_eval_dataloader(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time,
+        eval_subset_num_batches: int,
+        eval_interval: str,
+        eval_dataloader: Union[Evaluator, DataLoader, List[Evaluator]],
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the eval_dataloader params on Trainer.__init__()
+        init_event_counter_callback = EventCounterCallback()  # track the number of times eval is called
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+            callbacks=[init_event_counter_callback],
+            eval_subset_num_batches=eval_subset_num_batches,
+            eval_interval=eval_interval,
+            progress_bar=False,
+            log_to_console=False,
+        )
+        init_trainer.fit()
+
+        # Train again with the eval_dataloader params specified on Trainer.fit()
+        fit_event_counter_callback = EventCounterCallback()  # track the number of times eval is called
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            callbacks=[fit_event_counter_callback],
+            progress_bar=False,
+            log_to_console=False,
+        )
+        fit_trainer.fit(
+            eval_dataloader=eval_dataloader,
+            eval_subset_num_batches=eval_subset_num_batches,
+            eval_interval=eval_interval,
+        )
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    def test_grad_accum(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time,
+    ):
+        grad_accum = 2
+
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the grad_accum param on Trainer.__init__()
+        init_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            grad_accum=grad_accum,
+            callbacks=[init_event_counter_callback],
+        )
+        init_trainer.fit()
+
+        # Train again with the grad_accum param specified on Trainer.fit()
+        fit_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            callbacks=[fit_event_counter_callback],
+        )
+        fit_trainer.fit(grad_accum=grad_accum)
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    @pytest.mark.parametrize("precision", [
+        Precision.FP32,
+        pytest.param(Precision.AMP, marks=pytest.mark.gpu),
+    ])
+    def test_precision(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time,
+        precision: Precision,
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the precision param on Trainer.__init__()
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            precision=precision,
+        )
+        init_trainer.fit()
+
+        # Train again with the precision param specified on Trainer.fit()
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
+        fit_trainer.fit(precision=precision)
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    @pytest.mark.parametrize("grad_clip_norm", [-1.0, 1.0])
+    def test_grad_clip_norm(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time,
+        grad_clip_norm: float,
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
+        copied_model = copy.deepcopy(model)
+
+        # Train once with the grad_clip_norm param on Trainer.__init__()
+        init_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            grad_clip_norm=grad_clip_norm,
+        )
+        init_trainer.fit()
+
+        # Train again with the grad_clip_norm param specified on Trainer.fit()
+        fit_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
+        fit_trainer.fit(grad_clip_norm=grad_clip_norm)
+
+        # Assert that the states are equivalent
+        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
     @pytest.mark.timeout(5.0)
-    def test_init_with_max_duration_in_batches(self, config):
-        config["max_duration"] = '1ba'
-        trainer = Trainer(**config)
-        assert trainer.state.max_duration is not None
-        assert trainer.state.max_duration.to_timestring() == "1ba"
+    def test_dataloader_active_iterator_error(self, model: ComposerModel):
+        dataloader = DataLoader(
+            dataset=RandomClassificationDataset(),
+            persistent_workers=True,
+            num_workers=1,
+        )
+
+        # spin one sample
+        _ = next(dataloader.__iter__())
+
+        # Assert the error is raised if the dataloader is specified in init
+        with pytest.raises(ValueError, match="active iterator"):
+            Trainer(
+                model=model,
+                train_dataloader=dataloader,
+            )
+
+        # Or if the dataloader is specified on fit
+        with pytest.raises(ValueError, match="active iterator"):
+            trainer = Trainer(model=model)
+            trainer.fit(train_dataloader=dataloader)
 
 
 @world_size(1, 2)
@@ -165,7 +514,7 @@ class TestTrainerEquivalence():
     @pytest.fixture(autouse=True)
     def create_reference_model(self, config, tmpdir_factory, *args):
         """Trains the reference model, and saves checkpoints."""
-        config = deepcopy(config)  # ensure the reference model is not passed to tests
+        config = copy.deepcopy(config)  # ensure the reference model is not passed to tests
 
         save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
         config.update({'save_interval': '1ep', 'save_folder': str(save_folder), 'save_filename': 'ep{epoch}.pt'})
