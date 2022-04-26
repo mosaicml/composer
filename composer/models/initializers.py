@@ -13,7 +13,7 @@ class Initializer(StringEnum):
     BN_UNIFORM = "bn_uniform"
     BN_ONES = "bn_ones"
     XAVIER_UNIFORM = "xavier_uniform"
-    LINEAR_BIAS_UNIFORM = "linear_log_constant_bias"
+    LINEAR_LOG_CONSTANT_BIAS = "linear_log_constant_bias"
 
     def get_initializer(self) -> Callable[[torch.nn.Module], None]:
 
