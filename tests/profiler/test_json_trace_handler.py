@@ -11,7 +11,7 @@ from composer.trainer import TrainerHparams
 
 
 # This test shouldn't run with the Torch profiler enabled, not providing a model or data can cause a seg fault
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(30)
 def test_json_trace_profiler_handler(composer_trainer_hparams: TrainerHparams, tmpdir: pathlib.Path):
     profiler_file = os.path.join(tmpdir, 'trace.json')
     json_trace_handler_params = JSONTraceHparams(folder=str(tmpdir), merged_trace_filename='trace.json')

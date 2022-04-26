@@ -133,10 +133,12 @@ class LayerFreezing(Algorithm):
         del event  # unused
         optimizers = state.optimizers
         assert optimizers is not None
+        elapsed_duration = state.get_elapsed_duration()
+        assert elapsed_duration is not None, "elapsed duration should be set on Event.EPOCH_END"
         freeze_depth, freeze_percentage = freeze_layers(
             model=state.model,
             optimizers=optimizers,
-            current_duration=float(state.get_elapsed_duration()),
+            current_duration=float(elapsed_duration),
             freeze_start=self.freeze_start,
             freeze_level=self.freeze_level,
         )

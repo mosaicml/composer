@@ -269,7 +269,7 @@ class TestColOutAlgorithm:
     @pytest.mark.parametrize("batch", [True])
     def test_apply_batch_pair(self, fake_image_batch: torch.Tensor, colout_algorithm: ColOut, minimal_state: State,
                               empty_logger: Logger):
-        """Apply batch ColOut to 2-tuple of images"""
+        """Apply batch ColOut to 2-tuple of images."""
         p_row = colout_algorithm.p_row
         p_col = colout_algorithm.p_col
 
@@ -291,8 +291,8 @@ class TestColOutAlgorithm:
         original_image, _ = dataset[0]
         assert isinstance(original_image, Image.Image)
 
-        minimal_state.train_dataloader = dataloader
-        colout_algorithm.apply(Event.INIT, minimal_state, empty_logger)
+        minimal_state.set_dataloader(dataloader, "train")
+        colout_algorithm.apply(Event.FIT_START, minimal_state, empty_logger)
 
         new_image, _ = dataset[0]
         assert isinstance(new_image, Image.Image)

@@ -115,8 +115,8 @@ state = State(
     model=model,
     optimizers=optimizer,
     grad_accum=1,
-    train_dataloader=train_dataloader,
-    evaluators=[],
+    dataloader=train_dataloader,
+    dataloader_label="train",
     max_duration="1ep",
     precision="fp32",
 )

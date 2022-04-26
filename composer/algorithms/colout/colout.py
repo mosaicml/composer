@@ -32,7 +32,7 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
                  p_col: float = 0.15,
                  resize_target: Union[bool, str] = 'auto') -> Union[ImgT, Tuple[ImgT, ImgT]]:
     """Applies ColOut augmentation to a batch of images and (optionally) targets, dropping the same random rows and
-       columns from all images and targets in a batch.
+    columns from all images and targets in a batch.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
@@ -108,7 +108,7 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
 
 class ColOutTransform:
     """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
-        up to two Torch tensors or two PIL images.
+    up to two Torch tensors or two PIL images.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
@@ -214,11 +214,15 @@ class ColOut(Algorithm):
         if self.batch:
             return event == Event.AFTER_DATALOADER
         else:
-            return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
+            if event != Event.FIT_START:
+                return False
+            assert state.dataloader is not None, "dataloader should be defined on fit start"
+            return state.dataloader.dataset not in self._transformed_datasets
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""
-        dataset = state.train_dataloader.dataset
+        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        dataset = state.dataloader.dataset
 
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
 
@@ -254,8 +258,10 @@ class ColOut(Algorithm):
 
 
 def _should_resize_target(sample: Union[ImgT, Tuple[ImgT, ImgT]], resize_target: Union[bool, str]) -> bool:
-    """ Helper function to determine if both objects in the tuple should be resized. Decision is based on
-        ``resize_target`` and if both objects in the tuple have the same spatial size."""
+    """Helper function to determine if both objects in the tuple should be resized.
+
+    Decision is based on ``resize_target`` and if both objects in the tuple have the same spatial size.
+    """
 
     sample = ensure_tuple(sample)
     if len(sample) > 2:
