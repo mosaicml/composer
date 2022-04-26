@@ -17,7 +17,7 @@
 
         warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
 
-        MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
+        MyModel = Model
 
     .. doctest::
 
