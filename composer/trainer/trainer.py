@@ -861,6 +861,7 @@ class Trainer:
         else:
             self.train_metrics = None
 
+        # Set the logger
         model.logger = self.logger
 
         self.engine.run_event(Event.INIT)

@@ -35,17 +35,22 @@ def algo_instance(request):
                      latent_features=2)
 
 
-def _apply_algo(state_with_model: State, simple_conv_model_input: Union[torch.Tensor, Sequence[torch.Tensor]],
+@pytest.fixture()
+def simple_conv_model_input():
+    return torch.rand((64, 32, 64, 64))
+
+
+def _apply_algo(dummy_state: State, simple_conv_model_input: Union[torch.Tensor, Sequence[torch.Tensor]],
                 algo_instance: Algorithm, logger: Logger):
     batch = (simple_conv_model_input, None)
-    original_conv_count = module_surgery.count_module_instances(state_with_model.model, torch.nn.Conv2d)
-    original_linear_count = module_surgery.count_module_instances(state_with_model.model, torch.nn.Linear)
-    out = state_with_model.model.forward(batch)
+    original_conv_count = module_surgery.count_module_instances(dummy_state.model, torch.nn.Conv2d)
+    original_linear_count = module_surgery.count_module_instances(dummy_state.model, torch.nn.Linear)
+    out = dummy_state.model.forward(batch)
     original_shape = out.shape
 
     algo_instance.apply(
         event=Event.INIT,
-        state=state_with_model,
+        state=dummy_state,
         logger=logger,
     )
 
