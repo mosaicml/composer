@@ -140,7 +140,7 @@ def _unitwise_norm(tensor: torch.Tensor):
 
     For bias vectors (1D Tensors): normalize across entire vector.
     For MLP Weight matrix (2D tensors): we normalize across rows (dim = 1)
-    For CNNs (4D Tensors): we normalzie across the entire kernel (channel, height,
+    For CNNs (4D Tensors): we normalize across the entire kernel (channel, height,
          and width) -> dim = (1, 2, 3).
 
     Args:
