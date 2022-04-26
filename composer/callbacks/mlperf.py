@@ -66,6 +66,7 @@ class MLPerfCallback(Callback):
     Example:
 
     .. testcode::
+        from composer.callbacks import MLPerfCallback
 
         callback = MLPerfCallback(
             root_folder='/submission',
