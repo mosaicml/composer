@@ -111,7 +111,8 @@ def test_get_clipped_gradients_1D():
     grad = torch.Tensor([7., 24.])
     clipping_threshold = 0.5
     expected = torch.tensor([0.7, 2.4])
-    clipped_grads = grad * _get_clipped_gradient_coeff(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+    clipped_grads = grad * _get_clipped_gradient_coeff(
+        weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -121,8 +122,7 @@ def test_get_clipped_gradients_1D_with_zeros():
     clipping_threshold = 1e-4
     expected = torch.tensor([0., 0.])
     clipped_grads = grad * _get_clipped_gradient_coeff(
-        weights=weights,grad=grad,
-        clipping_threshold=clipping_threshold, eps=1e-3)
+        weights=weights, grad=grad, clipping_threshold=clipping_threshold, eps=1e-3)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -131,7 +131,8 @@ def test_get_clipped_gradients_2D():
     grad = torch.Tensor([[7., 24.], [5., 12.]])
     clipping_threshold = 0.5
     expected = torch.tensor([[0.7, 2.4], [5., 12.]])
-    clipped_grads = grad * _get_clipped_gradient_coeff(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+    clipped_grads = grad * _get_clipped_gradient_coeff(
+        weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -141,7 +142,8 @@ def test_get_clipped_gradients_3D():
     grad = torch.Tensor([[[1., 1.], [3., 5.]], [[1., 1.], [1., 1.]]])
     clipping_threshold = 1 / 3.
     expected = torch.Tensor([[[0.5000, 0.5000], [1.5000, 2.5000]], [[1.0000, 1.0000], [1.0000, 1.0000]]])
-    clipped_grads = grad * _get_clipped_gradient_coeff(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+    clipped_grads = grad * _get_clipped_gradient_coeff(
+        weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -151,5 +153,6 @@ def test_get_clipped_gradients_4D():
     grad = torch.Tensor([[[[1.], [1.]], [[3.], [5.]]], [[[1.], [1.]], [[1.], [1.]]]])
     clipping_threshold = 1 / 3.
     expected = torch.Tensor([[[[0.5], [0.5]], [[1.5], [2.5]]], [[[1.0], [1.0]], [[1.0], [1.0]]]])
-    clipped_grads = grad * _get_clipped_gradient_coeff(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+    clipped_grads = grad * _get_clipped_gradient_coeff(
+        weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)

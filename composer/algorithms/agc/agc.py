@@ -102,9 +102,9 @@ class AGC(Algorithm):
 
 # Factored this to a function to enable easier testing.
 def _get_clipped_gradient_coeff(weights: torch.Tensor,
-                           grad: torch.Tensor,
-                           clipping_threshold: float = 0.01,
-                           eps: float = 1e-3):
+                                grad: torch.Tensor,
+                                clipping_threshold: float = 0.01,
+                                eps: float = 1e-3):
     """Clips all gradients in model based on ratio of gradient norms to parameter norms.
 
     Gradients whose norms exceed weight_norm * clipping_threshold are scaled down by
@@ -130,9 +130,7 @@ def _get_clipped_gradient_coeff(weights: torch.Tensor,
     # Gradients whose norms are greater than weight_norm * clipping_threhsold are
     # scaled down by (weight_norm * clipping_threhsold) / grad_norm.
     max_norm = w_norm * clipping_threshold
-    clipped_grad_coeff = torch.where(grad_norm > max_norm,
-                                     max_norm / grad_norm,
-                                     torch.ones_like(grad_norm))
+    clipped_grad_coeff = torch.where(grad_norm > max_norm, max_norm / grad_norm, torch.ones_like(grad_norm))
 
     return clipped_grad_coeff
 
