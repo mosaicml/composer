@@ -47,11 +47,11 @@ def apply_agc(
         grad = param.grad.detach()
 
         # Get clipped version of gradients.
-        clipped_grad = _get_clipped_gradients(weights, grad)
+        clipped_grad_coeff = _get_clipped_gradient_coeff(weights, grad)
 
         # Copy clipped gradients into param.grad attribute, so they can be accessed by
         # optimizer.
-        grad.copy_(clipped_grad)
+        grad.mul_(clipped_grad_coeff)
 
 
 class AGC(Algorithm):
@@ -101,7 +101,7 @@ class AGC(Algorithm):
 
 
 # Factored this to a function to enable easier testing.
-def _get_clipped_gradients(weights: torch.Tensor,
+def _get_clipped_gradient_coeff(weights: torch.Tensor,
                            grad: torch.Tensor,
                            clipping_threshold: float = 0.01,
                            eps: float = 1e-3):
@@ -118,9 +118,9 @@ def _get_clipped_gradients(weights: torch.Tensor,
         eps (float, optional): Minimum value that weight norms are clamped to.
 
     Return:
-        clipped_grad (torch.Tensor): Gradients scaled down by
+        clipped_grad_coeff (torch.Tensor): Coefficient of same shape as grad_norm equal to
             (weight_norm / grad_norm) * clipping_threshold for gradients whose norms
-            exceed weight_norm * clipping_threshold.
+            that exceed weight_norm * clipping_threshold and one otherwise.
     """
 
     # Compute and clamp grad and weight norms.
@@ -130,9 +130,11 @@ def _get_clipped_gradients(weights: torch.Tensor,
     # Gradients whose norms are greater than weight_norm * clipping_threhsold are
     # scaled down by (weight_norm * clipping_threhsold) / grad_norm.
     max_norm = w_norm * clipping_threshold
-    clipped_grad = torch.where(grad_norm > max_norm, grad * (max_norm / grad_norm), grad)
+    clipped_grad_coeff = torch.where(grad_norm > max_norm,
+                                     max_norm / grad_norm,
+                                     torch.ones_like(grad_norm))
 
-    return clipped_grad
+    return clipped_grad_coeff
 
 
 def _unitwise_norm(tensor: torch.Tensor):

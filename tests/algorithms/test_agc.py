@@ -6,7 +6,7 @@ from torch import nn
 
 import composer.functional as cf
 from composer.algorithms.agc import AGC, apply_agc
-from composer.algorithms.agc.agc import _get_clipped_gradients
+from composer.algorithms.agc.agc import _get_clipped_gradient_coeff
 from composer.core import Engine
 from composer.core.event import Event
 
@@ -63,7 +63,7 @@ def test_agc_functional(simple_model_with_grads):
     # gradients.
     weights = next(model.parameters())
     grad = weights.grad
-    expected_clipped_grad = _get_clipped_gradients(weights, grad)
+    expected_clipped_grad = grad.detach() * _get_clipped_gradient_coeff(weights, grad)
     cf.apply_agc(model)
     current_grad = next(model.parameters()).grad
     torch.equal(current_grad, expected_clipped_grad)
@@ -86,7 +86,7 @@ def test_AGC_algorithm(simple_model_with_grads):
     model = simple_model_with_grads
     weights = next(model.parameters())
     grad = weights.grad
-    expected_clipped_grad = _get_clipped_gradients(weights, grad)
+    expected_clipped_grad = grad.detach() * _get_clipped_gradient_coeff(weights, grad)
 
     # Set up a mock engine.
     state = Mock()
@@ -101,7 +101,7 @@ def test_AGC_algorithm(simple_model_with_grads):
     engine.run_event(Event.AFTER_TRAIN_BATCH)
 
     # Check that the gradients weights holds are equivalent to the calling
-    # _get_clipped_gradients on the weighta and grads.
+    # grad.detach() * _get_clipped_gradient_coeff on the weights and grads.
     current_grad = next(model.parameters()).grad
     torch.equal(current_grad, expected_clipped_grad)
 
@@ -111,7 +111,7 @@ def test_get_clipped_gradients_1D():
     grad = torch.Tensor([7., 24.])
     clipping_threshold = 0.5
     expected = torch.tensor([0.7, 2.4])
-    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+    clipped_grads = grad * _get_clipped_gradient_coeff(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -120,7 +120,9 @@ def test_get_clipped_gradients_1D_with_zeros():
     grad = torch.Tensor([0., 0.])
     clipping_threshold = 1e-4
     expected = torch.tensor([0., 0.])
-    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, clipping_threshold=clipping_threshold, eps=1e-3)
+    clipped_grads = grad * _get_clipped_gradient_coeff(
+        weights=weights,grad=grad,
+        clipping_threshold=clipping_threshold, eps=1e-3)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -129,7 +131,7 @@ def test_get_clipped_gradients_2D():
     grad = torch.Tensor([[7., 24.], [5., 12.]])
     clipping_threshold = 0.5
     expected = torch.tensor([[0.7, 2.4], [5., 12.]])
-    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+    clipped_grads = grad * _get_clipped_gradient_coeff(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -139,7 +141,7 @@ def test_get_clipped_gradients_3D():
     grad = torch.Tensor([[[1., 1.], [3., 5.]], [[1., 1.], [1., 1.]]])
     clipping_threshold = 1 / 3.
     expected = torch.Tensor([[[0.5000, 0.5000], [1.5000, 2.5000]], [[1.0000, 1.0000], [1.0000, 1.0000]]])
-    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+    clipped_grads = grad * _get_clipped_gradient_coeff(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -149,5 +151,5 @@ def test_get_clipped_gradients_4D():
     grad = torch.Tensor([[[[1.], [1.]], [[3.], [5.]]], [[[1.], [1.]], [[1.], [1.]]]])
     clipping_threshold = 1 / 3.
     expected = torch.Tensor([[[[0.5], [0.5]], [[1.5], [2.5]]], [[[1.0], [1.0]], [[1.0], [1.0]]]])
-    clipped_grads = _get_clipped_gradients(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
+    clipped_grads = grad * _get_clipped_gradient_coeff(weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
