@@ -774,7 +774,6 @@ class Trainer:
         self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
         self.state.callbacks = list(cast(List[Callback], loggers)) + self.state.callbacks
 
-        # Setup saving after loading from ``load_path`` as we require ``self.state.timer``
         self._checkpoint_saver = None
         if save_folder is not None:
             self._checkpoint_saver = CheckpointSaver(

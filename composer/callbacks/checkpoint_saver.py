@@ -302,8 +302,6 @@ class CheckpointSaver(Callback):
         del state  # unused
         folder = format_name_with_dist(self.folder, logger.run_name)
         os.makedirs(folder, exist_ok=True)
-        # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
-        dist.barrier()
 
     def fit_start(self, state: State, logger: Logger) -> None:
         # Verify safety with self.overwrite. Note that this has to be done at fit_start as opposed to init since it requires state.timer
@@ -311,6 +309,8 @@ class CheckpointSaver(Callback):
         if not self.overwrite:
             folder = format_name_with_dist(self.folder, logger.run_name)
             ensure_folder_has_no_conflicting_files(folder, self.filename, state.timer.get_timestamp())
+        # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
+        dist.barrier()
         if state.is_model_deepspeed:
             if self.weights_only:
                 NotImplementedError(
