@@ -251,7 +251,10 @@ class AugMix(Algorithm):
         self._transformed_datasets = weakref.WeakSet()
 
     def match(self, event: Event, state: State) -> bool:
-        return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
+        if event != Event.FIT_START:
+            return False
+        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        return state.dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         am = AugmentAndMixTransform(severity=self.severity,
@@ -259,7 +262,8 @@ class AugMix(Algorithm):
                                     width=self.width,
                                     alpha=self.alpha,
                                     augmentation_set=self.augmentation_set)
-        dataset = state.train_dataloader.dataset
+        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        dataset = state.dataloader.dataset
         if not isinstance(dataset, VisionDataset):
             raise TypeError(
                 textwrap.dedent(f"""\

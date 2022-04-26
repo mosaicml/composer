@@ -6,7 +6,7 @@ Adds a channel-wise attention operator in CNNs. Attention coefficients are produ
 
 | ![Squeeze-Excite](https://storage.googleapis.com/docs.mosaicml.com/images/methods/squeeze-and-excitation.png) |
 |:--|
-| *After an activation tensor **X** is passed through Conv2d **F**<sub>tr</sub> to yield a new tensor **U**, a Squeeze-and-Excitation (SE) module scales the channels in a data-dependent manner. The scales are produced by a single-hidden-layer fully-connected network whose input is the global-averaged-pooled **U**. This can be seen as a channel-wise attention mechanism.* |
+| *After an activation tensor **X** is passed through Conv2d **F**<sub>tr</sub> to yield a new tensor **U**, a Squeeze-and-Excitation (SE) module scales the channels in a data-dependent manner. The scales are produced by a single-hidden-layer, fully-connected network whose input is the global-averaged-pooled **U**. This can be seen as a channel-wise attention mechanism.* |
 
 ## How to Use
 
@@ -15,19 +15,21 @@ Adds a channel-wise attention operator in CNNs. Attention coefficients are produ
 ```python
 # Run the Squeze-and-Excitation algorithm directly on the model using the Composer functional API
 
-import composer.functional as cf
 import torch
 import torch.nn.functional as F
+import composer.functional as cf
 
 def training_loop(model, train_loader):
     opt = torch.optim.Adam(model.parameters())
 
     # only need to pass in opt if apply_squeeze_excite is used after
     # optimizer creation; otherwise only the model needs to be passed in
-    cf.apply_squeeze_excite(model,
-                            optimizers=opt,
-                            min_channels=128,
-                            latent_channels=64)
+    cf.apply_squeeze_excite(
+        model,
+        optimizers=opt,
+        min_channels=128,
+        latent_channels=64
+    )
 
     loss_fn = F.cross_entropy
     model.train()
@@ -51,11 +53,18 @@ from composer.algorithms import SqueezeExcite
 from composer.trainer import Trainer
 
 def train_model(model, train_dataloader):
-    algo = SqueezeExcite(min_channels=128, latent_channels=64)
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      max_duration='10ep',
-                      algorithms=[algo])
+    algo = SqueezeExcite(
+        min_channels=128,
+        latent_channels=64
+    )
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='10ep',
+        algorithms=[algo]
+    )
+
     trainer.fit()
 ```
 
@@ -63,15 +72,15 @@ def train_model(model, train_dataloader):
 
 In order to be architecture-agnostic, our implementation applies the SE attention mechanism after individual Conv2d modules, rather than at particular points in particular networks. This results in more SE modules being present than in the original paper.
 
-Our implementation also allows applying the SE module after only certain Conv2d modules based on their channel count (see hyperparameter discussion).
+Our implementation also allows applying the SE module after only certain Conv2d modules based on their channel count (see the hyperparameter discussion).
 
 
 ## Suggested Hyperparameters
 
 Squeeze-Excite has two hyperparameters:
 
-- `latent_channels` - Number of channels to use in the hidden layer of the MLP that computes channel attention coefficients
-- `min_channels` - The minimum number of output channels in a Conv2d for an SE module to be added afterward
+- `latent_channels` - The number of channels to use in the hidden layer of the MLP that computes channel attention coefficients
+- `min_channels` - The minimum number of output channels in a Conv2d required for an SE module to be added afterward
 
 We recommend setting `latent_channels` to a value such that the minimimum channel count in any layer will be at least 64. One can accomplish this either by 1) directly setting `latent_channels=64` or more, or 2) by setting `latent_channels=r` and `min_channels=int(64/r)` or more, for some `r > 0`.
 

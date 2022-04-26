@@ -13,7 +13,7 @@ from composer.algorithms import ScaleScheduleHparams
 from composer.core.precision import Precision
 from composer.datasets.hparams import SyntheticHparamsMixin
 from composer.trainer.devices import CPUDeviceHparams
-from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
+from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
 
 modeldir_path = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')
 model_names = glob.glob(os.path.join(modeldir_path, '*.yaml'))
@@ -78,11 +78,18 @@ def test_load(model_name: str):
     trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
 
     assert trainer_hparams.train_dataset is not None
-    configure_dataset_for_synthetic(trainer_hparams.train_dataset, model_hparams=trainer_hparams.model)
+    configure_dataset_hparams_for_synthetic(trainer_hparams.train_dataset, model_hparams=trainer_hparams.model)
     trainer_hparams.train_subset_num_batches = 1
 
-    assert trainer_hparams.val_dataset is not None
-    configure_dataset_for_synthetic(trainer_hparams.val_dataset)
+    # Only one of val_dataset or evaluators should be set
+    assert trainer_hparams.val_dataset is not None or trainer_hparams.evaluators is not None
+    assert trainer_hparams.val_dataset is None or trainer_hparams.evaluators is None
+    if trainer_hparams.evaluators is not None:
+        for evaluator in trainer_hparams.evaluators:
+            configure_dataset_hparams_for_synthetic(evaluator.eval_dataset)
+    if trainer_hparams.val_dataset is not None:
+        configure_dataset_hparams_for_synthetic(trainer_hparams.val_dataset)
+
     trainer_hparams.eval_subset_num_batches = 1
 
     trainer_hparams.dataloader.num_workers = 0
@@ -90,7 +97,7 @@ def test_load(model_name: str):
     trainer_hparams.dataloader.prefetch_factor = 2
     trainer_hparams.dataloader.persistent_workers = False
 
-    configure_model_for_synthetic(trainer_hparams.model)
+    configure_model_hparams_for_synthetic(trainer_hparams.model)
 
     trainer_hparams.device = CPUDeviceHparams()
     my_trainer = trainer_hparams.initialize_object()
