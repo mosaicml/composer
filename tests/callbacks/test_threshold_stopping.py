@@ -1,8 +1,9 @@
+from torch.utils.data import DataLoader
+
 from composer import Trainer
+from composer.callbacks.threshold_stopping import ThresholdStopper
 from tests.common import SimpleModel
 from tests.common.datasets import RandomClassificationDataset
-from torch.utils.data import DataLoader
-from composer.callbacks.threshold_stopping import ThresholdStopper
 
 
 def test_threshold_stops():
