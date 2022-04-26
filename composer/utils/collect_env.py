@@ -12,18 +12,29 @@ The following information is additionally collected to faciliate Comopser specif
 * Number of accelerators per node
 * Accelerator model name
 
-This package can be invoked as a standalone console script or by by overriding the default
-:func:`sys.excepthook` behavior using the :func:`configure_excepthook` helper function.
+This package can be invoked as a standalone console script or can be invoked from within
+an application to gather and generate a system environment report.
 
-To invoke standalone:
+The module can be invoked by using the entrypoint alias:
 
 .. code-block::
 
     composer_collect_env
 
+Or manually as a standalone script:
+
+.. code-block::
+
+    python composer/utils/collect_env.py
+
+To generate a system report from within a user application see :func:`print_env`.
+
+A custom excepthook wrapper is also provided which extends the default :func:`sys.excepthook`
+to automatically collect system information when an exception is raised.
+
 To override the default :func:`sys.excepthook` see :func:`configure_excepthook`.
 
-To restore the default :func:`sys.__excepthook__` see :func:`restore_excepthook`.
+To restore the default :func:`sys.excepthook` see :func:`restore_excepthook`.
 """
 
 import sys
@@ -33,7 +44,7 @@ from typing import NamedTuple
 import cpuinfo
 import psutil
 
-__all__ = ['configure_excepthook', 'restore_excepthook']
+__all__ = ["configure_excepthook", "print_env", "restore_excepthook"]
 
 # Check if PyTorch is installed
 try:
@@ -111,7 +122,7 @@ def _excepthook_wrapper(type, value, tb) -> None:
 def configure_excepthook() -> None:
     """Collect and print system information when :func:`sys.excepthook` is called.
 
-    To override the default :func:`sys.excepthook`:
+    To override the default :func:`sys.excepthook` with the custom except hook:
 
     .. testsetup::
 
@@ -152,6 +163,7 @@ def get_torch_env() -> str:
     """Query Torch system environment via :mod:`torch.utils.collect_env`."""
     return torchenv.get_pretty_env_info()
 
+
 # Composer environment information string output format
 composer_env_info_fmt = """
 Composer version: {composer_version}
@@ -161,6 +173,7 @@ Host processor core count: {host_processor_core_count}
 Accelerators per node: {accelerators_per_node}
 Accelerator model name: {accelerator_model_name}
 """.strip()
+
 
 # Get Composer environment info
 def get_composer_env() -> str:
@@ -180,7 +193,21 @@ def get_composer_env() -> str:
 
 # Generate and print environment report
 def print_env() -> None:
-    """Print system information report."""
+    """Generate system information report.
+
+    Example:
+
+    .. testsetup::
+
+        from composer.utils import print_env
+
+    .. doctest::
+
+        >>> print_env()
+        ---------------------------------
+        System Environment Report
+        ...
+    """
 
     # Creation timestamp for report
     creation_time = time.strftime('%Y-%m-%d %H:%M:%S %Z', time.localtime(time.time()))
