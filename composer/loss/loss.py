@@ -1,4 +1,6 @@
-# Custom loss functions.
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+"""Custom loss functions."""
 
 from __future__ import annotations
 

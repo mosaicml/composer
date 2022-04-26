@@ -1,4 +1,6 @@
-# A collection of custom loss functions and loss function related utilities.
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+"""A collection of custom loss functions and loss function related utilities."""
 
 from composer.loss.loss import bce as bce
 from composer.loss.loss import loss_registry as loss_registry
