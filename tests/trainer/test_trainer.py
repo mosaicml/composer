@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 
 from composer import Trainer
-from composer.algorithms import CutOut, LabelSmoothing, LayerFreezing
+from composer.algorithms import CutOut, LabelSmoothing, algorithm_registry
 from composer.callbacks import CheckpointSaver, LRMonitor
 from composer.core.callback import Callback
 from composer.core.evaluator import Evaluator
@@ -26,9 +26,10 @@ from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices.device import Device
-from composer.trainer.trainer_hparams import algorithms_registry, callback_registry, logger_registry
+from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import MissingConditionalImportError, dist
 from composer.utils.object_store import ObjectStoreHparams
+from tests.algorithms.algorithm_settings import get_settings
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 from tests.common.events import EventCounterCallback
@@ -687,35 +688,6 @@ class TestTrainerAssets:
     #       with the above configuration. The fixtures below filter and
     #       create the objects to test.
 
-    @pytest.fixture(params=algorithms_registry.items(), ids=tuple(algorithms_registry.keys()))
-    def algorithm(self, request):
-
-        name, hparams = request.param
-        skip_list = {
-            'swa': 'SWA not compatible with composed schedulers.',
-            'alibi': 'Not compatible with conv model.',
-            'seq_length_warmup': 'Not compatible with conv model.',
-            'randaugment': 'Requires PIL dataset to test.',
-            'augmix': 'Required PIL dataset to test.',
-            'stochastic_depth': 'Only applies to ResNets.',
-            'no_op_model': 'Not compatible with this model.'
-        }
-
-        # skip any tests incompatible with this config
-        if name in skip_list:
-            pytest.skip(skip_list[name])
-        elif name in ('cutmix, mixup, label_smoothing'):
-            # see: https://github.com/mosaicml/composer/issues/362
-            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
-
-        # create the algorithms
-        if name in ('cutmix'):  # these algos have required hparams
-            algorithm = hparams(num_classes=2).initialize_object()
-        else:
-            algorithm = hparams().initialize_object()
-
-        return algorithm
-
     @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
     def callback(self, request):
         _, hparams = request.param
@@ -764,11 +736,6 @@ class TestTrainerAssets:
     Tests that training completes.
     """
 
-    def test_algorithms(self, config, algorithm):
-        config['algorithms'] = [algorithm]
-        trainer = Trainer(**config)
-        trainer.fit()
-
     def test_callbacks(self, config, callback):
         config['callbacks'] = [callback]
         trainer = Trainer(**config)
@@ -785,13 +752,6 @@ class TestTrainerAssets:
     idempotency (e.g functionally)
     """
 
-    def test_algorithms_multiple_calls(self, config, algorithm):
-        if isinstance(algorithm, LayerFreezing):
-            pytest.xfail("Known idempotency issue.")
-        config['algorithms'] = [algorithm]
-        trainer = Trainer(**config)
-        self._test_multiple_fits(trainer)
-
     def test_callbacks_multiple_calls(self, config, callback):
         config['callbacks'] = [callback]
         trainer = Trainer(**config)
@@ -807,6 +767,34 @@ class TestTrainerAssets:
     def _test_multiple_fits(self, trainer):
         trainer.fit()
         trainer.state.max_duration *= 2
+        trainer.fit()
+
+
+class TestTrainerAlgorithms:
+
+    @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
+    @pytest.mark.timeout(5)
+    @device('gpu')
+    def test_algorithm_trains(self, name, rank_zero_seed, device):
+        if name in ('no_op_model', 'scale_schedule'):
+            pytest.skip('stub algorithms')
+
+        if name in ('cutmix, mixup, label_smoothing'):
+            # see: https://github.com/mosaicml/composer/issues/362
+            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
+
+        setting = get_settings(name)
+        if setting is None:
+            pytest.skip('No setting provided in algorithm_settings.')
+
+        trainer = Trainer(
+            model=setting['model'],
+            train_dataloader=DataLoader(dataset=setting['dataset'], batch_size=4),
+            max_duration='2ep',
+            loggers=[],
+            seed=rank_zero_seed,
+            device=device,
+        )
         trainer.fit()
 
 
