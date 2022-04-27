@@ -63,8 +63,9 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
 
 
 def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path], filename: str, timestamp: Timestamp):
-    """Ensure that the given folder does not have any files conflicting with the ``filename`` format string. If any filename is formatted with a timestamp where the epoch, batch, sample, or token counts are after ``timestamp``, a ``FileExistsError`` will be raised.
-    ``filename`` and occurs later than ``timestamp``, raise a ``FileExistsError``.
+    """Ensure that the given folder does not have any files conflicting with the ``filename`` format string. If any
+    filename is formatted with a timestamp where the epoch, batch, sample, or token counts are after ``timestamp``, a
+    ``FileExistsError`` will be raised. ``filename`` and occurs later than ``timestamp``, raise a ``FileExistsError``.
 
     Args:
         folder_name (str | pathlib.Path): The folder to inspect.
@@ -76,15 +77,19 @@ def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path]
     """
     # Prepare regex pattern by replacing f-string formatting with regex.
     pattern = f"^{filename}$"
-    rank_names = ["{rank}", "{local_rank}", "{world_size}", "{local_world}", "{node_rank}"]
-    for rank_name in rank_names:
-        pattern = pattern.replace(rank_name, "\\d+")
-
+    # Format time vars for capture
     time_names = ["epoch", "batch", "sample", "token", "batch_in_epoch", "sample_in_epoch", "token_in_epoch"]
     captured_names = {time_name: f"{{{time_name}}}" in filename for time_name in time_names}
     for time_name, is_captured in captured_names.items():
         if is_captured:
             pattern = pattern.replace(f"{{{time_name}}}", f"(?P<{time_name}>\\d+)")
+    # Format rank information
+    pattern = pattern.format(rank=dist.get_global_rank(),
+                             local_rank=dist.get_local_rank(),
+                             world_size=dist.get_world_size(),
+                             local_world_size=dist.get_local_world_size(),
+                             node_rank=dist.get_node_rank())
+
     template = re.compile(pattern)
 
     for file in os.listdir(folder_name):

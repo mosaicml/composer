@@ -5,7 +5,7 @@ import pathlib
 
 import pytest
 
-from composer.core.time import Time, Timestamp
+from composer.core.time import Time, Timestamp, TimeUnit
 from composer.utils.file_helpers import (GetFileNotFoundException, ensure_folder_has_no_conflicting_files,
                                          ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
                                          get_file, is_tar)
@@ -186,84 +186,73 @@ def test_ensure_folder_is_empty(tmpdir: pathlib.Path):
     ensure_folder_is_empty(tmpdir)
 
 
-def test_ensure_folder_has_no_conflicting_files(tmpdir: pathlib.Path):
-    timestamp = Timestamp(2, 7, 1, 15, 3, 31, 7)
-    run_name = "blazing-unicorn"
-    filename = f"{run_name}-ep{{epoch}}-batch{{batch}}-tie{{token_in_epoch}}-rank{{rank}}.pt"
+@pytest.mark.parametrize(
+    "filename,new_file,success",
+    [
+        [
+            "blazing-unicorn-ep{epoch}-batch{batch}-tie{token_in_epoch}-rank{rank}.pt",
+            "blazing-unicorn-ep1-batch3-tie6-rank0.pt", True
+        ],  # Ignore timestamps in past
+        [
+            "blazing-unicorn-ep{epoch}-batch{batch}-tie{token_in_epoch}-rank{rank}.pt",
+            "blazing-unicorn-ep2-batch6-tie7-rank0.pt", True
+        ],  # Ignore timestamps in with same time as current
+        [
+            "blazing-unicorn-ep{epoch}-batch{batch}-tie{token_in_epoch}-rank{rank}.pt",
+            "blazing-unicorn-ep1-batch6-tie9-rank0.pt", True
+        ],  # Ignore timestamps with earlier epochs but later samples in epoch
+        [
+            "blazing-unicorn-ep{epoch}-batch{batch}-tie{token_in_epoch}-rank{rank}.pt",
+            "inglorious-monkeys-ep1-batch3-tie6-rank0.pt", True
+        ],  # Ignore timestamps of different runs
+        [
+            "blazing-unicorn-ep{epoch}-batch{batch}-tie{token_in_epoch}-rank{rank}.pt", "blazing-unicorn-ep3-rank0.pt",
+            True
+        ],  # Ignore timestamps with same run name but different format
+        [
+            "blazing-unicorn-ep{epoch}-batch{batch}-tie{token_in_epoch}-rank{rank}.pt",
+            "blazing-unicorn-ep3-batch9-tie6-rank0.pt", False
+        ],  # Error if in future
+        [
+            "blazing-unicorn-ep{epoch}-batch{batch}-tie{token_in_epoch}-rank{rank}.pt",
+            "blazing-unicorn-ep3-batch9-tie6-rank0.pt", False
+        ],  # Error if in future with different rank
+        [
+            "blazing-unicorn-ep{epoch}-batch{batch}-tie{token_in_epoch}-rank{rank}.pt",
+            "blazing-unicorn-ep1-batch9-tie6-rank0.pt", False
+        ],  # Error if in future for batches but not epochs
+        [
+            "blazing-unicorn-ep{epoch}-batch{batch}-tie{token_in_epoch}-rank{rank}.pt",
+            "blazing-unicorn-ep2-batch7-tie9-rank0.pt", False
+        ],  # Error if in same epoch but later in sample in epoch
+        [
+            "charging-chungus-ep{epoch}-b{batch}-s{sample}-t{token}-bie{batch_in_epoch}-sie{sample_in_epoch}-tie{token_in_epoch}.pt",
+            "charging-chungus-ep1-b3-s6-t12-bie0-sie0-tie0.pt", True
+        ],  # Ignore timestamps in past
+        [
+            "charging-chungus-ep{epoch}-b{batch}-s{sample}-t{token}-bie{batch_in_epoch}-sie{sample_in_epoch}-tie{token_in_epoch}.pt",
+            "charging-chungus-ep2-b7-s15-t31-bie1-sie3-tie8.pt", False
+        ],  # Error if in future
+    ],
+)
+def test_ensure_folder_has_no_conflicting_files(
+    tmpdir: pathlib.Path,
+    filename: str,
+    new_file: str,
+    success: bool,
+):
+    timestamp = Timestamp(epoch=Time(2, TimeUnit.EPOCH),
+                          batch=Time(7, TimeUnit.BATCH),
+                          batch_in_epoch=Time(1, TimeUnit.BATCH),
+                          sample=Time(15, TimeUnit.SAMPLE),
+                          sample_in_epoch=Time(3, TimeUnit.SAMPLE),
+                          token=Time(31, TimeUnit.TOKEN),
+                          token_in_epoch=Time(7, TimeUnit.TOKEN))
 
-    # Ignore empty folder
-    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-
-    # Ignore timestamps in past
-    with open(os.path.join(tmpdir, f'{run_name}-ep1-batch3-tie6-rank0.pt'), 'w') as f:
+    with open(os.path.join(tmpdir, new_file), 'w') as f:
         f.write("hello")
-    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-
-    # Ignore timestamps in with same time as current
-    with open(os.path.join(tmpdir, f'{run_name}-ep2-batch6-tie7-rank0.pt'), 'w') as f:
-        f.write("hello")
-    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-
-    # Ignore timestamps with earlier epochs but later samples in epoch
-    with open(os.path.join(tmpdir, f'{run_name}-ep1-batch6-tie9-rank0.pt'), 'w') as f:
-        f.write("hello")
-    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-
-    # Ignore timestamps of different runs
-    with open(os.path.join(tmpdir, f'inglorious-monkeys-ep1-batch3-tie6-rank0.pt'), 'w') as f:
-        f.write("hello")
-    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-
-    # Ignore timestamps with same run name but different format
-    with open(os.path.join(tmpdir, f'{run_name}-ep3-rank0.pt'), 'w') as f:
-        f.write("hello")
-    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-
-    # Error if in future
-    error_filename = os.path.join(tmpdir, f'{run_name}-ep3-batch9-tie6-rank0.pt')
-    with open(error_filename, 'w') as f:
-        f.write("hello")
-    with pytest.raises(FileExistsError):
+    if success:
         ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-    os.remove(error_filename)
-
-    # Error if in future with different rank
-    error_filename = os.path.join(tmpdir, f'{run_name}-ep3-batch9-tie6-rank1.pt')
-    with open(error_filename, 'w') as f:
-        f.write("hello")
-    with pytest.raises(FileExistsError):
-        ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-    os.remove(error_filename)
-
-    # Error if in future for batches but not epochs
-    error_filename = os.path.join(tmpdir, f'{run_name}-ep1-batch9-tie6-rank0.pt')
-    with open(error_filename, 'w') as f:
-        f.write("hello")
-    with pytest.raises(FileExistsError):
-        ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-    os.remove(error_filename)
-
-    # Error if in same epoch but later in sample in epoch
-    error_filename = os.path.join(tmpdir, f'{run_name}-ep2-batch7-tie9-rank0.pt')
-    with open(error_filename, 'w') as f:
-        f.write("hello")
-    with pytest.raises(FileExistsError):
-        ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-    os.remove(error_filename)
-
-    # Test with all params
-    run_name = "charging-chungus"
-    filename = f"{run_name}-ep{{epoch}}-b{{batch}}-s{{sample}}-t{{token}}-bie{{batch_in_epoch}}-sie{{sample_in_epoch}}-tie{{token_in_epoch}}.pt"
-
-    # Ignore timestamps in past
-    with open(os.path.join(tmpdir, f'{run_name}-ep1-b3-s6-t12-bie0-sie0-tie0.pt'), 'w') as f:
-        f.write("hello")
-    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-
-    # Error if in future
-    error_filename = os.path.join(tmpdir, f'{run_name}-ep2-b7-s15-t31-bie1-sie3-tie8.pt')
-    with open(error_filename, 'w') as f:
-        f.write("hello")
-    with pytest.raises(FileExistsError):
-        ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
-    os.remove(error_filename)
+    else:
+        with pytest.raises(FileExistsError):
+            ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
