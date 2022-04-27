@@ -145,7 +145,7 @@ def _exc_report(exc_type) -> None:
     # Don't print exception report for KeyboardInterrupt
     if not issubclass(exc_type, KeyboardInterrupt):
         if issubclass(exc_type, AssertionError):
-            EXCEPTION_SEV_MSG = f"Smells like a Composer bug.\n"
+            EXCEPTION_SEV_MSG = f"This is a Composer bug. Please submit a bug report.\n"
         elif issubclass(exc_type, RuntimeError):
             EXCEPTION_SEV_MSG = f"This could be due to user error but is most likely a Composer bug.\n"
         elif issubclass(exc_type, ValueError) or issubclass(exc_type, TypeError):
