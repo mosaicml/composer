@@ -100,6 +100,7 @@ from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_dd
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils.exception_helpers import print_traceback_before_cleanup
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store import ObjectStore
 
@@ -976,10 +977,9 @@ class Trainer:
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
-        try:
+        # Print any exception, so it can be caputred by any callbacks or loggers (e.g. WandB, FileLogger)
+        with print_traceback_before_cleanup(cleanup=self.engine.close):
             self._train_loop()
-        finally:
-            self.engine.close()
 
     def _ensure_metrics_device_and_dtype(self, metrics: MetricCollection):
         # Safety check to ensure the metric and data are on the same device. Normally not

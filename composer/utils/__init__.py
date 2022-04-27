@@ -2,6 +2,7 @@
 
 """Helper utilities."""
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils.exception_helpers import print_traceback_before_cleanup
 from composer.utils.file_helpers import (ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
                                          get_file, is_tar)
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
@@ -25,4 +26,5 @@ __all__ = [
     'format_name_with_dist',
     'format_name_with_dist_and_time',
     'is_tar',
+    'print_traceback_before_cleanup',
 ]

@@ -5,10 +5,12 @@ import pathlib
 import sys
 
 import pytest
+from torch.utils.data import DataLoader
 
-from composer import Event, State
-from composer.loggers import FileLoggerHparams, Logger, LogLevel
-from composer.loggers.logger_destination import LoggerDestination
+from composer import Callback, Event, State, Trainer
+from composer.loggers import FileLogger, FileLoggerHparams, Logger, LoggerDestination, LogLevel
+from tests.common.datasets import RandomClassificationDataset
+from tests.common.models import SimpleModel
 
 
 class FileArtifactLoggerTracker(LoggerDestination):
@@ -122,3 +124,33 @@ def test_file_logger_capture_stdout_stderr(dummy_state: State, tmpdir: pathlib.P
             '[stderr]: Hello, stderr!\n',
             '[stderr]: Extra Line2\n',
         ]
+
+
+class ExceptionRaisingCallback(Callback):
+
+    def fit_start(self, state: State, logger: Logger) -> None:
+        del state, logger  # unused
+        raise RuntimeError("My Exception!")
+
+
+def test_exceptions_are_printed(tmpdir: pathlib.Path):
+    # Test that exceptions are printed to stderr, which is captured by the file logger
+    # The file logger stops capturing stdout/stderr when it is closed
+    # Here, we construct a trainer that raises an exception on Event.FIT_START
+    # and assert that the exception is written to the logfile
+    exception_raising_callback = ExceptionRaisingCallback()
+    logfile_name = str(tmpdir / "logfile.txt")
+    file_logger = FileLogger(filename=logfile_name, capture_stderr=True)
+    dataloader = DataLoader(RandomClassificationDataset())
+    model = SimpleModel()
+    trainer = Trainer(model=model,
+                      train_dataloader=dataloader,
+                      max_duration=1,
+                      callbacks=[exception_raising_callback],
+                      loggers=[file_logger])
+    with pytest.raises(RuntimeError):
+        trainer.fit()
+
+    with open(logfile_name, "r") as f:
+        log_lines = f.readlines()
+        assert "[stderr]: RuntimeError: My Exception!\n" == log_lines[-1]

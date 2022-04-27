@@ -143,6 +143,9 @@ class FileLogger(LoggerDestination):
         self._original_stdout_write = sys.stdout.write
         self._original_stderr_write = sys.stderr.write
         self._run_name = None
+        # Track whether the next line is on a newline
+        # (and if so, then the prefix should be appended)
+        self._is_newline = True
 
         if capture_stdout:
             sys.stdout.write = self._get_new_writer("[stdout]: ", self._original_stdout_write)
@@ -215,6 +218,7 @@ class FileLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         del state  # unused
+        self._is_newline = True
         self._run_name = logger.run_name
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
@@ -253,11 +257,21 @@ class FileLogger(LoggerDestination):
         """
         formatted_lines = []
         for line in s.splitlines(True):
-            if line == os.linesep:
-                # If it's an empty line, don't print the prefix
-                formatted_lines.append(line)
+            if self._is_newline:
+                # Only print the prefix if it is a newline
+                # and the line is not empty
+                if line == os.linesep:
+                    formatted_lines.append(line)
+                else:
+                    formatted_lines.append(f"{prefix}{line}")
+                self._is_newline = False
             else:
-                formatted_lines.append(f"{prefix}{line}")
+                # Otherwise, append the line without the prefix
+                formatted_lines.append(line)
+            if line.endswith(os.linesep):
+                # if the line ends with newline, record that the next
+                # line should start with the prefix
+                self._is_newline = True
         formatted_s = ''.join(formatted_lines)
         if self.file is None:
             self._queue.put_nowait(formatted_s)
