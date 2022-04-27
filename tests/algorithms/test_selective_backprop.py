@@ -11,12 +11,7 @@ from composer.algorithms.selective_backprop.selective_backprop import select_usi
 from composer.core import Event
 from composer.core.state import State
 from composer.loggers import Logger
-from composer.models import ComposerClassifier, BERTHparams, GPT2Hparams
-from tests.utils import synthetic_utils
-from tests.datasets import test_synthetic_lm_data
-from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
-import transformers
-
+from composer.models import ComposerClassifier
 
 @pytest.fixture
 def N() -> int:
@@ -136,34 +131,6 @@ def epoch() -> int:
 def batch() -> int:
     """Default batch."""
     return 0
-
-lm_dataset_configs = test_synthetic_lm_data.generate_parameter_configs( ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'])
-
-def make_dataset(config: Dict):
-    dataset = synthetic_hf_dataset_builder(num_samples=config['num_samples'],
-                                        chars_per_sample=config['chars_per_sample'],
-                                        column_names=config['column_names'])
-    tokenizer = generate_synthetic_tokenizer(config['tokenizer_family'], dataset)
-    max_length = config['chars_per_sample'] * 2
-    dataset = dataset.map(lambda inp: tokenizer(
-    text=inp[config['column_names'][0]], padding="max_length", max_length=max_length, truncation=True),
-                        batched=True,
-                        num_proc=1,
-                        keep_in_memory=True)
-    return dataset, tokenizer
-
-def make_dummy_lm(model_name: str, tokenizer):
-    pytest.importorskip("transformers")
-    if model_name == 'gpt2':
-        class_name = GPT2Hparams
-    elif model_name == 'bert':
-        class_name = BERTHparams
-    model_config = synthetic_utils.generate_dummy_model_config(class_name, tokenizer)
-    if model_name == 'gpt2':
-        model = transformers.GPT2Model(transformers.GPT2Config.from_dict(model_config))
-    elif model_name == 'bert':
-        model = transformers.BertModel(transformers.BertConfig.from_dict(model_config))
-    return model
 
 @pytest.fixture
 def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:
