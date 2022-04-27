@@ -297,14 +297,8 @@ def save_checkpoint(state: State,
                     filename: str = "ep{epoch}-ba{batch}-rank{rank}",
                     *,
                     weights_only: bool = False) -> List[pathlib.Path]:
-    temp = state.state_dict()
-    # if "WandBLogger" in [x for x in temp['callbacks'].keys()]:
-    #     temp["callbacks"]["WandBLogger"]["project"] = 0
-    #     temp["callbacks"]["WandBLogger"]["entity"] = 0
-    #     temp["callbacks"]["WandBLogger"]["group"] = 0
-    print(temp)
     state_dict = {
-        'state': temp,
+        'state': state.state_dict(),
         'rng': reproducibility.get_rng_state(),
     }
     if weights_only and not state.is_model_deepspeed:

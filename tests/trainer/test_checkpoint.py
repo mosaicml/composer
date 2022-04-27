@@ -296,54 +296,6 @@ def test_checkpoint_with_object_store_logger(
     )
 
 
-pytest.mark.timeout(90)
-
-
-def test_checkpoint_with_wandb_logger(composer_trainer_hparams: TrainerHparams,):
-    """Train model while logging to Wandb.
-
-    Load model from Wandb and ensure it's the same.
-    """
-    # Train model and log to object store
-    composer_trainer_hparams.loggers = [WandBLoggerHparams(log_artifacts=True, rank_zero_only=False, project="mosaic-ml", name="test", group="group", entity="entity")]
-    composer_trainer_hparams.max_duration = "2ep"
-    checkpoint_a_folder = "first"
-    composer_trainer_hparams.save_folder = checkpoint_a_folder
-    composer_trainer_hparams.save_filename = "ep{epoch}.pt"
-    composer_trainer_hparams.save_interval = "1ep"
-    composer_trainer_hparams.seed = None
-    composer_trainer_hparams.validate_every_n_batches = 1
-    composer_trainer_hparams.validate_every_n_epochs = 0
-    run_name = "electric-zebra"
-    composer_trainer_hparams.run_name = run_name
-    artifact_name = f"{run_name}/checkpoints/ep2-ba6-rank" + "{rank}"
-
-    final_checkpoint = "ep2.pt"
-    trainer = composer_trainer_hparams.initialize_object()
-    trainer.fit()
-
-    # Load model weights using object store logger
-    checkpoint_a_file_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]
-    dist.broadcast_object_list(checkpoint_a_file_path)
-    composer_trainer_hparams.load_path = checkpoint_a_file_path[0]
-
-    # Note: Why does the test fail here?? Issue with loading checkpoint when using callback...
-    composer_trainer_hparams.save_overwrite = True
-    trainer2 = composer_trainer_hparams.initialize_object()
-
-    # second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
-    # second_trainer_hparams.load_path = artifact_name
-    # second_trainer_hparams.load_logger_destination = WandBLoggerHparams(log_artifacts=True)
-    # second_trainer_hparams.load_weights_only = True
-    # second_trainer_hparams.load_strict_model_weights = True
-
-    # assert_weights_equivalent(
-    #     original_trainer_hparams=composer_trainer_hparams,
-    #     new_trainer_hparams=second_trainer_hparams,
-    #     overwrite_load_path=False,
-    # )
-
-
 @pytest.mark.timeout(180)
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
