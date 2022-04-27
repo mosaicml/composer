@@ -148,9 +148,26 @@ def test_exceptions_are_printed(tmpdir: pathlib.Path):
                       max_duration=1,
                       callbacks=[exception_raising_callback],
                       loggers=[file_logger])
-    with pytest.raises(RuntimeError):
+    # manually calling `sys.excepthook` for the exception, as it is impossible to write a test
+    # that validates unhandled exceptions are logged, since the test validation code would by definition
+    # need to handle the exception!
+    try:
         trainer.fit()
+    except RuntimeError:
+        exc_type, exc_value, tb = sys.exc_info()
+        assert exc_type is not None
+        assert exc_value is not None
+        assert tb is not None
+        sys.excepthook(exc_type, exc_value, tb)
+
+    trainer.close()
 
     with open(logfile_name, "r") as f:
         log_lines = f.readlines()
         assert "[stderr]: RuntimeError: My Exception!\n" == log_lines[-1]
+
+    # Since the trainer was closed, future prints should not appear in the file logger
+    print("SHOULD NOT BE CAPTURED")
+    with open(logfile_name, "r") as f:
+        logfile = f.read()
+        assert "SHOULD NOT BE CAPTURED" not in logfile
