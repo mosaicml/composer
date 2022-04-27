@@ -117,12 +117,12 @@ def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipp
 
     # Compute and clamp grad and weight norms.
     w_norm = _unitwise_norm(weights)
-    grad_norm = _unitwise_norm(grad).clamp_(min=1e-6)
+    grad_norm = _unitwise_norm(grad)
 
     # Gradients whose norms are greater than weight_norm * clipping_threhsold are
     # scaled down by (weight_norm * clipping_threhsold) / grad_norm.
     max_norm = w_norm.mul_(clipping_threshold)
-    clipped_grad_coeff = max_norm.div_(grad_norm).clamp_(max=1.0)
+    clipped_grad_coeff = max_norm.div_(grad_norm).nan_to_num_(nan=1.0).clamp_(max=1.0)
 
     return clipped_grad_coeff
 
