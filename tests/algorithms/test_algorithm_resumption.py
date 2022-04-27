@@ -15,7 +15,7 @@ from tests.common import deep_compare, device
 
 
 @pytest.mark.timeout(180)
-@device('gpu')
+@device('cpu')
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
     [
@@ -89,6 +89,14 @@ def test_algorithm_resumption(
         file2=os.path.join(folder2, final_checkpoint.format(rank=0)),
     )
 
+    # check that different epoch checkpoints are _not_ equal
+    # this ensures that the model weights are being updated
+    with pytest.raises(AssertionError):
+        _assert_model_weights_equal(
+            file1=os.path.join(folder1, save_filename.format(epoch=1, rank=0)),
+            file2=os.path.join(folder1, final_checkpoint.format(rank=0)),
+        )
+
 
 def _assert_checkpoints_equal(file1, file2):
     checkpoint1 = torch.load(file1)
@@ -99,3 +107,10 @@ def _assert_checkpoints_equal(file1, file2):
 
     # compare state
     deep_compare(checkpoint1['state'], checkpoint2['state'])
+
+
+def _assert_model_weights_equal(file1, file2):
+    checkpoint1 = torch.load(file1)
+    checkpoint2 = torch.load(file2)
+
+    deep_compare(checkpoint1['state']['model'], checkpoint2['state']['model'])
