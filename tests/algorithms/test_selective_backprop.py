@@ -1,6 +1,7 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 from typing import Callable
+
 import pytest
 import torch
 
@@ -11,6 +12,7 @@ from composer.core import Event
 from composer.core.state import State
 from composer.loggers import Logger
 from composer.models import ComposerClassifier
+
 
 @pytest.fixture
 def N() -> int:
@@ -130,6 +132,7 @@ def epoch() -> int:
 def batch() -> int:
     """Default batch."""
     return 0
+
 
 @pytest.fixture
 def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:
