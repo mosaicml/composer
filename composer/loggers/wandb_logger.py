@@ -101,7 +101,6 @@ class WandBLogger(LoggerDestination):
             group = self._init_params.get("group", None)
             self._init_params["name"] = f"{name} [RANK_{dist.get_global_rank()}]"
             self._init_params["group"] = group if group else name
-
         if self._enabled:
             wandb.init(**self._init_params)
 
@@ -123,12 +122,10 @@ class WandBLogger(LoggerDestination):
                 warnings.warn(("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
                                f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
 
-            if self._enabled and self._log_artifacts:
-                import wandb
-                extension = new_artifact_name.split(".")[-1]
-                artifact = wandb.Artifact(name=new_artifact_name, type=extension)
-                artifact.add_file(os.path.abspath(file_path))
-                wandb.log_artifact(artifact, aliases=aliases)
+            extension = new_artifact_name.split(".")[-1]
+            artifact = wandb.Artifact(name=new_artifact_name, type=extension)
+            artifact.add_file(os.path.abspath(file_path))
+            wandb.log_artifact(artifact, aliases=aliases)
 
     def post_close(self) -> None:
         import wandb

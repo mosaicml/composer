@@ -21,11 +21,13 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit
 from composer.datasets import DatasetHparams, SyntheticHparamsMixin
+from composer.loggers import ObjectStoreLoggerHparams
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import dist, is_tar
+from composer.utils.object_store import ObjectStoreHparams
 from tests.common import (EventCounterCallback, EventCounterCallbackHparams, assert_state_equivalent,
                           configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic, deep_compare)
 
@@ -51,18 +53,20 @@ class DummyStatefulCallbackHparams(CallbackHparams):
         return DummyStatefulCallback()
 
 
-def assert_weights_equivalent(original_trainer_hparams: TrainerHparams, new_trainer_hparams: TrainerHparams) -> None:
+def assert_weights_equivalent(original_trainer_hparams: TrainerHparams,
+                              new_trainer_hparams: TrainerHparams,
+                              overwrite_load_path=True) -> None:
     """
     Strategy: get the weights from a new trainer
     Then assert that they are equivalent to the weights from the original model.
     """
 
     # load_weights_only is False since the original Trainer is testing full checkpoint recovery
-    original_trainer_hparams.load_path = new_trainer_hparams.load_path
+    if overwrite_load_path:
+        original_trainer_hparams.load_path = new_trainer_hparams.load_path
     original_trainer_hparams.load_weights_only = False
     original_trainer_hparams.load_strict_model_weights = False
     original_trainer_hparams.save_overwrite = True
-
     original_trainer = original_trainer_hparams.initialize_object()
     original_weights = original_trainer.state.model.parameters()
 
@@ -173,7 +177,6 @@ def test_load_weights(
     composer_trainer_hparams.precision = Precision.FP32
     composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
     composer_trainer_hparams.train_subset_num_batches = 5
-    composer_trainer_hparams.device = device_hparams
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
     composer_trainer_hparams.save_filename = "ep{epoch}.pt"
@@ -293,6 +296,86 @@ def test_save_overwrite(
     final_trainer_hparams.load_path = final_checkpoint_path[0]
     trainer = final_trainer_hparams.initialize_object()
     trainer.fit()
+
+
+pytest.mark.timeout(90)
+
+
+def test_checkpoint_with_object_store_logger(
+    composer_trainer_hparams: TrainerHparams,
+    tmpdir: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    use_procs: bool = False,
+):
+    """Train model while logging to object store.
+
+    Load model from object store and ensure it's the same.
+    """
+    # Train model and log to object store
+    remote_dir = str(tmpdir / "object_store")
+    os.makedirs(remote_dir, exist_ok=True)
+    monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
+    provider = "local"
+    container = "."
+    object_store_hparams = ObjectStoreHparams(
+        provider=provider,
+        container=container,
+        key_environ="OBJECT_STORE_KEY",
+    )
+    object_store_logger_hparams = ObjectStoreLoggerHparams(
+        object_store_hparams=object_store_hparams,
+        num_concurrent_uploads=1,
+        use_procs=use_procs,
+    )
+    composer_trainer_hparams.loggers = [object_store_logger_hparams]
+    composer_trainer_hparams.max_duration = "2ep"
+    checkpoint_a_folder = "first"
+    composer_trainer_hparams.save_folder = checkpoint_a_folder
+    composer_trainer_hparams.save_filename = "ep{epoch}.pt"
+    composer_trainer_hparams.save_interval = "1ep"
+    composer_trainer_hparams.seed = None
+    composer_trainer_hparams.validate_every_n_batches = 1
+    composer_trainer_hparams.validate_every_n_epochs = 0
+    run_name = "electric-zebra"
+    composer_trainer_hparams.run_name = run_name
+    artifact_name = f"{run_name}/checkpoints/ep2-ba6-rank" + "{rank}"
+
+    final_checkpoint = "ep2.pt"
+    trainer = composer_trainer_hparams.initialize_object()
+    trainer.fit()
+
+    # Load model weights using object store
+    checkpoint_a_file_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]
+    dist.broadcast_object_list(checkpoint_a_file_path)
+    composer_trainer_hparams.load_path = checkpoint_a_file_path[0]
+
+    second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
+    second_trainer_hparams.load_path = artifact_name
+    second_trainer_hparams.load_object_store = object_store_hparams
+    second_trainer_hparams.load_weights_only = True
+    second_trainer_hparams.load_strict_model_weights = True
+
+    assert_weights_equivalent(
+        original_trainer_hparams=composer_trainer_hparams,
+        new_trainer_hparams=second_trainer_hparams,
+        overwrite_load_path=False,
+    )
+
+    # Load model weights using object store logger
+    checkpoint_a_file_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]
+    dist.broadcast_object_list(checkpoint_a_file_path)
+
+    second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
+    second_trainer_hparams.load_path = artifact_name
+    second_trainer_hparams.load_logger_destination = object_store_logger_hparams
+    second_trainer_hparams.load_weights_only = True
+    second_trainer_hparams.load_strict_model_weights = True
+
+    assert_weights_equivalent(
+        original_trainer_hparams=composer_trainer_hparams,
+        new_trainer_hparams=second_trainer_hparams,
+        overwrite_load_path=False,
+    )
 
 
 @pytest.mark.timeout(180)

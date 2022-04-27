@@ -185,6 +185,8 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
         load_path (str, optional): See :class:`.Trainer`.
         load_object_store (ObjectStore, optional): See :class:`.Trainer`.
+        load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for
+            ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -205,7 +207,9 @@ class TrainerHparams(hp.Hparams):
             to the trainer for the ``deepspeed_config`` parameter signaling that DeepSpeed will not be used
             for training.
         prof_schedule (ProfileScheduleHparams, optional): Profile schedule hparams. Must be specified to enable the profiler.
-        prof_trace_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.        prof_skip_first (int, optional): See :class:`.Trainer`.        prof_wait (int, optional): See :class:`.Trainer`.
+        prof_trace_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.
+        prof_skip_first (int, optional): See :class:`.Trainer`.
+        prof_wait (int, optional): See :class:`.Trainer`.
 
         sys_prof_cpu (bool, optional): See :class:`.Trainer`.
         sys_prof_memory (bool, optional): See :class:`.Trainer`.
@@ -340,6 +344,12 @@ class TrainerHparams(hp.Hparams):
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
         leave blank. This parameter has no effect if `load_path` is not specified."""),
                                                                   default=None)
+    load_logger_destination: Optional[LoggerDestinationHparams] = hp.optional(doc=textwrap.dedent("""\
+        Alternative argument to `load_object_store` to support loading from a logger destination. This parameter
+        has no effect if `load_path` is not specified or `load_object_store` is specified, which will be
+        used instead of this.
+        """),
+                                                                              default=None)
     load_weights_only: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to only load the weights from the model.
         This parameter has no effect if `load_path`is not specified."""),
@@ -553,6 +563,12 @@ class TrainerHparams(hp.Hparams):
 
         deepspeed_config = self.deepspeed if self.deepspeed is not None else False
 
+        load_object_store = None
+        if self.load_object_store is not None:
+            load_object_store = self.load_object_store.initialize_object()
+        elif self.load_logger_destination is not None:
+            load_object_store = self.load_logger_destination.initialize_object()
+
         trainer = Trainer(
             model=model,
             train_dataloader=train_data,
@@ -619,7 +635,7 @@ class TrainerHparams(hp.Hparams):
 
             # Checkpoint parameters
             load_path=self.load_path,
-            load_object_store=None if self.load_object_store is None else self.load_object_store.initialize_object(),
+            load_object_store=load_object_store,
             load_weights_only=self.load_weights_only,
             load_strict=self.load_strict_model_weights,
             load_chunk_size=self.load_chunk_size,
