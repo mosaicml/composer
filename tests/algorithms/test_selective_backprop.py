@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Callable, Dict
-
+from typing import Callable
 import pytest
 import torch
 
