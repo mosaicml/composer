@@ -32,10 +32,7 @@ except ImportError:
 if TYPE_CHECKING:
     from typing import Protocol
 
-__all__ = [
-    "Batch", "PyTorchScheduler", "JSON", "MemoryFormat",
-    "DataLoader", "BreakEpochException"
-]
+__all__ = ["Batch", "PyTorchScheduler", "JSON", "MemoryFormat", "DataLoader", "BreakEpochException"]
 
 Batch = Any
 
