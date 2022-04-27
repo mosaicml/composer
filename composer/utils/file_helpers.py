@@ -63,7 +63,7 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
 
 
 def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path], filename: str, timestamp: Timestamp):
-    """Ensure that the given folder does not have any files conflicting with filename. If any file has same format as
+    """Ensure that the given folder does not have any files conflicting with the ``filename`` format string. If any filename is formatted with a timestamp where the epoch, batch, sample, or token counts are after ``timestamp``, a ``FileExistsError`` will be raised.
     ``filename`` and occurs later than ``timestamp``, raise a ``FileExistsError``.
 
     Args:
