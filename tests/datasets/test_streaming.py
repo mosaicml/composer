@@ -14,10 +14,10 @@ from composer.datasets.streaming import StreamingDataset, StreamingDatasetWriter
 
 
 def get_fake_samples_decoders(num_samples: int) -> List[Dict[str, bytes]]:
-    samples = [{"uid": f"{ix:06}".encode("utf-8"), "value": (3 * ix).to_bytes(4, "big")} for ix in range(num_samples)]
+    samples = [{"uid": f"{ix:06}".encode("utf-8"), "data": (3 * ix).to_bytes(4, "big")} for ix in range(num_samples)]
     decoders = {
         "uid": lambda uid_bytes: uid_bytes.decode("utf-8"),
-        "value": lambda value_bytes: int.from_bytes(value_bytes, "big")
+        "data": lambda data_bytes: int.from_bytes(data_bytes, "big")
     }
     return samples, decoders
 
@@ -27,7 +27,7 @@ def write_synthetic_streaming_dataset(samples: List[Dict[str, bytes]], shard_siz
     first_sample_fields = list(samples[0].keys())
     with StreamingDatasetWriter(dirname=tmpdir, fields=first_sample_fields,
                                 shard_size_limit=shard_size_limit) as writer:
-        writer.write_samples(objs=samples)
+        writer.write_samples(samples=samples)
     return tmpdir
 
 
@@ -72,14 +72,14 @@ def test_reader(share_remote_local: bool, shuffle: bool):
     shuffle_matches = 0
     for ix, sample in enumerate(dataset):
         uid = sample["uid"]
-        value = sample["value"]
+        data = sample["data"]
         expected_uid = f"{ix:06}"
-        expected_value = 3 * ix
+        expected_data = 3 * ix
         if shuffle:
             shuffle_matches += (expected_uid == uid)
         else:
             assert uid == expected_uid == uid, f"sample ix={ix} has uid={uid}, expected {expected_uid}"
-            assert value == expected_value, f"sample ix={ix} has value={value}, expected {expected_value}"
+            assert data == expected_data, f"sample ix={ix} has data={data}, expected {expected_data}"
 
     # If shuffling, there should be few matches
     # The probability of k matches in a random permutation is ~1/(e*(k!))

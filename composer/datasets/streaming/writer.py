@@ -9,18 +9,53 @@ from composer.datasets.streaming.format import (StreamingDatasetIndex, get_index
 
 
 class StreamingDatasetWriter(object):
-    """Writes StreamingDatasets."""
+    """
+    Used for writing StreamingDatasets from a list of samples.
+
+    Samples are expected to be of type: `Dict[str, bytes]`.
+
+    Given each sample, StreamingDatasetWriter only writes out the values for a subset of keys (`fields`) that are globally shared across the dataset.
+
+    StreamingDatasetWriter automatically shards the dataset such that each shard is of size <= `shard_size_limit` bytes.
+
+
+    Example:
+        samples = [
+            {
+                "uid": f"{ix:06}".encode("utf-8"),
+                "data": (3 * ix).to_bytes(4, "big"),
+                "unused": "blah".encode("utf-8"),
+            }
+            for ix in range(100)
+        ]
+        dirname = "dirname"
+        fields = ["uid", "data"]
+
+        # Write out StreamingDataset
+        with StreamingDatasetWriter(dirname=dirname, fields=fields, shard_size_limit=shard_size_limit) as writer:
+            writer.write_samples(samples=samples)
+
+        # Read StreamingDataset from wherever you stored it
+        remote = "remote"
+        local = "local"
+        decoders = {
+            "uid": lambda uid_bytes: uid_bytes.decode("utf-8"),
+            "data": lambda data_bytes: int.from_bytes(data_bytes, "big"),
+        }
+        dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
+
+
+    Args:
+        dirname (str): Directory to write shards to.
+        fields: (List[str]): The fields to save for each sample.
+        shard_size_limit (int): Maximum shard size in bytes. Default: `1 << 24`.
+    """
 
     def __init__(self, dirname: str, fields: List[str], shard_size_limit: int = 1 << 24) -> None:
-        """Initialize with the given output dirname.
-
-        Args:
-            dirname (str): Directory to write shards to.
-            fields: (list of str): The fields to save for each sample.
-            shard_size_limit (int, optional): Maximum shard size in bytes. Default: 1 << 24.
-        """
-        assert len(fields) == len(set(fields))
-        assert 1 <= shard_size_limit
+        if len(fields) != len(set(fields)):
+            raise ValueError(f"fields={fields} must be unique.")
+        if shard_size_limit <= 0:
+            raise ValueError(f"shard_size_limit={shard_size_limit} must be positive.")
 
         self.dirname = dirname
         self.fields = fields
@@ -37,8 +72,7 @@ class StreamingDatasetWriter(object):
 
     def _flush_shard(self) -> None:
         """Flush cached samples to a new dataset shard."""
-        if not self.samples_per_shard:
-            os.makedirs(self.dirname)
+        os.makedirs(self.dirname, exist_ok=True)
         shard = len(self.samples_per_shard)
         basename = get_shard_basename(shard)
         filename = os.path.join(self.dirname, basename)
@@ -52,7 +86,8 @@ class StreamingDatasetWriter(object):
 
     def _write_index(self) -> None:
         """Save dataset index file."""
-        assert not self.new_samples
+        if self.new_samples:
+            raise RuntimeError("Attempted to write index file while samples are still being processed.")
         filename = os.path.join(self.dirname, get_index_basename())
         ndarray_samples_per_shard = np.asarray(self.samples_per_shard, np.int64)
         ndarray_bytes_per_shard = np.asarray(self.bytes_per_shard, np.int64)
@@ -62,13 +97,13 @@ class StreamingDatasetWriter(object):
         with open(filename, 'xb') as out:
             index.dump(out)
 
-    def write_sample(self, obj: Dict[str, bytes]) -> None:
+    def write_sample(self, sample: Dict[str, bytes]) -> None:
         """Add a sample to the dataset.
 
         Args:
-            obj (dict): The new sample, whose keys must contain the fields to save (others ignored).
+            sample (Dict[str, bytes]): The new sample, whose keys must contain the fields to save (others ignored).
         """
-        data = sample_dict_to_bytes(obj, self.fields)
+        data = sample_dict_to_bytes(sample, self.fields)
         if self.shard_size_limit <= self.new_shard_size + len(data):
             self._flush_shard()
         self.bytes_per_sample.append(len(data))
@@ -76,20 +111,20 @@ class StreamingDatasetWriter(object):
         self.new_shard_size += len(data)
 
     def write_samples(self,
-                      objs: Iterable[Dict[str, bytes]],
+                      samples: Iterable[Dict[str, bytes]],
                       use_tqdm: bool = True,
                       total: Optional[int] = None) -> None:
         """Add the samples from the given iterable to the dataset.
 
         Args:
-            objs (iterable of dict): The new samples.
-            use_tqdm (bool): Whether to display a progress bar.
-            total (int, optional): Total samples for the progress bar (for when objs is a generator).
+            samples (Iterable[Dict[str, bytes]]): The new samples.
+            use_tqdm (bool): Whether to display a progress bar.  Default: ``True``.
+            total (int, optional): Total samples for the progress bar (for when samples is a generator).
         """
         if use_tqdm:
-            objs = tqdm(objs, leave=False, total=total)
-        for obj in objs:
-            self.write_sample(obj)
+            samples = tqdm(samples, leave=False, total=total)
+        for s in samples:
+            self.write_sample(s)
 
     def finish(self) -> None:
         """Complete writing the dataset by flushing last samples to a last shard, then write an index file."""
