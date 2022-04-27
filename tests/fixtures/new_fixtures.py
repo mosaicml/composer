@@ -22,9 +22,9 @@ def minimal_state(rank_zero_seed: int):
     return State(
         model=SimpleModel(),
         rank_zero_seed=rank_zero_seed,
-        train_dataloader=DataLoader(RandomClassificationDataset()),
-        evaluators=[],
         max_duration='100ep',
+        dataloader=DataLoader(RandomClassificationDataset()),
+        dataloader_label="train",
     )
 
 
@@ -41,11 +41,21 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture(autouse=True)
 def configure_dist(request: pytest.FixtureRequest):
-    # Configure dist globally, so individual tests that do not use the trainer
+    # Configure dist globally when the world size is greater than 1,
+    # so individual tests that do not use the trainer
     # do not need to worry about manually configuring dist.
+
+    if dist.get_world_size() == 1:
+        return
+
     backend = 'gloo' if request.node.get_closest_marker('gpu') is None else 'nccl'
     if not dist.is_initialized():
         dist.initialize_dist(backend, timeout=datetime.timedelta(seconds=300))
+    # Hold PyTest until all ranks have reached this barrier. Ensure that no rank starts
+    # any test before other ranks are ready to start it, which could be a cause of random timeouts
+    # (e.g. rank 1 starts the next test while rank 0 is finishing up the previous test).
+    # Fixtures are excluded from timeouts (see pyproject.toml)
+    dist.barrier()
 
 
 # Class-scoped temporary directory. That deletes itself. This is useful for e.g. not
