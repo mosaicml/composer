@@ -56,7 +56,7 @@ def apply_blurpool(model: torch.nn.Module,
             the correct model parameters.
 
     Returns:
-        :class:`torcn.nn.Module`: The modified model
+        The modified model
 
     Example:
         .. testcode::

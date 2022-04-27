@@ -51,7 +51,7 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
             [1 2 1]
 
     Returns:
-        :class:`torch.Tensor`: The blurred input
+        The blurred input
     """
     _, c, h, w = input.shape
     n_in_channels = c
