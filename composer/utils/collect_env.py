@@ -19,13 +19,13 @@ The module can be invoked by using the entrypoint alias:
 
 .. code-block::
 
-    composer_collect_env
+    $ composer_collect_env
 
 Or manually as a standalone script:
 
 .. code-block::
 
-    python composer/utils/collect_env.py
+    $ python composer/utils/collect_env.py
 
 To generate a system report from within a user application see :func:`print_env`.
 
@@ -39,7 +39,7 @@ To restore the default :func:`sys.excepthook` see :func:`restore_excepthook`.
 
 import sys
 import time
-from typing import NamedTuple
+from typing import NamedTuple, TextIO
 
 import cpuinfo
 import psutil
@@ -51,10 +51,11 @@ __all__ = ["configure_excepthook", "print_env", "restore_excepthook"]
 # Check if PyTorch is installed
 try:
     import torch.utils.collect_env as torchenv
+    from torch.cuda import device_count as cuda_device_count
     from torch.cuda import get_device_name as accel_device_name
     from torch.cuda import is_available as cuda_available
     TORCH_AVAILABLE = True
-except (ImportError, NameError, AttributeError, OSError):
+except (ImportError,):
     TORCH_AVAILABLE = False
 
 # Check if Composer is installed
@@ -62,7 +63,7 @@ try:
     import composer
     from composer.utils import dist
     COMPOSER_AVAILABLE = True
-except (ImportError, NameError, AttributeError, OSError):
+except (ImportError,):
     COMPOSER_AVAILABLE = False
 
 # Check if we're running in a notebook
@@ -76,31 +77,25 @@ if IPYTHON_AVAILABLE:
     get_ipython = import_object('IPython:get_ipython')
     nb = get_ipython()
 
-COMPOSER_OPEN_ISSUE_URL = "https://github.com/mosaicml/composer/issues/new/choose"
-EXCEPTION_MSG = f"If you believe this exception was raised due to a Composer bug, " + \
-                f"file a bug report at: {COMPOSER_OPEN_ISSUE_URL}\n" + \
-                f"Please include the following environment report:\n"
+# Place to keep track of the original excepthook
+_orig_excepthook = None
 
 
 # Same convention as Torch collect_env, create a namedtuple to track collected fields
 class ComposerEnv(NamedTuple):
     composer_version: str
-    number_of_nodes: int
+    node_world_size: int
     host_processor_model_name: str
     host_processor_core_count: int
-    accelerators_per_node: int
+    local_world_size: int
     accelerator_model_name: str
+    cuda_device_count: int
 
 
 # Helper functions to get Composer environment information
 def get_composer_version() -> str:
     """Query the Composer version."""
     return str(composer.__version__)
-
-
-def get_num_nodes() -> int:
-    """Query the number of nodes."""
-    return int(dist.get_world_size() / dist.get_local_world_size())
 
 
 def get_host_processor_name() -> str:
@@ -114,9 +109,9 @@ def get_host_processor_cores() -> int:
     return psutil.cpu_count(logical=False)
 
 
-def get_accel_per_node() -> int:
-    """Determine the number of accelerators per node."""
-    return dist.get_local_world_size() if cuda_available() else 0
+def get_node_world_size() -> int:
+    """Query the number of nodes."""
+    return int(dist.get_world_size() / dist.get_local_world_size())
 
 
 def get_accel_model_name() -> str:
@@ -124,32 +119,57 @@ def get_accel_model_name() -> str:
     return accel_device_name(None) if cuda_available() else "N/A"
 
 
+def get_local_world_size() -> int:
+    """Determine the number of accelerators per node."""
+    return dist.get_local_world_size() if cuda_available() else 0
+
+
+def get_cuda_device_count() -> int:
+    """Get the number of CUDA devices on the system."""
+    return cuda_device_count() if TORCH_AVAILABLE else 0
+
+
 # Exception message and environment report
+COMPOSER_OPEN_ISSUE_URL = "https://github.com/mosaicml/composer/issues/new/choose"
+
+
 def _exc_report(exc_type) -> None:
     """Produces exception report (exception message + environment report)
 
     Args:
         exc_type (Exception): Type of exception.
     """
+    EXCEPTION_MSG = f"Bugs can be reported at: {COMPOSER_OPEN_ISSUE_URL}\n" + \
+                    f"Please include details on how to reproduce the issue and attach the following environment report:\n"
 
     # Don't print exception report for KeyboardInterrupt
     if not issubclass(exc_type, KeyboardInterrupt):
-        print("\n-------------------\n" + EXCEPTION_MSG)
-        print_env()
+        if issubclass(exc_type, AssertionError):
+            EXCEPTION_SEV_MSG = f"Smells like a Composer bug.\n"
+        elif issubclass(exc_type, RuntimeError):
+            EXCEPTION_SEV_MSG = f"This could be due to user error but is most likely a Composer bug.\n"
+        elif issubclass(exc_type, ValueError) or issubclass(exc_type, TypeError):
+            EXCEPTION_SEV_MSG = f"This was most likely due to user error but please submit a bug report if you suspect a Composer issue.\n"
+        else:
+            EXCEPTION_SEV_MSG = f"If you would like support debugging, submit a bug report or reach out to us on our community channels.\n"
+
+        print("\n-------------------\n" + EXCEPTION_SEV_MSG + EXCEPTION_MSG, file=sys.stderr)
+        print_env(sys.stderr)
 
 
 # Excepthook wrapper, wraps default excepthook and prints env info
 def _custom_exception_handler(type, value, tb) -> None:
     """Custom exception wrapper for sys.excepthook."""
-    sys.__excepthook__(type, value, tb)
     _exc_report(exc_type=type)
+    assert _orig_excepthook
+    _orig_excepthook(type, value, tb)
 
 
 # Custom exception handler for IPython notebooks
 def _nb_custom_exception_handler(self, type, value, tb, tb_offset=None):
     """Custom exception handler for IPython."""
-    self.showtraceback((type, value, tb), tb_offset=tb_offset)  # standard IPython's printout
     _exc_report(exc_type=type)
+    self.showtraceback((type, value, tb), tb_offset=tb_offset)  # standard IPython's printout
 
 
 # Public function to register excethook wrapper
@@ -178,6 +198,9 @@ def configure_excepthook() -> None:
         # Set custom handler on Exception base class to apply to all exceptions
         nb.set_custom_exc((Exception,), _nb_custom_exception_handler)
     else:
+        # Save original excepthook and override
+        global _orig_excepthook
+        _orig_excepthook = sys.excepthook
         sys.excepthook = _custom_exception_handler
 
 
@@ -204,7 +227,11 @@ def restore_excepthook() -> None:
     if IPYTHON_AVAILABLE:
         nb.set_custom_exc((Exception,), nb.showtraceback)
     else:
-        sys.excepthook = sys.__excepthook__
+        global _orig_excepthook
+        assert _orig_excepthook, "Cannot restore original excepthook if configure_excepthook() has not been invoked."
+        # Restore original excepthook
+        sys.excepthook = _orig_excepthook
+        _orig_excepthook = None
 
 
 # Get Torch environment info
@@ -216,11 +243,12 @@ def get_torch_env() -> str:
 # Composer environment information string output format
 composer_env_info_fmt = """
 Composer version: {composer_version}
-Number of nodes: {number_of_nodes}
 Host processor model name: {host_processor_model_name}
 Host processor core count: {host_processor_core_count}
-Accelerators per node: {accelerators_per_node}
+Number of nodes: {node_world_size}
 Accelerator model name: {accelerator_model_name}
+Accelerators per node: {local_world_size}
+CUDA Device Count: {cuda_device_count}
 """.strip()
 
 
@@ -230,18 +258,19 @@ def get_composer_env() -> str:
 
     mutable_dict = ComposerEnv(
         composer_version=get_composer_version(),
-        number_of_nodes=get_num_nodes(),
         host_processor_model_name=get_host_processor_name(),
         host_processor_core_count=get_host_processor_cores(),
-        accelerators_per_node=get_accel_per_node(),
+        node_world_size=get_node_world_size(),
         accelerator_model_name=get_accel_model_name(),
+        local_world_size=get_local_world_size(),
+        cuda_device_count=get_cuda_device_count(),
     )._asdict()
 
     return composer_env_info_fmt.format(**mutable_dict)
 
 
 # Generate and print environment report
-def print_env() -> None:
+def print_env(file: TextIO = sys.stdout) -> None:
     """Generate system information report.
 
     Example:
@@ -256,6 +285,9 @@ def print_env() -> None:
         ---------------------------------
         System Environment Report
         ...
+
+    Args:
+        file (TextIO, optional): File handle, `sys.stdout` or `sys.stderr`. Defaults to `sys.stdout`.
     """
 
     # Creation timestamp for report
@@ -266,22 +298,22 @@ def print_env() -> None:
                  f"---------------------------------\n"
 
     # Torch section
-    print(report_hdr)
-    print("PyTorch information")
-    print("-------------------")
+    print(report_hdr, file=file)
+    print("PyTorch information", file=file)
+    print("-------------------", file=file)
     if TORCH_AVAILABLE:
         # Only print Torch system info if installed
-        print(get_torch_env() + "\n\n")
+        print(get_torch_env() + "\n\n", file=file)
     else:
-        print("Torch not installed")
+        print("Torch not installed", file=file)
 
-    print("Composer information")
-    print("--------------------")
+    print("Composer information", file=file)
+    print("--------------------", file=file)
     if COMPOSER_AVAILABLE:
         # Only print Composer system info if installed
-        print(get_composer_env() + "\n\n")
+        print(get_composer_env() + "\n\n", file=file)
     else:
-        print("Composer not installed")
+        print("Composer not installed", file=file)
 
 
 # Invoke as standalone CLI script

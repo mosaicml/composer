@@ -77,7 +77,6 @@ from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence
 import torch
 import torch.distributed
 import torch.utils.data
-from debugpy import configure
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
