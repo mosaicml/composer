@@ -130,20 +130,22 @@ def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipp
 def _unitwise_norm(tensor: torch.Tensor):
     """Implements unitwise norm as described in Brock et al, 2021.
 
-    For bias vectors (1D Tensors): normalize across entire vector.
-    For MLP Weight matrix (2D tensors): we normalize across rows (dim = 1)
-    For CNNs (4D Tensors): we normalize across the entire kernel (channel, height,
-         and width) -> dim = (1, 2, 3).
+    For 0D scalars of shape [], we trivially normalize with dim=0 which essentially returns the absolute value of the scalar.
+    For 1D *.bias weights of shape [out_features], we normalize across entire vector -> dim=0.
+    For 2D torch.nn.Linear weights of shape [out_features, in_features]: we normalize across in_features -> dim = 1
+    For 4D torch.nn.Conv2d weights [out_channels, in_channels, kernel_height, kernel_width]:
+        we normalize across [in_channels, kernel_height, kernel_width] -> dim = (1, 2, 3).
+    If a 3D parameter were somehow in your model, we would normalize buy the last two dimensions -> dim = (1,2).
 
     Args:
         tensor (torch.Tensor): A parameter or gradient of the model.
 
     Returns:
-        The appropriate L2 norm of the parameter or gradient (norm of rows for 2D,
-        norm of 3D kernels for 4D tensor (last three dims)).
+        The appropriate L2 norm of the parameter or gradient as described above.
     """
+    # 0D for scalars, 1D for bias vectors.
     if tensor.ndim <= 1:
-        dim = None
+        dim = 0
         keepdim = False
     # 2D corresponds to MLPs and 4D corresponds to ConvNets.
     else:
