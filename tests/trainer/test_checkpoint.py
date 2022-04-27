@@ -305,7 +305,7 @@ def test_checkpoint_with_wandb_logger(composer_trainer_hparams: TrainerHparams,)
     Load model from Wandb and ensure it's the same.
     """
     # Train model and log to object store
-    composer_trainer_hparams.loggers = [WandBLoggerHparams(log_artifacts=True, rank_zero_only=False)]
+    composer_trainer_hparams.loggers = [WandBLoggerHparams(log_artifacts=True, rank_zero_only=False, project="mosaic-ml", name="test", group="group", entity="entity")]
     composer_trainer_hparams.max_duration = "2ep"
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder

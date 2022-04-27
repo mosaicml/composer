@@ -74,7 +74,6 @@ def load_checkpoint(
     chunk_size: int = 1_048_576,
     progress_bar: bool = True,
 ):
-    print("Load checkpoint", path, object_store)
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
     Args:
@@ -298,8 +297,14 @@ def save_checkpoint(state: State,
                     filename: str = "ep{epoch}-ba{batch}-rank{rank}",
                     *,
                     weights_only: bool = False) -> List[pathlib.Path]:
+    temp = state.state_dict()
+    # if "WandBLogger" in [x for x in temp['callbacks'].keys()]:
+    #     temp["callbacks"]["WandBLogger"]["project"] = 0
+    #     temp["callbacks"]["WandBLogger"]["entity"] = 0
+    #     temp["callbacks"]["WandBLogger"]["group"] = 0
+    print(temp)
     state_dict = {
-        'state': state.state_dict(),
+        'state': temp,
         'rng': reproducibility.get_rng_state(),
     }
     if weights_only and not state.is_model_deepspeed:

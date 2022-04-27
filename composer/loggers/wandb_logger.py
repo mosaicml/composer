@@ -101,7 +101,6 @@ class WandBLogger(LoggerDestination):
             group = self._init_params.get("group", None)
             self._init_params["name"] = f"{name} [RANK_{dist.get_global_rank()}]"
             self._init_params["group"] = group if group else name
-
         if self._enabled:
             wandb.init(**self._init_params)
 
@@ -146,7 +145,6 @@ class WandBLogger(LoggerDestination):
             warnings.warn(
                 ("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
                  f"The artifact with name '{artifact_name}' will be instead searched for as '{new_artifact_name}'."))
-        print("get wandb", new_artifact_name)
         artifact = wandb.use_artifact(new_artifact_name)
         artifact.download(root=destination)
 
