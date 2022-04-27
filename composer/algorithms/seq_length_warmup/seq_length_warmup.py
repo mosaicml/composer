@@ -7,6 +7,7 @@ from math import ceil
 from typing import Dict, Mapping, Optional
 
 import torch
+import torch.utils.data
 
 from composer.core import Algorithm, Event, State
 from composer.core.precision import get_precision_context
@@ -184,6 +185,8 @@ class SeqLengthWarmup(Algorithm):
             return
 
         assert state.dataloader is not None, "dataloader should be set on AFTER_DATALOADER"
+        if not isinstance(state.dataloader, torch.utils.data.DataLoader):
+            raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
         assert state.max_duration is not None, "max_duration should be set on AFTER_DATALOADER"
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.

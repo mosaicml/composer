@@ -1,12 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Tuple
+from typing import Iterable, Tuple
 from unittest.mock import MagicMock
 
 import pytest
 
 from composer.core import Callback, State
-from composer.core.types import DataLoader
 from composer.loggers import Logger
 from composer.trainer import Trainer
 from tests.common import SimpleModel
@@ -55,8 +54,8 @@ class MetricsCallback(Callback):
 @pytest.mark.parametrize('validate_every_n_batches', [-1, 1])
 @pytest.mark.parametrize('validate_every_n_epochs', [-1, 1])
 def test_current_metrics(
-    dummy_train_dataloader: DataLoader,
-    dummy_val_dataloader: DataLoader,
+    dummy_train_dataloader: Iterable,
+    dummy_val_dataloader: Iterable,
     dummy_num_classes: int,
     dummy_in_shape: Tuple[int, ...],
     compute_training_metrics: bool,
