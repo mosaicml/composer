@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Core automatic gradient clipping classes and functions."""
+"""Core adaptive gradient clipping classes and functions."""
 
 from __future__ import annotations
 
