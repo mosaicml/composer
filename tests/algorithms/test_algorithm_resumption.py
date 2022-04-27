@@ -47,7 +47,7 @@ def test_algorithm_resumption(
 
     setting = get_settings(algorithm)
     if setting is None:
-        pytest.skip('No setting provided in algorithm_settings.')
+        pytest.xfail('No setting provided in algorithm_settings.')
 
     folder1 = os.path.join(tmpdir, 'folder1')
     folder2 = os.path.join(tmpdir, 'folder2')
@@ -57,14 +57,11 @@ def test_algorithm_resumption(
         'model': setting['model'],
         'train_dataloader': DataLoader(dataset=setting['dataset'], batch_size=4),
         'max_duration': '5ep',
-        'loggers': [],
-        'seed': seed,
         'device': device,
-        'deterministic_mode': True,
         'save_filename': save_filename,
         'save_folder': folder1,
         'save_interval': save_interval,
-        'train_subset_num_batches': 5,
+        'train_subset_num_batches': 2,
     }
 
     # train model once, saving checkpoints every epoch
