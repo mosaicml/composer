@@ -93,7 +93,7 @@ def test_algorithm_resumption(
     # this ensures that the model weights are being updated
     with pytest.raises(AssertionError):
         _assert_model_weights_equal(
-            file1=os.path.join(folder1, save_filename.format(epoch=1, rank=0)),
+            file1=os.path.join(folder1, save_filename.format(epoch=4, rank=0)),
             file2=os.path.join(folder1, final_checkpoint.format(rank=0)),
         )
 
