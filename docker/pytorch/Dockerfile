@@ -3,7 +3,7 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS pytorch_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
-# remove a bad symlink from the base composer image
+# Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
 RUN rm -f /usr/local/cuda-11.3/cuda-11.3
@@ -146,11 +146,6 @@ ENV BASH_ENV=/etc/profile
 RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-
-WORKDIR /home/mosaicml
-
-USER mosaicml
-
 
 FROM pytorch_stage AS vision_stage
 ARG DEBIAN_FRONTEND=noninteractive
