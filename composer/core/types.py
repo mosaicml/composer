@@ -17,7 +17,7 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import torch
 import torch.utils.data
@@ -37,7 +37,7 @@ __all__ = [
     "DataLoader", "BreakEpochException"
 ]
 
-Batch = torch.Tensor
+Batch = Any
 
 Dataset = torch.utils.data.Dataset[Batch]
 
