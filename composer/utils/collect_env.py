@@ -29,12 +29,12 @@ Or manually as a standalone script:
 
 To generate a system report from within a user application see :func:`print_env`.
 
-A custom excepthook wrapper is also provided which extends the default :func:`sys.excepthook`
+A custom excepthook wrapper is also provided which extends the original :func:`sys.excepthook`
 to automatically collect system information when an exception is raised.
 
-To override the default :func:`sys.excepthook` see :func:`configure_excepthook`.
+To override the original :func:`sys.excepthook` see :func:`configure_excepthook`.
 
-To restore the default :func:`sys.excepthook` see :func:`restore_excepthook`.
+To restore the original :func:`sys.excepthook` see :func:`restore_excepthook`.
 """
 
 import sys
@@ -206,11 +206,11 @@ def configure_excepthook() -> None:
 
 # Public function to restore original excepthook
 def restore_excepthook() -> None:
-    """Restore default :func:`sys.excepthook` behavior.
+    """Restore original default :func:`sys.excepthook`.
 
     Checks if user is running in an IPython notebook and restores the exception handler accordingly.
 
-    To restore the default :func:`sys.__excepthook__`:
+    To restore the original :func:`sys.excepthook`:
 
     .. testsetup::
 
