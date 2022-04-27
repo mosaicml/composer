@@ -186,7 +186,7 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
         load_path (str, optional): See :class:`.Trainer`.
         load_object_store (ObjectStore, optional): See :class:`.Trainer`.
-        load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for 
+        load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for
             ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
@@ -208,8 +208,8 @@ class TrainerHparams(hp.Hparams):
             to the trainer for the ``deepspeed_config`` parameter signaling that DeepSpeed will not be used
             for training.
         prof_schedule (ProfileScheduleHparams, optional): Profile schedule hparams. Must be specified to enable the profiler.
-        prof_trace_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.        
-        prof_skip_first (int, optional): See :class:`.Trainer`.        
+        prof_trace_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.
+        prof_skip_first (int, optional): See :class:`.Trainer`.
         prof_wait (int, optional): See :class:`.Trainer`.
 
         sys_prof_cpu (bool, optional): See :class:`.Trainer`.
