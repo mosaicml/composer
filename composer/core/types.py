@@ -17,7 +17,7 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Union
 
 import torch
 import torch.utils.data
@@ -33,15 +33,11 @@ if TYPE_CHECKING:
     from typing import Protocol
 
 __all__ = [
-    "Batch", "BatchPair", "BatchDict", "PyTorchScheduler", "JSON", "MemoryFormat",
+    "Batch", "PyTorchScheduler", "JSON", "MemoryFormat",
     "DataLoader", "BreakEpochException"
 ]
 
-# For BatchPar, if it is a list, then it should always be of length 2.
-# Pytorch's default collate_fn returns a list even when the dataset returns a tuple.
-BatchPair = Sequence[Union[torch.Tensor, Sequence[torch.Tensor]]]
-BatchDict = Dict[str, torch.Tensor]
-Batch = Union[BatchPair, BatchDict, torch.Tensor]
+Batch = torch.Tensor
 
 Dataset = torch.utils.data.Dataset[Batch]
 
