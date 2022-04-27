@@ -126,7 +126,8 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 ])
                 dtype = np.float16
             else:
-                image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=224 / 256)])
+                ratio = self.crop_size / self.resize_size if self.resize_size > 0 else 1.0
+                image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=ratio)])
                 dtype = np.float32
             # Common transforms for train and test
             image_pipeline.extend([
