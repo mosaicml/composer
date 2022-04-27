@@ -10,7 +10,6 @@ import os
 import textwrap
 import warnings
 from dataclasses import dataclass
-from optparse import Option
 from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
 import yahp as hp

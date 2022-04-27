@@ -262,13 +262,11 @@ def get_file(
         GetFileNotFoundException: If the ``path`` does not exist, a ``GetFileNotFoundException`` exception will
             be raised.
     """
-    print("Get", path, object_store)
     if object_store is not None:
         if isinstance(object_store, ObjectStore):
             # Type ObjectStore
             try:
                 total_size_in_bytes = object_store.get_object_size(path)
-                print(total_size_in_bytes)
             except Exception as e:
                 if "ObjectDoesNotExistError" in str(e):
                     raise GetFileNotFoundException(
