@@ -215,19 +215,24 @@ class StreamingDatasetIndex(object):
             min_id (int): The lowest sample ID of this partition.
             max_id (int): The highest sample ID of this partition.
         """
-        device_min_id = self.total_samples * world.global_device // world.global_num_devices
-        device_max_id = self.total_samples * (world.global_device + 1) // world.global_num_devices - 1
+
+        global_device = world.global_device
+        global_num_devices = world.global_num_devices
+        device_worker = world.device_worker
+        device_num_workers = world.device_num_workers
+
+        device_min_id = self.total_samples * global_device // global_num_devices
+        device_max_id = self.total_samples * (global_device + 1) // global_num_devices - 1
         device_samples = device_max_id - device_min_id + 1
 
-        w_of_d = world.worker_of_device
-        w_per_d = world.workers_per_device
         if not batch_size:
-            worker_min_id = device_min_id + device_samples * w_of_d // w_per_d
-            worker_max_id = device_min_id + device_samples * (w_of_d + 1) // w_per_d - 1
+            worker_min_id = device_min_id + device_samples * device_worker // device_num_workers
+            worker_max_id = device_min_id + device_samples * (device_worker + 1) // device_num_workers - 1
         else:
             device_batches = math.ceil(device_samples / batch_size)
-            worker_min_id = device_min_id + (device_batches * w_of_d // w_per_d) * batch_size
-            worker_max_id = device_min_id + (device_batches * (w_of_d + 1) // w_per_d) * batch_size - 1
+            worker_min_id = device_min_id + (device_batches * device_worker // device_num_workers) * batch_size
+            worker_max_id = device_min_id + (device_batches *
+                                             (device_worker + 1) // device_num_workers) * batch_size - 1
             # Last batch may be incomplete.
             worker_max_id = min(device_max_id, worker_max_id)
 

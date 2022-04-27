@@ -1,82 +1,78 @@
+from dataclasses import dataclass
+
 from torch.utils.data import get_worker_info
 
 from composer.utils import dist
 
+__all__ = ["World", "get_world"]
 
-class World(object):
-    """Context about workers, devices, and nodes. Useful for dividing work.
 
-    Fields:
-      - node / num_nodes
+@dataclass
+class World:
+    """A dataclass that provides context about workers, devices, and nodes."""
+    node: int
+    num_nodes: int
 
-      - global_device / global_num_devices
-      - device_of_node / devices_per_node
+    global_device: int
+    global_num_devices: int
 
-      - global_worker / global_num_workers
-      - worker_of_node / workers_per_node
-      - worker_of_device / workers_per_device
-    """
+    node_device: int
+    node_num_devices: int
 
-    def __init__(self, global_worker: int, num_nodes: int, devices_per_node: int, workers_per_device: int) -> None:
-        """Initialize with enough information to populate fields.
+    global_worker: int
+    global_num_workers: int
 
-        Args:
-            global_worker (int): Global worker ID (across devices and nodes).
-            num_nodes (int): Global number of nodes in this training job.
-            devices_per_node (int): Number of devices on each node.
-            workers_per_device (int): Number of workers per each device.
-        """
-        workers_per_node = workers_per_device * devices_per_node
-        global_num_devices = devices_per_node * num_nodes
-        global_num_workers = workers_per_node * num_nodes
+    node_worker: int
+    node_num_workers: int
 
-        worker_of_node = global_worker % workers_per_node
-        worker_of_device = global_worker % workers_per_device
+    device_worker: int
+    device_num_workers: int
 
-        global_device = global_worker // workers_per_device
-        device_of_node = global_device % devices_per_node
 
-        node = global_device // devices_per_node
+def get_world() -> World:
+    """Returns a World object, initialized using composer.dist and torch.utils.data.get_worker_info()."""
 
-        self.node = node
-        self.num_nodes = num_nodes
+    # Node and Device info
+    node = dist.get_node_rank()
+    global_device = dist.get_global_rank()
+    global_num_devices = dist.get_world_size()
+    node_device = dist.get_global_rank()
+    node_num_devices = dist.get_local_world_size()
 
-        self.global_device = global_device
-        self.global_num_devices = global_num_devices
-        self.device_of_node = device_of_node
-        self.devices_per_node = devices_per_node
+    # TODO: to remove this block, composer.dist must provide 'num_nodes'
+    if global_num_devices % node_num_devices != 0:
+        raise RuntimeError(
+            f"Expected global_num_devices ({global_num_devices}) % node_num_devices ({node_num_devices}) == 0. Unable to determine 'num_nodes'."
+        )
+    num_nodes = global_num_devices // node_num_devices
 
-        self.global_worker = global_worker
-        self.global_num_workers = global_num_workers
-        self.worker_of_node = worker_of_node
-        self.workers_per_node = workers_per_node
-        self.worker_of_device = worker_of_device
-        self.workers_per_device = workers_per_device
+    # Worker info
+    # We assume every Device has the same number of Workers.
+    worker_info = get_worker_info()
+    if worker_info:
+        device_worker = worker_info.id
+        device_num_workers = worker_info.num_workers
+    else:
+        device_worker = 0
+        device_num_workers = 1
 
-    @classmethod
-    def from_env(cls):
-        """Initialize from environment and get_worker_info()."""
-        info = get_worker_info()
-        if info:
-            worker_of_device = info.id
-            workers_per_device = info.num_workers
-        else:
-            worker_of_device = 0
-            workers_per_device = 1
+    node_worker = node_device * device_num_workers + device_worker
+    node_num_workers = node_num_devices * device_num_workers
 
-        devices_per_node = dist.get_local_world_size()
-        workers_per_node = workers_per_device * devices_per_node
+    global_worker = global_device * device_num_workers + device_worker
+    global_num_workers = global_num_devices * device_num_workers
 
-        global_device = dist.get_global_rank()
-        device_of_node = global_device % devices_per_node
-        # worker_of_node = device_of_node * workers_per_device + worker_of_device
-
-        global_num_devices = dist.get_world_size()
-        assert not global_num_devices % devices_per_node
-        num_nodes = global_num_devices // devices_per_node
-        # global_num_workers = workers_per_device * global_num_devices
-
-        node = dist.get_node_rank()
-        global_worker = node * workers_per_node + device_of_node * workers_per_device + worker_of_device
-
-        return cls(global_worker, num_nodes, devices_per_node, workers_per_device)
+    return World(
+        node=node,
+        num_nodes=num_nodes,
+        global_device=global_device,
+        global_num_devices=global_num_devices,
+        node_device=node_device,
+        node_num_devices=node_num_devices,
+        global_worker=global_worker,
+        global_num_workers=global_num_workers,
+        node_worker=node_worker,
+        node_num_workers=node_num_workers,
+        device_worker=device_worker,
+        device_num_workers=device_num_workers,
+    )

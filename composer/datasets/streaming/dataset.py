@@ -14,7 +14,7 @@ from torchvision import transforms
 from composer.datasets.streaming.download import safe_download
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
                                                 get_shard_basename)
-from composer.datasets.streaming.world import World
+from composer.datasets.streaming.world import get_world
 from composer.utils import dist
 
 
@@ -171,7 +171,7 @@ class StreamingDataset(IterableDataset):
         """Load shards."""
         # We find out num workers, and therefore num partitions, when __iter__ is called.
         # From the partition, derive our shard overlap range and exact sample range.
-        world = World.from_env()
+        world = get_world()
         todo_shards, part_min_id, part_max_id = self.index.get_partition(world, self.batch_size)
 
         # Preload all of our shards that are already available in the cache.
