@@ -7,7 +7,7 @@ from __future__ import annotations
 import copy
 import itertools
 import logging
-from typing import Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 
@@ -118,6 +118,11 @@ class EMA(Algorithm):
         self.ema_model = None
         self.training_model = None
 
+        self.serialized_attributes = [
+            "ema_model",
+            "training_model",
+        ]
+
         # Check timestrings are parsable and convert into time object
         try:
             self.half_life = Time.from_timestring(half_life)
@@ -184,21 +189,40 @@ class EMA(Algorithm):
             # Swap out the ema model for the training model in state
             _copy_model(self.training_model, state.model)
 
+    def state_dict(self) -> Dict[str, ShadowModel]:
+        state_dict = {}
+        for attribute_name in self.serialized_attributes:
+            shadow_model = getattr(self, attribute_name)
+            state_dict[attribute_name] = {}
+            state_dict[attribute_name]["parameters"] = shadow_model.parameters()
+            state_dict[attribute_name]["buffers"] = shadow_model.buffers()
+        return state_dict
 
-def _copy_model(source_model, destination_model):
-    with torch.no_grad():
-        source_params = itertools.chain(source_model.parameters(), source_model.buffers())
-        destination_params = itertools.chain(destination_model.parameters(), destination_model.buffers())
+    def load_shadow_model(self, name, parameters: List, buffers: List):
+        shadow_model = ShadowModel(None)
+        shadow_model.param_list = parameters
+        shadow_model.buffer_list = buffers
+        setattr(self, name, shadow_model)
 
-        for source_param, destination_param in zip(source_params, destination_params):
-            destination_param.data = source_param.data
+    def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
+        for attribute_name, serialized_value in state.items():
+            self.load_shadow_model(attribute_name, serialized_value["parameters"], serialized_value["buffers"])
 
 
 class ShadowModel:
+    """A shadow model that tracks parameters and buffers from an original source model
 
-    def __init__(self, model):
-        self.param_list = copy.deepcopy(list(model.parameters()))
-        self.buffer_list = copy.deepcopy(list(model.buffers()))
+    Args:
+        model (torch.nn.Module): the source model containing the parameters and buffers to shadow.
+    """
+
+    def __init__(self, model: Union[None, torch.nn.Module]):
+        if model is not None:
+            self.param_list = copy.deepcopy(list(model.parameters()))
+            self.buffer_list = copy.deepcopy(list(model.buffers()))
+        else:
+            self.param_list = []
+            self.buffer_list = []
 
     def parameters(self):
         return self.param_list
@@ -208,3 +232,14 @@ class ShadowModel:
 
 
 T_Model = Union[torch.nn.Module, ShadowModel]
+
+
+def _copy_model(source_model: T_Model, destination_model: T_Model):
+    """Copies parameters and buffers from ``source_model`` to ``destination_model``
+    """
+    with torch.no_grad():
+        source_params = itertools.chain(source_model.parameters(), source_model.buffers())
+        destination_params = itertools.chain(destination_model.parameters(), destination_model.buffers())
+
+        for source_param, destination_param in zip(source_params, destination_params):
+            destination_param.data = source_param.data
