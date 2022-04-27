@@ -2,18 +2,22 @@
 
 """Helpers for working with files."""
 
+from __future__ import annotations
+
 import os
 import pathlib
-from typing import Iterator, Optional, Union
+from typing import TYPE_CHECKING, Iterator, Optional, Union
 
 import requests
 import tqdm
 
 from composer.core.time import Timestamp
-from composer.loggers import LoggerDestination
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
 from composer.utils.object_store import ObjectStore
+
+if TYPE_CHECKING:
+    from composer.loggers import LoggerDestination
 
 __all__ = [
     'GetFileNotFoundException',
@@ -260,13 +264,7 @@ def get_file(
     """
 
     if object_store is not None:
-        if isinstance(object_store, LoggerDestination):
-            # Type LoggerDestination
-            object_store.get_file_artifact(artifact_name=path,
-                                           destination=destination,
-                                           chunk_size=chunk_size,
-                                           progress_bar=progress_bar)
-        else:
+        if isinstance(object_store, ObjectStore):
             # Type ObjectStore
             try:
                 total_size_in_bytes = object_store.get_object_size(path)
@@ -282,7 +280,13 @@ def get_file(
                 progress_bar=progress_bar,
                 description=f"Downloading {path}",
             )
-            return
+        else:
+            # Type LoggerDestination
+            object_store.get_file_artifact(artifact_name=path,
+                                           destination=destination,
+                                           chunk_size=chunk_size,
+                                           progress_bar=progress_bar)
+        return
 
     if path.lower().startswith("http://") or path.lower().startswith("https://"):
         # it's a url

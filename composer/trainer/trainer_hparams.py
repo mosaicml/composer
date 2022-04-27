@@ -10,6 +10,7 @@ import os
 import textwrap
 import warnings
 from dataclasses import dataclass
+from optparse import Option
 from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
 import yahp as hp
@@ -335,12 +336,17 @@ class TrainerHparams(hp.Hparams):
         (if the checkpoint is on the local disk) or the object name for the checkpoint
         (if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint."""),
                                            default=None)
-    load_object_store: Optional[Union[ObjectStoreHparams,
-                                      LoggerDestinationHparams]] = hp.optional(doc=textwrap.dedent("""\
+    load_object_store: Optional[ObjectStoreHparams] = hp.optional(doc=textwrap.dedent("""\
         If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
         leave blank. This parameter has no effect if `load_path` is not specified."""),
-                                                                               default=None)
+                                                                  default=None)
+    load_logger_destination: Optional[LoggerDestinationHparams] = hp.optional(doc=textwrap.dedent("""\
+        Alternative argument to `load_object_store` to support loading from a logger destination. This parameter
+        has no effect if `load_path` is not specified or `load_object_store` is specified, which will be
+        used instead of this.
+        """),
+                                                                              default=None)
     load_weights_only: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to only load the weights from the model.
         This parameter has no effect if `load_path`is not specified."""),
@@ -554,6 +560,12 @@ class TrainerHparams(hp.Hparams):
 
         deepspeed_config = self.deepspeed if self.deepspeed is not None else False
 
+        load_object_store = None
+        if self.load_object_store is not None:
+            load_object_store = self.load_object_store.initialize_object()
+        elif self.load_logger_destination is not None:
+            load_object_store = self.load_logger_destination.initialize_object()
+
         trainer = Trainer(
             model=model,
             train_dataloader=train_data,
@@ -620,7 +632,7 @@ class TrainerHparams(hp.Hparams):
 
             # Checkpoint parameters
             load_path=self.load_path,
-            load_object_store=None if self.load_object_store is None else self.load_object_store.initialize_object(),
+            load_object_store=load_object_store,
             load_weights_only=self.load_weights_only,
             load_strict=self.load_strict_model_weights,
             load_chunk_size=self.load_chunk_size,

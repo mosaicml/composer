@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import torch
 
-from composer.loggers import LoggerDestination
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, GetFileNotFoundException,
                                          format_name_with_dist_and_time, get_file, is_tar)
@@ -24,6 +23,7 @@ from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.core.state import State
+    from composer.loggers import LoggerDestination
     from composer.loggers.logger import Logger
 
 log = logging.getLogger(__name__)
