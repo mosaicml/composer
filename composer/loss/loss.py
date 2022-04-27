@@ -1,4 +1,6 @@
-# Custom loss functions.
+# Copyright 2021 MosaicML. All Rights Reserved.
+
+"""Custom loss functions."""
 
 from __future__ import annotations
 
@@ -11,10 +13,10 @@ from torch.nn import functional as F
 
 from composer.loss.utils import ensure_targets_one_hot, infer_target_type
 
-__all__ = ["bce", "loss_registry", "soft_cross_entropy"]
+__all__ = ["binary_cross_entropy_with_logits", "loss_registry", "soft_cross_entropy"]
 
 
-def bce(
+def binary_cross_entropy_with_logits(
     input: Tensor,
     target: Tensor,
     weight: Optional[Tensor] = None,
@@ -67,10 +69,10 @@ def bce(
             (i.e. input.shape[0]). Default: ``True``.
     """
     target = ensure_targets_one_hot(input, target)
-    l = F.binary_cross_entropy_with_logits(input, target, weight, size_average, reduce, reduction, pos_weight)
+    bce = F.binary_cross_entropy_with_logits(input, target, weight, size_average, reduce, reduction, pos_weight)
     if scale_by_batch_size:
-        l /= torch.tensor(input.shape[0])
-    return l
+        bce /= torch.tensor(input.shape[0])
+    return bce
 
 
 def soft_cross_entropy(input: Tensor,
@@ -153,4 +155,7 @@ def soft_cross_entropy(input: Tensor,
         raise ValueError(f"Unrecognized target type {target_type}")
 
 
-loss_registry = {"bce": bce, "soft_cross_entropy": soft_cross_entropy}
+loss_registry = {
+    "binary_cross_entropy_with_logits": binary_cross_entropy_with_logits,
+    "soft_cross_entropy": soft_cross_entropy
+}

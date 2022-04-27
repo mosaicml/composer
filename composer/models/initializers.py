@@ -13,7 +13,7 @@ class Initializer(StringEnum):
     BN_UNIFORM = "bn_uniform"
     BN_ONES = "bn_ones"
     XAVIER_UNIFORM = "xavier_uniform"
-    LINEAR_BIAS_UNIFORM = "linear_uniform_bias"
+    LINEAR_LOG_CONSTANT_BIAS = "linear_log_constant_bias"
 
     def get_initializer(self) -> Callable[[torch.nn.Module], None]:
 
@@ -39,7 +39,7 @@ class Initializer(StringEnum):
                 w.weight.data = torch.rand(w.weight.data.shape)
                 w.bias.data = torch.zeros_like(w.bias.data)
 
-        def linear_uniform_bias(w: nn.Module):
+        def linear_log_constant_bias(w: nn.Module):
             if isinstance(w, torch.nn.Linear):
                 w.bias.data = torch.ones(w.bias.shape) * -torch.log(torch.tensor(w.bias.shape[0]))
 
@@ -49,7 +49,7 @@ class Initializer(StringEnum):
             "bn_uniform": bn_uniform,
             "bn_ones": bn_ones,
             "xavier_uniform": xavier_uniform,
-            "linear_uniform_bias": linear_uniform_bias
+            "linear_log_constant_bias": linear_log_constant_bias
         }
         if self.value not in initializer_dict:
             raise ValueError(f"Initializer '{self.value}' not found.")
