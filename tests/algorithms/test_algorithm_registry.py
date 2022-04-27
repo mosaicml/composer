@@ -14,8 +14,7 @@ from composer.core.algorithm import Algorithm
 
 default_required_fields = {
     AGCHparams: {
-        'clipping_threshold': 0.01,
-        'eps': 1e-3
+        'clipping_threshold': 0.01
     },
     AlibiHparams: {
         'position_embedding_attribute': 'module.transformer.wpe',

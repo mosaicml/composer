@@ -76,8 +76,7 @@ def test_agc_functional_with_cnn_does_not_error(cnn_model_with_grads):
     """
 
     model = cnn_model_with_grads
-    # Call apply_agc. If this function returns then we know that nothing errored out
-    # We can test accuratc
+    # Call apply_agc. If this function returns then we know that nothing errored out.
     cf.apply_agc(model)
 
 
@@ -110,19 +109,20 @@ def test_get_clipped_gradients_1D():
     weights = torch.Tensor([3., 4.])
     grad = torch.Tensor([7., 24.])
     clipping_threshold = 0.5
-    expected = torch.tensor([0.7, 2.4])
+    expected = torch.Tensor([0.7, 2.4])
     clipped_grads = grad * _get_clipped_gradient_coeff(
         weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
-def test_get_clipped_gradients_1D_with_zeros():
-    weights = torch.Tensor([0., 0.])
-    grad = torch.Tensor([0., 0.])
+@pytest.mark.parametrize('weights,grad,expected',
+                         [(torch.Tensor([0., 0.]), torch.Tensor([1., 1.]), torch.Tensor([0., 0.])),
+                          (torch.Tensor([1., 1.]), torch.Tensor([0., 0.]), torch.Tensor([0., 0.])),
+                          (torch.Tensor([0., 0.]), torch.Tensor([0., 0.]), torch.Tensor([0., 0.]))])
+def test_get_clipped_gradients_1D_with_zeros(weights: torch.Tensor, grad: torch.Tensor, expected: torch.Tensor):
     clipping_threshold = 1e-4
-    expected = torch.tensor([0., 0.])
     clipped_grads = grad * _get_clipped_gradient_coeff(
-        weights=weights, grad=grad, clipping_threshold=clipping_threshold, eps=1e-3)
+        weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)
 
 
@@ -130,7 +130,7 @@ def test_get_clipped_gradients_2D():
     weights = torch.Tensor([[3., 4.], [9., 40.]])
     grad = torch.Tensor([[7., 24.], [5., 12.]])
     clipping_threshold = 0.5
-    expected = torch.tensor([[0.7, 2.4], [5., 12.]])
+    expected = torch.Tensor([[0.7, 2.4], [5., 12.]])
     clipped_grads = grad * _get_clipped_gradient_coeff(
         weights=weights, grad=grad, clipping_threshold=clipping_threshold)
     assert torch.equal(clipped_grads, expected)

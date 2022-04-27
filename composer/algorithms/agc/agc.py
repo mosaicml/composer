@@ -20,7 +20,6 @@ __all__ = ["AGC", "apply_agc"]
 def apply_agc(
     model: torch.nn.Module,
     clipping_threshold: float = 0.01,
-    eps: float = 1e-3,
 ) -> None:
     """Clips all gradients in model based on ratio of gradient norms to parameter norms.
 
@@ -35,7 +34,6 @@ def apply_agc(
         model (torch.nn.Module): The model being trained.
         clipping_threshold (float, optional): The largest acceptable ratio between grad
             norms and parameter norms before clipping is done.
-        eps (float, optional): Minimum value that weight norms are clamped to.
     """
     for param in model.parameters():
         if param.grad is None:
@@ -84,12 +82,10 @@ class AGC(Algorithm):
     Args:
         clipping_threshold (float, optional): The largest acceptable ratio between grad
             norms and parameter norms before clipping is done.
-        eps (float, optional): Minimum value that weight norms are clamped to.
     """
 
-    def __init__(self, clipping_threshold: float = 0.01, eps: float = 1e-3):
+    def __init__(self, clipping_threshold: float = 0.01):
         self.clipping_threshold = clipping_threshold
-        self.eps = eps
 
     def match(self, event: Event, state: State) -> bool:
         """Run on ``Event.AFTER_TRAIN_BATCH``."""
@@ -97,14 +93,11 @@ class AGC(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Freeze layers in the model."""
-        apply_agc(model=state.model, clipping_threshold=self.clipping_threshold, eps=self.eps)
+        apply_agc(model=state.model, clipping_threshold=self.clipping_threshold)
 
 
 # Factored this to a function to enable easier testing.
-def _get_clipped_gradient_coeff(weights: torch.Tensor,
-                                grad: torch.Tensor,
-                                clipping_threshold: float = 0.01,
-                                eps: float = 1e-3):
+def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipping_threshold: float = 0.01):
     """Clips all gradients in model based on ratio of gradient norms to parameter norms.
 
     Gradients whose norms exceed weight_norm * clipping_threshold are scaled down by
@@ -115,7 +108,6 @@ def _get_clipped_gradient_coeff(weights: torch.Tensor,
         grad (torch.Tensor): Tensor of gradients of the loss with respect to the weights.
         clipping_threshold (float, optional): The largest acceptable ratio between grad
             norms and parameter norms before clipping is done.
-        eps (float, optional): Minimum value that weight norms are clamped to.
 
     Return:
         clipped_grad_coeff (torch.Tensor): Coefficient of same shape as grad_norm equal to
@@ -124,7 +116,7 @@ def _get_clipped_gradient_coeff(weights: torch.Tensor,
     """
 
     # Compute and clamp grad and weight norms.
-    w_norm = _unitwise_norm(weights).clamp_(min=eps)
+    w_norm = _unitwise_norm(weights)
     grad_norm = _unitwise_norm(grad).clamp_(min=1e-6)
 
     # Gradients whose norms are greater than weight_norm * clipping_threhsold are
