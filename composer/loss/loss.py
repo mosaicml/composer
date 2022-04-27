@@ -155,4 +155,7 @@ def soft_cross_entropy(input: Tensor,
         raise ValueError(f"Unrecognized target type {target_type}")
 
 
-loss_registry = {"binary_cross_entropy_with_logits": binary_cross_entropy_with_logits, "soft_cross_entropy": soft_cross_entropy}
+loss_registry = {
+    "binary_cross_entropy_with_logits": binary_cross_entropy_with_logits,
+    "soft_cross_entropy": soft_cross_entropy
+}

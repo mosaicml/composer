@@ -21,7 +21,6 @@ from composer.models import ComposerModel
 
 __all__ = ["ComposerClassifier"]
 
-
 log = logging.getLogger(__name__)
 
 
@@ -65,12 +64,13 @@ class ComposerClassifier(ComposerModel):
 
         if hasattr(self.module, "num_classes"):
             self.num_classes = getattr(self.module, "num_classes")
-        
+
         if loss_name == 'binary_cross_entropy_with_logits':
             log.warning("UserWarning: Using `binary_cross_entropy_loss_with_logits` "
-                "without using `initializers.linear_log_constant_bias` can degrade "
-                "performance. " "Please ensure you are using `initializers. "
-                "linear_log_constant_bias`.")
+                        "without using `initializers.linear_log_constant_bias` can degrade "
+                        "performance. "
+                        "Please ensure you are using `initializers. "
+                        "linear_log_constant_bias`.")
 
     def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensor:
         _, targets = batch
