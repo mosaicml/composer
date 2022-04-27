@@ -383,10 +383,11 @@ class CheckpointSaver(Callback):
                                                                            state.timer.get_timestamp()).lstrip("/")
                     artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
                                                                    state.timer.get_timestamp()).lstrip("/")
+                    # Always overwrite for symlinks since we use the same filename for latest
                     logger.symlink_artifact(log_level=log_level,
                                             existing_artifact_name=artifact_name,
                                             symlink_artifact_name=symlink_artifact_name,
-                                            overwrite=self.overwrite)
+                                            overwrite=True)
 
         timestamp = state.timer.get_timestamp()
 
