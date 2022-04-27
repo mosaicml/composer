@@ -181,12 +181,14 @@ def configure_excepthook() -> None:
 
     To override the default :func:`sys.excepthook` with the custom except hook:
 
-    .. testsetup::
+    .. testsetup:: composer.utils.collect_env.configure_excepthook
 
         import sys
         from composer.utils.collect_env import configure_excepthook
 
-    .. doctest::
+        sys.excepthook = sys.__excepthook__
+
+    .. doctest:: composer.utils.collect_env.configure_excepthook
 
         >>> configure_excepthook()
         >>> sys.excepthook 
@@ -212,16 +214,19 @@ def restore_excepthook() -> None:
 
     To restore the original :func:`sys.excepthook`:
 
-    .. testsetup::
+    .. testsetup:: composer.utils.collect_env.restore_excepthook
 
         import sys
-        from composer.utils.collect_env import restore_excepthook
+        from composer.utils.collect_env import configure_excepthook, restore_excepthook
+        sys.excepthook = sys.__excepthook__
+        configure_excepthook()
 
-    .. doctest::
+    .. doctest:: composer.utils.collect_env.restore_excepthook
         
         >>> restore_excepthook()
         >>> sys.excepthook
         <built-in function excepthook>
+
     """
 
     if IPYTHON_AVAILABLE:
@@ -275,17 +280,77 @@ def print_env(file: TextIO = sys.stdout) -> None:
 
     Example:
 
-    .. testsetup::
+    .. code-block:: python
 
-        from composer.utils import print_env
+        print_env()
 
-    .. doctest::
+    Sample Report:
 
-        >>> print_env()
+    .. code-block:: text
+
         ---------------------------------
         System Environment Report
-        ...
+        Created: 2022-04-27 00:25:33 UTC
+        ---------------------------------
 
+        PyTorch information
+        -------------------
+        PyTorch version: 1-91+cu111
+        Is debug build: False
+        CUDA used to build PyTorch: 111
+        ROCM used to build PyTorch: N/A
+
+        OS: Ubuntu 18.04.6 LTS (x86_64)
+        GCC version: (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0
+        Clang version: Could not collect
+        CMake version: version 3.10.2
+        Libc version: glibc-2.27
+
+        Python version: 3.8 (64-bit runtime)
+        Python platform: Linux-5.8.0-63-generic-x86_64-with-glibc2.27
+        Is CUDA available: True
+        CUDA runtime version: 11.1.105
+        GPU models and configuration:
+        GPU 0: NVIDIA GeForce RTX 3080
+        GPU 1: NVIDIA GeForce RTX 3080
+        GPU 2: NVIDIA GeForce RTX 3080
+        GPU 3: NVIDIA GeForce RTX 3080
+
+        Nvidia driver version: 470.57.02
+        cuDNN version: Probably one of the following:
+        /usr/lib/x86_64-linux-gnu/libcudnn.so.8.0.5
+        /usr/lib/x86_64-linux-gnu/libcudnn_adv_infer.so.8.0.5
+        /usr/lib/x86_64-linux-gnu/libcudnn_adv_train.so.8.0.5
+        /usr/lib/x86_64-linux-gnu/libcudnn_cnn_infer.so.8.0.5
+        /usr/lib/x86_64-linux-gnu/libcudnn_cnn_train.so.8.0.5
+        /usr/lib/x86_64-linux-gnu/libcudnn_ops_infer.so.8.0.5
+        /usr/lib/x86_64-linux-gnu/libcudnn_ops_train.so.8.0.5
+        HIP runtime version: N/A
+        MIOpen runtime version: N/A
+
+        Versions of relevant libraries:
+        [pip3] numpy==1.22.3
+        [pip3] pytorch-ranger==0.1.1
+        [pip3] torch==1.9.1+cu111
+        [pip3] torch-optimizer==0.1.0
+        [pip3] torchmetrics==0.7.3
+        [pip3] torchvision==0.10.1+cu111
+        [pip3] vit-pytorch==0.27.0
+        [conda] Could not collect
+
+
+        Composer information
+        --------------------
+        Composer version: 0.6.0
+        Host processor model name: AMD EPYC 7502 32-Core Processor
+        Host processor core count: 64
+        Number of nodes: 1
+        Accelerator model name: NVIDIA GeForce RTX 3080
+        Accelerators per node: 1
+        CUDA Device Count: 4
+
+    
+    
     Args:
         file (TextIO, optional): File handle, `sys.stdout` or `sys.stderr`. Defaults to `sys.stdout`.
     """
