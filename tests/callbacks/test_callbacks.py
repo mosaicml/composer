@@ -73,6 +73,10 @@ def _get_callback_factories() -> List[Callable[..., Callback]]:
 @pytest.mark.parametrize('callback_factory', _get_callback_factories())
 class TestCallbacks:
 
+    @classmethod
+    def setup_class(cls):
+        pytest.importorskip("wandb", reason="WandB is optional.")
+
     def test_multiple_fit_start_and_end(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
         dummy_state.callbacks.append(callback_factory())

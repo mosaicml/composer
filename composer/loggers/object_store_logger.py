@@ -314,12 +314,12 @@ class ObjectStoreLogger(LoggerDestination):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         if self._finished is not None:
             self._finished.set()
-            self._finished = None
         for worker in self._workers:
             worker.join()
         if self._tempdir is not None:
             self._tempdir.cleanup()
-            self._tempdir = None
+        self._tempdir = None
+        self._finished = None
         self._workers.clear()
 
     def get_uri_for_artifact(self, artifact_name: str) -> str:
