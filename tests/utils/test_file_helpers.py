@@ -6,8 +6,9 @@ import pathlib
 import pytest
 
 from composer.core.time import Time, Timestamp
-from composer.utils.file_helpers import (GetFileNotFoundException, ensure_folder_is_empty, format_name_with_dist,
-                                         format_name_with_dist_and_time, get_file, is_tar)
+from composer.utils.file_helpers import (GetFileNotFoundException, ensure_folder_has_no_conflicting_files,
+                                         ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
+                                         get_file, is_tar)
 from composer.utils.object_store import ObjectStoreHparams
 
 
@@ -183,3 +184,86 @@ def test_format_name_with_dist_and_time():
 
 def test_ensure_folder_is_empty(tmpdir: pathlib.Path):
     ensure_folder_is_empty(tmpdir)
+
+
+def test_ensure_folder_has_no_conflicting_files(tmpdir: pathlib.Path):
+    timestamp = Timestamp(2, 7, 1, 15, 3, 31, 7)
+    run_name = "blazing-unicorn"
+    filename = f"{run_name}-ep{{epoch}}-batch{{batch}}-tie{{token_in_epoch}}-rank{{rank}}.pt"
+
+    # Ignore empty folder
+    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+
+    # Ignore timestamps in past
+    with open(os.path.join(tmpdir, f'{run_name}-ep1-batch3-tie6-rank0.pt'), 'w') as f:
+        f.write("hello")
+    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+
+    # Ignore timestamps in with same time as current
+    with open(os.path.join(tmpdir, f'{run_name}-ep2-batch6-tie7-rank0.pt'), 'w') as f:
+        f.write("hello")
+    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+
+    # Ignore timestamps with earlier epochs but later samples in epoch
+    with open(os.path.join(tmpdir, f'{run_name}-ep1-batch6-tie9-rank0.pt'), 'w') as f:
+        f.write("hello")
+    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+
+    # Ignore timestamps of different runs
+    with open(os.path.join(tmpdir, f'inglorious-monkeys-ep1-batch3-tie6-rank0.pt'), 'w') as f:
+        f.write("hello")
+    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+
+    # Ignore timestamps with same run name but different format
+    with open(os.path.join(tmpdir, f'{run_name}-ep3-rank0.pt'), 'w') as f:
+        f.write("hello")
+    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+
+    # Error if in future
+    error_filename = os.path.join(tmpdir, f'{run_name}-ep3-batch9-tie6-rank0.pt')
+    with open(error_filename, 'w') as f:
+        f.write("hello")
+    with pytest.raises(FileExistsError):
+        ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+    os.remove(error_filename)
+
+    # Error if in future with different rank
+    error_filename = os.path.join(tmpdir, f'{run_name}-ep3-batch9-tie6-rank1.pt')
+    with open(error_filename, 'w') as f:
+        f.write("hello")
+    with pytest.raises(FileExistsError):
+        ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+    os.remove(error_filename)
+
+    # Error if in future for batches but not epochs
+    error_filename = os.path.join(tmpdir, f'{run_name}-ep1-batch9-tie6-rank0.pt')
+    with open(error_filename, 'w') as f:
+        f.write("hello")
+    with pytest.raises(FileExistsError):
+        ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+    os.remove(error_filename)
+
+    # Error if in same epoch but later in sample in epoch
+    error_filename = os.path.join(tmpdir, f'{run_name}-ep2-batch7-tie9-rank0.pt')
+    with open(error_filename, 'w') as f:
+        f.write("hello")
+    with pytest.raises(FileExistsError):
+        ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+    os.remove(error_filename)
+
+    # Test with all params
+    run_name = "charging-chungus"
+    filename = f"{run_name}-ep{{epoch}}-b{{batch}}-s{{sample}}-t{{token}}-bie{{batch_in_epoch}}-sie{{sample_in_epoch}}-tie{{token_in_epoch}}.pt"
+
+    # Ignore timestamps in past
+    with open(os.path.join(tmpdir, f'{run_name}-ep1-b3-s6-t12-bie0-sie0-tie0.pt'), 'w') as f:
+        f.write("hello")
+    ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+
+    # Error if in future
+    error_filename = os.path.join(tmpdir, f'{run_name}-ep2-b7-s15-t31-bie1-sie3-tie8.pt')
+    with open(error_filename, 'w') as f:
+        f.write("hello")
+    with pytest.raises(FileExistsError):
+        ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+    os.remove(error_filename)

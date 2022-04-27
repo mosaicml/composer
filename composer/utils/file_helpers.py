@@ -63,7 +63,8 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
 
 
 def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path], filename: str, timestamp: Timestamp):
-    """Ensure that the given folder does not have any files conflicting with filename.
+    """Ensure that the given folder does not have any files conflicting with filename. If any file has same format as
+    ``filename`` and occurs later than ``timestamp``, raise a ``FileExistsError``.
 
     Args:
         folder_name (str | pathlib.Path): The folder to inspect.
@@ -73,25 +74,48 @@ def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path]
     Raises:
         FileExistsError: If ``folder_name`` contains any files matching the ``filename`` template before ``timestamp``.
     """
-    # Prepare regex pattern by replacing f-string formatting with regex. Currently, we only capture and compare time values for
-    # epoch and batch.
-    pattern = f"^{filename}$".replace("{rank}", "\\d+")
-    consider_epoch = "{epoch}" in filename
-    if consider_epoch:
-        pattern = pattern.replace("{epoch}", "(?P<epoch>\\d+)")
-    consider_batch = "{batch}" in filename
-    if consider_batch:
-        pattern = pattern.replace("{batch}", "(?P<batch>\\d+)")
+    # Prepare regex pattern by replacing f-string formatting with regex.
+    pattern = f"^{filename}$"
+    rank_names = ["{rank}", "{local_rank}", "{world_size}", "{local_world}", "{node_rank}"]
+    for rank_name in rank_names:
+        pattern = pattern.replace(rank_name, "\\d+")
+
+    time_names = ["epoch", "batch", "sample", "token", "batch_in_epoch", "sample_in_epoch", "token_in_epoch"]
+    captured_names = {time_name: f"{{{time_name}}}" in filename for time_name in time_names}
+    for time_name, is_captured in captured_names.items():
+        if is_captured:
+            pattern = pattern.replace(f"{{{time_name}}}", f"(?P<{time_name}>\\d+)")
     template = re.compile(pattern)
 
     for file in os.listdir(folder_name):
         match = template.match(file)
         # Encountered an invalid match
-        if match is not None and (consider_epoch and Time.from_epoch(int(match.group("epoch"))) > timestamp.epoch or
-                                  consider_batch and Time.from_batch(int(match.group("batch"))) > timestamp.batch):
-            raise FileExistsError(
-                f"{os.path.join(folder_name, file)} exists and conflicts in namespace with a future checkpoint of the current run."
-            )
+        if match is not None:
+            valid_match = True
+            # Check each base unit of time and flag later checkpoints
+            if captured_names["token"] and Time.from_token(int(match.group("token"))) > timestamp.token:
+                valid_match = False
+            elif captured_names["sample"] and Time.from_sample(int(match.group("sample"))) > timestamp.sample:
+                valid_match = False
+            elif captured_names["batch"] and Time.from_batch(int(match.group("batch"))) > timestamp.batch:
+                valid_match = False
+            elif captured_names["epoch"] and Time.from_epoch(int(match.group("epoch"))) > timestamp.epoch:
+                valid_match = False
+            # If epoch count is same, check batch_in_epoch, sample_in_epoch, token_in_epoch
+            elif captured_names["epoch"] and Time.from_epoch(int(match.group("epoch"))) == timestamp.epoch:
+                if captured_names["token_in_epoch"] and Time.from_token(int(
+                        match.group("token_in_epoch"))) > timestamp.token_in_epoch:
+                    valid_match = False
+                elif captured_names["sample_in_epoch"] and Time.from_sample(int(
+                        match.group("sample_in_epoch"))) > timestamp.sample_in_epoch:
+                    valid_match = False
+                elif captured_names["batch_in_epoch"] and Time.from_batch(int(
+                        match.group("batch_in_epoch"))) > timestamp.batch_in_epoch:
+                    valid_match = False
+            if not valid_match:
+                raise FileExistsError(
+                    f"{os.path.join(folder_name, file)} exists and conflicts in namespace with a future checkpoint of the current run."
+                )
 
 
 FORMAT_NAME_WITH_DIST_TABLE = """
