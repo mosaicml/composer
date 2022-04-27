@@ -90,6 +90,29 @@ class TestTrainerInit():
         trainer.state.timer.epoch._value = 10
         assert checkpoint_saver.save_interval(trainer.state, Event.EPOCH_CHECKPOINT)
 
+    @device('gpu', 'cpu')
+    def test_optimizer_params_on_device(
+        self,
+        model: ComposerModel,
+        device: str,
+    ):
+        # Train a model
+        train_dataloader = DataLoader(RandomClassificationDataset())
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        max_duration = 1
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            optimizers=optimizer,
+        )
+        trainer.fit()
+
+        # Assert that the parameters are on the correct devices
+        parameters = trainer.state.optimizers[0].param_groups[0]["params"]
+        target_device = 'cuda' if device == 'gpu' else 'cpu'
+        assert all(param.device.type == target_device for param in parameters)
+
 
 class TestTrainerInitOrFit:
     """Validate that certain parameters can be passed in on `Trainer.__init__()` or `Trainer.fit()`"""
@@ -197,49 +220,6 @@ class TestTrainerInitOrFit:
 
         # Assert that the timestamps are equivalent
         assert trainer.state.timer.get_timestamp() == first_timestamp
-
-    @device('gpu', 'cpu')
-    def test_optimizers(
-        self,
-        train_dataloader: DataLoader,
-        model: ComposerModel,
-        max_duration: Time,
-        device: str,
-    ):
-        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
-        copied_model = copy.deepcopy(model)
-
-        # Train once with the optimizer param on Trainer.__init__()
-        init_optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-        init_trainer = Trainer(
-            model=model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-            optimizers=init_optimizer,
-        )
-        init_trainer.fit()
-
-        # Train again with the optimizer param specified on Trainer.fit()
-        fit_optimizer = torch.optim.SGD(copied_model.parameters(), lr=0.01)
-        fit_trainer = Trainer(
-            model=copied_model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-        )
-        fit_trainer.fit(optimizers=fit_optimizer)
-
-        # Assert that the states are equivalent
-        assert_state_equivalent(init_trainer.state, fit_trainer.state)
-
-        # Assert that the parameters are on the correct devices
-        self.assert_optimizer_params_on_device(init_trainer, device)
-        self.assert_optimizer_params_on_device(fit_trainer, device)
-
-    def assert_optimizer_params_on_device(self, trainer: Trainer, device: str):
-        parameters = trainer.state.optimizers[0].param_groups[0]["params"]
-
-        target_device = 'cuda' if device == 'gpu' else 'cpu'
-        assert all(param.device.type == target_device for param in parameters)
 
     @pytest.mark.parametrize("scale_schedule_ratio", [1.0, 2.0])
     @pytest.mark.parametrize("step_schedulers_every_batch", [None, True, False])

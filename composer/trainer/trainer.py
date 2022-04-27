@@ -801,7 +801,7 @@ class Trainer:
         # Algorithms
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
 
-        # Optim and Scheduling
+        # Optimizers and Scheduling
         optimizers: Optional[torch.optim.Optimizer] = None,
         schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
                                                                                        PyTorchScheduler]]]] = None,
@@ -1161,8 +1161,7 @@ class Trainer:
         max_duration: Optional[Union[int, str, Time[int]]] = None,
         reset_timer: bool = False,
 
-        # Optimizers and Schedulers
-        optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]] = None,
+        # Schedulers
         schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
                                                                                        PyTorchScheduler]]]] = None,
         scale_schedule_ratio: float = 1.0,
@@ -1233,17 +1232,6 @@ class Trainer:
 
         if self.state.max_duration is None:
             raise MissingArgumentException("max_duration")
-
-        # Optimizers
-        if self.state.is_model_deepspeed:
-            if optimizers is not None:
-                raise ValueError(
-                    ("When using DeepSpeed, the optimizers must be set when constructing the . "
-                     f"{type(self).__name__} -- e.g. via {type(self).__name__}(optimizers=...). They cannot be "
-                     f"specified on {type(self).__name__}.{type(self).fit.__name__}()."))
-
-        if optimizers is not None:
-            self.state.optimizers = optimizers
 
         # Scale Schedule Ratio and Schedulers
         if scale_schedule_ratio != 1.0:
