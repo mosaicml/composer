@@ -17,19 +17,20 @@ __all__ = ["_fix_batch_precision_for_deepspeed", "_parse_deepspeed_config"]
 
 
 def _add_batch_config(config: Dict[str, Any], state: State):
-    if state.train_dataloader.batch_size is None:
+    assert state.dataloader is not None, "dataloader should be set on FIT_START, which is where the Deepspeed config is applied."
+    if state.dataloader.batch_size is None:
         raise RuntimeError("DeepSpeed requires a dataloader with a known batch size.")
 
-    if state.train_dataloader.batch_size % state.grad_accum != 0:
+    if state.dataloader.batch_size % state.grad_accum != 0:
         # DeepSpeed will throw an error in this configuration.
         raise ValueError("The Mosaic trainer has been configured to use batch size="
-                         f"{state.train_dataloader.batch_size}, but this is not divisible by the "
+                         f"{state.dataloader.batch_size}, but this is not divisible by the "
                          f"grad accum={state.grad_accum}. This is unsupported when using DeepSpeed.")
 
-    train_batch_size = state.train_dataloader.batch_size * dist.get_world_size()
+    train_batch_size = state.dataloader.batch_size * dist.get_world_size()
     grad_accum = state.grad_accum
     # Per the check at the start of this function, the following division is always clean.
-    per_gpu_microbatch_size = state.train_dataloader.batch_size // state.grad_accum
+    per_gpu_microbatch_size = state.dataloader.batch_size // state.grad_accum
 
     if "train_batch_size" in config:
         ds_train_batch_size = config["train_batch_size"]
