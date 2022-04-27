@@ -1,11 +1,20 @@
 import math
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
-from typing import Dict, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
-from numpy.typing import DTypeLike, NDArray
+from numpy.typing import NDArray
 
 from composer.datasets.streaming.world import World
+
+__all__ = [
+    "get_index_basename",
+    "get_shard_basename",
+    "sample_dict_to_bytes",
+    "bytes_to_sample_dict",
+    "read_array",
+    "StreamingDatasetIndex",
+]
 
 
 def get_index_basename() -> str:
@@ -26,7 +35,7 @@ def get_shard_basename(shard: int) -> str:
     Returns:
         str: Basename of file.
     """
-    return f'{shard:05}.mds'
+    return f'{shard:06}.mds'
 
 
 def sample_dict_to_bytes(obj: Dict[str, bytes], keys: Sequence[str]) -> bytes:
@@ -48,15 +57,15 @@ def sample_dict_to_bytes(obj: Dict[str, bytes], keys: Sequence[str]) -> bytes:
     return sizes.tobytes() + b''.join(values)
 
 
-def bytes_to_sample_dict(data: bytes, keys: Sequence[str]) -> Dict[str, bytes]:
+def bytes_to_sample_dict(data: bytes, keys: List[str]) -> Dict[str, bytes]:
     """Load a sample dict from bytes and field names.
 
     Args:
         data (bytes): The encoded sample data.
-        keys (list of str): The field names.
+        keys (List[str]): The field names. Must be in the same order as the ``keys`` used when calling :func:`.sample_dict_to_bytes`.
 
     Returns:
-        dict: The decoded sample dict.
+        Dict[str, bytes]: The decoded sample dict.
     """
     num_values = len(keys)
     sizes = np.frombuffer(data[:num_values * np.int64().nbytes], np.int64)
@@ -69,18 +78,18 @@ def bytes_to_sample_dict(data: bytes, keys: Sequence[str]) -> Dict[str, bytes]:
     return dict(zip(keys, values))
 
 
-def read_array(fp: BufferedIOBase, count: int, dtype: DTypeLike) -> NDArray:
+def read_array(fp: BufferedIOBase, count: int, dtype: type) -> np.ndarray:
     """Load the count items from the file handle, advancing its position.
 
     Args:
         fp (BufferedIOBase): File handle.
         count (int): Number of items to read.
-        dtype (np.dtype): Dtype of the items.
+        dtype (type): Item datatype.
 
     Returns:
         np.ndarray: The read array.
     """
-    num_bytes = count * dtype().nbytes  # type: ignore
+    num_bytes = count * dtype().nbytes
     data = fp.read(num_bytes)
     return np.frombuffer(data, dtype)
 
@@ -97,19 +106,19 @@ class StreamingDatasetIndex(object):
     efficiency.
     """
 
-    def __init__(self, samples_per_shard: Union[NDArray, Sequence[int]], bytes_per_shard: Union[NDArray, Sequence[int]],
-                 bytes_per_sample: Union[NDArray, Sequence[int]], fields: Sequence[str]) -> None:
+    def __init__(self, samples_per_shard: NDArray[np.int64], bytes_per_shard: NDArray[np.int64],
+                 bytes_per_sample: NDArray[np.int64], fields: List[str]) -> None:
         """Initialize with sample statistics.
 
         Args:
-            samples_per_shard (NDArray): Number of samples of each shard.
-            bytes_per_shard (NDArray): Size in bytes of each shard.
-            bytes_per_sample (NDArray): Size in bytes of each sample across all shards.
-            fields (Sequence[str]): The names of the samples' fields in order.
+            samples_per_shard (NDArray[np.int64]): Number of samples of each shard.
+            bytes_per_shard (NDArray[np.int64]): Size in bytes of each shard.
+            bytes_per_sample (NDArray[np.int64]): Size in bytes of each sample across all shards.
+            fields (List[str]): The names of the samples' fields in order.
         """
-        self.samples_per_shard = np.asarray(samples_per_shard, np.int64)
-        self.bytes_per_shard = np.asarray(bytes_per_shard, np.int64)
-        self.bytes_per_sample = np.asarray(bytes_per_sample, np.int64)
+        self.samples_per_shard = samples_per_shard
+        self.bytes_per_shard = bytes_per_shard
+        self.bytes_per_sample = bytes_per_sample
         self.fields = fields
 
         # Totals.
@@ -120,10 +129,10 @@ class StreamingDatasetIndex(object):
 
         # Shard -> sample range.
         self.shard_ends = self.samples_per_shard.cumsum()
-        self.shard_begins = self.shard_ends - self.samples_per_shard  # type: ignore
+        self.shard_begins = self.shard_ends - self.samples_per_shard
 
         # Sample -> shard, byte offset within shard.
-        self.sample_shards, self.sample_shard_offsets = self.locate_samples()
+        self.sample_shards, self.sample_shard_offsets = self._locate_samples()
 
     @classmethod
     def loads(cls, data: bytes):
@@ -136,11 +145,14 @@ class StreamingDatasetIndex(object):
             cls: The loaded object.
         """
         fp = BytesIO(data)
-        total_samples, total_bytes, num_shards, num_fields = read_array(fp, 4, np.int64)  # type: ignore
-        samples_per_shard = read_array(fp, num_shards, np.int64)
-        bytes_per_shard = read_array(fp, num_shards, np.int64)
-        bytes_per_sample = read_array(fp, total_samples, np.int64)
-        bytes_per_field = read_array(fp, num_fields, np.int64)
+        dtype = np.int64
+
+        total_samples, total_bytes, num_shards, num_fields = read_array(fp, 4, dtype)
+        del total_bytes
+        samples_per_shard = read_array(fp, num_shards, dtype)
+        bytes_per_shard = read_array(fp, num_shards, dtype)
+        bytes_per_sample = read_array(fp, total_samples, dtype)
+        bytes_per_field = read_array(fp, num_fields, dtype)
         fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
         return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
 
@@ -179,15 +191,15 @@ class StreamingDatasetIndex(object):
         data = self.dumps()
         fp.write(data)
 
-    def locate_samples(self) -> Tuple[np.ndarray, np.ndarray]:
+    def _locate_samples(self) -> Tuple[NDArray[np.int64], NDArray[np.int64]]:
         """Precompute the shard and byte offset within the shard of every sample.
 
         Returns:
-            sample_shards (np.ndarray): Shard per sample.
-            sample_shard_offsets (np.ndarray): Intra-shard byte offset per sample.
+            sample_shards (NDArray[np.int64]): Shard per sample.
+            sample_shard_offsets (NDArray[np.int64]): Intra-shard byte offset per sample.
         """
         shard_ends = self.bytes_per_shard.cumsum()
-        shard_begins = shard_ends - self.bytes_per_shard  # type: ignore
+        shard_begins = shard_ends - self.bytes_per_shard
 
         sample_shard_begins = []
         sample_shards = []
@@ -198,7 +210,7 @@ class StreamingDatasetIndex(object):
         sample_shards = np.array(sample_shards, np.int64)
 
         sample_ends = self.bytes_per_sample.cumsum()
-        sample_begins = sample_ends - self.bytes_per_sample  # type: ignore
+        sample_begins = sample_ends - self.bytes_per_sample
         sample_shard_offsets = sample_begins - sample_shard_begins
         return sample_shards, sample_shard_offsets
 

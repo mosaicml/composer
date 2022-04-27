@@ -1,6 +1,7 @@
 import os
 from typing import Dict, Iterable, List, Optional
 
+import numpy as np
 from tqdm import tqdm
 
 from composer.datasets.streaming.format import (StreamingDatasetIndex, get_index_basename, get_shard_basename,
@@ -53,7 +54,11 @@ class StreamingDatasetWriter(object):
         """Save dataset index file."""
         assert not self.new_samples
         filename = os.path.join(self.dirname, get_index_basename())
-        index = StreamingDatasetIndex(self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, self.fields)
+        ndarray_samples_per_shard = np.asarray(self.samples_per_shard, np.int64)
+        ndarray_bytes_per_shard = np.asarray(self.bytes_per_shard, np.int64)
+        ndarray_bytes_per_sample = np.asarray(self.bytes_per_sample, np.int64)
+        index = StreamingDatasetIndex(ndarray_samples_per_shard, ndarray_bytes_per_shard, ndarray_bytes_per_sample,
+                                      self.fields)
         with open(filename, 'xb') as out:
             index.dump(out)
 
