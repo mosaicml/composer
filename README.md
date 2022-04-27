@@ -156,7 +156,7 @@ For concrete examples of methods in Composer, here are some ([_see here for all_
 
 Name|Attribution|tl;dr|Example Benchmark|Speed Up*|
 ----|-----------|-----|---------|---------|
-[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|[Press et al, 2021](https://arxiv.org/abs/2108.12409v1)|Replace attention with AliBi.|GPT-2|1.5x
+[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|[Press et al, 2021](https://arxiv.org/abs/2108.12409)|Replace attention with AliBi.|GPT-2|1.5x
 [BlurPool](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/blurpool)|[Zhang, 2019](https://arxiv.org/abs/1904.11486)|Applies an anti-aliasing filter before every downsampling operation.|ResNet-101|1.2x
 [ChannelsLast](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/channels_last)|[PyTorch](https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html)|Uses channels last memory format (NHWC).|ResNet-101|1.5x
 [CutOut](https://docs.mosaicml.com/en/latest/method_cards/cutout.html)|[DeVries et al, 2017](https://arxiv.org/abs/1708.04552)|Randomly erases rectangular blocks from the image.|ResNet-101|1.2x
@@ -201,7 +201,7 @@ Name|Functional|tl;dr|Benchmark|Speed Up
 
 Name|Functional|tl;dr|Benchmark|Speed Up
 ----|----------|-----|---------|--------
-[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[Replace attention with AliBi.](https://arxiv.org/abs/2108.12409v1)|GPT-2|1.6x
+[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[Replace attention with AliBi.](https://arxiv.org/abs/2108.12409)|GPT-2|1.6x
 [Seq Length Warmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|`cf.set_batch_`<br>`sequence_length`|[Progressively increase sequence length.](https://arxiv.org/abs/2108.06084)|GPT-2|1.5x
 **Composition** | `N/A` | **Cheapest: \$145 @ 24.11 PPL** | **GPT-2** | **1.7x**
 
