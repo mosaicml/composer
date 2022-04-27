@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from typing import NamedTuple
 
 from torch.utils.data import get_worker_info
 
@@ -7,9 +7,8 @@ from composer.utils import dist
 __all__ = ["World", "get_world"]
 
 
-@dataclass
-class World:
-    """A dataclass that provides context about workers, devices, and nodes."""
+class World(NamedTuple):
+    """A NamedTuple that provides context about workers, devices, and nodes."""
     node: int
     num_nodes: int
 
