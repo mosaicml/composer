@@ -139,6 +139,10 @@ class WandBLogger(LoggerDestination):
         del chunk_size, progress_bar
         import wandb
 
+        # TODO: Get rid of this
+        if self._enabled:
+            wandb.init(**self._init_params)
+
         # replace all unsupported characters with periods
         # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
         new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
@@ -146,7 +150,7 @@ class WandBLogger(LoggerDestination):
             warnings.warn(
                 ("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
                  f"The artifact with name '{artifact_name}' will be instead searched for as '{new_artifact_name}'."))
-
+        print("get wandb", new_artifact_name)
         artifact = wandb.use_artifact(new_artifact_name)
         artifact.download(root=destination)
 

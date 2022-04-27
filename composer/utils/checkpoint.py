@@ -74,6 +74,7 @@ def load_checkpoint(
     chunk_size: int = 1_048_576,
     progress_bar: bool = True,
 ):
+    print("Load checkpoint", path, object_store)
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
     Args:
