@@ -318,6 +318,7 @@ class ObjectStoreLogger(LoggerDestination):
             worker.join()
         if self._tempdir is not None:
             self._tempdir.cleanup()
+            self._tempdir = None
         self._workers.clear()
 
     def get_uri_for_artifact(self, artifact_name: str) -> str:
