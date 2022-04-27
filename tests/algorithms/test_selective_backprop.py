@@ -4,14 +4,14 @@ from typing import Callable, Dict
 
 import pytest
 import torch
-
+import pdb
 from composer.algorithms import SelectiveBackpropHparams
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.selective_backprop.selective_backprop import select_using_loss, should_selective_backprop
 from composer.core import Event
 from composer.core.state import State
 from composer.loggers import Logger
-from composer.models import ComposerClassifier, BERTHparams, GPT2Hparams
+from composer.models import ComposerClassifier, BERTHparams, GPT2Hparams, GPT2Model, BERTModel
 from tests.utils import synthetic_utils
 from tests.datasets import test_synthetic_lm_data
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
@@ -137,9 +137,9 @@ def batch() -> int:
     """Default batch."""
     return 0
 
-lm_dataset_configs = test_synthetic_lm_data.generate_parameter_configs( ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'])
+lm_dataset_configs = [config[0] for config in test_synthetic_lm_data.generate_parameter_configs( ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'])]
 
-def make_dataset(config: Dict):
+def make_lm_dataset(config: Dict):
     dataset = synthetic_hf_dataset_builder(num_samples=config['num_samples'],
                                         chars_per_sample=config['chars_per_sample'],
                                         column_names=config['column_names'])
@@ -160,10 +160,23 @@ def make_dummy_lm(model_name: str, tokenizer):
         class_name = BERTHparams
     model_config = synthetic_utils.generate_dummy_model_config(class_name, tokenizer)
     if model_name == 'gpt2':
-        model = transformers.GPT2Model(transformers.GPT2Config.from_dict(model_config))
+        model = GPT2Model(transformers.GPT2Model(transformers.GPT2Config.from_dict(model_config)), model_config, tokenizer)
     elif model_name == 'bert':
-        model = transformers.BertModel(transformers.BertConfig.from_dict(model_config))
+        model = BERTModel(transformers.BertModel(transformers.BertConfig.from_dict(model_config)), model_config, tokenizer)
     return model
+
+def minimal_lm_state(rank_zero_seed: int, model, dataset):
+    """Most minimally defined state possible.
+
+    Tests should configure the state for their specific needs.
+    """
+    return State(
+        model=model,
+        rank_zero_seed=rank_zero_seed,
+        train_dataloader=DataLoader(dataset),
+        evaluators=[],
+        max_duration='1ep',
+    )
 
 @pytest.fixture
 def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:

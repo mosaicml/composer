@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import inspect
-from typing import Callable, Optional, Sequence, Tuple, Union, Dict
+from types import NoneType
+from typing import Callable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -51,11 +52,11 @@ def should_selective_backprop(
 
     return is_interval and is_step
 
-
 def select_using_loss(input: torch.Tensor,
-                      target: torch.Tensor,
+                      target: torch.Tensor ,
                       model: Callable[[Union[torch.Tensor, Sequence[torch.Tensor]]], torch.Tensor],
-                      loss_fun: Callable,
+                      loss_vals: torch.Tensor,
+                      selection_function: Callable, #loss_fun: [Callable] = None,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
     """Selectively backpropagate gradients from a subset of each batch (`Jiang et al, 2019 <https://\\
@@ -128,10 +129,10 @@ def select_using_loss(input: torch.Tensor,
 
         # Get per-examples losses
         out = model(X_scaled)
-        losses = loss_fun(out, target, reduction="none")
-
+        ranks = selection_function(out)
+        #this used to be `losses = loss_fun(out, target, reduction="none")``
         # Sort losses
-        sorted_idx = torch.argsort(losses)
+        sorted_idx = torch.argsort(ranks)
         n_select = int(keep * N)
 
         # Sample by loss
@@ -213,7 +214,7 @@ class SelectiveBackprop(Algorithm):
         )
         return is_chosen
 
-     def apply(self, event: Event, state: State, logger: Optional[Logger] = None, input_pos: Union[int, str, list, None] = None, target_pos: Union[int, str, list, None] = None) -> None:
+    def apply(self, event: Event, state: State, logger: Optional[Logger] = None, input_pos: Union[int, str, list, None] = None, target_pos: Union[int, str, list, None] = None) -> None:
         """Apply selective backprop to the current batch."""
         if event == Event.INIT:
             if self._loss_fn is None:
@@ -221,7 +222,7 @@ class SelectiveBackprop(Algorithm):
                     raise RuntimeError("Model must be of type ComposerModel")
                 self._loss_fn = state.model.loss
             return
-            
+
         if hasattr(state, "batch_pair"):
             input, target = state.batch_pair
         elif hasattr(state, "batch") and target_pos is not None:
