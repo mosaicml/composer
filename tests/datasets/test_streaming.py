@@ -1,5 +1,6 @@
 import math
 import os
+import shutil
 import tempfile
 import time
 from typing import Dict, Iterable, List, Optional
@@ -84,6 +85,27 @@ def test_reader(share_remote_local: bool, shuffle: bool):
     # The probability of k matches in a random permutation is ~1/(e*(k!))
     if shuffle:
         assert shuffle_matches < 10
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.parametrize("created_ago", [0.5, 3])
+@pytest.mark.parametrize("timeout", [1])
+def test_reader_after_crash(created_ago, timeout):
+    num_samples = 117
+    shard_size_limit = 1 << 8
+    samples, decoders = get_fake_samples_decoders(num_samples)
+    remote = write_synthetic_streaming_dataset(samples=samples, shard_size_limit=shard_size_limit)
+    local = tempfile.TemporaryDirectory().name
+
+    os.makedirs(local, exist_ok=True)
+    shutil.copy(os.path.join(remote, "index.mds"), os.path.join(local, "index.mds.tmp"))
+    shutil.copy(os.path.join(remote, "000003.mds"), os.path.join(local, "000003.mds.tmp"))
+    time.sleep(created_ago)
+    dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders, timeout=timeout)
+
+    # Iterate over dataset and make sure there are no TimeoutErrors
+    for ix, sample in enumerate(dataset):
+        pass
 
 
 @pytest.mark.parametrize(

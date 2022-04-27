@@ -26,6 +26,7 @@ class StreamingDataset(IterableDataset):
                  local: str,
                  shuffle: bool,
                  decoders: Dict[str, Callable],
+                 timeout: float = 20,
                  batch_size: Optional[int] = None) -> None:
         """Initialize with the given remote path and local cache.
 
@@ -38,6 +39,7 @@ class StreamingDataset(IterableDataset):
             local (str): Download shards to this local filesystem directory for reuse.
             shuffle (bool): Whether to shuffle the samples.
             decoders (Dict[str, Callable]): Raw bytes decoder per sample field.
+            timeout (float): How long to wait for shard to download before raising an exception. Default: 20 sec.
             batch_size (Optional[int]): Hint the batch size that will be used on each device's DataLoader.
                                         Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
         """
@@ -45,6 +47,7 @@ class StreamingDataset(IterableDataset):
         self.local = local
         self.shuffle = shuffle
         self.decoders = decoders
+        self.timeout = timeout
         self.batch_size = batch_size
 
         # Load the index file containing the shard metadata, either over the
@@ -73,7 +76,7 @@ class StreamingDataset(IterableDataset):
         """
         remote = os.path.join(self.remote, basename)
         local = os.path.join(self.local, basename)
-        safe_download(remote, local)
+        safe_download(remote, local, timeout=self.timeout)
         return local
 
     def _load_shards(self, shards: Sequence[int], part_min_id: int, part_max_id: int) -> None:

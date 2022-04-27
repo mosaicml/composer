@@ -1,16 +1,15 @@
 import os
 import shutil
 from time import sleep, time
-from typing import Optional
 from urllib.parse import urlparse
 
 
-def wait_for_download(local: str, timeout: Optional[float] = 10) -> None:
+def wait_for_download(local: str, timeout: float = 20) -> None:
     """Block until another worker's shard download completes.
 
     Args:
         local (str): Path to file.
-        timeout (Optional[float]): How long to wait before raising an exception. Default: 10 sec.
+        timeout (float): How long to wait before raising an exception. Default: 20 sec.
     """
     start_time = time()
     i = 0
@@ -18,23 +17,31 @@ def wait_for_download(local: str, timeout: Optional[float] = 10) -> None:
         if os.path.exists(local):
             return
         elapsed = time() - start_time
-        if timeout is not None:
-            assert elapsed < timeout, f'Waited too long (more than {timeout:.3f} sec) for download'
+        if elapsed > timeout:
+            raise TimeoutError(f'Waited too long (more than {timeout:.3f} sec) for download')
         sleep(0.1)
         i += 1
 
 
-def download_from_s3(remote: str, local: str) -> None:
+def download_from_s3(remote: str, local: str, timeout: float) -> None:
     """Download a file from remote to local.
 
     Args:
         remote (str): Remote path (S3).
         local (str): Local path (local filesystem).
+        timeout (float): How long to wait for shard to download before raising an exception.
     """
     import boto3
+    from botocore import Config
     obj = urlparse(remote)
-    assert obj.scheme == 's3'
-    s3 = boto3.client('s3')
+    if obj.scheme != 's3':
+        raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
+
+    # We don't know how much of total 'timeout' to assign to connect vs. read
+    # So we allow both connect and read to take up to 'timeout' seconds
+    # And if the overall time is greater than 'timeout', our parent `download` function will catch it.
+    config = Config(connect_timeout=timeout, read_timeout=timeout, retries={'total_max_attempts': 5})
+    s3 = boto3.client('s3', config=config)
     s3.download_file(obj.netloc, obj.path[1:], local)
 
 
@@ -48,42 +55,69 @@ def download_from_local(remote: str, local: str) -> None:
     shutil.copy(remote, local)
 
 
-def download(remote: str, local: str) -> None:
+def download(remote: str, local: str, timeout: float) -> None:
     """Download a file from remote to local.
 
     Args:
         remote (str): Remote path (S3 or local filesystem).
         local (str): Local path (local filesystem).
+        timeout (float): How long to wait for shard to download before raising an exception.
     """
     local_dir = os.path.dirname(local)
     os.makedirs(local_dir, exist_ok=True)
+    start_time = time()
+
     if remote.startswith('s3://'):
-        download_from_s3(remote, local)
+        download_from_s3(remote, local, timeout=timeout)
     else:
         download_from_local(remote, local)
 
+    elapsed = time() - start_time
+    if elapsed > timeout:
+        raise TimeoutError(f'Waited too long (more than {timeout:.3f} sec) for download')
 
-def safe_download(remote: str, local: str, timeout: Optional[float] = 10) -> None:
-    """Safely download a file from remote to local.
+
+def safe_download(remote: str, local: str, timeout: float = 20) -> None:
+    """Safely downloads a file from remote to local.
+       Handles multiple threads attempting to download the same shard.
+       Gracefully deletes stale tmp files from crashed runs.
+
 
     Args:
         remote (str): Remote path (S3 or local filesystem).
         local (str): Local path (local filesystem).
-        timeout (Optional[float]): How long to wait before raising an exception. Default: 10 sec.
+        timeout (float): How long to wait for shard to download before raising an exception. Default: 20 sec.
     """
     # If we already have the file cached locally, we are done.
     if os.path.exists(local):
         return
 
-    # No local file, so check to see if someone else is currently downloading
-    # the shard. If they are, wait for that download to complete.
+    # Check if there is a tmp file.
     local_tmp = local + '.tmp'
     if os.path.exists(local_tmp):
-        wait_for_download(local, timeout)
-        return
+        local_tmp_create_time = os.path.getctime(local_tmp)
+        current_time = time()
 
-    # No temp download file when we checked, so attept to take it ourself. If
-    # that fails, someone beat us to it.
+        if current_time - local_tmp_create_time < timeout + 1:  # 1s buffer to avoid race condition
+            # If the tmp file is recent, it is either (1) from a very recent crashed run, or (2) another thread is actively downloading it.
+            # So we wait but don't error out, in case we are in situation (1)
+            try:
+                wait_for_download(local, timeout)
+                return
+            except TimeoutError:
+                pass
+
+        # The tmp file is old, it is either (1) from a crashed run or (2) another thread is downloading it but is taking too long, and will timeout.
+        # Let's delete the tmp file. If situation (1), this is safe. If situation (2), the other thread is expected to crash with a TimeoutError anyways, so this is fine.
+        try:
+            os.remove(local_tmp)
+        except OSError:
+            # This occurs if another download thread got to the delete first.
+            pass
+
+    # There is no tmp file, so attempt to make it.
+    # If this fails, another download thread beat us to it, so wait.
+    # If we run out of time here, we know a download thread was active, so we should error out.
     local_dir = os.path.dirname(local)
     os.makedirs(local_dir, exist_ok=True)
     try:
@@ -93,6 +127,6 @@ def safe_download(remote: str, local: str, timeout: Optional[float] = 10) -> Non
         wait_for_download(local, timeout)
         return
 
-    # We took the temp download file. Perform the download, then rename.
-    download(remote, local_tmp)
+    # We succesfully created the tmp file. Perform the download and rename.
+    download(remote, local_tmp, timeout)
     os.rename(local_tmp, local)
