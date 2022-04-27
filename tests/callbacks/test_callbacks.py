@@ -1,12 +1,16 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import os
+from typing import Callable
+
 import pytest
 
+from composer.callbacks import CheckpointSaver, GradMonitor, LRMonitor, MemoryMonitor, SpeedMonitor
 from composer.core import Event
 from composer.core.callback import Callback
 from composer.core.engine import Engine
 from composer.core.state import State
-from composer.loggers import Logger
+from composer.loggers import FileLogger, InMemoryLogger, Logger, ObjectStoreLogger, ProgressBarLogger, WandBLogger
 
 
 def test_callbacks_map_to_events():
@@ -39,3 +43,67 @@ def test_run_event_callbacks(event: Event, dummy_state: State):
     engine.run_event(event)
 
     assert callback.event == event
+
+
+@pytest.mark.parametrize('callback_factory', [
+    CheckpointSaver,
+    GradMonitor,
+    LRMonitor,
+    MemoryMonitor,
+    SpeedMonitor,
+    FileLogger,
+    InMemoryLogger,
+    lambda: ObjectStoreLogger(
+        use_procs=False,
+        num_concurrent_uploads=1,
+        provider='local',
+        container='.',
+        provider_kwargs={
+            'key': os.path.abspath("."),
+        },
+    ),
+    ProgressBarLogger,
+    WandBLogger,
+])
+class TestCallbacks:
+
+    def test_multiple_fit_start_and_end(self, callback_factory: Callable[[], Callback], dummy_state: State):
+        """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
+        dummy_state.callbacks.append(callback_factory())
+        logger = Logger(dummy_state)
+        engine = Engine(state=dummy_state, logger=logger)
+
+        engine.run_event(Event.INIT)  # always runs just once per engine
+
+        engine.run_event(Event.FIT_START)
+        engine.run_event(Event.FIT_END)
+
+        engine.run_event(Event.FIT_START)
+        engine.run_event(Event.FIT_END)
+
+    def test_idempotent_close(self, callback_factory: Callable[[], Callback], dummy_state: State):
+        """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
+        dummy_state.callbacks.append(callback_factory())
+        logger = Logger(dummy_state)
+        engine = Engine(state=dummy_state, logger=logger)
+
+        engine.run_event(Event.INIT)  # always runs just once per engine
+        engine.close()
+        engine.close()
+
+    def test_multiple_init_and_close(self, callback_factory: Callable[[], Callback], dummy_state: State):
+        """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
+        dummy_state.callbacks.append(callback_factory())
+        logger = Logger(dummy_state)
+        engine = Engine(state=dummy_state, logger=logger)
+
+        engine.run_event(Event.INIT)
+        engine.close()
+        # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
+        engine.close()
+
+        # Create a new engine, since the engine does allow events to run after it has been closed
+        engine = Engine(state=dummy_state, logger=logger)
+        engine.close()
+        # For good measure, also test idempotent close, in case if there are edge cases with a second call to INIT
+        engine.close()
