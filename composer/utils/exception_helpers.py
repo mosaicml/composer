@@ -66,6 +66,7 @@ def print_traceback_before_cleanup(cleanup: Callable[[], None]):
         Traceback (most recent call last):
         ...
         RuntimeError: Exception
+        Hello, world!
 
     Args:
         cleanup (Callable[[], None]): Function to invoke after the exception was printed.
