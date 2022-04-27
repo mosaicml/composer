@@ -1,16 +1,20 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import os
-from typing import Callable
+from typing import Callable, List
 
 import pytest
 
-from composer.callbacks import CheckpointSaver, GradMonitor, LRMonitor, MemoryMonitor, SpeedMonitor
+import composer.callbacks
+import composer.loggers
+import composer.profiler
 from composer.core import Event
 from composer.core.callback import Callback
 from composer.core.engine import Engine
 from composer.core.state import State
-from composer.loggers import FileLogger, InMemoryLogger, Logger, ObjectStoreLogger, ProgressBarLogger, WandBLogger
+from composer.loggers import Logger, ObjectStoreLogger
+from composer.profiler.profiler import Profiler
+from composer.profiler.profiler_action import ProfilerAction
 
 
 def test_callbacks_map_to_events():
@@ -45,15 +49,16 @@ def test_run_event_callbacks(event: Event, dummy_state: State):
     assert callback.event == event
 
 
-@pytest.mark.parametrize('callback_factory', [
-    CheckpointSaver,
-    GradMonitor,
-    LRMonitor,
-    MemoryMonitor,
-    SpeedMonitor,
-    FileLogger,
-    InMemoryLogger,
-    lambda: ObjectStoreLogger(
+def _get_callback_factories() -> List[Callable[..., Callback]]:
+    callback_factories: List[Callable[..., Callback]] = [
+        x for x in vars(composer.callbacks).values() if isinstance(x, type) and issubclass(x, Callback)
+    ]
+    callback_factories.extend(
+        x for x in vars(composer.loggers).values() if isinstance(x, type) and issubclass(x, Callback))
+    callback_factories.extend(
+        x for x in vars(composer.profiler).values() if isinstance(x, type) and issubclass(x, Callback))
+    callback_factories.remove(ObjectStoreLogger)
+    callback_factories.append(lambda: ObjectStoreLogger(
         use_procs=False,
         num_concurrent_uploads=1,
         provider='local',
@@ -61,15 +66,17 @@ def test_run_event_callbacks(event: Event, dummy_state: State):
         provider_kwargs={
             'key': os.path.abspath("."),
         },
-    ),
-    ProgressBarLogger,
-    WandBLogger,
-])
+    ))
+    return callback_factories
+
+
+@pytest.mark.parametrize('callback_factory', _get_callback_factories())
 class TestCallbacks:
 
     def test_multiple_fit_start_and_end(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
         dummy_state.callbacks.append(callback_factory())
+        dummy_state.profiler = Profiler(dummy_state, lambda _: ProfilerAction.SKIP, [])
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
@@ -84,6 +91,8 @@ class TestCallbacks:
     def test_idempotent_close(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
         dummy_state.callbacks.append(callback_factory())
+        dummy_state.profiler = Profiler(dummy_state, lambda _: ProfilerAction.SKIP, [])
+
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
@@ -94,6 +103,8 @@ class TestCallbacks:
     def test_multiple_init_and_close(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
         dummy_state.callbacks.append(callback_factory())
+        dummy_state.profiler = Profiler(dummy_state, lambda _: ProfilerAction.SKIP, [])
+
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
