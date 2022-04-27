@@ -210,7 +210,7 @@ class EMA(Algorithm):
 
 
 class ShadowModel:
-    """A shadow model that tracks parameters and buffers from an original source model
+    """A shadow model that tracks parameters and buffers from an original source model.
 
     Args:
         model (torch.nn.Module): the source model containing the parameters and buffers to shadow.
@@ -235,8 +235,7 @@ T_Model = Union[torch.nn.Module, ShadowModel]
 
 
 def _copy_model(source_model: T_Model, destination_model: T_Model):
-    """Copies parameters and buffers from ``source_model`` to ``destination_model``
-    """
+    """Copies parameters and buffers from ``source_model`` to ``destination_model``"""
     with torch.no_grad():
         source_params = itertools.chain(source_model.parameters(), source_model.buffers())
         destination_params = itertools.chain(destination_model.parameters(), destination_model.buffers())
