@@ -1,14 +1,14 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Tuple, Union
+from typing import Iterable, Tuple
 
 import pytest
 import torch
 import torch.utils.data
 from torch.optim import Optimizer
 
-from composer.core import DataSpec, Precision, State
-from composer.core.types import DataLoader, PyTorchScheduler
+from composer.core import Precision, State
+from composer.core.types import PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.models import ModelHparams
 from composer.optim import AdamHparams, ExponentialSchedulerHparams
@@ -91,7 +91,7 @@ def dummy_scheduler(dummy_optimizer: Optimizer):
 
 
 @pytest.fixture()
-def dummy_state(dummy_model: SimpleModel, dummy_train_dataloader: DataLoader, dummy_optimizer: Optimizer,
+def dummy_state(dummy_model: SimpleModel, dummy_train_dataloader: Iterable, dummy_optimizer: Optimizer,
                 dummy_scheduler: PyTorchScheduler, rank_zero_seed: int) -> State:
     state = State(
         model=dummy_model,
@@ -119,14 +119,20 @@ def dummy_dataloader_hparams() -> DataLoaderHparams:
 
 
 @pytest.fixture
-def dummy_train_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_train_batch_size: int,
-                           dummy_dataloader_hparams: DataLoaderHparams) -> Union[DataLoader, DataSpec]:
+def dummy_train_dataloader(
+    dummy_train_dataset_hparams: DatasetHparams,
+    dummy_train_batch_size: int,
+    dummy_dataloader_hparams: DataLoaderHparams,
+):
     return dummy_train_dataset_hparams.initialize_object(dummy_train_batch_size, dummy_dataloader_hparams)
 
 
 @pytest.fixture
-def dummy_val_dataloader(dummy_train_dataset_hparams: DatasetHparams, dummy_val_batch_size: int,
-                         dummy_dataloader_hparams: DataLoaderHparams) -> Union[DataLoader, DataSpec]:
+def dummy_val_dataloader(
+    dummy_train_dataset_hparams: DatasetHparams,
+    dummy_val_batch_size: int,
+    dummy_dataloader_hparams: DataLoaderHparams,
+):
     return dummy_train_dataset_hparams.initialize_object(dummy_val_batch_size, dummy_dataloader_hparams)
 
 

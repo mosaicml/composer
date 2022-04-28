@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import Callable, Iterable, Optional, Union
 
 from torchmetrics import Metric, MetricCollection
 
@@ -13,9 +13,6 @@ from composer.core.data_spec import DataSpec
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
-
-if TYPE_CHECKING:
-    from composer.core.types import DataLoader
 
 __all__ = ["Evaluator", "evaluate_periodically"]
 
@@ -75,17 +72,19 @@ class Evaluator:
 
     Args:
         label (str): Name of the Evaluator
-        dataloader (Union[DataSpec, DataLoader]): DataLoader/DataSpec for evaluation data
+        dataloader (Union[DataSpec, Iterable]): Iterable that yields batches or a :class:`.DataSpec` for evaluation
+            data.
         metrics (Metric | MetricCollection): :class:`torchmetrics.Metric` to log. ``metrics`` will be deep-copied to
             ensure that each evaluator updates only its ``metrics``.
-        subset_num_batches (int, optional): The maximum number of batches to use for each evaluation. If not specified, 
-            the Trainer's ``eval_subset_num_batches`` parameter will be used. Defaults to None.
+        subset_num_batches (int, optional): The maximum number of batches to use for each evaluation. Defaults to
+            ``None``, which means that the ``eval_subset_num_batches`` parameter from the
+            :class:`~composer.trainer.trainer.Trainer` will be used.
 
             Set to ``-1`` to evaluate the entire ``dataloader``
-        eval_interval (int | str | Time | (State, Event) -> bool, optional): An integer (in epochs),
-            :class:`.Time` string or instance, or a callable that takes the (State, Event) and returns whether to
-            evaluate the evaluator. If not specified, the Trainer's ``eval_subset_num_batches`` parameter will be used.
-            Defaults to None.
+        eval_interval (int | str | Time | (State, Event) -> bool, optional): An integer, which will be
+            interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
+            Defaults to ``None``, which means that the ``eval_interval`` parameter from the
+            :class:`~composer.trainer.trainer.Trainer` will be used.
 
             If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run
             with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
@@ -93,16 +92,16 @@ class Evaluator:
 
             Set to ``0`` to disable evaluation.
 
-            If a callable, it will be called with the training :class:`.State` and the evaluation event, which will be
-            either :attr:`.Event.BATCH_END` or :attr:`.Event.EPOCH_END`. The callable should return a bool representing
-            whether the evaluator should be invoked.
+            If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool 
+            representing whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`
+            or :attr:`.Event.EPOCH_END`.
     """
 
     def __init__(
         self,
         *,
         label: str,
-        dataloader: Union[DataSpec, DataLoader],
+        dataloader: Union[DataSpec, Iterable],
         metrics: Union[Metric, MetricCollection],
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,

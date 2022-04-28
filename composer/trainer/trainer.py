@@ -69,16 +69,16 @@ import datetime
 import itertools
 import logging
 import pathlib
-import sys
 import textwrap
 import warnings
-from typing import Any, Callable, ContextManager, Dict, List, Optional, Sequence, TextIO, Tuple, Union, cast
+from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import torch
 import torch.distributed
 import torch.utils.data
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel
+from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
 
 import composer
@@ -87,13 +87,12 @@ from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
 from composer.core.evaluator import evaluate_periodically
 from composer.core.precision import get_precision_context
-from composer.core.types import Batch, BreakEpochException, DataLoader, PyTorchScheduler
-from composer.datasets.dataloader import unwrap_data_loader
+from composer.core.types import Batch, BreakEpochException, PyTorchScheduler
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
-from composer.profiler import DataLoaderProfiler, Profiler, ProfilerAction, SystemProfiler, TorchProfiler, TraceHandler
+from composer.profiler import Profiler, ProfilerAction, SystemProfiler, TorchProfiler, TraceHandler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
@@ -193,7 +192,7 @@ def _compile_schedulers(
     return compiled_schedulers
 
 
-def _unpack_dataloader(dataloader: Union[DataSpec, DataLoader, dict]) -> DataSpec:
+def _unpack_dataloader(dataloader: Union[DataSpec, Iterable, dict]) -> DataSpec:
     if isinstance(dataloader, dict):
         # treat as kwargs for DataSpec
         dataloader = DataSpec(**dataloader)
@@ -201,9 +200,8 @@ def _unpack_dataloader(dataloader: Union[DataSpec, DataLoader, dict]) -> DataSpe
         dataloader = DataSpec(dataloader)
 
     data_spec = dataloader
-    unwrapped_data_loader = unwrap_data_loader(data_spec.dataloader)
-    if isinstance(unwrapped_data_loader, torch.utils.data.DataLoader):
-        if unwrapped_data_loader._iterator is not None:
+    if isinstance(data_spec.dataloader, torch.utils.data.DataLoader):
+        if data_spec.dataloader._iterator is not None:
             raise ValueError(
                 textwrap.dedent("""\
                 The `train_dataloader` has an active iterator. This could occur
@@ -218,7 +216,7 @@ def _unpack_dataloader(dataloader: Union[DataSpec, DataLoader, dict]) -> DataSpe
 
 
 def _unpack_evaluators(
-    eval_dataloader: Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]],
+    eval_dataloader: Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]],
     eval_interval: Union[int, str, Time, Callable[[State, Event], bool]],
     subset_num_batches: int,
     model: ComposerModel,
@@ -356,8 +354,6 @@ def _unpack_profiler(
 
         profiler = Profiler(state=state, trace_handlers=ensure_tuple(prof_trace_handlers), schedule=prof_schedule)
 
-        profiler_callbacks.append(DataLoaderProfiler())
-
         if sys_prof_cpu or sys_prof_memory or sys_prof_disk or sys_prof_net:
             profiler_callbacks.append(
                 SystemProfiler(profile_cpu=sys_prof_cpu,
@@ -393,10 +389,11 @@ class Trainer:
             with Composer.
 
             .. seealso:: :mod:`composer.models` for models built into Composer.
-        train_dataloader (DataLoader | DataSpec | dict, optional): The :class:`.DataLoader`, :class:`.DataSpec`,
+        train_dataloader (Iterable, DataSpec, or dict, optional): The dataloader, :class:`.DataSpec`,
             or dict of :class:`.DataSpec` kwargs for the training data. In order to specify custom
-            preprocessing steps on each data batch, specify a :class:`.DataSpec` instead of a
-            :class:`.DataLoader`.
+            preprocessing steps on each data batch, specify a :class:`.DataSpec` instead of a dataloader.
+            It is recommended that the dataloader, whether specified directly or as part of a :class:`.DataSpec`,
+            should be a :class:`torch.utils.data.DataLoader`.
 
             .. note:: The ``train_dataloader`` should yield per-rank batches. Each per-rank batch
                 will then be further divided based on the ``grad_accum`` parameter. For example, if the
@@ -472,23 +469,23 @@ class Trainer:
             :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
             metrics returned by ``model.metrics()`` will be used during evaluation.
             ``None`` results in no evaluation. (default: ``None``)
-        eval_interval (Time | int | str | (State, Event) -> bool, optional): An integer (in epochs),
-            :class:`.Time` string or instance, or a callable that takes the (:class:`.State`, :class:`.Event`) and
-            returns whether to evaluate the evaluator. Defaults to ``1`` (evaluate every epoch).
+        eval_interval (int | str | Time | (State, Event) -> bool, optional): An integer, which will be
+            interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
+            Defaults to ``1`` (evaluate every epoch).
 
-            If an integer (in epochs) or :class:`.Time` string or instance, the evaluator will be run
+            If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run
             with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
             :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
 
             Set to ``0`` to disable evaluation.
 
-            If a callable, it will be called with the training :class:`.State` and :attr:`.Event.BATCH_END` or
-            :attr:`.Event.EPOCH_END`, depending on when the evaluation runs. The callable should return a bool
-            representing whether the evaluator should be invoked.
+            If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool
+            representing whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`
+            or :attr:`.Event.EPOCH_END`.
 
             This ``eval_interval`` will apply to any :class:`.Evaluator` in ``eval_dataloader`` that does not specify
             an ``eval_interval`` or if a dataloader is passed in directly. This parameter has no effect if
-            ``eval_dataloader`` not specified.
+            ``eval_dataloader`` is not specified.
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
             which means to iterate over the entire dataloader.
 
@@ -790,7 +787,7 @@ class Trainer:
         model: ComposerModel,
 
         # Train Dataloader
-        train_dataloader: Optional[Union[DataLoader, DataSpec, Dict[str, Any]]] = None,
+        train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]] = None,
         train_dataloader_label: str = 'train',
         train_subset_num_batches: int = -1,
         compute_training_metrics: bool = False,
@@ -809,7 +806,7 @@ class Trainer:
         step_schedulers_every_batch: Optional[bool] = None,
 
         # Evaluators
-        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+        eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
         eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
         eval_subset_num_batches: int = -1,
 
@@ -820,7 +817,7 @@ class Trainer:
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
-        console_stream: Union[str, TextIO] = sys.stderr,
+        console_stream: Union[str, TextIO] = 'stderr',
 
         # Load Checkpoint
         load_path: Optional[str] = None,
@@ -1154,7 +1151,7 @@ class Trainer:
         self,
         *,
         # Train Dataloader
-        train_dataloader: Optional[Union[DataLoader, DataSpec, Dict[str, Any]]] = None,
+        train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]] = None,
         train_dataloader_label: str = "train",
         train_subset_num_batches: Optional[int] = None,
         compute_training_metrics: Optional[bool] = None,
@@ -1170,7 +1167,7 @@ class Trainer:
         step_schedulers_every_batch: Optional[bool] = None,
 
         # Evaluation
-        eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
+        eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]] = None,
         eval_subset_num_batches: int = -1,
         eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
 
@@ -1189,7 +1186,7 @@ class Trainer:
             what was provided when constructing the :class:`.Trainer`.
 
         Args:
-            train_dataloader (DataLoader | DataSpec | Dict[str, Any], optional): See :class:`.Trainer`.
+            train_dataloader (Iterable | DataSpec | Dict[str, Any], optional): See :class:`.Trainer`.
             train_dataloader_label (str, optional): See :class:`.Trainer`.
             train_subset_num_batches (int, optional): See :class:`.Trainer`.
             compute_training_metrics (bool, optional): See :class:`.Trainer`.
@@ -1210,7 +1207,7 @@ class Trainer:
                 See :class:`.Trainer`.
             scale_schedule_ratio (float, optional): See :class:`.Trainer`.
             step_schedulers_every_batch (bool, optional): See :class:`.Trainer`.
-            eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
+            eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
             eval_subset_num_batches (int, optional): See :class:`.Trainer`.
             eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
             grad_accum (int | str, optional): See :class:`.Trainer`.
@@ -1337,21 +1334,18 @@ class Trainer:
         # so it does not affect any other RNG reads
         for evaluator in self.evaluators:
             dataloader = evaluator.dataloader.dataloader
-            # FFCV dataloaders use their own sampling strategy
-            if isinstance(dataloader, torch.utils.data.DataLoader) and isinstance(dataloader.sampler,
-                                                                                  torch.utils.data.DistributedSampler):
+            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 dataloader.sampler.set_epoch(0)
             for _ in dataloader:
                 break
 
         # spin the train dataloader's sampler to get to the state of the desired epoch
-        assert self.state.dataloader is not None, "train dataloader is set on state after FIT_START"
+        dataloader = self.state.dataloader
+        assert dataloader is not None, "train dataloader is set on state after FIT_START"
         for epoch in range(int(self.state.timer.epoch)):
-            # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-            if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
-                                                                        torch.utils.data.DistributedSampler):
-                self.state.dataloader.sampler.set_epoch(epoch)
-            for _ in self.state.dataloader:
+            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
+                dataloader.sampler.set_epoch(epoch)
+            for _ in dataloader:
                 break
 
     def _train_loop(self) -> None:
@@ -1391,17 +1385,11 @@ class Trainer:
                         # reset the metrics before every epoch
                         self.train_metrics.reset()
 
-                # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-                if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
-                                                                            torch.utils.data.DistributedSampler):
-                    self.state.dataloader.sampler.set_epoch(int(self.state.timer.epoch))
+                dataloader = self.state.dataloader
+                if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
+                    dataloader.sampler.set_epoch(int(self.state.timer.epoch))
 
-                if self.state.dataloader_len is None:
-                    iterable = self.state.dataloader
-                else:
-                    iterable = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
-
-                for batch_idx, self.state.batch in enumerate(iterable):
+                for batch_idx, self.state.batch in enumerate(self._iter_dataloader()):
 
                     # if resuming, skip dataloader forward to the minibatch index
                     if batch_idx < int(self.state.timer.batch_in_epoch):
@@ -1728,7 +1716,7 @@ class Trainer:
 
     def eval(
         self,
-        dataloader: Union[DataLoader, DataSpec, dict],
+        dataloader: Union[Iterable, DataSpec, dict],
         dataloader_label: str = 'eval',
         *,
         metrics: Union[Metric, MetricCollection],
@@ -1769,7 +1757,6 @@ class Trainer:
 
         self.state.model.eval()
         with torch.no_grad():
-
             self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
             assert self.state.dataloader is not None, "dataloader is set"
 
@@ -1780,21 +1767,15 @@ class Trainer:
 
             metrics = self._ensure_metrics_device_and_dtype(metrics)
             metrics.reset()
-            # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-            if hasattr(self.state.dataloader, "sampler") and isinstance(self.state.dataloader.sampler,
-                                                                        torch.utils.data.DistributedSampler):
+            dataloader = self.state.dataloader
+            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 # The distributed sampler uses `set_epoch` to set the random seed
                 # Because evaluation can run on each batch, we use the batch to seed the sampler
                 # so each evaluation will get a proper shuffle.
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                self.state.dataloader.sampler.set_epoch(int(self.state.timer.batch))
+                dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
-            if self.state.dataloader_len is None:
-                iterable = self.state.dataloader
-            else:
-                iterable = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
-
-            for self.state.batch in iterable:
+            for self.state.batch in self._iter_dataloader():
                 self.state.batch = self._device.batch_to_device(self.state.batch)
                 if data_spec.device_transforms is not None:
                     self.state.batch = data_spec.device_transforms(self.state.batch)
@@ -1855,6 +1836,33 @@ class Trainer:
             raise RuntimeError(f'Attempting to use grad scaling with {precision}, but scaler is not enabled.'
                                f'Potentially your hardware does not support Precision {precision}.')
         return use_grad_scaling
+
+    def _iter_dataloader(self):
+        """Helper method to iterate over the dataloader.
+
+        This method yields up to :attr:`.State.dataloader_len`` batches from the dataloader. In addition, if the
+        profiler is enabled, the dataloader latency recorded via the :class:`.Marker` API.
+        """
+        marker = None
+        if self.state.profiler is not None:
+            marker = self.state.profiler.marker(f"dataloader/{self.state.dataloader_label}", categories=["dataloader"])
+        assert self.state.dataloader is not None, "the dataloader should be set before calling this method"
+
+        if self.state.dataloader_len is None:
+            dataloader_iter = iter(self.state.dataloader)
+        else:
+            dataloader_iter = itertools.islice(self.state.dataloader, int(self.state.dataloader_len))
+
+        while True:
+            if marker is not None:
+                marker.start()
+            try:
+                yield next(dataloader_iter)
+            except StopIteration:
+                break
+            finally:
+                if marker is not None:
+                    marker.finish()
 
     def _use_closures(self) -> bool:
         """Determines based on precision and optimizers whether to use closures.

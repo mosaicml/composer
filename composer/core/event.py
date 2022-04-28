@@ -18,47 +18,63 @@ class Event(StringEnum):
         # <FIT_START>
         for epoch in range(NUM_EPOCHS):
             # <EPOCH_START>
-            for inputs, targets in dataloader:
+            for batch in dataloader:
                 # <AFTER_DATALOADER>
 
                 # <BATCH_START>
 
-                # <BEFORE_FORWARD>
-                outputs = model.forward(inputs)
-                # <AFTER_FORWARD>
+                # <BEFORE_TRAIN_BATCH>
 
-                # <BEFORE_LOSS>
-                loss = model.loss(outputs, targets)
-                # <AFTER_LOSS>
+                for microbatch in batch.split(grad_accum):
 
-                # <BEFORE_BACKWARD>
-                loss.backward()
-                # <AFTER_BACKWARD>
+                    # <BEFORE_FORWARD>
+                    outputs = model(batch)
+                    # <AFTER_FORWARD>
 
+                    # <BEFORE_LOSS>
+                    loss = model.loss(outputs, batch)
+                    # <AFTER_LOSS>
+
+                    # <BEFORE_BACKWARD>
+                    loss.backward()
+                    # <AFTER_BACKWARD>
+
+                # Un-scale and clip gradients
+
+                # <AFTER_TRAIN_BATCH>
                 optimizer.step()
 
                 # <BATCH_END>
 
                 if should_eval(batch=True):
-                    # <EVAL_START>
-                    # <EVAL_BATCH_START>
-                    # <EVAL_BEFORE_FORWARD>
-                    # <EVAL_AFTER_FORWARD>
-                    # <EVAL_BATCH_END>
-                    # <EVAL_END>
+                    for eval_dataloader in eval_dataloaders:
+                        # <EVAL_START>
+                        for batch in eval_dataloader:
+                            # <EVAL_BATCH_START>
+                            # <EVAL_BEFORE_FORWARD>
+                            outputs, targets = model(batch)
+                            # <EVAL_AFTER_FORWARD>
+                            metrics.update(outputs, targets)
+                            # <EVAL_BATCH_END>
+                        # <EVAL_END>
 
                 # <BATCH_CHECKPOINT>
             # <EPOCH_END>
 
             if should_eval(batch=False):
-                # <EVAL_START>
-                # <EVAL_BATCH_START>
-                # <EVAL_BEFORE_FORWARD>
-                # <EVAL_AFTER_FORWARD>
-                # <EVAL_BATCH_END>
-                # <EVAL_END>
+                for eval_dataloader in eval_dataloaders:
+                    # <EVAL_START>
+                    for batch in eval_dataloader:
+                        # <EVAL_BATCH_START>
+                        # <EVAL_BEFORE_FORWARD>
+                        outputs, targets = model(batch)
+                        # <EVAL_AFTER_FORWARD>
+                        metrics.update(outputs, targets)
+                        # <EVAL_BATCH_END>
+                    # <EVAL_END>
 
             # <EPOCH_CHECKPOINT>
+        # <FIT_END>
 
     Attributes:
         INIT: Invoked in the constructor of :class:`~.trainer.Trainer`. Model surgery (see
@@ -66,16 +82,22 @@ class Event(StringEnum):
         FIT_START: Invoked at the beginning of each call to :meth:`.Trainer.fit`. Dataset transformations typically
             occur here.
         EPOCH_START: Start of an epoch.
-        BATCH_START: Start of a batch.
         AFTER_DATALOADER: Immediately after the dataloader is called.  Typically used for on-GPU dataloader transforms.
+        BATCH_START: Start of a batch.
         BEFORE_TRAIN_BATCH: Before the forward-loss-backward computation for a training batch. When using gradient
             accumulation, this is still called only once.
         BEFORE_FORWARD: Before the call to ``model.forward()``.
+            This is called multiple times per batch when using gradient accumulation.
         AFTER_FORWARD: After the call to ``model.forward()``.
+            This is called multiple times per batch when using gradient accumulation.
         BEFORE_LOSS: Before the call to ``model.loss()``.
+            This is called multiple times per batch when using gradient accumulation.
         AFTER_LOSS: After the call to ``model.loss()``.
+            This is called multiple times per batch when using gradient accumulation.
         BEFORE_BACKWARD: Before the call to ``loss.backward()``.
+            This is called multiple times per batch when using gradient accumulation.
         AFTER_BACKWARD: After the call to ``loss.backward()``.
+            This is called multiple times per batch when using gradient accumulation.
         AFTER_TRAIN_BATCH: After the forward-loss-backward computation for a training batch. When using gradient
             accumulation, this event still fires only once.
         BATCH_END: End of a batch, which occurs after the optimizer step and any gradient scaling.
@@ -86,6 +108,9 @@ class Event(StringEnum):
         EPOCH_CHECKPOINT: After :attr:`.Event.EPOCH_END` and any epoch-wise evaluation. Saving checkpoints at this event allows
             event allows the checkpoint saver to use the results from any epoch-wise evaluation to determine whether
             a checkpointshould be saved.
+        FIT_END: Invoked at the end of each call to :meth:`.Trainer.fit`. This event exists primarily for logging information
+            and flushing callbacks. Algorithms should not transform the training state on this event, as any changes will not
+            be preserved in checkpoints.
 
         EVAL_START: Start of evaluation through the validation dataset.
         EVAL_BATCH_START: Before the call to ``model.validate(batch)``
@@ -99,9 +124,10 @@ class Event(StringEnum):
     FIT_START = "fit_start"
 
     EPOCH_START = "epoch_start"
-    BATCH_START = "batch_start"
 
     AFTER_DATALOADER = "after_dataloader"
+
+    BATCH_START = "batch_start"
 
     BEFORE_TRAIN_BATCH = "before_train_batch"
 
@@ -121,6 +147,8 @@ class Event(StringEnum):
 
     EPOCH_END = "epoch_end"
     EPOCH_CHECKPOINT = "epoch_checkpoint"
+
+    FIT_END = "fit_end"
 
     EVAL_START = "eval_start"
     EVAL_BATCH_START = "eval_batch_start"
@@ -164,8 +192,27 @@ class Event(StringEnum):
         return name
 
 
-_BEFORE_EVENTS = (Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD,
-                  Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START, Event.EVAL_BATCH_START,
-                  Event.EVAL_BEFORE_FORWARD)
-_AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD, Event.AFTER_LOSS,
-                 Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD)
+_BEFORE_EVENTS = (
+    Event.FIT_START,
+    Event.EPOCH_START,
+    Event.BATCH_START,
+    Event.BEFORE_TRAIN_BATCH,
+    Event.BEFORE_FORWARD,
+    Event.BEFORE_LOSS,
+    Event.BEFORE_BACKWARD,
+    Event.EVAL_START,
+    Event.EVAL_BATCH_START,
+    Event.EVAL_BEFORE_FORWARD,
+)
+_AFTER_EVENTS = (
+    Event.EPOCH_END,
+    Event.BATCH_END,
+    Event.AFTER_TRAIN_BATCH,
+    Event.AFTER_FORWARD,
+    Event.AFTER_LOSS,
+    Event.AFTER_BACKWARD,
+    Event.EVAL_END,
+    Event.EVAL_BATCH_END,
+    Event.EVAL_AFTER_FORWARD,
+    Event.FIT_END,
+)
