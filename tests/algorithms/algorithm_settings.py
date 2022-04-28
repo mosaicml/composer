@@ -33,6 +33,7 @@ simple_resnet_settings = {
 }
 
 _settings = {
+    'agc': simple_vision_settings,
     'alibi': None,  # NLP settings needed
     'augmix': None,  # requires PIL dataset to test
     'blurpool': {

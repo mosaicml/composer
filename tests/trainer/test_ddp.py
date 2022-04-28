@@ -69,7 +69,7 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     data_shape: Optional[List[int]] = hp.optional("data_shape", default=None)
     tmpdir: Optional[str] = hp.optional("tmpdir", default=None)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> types.DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         assert self.num_classes is not None
         assert self.data_shape is not None
         assert self.tmpdir is not None
