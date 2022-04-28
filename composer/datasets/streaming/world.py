@@ -9,8 +9,8 @@ __all__ = ["World", "get_world"]
 
 class World(NamedTuple):
     """A NamedTuple that provides context about workers, devices, and nodes."""
-    node: int
-    num_nodes: int
+    global_node: int
+    global_num_nodes: int
 
     global_device: int
     global_num_devices: int
@@ -32,7 +32,7 @@ def get_world() -> World:
     """Returns a World object, initialized using composer.dist and torch.utils.data.get_worker_info()."""
 
     # Node and Device info
-    node = dist.get_node_rank()
+    global_node = dist.get_node_rank()
     global_device = dist.get_global_rank()
     global_num_devices = dist.get_world_size()
     node_device = dist.get_global_rank()
@@ -43,7 +43,7 @@ def get_world() -> World:
         raise RuntimeError(
             f"Expected global_num_devices ({global_num_devices}) % node_num_devices ({node_num_devices}) == 0. Unable to determine 'num_nodes'."
         )
-    num_nodes = global_num_devices // node_num_devices
+    global_num_nodes = global_num_devices // node_num_devices
 
     # Worker info
     # We assume every Device has the same number of Workers.
@@ -62,8 +62,8 @@ def get_world() -> World:
     global_num_workers = global_num_devices * device_num_workers
 
     return World(
-        node=node,
-        num_nodes=num_nodes,
+        global_node=global_node,
+        global_num_nodes=global_num_nodes,
         global_device=global_device,
         global_num_devices=global_num_devices,
         node_device=node_device,

@@ -1,6 +1,6 @@
 import math
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -145,19 +145,10 @@ class StreamingDatasetIndex(object):
             cls: The loaded object.
         """
         fp = BytesIO(data)
-        dtype = np.int64
-
-        total_samples, total_bytes, num_shards, num_fields = read_array(fp, 4, dtype)
-        del total_bytes
-        samples_per_shard = read_array(fp, num_shards, dtype)
-        bytes_per_shard = read_array(fp, num_shards, dtype)
-        bytes_per_sample = read_array(fp, total_samples, dtype)
-        bytes_per_field = read_array(fp, num_fields, dtype)
-        fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
-        return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
+        return cls.load(fp)
 
     @classmethod
-    def load(cls, fp: BufferedReader):
+    def load(cls, fp: Union[BufferedReader, BytesIO]):
         """Load a StreamingDatasetIndex from a file handle.
 
         Args:
@@ -166,8 +157,16 @@ class StreamingDatasetIndex(object):
         Returns:
             cls: The loaded object.
         """
-        data = fp.read()
-        return cls.loads(data)
+
+        dtype = np.int64
+        total_samples, total_bytes, num_shards, num_fields = read_array(fp, 4, dtype)
+        del total_bytes
+        samples_per_shard = read_array(fp, num_shards, dtype)
+        bytes_per_shard = read_array(fp, num_shards, dtype)
+        bytes_per_sample = read_array(fp, total_samples, dtype)
+        bytes_per_field = read_array(fp, num_fields, dtype)
+        fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
+        return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
 
     def dumps(self) -> bytes:
         """Dump a StreamingDatasetIndex to raw bytes.
@@ -214,12 +213,12 @@ class StreamingDatasetIndex(object):
         sample_shard_offsets = sample_begins - sample_shard_begins
         return sample_shards, sample_shard_offsets
 
-    def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[Sequence[int], int, int]:
+    def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], int, int]:
         """Get the shards and sample range of a given partition of the dataset.
 
         Args:
             world (World): Context about workers, devices, and nodes.
-            batch_size (int): Hint the batch size that will be used on each device's DataLoader.
+            batch_size (int): Hint the batch_size that will be used on each device's DataLoader.
                               Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
 
         Returns:
@@ -233,18 +232,28 @@ class StreamingDatasetIndex(object):
         device_worker = world.device_worker
         device_num_workers = world.device_num_workers
 
-        device_min_id = self.total_samples * global_device // global_num_devices
-        device_max_id = self.total_samples * (global_device + 1) // global_num_devices - 1
-        device_samples = device_max_id - device_min_id + 1
+        def _get_min_max_size(start: int, total: int, part: int, num_parts: int):
+            sizes = [math.ceil((total - p) / num_parts) for p in range(num_parts)]
+            min_ids = np.cumsum([0] + sizes)
+            part_min_id = start + min_ids[part]
+            part_max_id = start + min_ids[part + 1] - 1
+            part_size = sizes[part]
+            return part_min_id, part_max_id, part_size
+
+        # Some devices may have 1 fewer sample
+        # TODO: fix this to handle DDP edge cases correctly
+        device_min_id, device_max_id, device_samples = _get_min_max_size(0, self.total_samples, global_device,
+                                                                         global_num_devices)
 
         if not batch_size:
-            worker_min_id = device_min_id + device_samples * device_worker // device_num_workers
-            worker_max_id = device_min_id + device_samples * (device_worker + 1) // device_num_workers - 1
+            worker_min_id, worker_max_id, _ = _get_min_max_size(device_min_id, device_samples, device_worker,
+                                                                device_num_workers)
         else:
             device_batches = math.ceil(device_samples / batch_size)
-            worker_min_id = device_min_id + (device_batches * device_worker // device_num_workers) * batch_size
-            worker_max_id = device_min_id + (device_batches *
-                                             (device_worker + 1) // device_num_workers) * batch_size - 1
+            worker_min_batch_id, worker_max_batch_id, _ = _get_min_max_size(0, device_batches, device_worker,
+                                                                            device_num_workers)
+            worker_min_id = device_min_id + worker_min_batch_id * batch_size
+            worker_max_id = device_min_id + worker_max_batch_id * batch_size - 1
             # Last batch may be incomplete.
             worker_max_id = min(device_max_id, worker_max_id)
 

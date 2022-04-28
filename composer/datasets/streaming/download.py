@@ -12,7 +12,6 @@ def wait_for_download(local: str, timeout: float = 20) -> None:
         timeout (float): How long to wait before raising an exception. Default: 20 sec.
     """
     start_time = time()
-    i = 0
     while True:
         if os.path.exists(local):
             return
@@ -20,7 +19,6 @@ def wait_for_download(local: str, timeout: float = 20) -> None:
         if elapsed > timeout:
             raise TimeoutError(f'Waited too long (more than {timeout:.3f} sec) for download')
         sleep(0.1)
-        i += 1
 
 
 def download_from_s3(remote: str, local: str, timeout: float) -> None:
@@ -117,13 +115,13 @@ def safe_download(remote: str, local: str, timeout: float = 20) -> None:
 
     # There is no tmp file, so attempt to make it.
     # If this fails, another download thread beat us to it, so wait.
-    # If we run out of time here, we know a download thread was active, so we should error out.
     local_dir = os.path.dirname(local)
     os.makedirs(local_dir, exist_ok=True)
     try:
         with open(local_tmp, 'xb') as out:
             out.write(b'')
     except FileExistsError:
+        # If we run out of time here, we know a download thread was active and exceeded timeout, so we should error out.
         wait_for_download(local, timeout)
         return
 
