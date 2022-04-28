@@ -17,7 +17,7 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Union
 
 import torch
 import torch.utils.data
@@ -42,6 +42,8 @@ PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 
+Position = Union[int, str]
+Positions = Union[Position, Sequence[Position]]
 
 class BreakEpochException(Exception):
     """Raising this exception will immediately end the current epoch.
