@@ -131,7 +131,7 @@ class WandBLogger(LoggerDestination):
         import wandb
 
         # Cleaning up on post_close so all artifacts are uploaded
-        if not self._enabled:
+        if not self._enabled or wandb.run is None:
             return
 
         exc_tpe, exc_info, tb = sys.exc_info()

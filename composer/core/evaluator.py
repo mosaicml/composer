@@ -5,14 +5,11 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Union
+from typing import Iterable, Union
 
 from torchmetrics import Metric, MetricCollection
 
 from composer.core.data_spec import DataSpec as DataSpec
-
-if TYPE_CHECKING:
-    from composer.core.types import DataLoader
 
 __all__ = ["Evaluator"]
 
@@ -41,13 +38,12 @@ class Evaluator:
 
     Args:
         label (str): Name of the Evaluator
-        dataloader (Union[DataSpec, DataLoader]): DataLoader/DataSpec for evaluation data
+        dataloader (Union[DataSpec, Iterable]): DataSpec or Iterable for evaluation data
         metrics (Metric | MetricCollection): :class:`torchmetrics.Metric` to log. ``metrics`` will be deep-copied to ensure
             that each evaluator updates only its ``metrics``.
     """
 
-    def __init__(self, *, label: str, dataloader: Union[DataSpec, DataLoader], metrics: Union[Metric,
-                                                                                              MetricCollection]):
+    def __init__(self, *, label: str, dataloader: Union[DataSpec, Iterable], metrics: Union[Metric, MetricCollection]):
         self.label = label
         if isinstance(dataloader, DataSpec):
             self.dataloader = dataloader

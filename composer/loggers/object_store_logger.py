@@ -264,6 +264,9 @@ class ObjectStoreLogger(LoggerDestination):
                     "container": self.container,
                     "provider_kwargs": self.provider_kwargs,
                 },
+                # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status
+                # Setting daemon status prevents the process from hanging if close was never called (e.g. in doctests)
+                daemon=True,
             )
             worker.start()
             self._workers.append(worker)
@@ -335,6 +338,8 @@ class ObjectStoreLogger(LoggerDestination):
             worker.join()
         if self._tempdir is not None:
             self._tempdir.cleanup()
+        self._tempdir = None
+        self._finished = None
         self._workers.clear()
 
     def get_uri_for_artifact(self, artifact_name: str) -> str:
