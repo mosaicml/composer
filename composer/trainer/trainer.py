@@ -25,7 +25,7 @@ Train a model and save a checkpoint:
         optimizers=optimizer,
         schedulers=scheduler,
         device="cpu",
-        validate_every_n_epochs=1,
+        eval_interval="1ep",
         save_folder="checkpoints",
         save_filename="ep{epoch}.pt",
         save_interval="1ep",
@@ -52,7 +52,7 @@ Load the checkpoint and resume training:
         optimizers=optimizer,
         schedulers=scheduler,
         device="cpu",
-        validate_every_n_epochs=1,
+        eval_interval="1ep",
         load_path=checkpoint_path,
     )
 
@@ -85,6 +85,7 @@ import composer
 from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
+from composer.core.evaluator import evaluate_periodically
 from composer.core.precision import get_precision_context
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
@@ -105,6 +106,38 @@ from composer.utils.object_store import ObjectStore
 log = logging.getLogger(__name__)
 
 __all__ = ["Trainer"]
+
+
+def _unpack_evaluators(
+    eval_dataloader: Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]],
+    eval_interval: Union[int, str, Time, Callable[[State, Event], bool]],
+    subset_num_batches: int,
+    model: ComposerModel,
+) -> List[Evaluator]:
+    # convert eval_dataloader to `List[Evaluator]`
+    evaluators: List[Evaluator] = []
+    for evaluator in ensure_tuple(eval_dataloader):
+        if isinstance(evaluator, Evaluator):
+            if evaluator.should_eval is None:
+                if callable(eval_interval):
+                    evaluator.should_eval = eval_interval
+                else:
+                    evaluator.should_eval = evaluate_periodically(eval_interval)
+            if evaluator.subset_num_batches is None:
+                evaluator.subset_num_batches = subset_num_batches
+            evaluators.append(evaluator)
+        else:
+            metrics = model.metrics(train=False)
+            evaluator = Evaluator(
+                label="eval",
+                dataloader=evaluator,
+                metrics=metrics,
+                subset_num_batches=subset_num_batches,
+                eval_interval=eval_interval,
+            )
+            evaluators.append(evaluator)
+
+    return evaluators
 
 
 class Trainer:
@@ -162,10 +195,23 @@ class Trainer:
                 then the last section will be of size ``batch_size % grad_accum``.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``None`` for no gradient
             clipping. (default: ``None``)
-        validate_every_n_batches (int, optional): Compute metrics on evaluation data every N batches.
-             Set to ``-1`` to never validate on a batchwise frequency. (default: ``-1``)
-        validate_every_n_epochs (int, optional): Compute metrics on evaluation data every N epochs.
-            Set to ``-1`` to never validate on a epochwise frequency. (default: ``1``)
+        eval_interval (int | str | Time | (State, Event) -> bool, optional): An integer, which will be
+            interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
+            Defaults to ``1`` (evaluate every epoch).
+
+            If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run
+            with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
+            :attr:`.TimeUnit.BATCH` or :attr:`.TimeUnit.EPOCH`.
+
+            Set to ``0`` to disable evaluation.
+
+            If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool
+            representing whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`
+            or :attr:`.Event.EPOCH_END`.
+
+            This ``eval_interval`` will apply to any :class:`.Evaluator` in ``eval_dataloader`` that does not specify
+            an ``eval_interval`` or if a dataloader is passed in directly. This parameter has no effect if
+            ``eval_dataloader`` is not specified.
         compute_training_metrics (bool, optional): ``True`` to compute metrics on training data and ``False`` to not.
             (default: ``False``)
         precision (str or Precision, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
@@ -325,7 +371,7 @@ class Trainer:
                     optimizers=optimizer,
                     schedulers=scheduler,
                     device="cpu",
-                    validate_every_n_epochs=1,
+                    eval_interval="1ep",
                     load_path=checkpoint_path,
                     load_object_store=store,
                 )
@@ -410,9 +456,12 @@ class Trainer:
 
             This parameter is ignored if ``train_dataloader`` is not specified.
 
-        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches per evaluation dataloader.
-            This parameter has no effect if it is greater than ``len(eval_dataloader)``.
-            If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
+        eval_subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
+            which means to iterate over the entire dataloader.
+
+            This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
+            ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` and ``subset_num_batches``
+            was specified as part of the :class:`.Evaluator`.
         deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
             provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
@@ -508,8 +557,7 @@ class Trainer:
         # training hparams
         grad_accum: Union[int, str] = 1,
         grad_clip_norm: Optional[float] = None,
-        validate_every_n_batches: int = -1,
-        validate_every_n_epochs: int = 1,
+        eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
         compute_training_metrics: bool = False,
         precision: Union[str, Precision] = Precision.FP32,
         scale_schedule_ratio: float = 1.0,
@@ -526,11 +574,11 @@ class Trainer:
         # logging and callbacks
         run_name: Optional[str] = None,
         loggers: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
-        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         console_stream: Union[str, TextIO] = sys.stderr,
+        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
 
         # load checkpoint
         load_path: Optional[str] = None,
@@ -559,8 +607,8 @@ class Trainer:
         deepspeed_config: Union[bool, Dict[str, Any]] = False,
 
         # profiling
-        prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
         prof_schedule: Optional[Callable[[State], ProfilerAction]] = None,
+        prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
         sys_prof_cpu: bool = True,
         sys_prof_memory: bool = False,
         sys_prof_disk: bool = False,
@@ -655,25 +703,6 @@ class Trainer:
             self._ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC if not find_unused_parameters else DDPSyncStrategy.FORCED_SYNC
         else:
             self._ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
-
-        # convert eval_dataloader to `List[Evaluator]`
-        self.evaluators: List[Evaluator] = []
-        for evaluator in ensure_tuple(eval_dataloader):
-            if isinstance(evaluator, Evaluator):
-                self.evaluators.append(evaluator)
-            else:
-                metrics = model.metrics(train=False)
-                evaluator = Evaluator(label="eval", dataloader=evaluator, metrics=metrics)
-                self.evaluators.append(evaluator)
-
-        self.eval_subset_num_batches = eval_subset_num_batches
-
-        # do a check here to make sure there is at least one validation set
-        if len(self.evaluators) == 0:
-            warnings.warn(
-                textwrap.dedent("""No evaluation dataset was specified. Please specify `eval_dataloader` to periodically
-                evaluate your model while training."""),
-                category=UserWarning)
 
         if not isinstance(train_dataloader, DataSpec):
             train_dataloader = DataSpec(train_dataloader)
@@ -841,8 +870,6 @@ class Trainer:
             logger=self.logger,
         )
 
-        self._validate_every_n_batches = validate_every_n_batches
-        self._validate_every_n_epochs = validate_every_n_epochs
         self._grad_clip_norm = grad_clip_norm
 
         if deterministic_mode:
@@ -881,6 +908,24 @@ class Trainer:
                 self.state.schedulers.append(scheduler)
             else:  # it's a composer scheduler
                 self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
+
+        # Evaluators
+        if eval_dataloader is None:
+            self.evaluators: List[Evaluator] = []
+        else:
+            self.evaluators = _unpack_evaluators(
+                eval_dataloader,
+                subset_num_batches=eval_subset_num_batches,
+                eval_interval=eval_interval,
+                model=model,
+            )
+        if len(self.evaluators) == 0:
+            warnings.warn(("No `eval_dataloader` was specified. Please specify `eval_dataloader` to periodically "
+                           "evaluate your model while training."))
+            if eval_subset_num_batches != -1:
+                warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
+            if eval_interval != 1:
+                warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -1147,9 +1192,17 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    if self._validate_every_n_batches > 0 and int(
-                            self.state.timer.batch) % self._validate_every_n_batches == 0:
-                        self.eval(log_level=LogLevel.BATCH)
+                    for evaluator in self.evaluators:
+                        assert evaluator.should_eval is not None, "should_eval should have been set on __init__() or fit()"
+                        assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
+                        if evaluator.should_eval(self.state, Event.BATCH_END):
+                            self.eval(
+                                dataloader=evaluator.dataloader,
+                                dataloader_label=evaluator.label,
+                                subset_num_batches=evaluator.subset_num_batches,
+                                metrics=evaluator.metrics,
+                                log_level=LogLevel.BATCH,
+                            )
 
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
 
@@ -1177,8 +1230,17 @@ class Trainer:
 
             self.engine.run_event(Event.EPOCH_END)
 
-            if self._validate_every_n_epochs > 0 and int(self.state.timer.epoch) % self._validate_every_n_epochs == 0:
-                self.eval(log_level=LogLevel.EPOCH)
+            for evaluator in self.evaluators:
+                assert evaluator.should_eval is not None, "should_eval should have been set on __init__() or fit()"
+                assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
+                if evaluator.should_eval(self.state, Event.EPOCH_END):
+                    self.eval(
+                        dataloader=evaluator.dataloader,
+                        dataloader_label=evaluator.label,
+                        subset_num_batches=evaluator.subset_num_batches,
+                        metrics=evaluator.metrics,
+                        log_level=LogLevel.EPOCH,
+                    )
 
             self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
@@ -1378,12 +1440,30 @@ class Trainer:
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
-    def eval(self, log_level: LogLevel = LogLevel.FIT):
-        """Evaluate the model on the provided evaluation data and log appropriate metrics.
+    def eval(
+        self,
+        dataloader: Union[Iterable, DataSpec, dict],
+        dataloader_label: str = 'eval',
+        *,
+        metrics: Union[Metric, MetricCollection],
+        subset_num_batches: int = -1,
+        log_level: LogLevel = LogLevel.FIT,
+    ):
+        """Evaluate the model and log appropriate metrics.
 
         Args:
-            log_level (LogLevel, optional): The log level to use for metric logging during evaluation.
-                Defaults to :attr:`~.LogLevel.FIT`.
+            dataloader (DataLoader | DataSpec | dict): The class:`.DataLoader`, :class:`.DataSpec`, or
+                dict of :class:`.DataSpec` kwargs to use for evaluation
+            dataloader_label (str, optional): The dataloader label to use for logging metrics. Defaults to ``'eval'``.
+            metrics (Metric | MetricCollection): The metrics to log.
+            subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
+                which means to iterate over the entire dataloader.
+
+                This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
+                ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
+                ``Evaluator(subset_num_batches=...)``.)
+            log_level (LogLevel, optional): The log level to use when logging metrics. Defaults to
+                :attr:`~.LogLevel.FIT`.
         """
         restore_model_train = self.state.model.training
 
@@ -1392,56 +1472,61 @@ class Trainer:
         original_dataloader_label = self.state.dataloader_label
         original_num_batches = self.state.dataloader_len
 
+        # Unpack the dataloader
+        if isinstance(dataloader, dict):
+            # treat as DataSpec kwargs
+            dataloader = DataSpec(**dataloader)
+        if not isinstance(dataloader, DataSpec):
+            dataloader = DataSpec(dataloader)
+        data_spec = dataloader
+
         self.state.model.eval()
         with torch.no_grad():
+            self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
+            assert self.state.dataloader is not None, "dataloader is set"
 
-            for evaluator in self.evaluators:
-                self.state.set_dataloader(evaluator.dataloader.dataloader, evaluator.label,
-                                          self.eval_subset_num_batches)
-                assert self.state.dataloader is not None, "dataloader is set"
+            self.engine.run_event(Event.EVAL_START)
 
-                self.engine.run_event(Event.EVAL_START)
+            if not isinstance(metrics, MetricCollection):
+                metrics = MetricCollection(metrics)
 
-                metrics = self._ensure_metrics_device_and_dtype(evaluator.metrics)
-                metrics.reset()
-                # TODO: hasattr check will be removed while fixing https://github.com/mosaicml/composer/issues/424
-                dataloader = self.state.dataloader
-                if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                    # The distributed sampler uses `set_epoch` to set the random seed
-                    # Because evaluation can run on each batch, we use the batch to seed the sampler
-                    # so each evaluation will get a proper shuffle.
-                    # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                    dataloader.sampler.set_epoch(int(self.state.timer.batch))
+            metrics = self._ensure_metrics_device_and_dtype(metrics)
+            metrics.reset()
+            dataloader = self.state.dataloader
+            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
+                # The distributed sampler uses `set_epoch` to set the random seed
+                # Because evaluation can run on each batch, we use the batch to seed the sampler
+                # so each evaluation will get a proper shuffle.
+                # The epoch provided to `set_epoch` need not be sequential, so this is fine.
+                dataloader.sampler.set_epoch(int(self.state.timer.batch))
 
-                for self.state.batch in self._iter_dataloader():
-                    self.state.batch = self._device.batch_to_device(self.state.batch)
-                    if evaluator.dataloader.device_transforms:
-                        self.state.batch = evaluator.dataloader.device_transforms(self.state.batch)
-                    self.state.batch_num_samples = evaluator.dataloader.get_num_samples_in_batch(self.state.batch)
-                    self.state.batch_num_tokens = evaluator.dataloader.get_num_tokens_in_batch(self.state.batch)
+            for self.state.batch in self._iter_dataloader():
+                self.state.batch = self._device.batch_to_device(self.state.batch)
+                if data_spec.device_transforms is not None:
+                    self.state.batch = data_spec.device_transforms(self.state.batch)
+                self.state.batch_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
+                self.state.batch_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                    if self.deepspeed_enabled:
-                        self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+                if self.state.is_model_deepspeed:
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
-                    self.engine.run_event(Event.EVAL_BATCH_START)
+                self.engine.run_event(Event.EVAL_BATCH_START)
 
-                    self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                    self.state.outputs, targets = self._original_model.validate(self.state.batch)
-                    self.engine.run_event(Event.EVAL_AFTER_FORWARD)
+                self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
+                self.state.outputs, targets = self._original_model.validate(self.state.batch)
+                self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
-                    metrics.update(self.state.outputs, targets)
-                    self._compute_and_log_metrics(dataloader_label=evaluator.label,
-                                                  metrics=metrics,
-                                                  log_level=log_level)
+                metrics.update(self.state.outputs, targets)
+                self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
 
-                    self.engine.run_event(Event.EVAL_BATCH_END)
+                self.engine.run_event(Event.EVAL_BATCH_END)
 
-                self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
-                self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
+            self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
+            self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
 
-                self._compute_and_log_metrics(dataloader_label=evaluator.label, metrics=metrics, log_level=log_level)
+            self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
 
-                self.engine.run_event(Event.EVAL_END)
+            self.engine.run_event(Event.EVAL_END)
 
         if restore_model_train:
             self.state.model.train()
