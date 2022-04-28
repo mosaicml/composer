@@ -1,18 +1,17 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Tuple
+from typing import Iterable, Tuple
 from unittest.mock import MagicMock
 
 import pytest
 
 from composer.core import Callback, State
-from composer.core.types import DataLoader
 from composer.loggers import Logger
 from composer.trainer import Trainer
-from tests.fixtures.models import SimpleBatchPairModel
+from tests.common import SimpleModel
 
 
-class TestMetricsCallback(Callback):
+class MetricsCallback(Callback):
 
     def __init__(self, compute_training_metrics: bool, compute_val_metrics: bool) -> None:
         self.compute_training_metrics = compute_training_metrics
@@ -55,8 +54,8 @@ class TestMetricsCallback(Callback):
 @pytest.mark.parametrize('validate_every_n_batches', [-1, 1])
 @pytest.mark.parametrize('validate_every_n_epochs', [-1, 1])
 def test_current_metrics(
-    dummy_train_dataloader: DataLoader,
-    dummy_val_dataloader: DataLoader,
+    dummy_train_dataloader: Iterable,
+    dummy_val_dataloader: Iterable,
     dummy_num_classes: int,
     dummy_in_shape: Tuple[int, ...],
     compute_training_metrics: bool,
@@ -66,12 +65,12 @@ def test_current_metrics(
     # Configure the trainer
     num_channels = dummy_in_shape[0]
     mock_logger_destination = MagicMock()
-    model = SimpleBatchPairModel(num_channels=num_channels, num_classes=dummy_num_classes)
+    model = SimpleModel(num_features=num_channels, num_classes=dummy_num_classes)
     compute_val_metrics = validate_every_n_batches == 1 or validate_every_n_epochs == 1
     train_subset_num_batches = 2
     eval_subset_num_batches = 2
     num_epochs = 2
-    metrics_callback = TestMetricsCallback(
+    metrics_callback = MetricsCallback(
         compute_training_metrics=compute_training_metrics,
         compute_val_metrics=compute_val_metrics,
     )

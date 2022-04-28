@@ -9,6 +9,7 @@ from typing import List, TypeVar
 
 import numpy as np
 import torch
+import torch.utils.data
 from PIL import Image
 from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
@@ -254,6 +255,8 @@ class AugMix(Algorithm):
         if event != Event.FIT_START:
             return False
         assert state.dataloader is not None, "dataloader should be defined on fit start"
+        if not isinstance(state.dataloader, torch.utils.data.DataLoader):
+            raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
         return state.dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
@@ -262,7 +265,7 @@ class AugMix(Algorithm):
                                     width=self.width,
                                     alpha=self.alpha,
                                     augmentation_set=self.augmentation_set)
-        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "dataloader type checked on match()"
         dataset = state.dataloader.dataset
         if not isinstance(dataset, VisionDataset):
             raise TypeError(

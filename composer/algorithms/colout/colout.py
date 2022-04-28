@@ -10,6 +10,7 @@ import weakref
 from typing import Tuple, TypeVar, Union
 
 import torch
+import torch.utils.data
 from PIL.Image import Image as PillowImage
 from torch import Tensor
 from torchvision.datasets import VisionDataset
@@ -32,7 +33,7 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
                  p_col: float = 0.15,
                  resize_target: Union[bool, str] = 'auto') -> Union[ImgT, Tuple[ImgT, ImgT]]:
     """Applies ColOut augmentation to a batch of images and (optionally) targets, dropping the same random rows and
-       columns from all images and targets in a batch.
+    columns from all images and targets in a batch.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
@@ -108,7 +109,7 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
 
 class ColOutTransform:
     """Torchvision-like transform for performing the ColOut augmentation, where random rows and columns are dropped from
-        up to two Torch tensors or two PIL images.
+    up to two Torch tensors or two PIL images.
 
     See the :doc:`Method Card </method_cards/colout>` for more details.
 
@@ -217,11 +218,13 @@ class ColOut(Algorithm):
             if event != Event.FIT_START:
                 return False
             assert state.dataloader is not None, "dataloader should be defined on fit start"
+            if not isinstance(state.dataloader, torch.utils.data.DataLoader):
+                raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
             return state.dataloader.dataset not in self._transformed_datasets
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""
-        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "dataloader type checked on match()"
         dataset = state.dataloader.dataset
 
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
@@ -258,8 +261,10 @@ class ColOut(Algorithm):
 
 
 def _should_resize_target(sample: Union[ImgT, Tuple[ImgT, ImgT]], resize_target: Union[bool, str]) -> bool:
-    """ Helper function to determine if both objects in the tuple should be resized. Decision is based on
-        ``resize_target`` and if both objects in the tuple have the same spatial size."""
+    """Helper function to determine if both objects in the tuple should be resized.
+
+    Decision is based on ``resize_target`` and if both objects in the tuple have the same spatial size.
+    """
 
     sample = ensure_tuple(sample)
     if len(sample) > 2:

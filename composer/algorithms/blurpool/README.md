@@ -72,6 +72,10 @@ def train_model(model, train_dataloader):
 The Composer implementation of BlurPool uses model surgery to replace instances of pooling and downsampling operations with the BlurPool equivalents.
 For max pooling, it replaces `torch.nn.MaxPool2d` instances with instances of a custom `nn.Module` subclass that decouples the computation of the max within a given spatial window from the pooling and adds a spatial low-pass filter in between. This change roughly doubles the data movement required for the op, although it shouldn’t add significant overhead unless there are many maxpools in the network. For convolutions, it replaces strided `torch.nn.Conv2d` instances (i.e., those where the stride is larger than 1) with a custom module class that 1) applies a low-pass filter to the input, and then 2) applies a copy of the original convolution operation.
 
+🚧 Implementation Note
+>
+> Blurpool does not replace strided convolutions with fewer than `min_channels` input channels, which by default is set to `16`. This is a heuristic used to avoid blurpooling the network's input. Doing so is undesirable since it amounts to downsampling the input by more than the amount specified in the preprocessing pipeline. 
+
 ## Suggested Hyperparameters
 
 We suggest setting `blur_first=True` to avoid unnecessarily increasing computational cost.
