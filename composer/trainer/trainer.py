@@ -1291,10 +1291,14 @@ class Trainer:
         if reset_timer:
             self.state.timer.reset()
 
-        try:
-            self._train_loop()
-        finally:
-            self.engine.close()
+        self._train_loop()
+
+    def close(self):
+        """Shutdown the trainer.
+
+        .. seealso:: :meth:`.Engine.close` for additional information.
+        """
+        self.engine.close()
 
     def _ensure_metrics_device_and_dtype(self, metrics: MetricCollection):
         # Safety check to ensure the metric and data are on the same device. Normally not
