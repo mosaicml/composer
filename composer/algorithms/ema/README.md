@@ -4,10 +4,6 @@
 
 Exponential Moving Average (EMA) is a model averaging technique that maintains an exponentially weighted moving average of the model parameters during training. The averaged parameters are used for model evaluation. EMA typically results in less noisy validation metrics over the course of training, and sometimes increased generalization.
 
-<!--| ![EMA](https://storage.googleapis.com/docs.mosaicml.com/images/methods/ema.png) |
-|:--:
-|*An image caption*| -->
-
 ## How to Use
 
 ### Functional Interface
@@ -69,9 +65,7 @@ The Composer Trainer implementation of EMA has two hyperparameters:
 - `half_life` - The half life for terms in the average. A longer half life means old information is remembered longer, a shorter half life means old information is discared sooner.
 - `update_interval` - The period at which updates to the moving average are done. A longer update interval means that updates are computed less frequently.
 
-A good typical starting value for `half_life` is `half_life="1ep"`, for a half life of one epoch. At the same time, `update_interval` can be left unspecified which will default to `update_interval="1ep"`.
-
-Better generalization performance can often be obtained at the cost of speed by taking a shorter update interval. This can be done by specifying the hyperparameters in units of number of batches. A good starting point for this is `half_life="50ba"` while leaving `update_interval` unspecified so that it defaults to `update_interval="1ba"`.
+A good typical starting value for `half_life` is `half_life="100ba"`, for a half life of 100 batches. At the same time, `update_interval` can be left unspecified which will default to `update_interval="1ba"`, or set to a larger value such as `update_interval="10ba"` to improve runtime. Shorter update intervals typically result in better generalization performance at the cost of somewhat reduced runtime.
 
 Our implementation of EMA also provides the option to use the EMA weights as the training weights, which can be enabled by setting `train_with_ema_weights=True`. We reccomend leaving this off with the default value of `train_with_ema_weights=False.`
 
@@ -91,7 +85,7 @@ Our implementation of EMA also provides the option to use the EMA weights as the
 
 > ❗ Evaluation should not be done with the training model
 >
-> Evaluation should be done with the `ema_model` in the functional impementation as this is the model containing the averaged parameters. The ema model can be accessed after training from the `EMA` object via `model = ema.ema_model` in the composer trainer implementation.
+> Evaluation should be done with the `ema_model` in the functional impementation as this is the model containing the averaged parameters. The ema model can be accessed after training from the `EMA` object via `model = ema.model()` in the composer trainer implementation.
 
 
 ## Attribution
