@@ -13,10 +13,12 @@ configuration in writing schedulers.
 """
 
 from composer.optim.decoupled_weight_decay import DecoupledAdamW as DecoupledAdamW
+from composer.optim.decoupled_weight_decay import DecoupledNVLAMB as DecoupledNVLAMB
 from composer.optim.decoupled_weight_decay import DecoupledSGDW as DecoupledSGDW
 from composer.optim.optimizer_hparams import AdamHparams as AdamHparams
 from composer.optim.optimizer_hparams import AdamWHparams as AdamWHparams
 from composer.optim.optimizer_hparams import DecoupledAdamWHparams as DecoupledAdamWHparams
+from composer.optim.optimizer_hparams import DecoupledNVLAMBHparams as DecoupledNVLAMBHparams
 from composer.optim.optimizer_hparams import DecoupledSGDWHparams as DecoupledSGDWHparams
 from composer.optim.optimizer_hparams import OptimizerHparams as OptimizerHparams
 from composer.optim.optimizer_hparams import RAdamHparams as RAdamHparams

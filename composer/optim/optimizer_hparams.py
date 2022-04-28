@@ -11,13 +11,13 @@ import torch_optimizer
 import yahp as hp
 from torch.optim import Optimizer
 
-from composer.optim import DecoupledAdamW, DecoupledSGDW
+from composer.optim import DecoupledAdamW, DecoupledSGDW, DecoupledNVLAMB
 
 # Optimizer parameters and defaults match those in torch.optim
 
 __all__ = [
     "OptimizerHparams", "AdamHparams", "RAdamHparams", "AdamWHparams", "DecoupledAdamWHparams", "SGDHparams",
-    "DecoupledSGDWHparams", "RMSpropHparams"
+    "DecoupledSGDWHparams", "RMSpropHparams", "DecoupledNVLAMBHparams"
 ]
 
 
@@ -220,3 +220,31 @@ class RMSpropHparams(OptimizerHparams):
     @property
     def optimizer_object(cls) -> Type[torch.optim.RMSprop]:
         return torch.optim.RMSprop
+
+@dataclass
+class DecoupledNVLAMBHparams(OptimizerHparams):
+    """Hyperparameters for the :class:`~.DecoupledNVLAMB` optimizer.
+
+    See :class:`~.DecoupledNVLAMB` for documentation.
+
+    Args:
+        lr (float, optional): See :class:`~.DecoupledNVLAMB`.
+        betas (float, optional): See :class:`~.DecoupledNVLAMB`.
+        eps (float, optional): See :class:`~.DecoupledNVLAMB`.
+        weight_decay (float, optional): See :class:`~.DecoupledNVLAMB`.
+        grad_pre_norm (bool, optional): See :class:`~.DecoupledNVLAMB`.
+        max_grad_norm (float, optional): See :class:`~.DecoupledNVLAMB`.
+        trust_clip (bool, optional): See :class:`~.DecoupledNVLAMB`.
+    """
+    lr: float = hp.optional(default=0.001, doc="learning rate")
+    betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
+                                     doc="coefficients used for computing running averages of gradient and its square.")
+    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
+    weight_decay: float = hp.optional(default=1e-2, doc="weight decay (L2 penalty)")
+    grad_pre_norm: bool = hp.optional(default=True, doc="normalize model gradients")
+    max_grad_norm: float = hp.optional(default=1.0, doc="maximum gradient norm when pre-normalizing")
+    trust_clip: bool = hp.optional(default=False, doc="Enable LAMBC trust ratio clipping.")    
+
+    @property
+    def optimizer_object(cls) -> Type[DecoupledNVLAMB]:
+        return DecoupledNVLAMB

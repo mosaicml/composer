@@ -34,6 +34,7 @@ from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams,
                             LinearSchedulerHparams, LinearWithWarmupSchedulerHparams, MultiStepSchedulerHparams,
                             MultiStepWithWarmupSchedulerHparams, OptimizerHparams, PolynomialSchedulerHparams,
                             RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
+from composer.optim.optimizer_hparams import DecoupledNVLAMBHparams
 from composer.profiler.profiler_hparams import (ProfileScheduleHparams, TraceHandlerHparams,
                                                 profiler_scheduler_registry, trace_handler_registory)
 from composer.trainer.ddp import DDPSyncStrategy
@@ -51,6 +52,7 @@ optimizer_registry = {
     "adam": AdamHparams,
     "adamw": AdamWHparams,
     "decoupled_adamw": DecoupledAdamWHparams,
+    "decoupled_nvlamb": DecoupledNVLAMBHparams,
     "radam": RAdamHparams,
     "sgd": SGDHparams,
     "decoupled_sgdw": DecoupledSGDWHparams,
