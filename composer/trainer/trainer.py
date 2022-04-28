@@ -976,10 +976,15 @@ class Trainer:
 
     def fit(self):
         """Train and evaluate the model on the provided data."""
-        try:
-            self._train_loop()
-        finally:
-            self.engine.close()
+        # Print any exception, so it can be caputred by any callbacks or loggers (e.g. WandB, FileLogger)
+        self._train_loop()
+
+    def close(self):
+        """Shutdown the trainer.
+
+        .. seealso:: :meth:`.Engine.close` for additional information.
+        """
+        self.engine.close()
 
     def _ensure_metrics_device_and_dtype(self, metrics: MetricCollection):
         # Safety check to ensure the metric and data are on the same device. Normally not
