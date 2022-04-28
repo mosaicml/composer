@@ -69,7 +69,7 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     data_shape: Optional[List[int]] = hp.optional("data_shape", default=None)
     tmpdir: Optional[str] = hp.optional("tmpdir", default=None)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> types.DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         assert self.num_classes is not None
         assert self.data_shape is not None
         assert self.tmpdir is not None
@@ -184,8 +184,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
                       device=device_hparams.initialize_object(),
                       max_duration=f"{max_epochs}ep",
                       precision=Precision.FP32,
-                      validate_every_n_batches=0,
-                      validate_every_n_epochs=1,
+                      eval_interval="1ep",
                       eval_subset_num_batches=eval_subset_num_batches,
                       train_subset_num_batches=train_subset_num_batches,
                       deepspeed_config={} if deepspeed else False,

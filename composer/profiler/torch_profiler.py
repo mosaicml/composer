@@ -253,3 +253,4 @@ class TorchProfiler(Callback):
         del state, logger  # unused
         if self.profiler is not None:
             self.profiler.__exit__(None, None, None)
+            self.profiler = None

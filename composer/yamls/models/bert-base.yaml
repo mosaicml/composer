@@ -62,6 +62,4 @@ dataloader:
   prefetch_factor: 2
 grad_accum: 2
 precision: amp
-grad_clip_norm: None
-validate_every_n_batches: 1000
-validate_every_n_epochs: 1
+eval_interval: 1000ba
