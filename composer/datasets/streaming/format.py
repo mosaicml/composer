@@ -232,6 +232,11 @@ class StreamingDatasetIndex(object):
         device_worker = world.device_worker
         device_num_workers = world.device_num_workers
 
+        # Splits a range (start, start+total) into num_parts such that:
+        # each part spans a continguous range [part_min_id, part_max_id]
+        # each part_i starts immediately from where the previous part_[i-1] stopped
+        # all parts have the same number of items,
+        # except the first K parts may have exactly 1 more item
         def _get_min_max_size(start: int, total: int, part: int, num_parts: int):
             sizes = [math.ceil((total - p) / num_parts) for p in range(num_parts)]
             min_ids = np.cumsum([0] + sizes)
@@ -242,20 +247,28 @@ class StreamingDatasetIndex(object):
 
         # Some devices may have 1 fewer sample
         # TODO: fix this to handle DDP edge cases correctly
-        device_min_id, device_max_id, device_samples = _get_min_max_size(0, self.total_samples, global_device,
-                                                                         global_num_devices)
+        device_min_id, _, device_samples = _get_min_max_size(0, self.total_samples, global_device, global_num_devices)
 
         if not batch_size:
             worker_min_id, worker_max_id, _ = _get_min_max_size(device_min_id, device_samples, device_worker,
                                                                 device_num_workers)
         else:
             device_batches = math.ceil(device_samples / batch_size)
+            samples_missing = device_batches * batch_size - device_samples
+
+            # Determine which batches this worker is responsible for
             worker_min_batch_id, worker_max_batch_id, _ = _get_min_max_size(0, device_batches, device_worker,
                                                                             device_num_workers)
-            worker_min_id = device_min_id + worker_min_batch_id * batch_size
-            worker_max_id = device_min_id + worker_max_batch_id * batch_size - 1
-            # Last batch may be incomplete.
-            worker_max_id = min(device_max_id, worker_max_id)
+
+            # The last device_worker to be read from will be the one with the incomplete batch.
+            # This is done to match PyTorch DataLoader's round-robin scheduling of workers
+            # All device_workers must be careful to account for the missing samples offset by the incomplete batch
+            incomplete_device_worker = (device_batches + device_num_workers - 1) % device_num_workers
+            min_id_offset = 0 if device_worker <= incomplete_device_worker else samples_missing
+            max_id_offset = 0 if device_worker < incomplete_device_worker else samples_missing
+
+            worker_min_id = device_min_id + worker_min_batch_id * batch_size - min_id_offset
+            worker_max_id = device_min_id + (worker_max_batch_id + 1) * batch_size - max_id_offset - 1
 
         min_shard = self.sample_shards[worker_min_id]
         max_shard = self.sample_shards[worker_max_id]
