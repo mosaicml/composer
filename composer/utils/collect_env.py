@@ -34,7 +34,6 @@ to automatically collect system information when an exception is raised.
 
 To override the original :func:`sys.excepthook` see :func:`configure_excepthook`.
 
-To restore the original :func:`sys.excepthook` see :func:`restore_excepthook`.
 """
 
 import sys
@@ -44,9 +43,7 @@ from typing import NamedTuple, TextIO
 import cpuinfo
 import psutil
 
-from composer.utils.import_helpers import import_object
-
-__all__ = ["configure_excepthook", "print_env", "restore_excepthook"]
+__all__ = ["configure_excepthook", "disable_env_report", "enable_env_report", "print_env"]
 
 # Check if PyTorch is installed
 try:
@@ -62,6 +59,7 @@ except (ImportError,):
 try:
     import composer
     from composer.utils import dist
+    from composer.utils.import_helpers import import_object
     COMPOSER_AVAILABLE = True
 except (ImportError,):
     COMPOSER_AVAILABLE = False
@@ -80,6 +78,8 @@ if IPYTHON_AVAILABLE:
 # Place to keep track of the original excepthook
 _orig_excepthook = None
 
+# Track if environment report generation on exception is enabled, enabled by default
+_ENV_EXCEPTION_REPORT = True
 
 # Same convention as Torch collect_env, create a namedtuple to track collected fields
 class ComposerEnv(NamedTuple):
@@ -139,13 +139,12 @@ def _exc_report(exc_type) -> None:
     Args:
         exc_type (Exception): Type of exception.
     """
-    EXCEPTION_MSG = f"Bugs can be reported at: {COMPOSER_OPEN_ISSUE_URL}\n" + \
-                    f"Please include details on how to reproduce the issue and attach the following environment report:\n"
+    EXCEPTION_MSG = f"Bugs can be reported at: {COMPOSER_OPEN_ISSUE_URL}\n"
 
     # Don't print exception report for KeyboardInterrupt
     if not issubclass(exc_type, KeyboardInterrupt):
         if issubclass(exc_type, AssertionError):
-            EXCEPTION_SEV_MSG = f"Smells like a Composer bug.\n"
+            EXCEPTION_SEV_MSG = f"This is a Composer bug. Please submit a bug report.\n"
         elif issubclass(exc_type, RuntimeError):
             EXCEPTION_SEV_MSG = f"This could be due to user error but is most likely a Composer bug.\n"
         elif issubclass(exc_type, ValueError) or issubclass(exc_type, TypeError):
@@ -154,7 +153,26 @@ def _exc_report(exc_type) -> None:
             EXCEPTION_SEV_MSG = f"If you would like support debugging, submit a bug report or reach out to us on our community channels.\n"
 
         print("\n-------------------\n" + EXCEPTION_SEV_MSG + EXCEPTION_MSG, file=sys.stderr)
-        print_env(sys.stderr)
+
+        # Only print environment report if enabled
+        global _ENV_EXCEPTION_REPORT
+        if _ENV_EXCEPTION_REPORT:
+            print("Please include details on how to reproduce the issue and attach the following environment report:\n")
+            print_env(sys.stderr)
+        else:
+            print("Please run the \'composer_collect_env\' utility and include your environment information with the bug report\n")
+
+
+def enable_env_report() -> None:
+    """Enable environment report generation on exception"""
+    global _ENV_EXCEPTION_REPORT
+    _ENV_EXCEPTION_REPORT = True
+
+
+def disable_env_report() -> None:
+    """Disable environment report generation on exception"""
+    global _ENV_EXCEPTION_REPORT
+    _ENV_EXCEPTION_REPORT = False
 
 
 # Excepthook wrapper, wraps default excepthook and prints env info
@@ -176,8 +194,16 @@ def _nb_custom_exception_handler(self, type, value, tb, tb_offset=None):
 def configure_excepthook() -> None:
     """Collect and print system information when :func:`sys.excepthook` is called.
 
-    This function checks if the user is running from an IPython session and sets up the custom
-    exception handler accordingly.
+    The custom exception handler causes an exception message to be printed when :func:`sys.excepthook`
+    is called.  The exception message provides the user with information on the nature of the exception 
+    and directs the user to file GitHub issues as appropriate.
+
+    By default, the custom exception handler also generates an environment report users can attach to
+    bug reports.  Environment report generation can be optionally enabled/disabled by using the 
+    :func:`enable_env_report` and :func:`disable_env_report` helper functions, respectively.
+
+    Additioanlly, the custom exceptionhook checks if the user is running from an IPython session and 
+    sets up the custom exception handler accordingly.
 
     To override the default :func:`sys.excepthook` with the custom except hook:
 
@@ -206,39 +232,6 @@ def configure_excepthook() -> None:
         sys.excepthook = _custom_exception_handler
 
 
-# Public function to restore original excepthook
-def restore_excepthook() -> None:
-    """Restore original default :func:`sys.excepthook`.
-
-    Checks if user is running in an IPython notebook and restores the exception handler accordingly.
-
-    To restore the original :func:`sys.excepthook`:
-
-    .. testsetup:: composer.utils.collect_env.restore_excepthook
-
-        import sys
-        from composer.utils.collect_env import configure_excepthook, restore_excepthook
-        sys.excepthook = sys.__excepthook__
-        configure_excepthook()
-
-    .. doctest:: composer.utils.collect_env.restore_excepthook
-        
-        >>> restore_excepthook()
-        >>> sys.excepthook
-        <built-in function excepthook>
-
-    """
-
-    if IPYTHON_AVAILABLE:
-        nb.set_custom_exc((Exception,), nb.showtraceback)
-    else:
-        global _orig_excepthook
-        assert _orig_excepthook, "Cannot restore original excepthook if configure_excepthook() has not been invoked."
-        # Restore original excepthook
-        sys.excepthook = _orig_excepthook
-        _orig_excepthook = None
-
-
 # Get Torch environment info
 def get_torch_env() -> str:
     """Query Torch system environment via :mod:`torch.utils.collect_env`."""
@@ -246,7 +239,7 @@ def get_torch_env() -> str:
 
 
 # Composer environment information string output format
-composer_env_info_fmt = """
+_COMPOSER_ENV_INFO_FORMAT = """
 Composer version: {composer_version}
 Host processor model name: {host_processor_model_name}
 Host processor core count: {host_processor_core_count}
@@ -271,11 +264,11 @@ def get_composer_env() -> str:
         cuda_device_count=get_cuda_device_count(),
     )._asdict()
 
-    return composer_env_info_fmt.format(**mutable_dict)
+    return _COMPOSER_ENV_INFO_FORMAT.format(**mutable_dict)
 
 
 # Generate and print environment report
-def print_env(file: TextIO = sys.stdout) -> None:
+def print_env(file: TextIO = None) -> None:
     """Generate system information report.
 
     Example:
@@ -349,11 +342,14 @@ def print_env(file: TextIO = sys.stdout) -> None:
         Accelerators per node: 1
         CUDA Device Count: 4
 
-    
-    
+
     Args:
         file (TextIO, optional): File handle, `sys.stdout` or `sys.stderr`. Defaults to `sys.stdout`.
     """
+
+    # Set stdout during runtime if no output file is specified 
+    if file is None:
+        file = sys.stdout
 
     # Creation timestamp for report
     creation_time = time.strftime('%Y-%m-%d %H:%M:%S %Z', time.localtime(time.time()))
