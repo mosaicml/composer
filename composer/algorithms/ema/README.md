@@ -85,7 +85,7 @@ Our implementation of EMA also provides the option to use the EMA weights as the
 
 > ❗ Evaluation should not be done with the training model
 >
-> Evaluation should be done with the `ema_model` in the functional impementation as this is the model containing the averaged parameters. The ema model can be accessed after training from the `EMA` object via `model = ema.model()` in the composer trainer implementation.
+> Evaluation should be done with the `ema_model` in the functional impementation as this is the model containing the averaged parameters. The ema model can be accessed after training from the `EMA` object via `model = ema.get_ema_model(model)` in the composer trainer implementation.
 
 
 ## Attribution

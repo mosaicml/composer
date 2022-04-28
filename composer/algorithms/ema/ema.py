@@ -189,6 +189,22 @@ class EMA(Algorithm):
             # Swap out the ema model for the training model in state
             _copy_model(self.training_model, state.model)
 
+    def get_ema_model(self, model: torch.nn.Module):
+        """Copies ema model parameters and buffers to the input model and returns it.
+
+        Args:
+            model (torch.nn.Module): the model to convert into the ema model.
+
+        Returns:
+            model (torch.nn.Module): the input model with parameters and buffers replaced with the averaged parameters
+                and buffers.
+        """
+        if self.ema_model is None:
+            raise AttributeError("ema model has not been initialized yet")
+
+        _copy_model(self.ema_model, model)
+        return model
+
     def state_dict(self) -> Dict[str, ShadowModel]:
         state_dict = {}
         for attribute_name in self.serialized_attributes:
