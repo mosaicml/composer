@@ -36,6 +36,7 @@ For example, a simple algorithm that shortens training:
 
 For more information about events, see :class:`~composer.core.event.Event`.
 """
+from composer.algorithms.agc import AGC
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.algorithm_registry import get_algorithm_registry, list_algorithms
 from composer.algorithms.alibi import Alibi
@@ -47,7 +48,7 @@ from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
-from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
+from composer.algorithms.hparams import (AGCHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
                                          ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams,
                                          GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
                                          MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
@@ -76,6 +77,7 @@ __all__ = [
     "load_multiple",
     "get_algorithm_registry",
     "list_algorithms",
+    "AGC",
     "Alibi",
     "AugmentAndMixTransform",
     "AugMix",
@@ -105,6 +107,7 @@ __all__ = [
     "SWA",
 
     # hparams objects
+    "AGCHparams",
     "AlgorithmHparams",
     "AlibiHparams",
     "AugMixHparams",
