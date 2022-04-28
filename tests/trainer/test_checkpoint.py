@@ -198,7 +198,7 @@ def test_load_weights(
     second_trainer_hparams.optimizer = AdamWHparams()
 
     # setup a new LR scheduler
-    assert second_trainer_hparams.max_duration is not None
+    assert isinstance(second_trainer_hparams.max_duration, str)
     second_trainer_hparams.schedulers = [CosineAnnealingSchedulerHparams(t_max=second_trainer_hparams.max_duration)]
 
     # ensure our new choice of scheduler is different than the original scheduler
