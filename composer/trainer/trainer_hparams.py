@@ -10,7 +10,7 @@ import datetime
 import logging
 import os
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypedDict, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
 
 import torch
 import yahp as hp
@@ -21,7 +21,7 @@ from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
                                 SpeedMonitorHparams)
 from composer.core import DataSpec, Evaluator, Event, Precision, State, Time
-from composer.core.types import JSON, DataLoader, PyTorchScheduler
+from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
@@ -45,6 +45,11 @@ from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceH
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
 from composer.utils.object_store import ObjectStoreHparams
+
+if TYPE_CHECKING:
+    from typing import TypedDict
+else:
+    TypedDict = object  # TypedDict is not available on python 3.7
 
 # Specifically excluding `FitKwargs` and `EvalKwargs` from `__all__` and documentation
 # They exist purely for pyright and should never need
@@ -775,7 +780,7 @@ class FitKwargs(TypedDict):
 
     :meta private:
     """
-    train_dataloader: Optional[Union[DataLoader, DataSpec, Dict[str, Any]]]
+    train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]]
     train_dataloader_label: str
     train_subset_num_batches: Optional[int]
     compute_training_metrics: Optional[bool]
@@ -791,7 +796,7 @@ class FitKwargs(TypedDict):
     step_schedulers_every_batch: Optional[bool]
 
     # Evaluation
-    eval_dataloader: Optional[Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]]]
+    eval_dataloader: Optional[Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]]]
     eval_subset_num_batches: int
     eval_interval: Union[int, str, Time, Callable[[State, Event], bool]]
 
@@ -946,7 +951,7 @@ class EvalKwargs(TypedDict):
 
     :meta private:
     """
-    dataloader: Union[DataLoader, DataSpec, dict]
+    dataloader: Union[Iterable, DataSpec, dict]
     dataloader_label: str
     metrics: Union[Metric, MetricCollection]
     subset_num_batches: int
