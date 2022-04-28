@@ -1412,8 +1412,7 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                with self.state.precision_context:
-                    outputs = self.state.model(self.state.batch)
+                outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
                 self.engine.run_event(Event.PREDICT_BATCH_END)

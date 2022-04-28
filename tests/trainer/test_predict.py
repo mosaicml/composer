@@ -12,13 +12,13 @@ from typing import Any, Dict, Optional, Union
 import pytest
 import torch
 import torch.distributed
+from torch.utils.data import DataLoader
 from _pytest.monkeypatch import MonkeyPatch
 
 from composer.core import DataSpec
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
-from composer.core.types import DataLoader
 from composer.loggers import Logger
 from composer.trainer.trainer import Trainer
 from tests.common import (RandomClassificationDataset, SimpleModel)
@@ -74,6 +74,7 @@ class TestTrainerPredict():
             'train_dataloader': DataLoader(dataset=RandomClassificationDataset()),
             'eval_dataloader': DataLoader(dataset=RandomClassificationDataset()),
             'max_duration': '2ep',
+            'callbacks': [EventCounterCallback()],
         }
 
     def test_predict(self, config):
