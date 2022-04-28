@@ -13,6 +13,7 @@ RUN apt-get update && \
         libgomp1 \
         curl \
         wget \
+        htop \
         sudo \
         build-essential \
         git \
