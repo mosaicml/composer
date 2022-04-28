@@ -4,7 +4,7 @@ from typing import Dict, List, Type
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.hparams import (AGCHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                         ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams,
+                                         ColOutHparams, CutMixHparams, CutOutHparams, EMAHparams, FactorizeHparams,
                                          GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
                                          MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
                                          SAMHparams, ScaleScheduleHparams, SelectiveBackpropHparams,
