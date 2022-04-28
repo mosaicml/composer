@@ -846,7 +846,7 @@ class Trainer:
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
-        precision: Union[str, Precision] = Precision.FP32,
+        precision: Optional[Union[str, Precision]] = None,
         grad_accum: Union[int, str] = 1,
 
         # Reproducibility
@@ -904,6 +904,8 @@ class Trainer:
             reproducibility.configure_deterministic_mode()
 
         # Precision
+        if precision is None:
+            precision = Precision.AMP if isinstance(device, DeviceGPU) else Precision.FP32
         if isinstance(precision, str):
             precision = Precision(precision)
 
@@ -1731,7 +1733,7 @@ class Trainer:
         *,
         metrics: Union[Metric, MetricCollection],
         subset_num_batches: int = -1,
-        log_level: LogLevel = LogLevel.FIT,
+        log_level: Union[str, LogLevel] = LogLevel.FIT,
     ):
         """Evaluate the model and log appropriate metrics.
 
@@ -1746,9 +1748,10 @@ class Trainer:
                 This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
                 ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
                 ``Evaluator(subset_num_batches=...)``.)
-            log_level (LogLevel, optional): The log level to use when logging metrics. Defaults to
+            log_level (LogLevel | str, optional): The log level to use when logging metrics. Defaults to
                 :attr:`~.LogLevel.FIT`.
         """
+        log_level = LogLevel(log_level)
         restore_model_train = self.state.model.training
 
         # back up the original dataloader on the state, so we can restore it after evaluation is finished

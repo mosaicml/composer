@@ -11,6 +11,7 @@ import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
+import torch
 import yahp as hp
 
 import composer
@@ -289,7 +290,7 @@ class TrainerHparams(hp.Hparams):
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
 
     # Stopping Conditions
-    max_duration: Optional[str] = hp.optional(
+    max_duration: Optional[Union[str, int]] = hp.optional(
         doc="Time string for the maximum training duration (e.g., 90ep)",
         default=None,
     )
@@ -403,8 +404,8 @@ class TrainerHparams(hp.Hparams):
     deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
     # System/Numerics
-    device: DeviceHparams = hp.optional(doc="Device Parameters", default=None)
-    precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
+    device: Optional[DeviceHparams] = hp.optional(doc="Device Parameters", default=None)
+    precision: Optional[Precision] = hp.optional(doc="Precision to use for training", default=None)
     grad_accum: Union[int, str] = hp.optional(
         doc=(("Determines the number of microbatches to split a per-gpu batch into, "
               "used to compensate for low-memory-capacity devices. If set to auto, "
@@ -550,7 +551,10 @@ class TrainerHparams(hp.Hparams):
         logging.getLogger(composer.__name__).setLevel(self.python_log_level)
 
         # Device
-        device = self.device.initialize_object()
+        device_hparams = self.device
+        if device_hparams is None:
+            device_hparams = GPUDeviceHparams() if torch.cuda.is_available() else CPUDeviceHparams()
+        device = device_hparams.initialize_object()
 
         # Distributed
         # Initialized here so it is available within dataloaders
