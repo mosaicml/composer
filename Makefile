@@ -2,7 +2,7 @@
 DURATION ?= all  # pytest duration, one of short, long or all
 WORLD_SIZE ?= 1  # world size for launcher tests
 MASTER_PORT ?= 26000 # port for distributed tests
-PYTHON ?= python  # Python command
+PYTHON ?= python3  # Python command
 PYTEST ?= pytest  # Pytest command
 PYRIGHT ?= pyright  # Pyright command. Pyright must be installed seperately -- e.g. `node install -g pyright`
 EXTRA_ARGS ?=  # extra arguments for pytest
