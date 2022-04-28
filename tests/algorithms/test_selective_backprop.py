@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Callable, Dict
+from typing import Callable, Dict, cast
 
 import pytest
 import torch
@@ -10,11 +10,14 @@ from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.selective_backprop.selective_backprop import select_using_loss, should_selective_backprop
 from composer.core import Event
 from composer.core.state import State
+from composer.datasets import DataLoaderHparams
 from composer.loggers import Logger
 from composer.models import ComposerClassifier, BERTHparams, GPT2Hparams, GPT2Model, BERTModel
 from tests.utils import synthetic_utils
 from tests.datasets import test_synthetic_lm_data
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
+from composer.utils import dist
+from torch.utils.data import DataLoader, Dataset
 import transformers
 
 
@@ -138,6 +141,10 @@ def batch() -> int:
     return 0
 
 lm_dataset_configs = [config[0] for config in test_synthetic_lm_data.generate_parameter_configs( ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'])]
+for config in lm_dataset_configs:
+    config['use_masked_lm'] = True
+    config['mlm_probability'] = 0.15
+    config['drop_last'] = False
 
 def make_lm_dataset(config: Dict):
     dataset = synthetic_hf_dataset_builder(num_samples=config['num_samples'],
@@ -159,13 +166,39 @@ def make_dummy_lm(model_name: str, tokenizer):
     elif model_name == 'bert':
         class_name = BERTHparams
     model_config = synthetic_utils.generate_dummy_model_config(class_name, tokenizer)
+    model_config['num_labels'] = model_config['vocab_size']
     if model_name == 'gpt2':
-        model = GPT2Model(transformers.GPT2Model(transformers.GPT2Config.from_dict(model_config)), model_config, tokenizer)
+        model_config = transformers.GPT2Config.from_dict(model_config)
+        model = transformers.GPT2Model(model_config)
+        model = GPT2Model(model, model_config, tokenizer)
     elif model_name == 'bert':
-        model = BERTModel(transformers.BertModel(transformers.BertConfig.from_dict(model_config)), model_config, tokenizer)
+        model_config = transformers.BertConfig.from_dict(model_config)
+        model = transformers.BertModel(model_config)
+        model = BERTModel(model, model_config, tokenizer)
     return model
 
-def minimal_lm_state(rank_zero_seed: int, model, dataset):
+dataset, tokenizer = make_lm_dataset(lm_dataset_configs[0])
+lm = make_dummy_lm(lm_dataset_configs[0]['tokenizer_family'], tokenizer)
+
+def synthetic_to_datalaoder(dataset, tokenizer, dataset_config):
+    if tokenizer.pad_token_id is None:
+        data_collator = transformers.default_data_collator
+    else:
+        print('using datacollecter for language modeling')
+        data_collator = transformers.DataCollatorForLanguageModeling(tokenizer=tokenizer,
+                                                                        mlm=dataset_config['use_masked_lm'],
+                                                                        mlm_probability=dataset_config['mlm_probability'])
+    sampler = dist.get_sampler(
+            cast(Dataset, dataset),  # HF datasets do not subclass torch datasets, so this cast is needed
+            drop_last=dataset_config['drop_last'],
+            shuffle=True)
+    dataloader = DataLoaderHparams()
+    dataloader = dataloader.initialize_object(dataset = dataset, batch_size=dataset_config['num_samples'], sampler=sampler, drop_last=dataset_config['drop_last'], collate_fn=data_collator)
+    return dataloader
+
+dataloader = synthetic_to_datalaoder(dataset, tokenizer, lm_dataset_configs[0])
+pdb.set_trace()
+def minimal_lm_state(rank_zero_seed: int, model, dataset, tokenizer):
     """Most minimally defined state possible.
 
     Tests should configure the state for their specific needs.

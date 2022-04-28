@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import inspect
-from types import NoneType
 from typing import Callable, Optional, Sequence, Tuple, Union
+from xmlrpc.client import Boolean
 
 import numpy as np
 import torch
@@ -52,11 +52,21 @@ def should_selective_backprop(
 
     return is_interval and is_step
 
+def select_using_fn(input: torch.Tensor,
+                    target: torch.Tensor,
+                    model:  Callable[[Union[torch.Tensor, Sequence[torch.Tensor]]], torch.Tensor],
+                    selection_fun: Callable,
+                    keep: float = 0.5):
+    # writing as if this is a transformer
+    with torch.no_grad():
+        outputs = model(inputs)
+    selected_idx = selection_fun(loss_vals=outputs.total_loss, target=target, keep=keep)
+    return input[selected_idx], target[selected_idx]
+
 def select_using_loss(input: torch.Tensor,
-                      target: torch.Tensor ,
+                      target: torch.Tensor,
                       model: Callable[[Union[torch.Tensor, Sequence[torch.Tensor]]], torch.Tensor],
-                      loss_vals: torch.Tensor,
-                      selection_function: Callable, #loss_fun: [Callable] = None,
+                      loss_fun: Callable = None,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
     """Selectively backpropagate gradients from a subset of each batch (`Jiang et al, 2019 <https://\\
@@ -114,9 +124,9 @@ def select_using_loss(input: torch.Tensor,
     if callable(loss_fun):
         sig = inspect.signature(loss_fun)
         if not "reduction" in sig.parameters:
-            raise TypeError("Loss function `loss_fun` must take a keyword argument `reduction`.")
+            raise TypeError("`loss_fun` must take a keyword argument `reduction`.")
     else:
-        raise TypeError("Loss function must be callable")
+        raise TypeError("`loss_fun` must be callable")
 
     with torch.no_grad():
         N = input.shape[0]
@@ -129,10 +139,9 @@ def select_using_loss(input: torch.Tensor,
 
         # Get per-examples losses
         out = model(X_scaled)
-        ranks = selection_function(out)
-        #this used to be `losses = loss_fun(out, target, reduction="none")``
+        losses = loss_fun(out, target, reduction="none")
         # Sort losses
-        sorted_idx = torch.argsort(ranks)
+        sorted_idx = torch.argsort(losses)
         n_select = int(keep * N)
 
         # Sample by loss
@@ -182,13 +191,17 @@ class SelectiveBackprop(Algorithm):
                  end: float = 0.9,
                  keep: float = 0.5,
                  scale_factor: float = 1.,
-                 interrupt: int = 2):
+                 interrupt: int = 2,
+                 use_loss: Boolean = True,
+                 selection_function: Union[Callable, None] = None):
         self.start = start
         self.end = end
         self.keep = keep
         self.scale_factor = scale_factor
         self.interrupt = interrupt
-        self._loss_fn = None  # set on Event.INIT
+        self._loss_fn = None  # set on Event.INIT,
+        self.use_loss = use_loss
+        self.selection_function = selection_function 
 
     def match(self, event: Event, state: State) -> bool:
         """Matches :attr:`Event.INIT` and `Event.AFTER_DATALOADER`
@@ -236,11 +249,14 @@ class SelectiveBackprop(Algorithm):
 
         # Model expected to only take in input, not the full batch
         model = lambda X: state.model((X, None))
+        if self.use_loss:
+            def loss(p, y, reduction="none"):
+                #assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
+                return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
+            with state.precision_context:
+                new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
+        else:
+            assert self.selection_function is not None, "selection function must be provided"
 
-        def loss(p, y, reduction="none"):
-            assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
-            return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
-
-        with state.precision_context:
-            new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
+        
         state.batch = (new_input, new_target)
