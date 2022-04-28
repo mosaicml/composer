@@ -60,6 +60,7 @@ will emit a series of traces:
 
 from __future__ import annotations
 
+import atexit
 import contextlib
 import logging
 from collections import OrderedDict
@@ -121,6 +122,8 @@ class Engine():
     def __init__(self, state: State, logger: Logger):
         self.logger = logger
         self.state = state
+        self._is_closed = False
+        atexit.register(self._close, state, logger)
 
     def run_event(
         self,
@@ -160,6 +163,10 @@ class Engine():
         """
         duration_marker = None
         event = Event(event)
+
+        if self._is_closed:
+            raise RuntimeError(("The engine was already closed and therefore cannot be used again. "
+                                "To fix, please create a new Engine (or Trainer)"))
 
         if self.state.profiler is not None:
             name = f"event/{event.canonical_name}"
@@ -291,19 +298,33 @@ class Engine():
             with ctx:
                 cb.run_event(event, self.state, self.logger)
 
-    def close(self) -> None:
-        """Invokes :meth:`~.Callback.close` and :meth:`~.Callback.post_close` for each callback.
+    def __del__(self):
+        self.close()
 
-        :meth:`~.Callback.close` is invoked for each callback. For all callbacks where :meth:`~.Callback.close` did not
-        raise an exception, then :meth:`~.Callback.post_close` is invoked.
+    def close(self) -> None:
+        """Shutdown the enginge.
+
+        As part of the shutdown procedure, :meth:`~.Callback.close` and :meth:`~.Callback.post_close` is invoked
+        for each callback. Note that :meth:`~.Callback.post_close` is invoked only for callbacks that did not raise
+        an exception during :meth:`~.Callback.close`.
 
         This method does not re-raise any exceptions from :meth:`~.Callback.close` and :meth:`~.Callback.post_close`.
-        Instead, these exceptions are logged to the :class:`~.logger.Logger`.
+        Instead, these exceptions are logged as errors.
         """
+        self._close(self.state, self.logger)
+        # The self._is_closed flag would not be set if `_close` is called via atexit
+        # However, in these cases, the engine would never be used again, as Python is shutting
+        # down. It is only required to set the flag if the user manually calls `close()` and still holds
+        # a reference to the engine.
+        self._is_closed = True
+
+    @staticmethod
+    def _close(state: State, logger: Logger):
+        """The actual shutdown logic, as a static method, so the underlying engine can still be garbage collected."""
         callback_to_has_exception: Dict[Callback, bool] = {}
-        for callback in self.state.callbacks:
+        for callback in state.callbacks:
             try:
-                callback.close(self.state, self.logger)
+                callback.close(state, logger)
             except Exception as e:
                 log.error(
                     f"Error running {callback.__class__.__name__}.close(). Skipping {callback.__class__.__name__}.post_close().",
@@ -313,7 +334,7 @@ class Engine():
             else:
                 callback_to_has_exception[callback] = False
 
-        for callback in self.state.callbacks:
+        for callback in state.callbacks:
             if callback_to_has_exception[callback] is False:
                 try:
                     callback.post_close()
