@@ -257,8 +257,7 @@ def test_save_overwrite(
     composer_trainer_hparams.save_interval = "1ep"
     composer_trainer_hparams.save_overwrite = save_overwrite
     composer_trainer_hparams.seed = None
-    composer_trainer_hparams.validate_every_n_batches = 1
-    composer_trainer_hparams.validate_every_n_epochs = 0
+    composer_trainer_hparams.eval_interval = "1ba"
     middle_checkpoint = "ep1.pt"
     final_checkpoint = "ep2.pt"
     _test_checkpoint_trainer(composer_trainer_hparams)
