@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import Callable, Iterable, Optional, Union
 
 from torchmetrics import Metric, MetricCollection
 
@@ -13,9 +13,6 @@ from composer.core.data_spec import DataSpec
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
-
-if TYPE_CHECKING:
-    from composer.core.types import DataLoader
 
 __all__ = ["Evaluator", "evaluate_periodically"]
 
@@ -102,7 +99,7 @@ class Evaluator:
         self,
         *,
         label: str,
-        dataloader: Union[DataSpec, DataLoader],
+        dataloader: Union[DataSpec, Iterable],
         metrics: Union[Metric, MetricCollection],
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,

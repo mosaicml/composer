@@ -1,12 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Tuple
+from typing import Iterable, Tuple
 from unittest.mock import MagicMock
 
 import pytest
 
 from composer.core import Callback, State
-from composer.core.types import DataLoader
 from composer.loggers import Logger
 from composer.trainer import Trainer
 from tests.common import SimpleModel
@@ -54,8 +53,8 @@ class MetricsCallback(Callback):
 @pytest.mark.parametrize('compute_training_metrics', [True, False])
 @pytest.mark.parametrize('eval_interval', ["1ba", "1ep", "0ep"])
 def test_current_metrics(
-    dummy_train_dataloader: DataLoader,
-    dummy_val_dataloader: DataLoader,
+    dummy_train_dataloader: Iterable,
+    dummy_val_dataloader: Iterable,
     dummy_num_classes: int,
     dummy_in_shape: Tuple[int, ...],
     compute_training_metrics: bool,

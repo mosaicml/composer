@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import collections.abc
 import textwrap
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import torch
 import torch.utils.data
@@ -13,7 +13,7 @@ import torch.utils.data
 from composer.utils.iter_helpers import ensure_tuple
 
 if TYPE_CHECKING:
-    from composer.core.types import Batch, DataLoader
+    from composer.core.types import Batch
 
 __all__ = ["DataSpec"]
 
@@ -114,7 +114,7 @@ class DataSpec:
         trainer.engine.close()
 
     Args:
-        dataloader (DataLoader): The dataloader.
+        dataloader (Iterable): The dataloader, which can be any iterable that yields batches.
 
         num_samples (int, optional): The total number of samples in an epoch, across all ranks. This field is used by
             the :class:`~.time.Timer` (training progress tracker). If not specified, then ``len(dataloader.dataset)`` is
@@ -149,7 +149,7 @@ class DataSpec:
 
     def __init__(
         self,
-        dataloader: DataLoader,
+        dataloader: Iterable,
         num_samples: Optional[int] = None,
         num_tokens: Optional[int] = None,
         device_transforms: Optional[Callable[[Batch], Batch]] = None,
@@ -167,7 +167,6 @@ class DataSpec:
             self.num_samples = num_samples
 
         else:
-            # FFCV dataloaders don't have an associated dataset
             if isinstance(dataloader, torch.utils.data.DataLoader) and isinstance(dataloader.dataset,
                                                                                   collections.abc.Sized):
                 try:
