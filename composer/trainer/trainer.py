@@ -109,7 +109,7 @@ __all__ = ["Trainer"]
 
 
 def _unpack_evaluators(
-    eval_dataloader: Union[DataLoader, DataSpec, Evaluator, Sequence[Evaluator]],
+    eval_dataloader: Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]],
     eval_interval: Union[int, str, Time, Callable[[State, Event], bool]],
     subset_num_batches: int,
     model: ComposerModel,
@@ -195,9 +195,9 @@ class Trainer:
                 then the last section will be of size ``batch_size % grad_accum``.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``None`` for no gradient
             clipping. (default: ``None``)
-        eval_interval (int | str | Time | (State, Event) -> bool, optional): An integer (in epochs),
-            :class:`.Time` string or instance, or a callable that takes the (State, Event) and returns whether to
-            evaluate the evaluator. Defaults to ``1`` (evaluate every epoch).
+        eval_interval (int | str | Time | (State, Event) -> bool, optional): An integer, which will be
+            interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
+            Defaults to ``1`` (evaluate every epoch).
 
             If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the evaluator will be run
             with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
@@ -205,13 +205,13 @@ class Trainer:
 
             Set to ``0`` to disable evaluation.
 
-            If a callable, it will be called with the training :class:`.State` and the evaluation event, which will be
-            either :attr:`.Event.BATCH_END` or :attr:`.Event.EPOCH_END`. The callable should return a bool representing
-            whether the evaluator should be invoked.
+            If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool
+            representing whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`
+            or :attr:`.Event.EPOCH_END`.
 
-            This ``eval_interval`` will apply to any :class:`.Evaluator` in ``eval_dataloader`` that does not specify an
-            ``eval_interval`` or if a dataloader is passed in directly. This parameter has no effect if ``eval_dataloader``
-            is not specified.
+            This ``eval_interval`` will apply to any :class:`.Evaluator` in ``eval_dataloader`` that does not specify
+            an ``eval_interval`` or if a dataloader is passed in directly. This parameter has no effect if
+            ``eval_dataloader`` is not specified.
         compute_training_metrics (bool, optional): ``True`` to compute metrics on training data and ``False`` to not.
             (default: ``False``)
         precision (str or Precision, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
