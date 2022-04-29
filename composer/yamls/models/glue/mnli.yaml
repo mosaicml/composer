@@ -64,9 +64,7 @@ dataloader:
   prefetch_factor: 2
 grad_accum: 1
 precision: amp
-grad_clip_norm: None
-validate_every_n_batches: 2300
-validate_every_n_epochs: 1
+eval_interval: 2300ba
 callbacks:
   - lr_monitor: {}
 load_path: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt
