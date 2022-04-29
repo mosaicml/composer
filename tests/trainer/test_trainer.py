@@ -444,6 +444,29 @@ class TestTrainerInitOrFit:
             trainer = Trainer(model=model)
             trainer.fit(train_dataloader=dataloader)
 
+    def test_multiple_calls_to_fit(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time,
+    ):
+        """Test that the trainer supports multiple calls to fit."""
+        # Note that callbacks are tested seperately in tests/callbacks/test_callbacks.py
+        # To ensure that they support multiple calls of Event.INIT and Event.FIT
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
+
+        # Train once
+        trainer.fit()
+
+        # Train again.
+        trainer.fit(max_duration=2 * max_duration)
+
+        assert trainer.state.timer.get(max_duration.unit) == 2 * max_duration
+
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
@@ -755,7 +778,7 @@ class TestTrainerAlgorithms:
     @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
     @pytest.mark.timeout(5)
     @device('gpu')
-    def test_algorithm_trains(self, name, rank_zero_seed, device):
+    def test_algorithm_trains(self, name: str, rank_zero_seed: int, device: str):
         if name in ('no_op_model', 'scale_schedule'):
             pytest.skip('stub algorithms')
 
@@ -765,7 +788,7 @@ class TestTrainerAlgorithms:
 
         setting = get_settings(name)
         if setting is None:
-            pytest.skip('No setting provided in algorithm_settings.')
+            pytest.xfail('No setting provided in algorithm_settings.')
 
         trainer = Trainer(
             model=setting['model'],
@@ -775,6 +798,9 @@ class TestTrainerAlgorithms:
             seed=rank_zero_seed,
             device=device,
         )
+        trainer.fit()
+
+        # fit again
         trainer.fit()
 
 
