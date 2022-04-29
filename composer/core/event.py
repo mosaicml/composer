@@ -198,33 +198,10 @@ class Event(StringEnum):
         name = name.replace("_end", "")
         return name
 
-_BEFORE_EVENTS = (
-    Event.FIT_START,
-    Event.EPOCH_START,
-    Event.BATCH_START,
-    Event.BEFORE_TRAIN_BATCH,
-    Event.BEFORE_FORWARD,
-    Event.BEFORE_LOSS,
-    Event.BEFORE_BACKWARD,
-    Event.EVAL_START,
-    Event.EVAL_BATCH_START,
-    Event.EVAL_BEFORE_FORWARD,
-    Event.PREDICT_START,
-    Event.PREDICT_BATCH_START,
-    Event.PREDICT_BEFORE_FORWARD
-)
-_AFTER_EVENTS = (
-    Event.EPOCH_END,
-    Event.BATCH_END,
-    Event.AFTER_TRAIN_BATCH,
-    Event.AFTER_FORWARD,
-    Event.AFTER_LOSS,
-    Event.AFTER_BACKWARD,
-    Event.EVAL_END,
-    Event.EVAL_BATCH_END,
-    Event.EVAL_AFTER_FORWARD,
-    Event.FIT_END,
-    Event.PREDICT_END,
-    Event.PREDICT_BATCH_END,
-    Event.PREDICT_AFTER_FORWARD
-)
+_BEFORE_EVENTS = (Event.FIT_START, Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD,
+                  Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START, Event.EVAL_BATCH_START,
+                  Event.EVAL_BEFORE_FORWARD, Event.PREDICT_START, Event.PREDICT_BATCH_START,
+                  Event.PREDICT_BEFORE_FORWARD)
+_AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD, Event.AFTER_LOSS,
+                 Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD, Event.FIT_END,
+                 Event.PREDICT_END, Event.PREDICT_BATCH_END, Event.PREDICT_AFTER_FORWARD)

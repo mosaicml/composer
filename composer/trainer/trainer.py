@@ -1440,7 +1440,6 @@ class Trainer:
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
-
     def predict(self, loader: Union[DataLoader, DataSpec], _predict_subset_num_batches: Optional[int] = None):
         """Output model prediction on the provided data and log appropriate metrics.
         Args:
