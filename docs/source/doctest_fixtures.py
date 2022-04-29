@@ -153,8 +153,10 @@ def Trainer(fake_ellipses: None = None, **kwargs: Any):
         kwargs["train_dataloader"] = train_dataloader
     if "eval_dataloader" not in kwargs:
         kwargs["eval_dataloader"] = eval_dataloader
-    if "loggers" not in kwargs:
-        kwargs["loggers"] = []  # hide tqdm logging
+    if "progress_bar" not in kwargs:
+        kwargs["progress_bar"] = False  # hide tqdm logging
+    if "log_to_console" not in kwargs:
+        kwargs["log_to_console"] = False  # hide console logging
     trainer = OriginalTrainer(**kwargs)
 
     return trainer
