@@ -9,8 +9,7 @@ from torch.utils.data import DataLoader
 
 from composer import Callback, Event, State, Trainer
 from composer.loggers import FileLogger, FileLoggerHparams, Logger, LoggerDestination, LogLevel
-from tests.common.datasets import RandomClassificationDataset
-from tests.common.models import SimpleModel
+from tests.common import RandomClassificationDataset, SimpleModel
 
 
 class FileArtifactLoggerTracker(LoggerDestination):

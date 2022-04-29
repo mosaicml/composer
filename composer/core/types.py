@@ -17,7 +17,7 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Dict, Iterable, Iterator, List, Optional, Sequence, Union
 
 import torch
 import torch.utils.data
@@ -121,7 +121,7 @@ class DataLoader(Protocol):
     pin_memory: bool
     drop_last: bool
     timeout: float
-    sampler: torch.utils.data.Sampler[int]
+    sampler: Union[torch.utils.data.Sampler[int], Iterable[int]]
     prefetch_factor: int
 
     def __iter__(self) -> Iterator[Batch]:

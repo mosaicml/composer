@@ -10,9 +10,11 @@ from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, 
                                  ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, ScaleScheduleHparams,
                                  SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
                                  StochasticDepthHparams, SWAHparams, algorithm_registry)
+from composer.algorithms.hparams import AGCHparams
 from composer.core.algorithm import Algorithm
 
 default_required_fields = {
+    AGCHparams: {},
     AlibiHparams: {
         'position_embedding_attribute': 'module.transformer.wpe',
         'attention_module_name': 'transformers.models.gpt2.modeling_gpt2.GPT2Attention',
