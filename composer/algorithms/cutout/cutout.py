@@ -27,7 +27,7 @@ def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_s
     """See :class:`CutOut`.
 
     Args:
-        input (PIL.Image.Image or torch.Tensor): Image or batch of images. If
+        input (PIL.Image.Image or :class:`torch.Tensor`): Image or batch of images. If
             a :class:`torch.Tensor`, must be a single image of shape ``(C, H, W)``
             or a batch of images of shape ``(N, C, H, W)``.
         num_holes: Integer number of holes to cut out. Default: ``1``.
@@ -74,8 +74,8 @@ def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_s
 
 
 class CutOut(Algorithm):
-    """`Cutout <https://arxiv.org/abs/1708.04552>`_ is a data augmentation technique that works by masking out one or
-    more square regions of an input image.
+    """`CutOut <https://arxiv.org/abs/1708.04552>`_ is a data augmentation technique 
+    that works by masking out one or more square regions of an input image.
 
     This implementation cuts out the same square from all images in a batch.
 
@@ -84,6 +84,7 @@ class CutOut(Algorithm):
 
             from composer.algorithms import CutOut
             from composer.trainer import Trainer
+
             cutout_algorithm = CutOut(num_holes=1, length=0.25)
             trainer = Trainer(
                 model=model,
@@ -102,6 +103,10 @@ class CutOut(Algorithm):
             ``W``, and the resulting box is a square with side length
             ``length * min(H, W)``. Must be in the interval :math:`(0, 1)`.
             Default: ``0.5``.
+        uniform_sampling (bool, optional): If ``True``, sample the bounding
+            box such that each pixel has an equal probability of being masked.
+            If ``False``, defaults to the sampling used in the original paper
+            implementation. Default: ``False``.
     """
 
     def __init__(self, num_holes: int = 1, length: float = 0.5, uniform_sampling: bool = False):
