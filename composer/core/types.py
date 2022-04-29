@@ -42,8 +42,9 @@ PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 
-Position = Union[int, str, slice]
-Positions = Union[Position, Sequence[Position]]
+BatchKey = Union[int, str, slice]
+BatchKeys = Union[BatchKey, Sequence[BatchKey]]
+
 
 class BreakEpochException(Exception):
     """Raising this exception will immediately end the current epoch.
