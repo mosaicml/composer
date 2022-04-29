@@ -34,9 +34,9 @@ to automatically collect system information when an exception is raised.
 
 To override the original :func:`sys.excepthook` see :func:`configure_excepthook`.
 
-By default, the Composer custom `excepthook` automatically generates the environment report.
+By default, the Composer custom ``excepthook`` automatically generates the environment report.
 To disable automatic environment report generation, use the :func:`disable_env_report` helper
-function.  Report generation can be re-enabled by using the :func:`enable_env_repot` function.
+function.  Report generation can be re-enabled by using the :func:`enable_env_report` function.
 """
 
 import sys
@@ -218,8 +218,10 @@ def configure_excepthook() -> None:
 
         import sys
         from composer.utils.collect_env import configure_excepthook
+        import composer.utils.collect_env as ce
 
         sys.excepthook = sys.__excepthook__
+        ce._EXCEPTHOOK_REGISTERED = False
 
     .. doctest:: composer.utils.collect_env.configure_excepthook
 
@@ -286,6 +288,8 @@ def print_env(file: Optional[TextIO] = None) -> None:
     Example:
 
     .. code-block:: python
+
+        from composer.utils.collect_env import print_env
 
         print_env()
 
