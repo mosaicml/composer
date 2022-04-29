@@ -37,7 +37,7 @@ def rank_zero() -> bool:
 
 def require_mlperf_logging():
     if not mlperf_available:
-        raise ImportError("""Please install with pip install mosaicml[mlperf] and also
+        raise ImportError("""Please install with `pip install mosaicml[mlperf]` and also
                           install the logging library from: https://github.com/mlcommons/logging""")
 
 
