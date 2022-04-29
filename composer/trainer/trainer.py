@@ -566,6 +566,7 @@ class Trainer:
         torch_prof_with_flops: bool = True,
         torch_prof_num_traces_to_keep: int = -1,
     ):
+
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")

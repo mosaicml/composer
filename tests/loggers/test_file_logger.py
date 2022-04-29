@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from composer import Callback, Event, State, Trainer
 from composer.loggers import FileLogger, FileLoggerHparams, Logger, LoggerDestination, LogLevel
 from tests.common import RandomClassificationDataset, SimpleModel
+from composer.utils.collect_env import disable_env_report
 
 
 class FileArtifactLoggerTracker(LoggerDestination):
@@ -147,6 +148,7 @@ def test_exceptions_are_printed(tmpdir: pathlib.Path):
                       max_duration=1,
                       callbacks=[exception_raising_callback],
                       loggers=[file_logger])
+    disable_env_report()  # Printing the full report in this test can cause timeouts
     # manually calling `sys.excepthook` for the exception, as it is impossible to write a test
     # that validates unhandled exceptions are logged, since the test validation code would by definition
     # need to handle the exception!

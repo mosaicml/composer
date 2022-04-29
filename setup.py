@@ -71,6 +71,7 @@ install_requires = [
     "apache-libcloud>=3.3.1,<4",
     "psutil>=5.8.0,<6",
     "coolname>=1.1.0,<2",
+    "py-cpuinfo>=8.0.0",
 ]
 extra_deps = {}
 
@@ -184,7 +185,10 @@ setup(name="mosaicml",
       ],
       install_requires=install_requires,
       entry_points={
-          "console_scripts": ["composer = composer.cli.launcher:main",],
+          "console_scripts": [
+              "composer = composer.cli.launcher:main",
+              "composer_collect_env = composer.utils.collect_env:main"
+              ],
       },
       extras_require=extra_deps,
       dependency_links=["https://developer.download.nvidia.com/compute/redist"],
