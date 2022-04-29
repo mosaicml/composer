@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import typing
-from typing import Callable, Type, TypedDict
+from typing import TYPE_CHECKING, Callable, Type
 
 import pytest
 
@@ -10,6 +10,9 @@ from composer.trainer import EvalHparams, ExperimentHparams, FitHparams, Trainer
 from composer.trainer.trainer_hparams import EvalKwargs, FitKwargs
 from tests.common import SimpleModelHparams
 from tests.common.datasets import RandomClassificationDatasetHparams
+
+if TYPE_CHECKING:
+    from typing import TypedDict
 
 
 @pytest.mark.parametrize("method,typeddict_cls", [[Trainer.fit, FitKwargs], [Trainer.eval, EvalKwargs]])
