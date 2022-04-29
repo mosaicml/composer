@@ -88,8 +88,6 @@ extra_deps["dev"] = [
     "fasteners==0.17.3",  # object store tests require fasteners
     "pytest==7.1.0",
     "toml==0.10.2",
-    "yapf==0.32.0",
-    "isort==5.10.1",
     "ipython==7.32.0",
     "ipykernel==6.9.2",
     "jupyter==1.0.0",
@@ -110,8 +108,6 @@ extra_deps["dev"] = [
     "sphinx-copybutton==0.5.0",
     "testbook==0.4.2",
     "myst-parser==0.16.1",
-    "pylint==2.12.2",
-    "docformatter==1.4",
     "sphinx_panels==0.6.0",
     "sphinxcontrib-images==0.9.4",
     # need webdataset to run pyright. Including here to pass pyright.
