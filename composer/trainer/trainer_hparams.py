@@ -184,9 +184,12 @@ class TrainerHparams(hp.Hparams):
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
         load_path (str, optional): See :class:`.Trainer`.
-        load_object_store (ObjectStore, optional): See :class:`.Trainer`.
+        load_object_store (ObjectStore, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
+            ``load_object_store`` should not be provided since there can only be one location to load from.
         load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for
-            ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects.
+            ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects. Both
+            ``load_logger_destination`` and ``load_object_store`` should not be provided since there can only be one location
+            to load from.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -243,6 +246,7 @@ class TrainerHparams(hp.Hparams):
         "optimizer": optimizer_registry,
         "schedulers": scheduler_registry,
         "loggers": logger_registry,
+        "load_logger_destination": logger_registry,
         "model": model_registry,
         "train_dataset": dataset_registry,
         "val_dataset": dataset_registry,
@@ -564,7 +568,11 @@ class TrainerHparams(hp.Hparams):
         deepspeed_config = self.deepspeed if self.deepspeed is not None else False
 
         load_object_store = None
-        if self.load_object_store is not None:
+        if self.load_object_store is not None and self.load_logger_destination is not None:
+            raise ValueError(
+                "load_object_store and load_logger_destination cannot both be non-None. Please provide only one location to load from."
+            )
+        elif self.load_object_store is not None:
             load_object_store = self.load_object_store.initialize_object()
         elif self.load_logger_destination is not None:
             load_object_store = self.load_logger_destination.initialize_object()

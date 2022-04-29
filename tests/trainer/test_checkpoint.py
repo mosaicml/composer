@@ -298,9 +298,7 @@ def test_save_overwrite(
     trainer.fit()
 
 
-pytest.mark.timeout(90)
-
-
+@pytest.mark.timeout(90)
 def test_checkpoint_with_object_store_logger(
     composer_trainer_hparams: TrainerHparams,
     tmpdir: pathlib.Path,

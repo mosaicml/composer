@@ -155,4 +155,4 @@ class LoggerDestination(Callback, ABC):
                 (default: ``True``)
         """
         del artifact_name, destination, chunk_size, progress_bar  # unused
-        pass
+        raise NotImplementedError
