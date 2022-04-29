@@ -20,30 +20,6 @@ def importor_skip_mlperf_logging():
     pytest.importorskip("mlperf_logging")
 
 
-@pytest.fixture
-def config():
-    """Returns the reference config."""
-
-    return {
-        'model': SimpleModel(),
-        'train_dataloader': DataLoader(
-            dataset=RandomClassificationDataset(),
-            batch_size=4,
-            shuffle=False,
-        ),
-        'eval_dataloader': DataLoader(
-            dataset=RandomClassificationDataset(),
-            shuffle=False,
-        ),
-        'max_duration': '3ep',
-        'deterministic_mode': True,  # testing equivalence
-        'progress_bar': False,  # no progress bar
-        'log_to_console': False,
-        'loggers': [],
-        'callbacks': []
-    }
-
-
 class MockMLLogger:
     """Mocks the MLPerf Logger interface."""
 
@@ -108,7 +84,7 @@ class TestWithMLPerfChecker:
     """Ensures that the logs created by the MLPerfCallback pass the official package checker."""
 
     @pytest.mark.timeout(15)
-    def test_mlperf_callback_passes(self, config, tmpdir, monkeypatch):
+    def test_mlperf_callback_passes(self, tmpdir, monkeypatch):
 
         def mock_accuracy(self, state: State):
             if state.timer.epoch >= 2:
@@ -118,31 +94,50 @@ class TestWithMLPerfChecker:
 
         monkeypatch.setattr(MLPerfCallback, '_get_accuracy', mock_accuracy)
 
-        self.generate_submission(tmpdir, config)
+        self.generate_submission(tmpdir)
 
         if rank_zero():
             self.run_mlperf_checker(tmpdir, monkeypatch)
 
     @pytest.mark.timeout(15)
-    def test_mlperf_callback_fails(self, config, tmpdir, monkeypatch):
+    def test_mlperf_callback_fails(self, tmpdir, monkeypatch):
 
         def mock_accuracy(self, state: State):
             return 0.01
 
         monkeypatch.setattr(MLPerfCallback, '_get_accuracy', mock_accuracy)
 
-        self.generate_submission(tmpdir, config)
+        self.generate_submission(tmpdir)
         with pytest.raises(ValueError, match='MLPerf checker failed'):
             self.run_mlperf_checker(tmpdir, monkeypatch)
 
-    def generate_submission(self, directory, config):
+    def generate_submission(self, directory):
         """Generates submission files by training the benchark n=5 times."""
 
         for run in range(5):
+
             mlperf_callback = MLPerfCallback(root_folder=directory, index=run, cache_clear_cmd="")
-            config['callbacks'] = [mlperf_callback]
-            config['seed'] = np.random.randint(low=2048)  # mlperf seeds are released near submission deadline
-            trainer = Trainer(**config)
+
+            trainer = Trainer(
+                model=SimpleModel(),
+                train_dataloader=DataLoader(
+                    dataset=RandomClassificationDataset(),
+                    batch_size=4,
+                    shuffle=False,
+                ),
+                eval_dataloader=DataLoader(
+                    dataset=RandomClassificationDataset(),
+                    shuffle=False,
+                ),
+                max_duration="3ep",
+                deterministic_mode=True,
+                progress_bar=False,
+                log_to_console=False,
+                loggers=[],
+                callbacks=[mlperf_callback],
+                seed=np.random.randint(low=2048),
+            )
+
             trainer.fit()
 
     def run_mlperf_checker(self, directory, monkeypatch):

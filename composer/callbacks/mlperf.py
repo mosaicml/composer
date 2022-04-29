@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import platform
+import subprocess
 import sys
 import warnings
 from typing import Any, Dict, Optional, Sized
@@ -148,14 +149,15 @@ class MLPerfCallback(Callback):
 
         if dist.get_local_rank() == 0:
             self._create_submission_folders(root_folder, system_name, benchmark)
-            systems_path = os.path.join(root_folder, 'systems', f'{system_name}.json')
-            with open(systems_path, 'w') as f:
+            self.systems_path = os.path.join(root_folder, 'systems', f'{system_name}.json')
+            with open(self.systems_path, 'w') as f:
                 json.dump(system_desc, f, indent=4)
 
         dist.barrier()
 
         self.filename = os.path.join(root_folder, 'results', system_name, benchmark, f'result_{index}.txt')
         self.upload_name = '{run_name}' + f'/results/{system_name}/{benchmark}/result_{index}.txt'
+        self.system_desc_upload_name = '{run_name}' + f'/systems/{system_name}.json'
 
         if os.path.exists(self.filename):
             raise FileExistsError(f'{self.filename} already exists.')
@@ -165,8 +167,10 @@ class MLPerfCallback(Callback):
         self.mllogger.logger.addHandler(self._file_handler)
 
         if cache_clear_cmd is not None:
-            os.system(cache_clear_cmd)
+            subprocess.run(cache_clear_cmd, check=True, text=True)
             self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
+        else:
+            warnings.warn("cache_clear_cmd was not provided. For a valid submission, please provide the command.")
 
         self.mllogger.start(key=mllog.constants.INIT_START)
 
@@ -205,22 +209,27 @@ class MLPerfCallback(Callback):
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if rank_zero():
-            if state.train_dataloader.batch_size is None:
+            assert state.dataloader is not None
+
+            if state.dataloader.batch_size is None:
                 raise ValueError("Batch size is required to be set for dataloader.")
             if len(state.evaluators) > 1:
                 raise ValueError("Only one evaluator is supported for the MLPerfCallback.")
-            if not isinstance(state.train_dataloader.dataset, Sized):
+            if not isinstance(state.dataloader.dataset, Sized):
                 raise ValueError("Train dataset must have __len__ property")
             if not isinstance(state.evaluators[0].dataloader.dataloader.dataset, Sized):
                 raise ValueError("Train dataset must have __len__ property")
 
             self._log_dict({
                 constants.SEED: state.seed,
-                constants.GLOBAL_BATCH_SIZE: state.train_dataloader.batch_size * dist.get_world_size(),
+                constants.GLOBAL_BATCH_SIZE: state.dataloader.batch_size * dist.get_world_size(),
                 constants.GRADIENT_ACCUMULATION_STEPS: state.grad_accum,
-                constants.TRAIN_SAMPLES: len(state.train_dataloader.dataset),
+                constants.TRAIN_SAMPLES: len(state.dataloader.dataset),
                 constants.EVAL_SAMPLES: len(state.evaluators[0].dataloader.dataloader.dataset)
             })
+
+            # optionally, upload the system description file
+            logger.file_artifact(LogLevel.FIT, self.system_desc_upload_name, self.systems_path)
 
         self.mllogger.event(key=constants.INIT_STOP)
 
@@ -260,6 +269,9 @@ class MLPerfCallback(Callback):
                 self.mllogger.event(key=constants.RUN_STOP, metadata={"status": "success"})
                 self.mllogger.logger.removeHandler(self._file_handler)
                 self.success = True  # only log once
+
+    def close(self, state: State, logger: Logger) -> None:
+        self.mllogger.logger.shutdown()
 
 
 def get_system_description(

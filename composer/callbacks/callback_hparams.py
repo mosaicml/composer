@@ -123,19 +123,48 @@ class SpeedMonitorHparams(CallbackHparams):
 @dataclass
 class MLPerfCallbackHparams(CallbackHparams):
     """:class:`~.MLPerfCallback` hyperparameters.
+
+    Args:
+        root_folder (str): The root submission folder
+        index (int): The repetition index of this run. The filename created will be
+            ``result_[index].txt``.
+        benchmark (str, optional): Benchmark name. Currently only ``resnet`` supported.
+        target (float, optional): The target metric before the mllogger marks the stop
+            of the timing run. Default: ``0.759`` (resnet benchmark).
+        division (str, optional): Division of submission. Currently only ``open`` division supported.
+        metric_name (str, optional): name of the metric to compare against the target. Default: ``Accuracy``.
+        metric_label (str, optional): label name. The metric will be accessed via ``state.current_metrics[metric_label][metric_name]``.
+        submitter (str, optional): Submitting organization. Default: MosaicML.
+        system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
+            not provided, system name will default to ``[world_size]x[device_name]_composer``,
+            e.g. ``8xNVIDIA_A100_80GB_composer``.
+        status (str, optional): Submission status. One of (onprem, cloud, or preview).
+            Default: ``"onprem"``.
+        cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
+            will call ``subprocess(cache_clear_cmd)``. Default is disabled (None)
+
     """
 
     root_folder: str = hp.required("The root submission folder.")
     index: int = hp.required("The repetition index of this run.")
-    submitter: str = hp.optional("Submitting organization. Default: MosaicML", default='MosaicML')
-    system_name: str = hp.optional("Name of the system, defaults to [world_size]x[device_name]", default=None)
     benchmark: str = hp.optional("Benchmark name. Default: resnet", default="resnet")
+    target: float = hp.optional("The target metric before mllogger marks run_stop. Default: 0.759 (resnet)",
+                                default=0.759)
     divison: str = hp.optional("Division of submission. Currently only open division"
                                "is supported. Default: open",
                                default="open")
+    metric_name: str = hp.optional('name of the metric to compare against the target. Default: Accuracy',
+                                   default='Accuracy')
+    metric_label: str = hp.optional(
+        'label name. The metric will be accessed via state.current_metrics[metric_label][metric_name]. Default: eval',
+        default='eval')
+    submitter: str = hp.optional("Submitting organization. Default: MosaicML", default='MosaicML')
+    system_name: str = hp.optional("Name of the system, defaults to [world_size]x[device_name]", default=None)
     status: str = hp.optional("Submission status. Default: onprem", default="onprem")
-    target: float = hp.optional("The target metric before mllogger marks run_stop. Default: 0.759 (resnet)",
-                                default=0.759)
+    cache_clear_cmd: str = hp.optional(
+        "Command to invoke during the cache clear. This callback will call subprocess(cache_clear_cmd). Default: Disabled.",
+        default=None,
+    )
 
     def initialize_object(self) -> MLPerfCallback:
         """Initialize the MLPerf Callback.
