@@ -37,7 +37,6 @@ To override the original :func:`sys.excepthook` see :func:`configure_excepthook`
 By default, the Composer custom `excepthook` automatically generates the environment report.
 To disable automatic environment report generation, use the :func:`disable_env_report` helper
 function.  Report generation can be re-enabled by using the :func:`enable_env_repot` function.
-
 """
 
 import sys
@@ -87,6 +86,7 @@ _EXCEPTHOOK_REGISTERED = False
 
 # Track if environment report generation on exception is enabled, enabled by default
 _ENV_EXCEPTION_REPORT = True
+
 
 # Same convention as Torch collect_env, create a namedtuple to track collected fields
 class ComposerEnv(NamedTuple):
@@ -167,17 +167,19 @@ def _exc_report(exc_type) -> None:
             print("Please include details on how to reproduce the issue and attach the following environment report:\n")
             print_env(sys.stderr)
         else:
-            print("Please run the \'composer_collect_env\' utility and include your environment information with the bug report\n")
+            print(
+                "Please run the \'composer_collect_env\' utility and include your environment information with the bug report\n"
+            )
 
 
 def enable_env_report() -> None:
-    """Enable environment report generation on exception"""
+    """Enable environment report generation on exception."""
     global _ENV_EXCEPTION_REPORT
     _ENV_EXCEPTION_REPORT = True
 
 
 def disable_env_report() -> None:
-    """Disable environment report generation on exception"""
+    """Disable environment report generation on exception."""
     global _ENV_EXCEPTION_REPORT
     _ENV_EXCEPTION_REPORT = False
 
@@ -227,9 +229,9 @@ def configure_excepthook() -> None:
         >>> sys.excepthook 
         <function _custom_exception_handler at ...>
     """
-    
+
     global _EXCEPTHOOK_REGISTERED
-    # Needs to be indempotent across multiple trainers, don't register if we've already registered 
+    # Needs to be indempotent across multiple trainers, don't register if we've already registered
     if not _EXCEPTHOOK_REGISTERED:
         # Custom exceptions work differntly in notebooks
         if IPYTHON_AVAILABLE:
@@ -359,7 +361,7 @@ def print_env(file: TextIO = None) -> None:
         file (TextIO, optional): File handle, `sys.stdout` or `sys.stderr`. Defaults to `sys.stdout`.
     """
 
-    # Set stdout during runtime if no output file is specified 
+    # Set stdout during runtime if no output file is specified
     if file is None:
         file = sys.stdout
 
