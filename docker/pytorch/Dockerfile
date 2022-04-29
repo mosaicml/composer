@@ -1,4 +1,4 @@
-ARG BASE_IMAGE
+ ARG BASE_IMAGE
 
 FROM ${BASE_IMAGE} AS pytorch_stage
 ARG DEBIAN_FRONTEND=noninteractive
@@ -7,6 +7,19 @@ ARG DEBIAN_FRONTEND=noninteractive
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
 RUN rm -f /usr/local/cuda-11.3/cuda-11.3
+
+# update repository keys
+# https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
+ARG LINUX_DISTRO
+RUN if [ -n "$CUDA_VERSION" ] ; then \
+        rm -f /etc/apt/sources.list.d/cuda.list && \
+        rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
+        apt-get update &&  \
+        apt-get install -y --no-install-recommends wget && \
+        apt-key del 7fa2af80 && \
+        wget --no-check-certificate https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}/x86_64/cuda-keyring_1.0-1_all.deb && \
+        dpkg -i cuda-keyring_1.0-1_all.deb ; \
+    fi
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
