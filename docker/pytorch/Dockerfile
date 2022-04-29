@@ -16,9 +16,14 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
         apt-get update &&  \
         apt-get install -y --no-install-recommends wget && \
+        apt-get autoclean && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
         apt-key del 7fa2af80 && \
-        wget --no-check-certificate https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}/x86_64/cuda-keyring_1.0-1_all.deb && \
-        dpkg -i cuda-keyring_1.0-1_all.deb ; \
+        mkdir -p /tmp/cuda-keyring && \
+        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}/x86_64/cuda-keyring_1.0-1_all.deb && \
+        dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
+        rm -rf /tmp/cuda-keyring ; \
     fi
 
 RUN apt-get update && \
@@ -104,7 +109,8 @@ ARG PILLOW_SIMD_VERSION=7.0.0.post3
 COPY pillow_stub /tmp/pillow_stub
 
 RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION}
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
+    rm -rf /tmp/pillow_stub
 
 #################
 # Install Pytorch
@@ -117,11 +123,20 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.py
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
 
-#########
-# Cleanup
-#########
-RUN rm -rf /tmp/*
+###################################
+# Mellanox OFED driver installation
+###################################
 
+ARG MOFED_VERSION
+ARG MOFED_OS_VERSION
+
+RUN if [ -n "$MOFED_VERSION" ] ; then \
+        mkdir -p /tmp/mofed && \
+        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        rm -rf /tmp/mofed ; \
+    fi
 
 #######################
 # Set the shell to bash
