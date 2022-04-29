@@ -179,9 +179,10 @@ stage('Build') {
     if (env.CHANGE_ID) {
         isMergeCommit = false
     }
-    if (pytorchDockerBuildMatrix) {
+    if (pytorchDockerBuildMatrix && (!isMergeCommit || gitBranch == 'dev')) {
         // If changing docker, build the docker images first
         // Then, run pytest in the newly-built image
+        // Only need to run the build if it's a PR commit (not a merge commit), or it's a merge commit into dev.
         pytorchDockerBuildMatrix.each { entry ->
             String command = entry[0]  // command is the command to run
             String stagingImage = entry[1]  // stagingImage is where the built docker image is pushed
