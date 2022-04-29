@@ -78,6 +78,9 @@ if IPYTHON_AVAILABLE:
 # Place to keep track of the original excepthook
 _orig_excepthook = None
 
+# Track if excepthook was previously registered, needed for indempotency
+_EXCEPTHOOK_REGISTERED = False
+
 # Track if environment report generation on exception is enabled, enabled by default
 _ENV_EXCEPTION_REPORT = True
 
@@ -220,16 +223,21 @@ def configure_excepthook() -> None:
         >>> sys.excepthook 
         <function _custom_exception_handler at ...>
     """
+    
+    global _EXCEPTHOOK_REGISTERED
+    # Needs to be indempotent across multiple trainers, don't register if we've already registered 
+    if not _EXCEPTHOOK_REGISTERED:
+        # Custom exceptions work differntly in notebooks
+        if IPYTHON_AVAILABLE:
+            # Set custom handler on Exception base class to apply to all exceptions
+            nb.set_custom_exc((Exception,), _nb_custom_exception_handler)
+        else:
+            # Save original excepthook and override
+            global _orig_excepthook
+            _orig_excepthook = sys.excepthook
+            sys.excepthook = _custom_exception_handler
 
-    # Custom exceptions work differntly in notebooks
-    if IPYTHON_AVAILABLE:
-        # Set custom handler on Exception base class to apply to all exceptions
-        nb.set_custom_exc((Exception,), _nb_custom_exception_handler)
-    else:
-        # Save original excepthook and override
-        global _orig_excepthook
-        _orig_excepthook = sys.excepthook
-        sys.excepthook = _custom_exception_handler
+        _EXCEPTHOOK_REGISTERED = True
 
 
 # Get Torch environment info
