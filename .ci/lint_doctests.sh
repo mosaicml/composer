@@ -8,6 +8,9 @@ set -euxo pipefail
 # Install dependencies
 pip install .[all]
 
+# Mark the root folder folder as trusted (necessarry for pre-commit hooks to work)
+git config --global --add safe.directory $WORKSPACE
+
 # Clean and make the output directory
 BUILD_DIR="build/output"
 rm -rf ${BUILD_DIR}
