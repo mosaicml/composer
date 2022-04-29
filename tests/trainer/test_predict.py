@@ -13,7 +13,6 @@ import pytest
 import torch
 import torch.distributed
 from torch.utils.data import DataLoader
-from _pytest.monkeypatch import MonkeyPatch
 
 from composer.core import DataSpec
 from composer.core.callback import Callback
@@ -21,7 +20,7 @@ from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger
 from composer.trainer.trainer import Trainer
-from tests.common import (RandomClassificationDataset, SimpleModel)
+from tests.common import RandomClassificationDataset, SimpleModel
 
 
 class EventCounterCallback(Callback):
