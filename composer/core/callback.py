@@ -352,6 +352,16 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
+    def fit_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.FIT_END` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
     def close(self, state: State, logger: Logger) -> None:
         """Called whenever the trainer finishes training, even when there is an exception.
 

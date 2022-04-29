@@ -81,5 +81,4 @@ dataloader:
 precision: amp
 grad_clip_norm: 1.0
 grad_accum: 11
-validate_every_n_batches: 1000
-validate_every_n_epochs: 1
+eval_interval: 1000ba

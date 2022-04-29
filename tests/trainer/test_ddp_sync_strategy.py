@@ -1,6 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import pytest
 import torch
@@ -8,7 +8,6 @@ import torch.nn as nn
 from torch import Tensor
 
 from composer.core import State
-from composer.core.types import DataLoader
 from composer.trainer.ddp import _ddp_sync_context, _prepare_ddp_module
 from composer.utils import dist
 
@@ -47,7 +46,7 @@ class MinimalConditionalModel(nn.Module):
 ])
 @pytest.mark.world_size(2)
 def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]],
-                           dummy_train_dataloader: DataLoader, rank_zero_seed: int):
+                           dummy_train_dataloader: Iterable, rank_zero_seed: int):
     original_model = MinimalConditionalModel()
     # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
