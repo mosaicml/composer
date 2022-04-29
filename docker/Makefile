@@ -48,7 +48,7 @@ build: composer
 pytorch:
 	cd pytorch && docker build -t $(PYTORCH_TAG) \
 		--target $(TARGET) \
-		--no-cache \
+		--pull \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg CUDA_VERSION_TAG=$(CUDA_VERSION_TAG) \
 		--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
