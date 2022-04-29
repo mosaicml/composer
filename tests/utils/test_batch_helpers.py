@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 import numpy as np
 import pytest
@@ -35,7 +35,8 @@ def example_sequence(request):
 @pytest.fixture(scope="module",
                 params=[dict(zip(keys, my_list)),
                         myClass(**dict(zip(keys, my_list))),
-                        my_named_tuple(*my_list)])
+                        my_named_tuple(*my_list),
+                        OrderedDict(**dict(zip(keys, my_list)))])
 def example_map(request):
     return request.param
 
