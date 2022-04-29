@@ -3,7 +3,7 @@
         "name": "AugMix",
         "class_name": "AugMix",
         "functional": "augmix_image",
-        "tldr": "Image-perserving data augmentations",
+        "tldr": "Image-preserving data augmentations",
         "attribution": "(Hendrycks et al, 2020)",
         "link": "http://arxiv.org/abs/1912.02781",
         "domains": [

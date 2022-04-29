@@ -81,6 +81,7 @@ filterwarnings = [
     'ignore:No optimizer:UserWarning',  # testing defaults
     'ignore:No scheduler:UserWarning',  # testing defaults
     'ignore::DeprecationWarning:tensorboard',  # ignore tensorboard
+    'ignore:.*NoSchedulerWarning.*'  # we usually do not use schedulers
 ]
 timeout_func_only = true  # exclude fixtures from the timeout
 
