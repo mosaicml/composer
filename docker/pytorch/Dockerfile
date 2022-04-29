@@ -104,7 +104,8 @@ ARG PILLOW_SIMD_VERSION=7.0.0.post3
 COPY pillow_stub /tmp/pillow_stub
 
 RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION}
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
+    rm -rf /tmp/pillow_stub
 
 #################
 # Install Pytorch
@@ -125,16 +126,12 @@ ARG MOFED_VERSION
 ARG MOFED_OS_VERSION
 
 RUN if [ -n "$MOFED_VERSION" ] ; then \
-        wget -nv -P /tmp http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz && \
-        tar -zxvf /tmp/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz -C /tmp && \
-        /tmp/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force ; \
+        mkdir -p /tmp/mofed && \
+        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        rm -rf /tmp/mofed \
     fi
-
-#########
-# Cleanup
-#########
-RUN rm -rf /tmp/*
-
 
 #######################
 # Set the shell to bash
