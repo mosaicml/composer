@@ -18,7 +18,7 @@ from composer.models.transformer_shared import ComposerTransformer
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, BatchDict, BatchPair
+    from composer.core.types import Batch
 
 __all__ = ["BERTModel"]
 
