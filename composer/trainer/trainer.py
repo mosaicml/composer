@@ -111,11 +111,10 @@ __all__ = ["Trainer"]
 class MissingArgumentException(ValueError):
 
     def __init__(self, arg_name: str) -> None:
-        super().__init__(
-            (f"{arg_name} is a required argument and must be specified when constructing the "
-             f"{type(Trainer).__name__} or when calling {type(Trainer).__name__}.{Trainer.fit.__name__}(). "
-             f"To fix, please specify `arg_name` via {type(Trainer).__name__}({arg_name}=...) or "
-             f"{type(Trainer).__name__}.{Trainer.fit.__name__}({arg_name}=...)."))
+        super().__init__((f"{arg_name} is a required argument and must be specified when constructing the "
+                          f"{Trainer.__name__} or when calling {Trainer.__name__}.{Trainer.fit.__name__}(). "
+                          f"To fix, please specify `arg_name` via {Trainer.__name__}({arg_name}=...) or "
+                          f"{Trainer.__name__}.{Trainer.fit.__name__}({arg_name}=...)."))
 
 
 def _scale_max_duration_by_ssr(scale_schedule_ratio: float,
@@ -957,10 +956,10 @@ class Trainer:
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             warnings.warn(
                 DeprecationWarning(
-                    (f"Specifying the {type(ProgressBarLogger).__name__} via `loggers` is deprecated. Instead, "
+                    (f"Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, "
                      "please specify `progress_bar`, `log_to_console`, `log_level`, and `stream` arguments when "
                      "constructing the trainer. If specified, these arguments will be ignored, as the "
-                     f"{type(ProgressBarLogger).__name__} was already created.")))
+                     f"{ProgressBarLogger.__name__} was already created.")))
         else:
             loggers.append(
                 ProgressBarLogger(
@@ -1639,7 +1638,7 @@ class Trainer:
                     self.state.scaler.unscale_(optimizer)
 
             # clip gradients if the magnitude is too large
-            if not self.state.is_model_deepspeed and self._grad_clip_norm != -1:
+            if not self.state.is_model_deepspeed and self._grad_clip_norm >= 0:
                 torch.nn.utils.clip_grad_norm_(
                     parameters=self.state.model.parameters(),
                     max_norm=self._grad_clip_norm,

@@ -107,7 +107,7 @@ def _add_other_config(config: Dict[str, Any], grad_clip_norm: float):
                               f"{ds_grad_clip_norm}, but the Mosaic trainer has been configured "
                               f"with grad clip norm={grad_clip_norm}"))
 
-    if grad_clip_norm != -1.0:
+    if grad_clip_norm >= 0:
         config["gradient_clipping"] = grad_clip_norm
 
     if "zero_allow_untested_optimizer" in config and not config["zero_allow_untested_optimizer"]:
@@ -121,7 +121,7 @@ def _add_other_config(config: Dict[str, Any], grad_clip_norm: float):
 def _parse_deepspeed_config(
     config: Dict[str, Any],
     state: State,
-    grad_clip_norm: float = -1.0,
+    grad_clip_norm: float,
 ) -> Dict[str, Any]:
     """Parses the provided DeepSpeed config for compatibility with the Mosaic trainer.
 
