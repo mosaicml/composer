@@ -1,6 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Example usage and definition of hparams."""
+"""Hyperparameter classes for the :mod:`~composer.profiler`.
+
+Attributes:
+    trace_handler_registry (Dict[str, Type[TraceHandlerHparams]]): Trace handler registry.
+    profiler_scheduler_registry (Dict[str, Type[ProfileScheduleHparams]]): Profiler scheduler registry.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +22,7 @@ from composer.profiler.profiler_schedule import cyclic_schedule
 from composer.profiler.trace_handler import TraceHandler
 
 __all__ = [
-    "TraceHandlerHparams", "JSONTraceHparams", "trace_handler_registory", "ProfileScheduleHparams",
+    "TraceHandlerHparams", "JSONTraceHparams", "trace_handler_registry", "ProfileScheduleHparams",
     "CyclicProfilerScheduleHparams", "profiler_scheduler_registry"
 ]
 
@@ -64,8 +69,7 @@ class JSONTraceHparams(TraceHandlerHparams):
         return JSONTraceHandler(**dataclasses.asdict(self))
 
 
-trace_handler_registory = {"json": JSONTraceHparams}
-trace_handler_registory.__doc__ = "Trace handler registry."
+trace_handler_registry = {"json": JSONTraceHparams}
 
 
 @dataclasses.dataclass
@@ -106,4 +110,3 @@ class CyclicProfilerScheduleHparams(ProfileScheduleHparams):
 
 
 profiler_scheduler_registry = {'cyclic': CyclicProfilerScheduleHparams}
-profiler_scheduler_registry.__doc__ = "Profiler scheduler registry."
