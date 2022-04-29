@@ -42,7 +42,7 @@ PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 
-Position = Union[int, str]
+Position = Union[int, str, slice]
 Positions = Union[Position, Sequence[Position]]
 
 class BreakEpochException(Exception):
