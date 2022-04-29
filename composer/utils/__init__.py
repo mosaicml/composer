@@ -8,7 +8,7 @@ from composer.utils.import_helpers import MissingConditionalImportError, import_
 from composer.utils.iter_helpers import ensure_tuple, iterate_with_pbar, map_collection
 from composer.utils.object_store import ObjectStore, ObjectStoreHparams
 from composer.utils.string_enum import StringEnum
-
+from composer.utils.batch_helpers import batch_get, batch_set
 __all__ = [
     'ensure_tuple',
     'iterate_with_pbar',
@@ -25,4 +25,6 @@ __all__ = [
     'format_name_with_dist',
     'format_name_with_dist_and_time',
     'is_tar',
+    'batch_get',
+    'batch_set'
 ]
