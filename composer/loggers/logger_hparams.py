@@ -294,4 +294,4 @@ logger_registry = {
     "in_memory": InMemoryLoggerHparams,
     "object_store": ObjectStoreLoggerHparams,
 }
-"""The registry of all known :class:`.LoggerDestinationHparams`."""
+logger_registry.__doc__ = "The registry of all known :class:`.LoggerDestinationHparams`."

@@ -97,6 +97,7 @@ extra_deps["dev"] = [
     "pytest-timeout==2.1.0",
     "recommonmark==0.7.1",
     "sphinx==4.4.0",
+    "pre-commit>=2.18.1,<3",
     # embedding md in rst require docutils>=0.17. See
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     "docutils==0.17.1",
@@ -182,10 +183,8 @@ setup(name="mosaicml",
       ],
       install_requires=install_requires,
       entry_points={
-          "console_scripts": [
-              "composer = composer.cli.launcher:main",
-              "composer_collect_env = composer.utils.collect_env:main"
-              ],
+          "console_scripts":
+              ["composer = composer.cli.launcher:main", "composer_collect_env = composer.utils.collect_env:main"],
       },
       extras_require=extra_deps,
       dependency_links=["https://developer.download.nvidia.com/compute/redist"],

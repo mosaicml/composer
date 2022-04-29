@@ -65,7 +65,7 @@ class JSONTraceHparams(TraceHandlerHparams):
 
 
 trace_handler_registory = {"json": JSONTraceHparams}
-"""Trace handler registry."""
+trace_handler_registory.__doc__ = "Trace handler registry."
 
 
 @dataclasses.dataclass
@@ -106,4 +106,4 @@ class CyclicProfilerScheduleHparams(ProfileScheduleHparams):
 
 
 profiler_scheduler_registry = {'cyclic': CyclicProfilerScheduleHparams}
-"""Profiler scheduler registry."""
+profiler_scheduler_registry.__doc__ = "Profiler scheduler registry."
