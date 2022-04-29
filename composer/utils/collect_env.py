@@ -41,7 +41,7 @@ function.  Report generation can be re-enabled by using the :func:`enable_env_re
 
 import sys
 import time
-from typing import NamedTuple, TextIO
+from typing import NamedTuple, Optional, TextIO
 
 import cpuinfo
 import psutil
@@ -62,7 +62,6 @@ except (ImportError,):
 try:
     import composer
     from composer.utils import dist
-    from composer.utils.import_helpers import import_object
     COMPOSER_AVAILABLE = True
 except (ImportError,):
     COMPOSER_AVAILABLE = False
@@ -70,13 +69,12 @@ except (ImportError,):
 # Check if we're running in a notebook
 try:
     __IPYTHON__  #type: ignore
+    from composer.utils.import_helpers import import_object
+    get_ipython = import_object('IPython:get_ipython')
+    nb = get_ipython()
     IPYTHON_AVAILABLE = True
 except (NameError,):
     IPYTHON_AVAILABLE = False
-
-if IPYTHON_AVAILABLE:
-    get_ipython = import_object('IPython:get_ipython')
-    nb = get_ipython()
 
 # Place to keep track of the original excepthook
 _orig_excepthook = None
@@ -282,7 +280,7 @@ def get_composer_env() -> str:
 
 
 # Generate and print environment report
-def print_env(file: TextIO = None) -> None:
+def print_env(file: Optional[TextIO] = None) -> None:
     """Generate system information report.
 
     Example:
