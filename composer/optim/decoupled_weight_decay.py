@@ -401,17 +401,15 @@ class DecoupledNVLAMB(Optimizer):
                 # excluded from weight decay.
 
                 w_norm = torch.linalg.vector_norm(param, ord=2, dim=None)
-                g_norm = torch.linalg.vector_norm(update, ord=2, dim=None)
+                u_norm = torch.linalg.vector_norm(update, ord=2, dim=None)
 
                 # Compute trust ratio
-                trust_ratio = torch.where(
-                    w_norm > 0,
-                    torch.where(g_norm > 0, w_norm / g_norm, one_tensor),
-                    one_tensor,
-                )
+                # If weight norm or update norm are 0, leave trust_ratio as 1.0
+                trust_ratio = w_norm.div_(u_norm)._nan_to_num(nan=1.0, inf=1.0)
+
                 if trust_clip:
                     # LAMBC trust clipping fixes upper bound to one
-                    trust_ratio = torch.minimum(trust_ratio, one_tensor)
+                    trust_ratio = trust_ratio._clamp(max=1.0)
                 
                 # Scale LR by trust ratio
                 scaledLR *= trust_ratio.item()
