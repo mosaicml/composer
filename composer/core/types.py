@@ -13,7 +13,7 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Union, Sequence
+from typing import Any, Dict, List, Sequence, Union
 
 import torch
 import torch.utils.data
