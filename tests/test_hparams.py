@@ -7,7 +7,7 @@ import pytest
 import composer
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
-from tests.utils.synthetic_utils import configure_dataset_for_synthetic, configure_model_for_synthetic
+from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
 
 
 def walk_model_yamls():
@@ -62,13 +62,13 @@ class TestHparamsCreate:
         hparams.dataloader.pin_memory = False
         hparams.dataloader.prefetch_factor = 2
 
-        configure_dataset_for_synthetic(hparams.train_dataset, model_hparams=hparams.model)
-        configure_model_for_synthetic(hparams.model)
+        configure_dataset_hparams_for_synthetic(hparams.train_dataset, model_hparams=hparams.model)
+        configure_model_hparams_for_synthetic(hparams.model)
         if hparams.val_dataset is not None:
-            configure_dataset_for_synthetic(hparams.val_dataset)
+            configure_dataset_hparams_for_synthetic(hparams.val_dataset)
         if hparams.evaluators is not None:
             for evaluator in hparams.evaluators:
-                configure_dataset_for_synthetic(evaluator.eval_dataset)
+                configure_dataset_hparams_for_synthetic(evaluator.eval_dataset)
         hparams.device = CPUDeviceHparams()
         hparams.load_path = None
 

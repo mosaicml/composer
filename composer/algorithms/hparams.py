@@ -6,6 +6,7 @@ from typing import Optional, Union
 
 import yahp as hp
 
+from composer.algorithms.agc import AGC
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugMix
@@ -31,6 +32,17 @@ from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import (_STOCHASTIC_LAYER_MAPPING,
                                                                    _validate_stochastic_hparams)
 from composer.algorithms.swa import SWA
+
+
+@dataclass
+class AGCHparams(AlgorithmHparams):
+    """See :class:`AGC`"""
+    clipping_threshold: float = hp.optional(
+        doc="The largest acceptable ratio between grad norms and parameter norms before clipping is done.",
+        default=0.01)
+
+    def initialize_object(self) -> AGC:
+        return AGC(**asdict(self))
 
 
 @dataclass
@@ -237,6 +249,8 @@ class ProgressiveResizingHparams(AlgorithmHparams):
     initial_scale: float = hp.optional(doc="Initial scale factor", default=0.5)
     finetune_fraction: float = hp.optional(doc="Fraction of training to reserve for finetuning on full-sized inputs",
                                            default=0.2)
+    delay_fraction: float = hp.optional(doc="Fraction of training before resizing ramp begins", default=0.0)
+    size_increment: int = hp.optional(doc="Align sizes to a multiple of this number.", default=1)
     resize_targets: bool = hp.optional(doc="Also resize targets", default=False)
 
     def initialize_object(self) -> ProgressiveResizing:

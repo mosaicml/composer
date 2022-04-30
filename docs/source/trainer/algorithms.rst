@@ -259,6 +259,6 @@ training loop at various :class:`.Events` and effect their changes by modifing t
 ..                   max_duration='90ep',
 ..                   device='gpu',
 ..                   algorithms=[channels_last, blurpool, custom_algorithm],
-..                   validate_every_n_epochs=-1,
+..                   eval_interval="0ep",
 ..                   seed=42)
 .. ```

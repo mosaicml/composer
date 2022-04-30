@@ -3,12 +3,8 @@
 """Reference for common types used throughout the composer library.
 
 Attributes:
-    Batch (BatchPair | BatchDict | torch.Tensor): Union type covering the most common representations of batches.
+    Batch (Any): Alias to type Any.
         A batch of data can be represented in several formats, depending on the application.
-    BatchPair (Sequence[Union[torch.Tensor, Sequence[torch.Tensor]]]): Commonly used in computer vision tasks.
-        The object is assumed to contain exactly two elements, where the first represents inputs
-        and the second represents targets.
-    BatchDict (Dict[str, Tensor]): Commonly used in natural language processing tasks.
     PyTorchScheduler (torch.optim.lr_scheduler._LRScheduler): Alias for base class of learning rate schedulers such
         as :class:`torch.optim.lr_scheduler.ConstantLR`.
     JSON (str | float | int | None | List['JSON'] | Dict[str, 'JSON']): JSON Data.
@@ -17,22 +13,14 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Union, Sequence
 
 import torch
 import torch.utils.data
 
 from composer.utils.string_enum import StringEnum
 
-try:
-    from typing import Protocol
-except ImportError:
-    Protocol = object  # Protocol is not available in python 3.7
-
-if TYPE_CHECKING:
-    from typing import Protocol
-
-__all__ = ["Batch", "PyTorchScheduler", "JSON", "MemoryFormat", "DataLoader", "BreakEpochException"]
+__all__ = ["Batch", "PyTorchScheduler", "JSON", "MemoryFormat", "BreakEpochException"]
 
 Batch = Any
 
@@ -53,57 +41,6 @@ class BreakEpochException(Exception):
     """
 
     pass
-
-
-class DataLoader(Protocol):
-    """Protocol for custom DataLoaders compatible with
-    :class:`torch.utils.data.DataLoader`.
-
-    Attributes:
-        dataset (Dataset): Dataset from which to load the data.
-        batch_size (int, optional): How many samples per batch to load for a
-            single device (default: ``1``).
-        num_workers (int): How many subprocesses to use for data loading.
-            ``0`` means that the data will be loaded in the main process.
-        pin_memory (bool): If ``True``, the data loader will copy Tensors
-            into CUDA pinned memory before returning them.
-        drop_last (bool): If ``len(dataset)`` is not evenly
-            divisible by :attr:`batch_size`, whether the last batch is
-            dropped (if True) or truncated (if False).
-        timeout (float): The timeout for collecting a batch from workers.
-        sampler (torch.utils.data.Sampler[int]): The dataloader sampler.
-        prefetch_factor (int): Number of samples loaded in advance by each
-            worker. ``2`` means there will be a total of
-            2 * :attr:`num_workers` samples prefetched across all workers.
-    """
-
-    dataset: Dataset
-    batch_size: Optional[int]
-    num_workers: int
-    pin_memory: bool
-    drop_last: bool
-    timeout: float
-    sampler: torch.utils.data.Sampler[int]
-    prefetch_factor: int
-
-    def __iter__(self) -> Iterator[Batch]:
-        """Iterates over the dataset.
-
-        Yields:
-            Iterator[Batch]: An iterator over batches.
-        """
-        ...
-
-    def __len__(self) -> int:
-        """Returns the number of batches in an epoch.
-
-        Raises:
-            NotImplementedError: Raised if the dataset has unknown length.
-
-        Returns:
-            int: Number of batches in an epoch.
-        """
-        ...
 
 
 class MemoryFormat(StringEnum):

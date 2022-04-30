@@ -10,6 +10,7 @@ import weakref
 from typing import Tuple, TypeVar, Union
 
 import torch
+import torch.utils.data
 from PIL.Image import Image as PillowImage
 from torch import Tensor
 from torchvision.datasets import VisionDataset
@@ -217,11 +218,13 @@ class ColOut(Algorithm):
             if event != Event.FIT_START:
                 return False
             assert state.dataloader is not None, "dataloader should be defined on fit start"
+            if not isinstance(state.dataloader, torch.utils.data.DataLoader):
+                raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
             return state.dataloader.dataset not in self._transformed_datasets
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""
-        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "dataloader type checked on match()"
         dataset = state.dataloader.dataset
 
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)

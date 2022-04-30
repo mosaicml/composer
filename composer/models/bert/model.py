@@ -18,7 +18,7 @@ from composer.models.transformer_shared import ComposerTransformer
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, BatchDict, BatchPair
+    from composer.core.types import Batch
 
 __all__ = ["BERTModel"]
 
@@ -93,7 +93,7 @@ class BERTModel(ComposerTransformer):
         """Runs the validation step.
 
         Args:
-            batch (BatchDict): a dictionary of Dict[str, Tensor] of inputs
+            batch (Dict): a dictionary of Dict[str, Tensor] of inputs
                 that the model expects, as found in :meth:`.ComposerTransformer.get_model_inputs`.
 
         Returns:

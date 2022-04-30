@@ -147,7 +147,7 @@ within a reasonable amount of time and limit the size of the trace file.
 Since `prof_warmup=1`, `prof_active=4`, `prof_repeat=1`, and `prof_repeat=1`, we will record profiling data for 10
 batches each epoch, starting with batch 0 (no offset since `prof_skip_first=0` and `prof_wait=0`).
 Additionally, since we are only concerned with profiling during training, we disable validation by setting
-`validate_every_n_batches=-1` and `validate_every_n_epochs=-1`.
+`eval_interval="0ep"`.
 
 ## Run training with profiling
 
