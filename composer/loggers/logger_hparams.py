@@ -1,6 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logger Hyperparameter classes."""
+"""Logger Hyperparameter classes.
+
+Attributes:
+    logger_registry (Dict[str, Type[LoggerDestinationHparams]]): The registry of all known
+        :class:`.LoggerDestinationHparams`.
+"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -300,4 +305,3 @@ logger_registry = {
     "in_memory": InMemoryLoggerHparams,
     "object_store": ObjectStoreLoggerHparams,
 }
-"""The registry of all known :class:`.LoggerDestinationHparams`."""
