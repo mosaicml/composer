@@ -7,6 +7,7 @@ import warnings
 from typing import Any, Dict, Optional, cast
 
 import torch
+import torch.utils.data
 
 from composer.core import Precision, State
 from composer.core.types import Batch
@@ -18,25 +19,38 @@ __all__ = ["_fix_batch_precision_for_deepspeed", "_parse_deepspeed_config"]
 
 def _add_batch_config(config: Dict[str, Any], state: State):
     assert state.dataloader is not None, "dataloader should be set on FIT_START, which is where the Deepspeed config is applied."
-    if state.dataloader.batch_size is None:
-        raise RuntimeError("DeepSpeed requires a dataloader with a known batch size.")
 
-    if state.dataloader.batch_size % state.grad_accum != 0:
-        # DeepSpeed will throw an error in this configuration.
-        raise ValueError("The Mosaic trainer has been configured to use batch size="
-                         f"{state.dataloader.batch_size}, but this is not divisible by the "
-                         f"grad accum={state.grad_accum}. This is unsupported when using DeepSpeed.")
-
-    train_batch_size = state.dataloader.batch_size * dist.get_world_size()
     grad_accum = state.grad_accum
-    # Per the check at the start of this function, the following division is always clean.
-    per_gpu_microbatch_size = state.dataloader.batch_size // state.grad_accum
 
-    if "train_batch_size" in config:
-        ds_train_batch_size = config["train_batch_size"]
-        if ds_train_batch_size != train_batch_size:
-            raise ValueError(f"Provided DeepSpeed configuration specifies batch size={ds_train_batch_size}, "
-                             f"but the Mosaic trainer has been configured with batch size={train_batch_size}.")
+    if isinstance(state.dataloader, torch.utils.data.DataLoader):
+        if state.dataloader.batch_size is None:
+            raise RuntimeError("DeepSpeed requires a dataloader with a known batch size.")
+
+        if state.dataloader.batch_size % state.grad_accum != 0:
+            # DeepSpeed will throw an error in this configuration.
+            raise ValueError("The Mosaic trainer has been configured to use batch size="
+                             f"{state.dataloader.batch_size}, but this is not divisible by the "
+                             f"grad accum={state.grad_accum}. This is unsupported when using DeepSpeed.")
+
+        train_batch_size = state.dataloader.batch_size * dist.get_world_size()
+        # Per the check at the start of this function, the following division is always clean.
+        per_gpu_microbatch_size = state.dataloader.batch_size // grad_accum
+
+        if "train_batch_size" in config:
+            ds_train_batch_size = config["train_batch_size"]
+            if ds_train_batch_size != train_batch_size:
+                raise ValueError(f"Provided DeepSpeed configuration specifies batch size={ds_train_batch_size}, "
+                                 f"but the Mosaic trainer has been configured with batch size={train_batch_size}.")
+
+        if "train_micro_batch_size_per_gpu" in config:
+            ds_per_gpu_microbatch_size = config["train_micro_batch_size_per_gpu"]
+            if ds_per_gpu_microbatch_size != per_gpu_microbatch_size:
+                raise ValueError("Provided DeepSpeed configuration specifies per-GPU microbatch size="
+                                 f"{ds_per_gpu_microbatch_size}, but the Mosaic trainer has been "
+                                 f"configured with per-GPU microbatch size={per_gpu_microbatch_size}.")
+
+        config["train_batch_size"] = train_batch_size
+        config["train_micro_batch_size_per_gpu"] = per_gpu_microbatch_size
 
     if "gradient_accumulation_steps" in config:
         ds_grad_accum = config["gradient_accumulation_steps"]
@@ -44,16 +58,7 @@ def _add_batch_config(config: Dict[str, Any], state: State):
             raise ValueError(f"Provided DeepSpeed configuration specifies grad accum={ds_grad_accum}, "
                              f"but the Mosaic trainer has been configured with grad accum={grad_accum}.")
 
-    if "train_micro_batch_size_per_gpu" in config:
-        ds_per_gpu_microbatch_size = config["train_micro_batch_size_per_gpu"]
-        if ds_per_gpu_microbatch_size != per_gpu_microbatch_size:
-            raise ValueError("Provided DeepSpeed configuration specifies per-GPU microbatch size="
-                             f"{ds_per_gpu_microbatch_size}, but the Mosaic trainer has been "
-                             f"configured with per-GPU microbatch size={per_gpu_microbatch_size}.")
-
-    config["train_batch_size"] = train_batch_size
     config["gradient_accumulation_steps"] = grad_accum
-    config["train_micro_batch_size_per_gpu"] = per_gpu_microbatch_size
 
 
 def _ensure_no_optim_in_config(config: Dict[str, Any]):

@@ -22,8 +22,6 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, testing_with_gpu: 
     max_epochs = 1
     composer_trainer_hparams.max_duration = f"{max_epochs}ep"
 
-    composer_trainer_hparams.train_batch_size = 50
-
     trainer = composer_trainer_hparams.initialize_object()
 
     # Default model uses CPU

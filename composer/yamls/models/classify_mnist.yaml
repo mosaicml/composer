@@ -37,6 +37,5 @@ dataloader:
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
-validate_every_n_epochs: 1
 grad_accum: 1
 precision: amp
