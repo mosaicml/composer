@@ -208,7 +208,8 @@ class AugMix(Algorithm):
             > 0.  Higher values yield mixing coefficients closer to uniform weighting. As
             the value approaches 0, the mixing coefficients approach using only one
             version of each image. Default: ``1.0``.
-        augmentation_set (str, optional): Must be one of the following options:
+        augmentation_set (str, optional): Must be one of the following options as also described
+            in :func:`~composer.algorithms.utils.augmentation_primitives.augmentation_sets`:
 
             * ``"all"``
                 Uses all augmentations from the paper.
