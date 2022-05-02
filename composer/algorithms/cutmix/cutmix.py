@@ -227,7 +227,7 @@ class CutMix(Algorithm):
             logger (:class:`Logger`): the training logger
         """
 
-        input, target = state.batch_pair
+        input, target = state.batch
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
         alpha = self.alpha

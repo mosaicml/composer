@@ -108,7 +108,7 @@ class CheckBatch0(Callback):
             )
             if os.path.exists(filepath):
                 return
-            last_input, last_target = state.batch_pair
+            last_input, last_target = state.batch
             torch.save(  # type: ignore
                 {
                     "last_input": last_input,
