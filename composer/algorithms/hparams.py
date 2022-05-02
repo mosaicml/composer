@@ -15,6 +15,7 @@ from composer.algorithms.channels_last import ChannelsLast
 from composer.algorithms.colout import ColOut
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
+from composer.algorithms.dropblock import DropBlock
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.label_smoothing import LabelSmoothing
@@ -157,6 +158,18 @@ class CutOutHparams(AlgorithmHparams):
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
+
+
+@dataclass
+class DropBlockHparams(AlgorithmHparams):
+    """See :class:`DropBlock`."""
+
+    drop_prob: float = hp.optional('Drop probability', default=0.1)
+    block_size: int = hp.optional('Size of blocks to drop out', default=7)
+    batchwise: bool = hp.optional('Whether to mask per batch (faster) or per sample', default=True)
+
+    def initialize_object(self) -> DropBlock:
+        return DropBlock(**asdict(self))
 
 
 @dataclass

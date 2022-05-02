@@ -4,12 +4,12 @@ from typing import Dict, List, Type
 
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.hparams import (AGCHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                         ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams,
-                                         GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
-                                         MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
-                                         SAMHparams, ScaleScheduleHparams, SelectiveBackpropHparams,
-                                         SeqLengthWarmupHparams, SqueezeExciteHparams, StochasticDepthHparams,
-                                         SWAHparams)
+                                         ColOutHparams, CutMixHparams, CutOutHparams, DropBlockHparams,
+                                         FactorizeHparams, GhostBatchNormHparams, LabelSmoothingHparams,
+                                         LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
+                                         ProgressiveResizingHparams, RandAugmentHparams, SAMHparams,
+                                         ScaleScheduleHparams, SelectiveBackpropHparams, SeqLengthWarmupHparams,
+                                         SqueezeExciteHparams, StochasticDepthHparams, SWAHparams)
 from composer.core.algorithm import Algorithm
 
 registry: Dict[str, Type[AlgorithmHparams]] = {
@@ -18,6 +18,7 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'seq_length_warmup': SeqLengthWarmupHparams,
     'cutmix': CutMixHparams,
     'cutout': CutOutHparams,
+    'dropblock': DropBlockHparams,
     'factorize': FactorizeHparams,
     'ghost_batchnorm': GhostBatchNormHparams,
     'label_smoothing': LabelSmoothingHparams,

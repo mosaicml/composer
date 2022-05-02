@@ -1,0 +1,15 @@
+{
+    "dropblock": {
+        "name": "DropBlock",
+        "class_name": "DropBlock",
+        "functional": "dropblock_batch",
+        "tldr": "Randomly drops contiguous blocks from the tensor.",
+        "attribution": "(Ghiasi et al, 2018)",
+        "link": "https://arxiv.org/abs/1810.12890",
+        "domains": [
+            "cv"
+        ],
+        "tldr": "Randomly drops contiguous blocks from the tensor.",
+        "use": "Computer vision tasks"
+    }
+}
