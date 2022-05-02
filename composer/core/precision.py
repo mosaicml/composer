@@ -39,7 +39,7 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
 
         :attr:`.Precision.FP16` is only supported when using DeepSpeed, as PyTorch does not
         natively support this precision. When this function is invoked with :attr:`.Precision.FP16`,
-        this function will be a no-op.
+        the precision context will be a no-op.
 
     Args:
         precision (str or Precision): Precision for the context
