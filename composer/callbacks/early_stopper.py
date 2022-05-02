@@ -111,10 +111,10 @@ class EarlyStopper(Callback):
             self.best_occurred = state.timer.get_timestamp()
 
         if self.patience.unit == TimeUnit.EPOCH:
-            if int(state.timer.epoch) - int(self.best_occurred.epoch) > int(self.patience):
+            if state.timer.epoch - self.best_occurred.epoch > self.patience:
                 state.max_duration = state.timer.batch
         elif self.patience.unit == TimeUnit.BATCH:
-            if int(state.timer.batch_in_epoch) - int(self.best_occurred.batch_in_epoch) > int(self.patience):
+            if state.timer.batch - self.best_occurred.batch > self.patience:
                 state.max_duration = state.timer.batch
         else:
             raise ValueError(f"The units of `patience` should be EPOCH or BATCH.")
