@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 
@@ -27,7 +27,7 @@ class EarlyStopper(Callback):
 
     .. doctest::
 
-        >>> from composer.callbacks import EarlyStopper
+        >>> from composer.callbacks.early_stopper import EarlyStopper
         >>> from torchmetrics.classification.accuracy import Accuracy
         >>> # constructing trainer object with this callback
         >>> early_stopper = EarlyStopper("Accuracy", "my_evaluator", patience=1)
@@ -67,7 +67,7 @@ class EarlyStopper(Callback):
         self,
         monitor: str,
         dataloader_label: str,
-        comp: Callable = None,
+        comp: Optional[Callable] = None,
         min_delta: float = 0.0,
         patience: Union[int, str, Time] = 1,
     ):
@@ -110,6 +110,7 @@ class EarlyStopper(Callback):
             self.best = metric_val
             self.best_occurred = state.timer.get_timestamp()
 
+        assert self.best_occurred is not None
         if self.patience.unit == TimeUnit.EPOCH:
             if state.timer.epoch - self.best_occurred.epoch > self.patience:
                 state.max_duration = state.timer.batch
