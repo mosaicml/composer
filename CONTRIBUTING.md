@@ -14,26 +14,19 @@ Have a new algorithm you'd like to contribute to the library as part of your res
 
 ## Prerequisites
 
-To set up the development environment in your local box, run the command below.
+To set up the development environment in your local box, run the commands below.
 
-1\. This should bring most the dependencies needed for testing and linting the code:
+1\. Install the dependencies needed for testing and linting the code:
 
 ```bash
 pip install -e .[dev]
 ```
 
-2\. Next, you'' want to configure [pre-commit](https://pre-commit.com/), which automatically formats code before
-each commit. To configure, run:
+2\. Configure [pre-commit](https://pre-commit.com/), which automatically formats code before
+each commit:
 
 ```bash
 pre-commit install
-```
-
-
-
-```bash
-# NOTE. You might need sudo permissions.
-npm install -g pyright@1.1.224
 ```
 
 ## Submitting a contribution

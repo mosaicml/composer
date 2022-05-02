@@ -8,7 +8,7 @@ set -euxo pipefail
 # Install dependencies
 pip install .[all]
 
-# Mark the root folder folder as trusted (necessarry for pre-commit hooks to work)
+# Mark the root folder as trusted (necessarry for pre-commit hooks to work on Jenkins)
 git config --global --add safe.directory $WORKSPACE
 
 # Clean and make the output directory
