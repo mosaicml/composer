@@ -1198,6 +1198,8 @@ class Trainer:
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
+                import torch_xla.core.xla_model as xm
+                
                 if self.deepspeed_enabled:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():
@@ -1206,15 +1208,22 @@ class Trainer:
                             total_loss = self.state.scaler.step(
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
+                            #total_loss = xm.optimizer_step(optimizer)
+
                             total_loss = optimizer.step(
                                 closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
+                            xm.mark_step()
+                              
                 else:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
                             self.state.scaler.step(optimizer)
                         else:
+                            #xm.optimizer_step(optimizer)
                             optimizer.step()
+                            xm.mark_step()
+                              
             except RuntimeError as e:
                 if self._is_cuda_oom(e):
                     log.debug(

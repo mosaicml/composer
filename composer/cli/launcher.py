@@ -403,6 +403,7 @@ def main():
                           training_script=args.training_script,
                           training_script_args=args.training_script_args,
                           processes=processes)
+
         _monitor_processes(processes)
     except:
         # Print the exception first, then kill the training processes, since killing
