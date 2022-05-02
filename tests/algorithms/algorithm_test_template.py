@@ -9,9 +9,7 @@ def state(minimal_state):
     return minimal_state
 
 
-"""Every algorithm test should have the functional and the algorithm
-usage demonstrated below in the tests.
-"""
+# Every algorithm test should have the functional and the algorithm usage demonstrated below in the tests.
 
 
 def test_myalgo_functional():
@@ -22,8 +20,7 @@ def test_myalgo_algorithm(state, empty_logger):
     ...
 
 
-""" Results from logging and hparams initialization should also be tested.
-"""
+# Results from logging and hparams initialization should also be tested.
 
 
 def test_myalgo_logging(state):

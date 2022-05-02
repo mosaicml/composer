@@ -7,24 +7,20 @@ from PIL import Image
 
 from composer.datasets.webdataset_utils import create_webdataset
 
-
-"""
-Directory layout:
-
-    ADE20k/
-        annotations/
-            train/
-                ADE_train_%08d.png
-            val/
-                ADE_val_%08d.png
-        images/
-            test/
-                ADE_test_%08d.jpg
-            train/
-                ADE_train_%08d.jpg
-            val/
-                ADE_val_%08d.jpg
-"""
+# Directory layout:
+#     ADE20k/
+#         annotations/
+#             train/
+#                 ADE_train_%08d.png
+#             val/
+#                 ADE_val_%08d.png
+#         images/
+#             test/
+#                 ADE_test_%08d.jpg
+#             train/
+#                 ADE_train_%08d.jpg
+#             val/
+#                 ADE_val_%08d.jpg
 
 
 def parse_args() -> Namespace:

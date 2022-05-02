@@ -8,24 +8,21 @@ from tqdm import tqdm
 
 from composer.datasets.webdataset_utils import create_webdataset
 
+# Input directory layout:
 
-"""
-Input directory layout:
-
-    tiny-imagenet-200/
-        test/
-            images/
-                (10k images)
-        train/
-            (200 wnids)/
-                (500 images per dir)
-        val/
-            images/
-                (10k images)
-            val_annotations.txt  # 10k rows of (file, wnid, x, y, h, w)
-        wnids.txt  # 200 rows of (wnid)
-        words.txt  # 82115 rows of (wnid, wordnet category name)
-"""
+#     tiny-imagenet-200/
+#         test/
+#             images/
+#                 (10k images)
+#         train/
+#             (200 wnids)/
+#                 (500 images per dir)
+#         val/
+#             images/
+#                 (10k images)
+#             val_annotations.txt  # 10k rows of (file, wnid, x, y, h, w)
+#         wnids.txt  # 200 rows of (wnid)
+#         words.txt  # 82115 rows of (wnid, wordnet category name)
 
 
 def parse_args() -> Namespace:
