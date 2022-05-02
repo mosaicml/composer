@@ -1,6 +1,8 @@
 from types import MethodType
+from typing import List
 
 import numpy as np
+import pytest
 from torch import tensor
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy, MetricCollection
@@ -12,15 +14,15 @@ from composer.loggers import LogLevel
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
-def test_threshold_stopper_eval():
-    metric_sequence = [0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    accuracy_sequence = iter(metric_sequence)
+@pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9], [0.1, 0.2]])
+def test_threshold_stopper(metric_sequence: List[int]):
 
-    tstop = EarlyStopper("Accuracy", "eval", patience=3)
+    early_stopper = EarlyStopper("Accuracy", "eval", patience=3)
 
     def test_compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
-        metrics_val = next(accuracy_sequence, metric_sequence[-1])
-        self.state.current_metrics[dataloader_label] = {"Accuracy": tensor(metrics_val)}
+        idx = min(len(metric_sequence) - 1, self.state.timer.epoch.value)
+        metric_val = metric_sequence[idx]
+        self.state.current_metrics[dataloader_label] = {"Accuracy": tensor(metric_val)}
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),
@@ -33,27 +35,25 @@ def test_threshold_stopper_eval():
             batch_size=4,
         ),
         max_duration="30ep",
-        callbacks=[tstop],
+        callbacks=[early_stopper],
     )
 
     trainer._compute_and_log_metrics = MethodType(test_compute_and_log_metrics, trainer)
 
     trainer.fit()
 
-    assert trainer.state.timer.epoch.value == 4
+    assert trainer.state.timer.epoch.value == len(metric_sequence) + early_stopper.patience - 1
 
 
-def test_threshold_stopper_evaluators():
-    metric_min = 0.4
-    metric_max = 0.8
-    metric_threshold = 0.75
-    accuracy_sequence = (i for i in np.linspace(metric_min, metric_max, 100))
+def test_threshold_stopper_evaluator():
+    metric_sequence = [0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
-    tstop = ThresholdStopper("Accuracy", metric_threshold, "evaluator_1")
+    early_stopper = EarlyStopper("Accuracy", "evaluator_1", patience=3)
 
     def test_compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
-        metrics_val = next(accuracy_sequence, metric_max)
-        self.state.current_metrics[dataloader_label] = {"Accuracy": tensor(metrics_val)}
+        idx = min(len(metric_sequence) - 1, self.state.timer.epoch.value)
+        metric_val = metric_sequence[idx]
+        self.state.current_metrics[dataloader_label] = {"Accuracy": tensor(metric_val)}
 
     evaluator = Evaluator(label="evaluator_1",
                           dataloader=DataLoader(
@@ -61,6 +61,7 @@ def test_threshold_stopper_evaluators():
                               batch_size=4,
                           ),
                           metrics=Accuracy())
+
     trainer = Trainer(
         model=SimpleModel(num_features=5),
         train_dataloader=DataLoader(
@@ -68,12 +69,12 @@ def test_threshold_stopper_evaluators():
             batch_size=4,
         ),
         eval_dataloader=evaluator,
-        max_duration="10ep",
-        callbacks=[tstop],
+        max_duration="30ep",
+        callbacks=[early_stopper],
     )
 
     trainer._compute_and_log_metrics = MethodType(test_compute_and_log_metrics, trainer)
 
     trainer.fit()
 
-    assert trainer.state.timer.epoch.value == 4
+    assert trainer.state.timer.epoch.value == len(metric_sequence) + early_stopper.patience - 1

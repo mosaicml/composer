@@ -75,7 +75,7 @@ class EarlyStopper(Callback):
 
         if self.wait >= self.patience:
             # stop the training the training
-            state.max_duration = state.timer
+            state.max_duration = state.timer.batch
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         if self.eval_label != "train":
