@@ -234,12 +234,10 @@ class TestSelectiveBackprop:
         assert MATCH in str(execinfo.value)
 
 
-"""
-Test Selective Backprop Algorithm
-"""
-
-
 class TestSelectiveBackpropAlgorithm:
+    """
+    Test Selective Backprop Algorithm
+    """
 
     @pytest.fixture
     def sb_algorithm(self, scale_factor, keep) -> SelectiveBackprop:

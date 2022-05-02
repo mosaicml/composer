@@ -35,7 +35,7 @@ from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams,
                             MultiStepWithWarmupSchedulerHparams, OptimizerHparams, PolynomialSchedulerHparams,
                             RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
 from composer.profiler.profiler_hparams import (ProfileScheduleHparams, TraceHandlerHparams,
-                                                profiler_scheduler_registry, trace_handler_registory)
+                                                profiler_scheduler_registry, trace_handler_registry)
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
@@ -243,7 +243,7 @@ class TrainerHparams(hp.Hparams):
         "val_dataset": dataset_registry,
         "callbacks": callback_registry,
         "device": device_registry,
-        "prof_trace_handlers": trace_handler_registory,
+        "prof_trace_handlers": trace_handler_registry,
         "prof_schedule": profiler_scheduler_registry,
         "evaluators": evaluator_registry,
     }
