@@ -120,7 +120,7 @@ class CutOut(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Apply cutout on input images."""
-        x, y = state.batch_pair
+        x, y = state.batch
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 
         new_x = cutout_batch(x, num_holes=self.num_holes, length=self.length, uniform_sampling=self.uniform_sampling)
