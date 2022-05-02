@@ -299,21 +299,19 @@ class TestTrainerEvents():
             trainer.fit()
 
 
-"""
-The below is a catch-all test that runs the Trainer
-with each algorithm, callback, and loggers. Success
-is defined as a successful training run.
-
-This should eventually be replaced by functional
-tests for each object, in situ of our trainer.
-
-We use the hparams_registry associated with our
-config management to retrieve the objects to test.
-"""
-
-
 @pytest.mark.timeout(15)
 class TestTrainerAssets:
+    """
+    The below is a catch-all test that runs the Trainer
+    with each algorithm, callback, and loggers. Success
+    is defined as a successful training run.
+
+    This should eventually be replaced by functional
+    tests for each object, in situ of our trainer.
+
+    We use the hparams_registry associated with our
+    config management to retrieve the objects to test.
+    """
 
     @pytest.fixture(params=[1, 2], ids=['ga-1', 'ga-2'])
     def config(self, rank_zero_seed: int, request):
