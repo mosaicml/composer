@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import contextlib
 import os
 import pathlib
 from copy import deepcopy
@@ -40,10 +41,15 @@ class TestTrainerInit():
             'seed': rank_zero_seed,
         }
 
-    def test_init_errors_when_using_fp16_and_not_deepspeed(self, config):
-        config['precision'] = Precision.FP16
+    @pytest.mark.gpu
+    @pytest.mark.parametrize("precision", list(Precision))
+    def test_precision(self, config, precision: Precision):
+        config['precision'] = precision
 
-        with pytest.raises(ValueError):
+        if precision == Precision.BF16:
+            pytest.importorskip("torch", minversion="1.10", reason="BF16 precision requires PyTorch 1.10+")
+
+        with pytest.raises(ValueError) if precision == Precision.FP16 else contextlib.nullcontext():
             Trainer(**config)
 
     @pytest.mark.gpu
