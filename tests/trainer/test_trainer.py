@@ -49,7 +49,7 @@ class TestTrainerInit():
     @pytest.mark.gpu
     @pytest.mark.parametrize("precision", [Precision.AMP, Precision.FP16, Precision.FP32])
     def test_trainer_with_deepspeed(self, config, precision: Precision):
-        config['deepspeed'] = {}
+        config['deepspeed_config'] = {}
         config['precision'] = precision
 
         trainer = Trainer(**config)
