@@ -22,11 +22,11 @@ def smooth_labels(logits: torch.Tensor, target: torch.Tensor, smoothing: float =
     where ``unif`` is a vector with elements all equal to ``1 / num_classes``.
 
     Args:
-        logits (torch.Tensor): predicted value for ``target``, or any other tensor
+        logits (:class:`torch.Tensor`): predicted value for ``target``, or any other tensor
             with the same shape. Shape must be ``(N, num_classes, ...)`` for
-            ``N`` examples and ``num_classes`` classes, with any number of
+            ``N`` examples and ``num_classes`` classes with any number of
             optional extra dimensions.
-        target (torch.Tensor): target tensor of either shape ``N`` or
+        target (:class:`torch.Tensor`): target tensor of either shape ``N`` or
             ``(N, num_classes, ...)``. In the former case, elements of
             ``targets`` must be integer class ids in the range
             ``0..num_classes``. In the latter case, ``targets`` must have the
@@ -37,7 +37,7 @@ def smooth_labels(logits: torch.Tensor, target: torch.Tensor, smoothing: float =
             Default: ``0.1``.
 
     Returns:
-        targets_smooth (torch.Tensor): The smoothed targets
+        targets_smooth (:class:`torch.Tensor`): The smoothed targets
 
     Example:
         .. testcode::
@@ -51,7 +51,7 @@ def smooth_labels(logits: torch.Tensor, target: torch.Tensor, smoothing: float =
                                         target=targets,
                                         smoothing=0.1)
     """
-
+    
     target = ensure_targets_one_hot(logits, target)
     n_classes = logits.shape[1]
     return (target * (1. - smoothing)) + (smoothing / n_classes)
