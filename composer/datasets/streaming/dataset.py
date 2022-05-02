@@ -133,25 +133,6 @@ class StreamingDataset(IterableDataset):
                 for todo_ids in self._epoch_to_todo_ids.values():
                     todo_ids.extend(new_ids)
 
-    def _determine_downloaded_and_missing_shards(self, shards: List[int]) -> Tuple[List[int], List[int]]:
-        """Determine which shards are downloaded and which are still missing.
-
-        Args:
-            shards (List[int]): A list of shards to inspect.
-        Returns:
-            Tuple[List[int], List[int]]: A list of downloaded shards, and a lit of missing shards
-        """
-        downloaded = []
-        missing = []
-        for shard in sorted(shards):
-            basename = get_shard_basename(shard)
-            local = os.path.join(self.local, basename)
-            if os.path.exists(local):
-                downloaded.append(shard)
-            else:
-                missing.append(shard)
-        return downloaded, missing
-
     def _done_loading(self) -> None:
         """Callback on completion of loading my shards."""
         if not self._lock:
@@ -185,21 +166,10 @@ class StreamingDataset(IterableDataset):
         world = get_world()
         part_shards, part_min_id, part_max_id = self.index.get_partition(world, self.batch_size)
 
-        # Determine which of our part's shards have been downloaded and which are still missing
-        downloaded_part_shards, missing_part_shards = self._determine_downloaded_and_missing_shards(part_shards)
-
-        # Load our part's downloaded shards
-        if downloaded_part_shards:
-            self._load_shards(downloaded_part_shards, part_min_id, part_max_id)
-
-        # Start downloading our part's missing shards in a background thread, if there are any.
-        if missing_part_shards:
-            thread = Thread(target=self._download_thread,
-                            args=(missing_part_shards, part_min_id, part_max_id),
-                            daemon=True)
+        # Start downloading our part's shards in a background thread, if any are missing.
+        if not self._are_all_shards_downloaded:
+            thread = Thread(target=self._download_thread, args=(part_shards, part_min_id, part_max_id), daemon=True)
             thread.start()
-        else:
-            self._done_loading()
 
     def __len__(self) -> int:
         """Get the length of the dataset.

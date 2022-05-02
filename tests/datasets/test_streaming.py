@@ -140,7 +140,7 @@ def test_reader_getitem(share_remote_local: bool):
         assert False, f"Unable to get random sample, got exception: {e}"
 
 
-@pytest.mark.skip
+# @pytest.mark.daily()
 @pytest.mark.parametrize("batch_size", [1, 2, 5])
 @pytest.mark.parametrize("drop_last", [False, True])
 @pytest.mark.parametrize("num_workers", [1, 2, 3])
@@ -174,6 +174,7 @@ def test_dataloader_single_device(batch_size: int, drop_last: bool, num_workers:
 
     # Expected number of batches based on batch_size and drop_last
     expected_num_batches = (num_samples // batch_size) if drop_last else math.ceil(num_samples / batch_size)
+    expected_num_samples = expected_num_batches * batch_size if drop_last else num_samples
 
     # Iterate over DataLoader
     rcvd_batches = 0
@@ -198,11 +199,110 @@ def test_dataloader_single_device(batch_size: int, drop_last: bool, num_workers:
     assert len(dataloader) == expected_num_batches
     assert rcvd_batches == expected_num_batches
 
+    # Test that all samples arrived
+    assert len(sample_order) == expected_num_samples
+    if not drop_last:
+        assert len(set(sample_order)) == num_samples
+
     # Iterate over the dataloader again to check shuffle behavior
     second_sample_order = []
     for batch_ix, batch in enumerate(dataloader):
         for uid in batch["uid"]:
             second_sample_order.append(int(uid))
+
+    assert len(sample_order) == len(second_sample_order)
+    if shuffle:
+        assert sample_order != second_sample_order
+    else:
+        assert sample_order == second_sample_order
+
+
+# @pytest.mark.daily()
+@pytest.mark.world_size(2)
+@pytest.mark.parametrize("batch_size", [4])
+@pytest.mark.parametrize("drop_last", [False, True])
+@pytest.mark.parametrize("num_samples", [30, 31])
+@pytest.mark.parametrize("num_workers", [1, 3])
+@pytest.mark.parametrize("shuffle", [False, True])
+def test_dataloader_multi_device(batch_size: int, drop_last: bool, num_samples: int, num_workers: int, shuffle: bool):
+
+    global_device = dist.get_global_rank()
+    global_num_devices = dist.get_world_size()
+    assert batch_size % global_num_devices == 0
+    device_batch_size = batch_size // global_num_devices
+
+    shard_size_limit = 1 << 6
+    samples, decoders = get_fake_samples_decoders(num_samples)
+
+    # Create dataset on device 0
+    remote = ""
+    local = ""
+    if global_device == 0:
+        remote = write_synthetic_streaming_dataset(samples=samples, shard_size_limit=shard_size_limit)
+        local = tempfile.TemporaryDirectory().name
+    dist.barrier()
+    remote_local_list = [remote, local]
+    dist.broadcast_object_list(remote_local_list)
+    remote, local = remote_local_list
+
+    # Build StreamingDataset
+    dataset = StreamingDataset(remote=remote,
+                               local=local,
+                               shuffle=shuffle,
+                               decoders=decoders,
+                               batch_size=device_batch_size)
+
+    # Build DataLoader
+    dataloader = DataLoader(dataset=dataset,
+                            batch_size=device_batch_size,
+                            num_workers=num_workers,
+                            drop_last=drop_last,
+                            persistent_workers=False)
+
+    # Expected number of samples and batches based on global_num_devices, batch_size and drop_last
+    device_compatible_num_samples = global_num_devices * math.ceil(num_samples / global_num_devices)
+    expected_num_batches = (device_compatible_num_samples //
+                            batch_size) if drop_last else math.ceil(device_compatible_num_samples / batch_size)
+    expected_num_samples = expected_num_batches * batch_size if drop_last else device_compatible_num_samples
+
+    # Iterate over DataLoader
+    rcvd_batches = 0
+    sample_order = []
+
+    for batch_ix, batch in enumerate(dataloader):
+        rcvd_batches += 1
+
+        # Every batch should be complete except (maybe) final one
+        if batch_ix + 1 < expected_num_batches:
+            assert len(batch["uid"]) == device_batch_size
+        else:
+            if drop_last:
+                assert len(batch["uid"]) == device_batch_size
+            else:
+                assert len(batch["uid"]) <= device_batch_size
+
+        device_batch_uids = [int(uid) for uid in batch["uid"]]
+        all_device_batch_uids = dist.all_gather_object(device_batch_uids)
+
+        for uids in all_device_batch_uids:
+            sample_order += uids
+
+    # Test dataloader length
+    assert len(dataloader) == expected_num_batches
+    assert rcvd_batches == expected_num_batches
+
+    # Test that all samples arrived
+    assert len(sample_order) == expected_num_samples
+    if not drop_last:
+        assert len(set(sample_order)) == num_samples
+
+    # Iterate over the dataloader again to check shuffle behavior
+    second_sample_order = []
+    for batch_ix, batch in enumerate(dataloader):
+        device_batch_uids = [int(uid) for uid in batch["uid"]]
+        all_device_batch_uids = dist.all_gather_object(device_batch_uids)
+        for uids in all_device_batch_uids:
+            second_sample_order += uids
 
     assert len(sample_order) == len(second_sample_order)
     if shuffle:

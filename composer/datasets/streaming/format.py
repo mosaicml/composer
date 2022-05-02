@@ -245,9 +245,15 @@ class StreamingDatasetIndex(object):
             part_size = sizes[part]
             return part_min_id, part_max_id, part_size
 
-        # Some devices may have 1 fewer sample
-        # TODO: fix this to handle DDP edge cases correctly
         device_min_id, _, device_samples = _get_min_max_size(0, self.total_samples, global_device, global_num_devices)
+
+        # Some devices may have 1 fewer sample, so repeat some samples at boundaries
+        expected_device_samples = math.ceil(self.total_samples / global_num_devices)
+        if device_samples < expected_device_samples:
+            if device_samples != expected_device_samples - 1:
+                raise RuntimeError("Found device partition with incorrect # samples")
+            device_min_id -= 1
+            device_samples += 1
 
         if not batch_size:
             worker_min_id, worker_max_id, _ = _get_min_max_size(device_min_id, device_samples, device_worker,
