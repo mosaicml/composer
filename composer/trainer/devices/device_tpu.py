@@ -10,8 +10,6 @@ from typing import Generator, TypeVar, Union
 
 import torch
 
-#from composer.core.types import Precision, StateDict, Tensor
-#from composer.core.types import StateDict, Tensor
 from composer.core.precision import Precision
 from composer.trainer.devices.device import Device, T_nnModule
 import torch_xla
@@ -37,7 +35,7 @@ class DeviceTPU(Device):
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         return module.to(self._device)
 
-    def tensor_to_device(self, tensor: Tensor) -> Tensor:
+    def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(self._device)
 
     @contextmanager

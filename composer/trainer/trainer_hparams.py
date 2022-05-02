@@ -493,8 +493,8 @@ class TrainerHparams(hp.Hparams):
 
         # initialize distributed early so that it's already initialized when dataloders
         # are created.
-        if dist.get_world_size() > 1:
-            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
+        #if dist.get_world_size() > 1:
+        #    dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
 
         seed = self.seed if self.seed else reproducibility.get_random_seed()
         # need to set seed before model initialization for determinism
