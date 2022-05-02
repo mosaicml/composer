@@ -209,7 +209,7 @@ class AugMix(Algorithm):
             the value approaches 0, the mixing coefficients approach using only one
             version of each image. Default: ``1.0``.
         augmentation_set (str, optional): Must be one of the following options as also described
-            in :func:`~composer.algorithms.utils.augmentation_primitives.augmentation_sets`:
+            in :attr:`~composer.algorithms.utils.augmentation_primitives.augmentation_sets`:
 
             * ``"all"``
                 Uses all augmentations from the paper.
