@@ -256,8 +256,8 @@ def _make_crop(tensor: torch.Tensor, scale_factor: float) -> T_ResizeTransform:
 
 def _make_crop_pair(X: torch.Tensor, y: torch.Tensor,
                     scale_factor: float) -> Tuple[T_ResizeTransform, T_ResizeTransform]:
-    """Makes a pair of random crops for an input image X and target tensor y such that the same region is selected from
-    both."""
+    """Makes a pair of random crops for an input image X and
+    target tensor y such that the same region is selected from both."""
     # New height and width for X
     HcX = int(scale_factor * X.shape[2])
     WcX = int(scale_factor * X.shape[3])
