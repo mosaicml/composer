@@ -40,6 +40,24 @@ class TestTrainerInit():
             'seed': rank_zero_seed,
         }
 
+    def test_init_errors_when_using_fp16_and_not_deepspeed(self, config):
+        config['precision'] = Precision.FP16
+
+        with pytest.raises(ValueError):
+            Trainer(**config)
+
+    @pytest.mark.gpu
+    @pytest.mark.parametrize("precision", [Precision.AMP, Precision.FP16, Precision.FP32])
+    def test_trainer_with_deepspeed(self, config, precision: Precision):
+        config['deepspeed'] = {}
+        config['precision'] = precision
+
+        trainer = Trainer(**config)
+
+        assert trainer.deepspeed_enabled
+
+        trainer.fit()
+
     def test_init(self, config):
         trainer = Trainer(**config)
         assert isinstance(trainer, Trainer)

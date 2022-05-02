@@ -725,6 +725,9 @@ class Trainer:
         if isinstance(precision, str):
             precision = Precision(precision)
 
+        if not self.deepspeed_enabled and precision == Precision.FP16:
+            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+
         # optimizers and schedulers
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
