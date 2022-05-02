@@ -5,11 +5,11 @@ import dataclasses
 import pytest
 
 from composer.algorithms import (AlgorithmHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                 ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams, GhostBatchNormHparams,
-                                 LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
-                                 ProgressiveResizingHparams, RandAugmentHparams, SAMHparams, ScaleScheduleHparams,
-                                 SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
-                                 StochasticDepthHparams, SWAHparams, algorithm_registry)
+                                 ColOutHparams, CutMixHparams, CutOutHparams, EMAHparams, FactorizeHparams,
+                                 GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams, MixUpHparams,
+                                 NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams, SAMHparams,
+                                 ScaleScheduleHparams, SelectiveBackpropHparams, SeqLengthWarmupHparams,
+                                 SqueezeExciteHparams, StochasticDepthHparams, SWAHparams, algorithm_registry)
 from composer.algorithms.hparams import AGCHparams
 from composer.core.algorithm import Algorithm
 
@@ -40,6 +40,7 @@ default_required_fields = {
         "p_col": 0.15,
         "batch": True,
     },
+    EMAHparams: {},
     FactorizeHparams: {
         "min_channels": 16,
         "latent_channels": 0.5,
