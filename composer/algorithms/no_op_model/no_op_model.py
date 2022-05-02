@@ -26,10 +26,11 @@ __all__ = ["NoOpModelClass", "NoOpModel"]
 
 
 class NoOpModelClass(ComposerModel):
-    """Dummy model used for testing. The NoOpModel algorithm uses this to replace a ComposerModel.
+    """Dummy model used for testing. The NoOpModel algorithm 
+    uses this to replace a :class:`~composer.models.base.ComposerModel`.
 
     Args:
-        original_model (ComposerModel): model to replace.
+        original_model (:class:`~compose.models.base.ComposerModel`): model to replace.
     """
 
     def __init__(self, original_model: torch.nn.Module):
@@ -63,7 +64,8 @@ class NoOpModelClass(ComposerModel):
 
 
 class NoOpModel(Algorithm):
-    """Runs on :attr:`Event.INIT` and replaces the model with a dummy model of type NoOpModelClass."""
+    """Runs on :attr:`Event.INIT` and replaces the model 
+    with a dummy model of type NoOpModelClass."""
 
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
