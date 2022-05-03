@@ -57,17 +57,6 @@ def should_selective_backprop(
 
     return is_interval and is_step
 
-def select_using_fn(input: torch.Tensor,
-                    target: torch.Tensor,
-                    model:  Callable[[Union[torch.Tensor, Sequence[torch.Tensor]]], torch.Tensor],
-                    selection_fun: Callable,
-                    keep: float = 0.5):
-    # writing as if this is a transformer
-    with torch.no_grad():
-        outputs = model(inputs)
-    selected_idx = selection_fun(loss_vals=outputs.total_loss, target=target, keep=keep)
-    return input[selected_idx], target[selected_idx]
-
 def select_using_loss(input: torch.Tensor,
                       target: torch.Tensor,
                       model: Callable[[Union[torch.Tensor, Sequence[torch.Tensor]]], torch.Tensor],
@@ -132,9 +121,9 @@ def select_using_loss(input: torch.Tensor,
     if callable(loss_fun):
         sig = inspect.signature(loss_fun)
         if not "reduction" in sig.parameters:
-            raise TypeError("`loss_fun` must take a keyword argument `reduction`.")
+            raise TypeError("Loss function `loss_fun` must take a keyword argument `reduction`.")
     else:
-        raise TypeError("`loss_fun` must be callable")
+        raise TypeError("Loss function `loss_fun` must be callable")
 
     with torch.no_grad():
         N = input.shape[0]
@@ -212,14 +201,17 @@ class SelectiveBackprop(Algorithm):
     """
 
     def __init__(self,
+                start: float = 0.5,
+                end: float = 0.9,
+                keep: float = 0.5,
+                scale_factor: float = 1.,
+                interrupt: int = 2):
         self.start = start
         self.end = end
         self.keep = keep
         self.scale_factor = scale_factor
         self.interrupt = interrupt
         self._loss_fn = None  # set on Event.INIT,
-        self.use_loss = use_loss
-        self.selection_function = selection_function 
 
     def match(self, event: Event, state: State) -> bool:
         if event == Event.INIT:
@@ -251,19 +243,17 @@ class SelectiveBackprop(Algorithm):
                     raise RuntimeError("Model must be of type ComposerModel")
                 self._loss_fn = state.model.loss
             return
+        input, target = state.batch
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 
         # Model expected to only take in input, not the full batch
         model = lambda X: state.model((X, None))
-        if self.use_loss:
-            def loss(p, y, reduction="none"):
-                #assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
-                return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
-            with state.precision_context:
-                new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
-        else:
-            assert self.selection_function is not None, "selection function must be provided"
+        def loss(p, y, reduction="none"):
+            #assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
+            return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
+        with state.precision_context:
+            new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
 
         def loss(p, y, reduction="none"):
             assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"

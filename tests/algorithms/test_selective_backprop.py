@@ -4,7 +4,6 @@ from typing import Callable, Dict, cast
 
 import pytest
 import torch
-import pdb
 from composer.algorithms import SelectiveBackpropHparams
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.selective_backprop.selective_backprop import select_using_loss, should_selective_backprop
