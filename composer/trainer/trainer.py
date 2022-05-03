@@ -277,7 +277,7 @@ class Trainer:
 
     The trainer supports models with :class:`~composer.models.base.ComposerModel` instances.
     The :class:`.Trainer` is highly customizable and can support a wide variety of workloads.
-    See the :doc:`training guide<trainer/using_the_trainer>` for more information.
+    See the :doc:`training guide</trainer/using_the_trainer>` for more information.
 
     Example
     --------
