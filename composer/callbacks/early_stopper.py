@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Optional, Union
 
-import numpy as np
+import torch
 
 from composer.core import State, Time
 from composer.core.callback import Callback
@@ -52,15 +52,14 @@ class EarlyStopper(Callback):
             monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
             should be set to 'train' or 'eval' respectively.
         comp (Callable[[Any, Any], bool], optional): A comparison operator to measure change of the monitored metric. The comparison
-            operator will be called `comp(current_value, prev_best)`. For metrics where the optimal value is low
+            operator will be called ``comp(current_value, prev_best)``. For metrics where the optimal value is low
             (error, loss, perplexity), use a less than operator and for metrics like accuracy where the optimal value
-            is higher, use a greater than operator. Defaults to numpy.less if loss, error, or perplexity are substrings
-            of the monitored metric, otherwise defaults to numpy.greater
+            is higher, use a greater than operator. Defaults to :func:`torch.less` if loss, error, or perplexity are substrings
+            of the monitored metric, otherwise defaults to :func:`torch.greater`
         min_delta (float, optional): An optional float that requires a new value to exceed the best value by at
             least that amount. Defaults to 0.
         patience (int | str | Time, optional): The interval of time the monitored metric can not improve without stopping
-            training. Defaults to 1 epoch.
-        
+            training. Defaults to 1 epoch. If patience is an integer, it is interpreted as the number of epochs.
     """
 
     def __init__(
@@ -80,9 +79,9 @@ class EarlyStopper(Callback):
         self.min_delta = abs(min_delta)
         if self.comp is None:
             if any(substr in monitor.lower() for substr in ["loss", "error", "perplexity"]):
-                self.comp = np.less
+                self.comp = torch.less
             else:
-                self.comp = np.greater
+                self.comp = torch.greater
 
         self.best = None
         self.best_occurred = None
@@ -106,11 +105,14 @@ class EarlyStopper(Callback):
     def _update_stopper_state(self, state: State):
         metric_val = self._get_monitored_metric(state)
 
+        if not torch.is_tensor(metric_val):
+            metric_val = torch.tensor(metric_val)
+
         assert self.comp is not None
         if self.best is None:
             self.best = metric_val
             self.best_occurred = state.timer.get_timestamp()
-        elif self.comp(metric_val, self.best) and abs(metric_val - self.best) > self.min_delta:
+        elif self.comp(metric_val, self.best) and torch.abs(metric_val - self.best) > self.min_delta:
             self.best = metric_val
             self.best_occurred = state.timer.get_timestamp()
 

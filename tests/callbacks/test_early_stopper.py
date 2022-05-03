@@ -1,4 +1,4 @@
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 import pytest
 from torch import tensor
@@ -10,22 +10,33 @@ from composer.core import State
 from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
 from composer.loggers import Logger
+from composer.trainer.devices.device import Device
+from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
 class TestMetricSetter(Callback):
 
-    def __init__(self, monitor: str, dataloader_label: str, metric_sequence: Sequence, unit: TimeUnit):
+    def __init__(self,
+                 monitor: str,
+                 dataloader_label: str,
+                 metric_sequence: Sequence,
+                 unit: TimeUnit,
+                 device: Optional[Device] = None):
         self.monitor = monitor
         self.dataloader_label = dataloader_label
         self.metric_sequence = metric_sequence
         self.unit = unit
+        self.device = device
 
     def _update_metrics(self, state: State):
         idx = min(len(self.metric_sequence) - 1, state.timer.get(self.unit).value)
         metric_val = self.metric_sequence[idx]
         state.current_metrics[self.dataloader_label] = state.current_metrics.get(self.dataloader_label, dict())
-        state.current_metrics[self.dataloader_label][self.monitor] = tensor(metric_val)
+        metric_tensor = tensor(metric_val)
+        if self.device is not None:
+            self.device.tensor_to_device(metric_tensor)
+        state.current_metrics[self.dataloader_label][self.monitor] = metric_tensor
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.dataloader_label != "train":
@@ -42,16 +53,19 @@ class TestMetricSetter(Callback):
 
 @pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.2, 1.3], [0.1, 0.2]])
 @pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
-def test_threshold_stopper(metric_sequence: List[float], unit: TimeUnit):
+@pytest.mark.parametrize('device_hparams', [GPUDeviceHparams(), CPUDeviceHparams()])
+def test_threshold_stopper(metric_sequence: List[float], unit: TimeUnit, device_hparams: DeviceHparams):
 
     if unit == TimeUnit.EPOCH:
         dataloader_label = "eval"
     else:
         dataloader_label = "train"
 
+    device = device_hparams.initialize_object()
+
     early_stopper = EarlyStopper("Accuracy", dataloader_label, patience=Time(3, unit))
 
-    test_metric_setter = TestMetricSetter("Accuracy", dataloader_label, metric_sequence, unit)
+    test_metric_setter = TestMetricSetter("Accuracy", dataloader_label, metric_sequence, unit, device)
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),
