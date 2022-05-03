@@ -722,24 +722,6 @@ class Trainer:
                     To fix, please do not iterate over the dataloader before passing it into
                     the trainer."""))
 
-        # Evaluators
-        if eval_dataloader is None:
-            self.evaluators: List[Evaluator] = []
-        else:
-            self.evaluators = _unpack_evaluators(
-                eval_dataloader,
-                subset_num_batches=eval_subset_num_batches,
-                eval_interval=eval_interval,
-                model=model,
-            )
-        if len(self.evaluators) == 0:
-            warnings.warn(("No `eval_dataloader` was specified. Please specify `eval_dataloader` to periodically "
-                           "evaluate your model while training."))
-            if eval_subset_num_batches != -1:
-                warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
-            if eval_interval != 1:
-                warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
-
         if isinstance(precision, str):
             precision = Precision(precision)
 
@@ -919,6 +901,7 @@ class Trainer:
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
         self.state.set_dataloader(train_dataloader.dataloader, 'train', train_subset_num_batches)
+        self.state.train_dataloader = train_dataloader
         self.state.max_duration = max_duration
         self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
@@ -932,6 +915,26 @@ class Trainer:
                 self.state.schedulers.append(scheduler)
             else:  # it's a composer scheduler
                 self.state.schedulers.append(compile_composer_scheduler(scheduler, self.state, scale_schedule_ratio))
+
+        # Evaluators
+        if eval_dataloader is None:
+            self.evaluators: List[Evaluator] = []
+        else:
+            self.evaluators = _unpack_evaluators(
+                eval_dataloader,
+                subset_num_batches=eval_subset_num_batches,
+                eval_interval=eval_interval,
+                model=model,
+            )
+        if len(self.evaluators) == 0:
+            warnings.warn(("No `eval_dataloader` was specified. Please specify `eval_dataloader` to periodically "
+                           "evaluate your model while training."))
+            if eval_subset_num_batches != -1:
+                warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
+            if eval_interval != 1:
+                warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
+
+        self.state.evaluators = self.evaluators
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
