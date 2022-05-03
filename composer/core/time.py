@@ -24,7 +24,7 @@ from typing import Any, Dict, Generic, NamedTuple, TypeVar, Union, cast
 from composer.core.serializable import Serializable
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["TimeUnit", "Time", "Timer", "Timestamp"]
+__all__ = ["TimeUnit", "Time", "Timer", "Timestamp", "ensure_time"]
 
 
 class TimeUnit(StringEnum):
@@ -604,3 +604,23 @@ class Timestamp(NamedTuple):
     sample_in_epoch: Time[int]
     token: Time[int]
     token_in_epoch: Time[int]
+
+
+def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str] = TimeUnit.EPOCH) -> Time:
+    """Ensure ``maybe_time`` is an instance of :class:`.Time`
+    
+    Args:
+        maybe_time (Time | str): A time string, integer, or instance of :class:`.Time`.
+        int_unit (TimeUnit | str, optional):
+            The unit to use if ``maybe_time`` is an integer. (default: :attr:`.TimeUnit.EPOCH`)
+    
+    Returns:
+        Time: An instance of :class:`.Time`.
+    """
+    if isinstance(maybe_time, str):
+        return Time.from_timestring(maybe_time)
+    if isinstance(maybe_time, int):
+        return Time(maybe_time, int_unit)
+    if isinstance(maybe_time, Time):
+        return maybe_time
+    raise TypeError(f"Unsupported type for ensure_time: {type(maybe_time)}")

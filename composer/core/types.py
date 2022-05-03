@@ -3,12 +3,8 @@
 """Reference for common types used throughout the composer library.
 
 Attributes:
-    Batch (BatchPair | BatchDict | torch.Tensor): Union type covering the most common representations of batches.
+    Batch (Any): Alias to type Any.
         A batch of data can be represented in several formats, depending on the application.
-    BatchPair (Sequence[Union[torch.Tensor, Sequence[torch.Tensor]]]): Commonly used in computer vision tasks.
-        The object is assumed to contain exactly two elements, where the first represents inputs
-        and the second represents targets.
-    BatchDict (Dict[str, Tensor]): Commonly used in natural language processing tasks.
     PyTorchScheduler (torch.optim.lr_scheduler._LRScheduler): Alias for base class of learning rate schedulers such
         as :class:`torch.optim.lr_scheduler.ConstantLR`.
     JSON (str | float | int | None | List['JSON'] | Dict[str, 'JSON']): JSON Data.
@@ -17,70 +13,22 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import Dict, List, Sequence, Union
+from typing import Any, Dict, List, Union
 
 import torch
 import torch.utils.data
 
 from composer.utils.string_enum import StringEnum
 
-__all__ = [
-    "Batch",
-    "BatchPair",
-    "BatchDict",
-    "PyTorchScheduler",
-    "JSON",
-    "MemoryFormat",
-    "as_batch_dict",
-    "as_batch_pair",
-    "BreakEpochException",
-]
+__all__ = ["Batch", "PyTorchScheduler", "JSON", "MemoryFormat", "BreakEpochException"]
 
-# For BatchPar, if it is a list, then it should always be of length 2.
-# Pytorch's default collate_fn returns a list even when the dataset returns a tuple.
-BatchPair = Sequence[Union[torch.Tensor, Sequence[torch.Tensor]]]
-BatchDict = Dict[str, torch.Tensor]
-Batch = Union[BatchPair, BatchDict, torch.Tensor]
+Batch = Any
 
 Dataset = torch.utils.data.Dataset[Batch]
 
 PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
-
-
-def as_batch_dict(batch: Batch) -> BatchDict:
-    """Casts a :class:`Batch` as a :class:`BatchDict`.
-
-    Args:
-        batch (Batch): A batch.
-    Raises:
-        TypeError: If the ``batch`` is not a :class:`BatchDict`.
-    Returns:
-        BatchDict: The batch, represented as a :class:`BatchDict`.
-    """
-
-    if not isinstance(batch, dict):
-        raise TypeError(f'batch_dict requires batch of type dict, got {type(batch)}')
-    return batch
-
-
-def as_batch_pair(batch: Batch) -> BatchPair:
-    """Casts a :class:`Batch` as a :class:`BatchPair`.
-
-    Args:
-        batch (Batch): A batch.
-    Returns:
-        BatchPair: The batch, represented as a :class:`BatchPair`.
-    Raises:
-        TypeError: If the batch is not a :class:`BatchPair`.
-    """
-
-    if not isinstance(batch, (tuple, list)):
-        raise TypeError(f'batch_pair required batch to be a tuple or list, got {type(batch)}')
-    if not len(batch) == 2:
-        raise TypeError(f'batch has length {len(batch)}, expected length 2')
-    return batch
 
 
 class BreakEpochException(Exception):

@@ -115,7 +115,7 @@ simple:
 
         def apply(self, event: Event, state: State, logger: Logger) -> None:
             """Run the algorithm by modifying the State."""
-            input, target = state.batch_pair
+            input, target = state.batch
 
             if event == Event.AFTER_DATALOADER:
                 new_input, self.permuted_target, self.mixing = mixup_batch(input, target, alpha=0.2)
