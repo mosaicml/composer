@@ -25,7 +25,7 @@ from composer.loggers import FileLogger, WandBLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.devices import Device
 from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import MissingConditionalImportError, dist
 from composer.utils.object_store import ObjectStoreHparams
@@ -345,12 +345,12 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
     @pytest.mark.parametrize("precision", list(Precision))
-    @pytest.mark.parametrize("device", [DeviceCPU(), pytest.param(DeviceGPU(), marks=pytest.mark.gpu)])
+    @pytest.mark.parametrize("device", ["cpu", pytest.param("gpu", marks=pytest.mark.gpu)])
     def test_precision(
         self,
         model: ComposerModel,
         precision: Precision,
-        device: Device,
+        device: str,
         train_dataloader: DataLoader,
         max_duration: Time[int],
     ):
@@ -362,7 +362,7 @@ class TestTrainerInitOrFit:
 
         should_error = False
         ctx = contextlib.nullcontext()
-        if isinstance(device, DeviceCPU) and precision != Precision.FP32:
+        if device == "cpu" and precision != Precision.FP32:
             ctx = pytest.raises(ValueError, match="not supproted for CPU training")
             should_error = True
         elif precision == Precision.FP16:
@@ -378,7 +378,9 @@ class TestTrainerInitOrFit:
                 precision=precision,
             )
 
-        init_trainer.fit()
+        if not should_error:
+
+            init_trainer.fit()
 
         # Train again with the precision param specified on Trainer.fit()
         fit_trainer = Trainer(

@@ -112,6 +112,13 @@ def _get_training_metrics(model: ComposerModel):
     return train_metrics
 
 
+def _validate_precision(precision: Precision, device: Device, deepspeed_enabled: bool):
+    if isinstance(device, DeviceCPU) and precision != Precision.FP32:
+        raise ValueError(f"{precision} is not supproted for CPU training.")
+    if not deepspeed_enabled and precision == Precision.FP16:
+        raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+
+
 def _compile_schedulers(
     schedulers: Union[None, ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]],
     state: State,
@@ -848,11 +855,7 @@ class Trainer:
         if isinstance(precision, str):
             precision = Precision(precision)
 
-        if isinstance(self._device, DeviceCPU) and precision != Precision.FP32:
-            raise ValueError(f"{precision} is not supproted for CPU training.")
-
-        if not deepspeed_enabled and precision == Precision.FP16:
-            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+        _validate_precision(precision, self._device, deepspeed_enabled)
 
         # optimizers and schedulers
         if not optimizers:
@@ -1238,6 +1241,10 @@ class Trainer:
 
         # Precision
         if precision is not None:
+            if self.state.is_model_deepspeed:
+                raise ValueError("Changing the precision when using DeepSpeed is not supported")
+            precision = Precision(precision)
+            _validate_precision(precision, self._device, self.state.is_model_deepspeed)
             self.state.precision = precision
 
         # Reset Timer
