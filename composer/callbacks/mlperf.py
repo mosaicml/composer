@@ -67,7 +67,8 @@ class MLPerfCallback(Callback):
 
     Example:
 
-    .. testcode::
+    .. code-block:: python
+
         from composer.callbacks import MLPerfCallback
 
         callback = MLPerfCallback(
