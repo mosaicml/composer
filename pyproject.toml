@@ -19,16 +19,18 @@ exclude = [
 
 reportUnnecessaryIsInstance = "warning"
 reportMissingTypeStubs = "none"
-reportIncompatibleMethodOverride = "warning"
+# forward() and initailize_object() have incompatible method overrides
+reportIncompatibleMethodOverride = "none"
 reportIncompatibleVariableOverride = "error"
 reportUnusedImport = "error"
-reportUnusedClass = "warning"
-reportUnusedFunction = "warning"
+reportUnusedClass = "error"
+reportUnusedFunction = "error"
 reportUnusedVariable = "error"
 reportDuplicateImport = "error"
 reportWildcardImportFromLibrary = "error"
 reportUntypedFunctionDecorator = "warning"
-reportPrivateImportUsage = "warning"
+# Pyright sometimes marks public imports as private
+reportPrivateImportUsage = "none"
 reportUndefinedVariable = "error"
 strictParameterNoneValue = true
 reportPropertyTypeMismatch = "error"
@@ -38,11 +40,12 @@ reportInvalidTypeVarUse = "error"
 reportOverlappingOverload = "error"
 reportUninitializedInstanceVariable = "error"
 reportInvalidStringEscapeSequence = "error"
-reportMissingParameterType = "warning"  # TODO: make this an error
-reportCallInDefaultInitializer = "none"  # TODO: make this an error
+reportMissingParameterType = "none"  # TODO: make this an error. Many tests are missing parameter types.
+reportCallInDefaultInitializer = "error"
 reportUnnecessaryComparison = "warning"
 reportSelfClsParameterName = "error"
-reportImplicitStringConcatenation = "warning"  # TODO: make this an error
+# Need to ensure all implict string concatinations are wrapped with an extra set of paranethesis.
+reportImplicitStringConcatenation = "none"  # TODO: make this an error.
 reportInvalidStubStatement = "error"
 reportIncompleteStub = "error"
 reportUnsupportedDunderAll = "error"
