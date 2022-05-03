@@ -122,8 +122,8 @@ def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
     trainer = composer_trainer_hparams.initialize_object()
 
     # Validate that `subset_num_batches` was set correctly
-    assert trainer.evaluators[0].subset_num_batches == composer_trainer_hparams.evaluators[0].subset_num_batches
-    assert trainer.evaluators[1].subset_num_batches == composer_trainer_hparams.eval_subset_num_batches
+    assert trainer.state.evaluators[0].subset_num_batches == composer_trainer_hparams.evaluators[0].subset_num_batches
+    assert trainer.state.evaluators[1].subset_num_batches == composer_trainer_hparams.eval_subset_num_batches
 
     # Train the model
     trainer.fit()

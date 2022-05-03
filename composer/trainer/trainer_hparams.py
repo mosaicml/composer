@@ -19,7 +19,7 @@ from torchmetrics import Metric, MetricCollection
 import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
-                                SpeedMonitorHparams)
+                                MLPerfCallbackHparams, SpeedMonitorHparams)
 from composer.core import DataSpec, Evaluator, Event, Precision, State, Time
 from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
@@ -103,6 +103,7 @@ callback_registry = {
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
+    "mlperf": MLPerfCallbackHparams,
 }
 
 device_registry = {
@@ -783,8 +784,8 @@ class FitKwargs(TypedDict):
     compute_training_metrics: Optional[bool]
 
     # Timing
-    max_duration: Optional[Union[int, str, Time[int]]]
     reset_timer: bool
+    duration: Optional[Union[int, str, Time[int]]]
 
     # Schedulers
     schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
@@ -815,8 +816,8 @@ class FitHparams(hp.Hparams):
         train_dataloader_label (str, optional): See :meth:`.Trainer.fit`.
         train_subset_num_batches (int, optional): See :meth:`.Trainer.fit`.
         compute_training_metrics (bool, optional): See :meth:`.Trainer.fit`.
-        max_duration (int | str, optional): See :meth:`.Trainer.fit`.
         reset_timer (bool, optional): See :meth:`.Trainer.fit`.
+        duration (int | str, optional): See :meth:`.Trainer.fit`.
         schedulers (List[SchedulerHparams], optional): Scheduler hyperparameters.
         scale_schedule_ratio (float, optional): See :meth:`.Trainer.fit`.
         step_schedulers_every_batch (bool, optional): See :meth:`.Trainer.fit`.
@@ -848,8 +849,8 @@ class FitHparams(hp.Hparams):
     compute_training_metrics: Optional[bool] = hp.optional("Whether to compute training metrics", default=None)
 
     # Timing
-    max_duration: Optional[Union[int, str]] = hp.optional("Max duration", default=None)
     reset_timer: bool = hp.optional("Whether to reset the timer", default=False)
+    duration: Optional[Union[int, str]] = hp.optional("Duration", default=None)
 
     # Schedulers
     schedulers: Optional[List[SchedulerHparams]] = hp.optional(doc="Schedulers", default=None)
@@ -929,8 +930,8 @@ class FitHparams(hp.Hparams):
             "train_dataloader_label": self.train_dataloader_label,
             "train_subset_num_batches": self.train_subset_num_batches,
             "compute_training_metrics": self.compute_training_metrics,
-            "max_duration": self.max_duration,
             "reset_timer": self.reset_timer,
+            "duration": self.duration,
             "schedulers": schedulers,
             "scale_schedule_ratio": self.scale_schedule_ratio,
             "step_schedulers_every_batch": self.step_schedulers_every_batch,

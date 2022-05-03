@@ -20,8 +20,6 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
 
-import composer
-from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
@@ -35,7 +33,7 @@ from composer.profiler import Profiler, ProfilerAction, SystemProfiler, TorchPro
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
+from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
@@ -45,6 +43,9 @@ from composer.utils.object_store import ObjectStore
 log = logging.getLogger(__name__)
 
 __all__ = ["Trainer"]
+
+# syntax to shorten the Scheduler type annoations
+Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 
 
 def _raise_missing_argument_exception(arg_name: str):
@@ -67,38 +68,18 @@ def _scale_max_duration_by_ssr(
     return max_duration
 
 
-def _should_step_schedulers_every_batch(
-    schedulers: Union[None, ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]],
-    step_schedulers_every_batch: Optional[bool],
-):
-    pytorch_schedulers = [
-        scheduler for scheduler in ensure_tuple(schedulers) if isinstance(scheduler, PyTorchScheduler)
-    ]
-    if len(pytorch_schedulers) > 0:
-        if step_schedulers_every_batch is True:
-            log.info(("Schedulers are being steped every batch, as `step_schedulers_every_batch` is True. "
-                      "The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the "
-                      f"PyTorch {type(pytorch_schedulers[0]).__name__} scheduler to be in terms of batches. "
-                      "Please ensure that the scheduler parameters are in terms of batches, not epochs. "
-                      "Alternatively, use a ComposerScheduler. For more information, see "
-                      f"https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html. "))
-
-        else:
-            if step_schedulers_every_batch is None:
-                # only if all schedulers are ComposerSchedulers, then we can step every batch by default
-                step_schedulers_every_batch = False
-
-            log.info((
-                "Schedulers will be stepped every epoch because the Trainer was constructed with a PyTorch "
-                f"{type(pytorch_schedulers[0]).__name__} scheduler. To step the schedulers every batch, adjust the "
-                "scheduler parameters (e.g. step_size, T_max) to be in terms of batches and set "
-                "`step_schedulers_every_batch` to True, or alternatively use a ComposerScheduler. For more information, "
-                f"see https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html."))
-
+def _should_step_schedulers_every_batch(schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]]):
+    # schedulers can be stepped every batch by default if there are no pytorch schedulers
+    has_pytorch_scheduler = any(isinstance(scheduler, PyTorchScheduler) for scheduler in ensure_tuple(schedulers))
+    if has_pytorch_scheduler:
+        log.info(("Stepping schedulers every epoch, as a PyTorch scheduler was provided. "
+                  "The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the "
+                  "PyTorch scheduler to be in terms of batches. If the PyTorch scheduler should be stepped "
+                  "every batch, set `step_schedulers_every_batch=True`."))
     else:
-        step_schedulers_every_batch = True
-
-    return step_schedulers_every_batch
+        log.info(("Stepping schedulers every batch. "
+                  "To step schedulers every epoch, set `step_schedulers_every_batch=False`."))
+    return not has_pytorch_scheduler
 
 
 def _get_training_metrics(model: ComposerModel):
@@ -120,7 +101,7 @@ def _validate_precision(precision: Precision, device: Device, deepspeed_enabled:
 
 
 def _compile_schedulers(
-    schedulers: Union[None, ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]],
+    schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]],
     state: State,
     scale_schedule_ratio: float,
 ) -> List[PyTorchScheduler]:
@@ -148,21 +129,25 @@ def _set_evaluator_interval_and_subset_num_batches(
             evaluator.eval_interval = eval_interval
 
 
-def _get_grad_accum(grad_accum: Union[int, str], device: Device) -> Tuple[int, bool]:
-    # Set initial grad_accum to 1 if using adaptive
-    adaptive_grad_accum = grad_accum == "auto"
-    if adaptive_grad_accum:
-        grad_accum = 1
+def _is_adaptive_grad_accum(grad_accum: Union[int, str], device: Device):
+    if grad_accum == 'auto':
         warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
                        "uncaught Cuda Out of Memory errors. In this case, please manually "
                        "set grad_accum explicitly to an integer instead. "))
-    # Cannot use adaptive grad accum on CPU
-    if isinstance(device, DeviceCPU) and adaptive_grad_accum:
-        raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
-    # grad_accum should be int as we've already handled "auto" case
-    if not isinstance(grad_accum, int):
+        if isinstance(device, DeviceCPU):
+            raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
+        return True
+    else:
+        return False
+
+
+def _get_initial_grad_accum(grad_accum: Union[int, str]):
+    if grad_accum == "auto":
+        return 1
+    elif isinstance(grad_accum, int):
+        return grad_accum
+    else:
         raise ValueError("grad_accum must be an int or ``'auto'``")
-    return grad_accum, adaptive_grad_accum
 
 
 def _is_cuda_oom(e: RuntimeError):
@@ -372,7 +357,7 @@ class Trainer:
         max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
 
-            If ``max_duration`` is not specified when constructing the trainer, it must be specified when invoking
+            If ``max_duration`` is not specified when constructing the trainer, ``duration`` must be specified when invoking
             :meth:`.Trainer.fit`.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms to use during training. If ``None``, then
             no algorithms will be used. (default: ``None``)
@@ -867,7 +852,8 @@ class Trainer:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
 
         # Grad Accum
-        grad_accum, self.adaptive_gradient_accumulation = _get_grad_accum(grad_accum, self._device)
+        self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
+        grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Create the State
         self.state = State(
@@ -971,39 +957,37 @@ class Trainer:
         self._original_model = self.state.model
 
         # Schedulers
-        # ScaleSchedule is a deprecated algorithm, but if it is used, updated SSR with its ratio.
-        # TODO(#434): Remove this completely.
-        for algorithm in ensure_tuple(algorithms):
-            if isinstance(algorithm, ScaleSchedule):
-                scale_schedule_ratio = algorithm.ratio
         self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
         if scale_schedule_ratio != 1.0:
             if len(self.state.schedulers) == 0:
-                warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
+                raise ValueError("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
 
-        self._step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers, step_schedulers_every_batch)
+        if step_schedulers_every_batch is None:
+            step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers)
+        self._step_schedulers_every_batch = step_schedulers_every_batch
 
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Evaluators
         if eval_dataloader is None:
-            self.evaluators: List[Evaluator] = []
+            evaluators: List[Evaluator] = []
         else:
-            self.evaluators = [
+            evaluators = [
                 ensure_evaluator(evaluator, model.metrics(train=False)) for evaluator in ensure_tuple(eval_dataloader)
             ]
             _set_evaluator_interval_and_subset_num_batches(
-                evaluators=self.evaluators,
+                evaluators=evaluators,
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
             )
-        if len(self.evaluators) == 0:
+        if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
-                warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
+                raise ValueError("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
             if eval_interval != 1:
-                warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
+                raise ValueError("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
+        self.state.evaluators = evaluators
 
         # Grad Clip Norm
         self._grad_clip_norm = grad_clip_norm
@@ -1078,7 +1062,15 @@ class Trainer:
 
             if dist.get_world_size() > 1:
                 # Only wrap the module if required
-                self.state.model = _prepare_ddp_module(self.state.model, self._find_unused_parameters)
+                self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+
+    @property
+    def deepspeed_enabled(self):
+        """Whether DeepSpeed is enabled.
+
+        .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
+        """
+        return self.state.is_model_deepspeed
 
     @property
     def saved_checkpoints(self) -> List[Tuple[Timestamp, List[pathlib.Path]]]:
@@ -1110,7 +1102,7 @@ class Trainer:
         compute_training_metrics: Optional[bool] = None,
 
         # Timing
-        max_duration: Optional[Union[int, str, Time[int]]] = None,
+        duration: Optional[Union[int, str, Time[int]]] = None,
         reset_timer: bool = False,
 
         # Schedulers
@@ -1143,11 +1135,11 @@ class Trainer:
             train_dataloader_label (str, optional): See :class:`.Trainer`.
             train_subset_num_batches (int, optional): See :class:`.Trainer`.
             compute_training_metrics (bool, optional): See :class:`.Trainer`.
-            max_duration (Time[int] | str | int, optional): See :class:`.Trainer`.
             reset_timer (bool): Whether to reset the :attr:`.State.timer`. Defaults to False.
 
                 If ``True``, the timer will be zeroed out, causing :class:`.ComposerScheduler` and :class:`.Algorithm`
                 instances to start from the beginning, as if it is a new training run.
+                The :attr:`~.State.max_duration` will be incremented by the ``duration`` parameter.
 
                 .. note::
 
@@ -1155,6 +1147,17 @@ class Trainer:
 
                 If ``False`` (the default), the timer will resume from where the previous call to :meth:`.fit`
                 finished (or from zero, if a new training run).
+                The :attr:`~.State.max_duration` will set to the ``duration`` parameter.
+
+            duration (Time[int] | str | int, optional): The duration to train. Can be an integer, which will be
+                interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
+
+                If ``reset_timer`` is False (the default), then :attr:`.State.max_duration` will be converted
+                into the same units as this parameter (if necessary), and then the max duration incremented by the
+                value of this parameter.
+
+                If ``reset_timer`` is True, then :attr:`.State.max_duration` will be set to this parameter.
+
             optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): See :class:`.Trainer`.
             schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional):
                 See :class:`.Trainer`.
@@ -1178,65 +1181,83 @@ class Trainer:
         if compute_training_metrics is not None:
             self.train_metrics = _get_training_metrics(self._original_model) if compute_training_metrics else None
 
+        # Reset Timer
+        if reset_timer:
+            self.state.timer.reset()
+
         # Max Duration
-        if max_duration is not None:
-            self.state.max_duration = ensure_time(max_duration)
+        if duration is not None:
+            duration = ensure_time(duration)
+            # Effectively increment the max duration (if not resetting the Timer)
+            # or set the max_duration (if resetting the timer -- self.state.timer.get(duration.unit) will be 0)
+            # It is important to set the duration, rather than incrementing it, as ``duration`` could be in
+            # different units than ``max_duration``
+            self.state.max_duration = duration + self.state.timer.get(duration.unit)
 
         if self.state.max_duration is None:
             _raise_missing_argument_exception("max_duration")
+
+        if self.state.max_duration <= self.state.timer.get(self.state.max_duration.unit) and not reset_timer:
+            raise ValueError(
+                (f"The max_duration ({self.state.max_duration}) is less than or equal to the elapsed training duration "
+                 f"({self.state.timer.get(self.state.max_duration.unit)}). No training would occur. "
+                 "Please provide the `duration` or specify `reset_timer=True` in Trainer.fit()."))
 
         # Scale Schedule Ratio and Schedulers
         if scale_schedule_ratio != 1.0:
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
         if schedulers is not None:
             self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
-            self._step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers,
-                                                                                    step_schedulers_every_batch)
+            if step_schedulers_every_batch is None:
+                step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers)
+            self._step_schedulers_every_batch = step_schedulers_every_batch
         else:
             if scale_schedule_ratio != 1.0:
-                warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
+                raise ValueError("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
 
             if step_schedulers_every_batch is not None:
-                warnings.warn("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
+                raise ValueError("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
 
             if step_schedulers_every_batch is not None:
-                warnings.warn("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
+                raise ValueError("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
 
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Evaluators
         if eval_dataloader is not None:
-            self.evaluators = [
-                ensure_evaluator(evaluator, self._original_model.metrics(train=False))
+            evaluators = [
+                # Need to use the `original_model` rather than `state.model`, as `state.model`
+                # could be DDP / DeepSpeed wrapped.
+                ensure_evaluator(evaluator, default_metrics=self._original_model.metrics(train=False))
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
             _set_evaluator_interval_and_subset_num_batches(
-                evaluators=self.evaluators,
+                evaluators=evaluators,
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
             )
-            if len(self.evaluators) == 0:
+            if len(evaluators) == 0:
                 if eval_subset_num_batches != -1:
-                    warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
+                    raise ValueError("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
                 if eval_interval != 1:
-                    warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
+                    raise ValueError("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
 
-        if len(self.evaluators) == 0:
+            self.state.evaluators = evaluators
+
+        if len(self.state.evaluators) == 0:
             warnings.warn(("No `eval_dataloader` was specified. Please specify `eval_dataloader` to periodically "
                            "evaluate your model while training."))
 
         # Grad Accum
         if grad_accum is not None:
-            self.state.grad_accum, self.adaptive_gradient_accumulation = _get_grad_accum(grad_accum, self._device)
+            self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
+            grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Grad Clip Norm
         if grad_clip_norm is not None:
             if self.state.is_model_deepspeed:
-                raise ValueError(
-                    ("When using DeepSpeed, the `grad_clip_norm` must be set when constructing the . "
-                     f"{type(self).__name__} -- e.g. via {type(self).__name__}(grad_clip_norm=...). It cannot be "
-                     f"specified on {type(self).__name__}.{type(self).fit.__name__}()."))
+                raise ValueError("Changing the grad_clip_norm when using DeepSpeed is not supported.")
             self._grad_clip_norm = grad_clip_norm
 
         # Precision
@@ -1246,10 +1267,6 @@ class Trainer:
             precision = Precision(precision)
             _validate_precision(precision, self._device, self.state.is_model_deepspeed)
             self.state.precision = precision
-
-        # Reset Timer
-        if reset_timer:
-            self.state.timer.reset()
 
         self._train_loop()
 
@@ -1296,7 +1313,7 @@ class Trainer:
         """
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
-        for evaluator in self.evaluators:
+        for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 dataloader.sampler.set_epoch(0)
@@ -1429,7 +1446,7 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    for evaluator in self.evaluators:
+                    for evaluator in self.state.evaluators:
                         assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
                         assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
                         if evaluator.eval_interval(self.state, Event.BATCH_END):
@@ -1467,7 +1484,7 @@ class Trainer:
 
             self.engine.run_event(Event.EPOCH_END)
 
-            for evaluator in self.evaluators:
+            for evaluator in self.state.evaluators:
                 assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
                 assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
                 if evaluator.eval_interval(self.state, Event.EPOCH_END):
@@ -1621,8 +1638,11 @@ class Trainer:
         assert self._train_data_spec is not None
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        sync_context = contextlib.nullcontext() if self.state.is_model_deepspeed else _ddp_sync_context(
-            self.state, is_final_microbatch, self._ddp_sync_strategy)
+        sync_context = contextlib.nullcontext() if self.state.is_model_deepspeed else ddp_sync_context(
+            self.state,
+            is_final_microbatch,
+            self._ddp_sync_strategy,
+        )
 
         with sync_context:
             # forward pass

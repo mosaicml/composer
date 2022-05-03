@@ -190,7 +190,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
                       deepspeed_config={} if deepspeed else None,
                       callbacks=[CheckBatch0(tmpdir)])
 
-    for evaluator in trainer.evaluators:
+    for evaluator in trainer.state.evaluators:
         assert isinstance(evaluator.dataloader, DataSpec)
         assert isinstance(evaluator.dataloader.dataloader, collections.abc.Sized)
     trainer.fit()
@@ -198,12 +198,12 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     expected_train_num_loads = max_epochs * train_batch_size * train_subset_num_batches
     #expected_val_num_loads = max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
     expected_val_num_loads = 0
-    for evaluator in trainer.evaluators:
+    for evaluator in trainer.state.evaluators:
         expected_val_num_loads += max_epochs * eval_batch_size * eval_subset_num_batches
 
     # adding hparams.eval_batch_size to account for the extra spin of the evaluator dataloaders
     # that is called to create a deterministic ordering for the sampler
-    for evaluator in trainer.evaluators:
+    for evaluator in trainer.state.evaluators:
         expected_val_num_loads += eval_batch_size
 
     actual_train_num_loads = 0
