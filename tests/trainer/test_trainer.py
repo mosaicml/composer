@@ -57,6 +57,10 @@ class TestTrainerInit():
     def test_trainer_with_deepspeed(self, config, precision: Precision):
         config['deepspeed_config'] = {}
         config['precision'] = precision
+        config['device'] = 'gpu'
+
+        if precision == Precision.BF16:
+            pytest.importorskip("torch", minversion="1.10", reason="BF16 precision requires PyTorch 1.10+")
 
         trainer = Trainer(**config)
 
