@@ -53,7 +53,7 @@ class EarlyStopper(Callback):
             should be set to 'train' or 'eval' respectively.
         comp (Callable[[Any, Any], bool], optional): A comparison operator to measure change of the monitored metric. The comparison
             operator will be called `comp(current_value, prev_best)`. For metrics where the optimal value is low
-            (error, loss, perplexity), use a less than operator and for metrics like accuracy whee the optimal value
+            (error, loss, perplexity), use a less than operator and for metrics like accuracy where the optimal value
             is higher, use a greater than operator. Defaults to numpy.less if loss, error, or perplexity are substrings
             of the monitored metric, otherwise defaults to numpy.greater
         min_delta (float, optional): An optional float that requires a new value to exceed the best value by at
@@ -67,7 +67,10 @@ class EarlyStopper(Callback):
         self,
         monitor: str,
         dataloader_label: str,
-        comp: Optional[Callable[[Any, Any,], bool]] = None,
+        comp: Optional[Callable[[
+            Any,
+            Any,
+        ], bool]] = None,
         min_delta: float = 0.0,
         patience: Union[int, str, Time] = 1,
     ):
