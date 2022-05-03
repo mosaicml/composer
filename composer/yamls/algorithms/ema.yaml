@@ -1,2 +1,3 @@
-half_life: "1ep"
-update_interval: "1ep"
+half_life: "100ba"
+update_interval: "1ba"
+train_with_ema_weights: False

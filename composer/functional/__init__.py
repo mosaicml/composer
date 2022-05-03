@@ -22,7 +22,7 @@ from composer.algorithms.channels_last import apply_channels_last
 from composer.algorithms.colout import colout_batch
 from composer.algorithms.cutmix import cutmix_batch
 from composer.algorithms.cutout import cutout_batch
-from composer.algorithms.ema import ema
+from composer.algorithms.ema import compute_ema
 from composer.algorithms.factorize import apply_factorization
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm
 from composer.algorithms.label_smoothing import smooth_labels
@@ -43,9 +43,9 @@ __all__ = [
     "apply_blurpool",
     "apply_channels_last",
     "colout_batch",
+    "compute_ema",
     "cutmix_batch",
     "cutout_batch",
-    "ema",
     "apply_factorization",
     "apply_ghost_batchnorm",
     "smooth_labels",

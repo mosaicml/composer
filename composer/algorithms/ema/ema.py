@@ -16,10 +16,10 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["EMA", "ema"]
+__all__ = ["EMA", "compute_ema"]
 
 
-def ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
+def compute_ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
     r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model`` according to an exponential
     weighted average. Weights are updated according to
 
@@ -51,7 +51,7 @@ def ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
                 from torchvision import models
                 model = models.resnet50()
                 ema_model = models.resnet50()
-                cf.ema(model, ema_model, smoothing=0.9)
+                cf.compute_ema(model, ema_model, smoothing=0.9)
     """
     with torch.no_grad():
         model_params = itertools.chain(model.parameters(), model.buffers())
@@ -175,7 +175,7 @@ class EMA(Algorithm):
                     self.training_model = ShadowModel(state.model)
 
                 # Update the ema model
-                ema(state.model, self.ema_model, smoothing=self.smoothing)
+                compute_ema(state.model, self.ema_model, smoothing=self.smoothing)
                 if self.train_with_ema_weights:
                     # Use the ema weights for further training
                     _copy_model(self.ema_model, state.model)

@@ -28,7 +28,7 @@ def training_loop(model, train_loader):
             loss.backward()
             opt.step()
             opt.zero_grad()
-            cf.ema(model, ema_model, smoothing=0.99)
+            cf.compute_ema(model, ema_model, smoothing=0.99)
 ```
 
 ### Composer Trainer

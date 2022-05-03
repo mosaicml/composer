@@ -6,7 +6,7 @@ import pytest
 import torch
 
 from composer.algorithms import EMAHparams
-from composer.algorithms.ema.ema import ShadowModel, ema
+from composer.algorithms.ema.ema import ShadowModel, compute_ema
 from composer.core import Event, Time, Timer, TimeUnit
 from tests.common import SimpleConvModel, SimpleModel
 
@@ -34,7 +34,7 @@ def test_ema(smoothing):
     model = SimpleModel()
     ema_model = SimpleModel()
     original_model = copy.deepcopy(ema_model)
-    ema(model=model, ema_model=ema_model, smoothing=smoothing)
+    compute_ema(model=model, ema_model=ema_model, smoothing=smoothing)
     validate_ema(model, original_model, ema_model, smoothing)
 
 
