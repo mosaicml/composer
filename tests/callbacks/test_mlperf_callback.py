@@ -154,7 +154,8 @@ class TestWithMLPerfChecker:
 
         monkeypatch.setattr(logging, "error", fail_on_error)
 
-        from mlperf_logging.package_checker.package_checker import check_training_package
+        from mlperf_logging.package_checker.package_checker import \
+            check_training_package  # type: ignore (no pypi in ci)
 
         check_training_package(
             folder=directory,
