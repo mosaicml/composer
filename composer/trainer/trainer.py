@@ -20,7 +20,6 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
 
-import composer
 from composer.callbacks import CheckpointSaver
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
@@ -69,38 +68,18 @@ def _scale_max_duration_by_ssr(
     return max_duration
 
 
-def _should_step_schedulers_every_batch(
-    schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]],
-    step_schedulers_every_batch: Optional[bool],
-):
-    pytorch_schedulers = [
-        scheduler for scheduler in ensure_tuple(schedulers) if isinstance(scheduler, PyTorchScheduler)
-    ]
-    if len(pytorch_schedulers) > 0:
-        if step_schedulers_every_batch is True:
-            log.info(("Schedulers are being steped every batch, as `step_schedulers_every_batch` is True. "
-                      "The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the "
-                      f"PyTorch {type(pytorch_schedulers[0]).__name__} scheduler to be in terms of batches. "
-                      "Please ensure that the scheduler parameters are in terms of batches, not epochs. "
-                      "Alternatively, use a ComposerScheduler. For more information, see "
-                      f"https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html. "))
-
-        else:
-            if step_schedulers_every_batch is None:
-                # only if all schedulers are ComposerSchedulers, then we can step every batch by default
-                step_schedulers_every_batch = False
-
-            log.info((
-                "Schedulers will be stepped every epoch because the Trainer was constructed with a PyTorch "
-                f"{type(pytorch_schedulers[0]).__name__} scheduler. To step the schedulers every batch, adjust the "
-                "scheduler parameters (e.g. step_size, T_max) to be in terms of batches and set "
-                "`step_schedulers_every_batch` to True, or alternatively use a ComposerScheduler. For more information, "
-                f"see https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html."))
-
+def _should_step_schedulers_every_batch(schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]]):
+    # schedulers can be stepped every batch by default if there are no pytorch schedulers
+    has_pytorch_scheduler = any(isinstance(scheduler, PyTorchScheduler) for scheduler in ensure_tuple(schedulers))
+    if has_pytorch_scheduler:
+        log.info(("Stepping schedulers every epoch, as a PyTorch scheduler was provided. "
+                  "The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the "
+                  "PyTorch scheduler to be in terms of batches. If the PyTorch scheduler should be stepped "
+                  "every batch, set `step_schedulers_every_batch=True`."))
     else:
-        step_schedulers_every_batch = True
-
-    return step_schedulers_every_batch
+        log.info(("Stepping schedulers every batch. "
+                  "To step schedulers every epoch, set `step_schedulers_every_batch=False`."))
+    return not has_pytorch_scheduler
 
 
 def _get_training_metrics(model: ComposerModel):
@@ -984,7 +963,9 @@ class Trainer:
                 raise ValueError("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
 
-        self._step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers, step_schedulers_every_batch)
+        if step_schedulers_every_batch is None:
+            step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers)
+        self._step_schedulers_every_batch = step_schedulers_every_batch
 
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
@@ -1227,8 +1208,9 @@ class Trainer:
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
         if schedulers is not None:
             self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
-            self._step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers,
-                                                                                    step_schedulers_every_batch)
+            if step_schedulers_every_batch is None:
+                step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers)
+            self._step_schedulers_every_batch = step_schedulers_every_batch
         else:
             if scale_schedule_ratio != 1.0:
                 raise ValueError("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
