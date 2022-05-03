@@ -150,21 +150,25 @@ def _set_evaluator_interval_and_subset_num_batches(
             evaluator.eval_interval = eval_interval
 
 
-def _get_grad_accum(grad_accum: Union[int, str], device: Device) -> Tuple[int, bool]:
-    # Set initial grad_accum to 1 if using adaptive
-    adaptive_grad_accum = grad_accum == "auto"
-    if adaptive_grad_accum:
-        grad_accum = 1
+def _is_adaptive_grad_accum(grad_accum: Union[int, str], device: Device):
+    if grad_accum == 'auto':
         warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
                        "uncaught Cuda Out of Memory errors. In this case, please manually "
                        "set grad_accum explicitly to an integer instead. "))
-    # Cannot use adaptive grad accum on CPU
-    if isinstance(device, DeviceCPU) and adaptive_grad_accum:
-        raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
-    # grad_accum should be int as we've already handled "auto" case
-    if not isinstance(grad_accum, int):
+        if isinstance(device, DeviceCPU):
+            raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
+        return True
+    else:
+        return False
+
+
+def _get_initial_grad_accum(grad_accum: Union[int, str]):
+    if grad_accum == "auto":
+        return 1
+    elif isinstance(grad_accum, int):
+        return grad_accum
+    else:
         raise ValueError("grad_accum must be an int or ``'auto'``")
-    return grad_accum, adaptive_grad_accum
 
 
 def _is_cuda_oom(e: RuntimeError):
@@ -869,7 +873,8 @@ class Trainer:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
 
         # Grad Accum
-        grad_accum, self.adaptive_gradient_accumulation = _get_grad_accum(grad_accum, self._device)
+        self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
+        grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Create the State
         self.state = State(
@@ -1262,7 +1267,8 @@ class Trainer:
 
         # Grad Accum
         if grad_accum is not None:
-            self.state.grad_accum, self.adaptive_gradient_accumulation = _get_grad_accum(grad_accum, self._device)
+            self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
+            grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Grad Clip Norm
         if grad_clip_norm is not None:
