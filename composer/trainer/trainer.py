@@ -96,7 +96,7 @@ from composer.profiler import Profiler, ProfilerAction, SystemProfiler, TorchPro
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
+from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
@@ -578,7 +578,7 @@ class Trainer:
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         console_stream: Union[str, TextIO] = sys.stderr,
-        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
+        callbacks: Union[Callback, Sequence[Callback]] = (),
 
         # load checkpoint
         load_path: Optional[str] = None,
@@ -724,6 +724,9 @@ class Trainer:
 
         if isinstance(precision, str):
             precision = Precision(precision)
+
+        if not self.deepspeed_enabled and precision == Precision.FP16:
+            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
         # optimizers and schedulers
         if not optimizers:
@@ -989,7 +992,7 @@ class Trainer:
 
             if dist.get_world_size() > 1:
                 # Only wrap the module if required
-                self.state.model = _prepare_ddp_module(self.state.model, self._find_unused_parameters)
+                self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
     @property
     def deepspeed_enabled(self) -> bool:
@@ -1386,7 +1389,7 @@ class Trainer:
         assert self.state.scaler is not None
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else _ddp_sync_context(
+        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
             self.state, is_final_microbatch, self._ddp_sync_strategy)
 
         with sync_context:

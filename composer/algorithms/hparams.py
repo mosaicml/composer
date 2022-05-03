@@ -15,6 +15,7 @@ from composer.algorithms.channels_last import ChannelsLast
 from composer.algorithms.colout import ColOut
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
+from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.label_smoothing import LabelSmoothing
@@ -157,6 +158,26 @@ class CutOutHparams(AlgorithmHparams):
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
+
+
+@dataclass
+class EMAHparams(AlgorithmHparams):
+    """See :class:`EMA`"""
+
+    half_life: str = hp.optional(doc='Time string specifying the time scale (half-life) on which old information is '
+                                 'forgotten. For example, "10ba" means old information decays with a half-life of 10 '
+                                 'batches.',
+                                 default="100ba")
+    update_interval: Optional[str] = hp.optional(
+        doc='Time string denoting how often the averaged model is updated.'
+        'For example, "10ba" means the averaged model will be updated every 10 batches.'
+        'Time unit must match that of time_scale.'
+        'If not specified, defaults to an interval of 1 in the units of half_life.',
+        default=None)
+    train_with_ema_weights: bool = hp.optional('Train using the moving average weights.', default=False)
+
+    def initialize_object(self) -> EMA:
+        return EMA(**asdict(self))
 
 
 @dataclass

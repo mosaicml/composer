@@ -12,7 +12,7 @@ from composer.core.state import State
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["DDPSyncStrategy"]
+__all__ = ["DDPSyncStrategy", "ddp_sync_context", "prepare_ddp_module"]
 
 
 class DDPSyncStrategy(StringEnum):
@@ -45,7 +45,7 @@ class DDPSyncStrategy(StringEnum):
 
 
 @contextmanager
-def _ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
+def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
     """A context manager for handling the :class:`DDPSyncStrategy`.
 
     Args:
@@ -91,7 +91,7 @@ def _ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Un
         raise ValueError("Unknown sync strategy", sync_strategy)
 
 
-def _prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
+def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
     """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
 
     Args:

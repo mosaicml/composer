@@ -53,7 +53,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         raise NotImplementedError(
             f"Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.")
 
-    last_checkpoint_batch = None
+    last_checkpoint_batch: Optional[Time] = None
 
     def save_interval(state: State, event: Event):
         nonlocal last_checkpoint_batch
