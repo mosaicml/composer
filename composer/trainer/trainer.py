@@ -46,6 +46,9 @@ log = logging.getLogger(__name__)
 
 __all__ = ["Trainer"]
 
+# syntax to shorten the Scheduler type annoations
+Scheduler = Union[ComposerScheduler, PyTorchScheduler]
+
 
 def _raise_missing_argument_exception(arg_name: str):
     raise ValueError((f"{arg_name} is a required argument and must be specified when constructing the "
@@ -68,7 +71,7 @@ def _scale_max_duration_by_ssr(
 
 
 def _should_step_schedulers_every_batch(
-    schedulers: Union[None, ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]],
+    schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]],
     step_schedulers_every_batch: Optional[bool],
 ):
     pytorch_schedulers = [
@@ -120,7 +123,7 @@ def _validate_precision(precision: Precision, device: Device, deepspeed_enabled:
 
 
 def _compile_schedulers(
-    schedulers: Union[None, ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]],
+    schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]],
     state: State,
     scale_schedule_ratio: float,
 ) -> List[PyTorchScheduler]:
@@ -979,7 +982,7 @@ class Trainer:
         self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
         if scale_schedule_ratio != 1.0:
             if len(self.state.schedulers) == 0:
-                warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
+                raise ValueError("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
 
         self._step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers, step_schedulers_every_batch)
@@ -1001,9 +1004,9 @@ class Trainer:
             )
         if len(self.evaluators) == 0:
             if eval_subset_num_batches != -1:
-                warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
+                raise ValueError("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
             if eval_interval != 1:
-                warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
+                raise ValueError("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
 
         # Grad Clip Norm
         self._grad_clip_norm = grad_clip_norm
@@ -1194,13 +1197,13 @@ class Trainer:
                                                                                     step_schedulers_every_batch)
         else:
             if scale_schedule_ratio != 1.0:
-                warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
+                raise ValueError("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
 
             if step_schedulers_every_batch is not None:
-                warnings.warn("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
+                raise ValueError("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
 
             if step_schedulers_every_batch is not None:
-                warnings.warn("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
+                raise ValueError("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
 
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
@@ -1218,9 +1221,9 @@ class Trainer:
             )
             if len(self.evaluators) == 0:
                 if eval_subset_num_batches != -1:
-                    warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
+                    raise ValueError("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
                 if eval_interval != 1:
-                    warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
+                    raise ValueError("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
 
         if len(self.evaluators) == 0:
             warnings.warn(("No `eval_dataloader` was specified. Please specify `eval_dataloader` to periodically "
