@@ -54,7 +54,7 @@ model = ema.ema_model
 
 ### Implementation Details
 
-Because EMA needs to maintain a copy of the model's (averaged) weights, it requires a bit more on device memory. In the functional implementation, the amount of extra memory is 2x the size of the model, in the composer trainer implementation, it is 3x the size of the model to allow for swapping the training and evaluation models. In practice, the extra memory used is small relative to the total amount of memory used, as activations and optimizer state are not duplicated.
+Because EMA needs to maintain a copy of the model's (averaged) weights, it requires a bit more on-device memory. In the functional implementation, the amount of extra memory is 2x the size of the model. In the composer trainer implementation, it is 3x the size of the model to allow for swapping the training and evaluation models. In practice, the extra memory used is small relative to the total amount of memory used, as activations and optimizer state are not duplicated.
 
 EMA also uses a bit of extra compute to calculate the moving average. This can lead to a small slowdown. The extra compute can be reduced by not computing the moving average every iteration. In the composer trainer implementation this can be done by using a larger `update_interval`. In practice we find that as long as `half_life` is much larger than `update_interval`, increasing `update_interval` does not have much effect on generalization performance.
 
