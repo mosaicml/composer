@@ -29,7 +29,7 @@ reportUnusedFunction = "error"
 reportUnusedVariable = "error"
 reportDuplicateImport = "error"
 reportWildcardImportFromLibrary = "error"
-reportUntypedFunctionDecorator = "warning"
+reportUntypedFunctionDecorator = "error"
 # Pyright sometimes marks public imports as private
 reportPrivateImportUsage = "none"
 reportUndefinedVariable = "error"
@@ -43,7 +43,7 @@ reportUninitializedInstanceVariable = "error"
 reportInvalidStringEscapeSequence = "error"
 reportMissingParameterType = "none"  # TODO: make this an error. Many tests are missing parameter types.
 reportCallInDefaultInitializer = "error"
-reportUnnecessaryComparison = "warning"
+reportUnnecessaryComparison = "error"
 reportSelfClsParameterName = "error"
 # Need to ensure all implict string concatinations are wrapped with an extra set of paranethesis.
 reportImplicitStringConcatenation = "none"  # TODO: make this an error.
