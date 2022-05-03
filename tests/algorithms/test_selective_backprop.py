@@ -1,24 +1,22 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Callable, Dict, cast
+from typing import Callable, Dict
+from composer.datasets.dataloader import DataLoaderHparams
 
 import pytest
 import torch
-import pdb
 from composer.algorithms import SelectiveBackpropHparams
 from composer.algorithms.selective_backprop import SelectiveBackprop
-from composer.algorithms.selective_backprop.selective_backprop import select_using_loss, should_selective_backprop
+from composer.algorithms.selective_backprop.selective_backprop import select_using_loss, should_selective_backprop, select_using_fn
 from composer.core import Event
 from composer.core.state import State
-from composer.datasets import DataLoaderHparams
+from composer.datasets.dataloader import DataLoaderHparams
+from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.loggers import Logger
-from composer.models import ComposerClassifier, BERTHparams, GPT2Hparams, GPT2Model, BERTModel
+from composer.models import ComposerClassifier, BERTHparams, GPT2Hparams
 from tests.utils import synthetic_utils
 from tests.datasets import test_synthetic_lm_data
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
-from composer.utils import dist
-from torch.utils.data import DataLoader, Dataset
-import transformers
 
 
 @pytest.fixture
@@ -140,47 +138,37 @@ def batch() -> int:
     """Default batch."""
     return 0
 
-lm_dataset_configs = [config[0] for config in test_synthetic_lm_data.generate_parameter_configs( ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'])]
-for config in lm_dataset_configs:
-    config['use_masked_lm'] = True
-    config['mlm_probability'] = 0.15
-    config['drop_last'] = False
+def make_dataset_configs():
+    lm_dataset_configs = [config[0] for config in test_synthetic_lm_data.generate_parameter_configs( ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'])]
+    for config in lm_dataset_configs:
+        config['drop_last'] = False
+        config['use_masked_lm'] = config['tokenizer_family'] == 'bert'
+        if config['use_masked_lm']:
+            config['mlm_probability'] = 0.15
+    return lm_dataset_configs
 
-def make_lm_dataset(config: Dict):
+def make_lm_tokenizer(config: Dict):
     dataset = synthetic_hf_dataset_builder(num_samples=config['num_samples'],
                                         chars_per_sample=config['chars_per_sample'],
                                         column_names=config['column_names'])
     tokenizer = generate_synthetic_tokenizer(config['tokenizer_family'], dataset)
-    max_length = config['chars_per_sample'] * 2
-    dataset = dataset.map(lambda inp: tokenizer(
-    text=inp[config['column_names'][0]], padding="max_length", max_length=max_length, truncation=True),
-                        batched=True,
-                        num_proc=1,
-                        keep_in_memory=True)
-    return dataset, tokenizer
+    return tokenizer
 
-def make_dummy_lm(model_name: str, tokenizer):
+def make_dummy_lm(model_name: str, max_position_embeddings, tokenizer):
     pytest.importorskip("transformers")
     if model_name == 'gpt2':
         class_name = GPT2Hparams
     elif model_name == 'bert':
         class_name = BERTHparams
     model_config = synthetic_utils.generate_dummy_model_config(class_name, tokenizer)
-    model_config['num_labels'] = model_config['vocab_size']
-    if model_name == 'gpt2':
-        model_config = transformers.GPT2Config.from_dict(model_config)
-        model = transformers.GPT2Model(model_config)
-        model = GPT2Model(model, model_config, tokenizer)
-    elif model_name == 'bert':
-        model_config = transformers.BertConfig.from_dict(model_config)
-        model = transformers.BertModel(model_config)
-        model = BERTModel(model, model_config, tokenizer)
+    if model_name == 'bert':
+        model_config['num_labels'] = model_config['vocab_size']
+        model_config['max_position_embeddings'] = max_position_embeddings
+    model = class_name(model_config=model_config).initialize_object()
     return model
 
-dataset, tokenizer = make_lm_dataset(lm_dataset_configs[0])
-lm = make_dummy_lm(lm_dataset_configs[0]['tokenizer_family'], tokenizer)
-
-def synthetic_to_datalaoder(dataset, tokenizer, dataset_config):
+def synthetic_to_dataloader(dataset_config):
+    """
     if tokenizer.pad_token_id is None:
         data_collator = transformers.default_data_collator
     else:
@@ -192,24 +180,43 @@ def synthetic_to_datalaoder(dataset, tokenizer, dataset_config):
             cast(Dataset, dataset),  # HF datasets do not subclass torch datasets, so this cast is needed
             drop_last=dataset_config['drop_last'],
             shuffle=True)
-    dataloader = DataLoaderHparams()
-    dataloader = dataloader.initialize_object(dataset = dataset, batch_size=dataset_config['num_samples'], sampler=sampler, drop_last=dataset_config['drop_last'], collate_fn=data_collator)
+    """
+    dataloader = LMDatasetHparams(use_synthetic=True, tokenizer_name=dataset_config['tokenizer_family'], use_masked_lm=dataset_config['use_masked_lm'], split='train', max_seq_length=dataset_config["chars_per_sample"])
+    dataloader = dataloader.initialize_object(batch_size=dataset_config['num_samples'], dataloader_hparams=DataLoaderHparams())
     return dataloader
 
-dataloader = synthetic_to_datalaoder(dataset, tokenizer, lm_dataset_configs[0])
-pdb.set_trace()
-def minimal_lm_state(rank_zero_seed: int, model, dataset, tokenizer):
+def minimal_lm_state(model, dataloader, rank_zero_seed=0):
     """Most minimally defined state possible.
 
     Tests should configure the state for their specific needs.
     """
-    return State(
+    state = State(
         model=model,
         rank_zero_seed=rank_zero_seed,
-        train_dataloader=DataLoader(dataset),
+        train_dataloader=dataloader,
         evaluators=[],
         max_duration='1ep',
     )
+    state.batch = next(iter(state.train_dataloader)).data
+    return state
+
+@pytest.mark.parametrize("config", make_dataset_configs())
+def test_minimal_lm_state(config):
+    tokenizer = make_lm_tokenizer(config)
+    lm = make_dummy_lm(config['tokenizer_family'], config['chars_per_sample'], tokenizer)
+    dataloader = synthetic_to_dataloader(config)
+    sample =  next(iter(dataloader)).data
+    output = lm(sample)
+    state = minimal_lm_state(lm, dataloader)
+    assert hasattr(state, "batch")
+    state_output = state.model(state.batch_dict)
+    assert state_output.keys() == output.keys()
+    assert state_output.loss.size() == output.loss.size()
+    assert state_output.logits.size() == output.logits.size()
+    assert state.batch_dict.keys() == sample.keys()
+    for key in state.batch_dict.keys():
+        assert state.batch_dict[key].size() == sample[key].size()
+
 
 @pytest.fixture
 def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:
