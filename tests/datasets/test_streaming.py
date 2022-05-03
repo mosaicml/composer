@@ -1,20 +1,19 @@
 import math
 import os
 import shutil
-import tempfile
 import time
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
+import py
 import pytest
-import torch
 from torch.utils.data import DataLoader
 
 from composer.datasets.streaming import StreamingDataset, StreamingDatasetWriter
 from composer.utils import dist
 
 
-def get_fake_samples_decoders(num_samples: int) -> List[Dict[str, bytes]]:
+def get_fake_samples_decoders(num_samples: int) -> Tuple[List[Dict[str, bytes]], Dict[str, Callable[[bytes], Any]]]:
     samples = [{"uid": f"{ix:06}".encode("utf-8"), "data": (3 * ix).to_bytes(4, "big")} for ix in range(num_samples)]
     decoders = {
         "uid": lambda uid_bytes: uid_bytes.decode("utf-8"),
@@ -23,18 +22,17 @@ def get_fake_samples_decoders(num_samples: int) -> List[Dict[str, bytes]]:
     return samples, decoders
 
 
-def write_synthetic_streaming_dataset(samples: List[Dict[str, bytes]], shard_size_limit: int) -> str:
-    tmpdir = tempfile.TemporaryDirectory().name
+def write_synthetic_streaming_dataset(dirname: str, samples: List[Dict[str, bytes]], shard_size_limit: int) -> None:
     first_sample_fields = list(samples[0].keys())
-    with StreamingDatasetWriter(dirname=tmpdir, fields=first_sample_fields,
+    with StreamingDatasetWriter(dirname=dirname, fields=first_sample_fields,
                                 shard_size_limit=shard_size_limit) as writer:
         writer.write_samples(samples=samples)
-    return tmpdir
 
 
 @pytest.mark.parametrize("num_samples", [100, 10000])
 @pytest.mark.parametrize("shard_size_limit", [1 << 8, 1 << 16, 1 << 24])
-def test_writer(num_samples: int, shard_size_limit: int) -> None:
+def test_writer(tmpdir: py.path.local, num_samples: int, shard_size_limit: int) -> None:
+    dirname = str(tmpdir)
     samples, _ = get_fake_samples_decoders(num_samples)
 
     first_sample_values = samples[0].values()
@@ -45,7 +43,7 @@ def test_writer(num_samples: int, shard_size_limit: int) -> None:
     expected_num_shards = math.ceil(num_samples / expected_samples_per_shard)
     expected_num_files = expected_num_shards + 1  # the index file
 
-    dirname = write_synthetic_streaming_dataset(samples=samples, shard_size_limit=shard_size_limit)
+    write_synthetic_streaming_dataset(dirname=dirname, samples=samples, shard_size_limit=shard_size_limit)
     files = os.listdir(dirname)
 
     assert len(files) == expected_num_files, f"Files written ({len(files)}) != expected ({expected_num_files})."
@@ -54,15 +52,16 @@ def test_writer(num_samples: int, shard_size_limit: int) -> None:
 @pytest.mark.parametrize("batch_size", [None, 1, 2])
 @pytest.mark.parametrize("share_remote_local", [False, True])
 @pytest.mark.parametrize("shuffle", [False, True])
-def test_reader(batch_size: int, share_remote_local: bool, shuffle: bool):
+def test_reader(tmpdir: py.path.local, batch_size: int, share_remote_local: bool, shuffle: bool):
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
-    remote = write_synthetic_streaming_dataset(samples=samples, shard_size_limit=shard_size_limit)
+    remote = str(tmpdir.mkdir("remote"))
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
     if share_remote_local:
         local = remote
     else:
-        local = tempfile.TemporaryDirectory().name
+        local = str(tmpdir.mkdir("local"))
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size)
@@ -95,21 +94,21 @@ def test_reader(batch_size: int, share_remote_local: bool, shuffle: bool):
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize("created_ago", [0.5, 3])
 @pytest.mark.parametrize("timeout", [1])
-def test_reader_after_crash(created_ago, timeout):
+def test_reader_after_crash(tmpdir: py.path.local, created_ago: float, timeout: float):
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
-    remote = write_synthetic_streaming_dataset(samples=samples, shard_size_limit=shard_size_limit)
-    local = tempfile.TemporaryDirectory().name
+    remote = str(tmpdir.mkdir("remote"))
+    local = str(tmpdir.mkdir("local"))
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
-    os.makedirs(local, exist_ok=True)
     shutil.copy(os.path.join(remote, "index.mds"), os.path.join(local, "index.mds.tmp"))
     shutil.copy(os.path.join(remote, "000003.mds"), os.path.join(local, "000003.mds.tmp"))
     time.sleep(created_ago)
     dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders, timeout=timeout)
 
     # Iterate over dataset and make sure there are no TimeoutErrors
-    for ix, sample in enumerate(dataset):
+    for _ in dataset:
         pass
 
 
@@ -120,22 +119,24 @@ def test_reader_after_crash(created_ago, timeout):
         pytest.param(False, marks=pytest.mark.xfail(reason="__getitem__ currently expects shards to exist")),
     ],
 )
-def test_reader_getitem(share_remote_local: bool):
+def test_reader_getitem(tmpdir: py.path.local, share_remote_local: bool):
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
-    remote = write_synthetic_streaming_dataset(samples=samples, shard_size_limit=shard_size_limit)
+
+    remote = str(tmpdir.mkdir("remote"))
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
     if share_remote_local:
         local = remote
     else:
-        local = tempfile.TemporaryDirectory().name
+        local = str(tmpdir.mkdir("local"))
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
 
     # Test retrieving random sample
     try:
-        sample = dataset[17]
+        _ = dataset[17]
     except Exception as e:
         assert False, f"Unable to get random sample, got exception: {e}"
 
@@ -154,13 +155,14 @@ def test_reader_getitem(share_remote_local: bool):
         )),
 ])
 @pytest.mark.parametrize("shuffle", [False, True])
-def test_dataloader_single_device(batch_size: int, drop_last: bool, num_workers: int, persistent_workers: bool,
-                                  shuffle: bool):
+def test_dataloader_single_device(tmpdir: py.path.local, batch_size: int, drop_last: bool, num_workers: int,
+                                  persistent_workers: bool, shuffle: bool):
     num_samples = 31
     shard_size_limit = 1 << 6
     samples, decoders = get_fake_samples_decoders(num_samples)
-    remote = write_synthetic_streaming_dataset(samples=samples, shard_size_limit=shard_size_limit)
-    local = tempfile.TemporaryDirectory().name
+    remote = str(tmpdir.mkdir("remote"))
+    local = str(tmpdir.mkdir("local"))
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size)
@@ -224,7 +226,8 @@ def test_dataloader_single_device(batch_size: int, drop_last: bool, num_workers:
 @pytest.mark.parametrize("num_samples", [30, 31])
 @pytest.mark.parametrize("num_workers", [1, 3])
 @pytest.mark.parametrize("shuffle", [False, True])
-def test_dataloader_multi_device(batch_size: int, drop_last: bool, num_samples: int, num_workers: int, shuffle: bool):
+def test_dataloader_multi_device(tmpdir: py.path.local, batch_size: int, drop_last: bool, num_samples: int,
+                                 num_workers: int, shuffle: bool):
 
     global_device = dist.get_global_rank()
     global_num_devices = dist.get_world_size()
@@ -234,16 +237,17 @@ def test_dataloader_multi_device(batch_size: int, drop_last: bool, num_samples: 
     shard_size_limit = 1 << 6
     samples, decoders = get_fake_samples_decoders(num_samples)
 
-    # Create dataset on device 0
-    remote = ""
-    local = ""
-    if global_device == 0:
-        remote = write_synthetic_streaming_dataset(samples=samples, shard_size_limit=shard_size_limit)
-        local = tempfile.TemporaryDirectory().name
-    dist.barrier()
+    # Broadcast remote, local
+    remote = str(tmpdir.mkdir("remote"))
+    local = str(tmpdir.mkdir("local"))
     remote_local_list = [remote, local]
     dist.broadcast_object_list(remote_local_list)
     remote, local = remote_local_list
+
+    # Create dataset on device 0
+    if global_device == 0:
+        write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
+    dist.barrier()
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote,

@@ -7,7 +7,6 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 import numpy as np
 from PIL import Image
-from torch import Tensor
 from torch.utils.data import IterableDataset
 from torchvision import transforms
 
@@ -290,7 +289,7 @@ class StreamingDataset(IterableDataset):
                     break
                 yield idx
 
-    def __iter__(self) -> Iterator[Tuple[Tensor, Tensor]]:
+    def __iter__(self) -> Iterator[Any]:
         """Iterate over all the samples in our partition.
 
         If not all samples have been downloaded yet, iterates over what it has
@@ -298,7 +297,7 @@ class StreamingDataset(IterableDataset):
         progresses.
 
         Returns:
-            Iterator[Tuple[Tensor, Tensor]]: Each sample.
+            Iterator[Any]: Each sample.
         """
         # Lock is created here because DataLoader calls __iter__ in each worker process
         # and the lock is worker-specific
@@ -315,7 +314,7 @@ class StreamingDataset(IterableDataset):
 class StreamingImageClassDataset(StreamingDataset):
     """Streaming image classification dataset."""
 
-    def decode_image(self, data: bytes) -> Any:
+    def decode_image(self, data: bytes) -> Image.Image:
         """Decode the sample image.
 
         Args:
@@ -326,7 +325,7 @@ class StreamingImageClassDataset(StreamingDataset):
         """
         return Image.open(BytesIO(data))
 
-    def decode_class(self, data: bytes) -> Any:
+    def decode_class(self, data: bytes) -> np.int64:
         """Decode the sample class.
 
         Args:
