@@ -894,7 +894,7 @@ class Trainer:
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
         self.state.set_dataloader(train_dataloader.dataloader, 'train', train_subset_num_batches)
-        self.state.train_dataloader = train_dataloader
+        self.state.train_dataloader = train_dataloader.dataloader
         self.state.max_duration = max_duration
         self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 

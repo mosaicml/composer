@@ -150,18 +150,18 @@ class MLPerfCallbackHparams(CallbackHparams):
     benchmark: str = hp.optional("Benchmark name. Default: resnet", default="resnet")
     target: float = hp.optional("The target metric before mllogger marks run_stop. Default: 0.759 (resnet)",
                                 default=0.759)
-    divison: str = hp.optional("Division of submission. Currently only open division"
-                               "is supported. Default: open",
-                               default="open")
+    division: Optional[str] = hp.optional(
+        "Division of submission. Currently only open division"
+        "is supported. Default: open", default="open")
     metric_name: str = hp.optional('name of the metric to compare against the target. Default: Accuracy',
                                    default='Accuracy')
     metric_label: str = hp.optional(
         'label name. The metric will be accessed via state.current_metrics[metric_label][metric_name]. Default: eval',
         default='eval')
     submitter: str = hp.optional("Submitting organization. Default: MosaicML", default='MosaicML')
-    system_name: str = hp.optional("Name of the system, defaults to [world_size]x[device_name]", default=None)
+    system_name: Optional[str] = hp.optional("Name of the system, defaults to [world_size]x[device_name]", default=None)
     status: str = hp.optional("Submission status. Default: onprem", default="onprem")
-    cache_clear_cmd: str = hp.optional(
+    cache_clear_cmd: Optional[str] = hp.optional(
         "Command to invoke during the cache clear. This callback will call subprocess(cache_clear_cmd). Default: Disabled.",
         default=None,
     )

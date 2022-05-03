@@ -337,7 +337,7 @@ class State(Serializable):
 
     @evaluators.setter
     def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
-        self._evaluators[:] = evaluators
+        self._evaluators[:] = list(ensure_tuple(evaluators))
 
     def state_dict(self) -> Dict[str, Any]:
         """Returns the state as a :class:`dict`."""
