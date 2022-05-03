@@ -17,8 +17,8 @@ from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
 from composer.utils import checkpoint, dist
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
-                                         ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
-                                         is_tar)
+                                         ensure_folder_has_no_conflicting_files, format_name_with_dist,
+                                         format_name_with_dist_and_time, is_tar)
 
 log = logging.getLogger(__name__)
 
@@ -53,11 +53,14 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         raise NotImplementedError(
             f"Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.")
 
-    last_checkpoint_batch = None
+    last_checkpoint_batch: Optional[Time] = None
 
     def save_interval(state: State, event: Event):
         nonlocal last_checkpoint_batch
-        if state.get_elapsed_duration() >= 1.0:
+        elapsed_duration = state.get_elapsed_duration()
+        assert elapsed_duration is not None, "elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT"
+
+        if elapsed_duration >= 1.0:
             # if doing batch-wise checkpointing, and we saved a checkpoint at the batch_checkpoint event
             # right before the epoch_checkpoint event, do not save another checkpoint at the epoch_checkpoint
             # event if the batch count didn't increase.
@@ -237,8 +240,8 @@ class CheckpointSaver(Callback):
             To disable symlinks in logger, set this parameter to ``None``.
 
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
-            If ``False`` (the default), then the ``folder`` must not exist or be empty.
-            (default: ``False``)
+            If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
+            with the current run. (default: ``False``)
 
         save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
@@ -317,12 +320,15 @@ class CheckpointSaver(Callback):
         del state  # unused
         folder = format_name_with_dist(self.folder, logger.run_name)
         os.makedirs(folder, exist_ok=True)
-        if not self.overwrite:
-            ensure_folder_is_empty(folder)
-        # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is empty.
-        dist.barrier()
 
     def fit_start(self, state: State, logger: Logger) -> None:
+        # Verify safety with self.overwrite. Note that this has to be done at fit_start as opposed to init since it requires state.timer
+        # from any checkpoints which are loaded, and checkpoint loading happens after Event.INIT.
+        if not self.overwrite:
+            folder = format_name_with_dist(self.folder, logger.run_name)
+            ensure_folder_has_no_conflicting_files(folder, self.filename, state.timer.get_timestamp())
+        # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
+        dist.barrier()
         if state.is_model_deepspeed:
             if self.weights_only:
                 NotImplementedError(
@@ -332,12 +338,16 @@ class CheckpointSaver(Callback):
     def batch_checkpoint(self, state: State, logger: Logger):
         if self.save_interval(state, Event.BATCH_CHECKPOINT):
             # If training is finished, log at the FIT loglevel
-            log_level = LogLevel.BATCH if state.get_elapsed_duration() < 1.0 else LogLevel.FIT
+            elapsed_duration = state.get_elapsed_duration()
+            assert elapsed_duration is not None, "elapsed_duration is set on Event.BATCH_CHECKPOINT"
+            log_level = LogLevel.BATCH if elapsed_duration < 1.0 else LogLevel.FIT
             self._save_checkpoint(state, logger, log_level)
 
     def epoch_checkpoint(self, state: State, logger: Logger):
         if self.save_interval(state, Event.EPOCH_CHECKPOINT):
-            log_level = LogLevel.EPOCH if state.get_elapsed_duration() < 1.0 else LogLevel.FIT
+            elapsed_duration = state.get_elapsed_duration()
+            assert elapsed_duration is not None, "elapsed_duration is set on Event.BATCH_CHECKPOINT"
+            log_level = LogLevel.EPOCH if elapsed_duration < 1.0 else LogLevel.FIT
             self._save_checkpoint(state, logger, log_level)
 
     def _save_checkpoint(self, state: State, logger: Logger, log_level: LogLevel):
@@ -383,10 +393,11 @@ class CheckpointSaver(Callback):
                                                                            state.timer.get_timestamp()).lstrip("/")
                     artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
                                                                    state.timer.get_timestamp()).lstrip("/")
+                    # Always overwrite for symlinks since we use the same filename for latest
                     logger.symlink_artifact(log_level=log_level,
                                             existing_artifact_name=artifact_name,
                                             symlink_artifact_name=symlink_artifact_name,
-                                            overwrite=self.overwrite)
+                                            overwrite=True)
 
         timestamp = state.timer.get_timestamp()
 

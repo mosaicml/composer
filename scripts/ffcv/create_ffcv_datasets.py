@@ -1,17 +1,16 @@
-import json
 import logging
 import os
-import subprocess
 import sys
 import textwrap
 from argparse import ArgumentParser
 
 from torch.utils.data import Subset
 from torchvision.datasets import CIFAR10, ImageFolder
-from composer.core.types import Dataset
+
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 
 log = logging.getLogger(__name__)
+
 
 def get_parser():
     parser = ArgumentParser(description="Utility for converting datasets to ffcv format.")

@@ -17,18 +17,21 @@ exclude = [
     "node_modules/**",
 ]
 
-reportUnnecessaryIsInstance = "warning"
+# Sometimes for code validation or readability we want redundant isinstance checks.
+reportUnnecessaryIsInstance = "none"
 reportMissingTypeStubs = "none"
-reportIncompatibleMethodOverride = "warning"
+# forward() and initailize_object() have incompatible method overrides
+reportIncompatibleMethodOverride = "none"
 reportIncompatibleVariableOverride = "error"
 reportUnusedImport = "error"
-reportUnusedClass = "warning"
-reportUnusedFunction = "warning"
+reportUnusedClass = "error"
+reportUnusedFunction = "error"
 reportUnusedVariable = "error"
 reportDuplicateImport = "error"
 reportWildcardImportFromLibrary = "error"
-reportUntypedFunctionDecorator = "warning"
-reportPrivateImportUsage = "warning"
+reportUntypedFunctionDecorator = "error"
+# Pyright sometimes marks public imports as private
+reportPrivateImportUsage = "none"
 reportUndefinedVariable = "error"
 strictParameterNoneValue = true
 reportPropertyTypeMismatch = "error"
@@ -38,11 +41,12 @@ reportInvalidTypeVarUse = "error"
 reportOverlappingOverload = "error"
 reportUninitializedInstanceVariable = "error"
 reportInvalidStringEscapeSequence = "error"
-reportMissingParameterType = "warning"  # TODO: make this an error
-reportCallInDefaultInitializer = "none"  # TODO: make this an error
-reportUnnecessaryComparison = "warning"
+reportMissingParameterType = "none"  # TODO: make this an error. Many tests are missing parameter types.
+reportCallInDefaultInitializer = "error"
+reportUnnecessaryComparison = "error"
 reportSelfClsParameterName = "error"
-reportImplicitStringConcatenation = "warning"  # TODO: make this an error
+# Need to ensure all implict string concatinations are wrapped with an extra set of paranethesis.
+reportImplicitStringConcatenation = "none"  # TODO: make this an error.
 reportInvalidStubStatement = "error"
 reportIncompleteStub = "error"
 reportUnsupportedDunderAll = "error"
@@ -50,13 +54,14 @@ reportUnusedCoroutine = "error"
 
 # Pytest
 [tool.pytest.ini_options]
-# By default, do not run gpu or notebook tests
-addopts = "--strict-markers -m 'not notebooks and not gpu and not vision'"
+# By default, do not run gpu, vision, notebook, or daily tests
+addopts = "--strict-markers -m 'not notebooks and not gpu and not vision and not daily'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
 timeout = 2
 markers = [
+    # !!!!!!!!!!!IMPORTANT!!!!!!!!!: when updating the markers, also make sure to update .ci/Jenkinsfile and meta.yaml
     # Tests that require a world_size of two should be annotated with `@pytest.mark.world_size(2)`.
     # If not specified, the test will be assumed to have a world-size of one, which is
     # equivalent to `@pytest.mark.world_size(1)`
@@ -80,6 +85,7 @@ filterwarnings = [
     'ignore:No optimizer:UserWarning',  # testing defaults
     'ignore:No scheduler:UserWarning',  # testing defaults
     'ignore::DeprecationWarning:tensorboard',  # ignore tensorboard
+    'ignore:.*NoSchedulerWarning.*'  # we usually do not use schedulers
 ]
 timeout_func_only = true  # exclude fixtures from the timeout
 

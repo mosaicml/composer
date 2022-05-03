@@ -2,8 +2,8 @@
 
 """Efficiency methods for training.
 
-Examples include :class:`smoothing the labels <composer.algorithms.label_smoothing.LabelSmoothing>`
-and adding :class:`Squeeze-and-Excitation <composer.algorithms.squeeze_excite.SqueezeExcite>` blocks,
+Examples include :class:`~composer.algorithms.label_smoothing.LabelSmoothing`
+and adding :class:`~composer.algorithms.squeeze_excite.SqueezeExcite` blocks,
 among many others.
 
 Algorithms are implemented in both a standalone functional form (see :mod:`composer.functional`)
@@ -36,6 +36,7 @@ For example, a simple algorithm that shortens training:
 
 For more information about events, see :class:`~composer.core.event.Event`.
 """
+from composer.algorithms.agc import AGC
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.algorithm_registry import get_algorithm_registry, list_algorithms
 from composer.algorithms.alibi import Alibi
@@ -45,10 +46,11 @@ from composer.algorithms.channels_last import ChannelsLast
 from composer.algorithms.colout import ColOut, ColOutTransform
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
+from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
-from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                         ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams,
+from composer.algorithms.hparams import (AGCHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
+                                         ColOutHparams, CutMixHparams, CutOutHparams, EMAHparams, FactorizeHparams,
                                          GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
                                          MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
                                          SAMHparams, ScaleScheduleHparams, SelectiveBackpropHparams,
@@ -76,6 +78,7 @@ __all__ = [
     "load_multiple",
     "get_algorithm_registry",
     "list_algorithms",
+    "AGC",
     "Alibi",
     "AugmentAndMixTransform",
     "AugMix",
@@ -85,6 +88,7 @@ __all__ = [
     "ColOutTransform",
     "CutMix",
     "CutOut",
+    "EMA",
     "Factorize",
     "GhostBatchNorm",
     "LabelSmoothing",
@@ -105,6 +109,7 @@ __all__ = [
     "SWA",
 
     # hparams objects
+    "AGCHparams",
     "AlgorithmHparams",
     "AlibiHparams",
     "AugMixHparams",
@@ -113,6 +118,7 @@ __all__ = [
     "ColOutHparams",
     "CutMixHparams",
     "CutOutHparams",
+    "EMAHparams",
     "FactorizeHparams",
     "GhostBatchNormHparams",
     "LabelSmoothingHparams",
