@@ -4,7 +4,7 @@ import contextlib
 import copy
 import os
 import pathlib
-from typing import Dict, List, Optional, Union, cast
+from typing import Dict, List, Optional, Union
 
 import pytest
 import torch
@@ -165,16 +165,25 @@ class TestTrainerInitOrFit:
             model=copied_model,
             train_dataloader=train_dataloader,
         )
-        fit_trainer.fit(max_duration=max_duration)
+        fit_trainer.fit(duration=max_duration)
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
+    @pytest.mark.parametrize("reset_timer", [True, False])
+    @pytest.mark.parametrize("new_duration", [
+        Time.from_timestring("1ep"),
+        Time.from_timestring("1ba"),
+        Time.from_timestring("2ep"),
+        None,
+    ])
     def test_reset_timer(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
+        new_duration: Time,
+        reset_timer: bool,
     ):
         # Train once
         trainer = Trainer(
@@ -187,15 +196,26 @@ class TestTrainerInitOrFit:
         # Get the timestamp
         first_timestamp = trainer.state.timer.get_timestamp()
 
-        # Train again for the same amount of time, but reset the timer
-        trainer.fit(
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-            reset_timer=True,
-        )
+        # It should error if the timer is not being reset. Otherwise, it should be reset and train OK.
+        error_msg = "Please either increase the `max_duration` or specify `reset_timer=True`"
+        ctx = pytest.raises(ValueError,
+                            match=error_msg) if not new_duration and not reset_timer else contextlib.nullcontext()
+        with ctx:
+            # Train again for the same amount of time
+            trainer.fit(
+                duration=new_duration,
+                train_dataloader=train_dataloader,
+                reset_timer=reset_timer,
+            )
 
-        # Assert that the timestamps are equivalent
-        assert trainer.state.timer.get_timestamp() == first_timestamp
+        # If the fit did not error (new_duration is specified), then assert that the time
+        # matches what is expected
+        if new_duration is not None:
+            if reset_timer:
+                assert trainer.state.timer.get(new_duration.unit) == new_duration
+            else:
+                first_timestamp_in_new_unit = getattr(first_timestamp, new_duration.unit.name.lower())
+                assert trainer.state.timer.get(new_duration.unit) == first_timestamp_in_new_unit + new_duration
 
     @pytest.mark.parametrize("scale_schedule_ratio", [1.0, 2.0])
     @pytest.mark.parametrize("step_schedulers_every_batch", [None, True, False])
@@ -480,7 +500,7 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
         # Train again.
-        trainer.fit(max_duration=cast(Time[int], 2 * max_duration))
+        trainer.fit(duration=max_duration)
 
         assert trainer.state.timer.get(max_duration.unit) == 2 * max_duration
 

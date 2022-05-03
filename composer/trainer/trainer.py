@@ -375,7 +375,7 @@ class Trainer:
         max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
 
-            If ``max_duration`` is not specified when constructing the trainer, it must be specified when invoking
+            If ``max_duration`` is not specified when constructing the trainer, ``duration`` must be specified when invoking
             :meth:`.Trainer.fit`.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms to use during training. If ``None``, then
             no algorithms will be used. (default: ``None``)
@@ -1113,7 +1113,7 @@ class Trainer:
         compute_training_metrics: Optional[bool] = None,
 
         # Timing
-        max_duration: Optional[Union[int, str, Time[int]]] = None,
+        duration: Optional[Union[int, str, Time[int]]] = None,
         reset_timer: bool = False,
 
         # Schedulers
@@ -1146,11 +1146,11 @@ class Trainer:
             train_dataloader_label (str, optional): See :class:`.Trainer`.
             train_subset_num_batches (int, optional): See :class:`.Trainer`.
             compute_training_metrics (bool, optional): See :class:`.Trainer`.
-            max_duration (Time[int] | str | int, optional): See :class:`.Trainer`.
             reset_timer (bool): Whether to reset the :attr:`.State.timer`. Defaults to False.
 
                 If ``True``, the timer will be zeroed out, causing :class:`.ComposerScheduler` and :class:`.Algorithm`
                 instances to start from the beginning, as if it is a new training run.
+                The :attr:`~.State.max_duration` will be incremented by the ``duration`` parameter.
 
                 .. note::
 
@@ -1158,6 +1158,17 @@ class Trainer:
 
                 If ``False`` (the default), the timer will resume from where the previous call to :meth:`.fit`
                 finished (or from zero, if a new training run).
+                The :attr:`~.State.max_duration` will set to the ``duration`` parameter.
+
+            duration (Time[int] | str | int, optional): The duration to train. Can be an integer, which will be
+                interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
+
+                If ``reset_timer`` is False (the default), then :attr:`.State.max_duration` will be converted
+                into the same units as this parameter (if necessary), and then the max duration incremented by the
+                value of this parameter.
+
+                If ``reset_timer`` is True, then :attr:`.State.max_duration` will be set to this parameter.
+
             optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): See :class:`.Trainer`.
             schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional):
                 See :class:`.Trainer`.
@@ -1181,12 +1192,28 @@ class Trainer:
         if compute_training_metrics is not None:
             self.train_metrics = _get_training_metrics(self._original_model) if compute_training_metrics else None
 
+        # Reset Timer
+        if reset_timer:
+            self.state.timer.reset()
+
         # Max Duration
-        if max_duration is not None:
-            self.state.max_duration = ensure_time(max_duration)
+        if duration is not None:
+            duration = ensure_time(duration)
+            # Effectively increment the max duration (if not resetting the Timer)
+            # or set the max_duration (if resetting the timer -- self.state.timer.get(duration.unit) will be 0)
+            # It is important to set the duration, rather than incrementing it, as ``duration`` could be in
+            # different units than ``max_duration``
+            self.state.max_duration = duration + self.state.timer.get(duration.unit)
 
         if self.state.max_duration is None:
             _raise_missing_argument_exception("max_duration")
+
+        if self.state.max_duration <= self.state.timer.get(self.state.max_duration.unit) and not reset_timer:
+            raise ValueError(
+                (f"The max_duration ({self.state.max_duration}) is less than the elapsed training duration "
+                 f"({self.state.timer.get(self.state.max_duration.unit)}). No training would occur. "
+                 "Please either increase the `max_duration` or specify `reset_timer=True` in "
+                 f"{type(self).__name__}.{self.fit.__name__}()."))
 
         # Scale Schedule Ratio and Schedulers
         if scale_schedule_ratio != 1.0:
@@ -1211,7 +1238,9 @@ class Trainer:
         # Evaluators
         if eval_dataloader is not None:
             self.evaluators = [
-                ensure_evaluator(evaluator, self._original_model.metrics(train=False))
+                # Need to use the `original_model` rather than `state.model`, as `state.model`
+                # could be DDP / DeepSpeed wrapped.
+                ensure_evaluator(evaluator, default_metrics=self._original_model.metrics(train=False))
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
             _set_evaluator_interval_and_subset_num_batches(
@@ -1249,10 +1278,6 @@ class Trainer:
             precision = Precision(precision)
             _validate_precision(precision, self._device, self.state.is_model_deepspeed)
             self.state.precision = precision
-
-        # Reset Timer
-        if reset_timer:
-            self.state.timer.reset()
 
         self._train_loop()
 
