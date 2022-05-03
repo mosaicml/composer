@@ -450,9 +450,6 @@ class TrainerHparams(hp.Hparams):
             if isinstance(self.device, CPUDeviceHparams):
                 raise ValueError("Training on CPUs is not supported with DeepSpeed.")
 
-        elif self.precision == Precision.FP16:
-            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
-
         world_size = dist.get_world_size()
 
         if self.train_batch_size % world_size != 0:

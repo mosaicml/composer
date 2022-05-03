@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import contextlib
 import os
 import pathlib
 from copy import deepcopy
@@ -39,6 +40,34 @@ class TestTrainerInit():
             'max_duration': '2ep',
             'seed': rank_zero_seed,
         }
+
+    @pytest.mark.gpu
+    @pytest.mark.parametrize("precision", list(Precision))
+    def test_precision(self, config, precision: Precision):
+        config['precision'] = precision
+        config['device'] = 'gpu'
+
+        if precision == Precision.BF16:
+            pytest.importorskip("torch", minversion="1.10", reason="BF16 precision requires PyTorch 1.10+")
+
+        with pytest.raises(ValueError) if precision == Precision.FP16 else contextlib.nullcontext():
+            Trainer(**config)
+
+    @pytest.mark.gpu
+    @pytest.mark.parametrize("precision", list(Precision))
+    def test_trainer_with_deepspeed(self, config, precision: Precision):
+        config['deepspeed_config'] = {}
+        config['precision'] = precision
+        config['device'] = 'gpu'
+
+        if precision == Precision.BF16:
+            pytest.importorskip("torch", minversion="1.10", reason="BF16 precision requires PyTorch 1.10+")
+
+        trainer = Trainer(**config)
+
+        assert trainer.deepspeed_enabled
+
+        trainer.fit()
 
     def test_init(self, config):
         trainer = Trainer(**config)
