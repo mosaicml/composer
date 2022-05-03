@@ -1,6 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logger Hyperparameter classes."""
+"""Logger Hyperparameter classes.
+
+Attributes:
+    logger_registry (Dict[str, Type[LoggerDestinationHparams]]): The registry of all known
+        :class:`.LoggerDestinationHparams`.
+"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -16,7 +21,7 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.utils import ObjectStoreHparams, dist, import_object
+from composer.utils import ObjectStoreHparams, import_object
 
 __all__ = [
     "FileLoggerHparams",
@@ -129,16 +134,10 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         if self.flatten_config:
             config_dict = self._flatten_dict(config_dict)
 
-        if self.rank_zero_only:
-            name = self.name
-            group = self.group
-        else:
-            name = f"{self.name} [RANK_{dist.get_global_rank()}]"
-            group = self.group if self.group else self.name
         init_params = {
             "project": self.project,
-            "name": name,
-            "group": group,
+            "name": self.name,
+            "group": self.group,
             "entity": self.entity,
             "tags": tags,
             "config": config_dict,
@@ -300,4 +299,3 @@ logger_registry = {
     "in_memory": InMemoryLoggerHparams,
     "object_store": ObjectStoreLoggerHparams,
 }
-"""The registry of all known :class:`.LoggerDestinationHparams`."""

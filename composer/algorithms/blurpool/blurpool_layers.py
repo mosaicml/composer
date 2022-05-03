@@ -11,13 +11,13 @@ from torch.nn.common_types import _size_2_t
 
 
 def _default_2d_filter():
-    default_filter = np.array([[[
+    default_filter = torch.tensor([[[
         [1, 2, 1],
         [2, 4, 2],
         [1, 2, 1],
     ]]]) * 1 / 16.0
 
-    return torch.Tensor(default_filter)
+    return default_filter
 
 
 def _padding_for_filt_2d_same(filt: torch.Tensor):
@@ -74,7 +74,7 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
 
 
 def blurmax_pool2d(input: torch.Tensor,
-                   kernel_size: _size_2_t = (2, 2),
+                   kernel_size: Optional[_size_2_t] = None,
                    stride: _size_2_t = 2,
                    padding: _size_2_t = 0,
                    dilation: _size_2_t = 1,
@@ -128,6 +128,9 @@ def blurmax_pool2d(input: torch.Tensor,
     Returns:
          The blurred and max-pooled input
     """
+    if kernel_size is None:
+        kernel_size = (2, 2)
+
     maxs = F.max_pool2d(input,
                         kernel_size=kernel_size,
                         stride=1,

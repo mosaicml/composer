@@ -1,6 +1,9 @@
 # Base image to use for the docker build.
 BASE_IMAGE ?= 'nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04'
 
+# The linux distro of the base image
+LINUX_DISTRO ?= ubuntu2004
+
 # Python version to install. Composer requires python>=3.7
 PYTHON_VERSION ?='3.9'
 
@@ -38,8 +41,8 @@ TARGET ?= pytorch_stage
 MMCV_VERSION ?= '1.4.4'
 MMCV_TORCH_VERSION ?= 'torch1.10.0'
 
-MOFED_VERSION ?= '5.5-1.0.3.2'
-MOFED_OS_VERSION ?= 'ubuntu20.04-x86_64'
+MOFED_VERSION ?= ''
+MOFED_OS_VERSION ?= ''
 
 .PHONY: build pytorch composer
 
@@ -56,6 +59,7 @@ pytorch:
 		--build-arg MMCV_VERSION=$(MMCV_VERSION) \
 		--build-arg MMCV_TORCH_VERSION=$(MMCV_TORCH_VERSION) \
 		--build-arg MOFED_VERSION=${MOFED_VERSION} \
+		--build-arg LINUX_DISTRO=${LINUX_DISTRO} \
 		--build-arg MOFED_OS_VERSION=${MOFED_OS_VERSION} \
 		.
 

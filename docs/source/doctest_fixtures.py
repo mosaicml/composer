@@ -20,22 +20,16 @@ from PIL import Image
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import composer
-import composer.trainer
-import composer.trainer.trainer
 import composer.loggers
 import composer.loggers.logger_hparams
-
-from composer import Trainer as OriginalTrainer
-from composer.loggers import LogLevel as LogLevel
-from composer.loggers import Logger as Logger
-from composer.loggers import InMemoryLogger as InMemoryLogger
-from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.optim.scheduler import ConstantScheduler
+import composer.loggers.object_store_logger
+import composer.trainer
+import composer.trainer.trainer
 import composer.utils
-import composer.utils.object_store
 import composer.utils.checkpoint
 import composer.utils.file_helpers
-from composer.utils import ensure_tuple as ensure_tuple, ObjectStore as OriginalObjectStore
+import composer.utils.object_store
+from composer import Trainer as OriginalTrainer
 from composer.core import Algorithm as Algorithm
 from composer.core import Callback as Callback
 from composer.core import DataSpec as DataSpec
@@ -52,9 +46,11 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
 from composer.loggers import LogLevel as LogLevel
-from composer.models import ComposerModel as ComposerModel
-import composer.loggers.object_store_logger
 from composer.loggers import ObjectStoreLogger as OriginalObjectStoreLogger
+from composer.models import ComposerModel as ComposerModel
+from composer.optim.scheduler import ConstantScheduler
+from composer.utils import ObjectStore as OriginalObjectStore
+from composer.utils import ensure_tuple as ensure_tuple
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory
@@ -63,7 +59,7 @@ _repo_root = os.path.dirname(_docs_dir)
 if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
-from tests.fixtures.models import SimpleBatchPairModel
+from tests.common import SimpleModel
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.TemporaryDirectory()
@@ -74,9 +70,9 @@ num_channels = 3
 num_classes = 10
 data_shape = (num_channels, 5, 5)
 
-Model = SimpleBatchPairModel
+Model = SimpleModel
 
-model = SimpleBatchPairModel(num_channels, num_classes)
+model = SimpleModel(num_channels, num_classes)
 
 optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
@@ -115,8 +111,8 @@ state = State(
     model=model,
     optimizers=optimizer,
     grad_accum=1,
-    train_dataloader=train_dataloader,
-    evaluators=[],
+    dataloader=train_dataloader,
+    dataloader_label="train",
     max_duration="1ep",
     precision="fp32",
 )
@@ -134,6 +130,11 @@ logits = torch.randn(batch_size, num_classes)  # type: ignore
 # error: "randint" is not a known member of module (reportGeneralTypeIssues)
 y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
+
+def loss_fun(output, target, reduction="none"):
+    return torch.ones_like(target)
+
+
 # patch the Trainer to accept ellipses and bind the required arguments to the Trainer
 # so it can be used without arguments in the doctests
 def Trainer(fake_ellipses: None = None, **kwargs: Any):
@@ -150,8 +151,10 @@ def Trainer(fake_ellipses: None = None, **kwargs: Any):
         kwargs["train_dataloader"] = train_dataloader
     if "eval_dataloader" not in kwargs:
         kwargs["eval_dataloader"] = eval_dataloader
-    if "loggers" not in kwargs:
-        kwargs["loggers"] = []  # hide tqdm logging
+    if "progress_bar" not in kwargs:
+        kwargs["progress_bar"] = False  # hide tqdm logging
+    if "log_to_console" not in kwargs:
+        kwargs["log_to_console"] = False  # hide console logging
     trainer = OriginalTrainer(**kwargs)
 
     return trainer
@@ -161,13 +164,15 @@ def Trainer(fake_ellipses: None = None, **kwargs: Any):
 composer.Trainer = Trainer
 composer.trainer.Trainer = Trainer
 composer.trainer.trainer.Trainer = Trainer
-            
+
 
 # Do not attempt to validate cloud credentials
 def do_not_validate(*args, **kwargs) -> None:
     pass
 
+
 composer.loggers.object_store_logger._validate_credentials = do_not_validate
+
 
 def ObjectStoreLogger(fake_ellipses: None = None, **kwargs: Any):
     # ignore all arguments, and use a local folder
@@ -194,6 +199,7 @@ def ObjectStore(fake_ellipses: None = None, **kwargs: Any):
         },
     )
     return OriginalObjectStore(**kwargs)
+
 
 composer.loggers.object_store_logger.ObjectStoreLogger = ObjectStoreLogger
 composer.loggers.ObjectStoreLogger = ObjectStoreLogger

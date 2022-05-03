@@ -20,7 +20,6 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
 from composer.core import DataSpec
-from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
@@ -45,8 +44,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         use_ffcv (bool): Whether to use FFCV dataloaders. Default: ``False``.
         ffcv_dir (str): A directory containing train/val <file>.ffcv files. If these files don't exist and
             ``ffcv_write_dataset`` is ``True``, train/val <file>.ffcv files will be created in this dir. Default: ``"/tmp"``.
-        ffcv_dest_train (str): <file>.ffcv file that has training samples. Default: ``"train.ffcv"``.
-        ffcv_dest_val (str): <file>.ffcv file that has validation samples. Default: ``"val.ffcv"``.
+        ffcv_dest (str): <file>.ffcv file that has dataset samples. Default: ``"imagenet_train.ffcv"``.
         ffcv_write_dataset (std): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
         ``False``.
     """
@@ -56,8 +54,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     ffcv_dir: str = hp.optional(
         "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
         default="/tmp")
-    ffcv_dest_train: str = hp.optional("<file>.ffcv file that has training samples", default="train.ffcv")
-    ffcv_dest_val: str = hp.optional("<file>.ffcv file that has validation samples", default="val.ffcv")
+    ffcv_dest: str = hp.optional("<file>.ffcv file that has dataset samples", default="imagenet_train.ffcv")
     ffcv_write_dataset: bool = hp.optional("Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
                                            default=False)
 
@@ -88,13 +85,10 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     To use ffcv with Composer, please install ffcv in your environment."""))
 
             if self.is_train:
-                dataset_file = self.ffcv_dest_train
                 split = "train"
             else:
-                dataset_file = self.ffcv_dest_val
                 split = "val"
-            dataset_file = self.ffcv_dest_train if self.is_train else self.ffcv_dest_val
-            dataset_filepath = os.path.join(self.ffcv_dir, dataset_file)
+            dataset_filepath = os.path.join(self.ffcv_dir, self.ffcv_dest)
             # always create if ffcv_write_dataset is true
             if self.ffcv_write_dataset:
                 if dist.get_local_rank() == 0:
@@ -126,7 +120,8 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 ])
                 dtype = np.float16
             else:
-                image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=224 / 256)])
+                ratio = self.crop_size / self.resize_size if self.resize_size > 0 else 1.0
+                image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=ratio)])
                 dtype = np.float32
             # Common transforms for train and test
             image_pipeline.extend([
@@ -224,7 +219,7 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0.485, 0.456, 0.406))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.229, 0.224, 0.225))
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         from composer.datasets.webdataset_utils import load_webdataset
 
         if self.is_train:

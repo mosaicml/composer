@@ -21,7 +21,7 @@ This can be applied to models for both computer vision and natural language proc
 
 import torch
 import torch.nn.functional as F
-from composer import functional as cf
+import composer.functional as cf
 
 def training_loop(model, train_loader):
     opt = torch.optim.Adam(model.parameters())

@@ -10,7 +10,6 @@ import torch.nn.functional as F
 from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
 
-from composer.core.types import BatchPair
 from composer.loss import soft_cross_entropy
 from composer.metrics import CrossEntropy, MIoU
 from composer.models.base import ComposerModel
@@ -89,7 +88,8 @@ def deeplabv3_builder(num_classes: int,
              https://download.openmmlab.com/mmcv/dist/{cu_version}/{torch_version}/index.html where {cu_version} and
              {torch_version} refer to your CUDA and PyTorch versions, respectively. To install mmsegmentation, please
              run pip install mmsegmentation==0.22.0 on command-line.""")) from e
-    norm_cfg = dict(type='SyncBN', requires_grad=True)
+    norm_type = 'SyncBN' if sync_bn else 'BN'
+    norm_cfg = dict(type=norm_type, requires_grad=True)
     if use_plus:
         # mmseg config:
         # https://github.com/open-mmlab/mmsegmentation/blob/master/configs/_base_/models/deeplabv3plus_r50-d8.py
@@ -185,12 +185,12 @@ class ComposerDeepLabV3(ComposerModel):
         self.val_miou = MIoU(self.num_classes, ignore_index=-1)
         self.val_ce = CrossEntropy(ignore_index=-1)
 
-    def forward(self, batch: BatchPair):
+    def forward(self, batch: Any):
         x = batch[0]
         logits = self.model(x)
         return logits
 
-    def loss(self, outputs: Any, batch: BatchPair):
+    def loss(self, outputs: Any, batch: Any):
         target = batch[1]
         loss = soft_cross_entropy(outputs, target, ignore_index=-1)  # type: ignore
         return loss
@@ -199,7 +199,7 @@ class ComposerDeepLabV3(ComposerModel):
         metric_list = [self.train_miou, self.train_ce] if train else [self.val_miou, self.val_ce]
         return MetricCollection(metric_list)
 
-    def validate(self, batch: BatchPair):
+    def validate(self, batch: Any):
         assert self.training is False, "For validation, model must be in eval mode"
         target = batch[1]
         logits = self.forward(batch)

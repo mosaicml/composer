@@ -1,13 +1,15 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import sys
 from typing import List, Sequence
 from unittest.mock import Mock
 
 import pytest
 
 from composer.algorithms import SelectiveBackprop
-from composer.core import Event, engine
+from composer.core import Engine, Event
 from composer.core.algorithm import Algorithm
+from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers import Logger
 
@@ -22,6 +24,11 @@ def always_match_algorithms():
     ]
 
 
+@pytest.fixture()
+def dummy_logger(dummy_state: State):
+    return Logger(dummy_state)
+
+
 @pytest.fixture
 def never_match_algorithms():
     attrs = {'match.return_value': False}
@@ -29,7 +36,7 @@ def never_match_algorithms():
 
 
 def run_event(event: Event, state: State, logger: Logger):
-    runner = engine.Engine(state, logger)
+    runner = Engine(state, logger)
     return runner.run_event(event)
 
 
@@ -114,3 +121,42 @@ def test_engine_with_selective_backprop(always_match_algorithms: Sequence[Algori
     actual = [tr.exit_code for tr in trace.values()]
 
     assert actual == expected
+
+
+def test_engine_is_dead_after_close(dummy_state: State, dummy_logger: Logger):
+    # Create the trainer and run an event
+    engine = Engine(dummy_state, dummy_logger)
+    engine.run_event(Event.INIT)
+
+    # Close it
+    engine.close()
+
+    # Assert it complains if you try to run another event
+    with pytest.raises(RuntimeError):
+        engine.run_event(Event.FIT_START)
+
+
+class IsClosedCallback(Callback):
+
+    def __init__(self) -> None:
+        self.is_closed = False
+
+    def close(self, state: State, logger: Logger) -> None:
+        self.is_closed = True
+
+
+def test_engine_closes_on_del(dummy_state: State, dummy_logger: Logger):
+    # Create the trainer and run an event
+    is_closed_callback = IsClosedCallback()
+    dummy_state.callbacks.append(is_closed_callback)
+    engine = Engine(dummy_state, dummy_logger)
+    engine.run_event(Event.INIT)
+
+    # Assert that there is just 2 -- once above, and once as the arg temp reference
+    assert sys.getrefcount(engine) == 2
+
+    # Implicitely close the engine
+    del engine
+
+    # Assert it is closed
+    assert is_closed_callback.is_closed
