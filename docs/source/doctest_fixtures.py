@@ -1,5 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+# disabling general type issues because of monkeypatching
+# pyright: reportGeneralTypeIssues=none
+
 """
 Fixtures available in doctests.
 

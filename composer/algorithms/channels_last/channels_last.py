@@ -24,7 +24,7 @@ def apply_channels_last(model: torch.nn.Module) -> None:
     This usually yields improved GPU utilization.
 
     Args:
-        model: model or module to modify
+        model (:class:`torch.nn.Module`): model or module to modify
     """
     model.to(memory_format=torch.channels_last)  # type: ignore
 

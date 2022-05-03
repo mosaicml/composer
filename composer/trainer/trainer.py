@@ -35,7 +35,7 @@ from composer.profiler import Profiler, ProfilerAction, SystemProfiler, TorchPro
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
+from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
@@ -1078,7 +1078,7 @@ class Trainer:
 
             if dist.get_world_size() > 1:
                 # Only wrap the module if required
-                self.state.model = _prepare_ddp_module(self.state.model, self._find_unused_parameters)
+                self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
     @property
     def saved_checkpoints(self) -> List[Tuple[Timestamp, List[pathlib.Path]]]:
@@ -1621,8 +1621,11 @@ class Trainer:
         assert self._train_data_spec is not None
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        sync_context = contextlib.nullcontext() if self.state.is_model_deepspeed else _ddp_sync_context(
-            self.state, is_final_microbatch, self._ddp_sync_strategy)
+        sync_context = contextlib.nullcontext() if self.state.is_model_deepspeed else ddp_sync_context(
+            self.state,
+            is_final_microbatch,
+            self._ddp_sync_strategy,
+        )
 
         with sync_context:
             # forward pass
