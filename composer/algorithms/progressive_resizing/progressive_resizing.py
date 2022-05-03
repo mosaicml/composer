@@ -203,7 +203,7 @@ class ProgressiveResizing(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        input, target = state.batch_pair
+        input, target = state.batch
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 

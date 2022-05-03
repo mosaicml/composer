@@ -3,12 +3,14 @@
 # Running these checks through pytest allows us to report any errors in Junit format,
 # which is posted directly on the PR
 
-import subprocess
 import os
-import pytest
-import shutil
 import pathlib
+import shutil
+import subprocess
 import textwrap
+
+import pytest
+
 
 def check_output(proc: subprocess.CompletedProcess):
     # Check the subprocess output, and raise an exception with the stdout/stderr dump if there was a non-zero exit
@@ -26,10 +28,18 @@ def check_output(proc: subprocess.CompletedProcess):
 
     raise RuntimeError(error_msg)
 
+
 @pytest.mark.timeout(0)
-def test_run_make_lint():
+def test_run_pre_commit_hooks():
     composer_root = os.path.join(os.path.dirname(__file__), "..")
-    check_output(subprocess.run(["make", "lint"], cwd=composer_root, capture_output=True, text=True))
+    check_output(
+        subprocess.run(
+            ["pre-commit", "run", "--all-files", "--show-diff-on-failure"],
+            cwd=composer_root,
+            capture_output=True,
+            text=True,
+        ))
+
 
 @pytest.mark.timeout(0)
 def test_run_doctests():

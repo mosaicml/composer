@@ -496,26 +496,6 @@ class State(Serializable):
         self._precision = Precision(precision)
 
     @property
-    def batch_pair(self) -> types.BatchPair:
-        """:attr:`~.types.BatchPair`: The current batch, represented as a :attr:`~.types.BatchPair`.
-
-        Raises:
-            TypeError: If the current batch is not a :attr:`~.types.BatchPair`.
-        """
-        from composer.core.types import as_batch_pair
-        return as_batch_pair(self.batch)
-
-    @property
-    def batch_dict(self) -> types.BatchDict:
-        """:attr:`~.types.BatchDict`: The current batch, represented as a :attr:`~.types.BatchDict`.
-
-        Raises:
-            TypeError: If the current batch is not a :attr:`~.types.BatchDict`.
-        """
-        from composer.core.types import as_batch_dict
-        return as_batch_dict(self.batch)
-
-    @property
     def is_model_deepspeed(self) -> bool:
         """Whether :attr:`model` is an instance of a :class:`~deepspeed.DeepSpeedEngine`."""
         try:

@@ -43,7 +43,7 @@ def train_one_step(state: State, batch: Batch) -> None:
     for optimizer in state.optimizers:
         optimizer.zero_grad()
 
-    state.outputs = state.model(state.batch_pair)
+    state.outputs = state.model(state.batch)
     assert isinstance(y, Tensor)
 
     state.loss = F.cross_entropy(state.outputs, y)
