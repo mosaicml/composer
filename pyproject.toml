@@ -17,7 +17,8 @@ exclude = [
     "node_modules/**",
 ]
 
-reportUnnecessaryIsInstance = "warning"
+# Sometimes for code validation or readability we want redundant isinstance checks.
+reportUnnecessaryIsInstance = "none"
 reportMissingTypeStubs = "none"
 # forward() and initailize_object() have incompatible method overrides
 reportIncompatibleMethodOverride = "none"
