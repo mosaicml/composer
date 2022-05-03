@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 
@@ -51,7 +51,7 @@ class EarlyStopper(Callback):
             monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
             monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
             should be set to 'train' or 'eval' respectively.
-        comp (Callable, optional): A comparison operator to measure change of the monitored metric. The comparison
+        comp (Callable[[Any, Any], bool], optional): A comparison operator to measure change of the monitored metric. The comparison
             operator will be called `comp(current_value, prev_best)`. For metrics where the optimal value is low
             (error, loss, perplexity), use a less than operator and for metrics like accuracy whee the optimal value
             is higher, use a greater than operator. Defaults to numpy.less if loss, error, or perplexity are substrings
@@ -67,7 +67,7 @@ class EarlyStopper(Callback):
         self,
         monitor: str,
         dataloader_label: str,
-        comp: Optional[Callable] = None,
+        comp: Optional[Callable[[Any, Any,], bool]] = None,
         min_delta: float = 0.0,
         patience: Union[int, str, Time] = 1,
     ):
