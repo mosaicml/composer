@@ -1,9 +1,10 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import contextlib
 import copy
 import os
 import pathlib
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, cast
 
 import pytest
 import torch
@@ -25,7 +26,7 @@ from composer.loggers import FileLogger, WandBLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
-from composer.trainer.devices.device import Device
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import MissingConditionalImportError, dist
 from composer.utils.object_store import ObjectStoreHparams
@@ -43,8 +44,7 @@ class TestTrainerInit():
         return SimpleModel()
 
     def test_minimal_init(self, model: ComposerModel):
-        trainer = Trainer(model=model)
-        assert isinstance(trainer, Trainer)
+        Trainer(model=model)
 
     @world_size(1, 2)
     def test_model_ddp_wrapped(self, model: ComposerModel, world_size: int):
@@ -135,7 +135,7 @@ class TestTrainerInitOrFit:
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
-        max_duration: Time,
+        max_duration: Time[int],
         train_subset_num_batches: int,
         compute_training_metrics: bool,
     ):
@@ -171,7 +171,7 @@ class TestTrainerInitOrFit:
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
-        max_duration: Time,
+        max_duration: Time[int],
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
@@ -198,7 +198,7 @@ class TestTrainerInitOrFit:
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
-        max_duration: Time,
+        max_duration: Time[int],
     ):
         # Train once
         trainer = Trainer(
@@ -227,7 +227,7 @@ class TestTrainerInitOrFit:
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
-        max_duration: Time,
+        max_duration: Time[int],
         scale_schedule_ratio: float,
         step_schedulers_every_batch: Optional[bool],
     ):
@@ -279,7 +279,7 @@ class TestTrainerInitOrFit:
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
-        max_duration: Time,
+        max_duration: Time[int],
         eval_subset_num_batches: int,
         eval_interval: str,
         eval_dataloader: Union[Evaluator, DataLoader, List[Evaluator]],
@@ -325,7 +325,7 @@ class TestTrainerInitOrFit:
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
-        max_duration: Time,
+        max_duration: Time[int],
     ):
         grad_accum = 2
 
@@ -356,27 +356,52 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
-    @pytest.mark.parametrize("precision", [
-        Precision.FP32,
-        pytest.param(Precision.AMP, marks=pytest.mark.gpu),
-    ])
+    @pytest.mark.gpu
+    @pytest.mark.parametrize("precision", list(Precision))
+    def test_deepspeed(self, model: ComposerModel, precision: Precision, max_duration: Time[int]):
+        if precision == Precision.BF16:
+            pytest.importorskip("torch", minversion="1.10", reason="BF16 precision requires PyTorch 1.10+")
+
+        trainer = Trainer(model=model, precision=precision, deepspeed_config={}, max_duration=max_duration)
+
+        assert trainer.state.is_model_deepspeed
+
+        trainer.fit()
+
+    @pytest.mark.parametrize("precision", list(Precision))
+    @pytest.mark.parametrize("device", [DeviceCPU(), pytest.param(DeviceGPU(), marks=pytest.mark.gpu)])
     def test_precision(
         self,
-        train_dataloader: DataLoader,
         model: ComposerModel,
-        max_duration: Time,
         precision: Precision,
+        device: Device,
+        train_dataloader: DataLoader,
+        max_duration: Time[int],
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
 
-        # Train once with the precision param on Trainer.__init__()
-        init_trainer = Trainer(
-            model=model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-            precision=precision,
-        )
+        if precision == Precision.BF16:
+            pytest.importorskip("torch", minversion="1.10", reason="BF16 precision requires PyTorch 1.10+")
+
+        should_error = False
+        ctx = contextlib.nullcontext()
+        if isinstance(device, DeviceCPU) and precision != Precision.FP32:
+            ctx = pytest.raises(ValueError, match="not supproted for CPU training")
+            should_error = True
+        elif precision == Precision.FP16:
+            ctx = pytest.raises(ValueError, match="FP16 precision is only supported when training with DeepSpeed")
+            should_error = True
+
+        with ctx:
+            # Train once with the precision param on Trainer.__init__()
+            init_trainer = Trainer(
+                model=model,
+                max_duration=max_duration,
+                train_dataloader=train_dataloader,
+                precision=precision,
+            )
+
         init_trainer.fit()
 
         # Train again with the precision param specified on Trainer.fit()
@@ -385,17 +410,19 @@ class TestTrainerInitOrFit:
             max_duration=max_duration,
             train_dataloader=train_dataloader,
         )
-        fit_trainer.fit(precision=precision)
+        with ctx:
+            fit_trainer.fit(precision=precision)
 
-        # Assert that the states are equivalent
-        assert_state_equivalent(init_trainer.state, fit_trainer.state)
+        # Assert that the states are equivalent, if we did train
+        if not should_error:
+            assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
     @pytest.mark.parametrize("grad_clip_norm", [-1.0, 1.0])
     def test_grad_clip_norm(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
-        max_duration: Time,
+        max_duration: Time[int],
         grad_clip_norm: float,
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
@@ -448,7 +475,7 @@ class TestTrainerInitOrFit:
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
-        max_duration: Time,
+        max_duration: Time[int],
     ):
         """Test that the trainer supports multiple calls to fit."""
         # Note that callbacks are tested seperately in tests/callbacks/test_callbacks.py
@@ -463,7 +490,7 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
         # Train again.
-        trainer.fit(max_duration=2 * max_duration)
+        trainer.fit(max_duration=cast(Time[int], 2 * max_duration))
 
         assert trainer.state.timer.get(max_duration.unit) == 2 * max_duration
 
@@ -651,21 +678,19 @@ class TestTrainerEvents():
             trainer.fit()
 
 
-"""
-The below is a catch-all test that runs the Trainer
-with each algorithm, callback, and loggers. Success
-is defined as a successful training run.
-
-This should eventually be replaced by functional
-tests for each object, in situ of our trainer.
-
-We use the hparams_registry associated with our
-config management to retrieve the objects to test.
-"""
-
-
 @pytest.mark.timeout(15)
 class TestTrainerAssets:
+    """
+    The below is a catch-all test that runs the Trainer
+    with each algorithm, callback, and loggers. Success
+    is defined as a successful training run.
+
+    This should eventually be replaced by functional
+    tests for each object, in situ of our trainer.
+
+    We use the hparams_registry associated with our
+    config management to retrieve the objects to test.
+    """
 
     @pytest.fixture(params=[1, 2], ids=['ga-1', 'ga-2'])
     def config(self, rank_zero_seed: int, request):

@@ -905,7 +905,13 @@ class Trainer:
         if isinstance(precision, str):
             precision = Precision(precision)
 
-        # Optimizers
+        if isinstance(self._device, DeviceCPU) and precision != Precision.FP32:
+            raise ValueError(f"{precision} is not supproted for CPU training.")
+
+        if not deepspeed_enabled and precision == Precision.FP16:
+            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+
+        # optimizers and schedulers
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
             warnings.warn(f"No optimizer was specified. Defaulting to {repr(optimizers)}")

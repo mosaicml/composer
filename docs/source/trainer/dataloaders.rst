@@ -115,20 +115,9 @@ For more information, see :doc:`Evaluation</trainer/evaluation>`.
 Batch Types
 -----------
 
-Batch types make it easy to tell algorithms needed information about
-the data. For data augmentation algorithms this might be the location of the
-image within the batch or, for natural language processing, the ``dict`` key
-corresponding to the tokenized inputs.
-
-We have native support for two types of batches:
-
-- ``BatchPair`` can be a tuple or list of two :class:`~torch.Tensor`: ``(input, target)``
-- ``BatchDict`` is a ``dict`` with keys (``str``) and values (:class:`~torch.Tensor`).
-
-For custom batch types, implement and provide the ``split_batch`` function
-to the trainer using :class:`.DataSpec` above. Here's an example function
-for when the batch from the dataloader is the ``BatchPair``, a tuple of
-two tensors:
+For custom batch types (not torch.Tensor, List, Tuple, Mapping), implement and provide 
+the ``split_batch`` function to the trainer using :class:`.DataSpec` above. Here's an 
+example function or when the batch from the dataloader is a tuple of two tensors:
 
 .. code:: python
 
