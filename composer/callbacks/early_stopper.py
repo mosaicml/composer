@@ -103,6 +103,7 @@ class EarlyStopper(Callback):
     def _update_stopper_state(self, state: State):
         metric_val = self._get_monitored_metric(state)
 
+        assert self.comp is not None
         if self.best is None:
             self.best = metric_val
             self.best_occurred = state.timer.get_timestamp()
@@ -131,5 +132,5 @@ class EarlyStopper(Callback):
             self._update_stopper_state(state)
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        if self.patience.unit == TimeUnit.BATCH:
+        if self.patience.unit == TimeUnit.BATCH and self.dataloader_label == "train":
             self._update_stopper_state(state)
