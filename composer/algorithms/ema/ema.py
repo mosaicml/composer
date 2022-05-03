@@ -42,7 +42,7 @@ def ema(model: T_Model, ema_model: T_Model, smoothing: float = 0.99):
         model (torch.nn.Module): the model containing the latest weights to use to update the moving average weights.
         ema_model (torch.nn.Module): the model containing the moving average weights to be updated.
         smoothing (float, optional): the coefficient representing the degree to which older observations are kept.
-            Must be in the interval :math:`(0, 1)`. ``Default: ``0.99``.
+            Must be in the interval :math:`(0, 1)`. Default: ``0.99``.
 
     Example:
         .. testcode::
