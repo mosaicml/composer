@@ -227,17 +227,17 @@ class MLPerfCallback(Callback):
         if rank_zero():
 
             if not isinstance(state.train_dataloader, DataLoader):
-                raise ValueError("train dataloader must be a torch dataloader")
+                raise TypeError("train dataloader must be a torch dataloader")
             if not isinstance(state.evaluators[0].dataloader.dataloader, DataLoader):
-                raise ValueError("eval dataset must be a torch dataloader.")
+                raise TypeError("eval dataset must be a torch dataloader.")
             if state.train_dataloader.batch_size is None:
                 raise ValueError("Batch size is required to be set for dataloader.")
             if len(state.evaluators) > 1:
                 raise ValueError("Only one evaluator is supported for the MLPerfCallback.")
             if not isinstance(state.train_dataloader.dataset, Sized):
-                raise ValueError("Train dataset must have __len__ property")
+                raise TypeError("Train dataset must have __len__ property")
             if not isinstance(state.evaluators[0].dataloader.dataloader.dataset, Sized):
-                raise ValueError("Train dataset must have __len__ property")
+                raise TypeError("The eval dataset must have __len__ property")
 
             self._log_dict({
                 constants.SEED: state.seed,
