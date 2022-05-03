@@ -5,7 +5,7 @@ import platform
 import subprocess
 import sys
 import warnings
-from typing import Any, Dict, Optional, Sized
+from typing import Any, Dict, List, Optional, Sized
 
 import torch
 from torch.utils.data import DataLoader
@@ -125,7 +125,7 @@ class MLPerfCallback(Callback):
         submitter: str = "MosaicML",
         system_name: Optional[str] = None,
         status: str = "onprem",
-        cache_clear_cmd: Optional[str] = None,
+        cache_clear_cmd: Optional[List[str]] = None,
     ) -> None:
 
         require_mlperf_logging()
@@ -229,7 +229,6 @@ class MLPerfCallback(Callback):
                 raise ValueError("train dataloader must be a torch dataloader")
             if not isinstance(state.evaluators[0].dataloader.dataloader, DataLoader):
                 raise ValueError("eval dataset must be a torch dataloader.")
-
             if state.train_dataloader.batch_size is None:
                 raise ValueError("Batch size is required to be set for dataloader.")
             if len(state.evaluators) > 1:
@@ -290,7 +289,8 @@ class MLPerfCallback(Callback):
                 self.success = True  # only log once
 
     def close(self, state: State, logger: Logger) -> None:
-        self.mllogger.logger.shutdown()
+        if self._file_handler is not None:
+            self._file_handler.close()
 
 
 def get_system_description(

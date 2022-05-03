@@ -116,7 +116,11 @@ class TestWithMLPerfChecker:
 
         for run in range(5):
 
-            mlperf_callback = MLPerfCallback(root_folder=directory, index=run, cache_clear_cmd="")
+            mlperf_callback = MLPerfCallback(
+                root_folder=directory,
+                index=run,
+                cache_clear_cmd=['sleep', '0.1'],
+            )
 
             trainer = Trainer(
                 model=SimpleModel(),
