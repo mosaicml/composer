@@ -1,66 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Train models!
-
-The trainer supports models with :class:`~composer.models.base.ComposerModel` instances.
-The :class:`.Trainer` is highly customizable and can
-support a wide variety of workloads.
-
-Example
---------
-
-Train a model and save a checkpoint:
-
-.. testcode::
-
-    import os
-    from composer import Trainer
-
-    ### Create a trainer
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration="1ep",
-        eval_dataloader=eval_dataloader,
-        optimizers=optimizer,
-        schedulers=scheduler,
-        device="cpu",
-        eval_interval="1ep",
-        save_folder="checkpoints",
-        save_filename="ep{epoch}.pt",
-        save_interval="1ep",
-        save_overwrite=True,
-    )
-
-    # Fit and run evaluation for 1 epoch.
-    # Save a checkpoint after 1 epoch as specified during trainer creation.
-    trainer.fit()
-
-Load the checkpoint and resume training:
-
-.. testcode::
-
-    # Get the saved checkpoint filepath
-    checkpoint_path = trainer.saved_checkpoints.pop()[0]
-
-    # Create a new trainer with the `load_path` argument set to the checkpoint path.
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration="2ep",
-        eval_dataloader=eval_dataloader,
-        optimizers=optimizer,
-        schedulers=scheduler,
-        device="cpu",
-        eval_interval="1ep",
-        load_path=checkpoint_path,
-    )
-
-    # Continue training and running evaluation where the previous trainer left off
-    # until the new max_duration is reached.
-    # In this case it will be one additional epoch to reach 2 epochs total.
-    trainer.fit()
-"""
+"""Train models!"""
 
 from __future__ import annotations
 
@@ -69,7 +9,6 @@ import datetime
 import itertools
 import logging
 import pathlib
-import textwrap
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
@@ -85,8 +24,7 @@ import composer
 from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
-                           ensure_data_spec, ensure_time)
-from composer.core.evaluator import evaluate_periodically
+                           ensure_data_spec, ensure_evaluator, ensure_time)
 from composer.core.precision import get_precision_context
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
@@ -116,8 +54,10 @@ def _raise_missing_argument_exception(arg_name: str):
                       f"{Trainer.__name__}.{Trainer.fit.__name__}({arg_name}=...)."))
 
 
-def _scale_max_duration_by_ssr(scale_schedule_ratio: float,
-                               orig_max_duration: Optional[Time[int]]) -> Optional[Time[int]]:
+def _scale_max_duration_by_ssr(
+    scale_schedule_ratio: float,
+    orig_max_duration: Optional[Time[int]],
+) -> Optional[Time[int]]:
     if orig_max_duration is None:
         return None
     max_duration = cast(Time[int], orig_max_duration * scale_schedule_ratio)
@@ -138,21 +78,22 @@ def _should_step_schedulers_every_batch(
         if step_schedulers_every_batch is True:
             log.info(("Schedulers are being steped every batch, as `step_schedulers_every_batch` is True. "
                       "The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the "
-                      "PyTorch {type(pytorch_schedulers[0]).__name__} scheduler to be in terms of batches. "
+                      f"PyTorch {type(pytorch_schedulers[0]).__name__} scheduler to be in terms of batches. "
                       "Please ensure that the scheduler parameters are in terms of batches, not epochs. "
                       "Alternatively, use a ComposerScheduler. For more information, see "
                       f"https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html. "))
 
-        if step_schedulers_every_batch is None:
-            # only if all schedulers are ComposerSchedulers, then we can step every batch by default
-            step_schedulers_every_batch = False
+        else:
+            if step_schedulers_every_batch is None:
+                # only if all schedulers are ComposerSchedulers, then we can step every batch by default
+                step_schedulers_every_batch = False
 
-        log.info(
-            ("Schedulers will be stepped every epoch because the Trainer was constructed with a PyTorch "
-             f"{type(pytorch_schedulers[0]).__name__} scheduler. To step the schedulers every batch, adjust the "
-             "scheduler parameters (e.g. step_size, T_max) to be in terms of batches and set "
-             "`step_schedulers_every_batch` to True, or alternatively use a ComposerScheduler. For more information, "
-             f"see https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html."))
+            log.info((
+                "Schedulers will be stepped every epoch because the Trainer was constructed with a PyTorch "
+                f"{type(pytorch_schedulers[0]).__name__} scheduler. To step the schedulers every batch, adjust the "
+                "scheduler parameters (e.g. step_size, T_max) to be in terms of batches and set "
+                "`step_schedulers_every_batch` to True, or alternatively use a ComposerScheduler. For more information, "
+                f"see https://docs.mosaicml.com/en/v{composer.__version__}/trainer/schedulers.html."))
 
     else:
         step_schedulers_every_batch = True
@@ -187,36 +128,17 @@ def _compile_schedulers(
     return compiled_schedulers
 
 
-def _configure_evaluators(
-    eval_dataloader: Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]],
+def _set_evaluator_interval_and_subset_num_batches(
+    evaluators: Sequence[Evaluator],
     eval_interval: Union[int, str, Time, Callable[[State, Event], bool]],
     subset_num_batches: int,
-    model: ComposerModel,
-) -> List[Evaluator]:
+):
     # convert eval_dataloader to `List[Evaluator]`
-    evaluators: List[Evaluator] = []
-    for evaluator in ensure_tuple(eval_dataloader):
-        if isinstance(evaluator, Evaluator):
-            if evaluator.should_eval is None:
-                if callable(eval_interval):
-                    evaluator.should_eval = eval_interval
-                else:
-                    evaluator.should_eval = evaluate_periodically(eval_interval)
-            if evaluator.subset_num_batches is None:
-                evaluator.subset_num_batches = subset_num_batches
-            evaluators.append(evaluator)
-        else:
-            metrics = model.metrics(train=False)
-            evaluator = Evaluator(
-                label="eval",
-                dataloader=evaluator,
-                metrics=metrics,
-                subset_num_batches=subset_num_batches,
-                eval_interval=eval_interval,
-            )
-            evaluators.append(evaluator)
-
-    return evaluators
+    for evaluator in evaluators:
+        if evaluator.subset_num_batches is None:
+            evaluator.subset_num_batches = subset_num_batches
+        if evaluator.eval_interval is None:
+            evaluator.eval_interval = eval_interval
 
 
 def _get_grad_accum(grad_accum: Union[int, str], device: Device) -> Tuple[int, bool]:
@@ -224,17 +146,15 @@ def _get_grad_accum(grad_accum: Union[int, str], device: Device) -> Tuple[int, b
     adaptive_grad_accum = grad_accum == "auto"
     if adaptive_grad_accum:
         grad_accum = 1
-        warnings.warn(textwrap.dedent("""Setting `grad_accum='auto'` is an experimental feature
-            which may cause uncaught Cuda Out of Memory errors. In this case, please manually
-            set grad_accum explicitly to an integer instead.
-            """),
-                      category=UserWarning)
+        warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
+                       "uncaught Cuda Out of Memory errors. In this case, please manually "
+                       "set grad_accum explicitly to an integer instead. "))
     # Cannot use adaptive grad accum on CPU
     if isinstance(device, DeviceCPU) and adaptive_grad_accum:
         raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
     # grad_accum should be int as we've already handled "auto" case
     if not isinstance(grad_accum, int):
-        raise ValueError("grad_accum must be an int or ``auto``")
+        raise ValueError("grad_accum must be an int or ``'auto'``")
     return grad_accum, adaptive_grad_accum
 
 
@@ -256,7 +176,7 @@ def _get_device(device: Optional[Union[str, Device]]):
     return device
 
 
-def _get_random_seed(seed: Optional[int], device: Device):
+def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
     if not seed:
         seed = reproducibility.get_random_seed()
 
@@ -346,7 +266,67 @@ def _initialize_profiler(
 
 
 class Trainer:
-    """Trainer for training a models with Composer algorithms. See the Trainer guide for more information.
+    """Train models with Composer algorithms.
+
+    The trainer supports models with :class:`~composer.models.base.ComposerModel` instances.
+    The :class:`.Trainer` is highly customizable and can support a wide variety of workloads.
+    See the :doc:`training guide<trainer/using_the_trainer>` for more information.
+
+    Example
+    --------
+
+    Train a model and save a checkpoint:
+
+    .. testcode::
+
+        import os
+        from composer import Trainer
+
+        ### Create a trainer
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            max_duration="1ep",
+            eval_dataloader=eval_dataloader,
+            optimizers=optimizer,
+            schedulers=scheduler,
+            device="cpu",
+            eval_interval="1ep",
+            save_folder="checkpoints",
+            save_filename="ep{epoch}.pt",
+            save_interval="1ep",
+            save_overwrite=True,
+        )
+
+        # Fit and run evaluation for 1 epoch.
+        # Save a checkpoint after 1 epoch as specified during trainer creation.
+        trainer.fit()
+
+    Load the checkpoint and resume training:
+
+    .. testcode::
+
+        # Get the saved checkpoint filepath
+        checkpoint_path = trainer.saved_checkpoints.pop()[0]
+
+        # Create a new trainer with the `load_path` argument set to the checkpoint path.
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            max_duration="2ep",
+            eval_dataloader=eval_dataloader,
+            optimizers=optimizer,
+            schedulers=scheduler,
+            device="cpu",
+            eval_interval="1ep",
+            load_path=checkpoint_path,
+        )
+
+        # Continue training and running evaluation where the previous trainer left off
+        # until the new max_duration is reached.
+        # In this case it will be one additional epoch to reach 2 epochs total.
+        trainer.fit()
+
 
     Args:
         model (ComposerModel): The model to train. Can be user-defined or one of the models included
@@ -854,7 +834,7 @@ class Trainer:
             dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
 
         # Reproducibility
-        rank_zero_seed, seed = _get_random_seed(seed, self._device)
+        rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
         log.info(f"Setting seed to {seed}")
@@ -1008,11 +988,13 @@ class Trainer:
         if eval_dataloader is None:
             self.evaluators: List[Evaluator] = []
         else:
-            self.evaluators = _configure_evaluators(
-                eval_dataloader,
-                subset_num_batches=eval_subset_num_batches,
+            self.evaluators = [
+                ensure_evaluator(evaluator, model.metrics(train=False)) for evaluator in ensure_tuple(eval_dataloader)
+            ]
+            _set_evaluator_interval_and_subset_num_batches(
+                evaluators=self.evaluators,
                 eval_interval=eval_interval,
-                model=model,
+                subset_num_batches=eval_subset_num_batches,
             )
         if len(self.evaluators) == 0:
             if eval_subset_num_batches != -1:
@@ -1222,11 +1204,14 @@ class Trainer:
 
         # Evaluators
         if eval_dataloader is not None:
-            self.evaluators = _configure_evaluators(
-                eval_dataloader,
+            self.evaluators = [
+                ensure_evaluator(evaluator, self._original_model.metrics(train=False))
+                for evaluator in ensure_tuple(eval_dataloader)
+            ]
+            _set_evaluator_interval_and_subset_num_batches(
+                evaluators=self.evaluators,
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
-                model=self._original_model,
             )
             if len(self.evaluators) == 0:
                 if eval_subset_num_batches != -1:
@@ -1438,9 +1423,9 @@ class Trainer:
                     self.engine.run_event(Event.BATCH_END)
 
                     for evaluator in self.evaluators:
-                        assert evaluator.should_eval is not None, "should_eval should have been set on __init__() or fit()"
+                        assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
                         assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
-                        if evaluator.should_eval(self.state, Event.BATCH_END):
+                        if evaluator.eval_interval(self.state, Event.BATCH_END):
                             self.eval(
                                 dataloader=evaluator.dataloader,
                                 dataloader_label=evaluator.label,
@@ -1476,9 +1461,9 @@ class Trainer:
             self.engine.run_event(Event.EPOCH_END)
 
             for evaluator in self.evaluators:
-                assert evaluator.should_eval is not None, "should_eval should have been set on __init__() or fit()"
+                assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
                 assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
-                if evaluator.should_eval(self.state, Event.EPOCH_END):
+                if evaluator.eval_interval(self.state, Event.EPOCH_END):
                     self.eval(
                         dataloader=evaluator.dataloader,
                         dataloader_label=evaluator.label,
@@ -1493,9 +1478,8 @@ class Trainer:
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
         # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
         if self.state.grad_accum == self.state.batch_num_samples:
-            raise RuntimeError(
-                textwrap.dedent("""CUDA out of memory. Train loop failed with an internal microbatch of size 1.
-                               This means the GPU does not have enough memory to process even 1 sample."""))
+            raise RuntimeError(("CUDA out of memory. The train loop failed with an internal microbatch of size 1."
+                                "The GPU does not have enough memory to process even 1 sample."))
         else:
             self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
             self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
@@ -1537,9 +1521,8 @@ class Trainer:
                             optimizer.step()
             except RuntimeError as e:
                 if _is_cuda_oom(e):
-                    log.debug(
-                        textwrap.dedent(f"""Rank {dist.get_global_rank()} OOM'd. 
-                        grad_accum will be increased prior to reattempting training on the current batch."""))
+                    log.debug((f"Rank {dist.get_global_rank()} OOM'd. "
+                               "grad_accum will be increased prior to reattempting training on the current batch."))
                     should_handle_cuda_oom = 1
                 elif "Timed out" in str(e):
                     # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error

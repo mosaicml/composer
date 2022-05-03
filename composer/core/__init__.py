@@ -11,7 +11,7 @@ from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.engine import Engine, Trace
-from composer.core.evaluator import Evaluator
+from composer.core.evaluator import Evaluator, ensure_evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
@@ -33,4 +33,5 @@ __all__ = [
     "Timestamp",
     "TimeUnit",
     "ensure_time",
+    "ensure_evaluator",
 ]
