@@ -20,13 +20,13 @@ def fake_data(request):
     x_fake = torch.randn(N, C, d1, d2)
     y_fake = torch.randint(num_classes, size=(N,))
     indices = torch.randperm(N)
-    return x_fake, y_fake, indices, num_classes
+    return x_fake, y_fake, indices
 
 
-def validate_cutmix(x, y, indices, x_cutmix, y_cutmix, cutmix_lambda, bbox, num_classes):
+def validate_cutmix_batch(x, y, indices, x_cutmix, y_perm, cutmix_lambda, bbox):
     # Create shuffled version of x, y for reference checking
     x_perm = x[indices]
-    y_perm = y[indices]
+    y_perm_ref = y[indices]
 
     # Explicitly check that the pixels and labels have been mixed correctly.
     for i in range(x.size(0)):  # Grab N
@@ -37,11 +37,8 @@ def validate_cutmix(x, y, indices, x_cutmix, y_cutmix, cutmix_lambda, bbox, num_
                     torch.testing.assert_allclose(x_perm[i, :, j, k], x_cutmix[i, :, j, k])
                 else:
                     torch.testing.assert_allclose(x[i, :, j, k], x_cutmix[i, :, j, k])
-        # Check the label
-        y_onehot = F.one_hot(y[i], num_classes=num_classes)
-        y_perm_onehot = F.one_hot(y_perm[i], num_classes=num_classes)
-        y_interp = cutmix_lambda * y_onehot + (1 - cutmix_lambda) * y_perm_onehot
-        torch.testing.assert_allclose(y_interp, y_cutmix[i])
+    # Check the label
+    torch.testing.assert_allclose(y_perm_ref, y_perm)
 
 
 @pytest.mark.parametrize('alpha', [0.2, 1])
@@ -50,7 +47,7 @@ class TestCutMix:
 
     def test_cutmix(self, fake_data, alpha, uniform_sampling):
         # Generate fake data
-        x_fake, y_fake, indices, num_classes = fake_data
+        x_fake, y_fake, indices = fake_data
 
         # Get lambda based on alpha hparam
         cutmix_lambda = np.random.beta(alpha, alpha)
@@ -68,29 +65,27 @@ class TestCutMix:
         cutmix_lambda = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (x_fake.size()[-1] * x_fake.size()[-2]))
 
         # Apply cutmix
-        x_cutmix, y_cutmix = cutmix_batch(x_fake,
+        x_cutmix, y_perm, _, _ = cutmix_batch(x_fake,
                                           y_fake,
                                           alpha=1.0,
-                                          num_classes=num_classes,
                                           bbox=bbox,
                                           indices=indices,
                                           uniform_sampling=uniform_sampling)
 
         # Validate results
-        validate_cutmix(x=x_fake,
-                        y=y_fake,
-                        indices=indices,
-                        x_cutmix=x_cutmix,
-                        y_cutmix=y_cutmix,
-                        cutmix_lambda=cutmix_lambda,
-                        bbox=bbox,
-                        num_classes=num_classes)
+        validate_cutmix_batch(x=x_fake,
+                              y=y_fake,
+                              indices=indices,
+                              x_cutmix=x_cutmix,
+                              y_perm=y_perm,
+                              cutmix_lambda=cutmix_lambda,
+                              bbox=bbox)
 
     def test_cutmix_algorithm(self, fake_data, alpha, uniform_sampling, minimal_state, empty_logger):
         # Generate fake data
         x_fake, y_fake, _, _ = fake_data
 
-        algorithm = CutMix(alpha=alpha, num_classes=x_fake.size(1), uniform_sampling=uniform_sampling)
+        algorithm = CutMix(alpha=alpha, uniform_sampling=uniform_sampling)
         state = minimal_state
         state.model = ComposerClassifier(torch.nn.Flatten())
         state.batch = (x_fake, y_fake)
@@ -108,17 +103,6 @@ class TestCutMix:
                         cutmix_lambda=algorithm._cutmix_lambda,
                         bbox=algorithm._bbox,
                         num_classes=algorithm.num_classes)
-
-
-def test_cutmix_nclasses(minimal_state, empty_logger):
-    algorithm = CutMix(alpha=1.0, num_classes=10)
-
-    state = minimal_state
-    state.model = SimpleConvModel(num_classes=10)
-    state.batch = (torch.ones((1, 1, 1, 1)), torch.Tensor([2]))
-
-    algorithm.apply(Event.INIT, state, empty_logger)
-    algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
 
 
 def test_cutmix_hparams():

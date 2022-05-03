@@ -139,7 +139,6 @@ class ColOutHparams(AlgorithmHparams):
 class CutMixHparams(AlgorithmHparams):
     """See :class:`CutMix`"""
 
-    num_classes: int = hp.required('Number of classes in the task labels.')
     alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
     uniform_sampling: bool = hp.optional('Mix pixels with uniform probability', default=False)
 
