@@ -45,14 +45,14 @@ def example_map(request):
     return request.param
 
 
-# All key-value pair data structures that are mutable.
-@pytest.fixture(
-    scope="module",
-    params=[dict(zip(keys, my_list)),
-            myClass(**dict(zip(keys, my_list))),
-            OrderedDict(**dict(zip(keys, my_list)))])
-def example_mutable_map(request):
-    return request.param
+# # All key-value pair data structures that are mutable.
+# @pytest.fixture(
+#     scope="module",
+#     params=[dict(zip(keys, my_list)),
+#             myClass(**dict(zip(keys, my_list))),
+#             OrderedDict(**dict(zip(keys, my_list)))])
+# def example_map(request):
+#     return request.param
 
 
 # Test whether sequences can be indexed by an int.
@@ -159,6 +159,6 @@ def test_batch_set_array_list_of_slices(example_array,
 
 # Test whether mutable key value data structures can be set using batch_set.
 @pytest.mark.parametrize('key,value', [('b', -10), ('c', -20), (['d', 'e'], [100, 101])])
-def test_batch_set_map(example_mutable_map, key, value):
-    batch_set(example_mutable_map, key, value)
-    assert batch_get(example_mutable_map, key) == value
+def test_batch_set_map(example_map, key, value):
+    new_batch = batch_set(example_map, key, value)
+    assert batch_get(new_batch, key) == value
