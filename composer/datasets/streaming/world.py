@@ -1,3 +1,8 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
+"""The :class:`World` class is used for easily querying distributed training info, used by `StreamingDataset`.
+"""
+
 from typing import NamedTuple
 
 from torch.utils.data import get_worker_info
@@ -8,7 +13,7 @@ __all__ = ["World", "get_world"]
 
 
 class World(NamedTuple):
-    """A NamedTuple that provides context about workers, devices, and nodes."""
+    """A :class:`NamedTuple` that provides context about workers, devices, and nodes."""
     global_node: int
     global_num_nodes: int
 
@@ -29,7 +34,7 @@ class World(NamedTuple):
 
 
 def get_world() -> World:
-    """Returns a World object, initialized using composer.dist and torch.utils.data.get_worker_info()."""
+    """Returns a :class:`World` object, initialized using :mod:`composer.dist` and :meth:`torch.utils.data.get_worker_info`"""
 
     # Node and Device info
     global_node = dist.get_node_rank()

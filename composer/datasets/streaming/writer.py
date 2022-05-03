@@ -1,3 +1,8 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
+""":class:`StreamingDatasetWriter` is used to convert a list of samples into binary `.mds` files that can be read as a :class:`StreamingDataset`.
+"""
+
 import os
 from typing import Dict, Iterable, List, Optional
 
@@ -7,42 +12,34 @@ from tqdm import tqdm
 from composer.datasets.streaming.format import (StreamingDatasetIndex, get_index_basename, get_shard_basename,
                                                 sample_dict_to_bytes)
 
+__all__ = ["StreamingDatasetWriter"]
+
 
 class StreamingDatasetWriter(object):
     """
-    Used for writing StreamingDatasets from a list of samples.
+    Used for writing a :class:`StreamingDataset` from a list of samples.
 
     Samples are expected to be of type: `Dict[str, bytes]`.
 
-    Given each sample, StreamingDatasetWriter only writes out the values for a subset of keys (`fields`) that are globally shared across the dataset.
+    Given each sample, :class:`StreamingDatasetWriter` only writes out the values for a subset of keys (`fields`) that are globally shared across the dataset.
 
-    StreamingDatasetWriter automatically shards the dataset such that each shard is of size <= `shard_size_limit` bytes.
+    :class:`StreamingDatasetWriter` automatically shards the dataset such that each shard is of size <= `shard_size_limit` bytes.
 
 
-    Example:
-        samples = [
-            {
-                "uid": f"{ix:06}".encode("utf-8"),
-                "data": (3 * ix).to_bytes(4, "big"),
-                "unused": "blah".encode("utf-8"),
-            }
-            for ix in range(100)
-        ]
-        dirname = "dirname"
-        fields = ["uid", "data"]
+    .. doctest::
 
-        # Write out StreamingDataset
-        with StreamingDatasetWriter(dirname=dirname, fields=fields, shard_size_limit=shard_size_limit) as writer:
-            writer.write_samples(samples=samples)
-
-        # Read StreamingDataset from wherever you stored it
-        remote = "remote"
-        local = "local"
-        decoders = {
-            "uid": lambda uid_bytes: uid_bytes.decode("utf-8"),
-            "data": lambda data_bytes: int.from_bytes(data_bytes, "big"),
-        }
-        dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
+        >>> samples = [
+        ...     {
+        ...         "uid": f"{ix:06}".encode("utf-8"),
+        ...         "data": (3 * ix).to_bytes(4, "big"),
+        ...         "unused": "blah".encode("utf-8"),
+        ...     }
+        ...     for ix in range(100)
+        ... ]
+        >>> dirname = "dirname"
+        >>> fields = ["uid", "data"]
+        >>> with StreamingDatasetWriter(dirname=dirname, fields=fields, shard_size_limit=shard_size_limit) as writer:
+        ...     writer.write_samples(samples=samples)
 
 
     Args:

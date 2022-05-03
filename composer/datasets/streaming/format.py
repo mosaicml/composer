@@ -1,6 +1,11 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
+"""The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`.
+"""
+
 import math
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -12,7 +17,6 @@ __all__ = [
     "get_shard_basename",
     "sample_dict_to_bytes",
     "bytes_to_sample_dict",
-    "read_array",
     "StreamingDatasetIndex",
 ]
 
@@ -30,7 +34,7 @@ def get_shard_basename(shard: int) -> str:
     """Get the basename for a streaming dataset shard.
 
     Args:
-        shard (int): Which shard.
+        shard (int): Shard index.
 
     Returns:
         str: Basename of file.
@@ -38,11 +42,11 @@ def get_shard_basename(shard: int) -> str:
     return f'{shard:06}.mds'
 
 
-def sample_dict_to_bytes(obj: Dict[str, bytes], keys: Sequence[str]) -> bytes:
+def sample_dict_to_bytes(obj: Dict[str, bytes], keys: List[str]) -> bytes:
     """Dump a sample dict to bytes, given field names.
 
     Args:
-        obj (dict): The sample dict to encode.
+        obj (Dict[str, bytes]): The sample dict to encode.
         keys (list of str): The field names.
 
     Returns:
@@ -95,7 +99,7 @@ def read_array(fp: BufferedIOBase, count: int, dtype: type) -> np.ndarray:
 
 
 class StreamingDatasetIndex(object):
-    """Streaming dataset index file, containing all the info about shards.
+    """Streaming Dataset index file, containing all the info about shards and samples.
 
     The shards are binary buffers with samples concatenated together. All the
     offset info across the whole dataset is contained in the index file. Workers

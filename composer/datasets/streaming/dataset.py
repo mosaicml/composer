@@ -1,3 +1,8 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
+"""The :class:`StreamingDataset` class, used for building streaming iterable datasets.
+"""
+
 import math
 import os
 from io import BytesIO
@@ -16,9 +21,65 @@ from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_
 from composer.datasets.streaming.world import get_world
 from composer.utils import dist
 
+__all__ = ['StreamingDataset', 'StreamingImageClassDataset']
+
 
 class StreamingDataset(IterableDataset):
-    """Streaming dataset."""
+    """A sharded, streaming, iterable dataset.
+
+    :class:`StreamingDataset` reads samples from binary `.mds` files that were written out by :class:`StreamingDatasetWriter`.
+
+    It currently supports downloading data from etiher S3 paths or local filepaths.
+
+    It supports multi-gpu + multi-node training, and has smart local cacheing to minimize network bandwidth.
+
+    It also provides best-effort shuffling to preserve randomness when ``shuffle=True``.
+
+    Args:
+        remote (str): Download shards from this remote S3 path or directory.
+        local (str): Download shards to this local directory for for caching.
+        shuffle (bool): Whether to shuffle the samples.  Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
+        decoders (Dict[str, Callable[bytes, Any]]]): For each sample field you wish to read, you must provide a decoder to convert the raw bytes to an object.
+        timeout (float): How long to wait for shard to download before raising an exception. Default: 20 sec.
+        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader.
+                                    Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
+                                    E.g. if the DataLoader is reading over (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
+                                    but `batch_size` is not hinted to the StreamingDataset ahead of time
+                                    then the samples will by default be assigned like: w0: [0, 1, 2], w1: [3, 4, 5], w2: [6, 7]
+                                    and will be read as batches: [0, 1], [3, 4], [6, 7] (with batches [2] and [5] dropped as incomplete)
+                                    but this is suboptimal because we could have dropped no samples.
+                                    So when `batch_size` is provided as a hint, we assign samples like this: w0: [0, 1, 2, 3], w1: [4, 5], w2: [6, 7]
+                                    which will be read as batches: [0, 1], [4, 5], [6, 7], [2, 3]
+
+
+    .. doctest::
+
+        To write the dataset:
+        >>> samples = [
+        ...     {
+        ...         "uid": f"{ix:06}".encode("utf-8"),
+        ...         "data": (3 * ix).to_bytes(4, "big"),
+        ...         "unused": "blah".encode("utf-8"),
+        ...     }
+        ...     for ix in range(100)
+        ... ]
+        >>> dirname = "dirname"
+        >>> fields = ["uid", "data"]
+        >>> with StreamingDatasetWriter(dirname=dirname, fields=fields, shard_size_limit=shard_size_limit) as writer:
+        ...     writer.write_samples(samples=samples)
+        Now, move your new dataset to your desired remote location.
+
+        To read the dataset:
+        >>> remote = "remote_s3_or_path"
+        >>> local = "local_path"
+        >>> decoders = {
+        ...     "uid": lambda uid_bytes: uid_bytes.decode("utf-8"),
+        ...     "data": lambda data_bytes: int.from_bytes(data_bytes, "big"),
+        ... }
+        >>> dataset = StreamingDataset(remote=remote, local=local, shuffle=True, decoders=decoders)
+        >>> print (next(iter(dataset))) # {"uid": "000017", "data": 51}
+
+    """
 
     def __init__(self,
                  remote: str,
@@ -27,28 +88,7 @@ class StreamingDataset(IterableDataset):
                  decoders: Dict[str, Callable[[bytes], Any]],
                  timeout: float = 20,
                  batch_size: Optional[int] = None) -> None:
-        """Initialize with the given remote path and local cache.
 
-        Loads all the samples that are available in local cache, then starts a
-        background thread to download the rest during training. As samples are
-        added, shuffled sample selection becomes more random.
-
-        Args:
-            remote (str): Download shards from this remote directory.
-            local (str): Download shards to this local filesystem directory for reuse.
-            shuffle (bool): Whether to shuffle the samples.  Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
-            decoders (Dict[str, Callable]): Raw bytes decoder per sample field.
-            timeout (float): How long to wait for shard to download before raising an exception. Default: 20 sec.
-            batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader.
-                                        Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
-                                        E.g. if the DataLoader is reading over (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
-                                            but `batch_size` is not hinted to the StreamingDataset ahead of time
-                                            then the samples will by default be assigned like: w0: [0, 1, 2], w1: [3, 4, 5], w2: [6, 7]
-                                            and will be read as batches: [0, 1], [3, 4], [6, 7] (with batches [2] and [5] dropped as incomplete)
-                                            but this is suboptimal because we could have dropped no batches.
-                                            So when `batch_size` is provided as a hint, we assign samples like this: w0: [0, 1, 2, 3], w1: [4, 5], w2: [6, 7]
-                                            which will be read as batches: [0, 1], [4, 5], [6, 7], [2, 3]
-        """
         self.remote = remote
         self.local = local
         self.shuffle = shuffle
@@ -312,7 +352,19 @@ class StreamingDataset(IterableDataset):
 
 
 class StreamingImageClassDataset(StreamingDataset):
-    """Streaming image classification dataset."""
+    """A streaming image classification dataset, for (img, class) pairs.
+
+       This is a subclass of :class:`StreamingDataset`.
+
+    Args:
+        remote (str): Download shards from this remote directory.
+        local (str): Download shards to this local filesystem directory for reuse.
+        shuffle (bool): Whether to shuffle the samples. Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
+        transform (Optional[Callable]): Optional input data transform for data augmentation, etc.
+        timeout (float): How long to wait for shard to download before raising an exception. Default: 20 sec.
+        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader.
+                                    Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
+    """
 
     def decode_image(self, data: bytes) -> Image.Image:
         """Decode the sample image.
@@ -343,17 +395,6 @@ class StreamingImageClassDataset(StreamingDataset):
                  transform: Optional[Callable] = None,
                  timeout: float = 20,
                  batch_size: Optional[int] = None) -> None:
-        """Initialize the streaming image classification dataset.
-
-        Args:
-            remote (str): Download shards from this remote directory.
-            local (str): Download shards to this local filesystem directory for reuse.
-            shuffle (bool): Whether to shuffle the samples. Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
-            transform (Optional[Callable]): Optional input data transform for data augmentation, etc.
-            timeout (float): How long to wait for shard to download before raising an exception. Default: 20 sec.
-            batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader.
-                                        Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
-        """
         decoders = {
             'x': self.decode_image,
             'y': self.decode_class,

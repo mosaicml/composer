@@ -1,3 +1,8 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
+"""Download handling for :class:`StreamingDataset`.
+"""
+
 import os
 import shutil
 from time import sleep, time
