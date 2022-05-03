@@ -1,3 +1,6 @@
+# ignore third-party missing imports due to the mlperf logger not pip-installable
+# pyright: reportMissingImports=none
+
 import logging
 from unittest.mock import Mock
 
@@ -154,8 +157,7 @@ class TestWithMLPerfChecker:
 
         monkeypatch.setattr(logging, "error", fail_on_error)
 
-        from mlperf_logging.package_checker.package_checker import \
-            check_training_package  # type: ignore (no pypi in ci)
+        from mlperf_logging.package_checker.package_checker import check_training_package
 
         check_training_package(
             folder=directory,

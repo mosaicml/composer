@@ -201,6 +201,9 @@ class MLPerfCallback(Callback):
                 constants.SUBMISSION_STATUS: self.status,
             })
 
+            # optionally, upload the system description file
+            logger.file_artifact(LogLevel.FIT, self.system_desc_upload_name, self.systems_path)
+
     def _create_submission_folders(self, root_folder: str, system_name: str, benchmark: str):
         os.makedirs(root_folder, exist_ok=True)
 
@@ -247,12 +250,10 @@ class MLPerfCallback(Callback):
                 constants.EVAL_SAMPLES: len(state.evaluators[0].dataloader.dataloader.dataset)
             })
 
-            # optionally, upload the system description file
-            logger.file_artifact(LogLevel.FIT, self.system_desc_upload_name, self.systems_path)
-
         self.mllogger.event(key=constants.INIT_STOP)
 
         dist.barrier()
+
         if rank_zero():
             self.mllogger.event(key=constants.RUN_START)
 
