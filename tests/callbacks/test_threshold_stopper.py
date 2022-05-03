@@ -1,29 +1,58 @@
-from types import MethodType
+from typing import List, Sequence
 
-import numpy as np
+import pytest
 from torch import tensor
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy, MetricCollection
 
 from composer import Trainer
 from composer.callbacks.threshold_stopper import ThresholdStopper
-from composer.core.evaluator import Evaluator
-from composer.loggers import LogLevel
-from tests.common import SimpleModel
-from tests.common.datasets import RandomClassificationDataset
+from composer.core import State
+from composer.core.callback import Callback
+from composer.core.time import TimeUnit
+from composer.loggers import Logger
+from tests.common import RandomClassificationDataset, SimpleModel
 
 
-def test_threshold_stopper_eval():
-    metric_min = 0.4
-    metric_max = 0.8
-    metric_threshold = 0.75
-    accuracy_sequence = (i for i in np.linspace(metric_min, metric_max, 100))
+class TestMetricSetter(Callback):
 
-    tstop = ThresholdStopper("Accuracy", metric_threshold, "eval")
+    def __init__(self, monitor: str, dataloader_label: str, metric_sequence: Sequence, unit: TimeUnit):
+        self.monitor = monitor
+        self.dataloader_label = dataloader_label
+        self.metric_sequence = metric_sequence
+        self.unit = unit
 
-    def test_compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
-        metrics_val = next(accuracy_sequence, metric_max)
-        self.state.current_metrics[dataloader_label] = {"Accuracy": tensor(metrics_val)}
+    def _update_metrics(self, state: State):
+        idx = min(len(self.metric_sequence) - 1, state.timer.get(self.unit).value)
+        metric_val = self.metric_sequence[idx]
+        state.current_metrics[self.dataloader_label] = state.current_metrics.get(self.dataloader_label, dict())
+        state.current_metrics[self.dataloader_label][self.monitor] = tensor(metric_val)
+
+    def eval_end(self, state: State, logger: Logger) -> None:
+        if self.dataloader_label != "train":
+            self._update_metrics(state)
+
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        if self.dataloader_label == "train":
+            self._update_metrics(state)
+
+    def batch_end(self, state: State, logger: Logger) -> None:
+        if self.unit == TimeUnit.BATCH:
+            self._update_metrics(state)
+
+
+@pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8], [0.6, 0.7]])
+@pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
+def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit):
+    metric_threshold = 0.65
+
+    if unit == TimeUnit.EPOCH:
+        dataloader_label = "eval"
+    else:
+        dataloader_label = "train"
+
+    tstop = ThresholdStopper("Accuracy", dataloader_label, metric_threshold)
+
+    test_metric_setter = TestMetricSetter("Accuracy", dataloader_label, metric_sequence, unit)
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),
@@ -35,48 +64,15 @@ def test_threshold_stopper_eval():
             RandomClassificationDataset(shape=(5, 1, 1)),
             batch_size=4,
         ),
-        max_duration="10ep",
-        callbacks=[tstop],
+        max_duration="30ep",
+        callbacks=[test_metric_setter, tstop],
     )
-
-    trainer._compute_and_log_metrics = MethodType(test_compute_and_log_metrics, trainer)
 
     trainer.fit()
 
-    assert trainer.state.timer.epoch.value == 4
+    count_before_threshold = 0
+    for metric in metric_sequence:
+        if metric_threshold > metric:
+            count_before_threshold += 1
 
-
-def test_threshold_stopper_evaluators():
-    metric_min = 0.4
-    metric_max = 0.8
-    metric_threshold = 0.75
-    accuracy_sequence = (i for i in np.linspace(metric_min, metric_max, 100))
-
-    tstop = ThresholdStopper("Accuracy", metric_threshold, "evaluator_1")
-
-    def test_compute_and_log_metrics(self, dataloader_label: str, log_level: LogLevel, metrics: MetricCollection):
-        metrics_val = next(accuracy_sequence, metric_max)
-        self.state.current_metrics[dataloader_label] = {"Accuracy": tensor(metrics_val)}
-
-    evaluator = Evaluator(label="evaluator_1",
-                          dataloader=DataLoader(
-                              RandomClassificationDataset(shape=(5, 1, 1)),
-                              batch_size=4,
-                          ),
-                          metrics=Accuracy())
-    trainer = Trainer(
-        model=SimpleModel(num_features=5),
-        train_dataloader=DataLoader(
-            RandomClassificationDataset(shape=(5, 1, 1)),
-            batch_size=4,
-        ),
-        eval_dataloader=evaluator,
-        max_duration="10ep",
-        callbacks=[tstop],
-    )
-
-    trainer._compute_and_log_metrics = MethodType(test_compute_and_log_metrics, trainer)
-
-    trainer.fit()
-
-    assert trainer.state.timer.epoch.value == 4
+    assert trainer.state.timer.get(unit).value == count_before_threshold
