@@ -39,22 +39,22 @@ class TestMetricSetter(Callback):
         state.current_metrics[self.dataloader_label][self.monitor] = metric_tensor
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label != "train":
+        if self.dataloader_label == state.dataloader_label:
             self._update_metrics(state)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label == "train":
+        if self.dataloader_label == state.dataloader_label:
             self._update_metrics(state)
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        if self.unit == TimeUnit.BATCH:
+        if self.unit == TimeUnit.BATCH and self.dataloader_label == state.dataloader_label:
             self._update_metrics(state)
 
 
 @pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.2, 1.3], [0.1, 0.2]])
 @pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
 @pytest.mark.parametrize('device_hparams', [GPUDeviceHparams(), CPUDeviceHparams()])
-def test_threshold_stopper(metric_sequence: List[float], unit: TimeUnit, device_hparams: DeviceHparams):
+def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device_hparams: DeviceHparams):
 
     if unit == TimeUnit.EPOCH:
         dataloader_label = "eval"
