@@ -65,7 +65,7 @@ The Composer Trainer implementation of EMA has two hyperparameters:
 - `half_life` - The half life for terms in the average. A longer half life means old information is remembered longer, a shorter half life means old information is discared sooner.
 - `update_interval` - The period at which updates to the moving average are computed. A longer update interval means that updates are computed less frequently.
 
-A good typical starting value for `half_life` is `half_life="100ba"`, for a half life of 100 batches. At the same time, `update_interval` can be left unspecified which will default to `update_interval="1ba"`, or set to a larger value such as `update_interval="10ba"` to improve runtime. Shorter update intervals typically result in better generalization performance at the cost of somewhat reduced runtime.
+A good typical starting value for `half_life` is `half_life="100ba"`, for a half life of 100 batches. At the same time, `update_interval` can be left unspecified which will default to `update_interval="1ba"`, or set to a larger value such as `update_interval="10ba"` to improve runtime. Shorter update intervals typically result in better generalization performance at the cost of somewhat increased runtime.
 
 Our implementation of EMA also provides the option to use the EMA weights as the training weights, which can be enabled by setting `train_with_ema_weights=True`. We reccomend leaving this off with the default value of `train_with_ema_weights=False.`
 
