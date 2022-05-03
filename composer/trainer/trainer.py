@@ -662,6 +662,8 @@ class Trainer:
                 self._device = DeviceCPU()
             elif device == 'gpu':
                 self._device = DeviceGPU()
+            elif debice == 'tpu':
+                self._device = DeviceTPU()
             else:
                 raise ValueError(f'device ({device}) must be one of (cpu, gpu).')
         else:
@@ -1022,7 +1024,16 @@ class Trainer:
     def fit(self):
         """Train and evaluate the model on the provided data."""
         # Print any exception, so it can be caputred by any callbacks or loggers (e.g. WandB, FileLogger)
-        self._train_loop()
+
+        if self._device == "tpu":
+            import torch_xla.distributed.xla_multiprocessing as xmp
+            
+            def _mp_fn(index):
+                self._train_loop()
+
+            xmp.spawn(_mp_fn, args=(), nprocs=8,start_method='fork')
+        else:
+            self._train_loop()            
 
     def close(self):
         """Shutdown the trainer.
@@ -1286,11 +1297,12 @@ class Trainer:
                             total_loss = self.state.scaler.step(
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
-                            #total_loss = xm.optimizer_step(optimizer)
-
+                            total_loss = xm.optimizer_step(optimizer)
+                            '''
                             total_loss = optimizer.step(
                                 closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
                             xm.mark_step()
+                            '''
                               
                 else:
                     total_loss = self._train_microbatches(microbatches)
@@ -1298,9 +1310,11 @@ class Trainer:
                         if use_grad_scaling:
                             self.state.scaler.step(optimizer)
                         else:
-                            #xm.optimizer_step(optimizer)
+                            xm.optimizer_step(optimizer)
+                            '''
                             optimizer.step()
                             xm.mark_step()
+                            '''
                               
             except RuntimeError as e:
                 if self._is_cuda_oom(e):

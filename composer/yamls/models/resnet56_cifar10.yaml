@@ -2,14 +2,14 @@ train_dataset:
   cifar10:
     datadir: /datasets/CIFAR10
     is_train: true
-    download: true
+    download: false
     shuffle: true
     drop_last: true
 val_dataset:
   cifar10:
     datadir: /datasets/CIFAR10
     is_train: false
-    download: true
+    download: false
     shuffle: false
     drop_last: false
 optimizer:
@@ -30,6 +30,7 @@ model:
     initializers:
       - kaiming_normal
       - bn_uniform
+eval_interval: 160ep
 max_duration: 160ep
 train_batch_size: 512
 eval_batch_size: 512
