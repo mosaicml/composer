@@ -41,6 +41,7 @@ def package_files(prefix: str, directory: str, extension: str):
                 paths.append(os.path.relpath(os.path.join(path, filename), prefix))
     return paths
 
+
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
@@ -148,6 +149,12 @@ extra_deps["webdataset"] = [
     # PyPI does not permit git dependencies. See https://github.com/mosaicml/composer/issues/771
     # "webdataset @ git+https://github.com/mosaicml/webdataset.git@dev"
     "wurlitzer>=3.0.2,<4",
+]
+
+extra_deps["mlperf"] = [
+    # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218
+    # "mlperf_logging @ git+https://github.com/mlperf/logging.git",
+    "py-cpuinfo>=8.0.0,<9",
 ]
 
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)

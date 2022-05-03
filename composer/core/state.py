@@ -235,6 +235,9 @@ class State(Serializable):
         self.max_duration = max_duration
         self.steps_per_epoch = steps_per_epoch
 
+        self.train_dataloader = train_dataloader
+        self._evaluators = list(ensure_tuple(evaluators))
+
         self.timer = Timer()
         self._precision = Precision(precision)
         self._precision_context = precision_context
@@ -328,6 +331,14 @@ class State(Serializable):
     @algorithms.setter
     def algorithms(self, algorithms: Sequence[Algorithm]):
         self._algorithms[:] = algorithms
+
+    @property
+    def evaluators(self):
+        return self._evaluators
+
+    @evaluators.setter
+    def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
+        self._evaluators[:] = list(ensure_tuple(evaluators))
 
     def state_dict(self) -> Dict[str, Any]:
         """Returns the state as a :class:`dict`."""
