@@ -1199,10 +1199,9 @@ class Trainer:
 
         if self.state.max_duration <= self.state.timer.get(self.state.max_duration.unit) and not reset_timer:
             raise ValueError(
-                (f"The max_duration ({self.state.max_duration}) is less than the elapsed training duration "
+                (f"The max_duration ({self.state.max_duration}) is less than or equal to the elapsed training duration "
                  f"({self.state.timer.get(self.state.max_duration.unit)}). No training would occur. "
-                 "Please either increase the `max_duration` or specify `reset_timer=True` in "
-                 f"Trainer.fit()."))
+                 "Please provide the `duration` or specify `reset_timer=True` in Trainer.fit()."))
 
         # Scale Schedule Ratio and Schedulers
         if scale_schedule_ratio != 1.0:

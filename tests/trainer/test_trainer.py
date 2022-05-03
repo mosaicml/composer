@@ -836,8 +836,8 @@ class TestTrainerAlgorithms:
         )
         trainer.fit()
 
-        # fit again
-        trainer.fit()
+        # fit again for another epoch
+        trainer.fit(duration='1ep')
 
 
 @pytest.mark.vision
