@@ -51,6 +51,7 @@ class GPT2Hparams(TransformerHparams):
             tokenizer = None
 
         if self.use_pretrained:
+            assert transformers.AutoModelForCausalLM.from_pretrained is not None, "from_pretrained should not be None"
             model = transformers.AutoModelForCausalLM.from_pretrained(self.pretrained_model_name)
         else:
             model = transformers.AutoModelForCausalLM.from_config(config)  #type: ignore (thirdparty)

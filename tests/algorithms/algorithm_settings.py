@@ -53,6 +53,7 @@ _settings = {
         }
     },
     'cutout': simple_vision_settings,
+    'ema': simple_vision_settings,
     'factorize': None,
     'ghost_batchnorm': {
         'model': (ComposerResNet, {

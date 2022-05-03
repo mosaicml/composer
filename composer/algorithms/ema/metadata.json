@@ -1,0 +1,16 @@
+{
+    "ema": {
+        "name": "EMA",
+        "class_name": "EMA",
+        "functional": "compute_ema",
+        "tldr": "Maintains an exponential moving average of model weights for use in evaluation.",
+        "attribution": "Many",
+        "link": "https://www.mosaicml.com",
+        "domains": [
+            "cv",
+            "nlp"
+        ],
+        "summary": "Maintains an exponential moving average of model weights for use in evaluation.",
+        "use": "Generally applicable"
+    }
+}
