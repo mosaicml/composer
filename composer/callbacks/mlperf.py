@@ -138,26 +138,40 @@ class MLPerfCallback(Callback):
 
         self.mllogger = mllog.get_mllogger()
         self.target = target
-        self.system_name = system_name
         self.benchmark = benchmark
+        self.target = target
+        self.division = division
+        self.submitter = submitter
+        self.status = status
+        self.cache_clear_cmd = cache_clear_cmd
         self.root_folder = root_folder
         self.metric_name = metric_name
         self.metric_label = metric_label
+        self._file_handler = None
 
-        system_desc = get_system_description(submitter, division, status, system_name)
-        system_name = system_desc['system_name']
+        self.system_desc = get_system_description(submitter, division, status, system_name)
+        if system_name is None:
+            system_name = self.system_desc['system_name']
+        self.system_name = system_name
 
-        if dist.get_local_rank() == 0:
-            self._create_submission_folders(root_folder, system_name, benchmark)
-            self.systems_path = os.path.join(root_folder, 'systems', f'{system_name}.json')
-            with open(self.systems_path, 'w') as f:
-                json.dump(system_desc, f, indent=4)
-
-        dist.barrier()
-
+        # file paths to save the systems file, results file
+        self.systems_path = os.path.join(root_folder, 'systems', f'{system_name}.json')
         self.filename = os.path.join(root_folder, 'results', system_name, benchmark, f'result_{index}.txt')
+
+        # upload names for object store logging
         self.upload_name = '{run_name}' + f'/results/{system_name}/{benchmark}/result_{index}.txt'
         self.system_desc_upload_name = '{run_name}' + f'/systems/{system_name}.json'
+
+        self.success = False
+
+    def init(self, state: State, logger: Logger) -> None:
+
+        if dist.get_local_rank() == 0:
+            self._create_submission_folders(self.root_folder, self.system_name, self.benchmark)
+            with open(self.systems_path, 'w') as f:
+                json.dump(self.system_desc, f, indent=4)
+
+        dist.barrier()
 
         if os.path.exists(self.filename):
             raise FileExistsError(f'{self.filename} already exists.')
@@ -166,8 +180,8 @@ class MLPerfCallback(Callback):
         self._file_handler.setLevel(logging.INFO)
         self.mllogger.logger.addHandler(self._file_handler)
 
-        if cache_clear_cmd is not None:
-            subprocess.run(cache_clear_cmd, check=True, text=True)
+        if self.cache_clear_cmd is not None:
+            subprocess.run(self.cache_clear_cmd, check=True, text=True)
             self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
         else:
             warnings.warn("cache_clear_cmd was not provided. For a valid submission, please provide the command.")
@@ -176,14 +190,12 @@ class MLPerfCallback(Callback):
 
         if rank_zero():
             self._log_dict({
-                constants.SUBMISSION_BENCHMARK: benchmark,
-                constants.SUBMISSION_DIVISION: division,
-                constants.SUBMISSION_ORG: submitter,
-                constants.SUBMISSION_PLATFORM: system_name,
-                constants.SUBMISSION_STATUS: status,
+                constants.SUBMISSION_BENCHMARK: self.benchmark,
+                constants.SUBMISSION_DIVISION: self.division,
+                constants.SUBMISSION_ORG: self.submitter,
+                constants.SUBMISSION_PLATFORM: self.system_name,
+                constants.SUBMISSION_STATUS: self.status,
             })
-
-        self.success = False
 
     def _create_submission_folders(self, root_folder: str, system_name: str, benchmark: str):
         os.makedirs(root_folder, exist_ok=True)
@@ -209,22 +221,23 @@ class MLPerfCallback(Callback):
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if rank_zero():
-            assert state.dataloader is not None
+            assert state.train_dataloader is not None
+            assert state.evaluators is not None
 
-            if state.dataloader.batch_size is None:
+            if state.train_dataloader.batch_size is None:
                 raise ValueError("Batch size is required to be set for dataloader.")
             if len(state.evaluators) > 1:
                 raise ValueError("Only one evaluator is supported for the MLPerfCallback.")
-            if not isinstance(state.dataloader.dataset, Sized):
+            if not isinstance(state.train_dataloader.dataset, Sized):
                 raise ValueError("Train dataset must have __len__ property")
             if not isinstance(state.evaluators[0].dataloader.dataloader.dataset, Sized):
                 raise ValueError("Train dataset must have __len__ property")
 
             self._log_dict({
                 constants.SEED: state.seed,
-                constants.GLOBAL_BATCH_SIZE: state.dataloader.batch_size * dist.get_world_size(),
+                constants.GLOBAL_BATCH_SIZE: state.train_dataloader.batch_size * dist.get_world_size(),
                 constants.GRADIENT_ACCUMULATION_STEPS: state.grad_accum,
-                constants.TRAIN_SAMPLES: len(state.dataloader.dataset),
+                constants.TRAIN_SAMPLES: len(state.train_dataloader.dataset),
                 constants.EVAL_SAMPLES: len(state.evaluators[0].dataloader.dataloader.dataset)
             })
 
