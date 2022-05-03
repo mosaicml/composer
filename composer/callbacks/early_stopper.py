@@ -129,3 +129,7 @@ class EarlyStopper(Callback):
         if self.dataloader_label == "train":
             # if the monitored metric is not an eval metric, the right logic is run on EPOCH_END
             self._update_stopper_state(state)
+
+    def batch_end(self, state: State, logger: Logger) -> None:
+        if self.patience.unit == TimeUnit.BATCH:
+            self._update_stopper_state(state)
