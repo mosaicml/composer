@@ -63,7 +63,7 @@ EMA also uses a bit of extra compute to calculate the moving average. This can l
 The Composer Trainer implementation of EMA has two hyperparameters:
 
 - `half_life` - The half life for terms in the average. A longer half life means old information is remembered longer, a shorter half life means old information is discared sooner.
-- `update_interval` - The period at which updates to the moving average are done. A longer update interval means that updates are computed less frequently.
+- `update_interval` - The period at which updates to the moving average are computed. A longer update interval means that updates are computed less frequently.
 
 A good typical starting value for `half_life` is `half_life="100ba"`, for a half life of 100 batches. At the same time, `update_interval` can be left unspecified which will default to `update_interval="1ba"`, or set to a larger value such as `update_interval="10ba"` to improve runtime. Shorter update intervals typically result in better generalization performance at the cost of somewhat reduced runtime.
 
