@@ -7,6 +7,7 @@ from math import ceil
 from typing import Dict, Mapping, Optional
 
 import torch
+import torch.utils.data
 
 from composer.core import Algorithm, Event, State
 from composer.core.precision import get_precision_context
@@ -205,7 +206,14 @@ class SeqLengthWarmup(Algorithm):
             # all of the parameters
             device = next(state.model.parameters()).device
 
-            per_gpu_macrobatch = state.dataloader.batch_size
+            try:
+                # Both PyTorch and FFCV dataloaders define a `batch_size` attribute
+                # This exception would mainly be raised if the user is passing in a custom
+                # iterable
+                per_gpu_macrobatch = getattr(state.dataloader, "batch_size")
+            except AttributeError as e:
+                raise AttributeError(
+                    "Sequence Length Warmup requires the `state.dataloader` to have a `batch_size` attribute.") from e
             if per_gpu_macrobatch is None:
                 raise RuntimeError("Sequence Length Warmup algorithm requires constant batch size.")
             per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
@@ -261,9 +269,9 @@ class SeqLengthWarmup(Algorithm):
         curr_seq_len = max(curr_seq_len, self.min_seq_length)
         curr_seq_len = min(curr_seq_len, self.max_seq_length)
 
-        state.batch = set_batch_sequence_length(state.batch_dict, curr_seq_len, self.truncate)
+        state.batch = set_batch_sequence_length(state.batch, curr_seq_len, self.truncate)
 
-        batch_size = state.batch_dict['input_ids'].shape[0]
+        batch_size = state.batch['input_ids'].shape[0]
         logger.data_batch({
             'seq_length_warmup/curr_seq_len': curr_seq_len,
             'seq_length_warmup/curr_bs': batch_size,

@@ -3,9 +3,10 @@
 """The state of the trainer."""
 from __future__ import annotations
 
+import collections.abc
 import logging
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -77,9 +78,13 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch size for
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
+<<<<<<< HEAD
         train_dataloader (types.DataLoader, optional): Dataloader used for training
         evaluators (Evalutor | Evaluators, optional): :class:`.Evaluator` used for evaluation.
         dataloader (types.DataLoader, optional): The active DataLoader.
+=======
+        dataloader (Iterable, optional): The active DataLoader.
+>>>>>>> dev
         dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
             The trainer will yield the first ``dataloader_len`` batches per iteration. If ``-1`` (the default),
             the entire dataloader will be iterated over.
@@ -171,7 +176,7 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
     """
 
-    _dataloader: Optional[types.DataLoader]
+    _dataloader: Optional[Iterable]
     _dataloader_label: Optional[str]
     _dataloader_len: Optional[Time[int]]
     _max_duration: Optional[Time[int]]
@@ -197,12 +202,12 @@ class State(Serializable):
         grad_accum: int = 1,
 
         # dataloaders
-        train_dataloader: Optional[types.DataLoader] = None,
+        train_dataloader: Optional[Iterable] = None,
         evaluators: Optional[Union[Evaluator, Sequence[Evaluator]]] = None,
 
         # these track the current 'active' dataloader
         # depending on train, eval, or others
-        dataloader: Optional[types.DataLoader] = None,
+        dataloader: Optional[Iterable] = None,
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
 
@@ -426,14 +431,14 @@ class State(Serializable):
 
     def set_dataloader(
         self,
-        dataloader: Optional[types.DataLoader] = None,
+        dataloader: Optional[Iterable] = None,
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
     ):
         """Update the dataloader and dataloader label.
 
         Args:
-            dataloader (types.DataLoader, optional): The dataloader. Defaults to None.
+            dataloader (Iterable, optional): The dataloader. Defaults to None.
             dataloader_label (str, optional): The dataloader label. Must be ``None`` if and only if
                 ``dataloader`` is None. Defaults to None.
             dataloader_len (int, int): The number of batches per dataloader iteration (e.g. epoch), as used by the trainer.
@@ -471,7 +476,10 @@ class State(Serializable):
         if self._dataloader is None:
             raise RuntimeError("`State.dataloader_len` cannot be set if the dataloader is not defined.")
         try:
-            dataloader_len = len(self._dataloader)
+            if isinstance(self._dataloader, collections.abc.Sized):
+                dataloader_len = len(self._dataloader)
+            else:
+                dataloader_len = None
         except (TypeError, NotImplementedError):
             dataloader_len = None
         if dataloader_len is not None and num_batches >= 0 and int(num_batches) > dataloader_len:
@@ -503,26 +511,6 @@ class State(Serializable):
     @precision.setter
     def precision(self, precision: Union[str, Precision]):
         self._precision = Precision(precision)
-
-    @property
-    def batch_pair(self) -> types.BatchPair:
-        """:attr:`~.types.BatchPair`: The current batch, represented as a :attr:`~.types.BatchPair`.
-
-        Raises:
-            TypeError: If the current batch is not a :attr:`~.types.BatchPair`.
-        """
-        from composer.core.types import as_batch_pair
-        return as_batch_pair(self.batch)
-
-    @property
-    def batch_dict(self) -> types.BatchDict:
-        """:attr:`~.types.BatchDict`: The current batch, represented as a :attr:`~.types.BatchDict`.
-
-        Raises:
-            TypeError: If the current batch is not a :attr:`~.types.BatchDict`.
-        """
-        from composer.core.types import as_batch_dict
-        return as_batch_dict(self.batch)
 
     @property
     def is_model_deepspeed(self) -> bool:
