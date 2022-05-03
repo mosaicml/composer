@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import numpy as np
 
@@ -54,7 +54,7 @@ class ThresholdStopper(Callback):
         monitor: str,
         dataloader_label: str,
         threshold: float,
-        comp: Callable[[Any, Any], bool] = None,
+        comp: Optional[Callable[[Any, Any], bool]] = None,
     ):
         self.monitor = monitor
         self.threshold = threshold
@@ -75,6 +75,7 @@ class ThresholdStopper(Callback):
 
     def _compare_metric_and_update_state(self, state: State):
         metric_val = self._get_monitored_metric(state)
+        assert self.comp is not None
         if self.comp(metric_val, self.threshold):
             state.max_duration = state.timer.batch
 
