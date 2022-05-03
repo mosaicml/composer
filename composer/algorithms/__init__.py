@@ -46,11 +46,10 @@ from composer.algorithms.channels_last import ChannelsLast
 from composer.algorithms.colout import ColOut, ColOutTransform
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
-from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.hparams import (AGCHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                         ColOutHparams, CutMixHparams, CutOutHparams, EMAHparams, FactorizeHparams,
+                                         ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams,
                                          GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
                                          MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
                                          SAMHparams, ScaleScheduleHparams, SelectiveBackpropHparams,
@@ -88,7 +87,6 @@ __all__ = [
     "ColOutTransform",
     "CutMix",
     "CutOut",
-    "EMA",
     "Factorize",
     "GhostBatchNorm",
     "LabelSmoothing",
@@ -118,7 +116,6 @@ __all__ = [
     "ColOutHparams",
     "CutMixHparams",
     "CutOutHparams",
-    "EMAHparams",
     "FactorizeHparams",
     "GhostBatchNormHparams",
     "LabelSmoothingHparams",
