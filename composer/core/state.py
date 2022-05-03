@@ -231,7 +231,6 @@ class State(Serializable):
         self.model = model
         self.grad_accum = grad_accum
         self.train_dataloader = train_dataloader
-        self.evaluators = list(ensure_tuple(evaluators))
         self.max_duration = max_duration
         self.steps_per_epoch = steps_per_epoch
 
