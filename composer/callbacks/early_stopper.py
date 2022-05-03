@@ -127,15 +127,15 @@ class EarlyStopper(Callback):
             raise ValueError(f"The units of `patience` should be EPOCH or BATCH.")
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label != "train":
+        if self.dataloader_label == state.dataloader_label:
             # if the monitored metric is an eval metric or in an evaluator
             self._update_stopper_state(state)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label == "train":
+        if self.dataloader_label == state.dataloader_label:
             # if the monitored metric is not an eval metric, the right logic is run on EPOCH_END
             self._update_stopper_state(state)
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        if self.patience.unit == TimeUnit.BATCH and self.dataloader_label == "train":
+        if self.patience.unit == TimeUnit.BATCH and self.dataloader_label == state.dataloader_label:
             self._update_stopper_state(state)
