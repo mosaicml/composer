@@ -8,6 +8,7 @@ import warnings
 from typing import Any, Dict, Optional, Sized
 
 import torch
+from torch.utils.data import DataLoader
 
 import composer
 from composer.core import State
@@ -166,6 +167,8 @@ class MLPerfCallback(Callback):
 
     def init(self, state: State, logger: Logger) -> None:
 
+        # setup here requies access to rank, which is only available after
+        # the trainer is initialized
         if dist.get_local_rank() == 0:
             self._create_submission_folders(self.root_folder, self.system_name, self.benchmark)
             with open(self.systems_path, 'w') as f:
@@ -221,8 +224,11 @@ class MLPerfCallback(Callback):
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if rank_zero():
-            assert state.train_dataloader is not None
-            assert state.evaluators is not None
+
+            if not isinstance(state.train_dataloader, DataLoader):
+                raise ValueError("train dataloader must be a torch dataloader")
+            if not isinstance(state.evaluators[0].dataloader.dataloader, DataLoader):
+                raise ValueError("eval dataset must be a torch dataloader.")
 
             if state.train_dataloader.batch_size is None:
                 raise ValueError("Batch size is required to be set for dataloader.")

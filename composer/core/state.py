@@ -232,7 +232,7 @@ class State(Serializable):
         self.max_duration = max_duration
 
         self.train_dataloader = train_dataloader
-        self.evaluators = evaluators
+        self.evaluators = list(ensure_tuple(evaluators))
 
         self.timer = Timer()
         self._precision = Precision(precision)
