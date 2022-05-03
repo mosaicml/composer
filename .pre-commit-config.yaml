@@ -34,6 +34,7 @@ repos:
         language: node
         types: [python]
         pass_filenames: false
+        args: [--warnings]
         additional_dependencies: ["pyright@1.1.224"]
 # -   repo: https://github.com/PyCQA/pydocstyle
 #     hooks:
