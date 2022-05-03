@@ -334,11 +334,23 @@ class TestTrainerInitOrFit:
 
     @pytest.mark.gpu
     @pytest.mark.parametrize("precision", list(Precision))
-    def test_deepspeed(self, model: ComposerModel, precision: Precision, max_duration: Time[int]):
+    def test_deepspeed(
+        self,
+        model: ComposerModel,
+        precision: Precision,
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
         if precision == Precision.BF16:
             pytest.importorskip("torch", minversion="1.10", reason="BF16 precision requires PyTorch 1.10+")
 
-        trainer = Trainer(model=model, precision=precision, deepspeed_config={}, max_duration=max_duration)
+        trainer = Trainer(
+            model=model,
+            precision=precision,
+            deepspeed_config={},
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+        )
 
         assert trainer.state.is_model_deepspeed
 

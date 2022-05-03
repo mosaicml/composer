@@ -18,7 +18,9 @@ __all__ = ["_fix_batch_precision_for_deepspeed", "_parse_deepspeed_config"]
 
 
 def _add_batch_config(config: Dict[str, Any], state: State):
-    assert state.dataloader is not None, "dataloader should be set on FIT_START, which is where the Deepspeed config is applied."
+    if state.dataloader is None:
+        raise ValueError(
+            "When using DeepSpeed, the `train_dataloader` must be specified when constructing the Trainer.")
 
     grad_accum = state.grad_accum
 
