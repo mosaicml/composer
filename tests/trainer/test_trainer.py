@@ -690,10 +690,8 @@ class TestTrainerEvents():
 
 @pytest.mark.timeout(15)
 class TestTrainerAssets:
-    """
-    The below is a catch-all test that runs the Trainer
-    with each algorithm, callback, and loggers. Success
-    is defined as a successful training run.
+    """The below is a catch-all test that runs the Trainer with each algorithm, callback, and loggers. Success is
+    defined as a successful training run.
 
     This should eventually be replaced by functional
     tests for each object, in situ of our trainer.
@@ -728,7 +726,10 @@ class TestTrainerAssets:
 
     @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
     def callback(self, request):
-        _, hparams = request.param
+        name, hparams = request.param
+
+        if name == 'mlperf':
+            pytest.skip('mlperf callback tested separately.')
 
         callback = hparams().initialize_object()
 

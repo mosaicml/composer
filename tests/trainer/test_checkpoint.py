@@ -496,12 +496,12 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer, eval_inte
     if eval_interval.unit == TimeUnit.EPOCH:
         num_evals = num_epochs // int(eval_interval)
 
-    assert trainer.evaluators is not None
-    for evaluator in trainer.evaluators:
+    assert trainer.state.evaluators is not None
+    for evaluator in trainer.state.evaluators:
         assert evaluator.dataloader is not None
-    assert trainer.evaluators[0].subset_num_batches != -1
-    assert trainer.evaluators[0].subset_num_batches is not None
-    num_eval_steps = num_evals * trainer.evaluators[0].subset_num_batches * len(trainer.evaluators)
+    assert trainer.state.evaluators[0].subset_num_batches != -1
+    assert trainer.state.evaluators[0].subset_num_batches is not None
+    num_eval_steps = num_evals * trainer.state.evaluators[0].subset_num_batches * len(trainer.state.evaluators)
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,

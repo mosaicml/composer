@@ -972,21 +972,22 @@ class Trainer:
 
         # Evaluators
         if eval_dataloader is None:
-            self.evaluators: List[Evaluator] = []
+            evaluators: List[Evaluator] = []
         else:
-            self.evaluators = [
+            evaluators = [
                 ensure_evaluator(evaluator, model.metrics(train=False)) for evaluator in ensure_tuple(eval_dataloader)
             ]
             _set_evaluator_interval_and_subset_num_batches(
-                evaluators=self.evaluators,
+                evaluators=evaluators,
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
             )
-        if len(self.evaluators) == 0:
+        if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
                 raise ValueError("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
             if eval_interval != 1:
                 raise ValueError("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
+        self.state.evaluators = evaluators
 
         # Grad Clip Norm
         self._grad_clip_norm = grad_clip_norm
@@ -1226,24 +1227,26 @@ class Trainer:
 
         # Evaluators
         if eval_dataloader is not None:
-            self.evaluators = [
+            evaluators = [
                 # Need to use the `original_model` rather than `state.model`, as `state.model`
                 # could be DDP / DeepSpeed wrapped.
                 ensure_evaluator(evaluator, default_metrics=self._original_model.metrics(train=False))
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
             _set_evaluator_interval_and_subset_num_batches(
-                evaluators=self.evaluators,
+                evaluators=evaluators,
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
             )
-            if len(self.evaluators) == 0:
+            if len(evaluators) == 0:
                 if eval_subset_num_batches != -1:
                     raise ValueError("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
                 if eval_interval != 1:
                     raise ValueError("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
 
-        if len(self.evaluators) == 0:
+            self.state.evaluators = evaluators
+
+        if len(self.state.evaluators) == 0:
             warnings.warn(("No `eval_dataloader` was specified. Please specify `eval_dataloader` to periodically "
                            "evaluate your model while training."))
 
@@ -1311,7 +1314,7 @@ class Trainer:
         """
         # spin the evaluator dataloaders once to initialize its sampler deterministically
         # so it does not affect any other RNG reads
-        for evaluator in self.evaluators:
+        for evaluator in self.state.evaluators:
             dataloader = evaluator.dataloader.dataloader
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 dataloader.sampler.set_epoch(0)
@@ -1444,7 +1447,7 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    for evaluator in self.evaluators:
+                    for evaluator in self.state.evaluators:
                         assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
                         assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
                         if evaluator.eval_interval(self.state, Event.BATCH_END):
@@ -1482,7 +1485,7 @@ class Trainer:
 
             self.engine.run_event(Event.EPOCH_END)
 
-            for evaluator in self.evaluators:
+            for evaluator in self.state.evaluators:
                 assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
                 assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
                 if evaluator.eval_interval(self.state, Event.EPOCH_END):
