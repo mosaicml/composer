@@ -15,13 +15,12 @@ class ScaleSchedule(Algorithm):
 
     This algorithm is deprecated, and is being replaced by the scale_schedule_ratio param
     supported directly by the Composer Trainer. For backwards compatibility, the Composer
-    Trainer detects when this algorithm has been initialized, and pulls the `ratio` param
+    Trainer detects when this algorithm has been initialized and pulls the `ratio` param
     accordingly.
 
     Args:
         ratio (float, optional): The factor by which to scale the duration of the schedule. E.g., 0.5
-            makes the schedule take half as long and 2.0 makes it
-            take twice as long. Default: ``1.0``.
+            makes the schedule take half as long and 2.0 makes it take twice as long. Default: ``1.0``.
     """
 
     def __init__(self, ratio: float = 1.0):
@@ -32,11 +31,11 @@ class ScaleSchedule(Algorithm):
             category=DeprecationWarning)
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT.
+        """Run on :attr:`~composer.core.event.Event.INIT`.
 
         Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
+            event (:class:`~composer.core.event.Event`): The current event.
+            state (:class:`~composer.core.state.State`): The current state.
         Returns:
             bool: True if this algorithm should run.
         """
