@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     import deepspeed
 
     import composer.core.types as types
+    from composer.core.evaluator import Evaluator
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.profiler import Profiler
@@ -76,6 +77,8 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch size for
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
+        train_dataloader (types.DataLoader, optional): Dataloader used for training
+        evaluators (Evalutor | Evaluators, optional): :class:`.Evaluator` used for evaluation.
         dataloader (types.DataLoader, optional): The active DataLoader.
         dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
             The trainer will yield the first ``dataloader_len`` batches per iteration. If ``-1`` (the default),
@@ -192,6 +195,13 @@ class State(Serializable):
 
         # data configurations
         grad_accum: int = 1,
+
+        # dataloaders
+        train_dataloader: Optional[types.DataLoader] = None,
+        evaluators: Optional[Union[Evaluator, Sequence[Evaluator]]] = None,
+
+        # these track the current 'active' dataloader
+        # depending on train, eval, or others
         dataloader: Optional[types.DataLoader] = None,
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
@@ -215,6 +225,9 @@ class State(Serializable):
         self._dataloader_len = None
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
         self.max_duration = max_duration
+
+        self.train_dataloader = train_dataloader
+        self.evaluators = evaluators
 
         self.timer = Timer()
         self._precision = Precision(precision)
