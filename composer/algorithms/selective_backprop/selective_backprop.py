@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import inspect
 from typing import Callable, Optional, Sequence, Tuple, Union
-from xmlrpc.client import Boolean
 
 import numpy as np
 import torch
@@ -60,7 +59,7 @@ def should_selective_backprop(
 def select_using_loss(input: torch.Tensor,
                       target: torch.Tensor,
                       model: Callable[[Union[torch.Tensor, Sequence[torch.Tensor]]], torch.Tensor],
-                      loss_fun: Callable = None,
+                      loss_fun: Callable,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
     """Prunes minibatches as a subroutine of SelectiveBackprop. Computes the loss function on the provided training
@@ -123,7 +122,7 @@ def select_using_loss(input: torch.Tensor,
         if not "reduction" in sig.parameters:
             raise TypeError("Loss function `loss_fun` must take a keyword argument `reduction`.")
     else:
-        raise TypeError("Loss function `loss_fun` must be callable")
+        raise TypeError("Loss function must be callable")
 
     with torch.no_grad():
         N = input.shape[0]
@@ -201,11 +200,11 @@ class SelectiveBackprop(Algorithm):
     """
 
     def __init__(self,
-                start: float = 0.5,
-                end: float = 0.9,
-                keep: float = 0.5,
-                scale_factor: float = 1.,
-                interrupt: int = 2):
+                 start: float = 0.5,
+                 end: float = 0.9,
+                 keep: float = 0.5,
+                 scale_factor: float = 1.,
+                 interrupt: int = 2):
         self.start = start
         self.end = end
         self.keep = keep
@@ -236,7 +235,6 @@ class SelectiveBackprop(Algorithm):
         return is_chosen
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-
         if event == Event.INIT:
             if self._loss_fn is None:
                 if not isinstance(state.model, ComposerModel):
@@ -249,12 +247,7 @@ class SelectiveBackprop(Algorithm):
 
         # Model expected to only take in input, not the full batch
         model = lambda X: state.model((X, None))
-        def loss(p, y, reduction="none"):
-            #assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
-            return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
-        with state.precision_context:
-            new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
-
+        
         def loss(p, y, reduction="none"):
             assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
             return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
