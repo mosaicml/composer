@@ -892,6 +892,7 @@ class Trainer:
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
         self.state.set_dataloader(train_dataloader.dataloader, 'train', train_subset_num_batches)
+        self.state.train_dataloader = train_dataloader.dataloader
         self.state.max_duration = max_duration
         self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
@@ -923,6 +924,8 @@ class Trainer:
                 warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
             if eval_interval != 1:
                 warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
+
+        self.state.evaluators = self.evaluators
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -1292,7 +1295,7 @@ class Trainer:
             except RuntimeError as e:
                 if self._is_cuda_oom(e):
                     log.debug(
-                        textwrap.dedent(f"""Rank {dist.get_global_rank()} OOM'd. 
+                        textwrap.dedent(f"""Rank {dist.get_global_rank()} OOM'd.
                         grad_accum will be increased prior to reattempting training on the current batch."""))
                     should_handle_cuda_oom = 1
                 elif "Timed out" in str(e):
