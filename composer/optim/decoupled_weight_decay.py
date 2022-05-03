@@ -405,7 +405,7 @@ class DecoupledNVLAMB(Optimizer):
 
                 # Compute trust ratio
                 # If weight norm or update norm are 0, leave trust_ratio as 1.0
-                trust_ratio = w_norm.div_(u_norm).nan_to_num_(nan=1.0, inf=1.0)
+                trust_ratio = w_norm.div_(u_norm).nan_to_num_(nan=1.0, posinf=1.0, neginf=1.0)
 
                 if trust_clip:
                     # LAMBC trust clipping fixes upper bound to one
