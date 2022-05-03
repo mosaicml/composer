@@ -1084,6 +1084,14 @@ class Trainer:
                 self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
     @property
+    def deepspeed_enabled(self):
+        """Whether DeepSpeed is enabled.
+
+        .. seealso:: `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_
+        """
+        return self.state.is_model_deepspeed
+
+    @property
     def saved_checkpoints(self) -> List[Tuple[Timestamp, List[pathlib.Path]]]:
         """The checkpoint timestamps and filepaths.
 
@@ -1213,7 +1221,7 @@ class Trainer:
                 (f"The max_duration ({self.state.max_duration}) is less than the elapsed training duration "
                  f"({self.state.timer.get(self.state.max_duration.unit)}). No training would occur. "
                  "Please either increase the `max_duration` or specify `reset_timer=True` in "
-                 f"{type(self).__name__}.{self.fit.__name__}()."))
+                 f"Trainer.fit()."))
 
         # Scale Schedule Ratio and Schedulers
         if scale_schedule_ratio != 1.0:
@@ -1265,10 +1273,7 @@ class Trainer:
         # Grad Clip Norm
         if grad_clip_norm is not None:
             if self.state.is_model_deepspeed:
-                raise ValueError(
-                    ("When using DeepSpeed, the `grad_clip_norm` must be set when constructing the . "
-                     f"{type(self).__name__} -- e.g. via {type(self).__name__}(grad_clip_norm=...). It cannot be "
-                     f"specified on {type(self).__name__}.{type(self).fit.__name__}()."))
+                raise ValueError("Changing the grad_clip_norm when using DeepSpeed is not supported.")
             self._grad_clip_norm = grad_clip_norm
 
         # Precision
