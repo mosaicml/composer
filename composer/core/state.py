@@ -21,9 +21,9 @@ if TYPE_CHECKING:
     import deepspeed
 
     import composer.core.types as types
-    from composer.core.evaluator import Evaluator
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
+    from composer.core.evaluator import Evaluator
     from composer.profiler import Profiler
 
 __all__ = ["State"]

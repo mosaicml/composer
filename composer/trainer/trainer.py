@@ -722,7 +722,7 @@ class Trainer:
         self.state = State(
             rank_zero_seed=rank_zero_seed,
             algorithms=algorithms,
-            train_dataloader=train_dataloader,
+            train_dataloader=train_dataloader.dataloader,
             evaluators=self.evaluators,
             model=model,
             callbacks=callbacks,
