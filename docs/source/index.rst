@@ -98,6 +98,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/progressive_resizing.md
    method_cards/randaugment.md
    method_cards/sam.md
+   method_cards/scale_schedule.md
    method_cards/selective_backprop.md
    method_cards/seq_length_warmup.md
    method_cards/squeeze_excite.md
