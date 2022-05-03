@@ -45,6 +45,7 @@ class TestTrainerInit():
     @pytest.mark.parametrize("precision", list(Precision))
     def test_precision(self, config, precision: Precision):
         config['precision'] = precision
+        config['device'] = 'gpu'
 
         if precision == Precision.BF16:
             pytest.importorskip("torch", minversion="1.10", reason="BF16 precision requires PyTorch 1.10+")
