@@ -127,7 +127,7 @@ def _scale_max_duration_by_ssr(scale_schedule_ratio: float,
     return max_duration
 
 
-def _get_step_schedulers_every_batch(
+def _should_step_schedulers_every_batch(
     schedulers: Union[None, ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]],
     step_schedulers_every_batch: Optional[bool],
 ):
@@ -187,7 +187,7 @@ def _compile_schedulers(
     return compiled_schedulers
 
 
-def _unpack_evaluators(
+def _configure_evaluators(
     eval_dataloader: Union[Iterable, DataSpec, Evaluator, Sequence[Evaluator]],
     eval_interval: Union[int, str, Time, Callable[[State, Event], bool]],
     subset_num_batches: int,
@@ -219,7 +219,7 @@ def _unpack_evaluators(
     return evaluators
 
 
-def _unpack_grad_accum(grad_accum: Union[int, str], device: Device) -> Tuple[int, bool]:
+def _get_grad_accum(grad_accum: Union[int, str], device: Device) -> Tuple[int, bool]:
     # Set initial grad_accum to 1 if using adaptive
     adaptive_grad_accum = grad_accum == "auto"
     if adaptive_grad_accum:
@@ -276,7 +276,7 @@ def _get_random_seed(seed: Optional[int], device: Device):
     return rank_zero_seed, seed
 
 
-def _unpack_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]], find_unused_parameters: bool):
+def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]], find_unused_parameters: bool):
     if ddp_sync_strategy is None:
         if find_unused_parameters:
             ddp_sync_strategy = DDPSyncStrategy.FORCED_SYNC
@@ -884,7 +884,7 @@ class Trainer:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
 
         # Grad Accum
-        grad_accum, self.adaptive_gradient_accumulation = _unpack_grad_accum(grad_accum, self._device)
+        grad_accum, self.adaptive_gradient_accumulation = _get_grad_accum(grad_accum, self._device)
 
         # Create the State
         self.state = State(
@@ -999,7 +999,7 @@ class Trainer:
                 warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
 
-        self._step_schedulers_every_batch = _get_step_schedulers_every_batch(schedulers, step_schedulers_every_batch)
+        self._step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers, step_schedulers_every_batch)
 
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
@@ -1008,7 +1008,7 @@ class Trainer:
         if eval_dataloader is None:
             self.evaluators: List[Evaluator] = []
         else:
-            self.evaluators = _unpack_evaluators(
+            self.evaluators = _configure_evaluators(
                 eval_dataloader,
                 subset_num_batches=eval_subset_num_batches,
                 eval_interval=eval_interval,
@@ -1026,7 +1026,7 @@ class Trainer:
         # Some algorithms require specific settings
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
-        self._ddp_sync_strategy = _unpack_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
+        self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
         # Configure Deepspeed
         if deepspeed_config is not None:
@@ -1205,8 +1205,8 @@ class Trainer:
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
         if schedulers is not None:
             self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
-            self._step_schedulers_every_batch = _get_step_schedulers_every_batch(schedulers,
-                                                                                 step_schedulers_every_batch)
+            self._step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers,
+                                                                                    step_schedulers_every_batch)
         else:
             if scale_schedule_ratio != 1.0:
                 warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
@@ -1222,7 +1222,7 @@ class Trainer:
 
         # Evaluators
         if eval_dataloader is not None:
-            self.evaluators = _unpack_evaluators(
+            self.evaluators = _configure_evaluators(
                 eval_dataloader,
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
@@ -1240,7 +1240,7 @@ class Trainer:
 
         # Grad Accum
         if grad_accum is not None:
-            self.state.grad_accum, self.adaptive_gradient_accumulation = _unpack_grad_accum(grad_accum, self._device)
+            self.state.grad_accum, self.adaptive_gradient_accumulation = _get_grad_accum(grad_accum, self._device)
 
         # Grad Clip Norm
         if grad_clip_norm is not None:
