@@ -84,7 +84,8 @@ from torchmetrics import Metric, MetricCollection
 import composer
 from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
-from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
+from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
+                           ensure_data_spec, ensure_time)
 from composer.core.evaluator import evaluate_periodically
 from composer.core.precision import get_precision_context
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler
@@ -108,13 +109,11 @@ log = logging.getLogger(__name__)
 __all__ = ["Trainer"]
 
 
-class MissingArgumentException(ValueError):
-
-    def __init__(self, arg_name: str) -> None:
-        super().__init__((f"{arg_name} is a required argument and must be specified when constructing the "
-                          f"{Trainer.__name__} or when calling {Trainer.__name__}.{Trainer.fit.__name__}(). "
-                          f"To fix, please specify `arg_name` via {Trainer.__name__}({arg_name}=...) or "
-                          f"{Trainer.__name__}.{Trainer.fit.__name__}({arg_name}=...)."))
+def _raise_missing_argument_exception(arg_name: str):
+    raise ValueError((f"{arg_name} is a required argument and must be specified when constructing the "
+                      f"{Trainer.__name__} or when calling {Trainer.__name__}.{Trainer.fit.__name__}(). "
+                      f"To fix, please specify `arg_name` via {Trainer.__name__}({arg_name}=...) or "
+                      f"{Trainer.__name__}.{Trainer.fit.__name__}({arg_name}=...)."))
 
 
 def _scale_max_duration_by_ssr(scale_schedule_ratio: float,
@@ -128,7 +127,7 @@ def _scale_max_duration_by_ssr(scale_schedule_ratio: float,
     return max_duration
 
 
-def _unpack_step_schedulers_every_batch(
+def _get_step_schedulers_every_batch(
     schedulers: Union[None, ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler, PyTorchScheduler]]],
     step_schedulers_every_batch: Optional[bool],
 ):
@@ -161,18 +160,15 @@ def _unpack_step_schedulers_every_batch(
     return step_schedulers_every_batch
 
 
-def _unpack_compute_training_metrics(compute_training_metrics: bool, model: ComposerModel):
-    if compute_training_metrics:
-        warnings.warn(('Computing model evaluation metrics during training doubles the number of forward passes '
-                       'and may lead to a throughput degradation.'))
-        train_metrics = model.metrics(train=True)
-        if isinstance(train_metrics, Metric):
-            # Forcing metrics to be a MetricCollection simplifies logging results
-            train_metrics = MetricCollection([train_metrics])
+def _get_training_metrics(model: ComposerModel):
+    warnings.warn(('Computing model evaluation metrics during training doubles the number of forward passes '
+                   'and may lead to a throughput degradation.'))
+    train_metrics = model.metrics(train=True)
+    if isinstance(train_metrics, Metric):
+        # Forcing metrics to be a MetricCollection simplifies logging results
+        train_metrics = MetricCollection([train_metrics])
 
-        return train_metrics
-    else:
-        return None
+    return train_metrics
 
 
 def _compile_schedulers(
@@ -189,29 +185,6 @@ def _compile_schedulers(
             compiled_schedulers.append(compile_composer_scheduler(scheduler, state, scale_schedule_ratio))
 
     return compiled_schedulers
-
-
-def _unpack_dataloader(dataloader: Union[DataSpec, Iterable, dict]) -> DataSpec:
-    if isinstance(dataloader, dict):
-        # treat as kwargs for DataSpec
-        dataloader = DataSpec(**dataloader)
-    if not isinstance(dataloader, DataSpec):
-        dataloader = DataSpec(dataloader)
-
-    data_spec = dataloader
-    if isinstance(data_spec.dataloader, torch.utils.data.DataLoader):
-        if data_spec.dataloader._iterator is not None:
-            raise ValueError(
-                textwrap.dedent("""\
-                The `train_dataloader` has an active iterator. This could occur
-                if `persistent_workers=True` and the dataloader has already been iterated,
-                or if the dataloader is mid-epoch. It is required that the training dataloader
-                does not have an active iterator, so CPU dataset augmentations can be
-                correctly inserted.
-
-                To fix, please do not iterate over the dataloader before passing it into
-                the trainer."""))
-    return data_spec
 
 
 def _unpack_evaluators(
@@ -260,7 +233,7 @@ def _unpack_grad_accum(grad_accum: Union[int, str], device: Device) -> Tuple[int
     if isinstance(device, DeviceCPU) and adaptive_grad_accum:
         raise ValueError("Cannot use adaptive grad_accum on CPU. Please set grad_accum >= 1")
     # grad_accum should be int as we've already handled "auto" case
-    if isinstance(grad_accum, str):
+    if not isinstance(grad_accum, int):
         raise ValueError("grad_accum must be an int or ``auto``")
     return grad_accum, adaptive_grad_accum
 
@@ -270,7 +243,7 @@ def _is_cuda_oom(e: RuntimeError):
     return "CUDA out of memory" in str(e)
 
 
-def _unpack_device(device: Optional[Union[str, Device]], deepspeed_enabled: bool):
+def _get_device(device: Optional[Union[str, Device]]):
     if not device:
         device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
     elif isinstance(device, str):
@@ -283,7 +256,7 @@ def _unpack_device(device: Optional[Union[str, Device]], deepspeed_enabled: bool
     return device
 
 
-def _unpack_seed(seed: Optional[int], device: Device):
+def _get_random_seed(seed: Optional[int], device: Device):
     if not seed:
         seed = reproducibility.get_random_seed()
 
@@ -300,16 +273,7 @@ def _unpack_seed(seed: Optional[int], device: Device):
     rank_zero_seed = rank_zero_seed.item()
     assert isinstance(rank_zero_seed, int)
     seed = rank_zero_seed + dist.get_global_rank()
-    log.info(f"Setting seed to {seed}")
     return rank_zero_seed, seed
-
-
-def _unpack_max_duration(max_duration: Union[int, str, Time]):
-    if isinstance(max_duration, str):
-        max_duration = Time.from_timestring(max_duration)
-    elif isinstance(max_duration, int):
-        max_duration = Time.from_epoch(max_duration)
-    return max_duration
 
 
 def _unpack_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]], find_unused_parameters: bool):
@@ -323,7 +287,7 @@ def _unpack_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStra
     return ddp_sync_strategy
 
 
-def _unpack_profiler(
+def _initialize_profiler(
     state: State,
     prof_schedule: Optional[Callable[[State], ProfilerAction]],
     prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]],
@@ -377,7 +341,8 @@ def _unpack_profiler(
         # Append the trace handlers at the end, so profilers will log events before the traces are written.
         profiler_callbacks.extend(profiler.trace_handlers)
 
-    return profiler, profiler_callbacks
+    state.profiler = profiler
+    state.callbacks.extend(profiler_callbacks)
 
 
 class Trainer:
@@ -658,10 +623,11 @@ class Trainer:
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             artifact stores.
-        deepspeed_config (Dict[str, Any] | bool, optional): Configuration for DeepSpeed, formatted as a JSON
-            according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
-            provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
-            or ``None``, DeepSpeed will not be used. (default: ``False``)
+        deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
+            according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)
+            
+            To use DeepSpeed with default values, set to the empty dictionary ``{}``.
+            To disable DeepSpeed (the default), set to ``None``.
         device (Device | str, optional): The device to use for training, which can be ``'cpu'`` or ``'gpu'``.
             (default: ``None``)
 
@@ -838,7 +804,7 @@ class Trainer:
         save_num_checkpoints_to_keep: int = -1,
 
         # DeepSpeed
-        deepspeed_config: Optional[Union[bool, Dict[str, Any]]] = False,
+        deepspeed_config: Optional[Dict[str, Any]] = None,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -876,14 +842,10 @@ class Trainer:
         torch_prof_num_traces_to_keep: int = -1,
     ):
         # Determine whether DeepSpeed is enabled
-        if deepspeed_config is True:
-            deepspeed_config = {}
-        if deepspeed_config is False:
-            deepspeed_config = None
         deepspeed_enabled = deepspeed_config is not None
 
         # Device
-        self._device = _unpack_device(device, deepspeed_enabled)
+        self._device = _get_device(device)
 
         # Distributed
         if deepspeed_enabled or dist.get_world_size() > 1:
@@ -892,9 +854,10 @@ class Trainer:
             dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
 
         # Reproducibility
-        rank_zero_seed, seed = _unpack_seed(seed, self._device)
+        rank_zero_seed, seed = _get_random_seed(seed, self._device)
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
+        log.info(f"Setting seed to {seed}")
         reproducibility.seed_all(seed)
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
@@ -935,7 +898,7 @@ class Trainer:
         )
 
         # Profiler
-        self.state.profiler, profiler_callbacks = _unpack_profiler(
+        _initialize_profiler(
             state=self.state,
             prof_schedule=prof_schedule,
             prof_trace_handlers=prof_trace_handlers,
@@ -955,7 +918,6 @@ class Trainer:
             torch_prof_use_gzip=torch_prof_use_gzip,
             torch_prof_num_traces_to_keep=torch_prof_num_traces_to_keep,
         )
-        self.state.callbacks.extend(profiler_callbacks)
 
         # Console Logging
         loggers = list(ensure_tuple(loggers))
@@ -1010,15 +972,15 @@ class Trainer:
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
 
         # Train Dataloader
-        self._train_data_spec = None if train_dataloader is None else _unpack_dataloader(train_dataloader)
+        self._train_data_spec = None if train_dataloader is None else ensure_data_spec(train_dataloader)
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
-        self.train_metrics = _unpack_compute_training_metrics(compute_training_metrics, model)
+        self.train_metrics = _get_training_metrics(model) if compute_training_metrics else None
 
         # Max Duration
         if max_duration is not None:
-            self.state.max_duration = _unpack_max_duration(max_duration)
+            self.state.max_duration = ensure_time(max_duration)
 
         self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
@@ -1037,7 +999,7 @@ class Trainer:
                 warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
 
-        self._step_schedulers_every_batch = _unpack_step_schedulers_every_batch(schedulers, step_schedulers_every_batch)
+        self._step_schedulers_every_batch = _get_step_schedulers_every_batch(schedulers, step_schedulers_every_batch)
 
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
@@ -1111,6 +1073,7 @@ class Trainer:
                                               strict_model_weights=load_strict,
                                               chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
+            log.info(f"Setting seed to {self.state.seed}")
             reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
@@ -1221,29 +1184,29 @@ class Trainer:
         """
         # Train Dataloader
         if train_dataloader is not None:
-            self._train_data_spec = _unpack_dataloader(train_dataloader)
+            self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
         if self._train_data_spec is None:
-            raise MissingArgumentException("train_dataloader")
+            _raise_missing_argument_exception("train_dataloader")
         if train_subset_num_batches is not None:
             self.state.dataloader_len = train_subset_num_batches
         if compute_training_metrics is not None:
-            self.train_metrics = _unpack_compute_training_metrics(compute_training_metrics, self._original_model)
+            self.train_metrics = _get_training_metrics(self._original_model) if compute_training_metrics else None
 
         # Max Duration
         if max_duration is not None:
-            self.state.max_duration = _unpack_max_duration(max_duration)
+            self.state.max_duration = ensure_time(max_duration)
 
         if self.state.max_duration is None:
-            raise MissingArgumentException("max_duration")
+            _raise_missing_argument_exception("max_duration")
 
         # Scale Schedule Ratio and Schedulers
         if scale_schedule_ratio != 1.0:
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
         if schedulers is not None:
             self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
-            self._step_schedulers_every_batch = _unpack_step_schedulers_every_batch(schedulers,
-                                                                                    step_schedulers_every_batch)
+            self._step_schedulers_every_batch = _get_step_schedulers_every_batch(schedulers,
+                                                                                 step_schedulers_every_batch)
         else:
             if scale_schedule_ratio != 1.0:
                 warnings.warn("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")

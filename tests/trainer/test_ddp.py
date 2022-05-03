@@ -187,7 +187,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
                       eval_interval="1ep",
                       eval_subset_num_batches=eval_subset_num_batches,
                       train_subset_num_batches=train_subset_num_batches,
-                      deepspeed_config={} if deepspeed else False,
+                      deepspeed_config={} if deepspeed else None,
                       callbacks=[CheckBatch0(tmpdir)])
 
     for evaluator in trainer.evaluators:

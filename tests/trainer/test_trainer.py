@@ -14,10 +14,9 @@ from torchmetrics import Accuracy
 
 from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, algorithm_registry
-from composer.callbacks import CheckpointSaver, LRMonitor
+from composer.callbacks import LRMonitor
 from composer.core.callback import Callback
 from composer.core.evaluator import Evaluator
-from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit
 from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
@@ -67,29 +66,6 @@ class TestTrainerInit():
         with pytest.raises(ValueError, match="magic_device"):
             Trainer(model=model, device="magic_device")
 
-    @pytest.mark.timeout(5.0)
-    def test_checkpoint_saver(
-        self,
-        tmpdir: pathlib.Path,
-        model: ComposerModel,
-    ):
-        train_dataloader = DataLoader(RandomClassificationDataset())
-        trainer = Trainer(
-            model=model,
-            train_dataloader=train_dataloader,
-            save_interval=10,
-            max_duration=1,
-            save_folder=str(tmpdir),
-        )
-        assert trainer.state.max_duration == "1ep"
-        checkpoint_saver = None
-        for callback in trainer.state.callbacks:
-            if isinstance(callback, CheckpointSaver):
-                checkpoint_saver = callback
-        assert checkpoint_saver is not None
-        trainer.state.timer.epoch._value = 10
-        assert checkpoint_saver.save_interval(trainer.state, Event.EPOCH_CHECKPOINT)
-
     @device('gpu', 'cpu')
     def test_optimizer_params_on_device(
         self,
@@ -99,7 +75,7 @@ class TestTrainerInit():
         # Train a model
         train_dataloader = DataLoader(RandomClassificationDataset())
         optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-        max_duration = 1
+        max_duration = "2ba"
         trainer = Trainer(
             model=model,
             max_duration=max_duration,
