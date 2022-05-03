@@ -54,7 +54,7 @@ def test_get_file_object_store(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyP
              chunk_size=1024 * 1024,
              progress_bar=False)
     with open(str(tmpdir / "example"), "rb") as f:
-        f.read() == b"checkpoint1"
+        assert f.read() == b"checkpoint1"
 
 
 def test_get_file_object_store_with_symlink(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
@@ -79,7 +79,7 @@ def test_get_file_object_store_with_symlink(tmpdir: pathlib.Path, monkeypatch: p
              chunk_size=1024 * 1024,
              progress_bar=False)
     with open(str(tmpdir / "example"), "rb") as f:
-        f.read() == b"checkpoint1"
+        assert f.read() == b"checkpoint1"
     # Fetch object without specifying .symlink, should automatically follow
     get_file(path="latest",
              object_store=provider,
@@ -87,7 +87,7 @@ def test_get_file_object_store_with_symlink(tmpdir: pathlib.Path, monkeypatch: p
              chunk_size=1024 * 1024,
              progress_bar=False)
     with open(str(tmpdir / "example"), "rb") as f:
-        f.read() == b"checkpoint1"
+        assert f.read() == b"checkpoint1"
 
 
 def test_get_file_object_store_not_found(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):

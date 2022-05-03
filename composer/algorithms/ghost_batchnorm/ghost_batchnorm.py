@@ -23,14 +23,14 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
 
     Ghost batch normalization modules split their input into chunks of
     ``ghost_batch_size`` samples and run batch normalization on each chunk
-    separately. Dim 0 is assumed to be the sample axis.
+    separately. ``dim=0`` is assumed to be the sample axis.
 
     Args:
-        model (torch.nn.Module): the model to modify in-place
+        model (:class:`torch.nn.Module`): the model to modify in-place
         ghost_batch_size (int, optional): size of sub-batches to normalize over. Default: ``32``.
-        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
+        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
-            constructed with ``model.parameters()`` must be specified here so
+            constructed with ``model.parameters()`` must be specified here so that
             they will optimize the correct parameters.
 
             If the optimizer(s) are constructed *after* calling this function,
@@ -61,11 +61,12 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
 
 
 class GhostBatchNorm(Algorithm):
-    """Replaces batch normalization modules with `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`_ modules
+    """Replaces batch normalization modules with 
+    `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`_ modules
     that simulate the effect of using a smaller batch size.
 
     Works by spliting input into chunks of ``ghost_batch_size`` samples and
-    running batch normalization on each chunk separately. Dim 0 is assumed to
+    running batch normalization on each chunk separately. ``dim=0`` is assumed to
     be the sample axis.
 
     Runs on :attr:`~composer.core.event.Event.INIT`.
@@ -81,8 +82,8 @@ class GhostBatchNorm(Algorithm):
         """Runs on :attr:`~composer.core.event.Event.INIT`.
 
         Args:
-            event (Event): The current event.
-            state (State): The current state.
+            event (:class:`Event`): The current event.
+            state (:class:`State`): The current state.
 
         Returns:
             bool: True if this algorithm should run
@@ -130,7 +131,7 @@ class _GhostBatchNorm(torch.nn.Module):
     """`Ghost batch normalization <https://arxiv.org/abs/1705.08741>`_ layer.
 
     Works by spliting input into chunks of ``ghost_batch_size`` samples and
-    running batch normalization on each chunk separately. Dim 0 is assumed to
+    running batch normalization on each chunk separately. ``dim=0`` is assumed to
     be the sample axis.
 
     See also `torch.nn.BatchNorm1d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html>`_,
@@ -138,7 +139,7 @@ class _GhostBatchNorm(torch.nn.Module):
     `torch.nn.BatchNorm3d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm3d.html>`_.
 
     Args:
-        base_batchnorm: A batch normalization module to be applied to each chunk
+        base_batchnorm (:class:`torch.nn.modules.batchnorm._BatchNorm`): A batch normalization module to be applied to each chunk
         ghost_batch_size (int, optional): the size of the chunks passed into the underlying
             batch normalization. Default: ``32``.
 

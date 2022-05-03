@@ -8,12 +8,6 @@ from composer.algorithms.cutout.cutout import _generate_mask
 from composer.core import Event
 
 
-def _is_square(cutout_box: torch.Tensor) -> bool:
-    height, width = cutout_box.size()
-
-    return height == width
-
-
 # Box validaton checks for a continuous rectangle, cannot handle multiple/coalesced boxes along x, y dimensions
 def _box_validate(mask_box: torch.Tensor) -> None:
     # Box is not contiguous if there are any 0's in the tensor
