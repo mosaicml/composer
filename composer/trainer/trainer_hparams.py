@@ -17,7 +17,7 @@ import yahp as hp
 import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
-                                SpeedMonitorHparams)
+                                MLPerfCallbackHparams, SpeedMonitorHparams)
 from composer.core import Precision
 from composer.core.types import JSON
 from composer.datasets import DataLoaderHparams, DatasetHparams
@@ -95,6 +95,7 @@ callback_registry = {
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
+    "mlperf": MLPerfCallbackHparams,
 }
 
 device_registry = {
@@ -450,9 +451,6 @@ class TrainerHparams(hp.Hparams):
 
             if isinstance(self.device, CPUDeviceHparams):
                 raise ValueError("Training on CPUs is not supported with DeepSpeed.")
-
-        elif self.precision == Precision.FP16:
-            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
         world_size = dist.get_world_size()
 

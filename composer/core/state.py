@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     import composer.core.types as types
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
+    from composer.core.evaluator import Evaluator
     from composer.profiler import Profiler
 
 __all__ = ["State"]
@@ -77,7 +78,9 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch size for
             each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
-        dataloader (Iterable, optional): The active DataLoader.
+        train_dataloader (types.DataLoader, optional): Dataloader used for training
+        evaluators (Evalutor | Evaluators, optional): :class:`.Evaluator` used for evaluation.
+        dataloader (types.DataLoader, optional): The active DataLoader.
         dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
             The trainer will yield the first ``dataloader_len`` batches per iteration. If ``-1`` (the default),
             the entire dataloader will be iterated over.
@@ -173,6 +176,7 @@ class State(Serializable):
     _dataloader_label: Optional[str]
     _dataloader_len: Optional[Time[int]]
     _max_duration: Optional[Time[int]]
+
     batch: types.Batch
     batch_num_samples: int
     batch_num_tokens: int
@@ -193,6 +197,13 @@ class State(Serializable):
 
         # data configurations
         grad_accum: int = 1,
+
+        # dataloaders
+        train_dataloader: Optional[Iterable] = None,
+        evaluators: Optional[Union[Evaluator, Sequence[Evaluator]]] = None,
+
+        # these track the current 'active' dataloader
+        # depending on train, eval, or others
         dataloader: Optional[Iterable] = None,
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
@@ -216,6 +227,9 @@ class State(Serializable):
         self._dataloader_len = None
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
         self.max_duration = max_duration
+
+        self.train_dataloader = train_dataloader
+        self._evaluators = list(ensure_tuple(evaluators))
 
         self.timer = Timer()
         self._precision = Precision(precision)
@@ -316,6 +330,14 @@ class State(Serializable):
     @algorithms.setter
     def algorithms(self, algorithms: Sequence[Algorithm]):
         self._algorithms[:] = algorithms
+
+    @property
+    def evaluators(self):
+        return self._evaluators
+
+    @evaluators.setter
+    def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
+        self._evaluators[:] = list(ensure_tuple(evaluators))
 
     def state_dict(self) -> Dict[str, Any]:
         """Returns the state as a :class:`dict`."""

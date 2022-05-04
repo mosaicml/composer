@@ -132,7 +132,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
             config_dict = self.extra_init_params["config"]
 
         if self.flatten_config:
-            config_dict = self._flatten_dict(config_dict)
+            config_dict = self._flatten_dict(config_dict, prefix=[])
 
         init_params = {
             "project": self.project,
@@ -150,7 +150,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         )
 
     @classmethod
-    def _flatten_dict(cls, data: Dict[str, Any], _prefix: List[str] = []) -> Dict[str, Any]:
+    def _flatten_dict(cls, data: Dict[str, Any], prefix: List[str]) -> Dict[str, Any]:
         """Flattens a dictionary with list or sub dicts to have dot syntax.
 
         .. testcode::
@@ -175,7 +175,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         """
         all_items = {}
         for key, val in data.items():
-            key_items = _prefix + [key]
+            key_items = list(prefix) + [key]
             key_name = ".".join(key_items)
             if isinstance(val, dict):
                 all_items.update(cls._flatten_dict(val, key_items))

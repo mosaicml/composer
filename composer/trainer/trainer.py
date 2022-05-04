@@ -82,7 +82,6 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
 
 import composer
-from composer.algorithms import ScaleSchedule
 from composer.callbacks import CheckpointSaver
 from composer.core import Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp
 from composer.core.evaluator import evaluate_periodically
@@ -96,7 +95,7 @@ from composer.profiler import Profiler, ProfilerAction, SystemProfiler, TorchPro
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.ddp import DDPSyncStrategy, _ddp_sync_context, _prepare_ddp_module
+from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
@@ -578,7 +577,7 @@ class Trainer:
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
         console_stream: Union[str, TextIO] = sys.stderr,
-        callbacks: Union[Callback, Sequence[Callback]] = tuple(),
+        callbacks: Union[Callback, Sequence[Callback]] = (),
 
         # load checkpoint
         load_path: Optional[str] = None,
@@ -629,12 +628,6 @@ class Trainer:
         # surpressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action="ignore", message="torch.cuda.amp.GradScaler")
-
-        # ScaleSchedule is a deprecated algorithm, but if it is used, updated SSR with its ratio.
-        # TODO(#434): Remove this completely.
-        for algorithm in ensure_tuple(algorithms):
-            if isinstance(algorithm, ScaleSchedule):
-                scale_schedule_ratio = algorithm.ratio
 
         if isinstance(max_duration, str):
             max_duration = Time.from_timestring(max_duration)
@@ -726,6 +719,9 @@ class Trainer:
 
         if isinstance(precision, str):
             precision = Precision(precision)
+
+        if not self.deepspeed_enabled and precision == Precision.FP16:
+            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
         # optimizers and schedulers
         if not optimizers:
@@ -898,6 +894,7 @@ class Trainer:
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
         self.state.set_dataloader(train_dataloader.dataloader, 'train', train_subset_num_batches)
+        self.state.train_dataloader = train_dataloader.dataloader
         self.state.max_duration = max_duration
         self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
@@ -929,6 +926,8 @@ class Trainer:
                 warnings.warn("Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.")
             if eval_interval != 1:
                 warnings.warn("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
+
+        self.state.evaluators = self.evaluators
 
         # place the state, model in the proper devices, and initialize from a checkpoint if provided
         if self.deepspeed_enabled:
@@ -991,7 +990,7 @@ class Trainer:
 
             if dist.get_world_size() > 1:
                 # Only wrap the module if required
-                self.state.model = _prepare_ddp_module(self.state.model, self._find_unused_parameters)
+                self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
     @property
     def deepspeed_enabled(self) -> bool:
@@ -1320,7 +1319,7 @@ class Trainer:
             except RuntimeError as e:
                 if self._is_cuda_oom(e):
                     log.debug(
-                        textwrap.dedent(f"""Rank {dist.get_global_rank()} OOM'd. 
+                        textwrap.dedent(f"""Rank {dist.get_global_rank()} OOM'd.
                         grad_accum will be increased prior to reattempting training on the current batch."""))
                     should_handle_cuda_oom = 1
                 elif "Timed out" in str(e):
@@ -1412,7 +1411,7 @@ class Trainer:
         assert self.state.scaler is not None
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else _ddp_sync_context(
+        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
             self.state, is_final_microbatch, self._ddp_sync_strategy)
 
         with sync_context:

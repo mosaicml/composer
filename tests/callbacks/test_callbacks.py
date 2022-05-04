@@ -8,6 +8,7 @@ import pytest
 import composer.callbacks
 import composer.loggers
 import composer.profiler
+from composer.callbacks.mlperf import MLPerfCallback
 from composer.core import Event
 from composer.core.callback import Callback
 from composer.core.engine import Engine
@@ -58,6 +59,7 @@ def _get_callback_factories() -> List[Callable[..., Callback]]:
     callback_factories.extend(
         x for x in vars(composer.profiler).values() if isinstance(x, type) and issubclass(x, Callback))
     callback_factories.remove(ObjectStoreLogger)
+    callback_factories.remove(MLPerfCallback)
     callback_factories.append(lambda: ObjectStoreLogger(
         use_procs=False,
         num_concurrent_uploads=1,

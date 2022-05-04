@@ -1,7 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
 import itertools
-from typing import Sequence, Union
 from unittest.mock import Mock
 
 import pytest
@@ -11,7 +10,6 @@ from composer.algorithms import Factorize
 from composer.algorithms.factorize import FactorizedConv2d, FactorizedLinear
 from composer.algorithms.factorize.factorize import LOG_NUM_CONV2D_REPLACEMENTS_KEY, LOG_NUM_LINEAR_REPLACEMENTS_KEY
 from composer.core import Event, State
-from composer.core.algorithm import Algorithm
 from composer.loggers import Logger
 from composer.utils import module_surgery
 from tests.common import SimpleConvModel
@@ -38,23 +36,6 @@ def algo_instance(request):
 @pytest.fixture()
 def simple_conv_model_input():
     return torch.rand((64, 32, 64, 64))
-
-
-def _apply_algo(dummy_state: State, simple_conv_model_input: Union[torch.Tensor, Sequence[torch.Tensor]],
-                algo_instance: Algorithm, logger: Logger):
-    batch = (simple_conv_model_input, None)
-    original_conv_count = module_surgery.count_module_instances(dummy_state.model, torch.nn.Conv2d)
-    original_linear_count = module_surgery.count_module_instances(dummy_state.model, torch.nn.Linear)
-    out = dummy_state.model.forward(batch)
-    original_shape = out.shape
-
-    algo_instance.apply(
-        event=Event.INIT,
-        state=dummy_state,
-        logger=logger,
-    )
-
-    return original_conv_count, original_linear_count, original_shape
 
 
 def test_factorize_surgery(state: State, empty_logger: Logger, algo_instance: Factorize):

@@ -151,6 +151,12 @@ extra_deps["webdataset"] = [
     "wurlitzer>=3.0.2,<4",
 ]
 
+extra_deps["mlperf"] = [
+    # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218
+    # "mlperf_logging @ git+https://github.com/mlperf/logging.git",
+    "py-cpuinfo>=8.0.0,<9",
+]
+
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ["py.typed"]
