@@ -105,12 +105,12 @@ def _batch_set_tuple(batch, key, value):
     """"Sets key value pairs in tuples and NamedTuples."""
     if hasattr(batch, '_fields'):  # NamedTuple
         if isinstance(key, (List, Tuple)):
-            for k, v in zip(key, value):
-                if isinstance(k, str):
-                    batch = batch._replace(**{k: v})
+            for index, val in zip(key, value):
+                if isinstance(index, str):
+                    batch = batch._replace(**{index: val})
                 else:  # Has to be int because you cannot have a named tuple with keys other than str.
                     batch_list = list(batch)
-                    batch_list[k] = v
+                    batch_list[index] = val
                     batch = batch._make(batch_list)
         else:
             if isinstance(key, str):
