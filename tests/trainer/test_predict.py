@@ -1,20 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import os
-import pathlib
-import shutil
-import tarfile
-import tempfile
-import textwrap
-import time
-from typing import Any, Dict, Optional, Union
-
 import pytest
-import torch
-import torch.distributed
 from torch.utils.data import DataLoader
 
-from composer.core import DataSpec
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
