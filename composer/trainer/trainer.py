@@ -655,7 +655,7 @@ class Trainer:
                 self._device = DeviceCPU()
             elif device == 'gpu':
                 self._device = DeviceGPU()
-            elif debice == 'tpu':
+            elif device == 'tpu':
                 self._device = DeviceTPU()
             else:
                 raise ValueError(f'device ({device}) must be one of (cpu, gpu).')
