@@ -1,9 +1,7 @@
-from typing import Any, Sequence, NamedTuple, List, Tuple
-
-from composer.core.types import BatchKeys
+from typing import Any, List, Tuple
 
 
-def batch_get(batch: Any, key: BatchKeys) -> Any:
+def batch_get(batch: Any, key: Any) -> Any:
     """Indexes into the batch given the key.
 
     Tries all the common combination of batch and key pairs:
@@ -49,7 +47,7 @@ def batch_get(batch: Any, key: BatchKeys) -> Any:
         raise RuntimeError(f"Batch object can't be indexed by nor has attribute {key}")
 
 
-def batch_set(batch: Any, key: BatchKeys, value: Any) -> Any:
+def batch_set(batch: Any, key: Any, value: Any) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
 
     Tries all the common combination of batch and key pairs:
@@ -105,28 +103,28 @@ def batch_set(batch: Any, key: BatchKeys, value: Any) -> Any:
 
 def _batch_set_tuple(batch, key, value):
     """"Sets key value pairs in tuples and NamedTuples."""
-    if hasattr(batch, '_fields'): # NamedTuple
+    if hasattr(batch, '_fields'):  # NamedTuple
         if isinstance(key, (List, Tuple)):
-            for k,v in zip(key, value):
+            for k, v in zip(key, value):
                 if isinstance(k, str):
-                    batch = batch._replace(**{k:v})
-                else: # Has to be int because you cannot have a named tuple with keys other than str.
+                    batch = batch._replace(**{k: v})
+                else:  # Has to be int because you cannot have a named tuple with keys other than str.
                     batch_list = list(batch)
                     batch_list[k] = v
                     batch = batch._make(batch_list)
         else:
             if isinstance(key, str):
-                batch = batch._replace(**{key:value})
+                batch = batch._replace(**{key: value})
             else:
                 batch_list = list(batch)
                 batch_list[key] = value
                 batch = batch._make(batch_list)
         return batch
-    
-    else:     # Normal tuple.
+
+    else:  # Normal tuple.
         if isinstance(key, (List, Tuple)):
             batch = list(batch)
-            for k,v in zip(key, value):
+            for k, v in zip(key, value):
                 batch[k] = v
 
         else:

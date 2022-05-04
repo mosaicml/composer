@@ -45,7 +45,6 @@ def example_map(request):
     return request.param
 
 
-
 # Test whether sequences can be indexed by an int.
 def test_int_key(example_sequence, key=2, expected=5):
     assert batch_get(example_sequence, key) == expected
@@ -88,13 +87,16 @@ def test_seq_of_slices_key_for_tensors_and_arrays(batch, key, expected):
     for actual, expectation in zip(batch_get(batch, key), expected):
         assert all(actual == expectation)
 
+
 @pytest.fixture
 def example_list():
     return my_list
 
+
 @pytest.fixture
 def example_tuple():
     return tuple(my_list)
+
 
 @pytest.fixture
 def example_tensor():
@@ -111,12 +113,14 @@ def test_batch_set_sequence_int_key(batch, key=3, value=23):
     new_batch = batch_set(batch, key, value)
     assert batch_get(new_batch, key) == value
 
+
 # Test whether lists can be set using batch_set.
 @pytest.mark.parametrize('key,value', [([2, 5], [11, 13]), ([2, 5], (11, 13)), (slice(1, 6, 2), [-1, -3, -5]),
                                        ([slice(0, 3, 1), slice(4, 7, 1)], [[10, 11, 12], [13, 14, 15]])])
 def test_batch_set_list(example_list, key, value):
     new_batch = batch_set(example_list, key, value)
     assert tuple(batch_get(new_batch, key)) == tuple(value)
+
 
 # Test whether tuples can be set using batch_set.
 @pytest.mark.parametrize('key,value', [([2, 5], [11, 13]), ([2, 5], (11, 13)), (slice(1, 6, 2), [-1, -3, -5]),
@@ -125,12 +129,14 @@ def test_batch_set_tuple(example_tuple, key, value):
     new_batch = batch_set(example_tuple, key, value)
     assert tuple(batch_get(new_batch, key)) == tuple(value)
 
+
 # Test whether tuples can be set using batch_set.
 @pytest.mark.parametrize('key,value', [([2, 5], [11, 13]), ([2, 5], (11, 13)), (slice(1, 6, 2), [-1, -3, -5]),
                                        ([slice(0, 3, 1), slice(4, 7, 1)], [(10, 11, 12), (13, 14, 15)])])
 def test_batch_set_named_tuple(key, value, batch=my_named_tuple(*my_list)):
     new_batch = batch_set(batch, key, value)
     assert tuple(batch_get(new_batch, key)) == tuple(value)
+
 
 # Test whether tensors can be set using batch_set.
 @pytest.mark.parametrize('key,value', [(1, torch.tensor(2)), (3, torch.tensor(7)), ([2, 5], torch.tensor([11, 13])),
