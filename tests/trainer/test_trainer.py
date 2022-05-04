@@ -197,7 +197,7 @@ class TestTrainerInitOrFit:
         first_timestamp = trainer.state.timer.get_timestamp()
 
         # It should error if the timer is not being reset. Otherwise, it should be reset and train OK.
-        error_msg = "Please either increase the `max_duration` or specify `reset_timer=True`"
+        error_msg = "Please provide the `duration` or specify `reset_timer=True`"
         ctx = pytest.raises(ValueError,
                             match=error_msg) if not new_duration and not reset_timer else contextlib.nullcontext()
         with ctx:
