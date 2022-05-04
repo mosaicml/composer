@@ -154,7 +154,7 @@ class Logger:
             destination.log_file_artifact(
                 state=self._state,
                 log_level=log_level,
-                artifact_name=_format_str_with_placeholders(artifact_name, self.run_name)
+                artifact_name=_format_str_with_placeholders(artifact_name, self.run_name),
                 file_path=file_path,
                 overwrite=overwrite,
             )
