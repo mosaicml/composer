@@ -33,8 +33,8 @@ model:
     num_classes: 1000
 max_duration: 10ep
 eval_interval: 11ep
-train_batch_size: 1024
-eval_batch_size: 1024
+train_batch_size: 2048
+eval_batch_size: 2048
 seed: 17
 device:
   gpu: {}
@@ -45,4 +45,4 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
-precision: fp32
+precision: fp16
