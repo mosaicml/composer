@@ -24,6 +24,7 @@ from composer.callbacks import CheckpointSaver
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
 from composer.core.precision import get_precision_context
+from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
 from composer.models.base import ComposerModel
@@ -68,18 +69,18 @@ def _scale_max_duration_by_ssr(
     return max_duration
 
 
-def _should_step_schedulers_every_batch(schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]]):
-    # schedulers can be stepped every batch by default if there are no pytorch schedulers
+def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]]):
     has_pytorch_scheduler = any(isinstance(scheduler, PyTorchScheduler) for scheduler in ensure_tuple(schedulers))
     if has_pytorch_scheduler:
         log.info(("Stepping schedulers every epoch, as a PyTorch scheduler was provided. "
                   "The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the "
                   "PyTorch scheduler to be in terms of batches. If the PyTorch scheduler should be stepped "
                   "every batch, set `step_schedulers_every_batch=True`."))
+        return TimeUnit.EPOCH
     else:
         log.info(("Stepping schedulers every batch. "
                   "To step schedulers every epoch, set `step_schedulers_every_batch=False`."))
-    return not has_pytorch_scheduler
+        return TimeUnit.BATCH
 
 
 def _get_training_metrics(model: ComposerModel):
@@ -964,8 +965,9 @@ class Trainer:
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
 
         if step_schedulers_every_batch is None:
-            step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers)
-        self._step_schedulers_every_batch = step_schedulers_every_batch
+            self._scheduler_step_frequency = _get_default_scheduler_frequency(schedulers)
+        else:
+            self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
 
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
@@ -1046,7 +1048,7 @@ class Trainer:
             reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
-        if not self.state.is_model_deepspeed:
+        if not self.deepspeed_enabled:
             host_model_params = self.state.model.parameters()
             self.state.model = self._device.module_to_device(self.state.model)
             device_model_params = self.state.model.parameters()
@@ -1125,10 +1127,74 @@ class Trainer:
     ):
         """Train the model.
 
-        .. note::
+        The Composer :class:`.Trainer` supports multiple calls to :meth:`.fit`. Any arguments specified during
+        the call to :meth:`.fit` will override the values specified when constructing the :class:`.Trainer`.
+        All arguments are optional, with the following exceptions:
 
-            All arguments to :meth:`.fit` are optional. Any values specified here will override
-            what was provided when constructing the :class:`.Trainer`.
+        *   The ``train_dataloader`` must be specified here if not provided when constructing the :class:`.Trainer`.
+        *   The ``duration`` must be specified here if not provided when constructing the :class:`.Trainer`,
+            or if this is a subsequent call to :meth:`.fit`.
+
+        For example, the following are equivalent:
+
+        .. testcode::
+
+            # The `train_dataloader` and `duration` can be specified
+            # when constructing the Trainer
+            trainer_1 = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration="1ep",
+            )
+            trainer_1.fit()
+
+            # Or, these arguments can be specified on `fit()`
+            trainer_2 = Trainer(model)
+            trainer_2.fit(
+                train_dataloader=train_dataloader,
+                duration="1ep"
+            )
+
+        When invoking :meth:`.fit` for a subsequent time, either ``reset_timer`` or ``duration`` must be specified.
+        Otherwise, it is ambiguous for how long to train.
+
+        *   If ``reset_timer`` is True, then :meth:`.fit` will train for the same amount of time as the previous
+            call (or for ``duration`` if that parameter is also specified). The :attr:`.State.timer` will be zeroed
+            out, causing :class:`.ComposerScheduler` and :class:`.Algorithm`
+            instances to start from the beginning, as if it is a new training run. Model gradients, optimizer states,
+            and native PyTorch schedulers will not be reset.
+
+        *   If ``reset_timer`` is False, then :meth:`.fit` will train for the amount of time specified by
+            ``duration``. The :attr:`.State.max_duration` will be incremented by ``duration``.
+
+        For example:
+
+        .. testcode::
+
+            # Construct the trainer
+            trainer = Trainer(max_duration="1ep")
+
+            # Train for 1 epoch
+            trainer.fit()
+            assert trainer.state.timer.epoch == "1ep"
+
+            # Reset the timer to 0, then train for 1 epoch
+            trainer.fit(reset_timer=True)  
+            assert trainer.state.timer.epoch == "1ep"
+
+            # Train for another epoch (2 epochs total)
+            trainer.fit(duration="1ep")
+            assert trainer.state.timer.epoch == "2ep"
+
+            # Train for another batch (2 epochs + 1 batch total)
+            # It's OK to switch time units!
+            trainer.fit(duration="1ba")
+            assert trainer.state.timer.epoch == "2ep"
+            assert trainer.state.timer.batch_in_epoch == "1ba"
+
+            # Reset the timer, then train for 3 epochs
+            trainer.fit(reset_timer=True, duration="3ep")
+            assert trainer.state.timer.epoch == "3ep"
 
         Args:
             train_dataloader (Iterable | DataSpec | Dict[str, Any], optional): See :class:`.Trainer`.
@@ -1139,7 +1205,8 @@ class Trainer:
 
                 If ``True``, the timer will be zeroed out, causing :class:`.ComposerScheduler` and :class:`.Algorithm`
                 instances to start from the beginning, as if it is a new training run.
-                The :attr:`~.State.max_duration` will be incremented by the ``duration`` parameter.
+                The model will be trained for current value of :attr:`~.State.max_duration` (or for ``duration``
+                if specified).
 
                 .. note::
 
@@ -1147,7 +1214,7 @@ class Trainer:
 
                 If ``False`` (the default), the timer will resume from where the previous call to :meth:`.fit`
                 finished (or from zero, if a new training run).
-                The :attr:`~.State.max_duration` will set to the ``duration`` parameter.
+                The :attr:`~.State.max_duration` will be incremented by the ``duration`` parameter.
 
             duration (Time[int] | str | int, optional): The duration to train. Can be an integer, which will be
                 interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
@@ -1208,9 +1275,11 @@ class Trainer:
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
         if schedulers is not None:
             self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
+
             if step_schedulers_every_batch is None:
-                step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers)
-            self._step_schedulers_every_batch = step_schedulers_every_batch
+                self._scheduler_step_frequency = _get_default_scheduler_frequency(schedulers)
+            else:
+                self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
         else:
             if scale_schedule_ratio != 1.0:
                 raise ValueError("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
@@ -1252,20 +1321,20 @@ class Trainer:
         # Grad Accum
         if grad_accum is not None:
             self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
-            grad_accum = _get_initial_grad_accum(grad_accum)
+            self.state.grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Grad Clip Norm
         if grad_clip_norm is not None:
-            if self.state.is_model_deepspeed:
+            if self.deepspeed_enabled:
                 raise ValueError("Changing the grad_clip_norm when using DeepSpeed is not supported.")
             self._grad_clip_norm = grad_clip_norm
 
         # Precision
         if precision is not None:
-            if self.state.is_model_deepspeed:
+            if self.deepspeed_enabled:
                 raise ValueError("Changing the precision when using DeepSpeed is not supported")
             precision = Precision(precision)
-            _validate_precision(precision, self._device, self.state.is_model_deepspeed)
+            _validate_precision(precision, self._device, self.deepspeed_enabled)
             self.state.precision = precision
 
         self._train_loop()
@@ -1355,6 +1424,9 @@ class Trainer:
         if self.train_metrics is not None:
             self.train_metrics = self._ensure_metrics_device_and_dtype(self.train_metrics)
 
+        # Flag if the epoch finished early, so it can be tracked whether to run the epoch end events
+        finished_epoch_early = False
+
         while self.state.timer < self.state.max_duration:
             try:
                 self.state.model.train()
@@ -1385,7 +1457,7 @@ class Trainer:
                     self.state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                     self.state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                    if self.state.is_model_deepspeed:
+                    if self.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                     if self.train_metrics is not None:
@@ -1433,7 +1505,7 @@ class Trainer:
                         tokens=int(num_tokens_in_batch.item()),
                     )
 
-                    if self._step_schedulers_every_batch:
+                    if self._scheduler_step_frequency == TimeUnit.BATCH:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
 
@@ -1464,39 +1536,45 @@ class Trainer:
                         # If max_duration is specified in batches, samples, or tokens, and
                         # and the max_duration is reached mid-epoch, then break out of the dataloader
                         # to finish the epoch early and finish training.
+                        finished_epoch_early = True
                         break
 
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {int(self.state.timer.epoch)}')
 
-            self.state.timer.on_epoch_complete()
+            if not finished_epoch_early or self.state.dataloader_len == self.state.timer.batch_in_epoch:
+                # Trigger the epoch end events if the dataloader was exhausted.
+                # This happens if the "break" did not trigger above, or if it
+                # did (e.g. duration specified in samples/batches/tokens), but it is still
+                # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
+                self.state.timer.on_epoch_complete()
 
-            if self.train_metrics is not None:
-                self._compute_and_log_metrics(
-                    dataloader_label='train',
-                    log_level=LogLevel.EPOCH,
-                    metrics=self.train_metrics,
-                )
-
-            if not self._step_schedulers_every_batch:
-                for scheduler in self.state.schedulers:
-                    scheduler.step()
-
-            self.engine.run_event(Event.EPOCH_END)
-
-            for evaluator in self.state.evaluators:
-                assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
-                assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
-                if evaluator.eval_interval(self.state, Event.EPOCH_END):
-                    self.eval(
-                        dataloader=evaluator.dataloader,
-                        dataloader_label=evaluator.label,
-                        subset_num_batches=evaluator.subset_num_batches,
-                        metrics=evaluator.metrics,
+                if self.train_metrics is not None:
+                    self._compute_and_log_metrics(
+                        dataloader_label='train',
                         log_level=LogLevel.EPOCH,
+                        metrics=self.train_metrics,
                     )
 
-            self.engine.run_event(Event.EPOCH_CHECKPOINT)
+                if self._scheduler_step_frequency == TimeUnit.EPOCH:
+                    for scheduler in self.state.schedulers:
+                        scheduler.step()
+
+                self.engine.run_event(Event.EPOCH_END)
+
+                for evaluator in self.state.evaluators:
+                    assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
+                    assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
+                    if evaluator.eval_interval(self.state, Event.EPOCH_END):
+                        self.eval(
+                            dataloader=evaluator.dataloader,
+                            dataloader_label=evaluator.label,
+                            subset_num_batches=evaluator.subset_num_batches,
+                            metrics=evaluator.metrics,
+                            log_level=LogLevel.EPOCH,
+                        )
+
+                self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
     def _handle_cuda_oom(self):
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
@@ -1526,7 +1604,7 @@ class Trainer:
             try:
                 assert self.state.scaler is not None
                 microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
-                if self.state.is_model_deepspeed:
+                if self.deepspeed_enabled:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():
                     for optimizer in self.state.optimizers:
@@ -1596,7 +1674,7 @@ class Trainer:
 
             use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
-            if not self.state.is_model_deepspeed:
+            if not self.deepspeed_enabled:
                 for optimizer in self.state.optimizers:
                     optimizer.zero_grad()
 
@@ -1614,7 +1692,7 @@ class Trainer:
                     self.state.scaler.unscale_(optimizer)
 
             # clip gradients if the magnitude is too large
-            if not self.state.is_model_deepspeed and self._grad_clip_norm >= 0:
+            if not self.deepspeed_enabled and self._grad_clip_norm >= 0:
                 torch.nn.utils.clip_grad_norm_(
                     parameters=self.state.model.parameters(),
                     max_norm=self._grad_clip_norm,
@@ -1638,7 +1716,7 @@ class Trainer:
         assert self._train_data_spec is not None
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        sync_context = contextlib.nullcontext() if self.state.is_model_deepspeed else ddp_sync_context(
+        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
             self.state,
             is_final_microbatch,
             self._ddp_sync_strategy,
@@ -1666,7 +1744,7 @@ class Trainer:
 
             # Loss is added to losses with clone to not scale the loss for the step printout
             # Likely need to look into the performance impact
-            if not self.state.is_model_deepspeed:
+            if not self.deepspeed_enabled:
                 for loss in ensure_tuple(self.state.loss):
                     loss.mul_(microbatch_num_samples / current_batch_size)
                     total_loss += loss.detach().clone()
@@ -1680,7 +1758,7 @@ class Trainer:
             if use_grad_scaling:
                 self.state.loss = cast(torch.Tensor, self.state.scaler.scale(self.state.loss))
 
-            if self.state.is_model_deepspeed:
+            if self.deepspeed_enabled:
                 self.state.deepspeed_model.backward(self.state.loss)
 
                 # This is the same loss scaling and reporting we skipped earlier.
@@ -1693,7 +1771,7 @@ class Trainer:
 
             self.engine.run_event(Event.AFTER_BACKWARD)
 
-        if self.state.is_model_deepspeed:
+        if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
     def eval(
@@ -1764,7 +1842,7 @@ class Trainer:
                 self.state.batch_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 self.state.batch_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                if self.state.is_model_deepspeed:
+                if self.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
@@ -1808,7 +1886,7 @@ class Trainer:
                 Occurs when attempting to use grad scaling without the scaler
                 enabled. Likely due to hardware not supporting the provided precision.
         """
-        if self.state.is_model_deepspeed:
+        if self.deepspeed_enabled:
             return False
 
         precision = Precision(precision)
@@ -1852,7 +1930,7 @@ class Trainer:
         We default to using closures unless AMP is enabled, in which case we only allow closures when using optimizers
         with the _step_supports_amp_closure flag.
         """
-        if self.state.is_model_deepspeed:
+        if self.deepspeed_enabled:
             return False
 
         if self.state.precision != Precision.AMP:
