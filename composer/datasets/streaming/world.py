@@ -13,7 +13,23 @@ __all__ = ["World", "get_world"]
 
 
 class World(NamedTuple):
-    """A :class:`NamedTuple` that provides context about workers, devices, and nodes."""
+    """A :class:`NamedTuple` that provides context about workers, devices, and nodes.
+
+
+    Attributes:
+        global_node (int): The id of this node within the global system
+        global_num_nodes (int): The number of nodes within the global system
+        global_device (int): The id of this device within the global system
+        global_num_devices (int): The number of devices within the global system
+        node_device (int): The id of this device within this node
+        node_num_devices (int): The number of devices within this node
+        global_worker (int): The id of this worker within the global system
+        global_num_workers (int): The number of workers within the global system
+        node_worker (int): The id of this worker within this node
+        node_num_workers (int): The number of workers within this node
+        device_worker (int): The id of this worker within this device
+        device_num_workers (int): The number of workers within this device
+    """
     global_node: int
     global_num_nodes: int
 
@@ -34,7 +50,7 @@ class World(NamedTuple):
 
 
 def get_world() -> World:
-    """Returns a :class:`World` object, initialized using :mod:`composer.dist` and :meth:`torch.utils.data.get_worker_info`"""
+    """Returns a :class:`World` object, initialized using :mod:`composer.utils.dist` and :func:`torch.utils.data.get_worker_info`"""
 
     # Node and Device info
     global_node = dist.get_node_rank()

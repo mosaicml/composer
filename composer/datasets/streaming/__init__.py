@@ -4,7 +4,7 @@
 MosaicML Streaming Datasets for cloud-native model training.
 
 This is a new dataset class :class:`StreamingDataset(torch.utils.data.IterableDatset)`
- and associated dataset format: ``shard-[00x].mds`` that has much better performance, shuffling, and usability than existing solutions.
+and associated dataset format: ``shard-[00x].mds`` that has much better performance, shuffling, and usability than existing solutions.
 
 A brief list of improvements:
 

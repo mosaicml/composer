@@ -5,9 +5,12 @@
 
 import os
 import shutil
+import tempfile
 import textwrap
 from time import sleep, time
 from urllib.parse import urlparse
+
+__all__ = ["safe_download"]
 
 
 def wait_for_download(local: str, timeout: float = 20) -> None:
@@ -106,10 +109,14 @@ def safe_download(remote: str, local: str, timeout: float = 20) -> None:
     # Check if there is a tmp file.
     local_tmp = local + '.tmp'
     if os.path.exists(local_tmp):
+        # Get tmp file created time
         local_tmp_create_time = os.path.getctime(local_tmp)
-        current_time = time()
 
-        if current_time - local_tmp_create_time < timeout + 1:  # 1s buffer to avoid race condition
+        # Get current disk time, more consistent than system time
+        with tempfile.NamedTemporaryFile() as f:
+            current_disk_time = os.path.getctime(f.name)
+
+        if current_disk_time - local_tmp_create_time < timeout + 1:  # 1s buffer to avoid race condition
             # If the tmp file is recent, it is either (1) from a very recent crashed run, or (2) another thread is actively downloading it.
             # So we wait but don't error out, in case we are in situation (1)
             try:

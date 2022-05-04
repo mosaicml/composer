@@ -4,7 +4,8 @@
 """
 
 import os
-from typing import Dict, Iterable, List, Optional
+from types import TracebackType
+from typing import Dict, Iterable, List, Optional, Type
 
 import numpy as np
 from tqdm import tqdm
@@ -142,9 +143,8 @@ class StreamingDatasetWriter(object):
         self._write_index()
 
     def __enter__(self):
-        """Enter as contextmanager."""
         return self
 
-    def __exit__(self, *args: List, **kwargs: Dict) -> None:
-        """Exit as contextmanager."""
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException],
+                 traceback: Optional[TracebackType]) -> None:
         self.finish()
