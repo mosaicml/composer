@@ -13,6 +13,13 @@ from composer.datasets.streaming import StreamingDataset, StreamingDatasetWriter
 from composer.utils import dist
 
 
+@pytest.fixture
+def remote_local(tmpdir: py.path.local) -> Tuple[str, str]:
+    remote = str(tmpdir.mkdir("remote"))
+    local = str(tmpdir.mkdir("local"))
+    return remote, local
+
+
 def get_fake_samples_decoders(num_samples: int) -> Tuple[List[Dict[str, bytes]], Dict[str, Callable[[bytes], Any]]]:
     samples = [{"uid": f"{ix:06}".encode("utf-8"), "data": (3 * ix).to_bytes(4, "big")} for ix in range(num_samples)]
     decoders = {
@@ -31,8 +38,8 @@ def write_synthetic_streaming_dataset(dirname: str, samples: List[Dict[str, byte
 
 @pytest.mark.parametrize("num_samples", [100, 10000])
 @pytest.mark.parametrize("shard_size_limit", [1 << 8, 1 << 16, 1 << 24])
-def test_writer(tmpdir: py.path.local, num_samples: int, shard_size_limit: int) -> None:
-    dirname = str(tmpdir)
+def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int) -> None:
+    dirname, _ = remote_local
     samples, _ = get_fake_samples_decoders(num_samples)
 
     first_sample_values = samples[0].values()
@@ -52,16 +59,14 @@ def test_writer(tmpdir: py.path.local, num_samples: int, shard_size_limit: int) 
 @pytest.mark.parametrize("batch_size", [None, 1, 2])
 @pytest.mark.parametrize("share_remote_local", [False, True])
 @pytest.mark.parametrize("shuffle", [False, True])
-def test_reader(tmpdir: py.path.local, batch_size: int, share_remote_local: bool, shuffle: bool):
+def test_reader(remote_local: Tuple[str, str], batch_size: int, share_remote_local: bool, shuffle: bool):
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
-    remote = str(tmpdir.mkdir("remote"))
-    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
+    remote, local = remote_local
     if share_remote_local:
         local = remote
-    else:
-        local = str(tmpdir.mkdir("local"))
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size)
@@ -94,12 +99,11 @@ def test_reader(tmpdir: py.path.local, batch_size: int, share_remote_local: bool
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize("created_ago", [0.5, 3])
 @pytest.mark.parametrize("timeout", [1])
-def test_reader_after_crash(tmpdir: py.path.local, created_ago: float, timeout: float):
+def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, timeout: float):
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
-    remote = str(tmpdir.mkdir("remote"))
-    local = str(tmpdir.mkdir("local"))
+    remote, local = remote_local
     write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
     shutil.copy(os.path.join(remote, "index.mds"), os.path.join(local, "index.mds.tmp"))
@@ -119,26 +123,20 @@ def test_reader_after_crash(tmpdir: py.path.local, created_ago: float, timeout: 
         pytest.param(False, marks=pytest.mark.xfail(reason="__getitem__ currently expects shards to exist")),
     ],
 )
-def test_reader_getitem(tmpdir: py.path.local, share_remote_local: bool):
+def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool):
     num_samples = 117
     shard_size_limit = 1 << 8
     samples, decoders = get_fake_samples_decoders(num_samples)
-
-    remote = str(tmpdir.mkdir("remote"))
-    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
+    remote, local = remote_local
     if share_remote_local:
         local = remote
-    else:
-        local = str(tmpdir.mkdir("local"))
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
 
     # Test retrieving random sample
-    try:
-        _ = dataset[17]
-    except Exception as e:
-        assert False, f"Unable to get random sample, got exception: {e}"
+    _ = dataset[17]
 
 
 @pytest.mark.daily()
@@ -156,13 +154,12 @@ def test_reader_getitem(tmpdir: py.path.local, share_remote_local: bool):
         )),
 ])
 @pytest.mark.parametrize("shuffle", [False, True])
-def test_dataloader_single_device(tmpdir: py.path.local, batch_size: int, drop_last: bool, num_workers: int,
+def test_dataloader_single_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, num_workers: int,
                                   persistent_workers: bool, shuffle: bool):
     num_samples = 31
     shard_size_limit = 1 << 6
     samples, decoders = get_fake_samples_decoders(num_samples)
-    remote = str(tmpdir.mkdir("remote"))
-    local = str(tmpdir.mkdir("local"))
+    remote, local = remote_local
     write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
     # Build StreamingDataset
@@ -228,7 +225,7 @@ def test_dataloader_single_device(tmpdir: py.path.local, batch_size: int, drop_l
 @pytest.mark.parametrize("num_samples", [30, 31])
 @pytest.mark.parametrize("num_workers", [1, 3])
 @pytest.mark.parametrize("shuffle", [False, True])
-def test_dataloader_multi_device(tmpdir: py.path.local, batch_size: int, drop_last: bool, num_samples: int,
+def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, num_samples: int,
                                  num_workers: int, shuffle: bool):
 
     global_device = dist.get_global_rank()
@@ -240,9 +237,7 @@ def test_dataloader_multi_device(tmpdir: py.path.local, batch_size: int, drop_la
     samples, decoders = get_fake_samples_decoders(num_samples)
 
     # Broadcast remote, local
-    remote = str(tmpdir.mkdir("remote"))
-    local = str(tmpdir.mkdir("local"))
-    remote_local_list = [remote, local]
+    remote_local_list = list(remote_local)
     dist.broadcast_object_list(remote_local_list)
     remote, local = remote_local_list
 

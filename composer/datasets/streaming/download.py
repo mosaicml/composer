@@ -5,6 +5,7 @@
 
 import os
 import shutil
+import textwrap
 from time import sleep, time
 from urllib.parse import urlparse
 
@@ -34,8 +35,15 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
         local (str): Local path (local filesystem).
         timeout (float): How long to wait for shard to download before raising an exception.
     """
-    import boto3
-    from botocore import Config
+    try:
+        import boto3
+        from botocore import Config
+    except ImportError as e:
+        raise ImportError(
+            textwrap.dedent("""\
+            Composer was installed without streaming support. To use streaming with Composer, run: `pip install mosaicml
+            [streaming]` if using pip or `conda install -c conda-forge monai` if using Anaconda""")) from e
+
     obj = urlparse(remote)
     if obj.scheme != 's3':
         raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
