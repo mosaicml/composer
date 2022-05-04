@@ -119,7 +119,7 @@ def _batch_set_tuple(batch, key, value):
                 batch = batch._replace(**{key:value})
             else:
                 batch_list = list(batch)
-                batch_list[k] = v
+                batch_list[key] = value
                 batch = batch._make(batch_list)
         return batch
     

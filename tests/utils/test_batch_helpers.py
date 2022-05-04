@@ -45,15 +45,6 @@ def example_map(request):
     return request.param
 
 
-# # All key-value pair data structures that are mutable.
-# @pytest.fixture(
-#     scope="module",
-#     params=[dict(zip(keys, my_list)),
-#             myClass(**dict(zip(keys, my_list))),
-#             OrderedDict(**dict(zip(keys, my_list)))])
-# def example_map(request):
-#     return request.param
-
 
 # Test whether sequences can be indexed by an int.
 def test_int_key(example_sequence, key=2, expected=5):
@@ -97,11 +88,13 @@ def test_seq_of_slices_key_for_tensors_and_arrays(batch, key, expected):
     for actual, expectation in zip(batch_get(batch, key), expected):
         assert all(actual == expectation)
 
-
 @pytest.fixture
 def example_list():
-    return [3, 4, 5, 6, 7, 8, 9, 10]
+    return my_list
 
+@pytest.fixture
+def example_tuple():
+    return tuple(my_list)
 
 @pytest.fixture
 def example_tensor():
@@ -113,20 +106,38 @@ def example_array():
     return np.asarray([3, 4, 5, 6, 7, 8, 9, 10])
 
 
+@pytest.mark.parametrize('batch', [my_list, tuple(my_list), my_named_tuple(*my_list)])
+def test_batch_set_sequence_int_key(batch, key=3, value=23):
+    new_batch = batch_set(batch, key, value)
+    assert batch_get(new_batch, key) == value
+
 # Test whether lists can be set using batch_set.
-@pytest.mark.parametrize('key,value', [(1, 2), (3, 7), ([2, 5], [11, 13]), (slice(1, 6, 2), [-1, -3, -5]),
+@pytest.mark.parametrize('key,value', [([2, 5], [11, 13]), ([2, 5], (11, 13)), (slice(1, 6, 2), [-1, -3, -5]),
                                        ([slice(0, 3, 1), slice(4, 7, 1)], [[10, 11, 12], [13, 14, 15]])])
 def test_batch_set_list(example_list, key, value):
-    batch_set(example_list, key, value)
-    assert batch_get(example_list, key) == value
+    new_batch = batch_set(example_list, key, value)
+    assert tuple(batch_get(new_batch, key)) == tuple(value)
 
+# Test whether tuples can be set using batch_set.
+@pytest.mark.parametrize('key,value', [([2, 5], [11, 13]), ([2, 5], (11, 13)), (slice(1, 6, 2), [-1, -3, -5]),
+                                       ([slice(0, 3, 1), slice(4, 7, 1)], [(10, 11, 12), (13, 14, 15)])])
+def test_batch_set_tuple(example_tuple, key, value):
+    new_batch = batch_set(example_tuple, key, value)
+    assert tuple(batch_get(new_batch, key)) == tuple(value)
+
+# Test whether tuples can be set using batch_set.
+@pytest.mark.parametrize('key,value', [([2, 5], [11, 13]), ([2, 5], (11, 13)), (slice(1, 6, 2), [-1, -3, -5]),
+                                       ([slice(0, 3, 1), slice(4, 7, 1)], [(10, 11, 12), (13, 14, 15)])])
+def test_batch_set_named_tuple(key, value, batch=my_named_tuple(*my_list)):
+    new_batch = batch_set(batch, key, value)
+    assert tuple(batch_get(new_batch, key)) == tuple(value)
 
 # Test whether tensors can be set using batch_set.
 @pytest.mark.parametrize('key,value', [(1, torch.tensor(2)), (3, torch.tensor(7)), ([2, 5], torch.tensor([11, 13])),
                                        (slice(1, 6, 2), torch.tensor([-1, -3, -5]))])
 def test_batch_set_tensor(example_tensor, key, value):
-    batch_set(example_tensor, key, value)
-    assert torch.equal(batch_get(example_tensor, key), value)
+    new_batch = batch_set(example_tensor, key, value)
+    assert torch.equal(batch_get(new_batch, key), value)
 
 
 # Test whether tensors can be set using batch_set with a list of slices.
@@ -134,8 +145,8 @@ def test_batch_set_tensor_list_of_slices(example_tensor,
                                          key=[slice(0, 3, 1), slice(4, 7, 1)],
                                          value=[torch.tensor([10, 11, 12]),
                                                 torch.tensor([13, 14, 15])]):
-    batch_set(example_tensor, key, value)
-    for actual, expectation in zip(batch_get(example_tensor, key), value):
+    new_batch = batch_set(example_tensor, key, value)
+    for actual, expectation in zip(batch_get(new_batch, key), value):
         assert torch.equal(actual, expectation)
 
 
@@ -143,8 +154,8 @@ def test_batch_set_tensor_list_of_slices(example_tensor,
 @pytest.mark.parametrize('key,value', [(1, np.asarray(2)), (3, np.asarray(7)), ([2, 5], np.asarray([11, 13])),
                                        (slice(1, 6, 2), np.asarray([-1, -3, -5]))])
 def test_batch_set_array(example_array, key, value):
-    batch_set(example_array, key, value)
-    assert np.all(batch_get(example_array, key) == value)
+    new_batch = batch_set(example_array, key, value)
+    assert np.all(batch_get(new_batch, key) == value)
 
 
 # Test whether arrays can be set using batch_set with a list of slices.
@@ -152,8 +163,8 @@ def test_batch_set_array_list_of_slices(example_array,
                                         key=[slice(0, 3, 1), slice(4, 7, 1)],
                                         value=[np.asarray([10, 11, 12]),
                                                np.asarray([13, 14, 15])]):
-    batch_set(example_array, key, value)
-    for actual, expectation in zip(batch_get(example_array, key), value):
+    new_batch = batch_set(example_array, key, value)
+    for actual, expectation in zip(batch_get(new_batch, key), value):
         assert np.all(actual == expectation)
 
 
