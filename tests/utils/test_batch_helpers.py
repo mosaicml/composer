@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import ChainMap, Counter, OrderedDict, defaultdict, deque
 from typing import NamedTuple
 
 import numpy as np
@@ -21,6 +21,22 @@ class myClass(object):
 
 list_types = [type(element) for element in my_list]
 my_named_tuple = NamedTuple('nt', **dict(zip(keys, list_types)))
+counter_list = []
+for char, num in zip(keys, my_list):
+    counter_list.extend(num * [char])
+
+
+@pytest.fixture(scope="module",
+                params=[
+                    my_list,
+                    tuple(my_list),
+                    torch.tensor(my_list),
+                    np.asarray(my_list),
+                    deque(my_list),
+                    my_named_tuple(*my_list)
+                ])
+def example_sequence(request):
+    return request.param
 
 
 @pytest.fixture(scope="module",
@@ -29,7 +45,7 @@ my_named_tuple = NamedTuple('nt', **dict(zip(keys, list_types)))
                         torch.tensor(my_list),
                         np.asarray(my_list),
                         my_named_tuple(*my_list)])
-def example_sequence(request):
+def example_deque_less_sequence(request):
     return request.param
 
 
@@ -39,6 +55,9 @@ def example_sequence(request):
                     dict(zip(keys, my_list)),
                     myClass(**dict(zip(keys, my_list))),
                     my_named_tuple(*my_list),
+                    defaultdict(list, **dict(zip(keys, my_list))),
+                    ChainMap(dict(zip(keys, my_list)), dict(a=7, j=3)),
+                    Counter(counter_list),
                     OrderedDict(**dict(zip(keys, my_list)))
                 ])
 def example_map(request):
@@ -66,8 +85,8 @@ def test_sequence_of_strs_key(example_map, key=['c', 'f'], expected=[5, 8]):
 
 
 # Test whether sequences can be indexed by a slice object.
-def test_slice_key(example_sequence, key=slice(1, 6, 2), expected=[4, 6, 8]):
-    assert list(batch_get(example_sequence, key)) == expected
+def test_slice_key(example_deque_less_sequence, key=slice(1, 6, 2), expected=[4, 6, 8]):
+    assert list(batch_get(example_deque_less_sequence, key)) == expected
 
 
 # Test whether sequences can be indexed by a sequence of slice objects.
@@ -143,7 +162,7 @@ def test_batch_set_named_tuple(key, value, batch=my_named_tuple(*my_list)):
                                        (slice(1, 6, 2), torch.tensor([-1, -3, -5]))])
 def test_batch_set_tensor(example_tensor, key, value):
     new_batch = batch_set(example_tensor, key, value)
-    assert torch.equal(batch_get(new_batch, key), value)
+    assert torch.equal(torch.tensor(batch_get(new_batch, key)), value)
 
 
 # Test whether tensors can be set using batch_set with a list of slices.
