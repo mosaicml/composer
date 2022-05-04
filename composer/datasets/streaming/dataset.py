@@ -55,6 +55,7 @@ class StreamingDataset(IterableDataset):
     .. doctest::
 
         To write the dataset:
+        >>> from composer.datasets.streaming import StreamingDatasetWriter
         >>> samples = [
         ...     {
         ...         "uid": f"{ix:06}".encode("utf-8"),
@@ -63,22 +64,20 @@ class StreamingDataset(IterableDataset):
         ...     }
         ...     for ix in range(100)
         ... ]
-        >>> dirname = "dirname"
+        >>> dirname = "remote"
         >>> fields = ["uid", "data"]
-        >>> with StreamingDatasetWriter(dirname=dirname, fields=fields, shard_size_limit=shard_size_limit) as writer:
+        >>> with StreamingDatasetWriter(dirname=dirname, fields=fields) as writer:
         ...     writer.write_samples(samples=samples)
-        Now, move your new dataset to your desired remote location.
 
         To read the dataset:
-        >>> remote = "remote_s3_or_path"
-        >>> local = "local_path"
+        >>> from composer.datasets.streaming import StreamingDataset
+        >>> remote = "remote"
+        >>> local = "local"
         >>> decoders = {
         ...     "uid": lambda uid_bytes: uid_bytes.decode("utf-8"),
         ...     "data": lambda data_bytes: int.from_bytes(data_bytes, "big"),
         ... }
-        >>> dataset = StreamingDataset(remote=remote, local=local, shuffle=True, decoders=decoders)
-        >>> print (next(iter(dataset))) # {"uid": "000017", "data": 51}
-
+        >>> dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
     """
 
     def __init__(self,

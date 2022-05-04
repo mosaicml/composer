@@ -28,6 +28,8 @@ class StreamingDatasetWriter(object):
 
     .. doctest::
 
+        To write the dataset:
+        >>> from composer.datasets.streaming import StreamingDatasetWriter
         >>> samples = [
         ...     {
         ...         "uid": f"{ix:06}".encode("utf-8"),
@@ -36,10 +38,20 @@ class StreamingDatasetWriter(object):
         ...     }
         ...     for ix in range(100)
         ... ]
-        >>> dirname = "dirname"
+        >>> dirname = "remote"
         >>> fields = ["uid", "data"]
-        >>> with StreamingDatasetWriter(dirname=dirname, fields=fields, shard_size_limit=shard_size_limit) as writer:
+        >>> with StreamingDatasetWriter(dirname=dirname, fields=fields) as writer:
         ...     writer.write_samples(samples=samples)
+
+        To read the dataset:
+        >>> from composer.datasets.streaming import StreamingDataset
+        >>> remote = "remote"
+        >>> local = "local"
+        >>> decoders = {
+        ...     "uid": lambda uid_bytes: uid_bytes.decode("utf-8"),
+        ...     "data": lambda data_bytes: int.from_bytes(data_bytes, "big"),
+        ... }
+        >>> dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
 
 
     Args:
