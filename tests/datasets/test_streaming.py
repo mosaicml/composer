@@ -141,7 +141,8 @@ def test_reader_getitem(tmpdir: py.path.local, share_remote_local: bool):
         assert False, f"Unable to get random sample, got exception: {e}"
 
 
-# @pytest.mark.daily()
+@pytest.mark.daily()
+@pytest.mark.timeout(10)
 @pytest.mark.parametrize("batch_size", [1, 2, 5])
 @pytest.mark.parametrize("drop_last", [False, True])
 @pytest.mark.parametrize("num_workers", [1, 2, 3])
@@ -219,7 +220,8 @@ def test_dataloader_single_device(tmpdir: py.path.local, batch_size: int, drop_l
         assert sample_order == second_sample_order
 
 
-# @pytest.mark.daily()
+@pytest.mark.daily()
+@pytest.mark.timeout(10)
 @pytest.mark.world_size(2)
 @pytest.mark.parametrize("batch_size", [4])
 @pytest.mark.parametrize("drop_last", [False, True])
