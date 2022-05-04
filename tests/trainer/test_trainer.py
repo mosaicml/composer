@@ -1,5 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import collections.abc
 import contextlib
 import copy
 import os
@@ -17,6 +18,7 @@ from composer.algorithms import CutOut, LabelSmoothing, algorithm_registry
 from composer.callbacks import LRMonitor
 from composer.core.callback import Callback
 from composer.core.evaluator import Evaluator
+from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit
 from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
@@ -503,6 +505,131 @@ class TestTrainerInitOrFit:
         trainer.fit(duration=max_duration)
 
         assert trainer.state.timer.get(max_duration.unit) == 2 * max_duration
+
+    @pytest.mark.parametrize("unit", [TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.SAMPLE])
+    def test_training_duration_unit(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        unit: TimeUnit,
+    ):
+        """Test that the timer is correctly set, and events fire correctly, with multiple calls to fit,
+        regardless of the time unit"""
+
+        # Construct the trainer
+        event_counter_callback = EventCounterCallback()
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            callbacks=[event_counter_callback],
+        )
+
+        # Get the batch size
+        batch_size = train_dataloader.batch_size
+        assert batch_size is not None
+
+        # Get the dataloader length
+        dataloader_len = trainer.state.dataloader_len
+        assert dataloader_len is not None
+        dataloader_len = int(dataloader_len)
+
+        # Get the dataset size
+        assert train_dataloader.dataset is not None
+        assert isinstance(train_dataloader.dataset, collections.abc.Sized)
+        num_samples_per_epoch = len(train_dataloader.dataset)
+        assert num_samples_per_epoch % batch_size == 0, "This test assumes no drop_last"
+
+        # Determine the duration (given the unit) and the number of calls to .fit()
+        # to train 1 epoch
+        if unit == TimeUnit.SAMPLE:
+            duration = Time.from_sample(batch_size)
+            num_steps_per_epoch = num_samples_per_epoch // batch_size
+        elif unit == TimeUnit.BATCH:
+            duration = Time.from_batch(1)
+            num_steps_per_epoch = dataloader_len
+        elif unit == TimeUnit.EPOCH:
+            duration = Time.from_epoch(1)
+            num_steps_per_epoch = 1
+        else:
+            raise ValueError(f"Unsupported unit: {unit}")
+
+        # Train for one epoch, incrementally in steps of size `duration`
+        for i in range(num_steps_per_epoch):
+            # Train for `duration`
+            trainer.fit(duration=duration)
+
+            # Determine the number of batches trained
+            if unit in (TimeUnit.SAMPLE, TimeUnit.BATCH):
+                num_batches_trained = i + 1
+            else:
+                num_batches_trained = dataloader_len
+
+            # Validate the timer
+            assert trainer.state.timer.batch == num_batches_trained
+            assert trainer.state.timer.sample == num_batches_trained * batch_size
+            assert trainer.state.timer.token == 0  # tokens not tracked
+            assert trainer.state.timer.token_in_epoch == 0  # tokens not tracked
+
+            # Validate the event counter callback
+            assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 1
+            assert event_counter_callback.event_to_num_calls[Event.BATCH_START] == num_batches_trained
+            assert event_counter_callback.event_to_num_calls[Event.BATCH_END] == num_batches_trained
+            assert event_counter_callback.event_to_num_calls[Event.BATCH_CHECKPOINT] == num_batches_trained
+
+            if num_batches_trained < num_steps_per_epoch:
+                # Not yet finished the epoch
+                assert trainer.state.timer.epoch == 0
+                assert trainer.state.timer.batch_in_epoch == num_batches_trained
+                assert trainer.state.timer.sample_in_epoch == num_batches_trained * batch_size
+                assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 0
+                assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 0
+            else:
+                # Finished the epoch
+                assert trainer.state.timer.epoch == 1
+                assert trainer.state.timer.batch_in_epoch == 0
+                assert trainer.state.timer.sample_in_epoch == 0
+                assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 1
+                assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 1
+
+        # Train for a second epoch
+        # Validate that batch_in_epoch / sample_in_epoch are reset properly
+        for i in range(num_steps_per_epoch):
+            # Train for `duration`
+            trainer.fit(duration=duration)
+
+            # Determine the number of batches trained in the epoch
+            if unit in (TimeUnit.SAMPLE, TimeUnit.BATCH):
+                num_batches_trained = i + 1
+            else:
+                num_batches_trained = dataloader_len
+
+            # Validate the timer
+            assert trainer.state.timer.batch == dataloader_len + num_batches_trained
+            assert trainer.state.timer.sample == num_samples_per_epoch + num_batches_trained * batch_size
+            assert trainer.state.timer.token == 0  # tokens not tracked
+            assert trainer.state.timer.token_in_epoch == 0  # tokens not tracked
+
+            # Validate the event counter callback
+            assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 2
+            assert event_counter_callback.event_to_num_calls[Event.BATCH_START] == dataloader_len + num_batches_trained
+            assert event_counter_callback.event_to_num_calls[Event.BATCH_END] == dataloader_len + num_batches_trained
+            assert event_counter_callback.event_to_num_calls[
+                Event.BATCH_CHECKPOINT] == dataloader_len + num_batches_trained
+
+            if num_batches_trained < num_steps_per_epoch:
+                # Not yet finished the epoch
+                assert trainer.state.timer.epoch == 1
+                assert trainer.state.timer.batch_in_epoch == num_batches_trained
+                assert trainer.state.timer.sample_in_epoch == num_batches_trained * batch_size
+                assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 1
+                assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 1
+            else:
+                # Finished the epoch
+                assert trainer.state.timer.epoch == 2
+                assert trainer.state.timer.batch_in_epoch == 0
+                assert trainer.state.timer.sample_in_epoch == 0
+                assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 2
+                assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 2
 
 
 @world_size(1, 2)

@@ -1189,7 +1189,7 @@ class Trainer:
             # Train for another batch (2 epochs + 1 batch total)
             # It's OK to switch time units!
             trainer.fit(duration="1ba")
-            assert trainer.state.timer.epoch == "3ep"  # In epoch 3 (fully finished 2 epochs)
+            assert trainer.state.timer.epoch == "2ep"
             assert trainer.state.timer.batch_in_epoch == "1ba"
 
             # Reset the timer, then train for 3 epochs
@@ -1424,6 +1424,9 @@ class Trainer:
         if self.train_metrics is not None:
             self.train_metrics = self._ensure_metrics_device_and_dtype(self.train_metrics)
 
+        # Flag if the epoch finished early, so it can be tracked whether to run the epoch end events
+        finished_epoch_early = False
+
         while self.state.timer < self.state.max_duration:
             try:
                 self.state.model.train()
@@ -1533,39 +1536,45 @@ class Trainer:
                         # If max_duration is specified in batches, samples, or tokens, and
                         # and the max_duration is reached mid-epoch, then break out of the dataloader
                         # to finish the epoch early and finish training.
+                        finished_epoch_early = True
                         break
 
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {int(self.state.timer.epoch)}')
 
-            self.state.timer.on_epoch_complete()
+            if not finished_epoch_early or self.state.dataloader_len == self.state.timer.batch_in_epoch:
+                # Trigger the epoch end events if the dataloader was exhausted.
+                # This happens if the "break" did not trigger above, or if it
+                # did (e.g. duration specified in samples/batches/tokens), but it is still
+                # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
+                self.state.timer.on_epoch_complete()
 
-            if self.train_metrics is not None:
-                self._compute_and_log_metrics(
-                    dataloader_label='train',
-                    log_level=LogLevel.EPOCH,
-                    metrics=self.train_metrics,
-                )
-
-            if self._scheduler_step_frequency == TimeUnit.EPOCH:
-                for scheduler in self.state.schedulers:
-                    scheduler.step()
-
-            self.engine.run_event(Event.EPOCH_END)
-
-            for evaluator in self.state.evaluators:
-                assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
-                assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
-                if evaluator.eval_interval(self.state, Event.EPOCH_END):
-                    self.eval(
-                        dataloader=evaluator.dataloader,
-                        dataloader_label=evaluator.label,
-                        subset_num_batches=evaluator.subset_num_batches,
-                        metrics=evaluator.metrics,
+                if self.train_metrics is not None:
+                    self._compute_and_log_metrics(
+                        dataloader_label='train',
                         log_level=LogLevel.EPOCH,
+                        metrics=self.train_metrics,
                     )
 
-            self.engine.run_event(Event.EPOCH_CHECKPOINT)
+                if self._scheduler_step_frequency == TimeUnit.EPOCH:
+                    for scheduler in self.state.schedulers:
+                        scheduler.step()
+
+                self.engine.run_event(Event.EPOCH_END)
+
+                for evaluator in self.state.evaluators:
+                    assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
+                    assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
+                    if evaluator.eval_interval(self.state, Event.EPOCH_END):
+                        self.eval(
+                            dataloader=evaluator.dataloader,
+                            dataloader_label=evaluator.label,
+                            subset_num_batches=evaluator.subset_num_batches,
+                            metrics=evaluator.metrics,
+                            log_level=LogLevel.EPOCH,
+                        )
+
+                self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
     def _handle_cuda_oom(self):
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
