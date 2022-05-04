@@ -24,6 +24,7 @@ from composer.callbacks import CheckpointSaver
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
 from composer.core.precision import get_precision_context
+from composer.core.time import TimeUnit
 from composer.core.types import Batch, BreakEpochException, PyTorchScheduler
 from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLogger
 from composer.models.base import ComposerModel
@@ -68,18 +69,18 @@ def _scale_max_duration_by_ssr(
     return max_duration
 
 
-def _should_step_schedulers_every_batch(schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]]):
-    # schedulers can be stepped every batch by default if there are no pytorch schedulers
+def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]]):
     has_pytorch_scheduler = any(isinstance(scheduler, PyTorchScheduler) for scheduler in ensure_tuple(schedulers))
     if has_pytorch_scheduler:
         log.info(("Stepping schedulers every epoch, as a PyTorch scheduler was provided. "
                   "The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the "
                   "PyTorch scheduler to be in terms of batches. If the PyTorch scheduler should be stepped "
                   "every batch, set `step_schedulers_every_batch=True`."))
+        return TimeUnit.EPOCH
     else:
         log.info(("Stepping schedulers every batch. "
                   "To step schedulers every epoch, set `step_schedulers_every_batch=False`."))
-    return not has_pytorch_scheduler
+        return TimeUnit.BATCH
 
 
 def _get_training_metrics(model: ComposerModel):
@@ -964,8 +965,9 @@ class Trainer:
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
 
         if step_schedulers_every_batch is None:
-            step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers)
-        self._step_schedulers_every_batch = step_schedulers_every_batch
+            self._scheduler_step_frequency = _get_default_scheduler_frequency(schedulers)
+        else:
+            self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
 
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
@@ -1208,9 +1210,11 @@ class Trainer:
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
         if schedulers is not None:
             self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
+
             if step_schedulers_every_batch is None:
-                step_schedulers_every_batch = _should_step_schedulers_every_batch(schedulers)
-            self._step_schedulers_every_batch = step_schedulers_every_batch
+                self._scheduler_step_frequency = _get_default_scheduler_frequency(schedulers)
+            else:
+                self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
         else:
             if scale_schedule_ratio != 1.0:
                 raise ValueError("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
@@ -1433,7 +1437,7 @@ class Trainer:
                         tokens=int(num_tokens_in_batch.item()),
                     )
 
-                    if self._step_schedulers_every_batch:
+                    if self._scheduler_step_frequency == TimeUnit.BATCH:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
 
@@ -1478,7 +1482,7 @@ class Trainer:
                     metrics=self.train_metrics,
                 )
 
-            if not self._step_schedulers_every_batch:
+            if self._scheduler_step_frequency == TimeUnit.EPOCH:
                 for scheduler in self.state.schedulers:
                     scheduler.step()
 
