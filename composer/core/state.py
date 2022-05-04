@@ -16,7 +16,9 @@ from torch.optim import Optimizer
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timer, TimeUnit
-from composer.utils import dist, ensure_tuple
+from composer.core.types import BatchKeys
+from composer.utils import batch_get, batch_set, dist, ensure_tuple
+from composer.utils.batch_helpers import batch_get
 
 if TYPE_CHECKING:
     import deepspeed
@@ -300,6 +302,12 @@ class State(Serializable):
     @schedulers.setter
     def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
+
+    def batch_set_item(self, key: BatchKeys, value: Any):
+        self.batch = batch_set(self.batch, key, value)
+
+    def batch_get_item(self, key: BatchKeys):
+        return batch_get(self.batch, key)
 
     @property
     def callbacks(self):
