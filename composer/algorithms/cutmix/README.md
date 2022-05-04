@@ -30,7 +30,6 @@ def training_loop(model, train_loader):
         for X, y in train_loader:
             X_cutmix, y_cutmix = cf.cutmix_batch(X,
                                                  y,
-                                                 num_classes=1000,
                                                  alpha=1.0)
 
             y_hat = model(X_cutmix)
@@ -49,7 +48,7 @@ def training_loop(model, train_loader):
 from composer.algorithms import CutMix
 from composer.trainer import Trainer
 
-cutmix = CutMix(num_classes=1000, alpha=1.0)
+cutmix = CutMix(alpha=1.0)
 
 trainer = Trainer(
     model=model,

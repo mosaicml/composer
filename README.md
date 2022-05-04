@@ -141,7 +141,7 @@ trainer = Trainer(
     algorithms=[
         BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
         ChannelsLast(),
-        CutMix(num_classes=10),
+        CutMix(alpha=1.0),
         LabelSmoothing(smoothing=0.1),
     ]
 )
@@ -347,7 +347,7 @@ If you have any questions, please feel free to reach out to us on [Twitter](http
 # 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!
 
-To start contributing, see our [Contributing](CONTRIBUTING.md) page. 
+To start contributing, see our [Contributing](CONTRIBUTING.md) page.
 
 # ✍️ Citation
 ```

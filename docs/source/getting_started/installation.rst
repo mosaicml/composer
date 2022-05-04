@@ -137,7 +137,7 @@ we train an MNIST classifer with a recipe of methods:
         max_duration="2ep",
         algorithms=[
             LabelSmoothing(smoothing=0.1),
-            CutMix(num_classes=10),
+            CutMix(alpha=1.0),
             ChannelsLast(),
             ]
     )
@@ -158,4 +158,3 @@ Next steps
 * Try :doc:`/getting_started/notebooks` to see some of our speed-ups with notebooks on Colab.
 * See :doc:`/trainer/using_the_trainer` for more details on our trainer.
 * Read :doc:`/getting_started/welcome_tour` for a tour through the library.
-
