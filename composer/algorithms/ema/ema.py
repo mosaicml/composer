@@ -153,7 +153,7 @@ class EMA(Algorithm):
         self.smoothing = 2**(-(self.update_interval.value / self.half_life.value))
 
         # Construct the appropriate matching events
-        self.match_events = [Event.EVAL_START, Event.EVAL_END]
+        self.match_events = [Event.FIT_START, Event.EVAL_START, Event.EVAL_END]
         if self.half_life.unit == TimeUnit.EPOCH:
             self.match_events.append(Event.EPOCH_END)
         if self.half_life.unit == TimeUnit.BATCH:
@@ -164,6 +164,12 @@ class EMA(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         assert isinstance(self.update_interval, Time)
+
+        if event == Event.FIT_START:
+            if self.ema_model is not None:
+                _move_shadow_model_to_device(self.ema_model, state.model)
+            if self.training_model is not None:
+                _move_shadow_model_to_device(self.training_model, state.model)
 
         if event in [Event.BATCH_END, Event.EPOCH_END]:
             # Check if an update should happen
@@ -258,3 +264,13 @@ def _copy_model(source_model: T_Model, destination_model: T_Model):
 
         for source_param, destination_param in zip(source_params, destination_params):
             destination_param.data = source_param.data
+
+
+def _move_shadow_model_to_device(shadow_model: ShadowModel, destination_model: torch.nn.Module):
+    """Ensures the tensors of a shadow model are on the same device as a destination model"""
+    with torch.no_grad():
+        destination_params = itertools.chain(destination_model.parameters(), destination_model.buffers())
+        shadow_params = itertools.chain(shadow_model.parameters(), shadow_model.buffers())
+
+        for shadow_param, destination_param in zip(shadow_params, destination_params):
+            shadow_param = shadow_param.to(destination_param.device)
