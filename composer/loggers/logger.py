@@ -148,12 +148,13 @@ class Logger:
                 (default: ``False``)
         """
         log_level = LogLevel(log_level)
+        file_path = _format_str_with_placeholders(str(file_path), self.run_name)
         file_path = pathlib.Path(file_path)
         for destination in self.destinations:
             destination.log_file_artifact(
                 state=self._state,
                 log_level=log_level,
-                artifact_name=artifact_name,
+                artifact_name=_format_str_with_placeholders(artifact_name, self.run_name)
                 file_path=file_path,
                 overwrite=overwrite,
             )
@@ -180,8 +181,8 @@ class Logger:
             destination.log_symlink_artifact(
                 state=self._state,
                 log_level=log_level,
-                existing_artifact_name=existing_artifact_name,
-                symlink_artifact_name=symlink_artifact_name,
+                existing_artifact_name=_format_str_with_placeholders(existing_artifact_name, self.run_name),
+                symlink_artifact_name=_format_str_with_placeholders(symlink_artifact_name, self.run_name),
                 overwrite=overwrite,
             )
 
@@ -231,3 +232,9 @@ def format_log_data_value(data: Any) -> str:
 
     # Unknown format catch-all
     return str(data)
+
+def _format_str_with_placeholders(unformatted_str: str, run_name: str) -> str:
+    """Formats ``path`` with the supported placeholder values."""
+    return unformatted_str.format(
+        run_name=run_name
+    )
