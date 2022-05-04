@@ -1308,6 +1308,7 @@ class Trainer:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
+                            xm.optimizer_step(optimizer)
                             self.state.scaler.step(optimizer)
                         else:
                             xm.optimizer_step(optimizer)
@@ -1381,9 +1382,11 @@ class Trainer:
                 self._train_microbatch(use_grad_scaling, current_batch_size, total_loss, is_final_microbatch)
 
             # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
+            
             if use_grad_scaling:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
+
 
             # clip gradients if the magnitude is too large
             if not self.deepspeed_enabled and self._grad_clip_norm is not None:

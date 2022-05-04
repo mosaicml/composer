@@ -3,7 +3,7 @@ train_dataset:
     resize_size: -1
     crop_size: 224
     is_train: true
-    datadir: /datasets/ImageNet
+    datadir: /mnt/gcp/datasets/ImageNet
     shuffle: true
     drop_last: true
 val_dataset:
@@ -11,7 +11,7 @@ val_dataset:
     resize_size: 256
     crop_size: 224
     is_train: false
-    datadir: /datasets/ImageNet
+    datadir: /mnt/gcp/datasets/ImageNet
     shuffle: false
     drop_last: false
 optimizer:
@@ -31,9 +31,10 @@ model:
       - kaiming_normal
       - bn_uniform
     num_classes: 1000
-max_duration: 90ep
-train_batch_size: 2048
-eval_batch_size: 2048
+max_duration: 10ep
+eval_interval: 11ep
+train_batch_size: 1024
+eval_batch_size: 1024
 seed: 17
 device:
   gpu: {}
@@ -44,4 +45,4 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
-precision: amp
+precision: fp32
