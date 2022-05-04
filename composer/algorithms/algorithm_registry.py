@@ -7,9 +7,8 @@ from composer.algorithms.hparams import (AGCHparams, AlibiHparams, AugMixHparams
                                          ColOutHparams, CutMixHparams, CutOutHparams, EMAHparams, FactorizeHparams,
                                          GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
                                          MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
-                                         SAMHparams, ScaleScheduleHparams, SelectiveBackpropHparams,
-                                         SeqLengthWarmupHparams, SqueezeExciteHparams, StochasticDepthHparams,
-                                         SWAHparams)
+                                         SAMHparams, SelectiveBackpropHparams, SeqLengthWarmupHparams,
+                                         SqueezeExciteHparams, StochasticDepthHparams, SWAHparams)
 from composer.core.algorithm import Algorithm
 
 registry: Dict[str, Type[AlgorithmHparams]] = {
@@ -27,7 +26,6 @@ registry: Dict[str, Type[AlgorithmHparams]] = {
     'swa': SWAHparams,
     'no_op_model': NoOpModelHparams,
     'mixup': MixUpHparams,
-    'scale_schedule': ScaleScheduleHparams,
     'stochastic_depth': StochasticDepthHparams,
     'colout': ColOutHparams,
     'progressive_resizing': ProgressiveResizingHparams,
