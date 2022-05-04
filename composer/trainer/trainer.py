@@ -664,10 +664,11 @@ class Trainer:
                 raise ValueError('device must be of class Device')
             self._device = device
 
-        #if self.deepspeed_enabled or dist.get_world_size() > 1:
+        if self.deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
-            #dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+            if self._device is not "tpu":
+                dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
 
         if not seed:
             seed = reproducibility.get_random_seed()
@@ -720,8 +721,8 @@ class Trainer:
         if isinstance(precision, str):
             precision = Precision(precision)
 
-        #if not self.deepspeed_enabled and precision == Precision.FP16:
-        #    raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
+        if not self.deepspeed_enabled and precision == Precision.FP16:
+            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
         # optimizers and schedulers
         if not optimizers:
@@ -1025,11 +1026,9 @@ class Trainer:
         # Print any exception, so it can be caputred by any callbacks or loggers (e.g. WandB, FileLogger)
 
         if self._device == "tpu":
-            import torch_xla.distributed.xla_multiprocessing as xmp
-            
+            import torch_xla.distributed.xla_multiprocessing as xmp            
             def _mp_fn(index):
                 self._train_loop()
-
             xmp.spawn(_mp_fn, args=(), nprocs=8,start_method='fork')
         else:
             self._train_loop()            
@@ -1296,12 +1295,11 @@ class Trainer:
                             total_loss = self.state.scaler.step(
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
-                            total_loss = xm.optimizer_step(optimizer)
-                            '''
-                            total_loss = optimizer.step(
-                                closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
-                            xm.mark_step()
-                            '''
+                            if self._device == "tpu":
+                                total_loss = xm.optimizer_step(optimizer)
+                            else:
+                                total_loss = optimizer.step(
+                                    closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
                               
                 else:
                     total_loss = self._train_microbatches(microbatches)
@@ -1310,11 +1308,11 @@ class Trainer:
                             xm.optimizer_step(optimizer)
                             self.state.scaler.step(optimizer)
                         else:
-                            xm.optimizer_step(optimizer)
-                            '''
-                            optimizer.step()
-                            xm.mark_step()
-                            '''
+                            if self._device == "tpu":
+                                xm.optimizer_step(optimizer)
+                            else:
+                                optimizer.step()
+
                               
             except RuntimeError as e:
                 if self._is_cuda_oom(e):
@@ -1380,12 +1378,10 @@ class Trainer:
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 self._train_microbatch(use_grad_scaling, current_batch_size, total_loss, is_final_microbatch)
 
-            # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
-            
+            # Unscale gradients before `Event.AFTER_TRAIN_BATCH`            
             if use_grad_scaling:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
-
 
             # clip gradients if the magnitude is too large
             if not self.deepspeed_enabled and self._grad_clip_norm is not None:

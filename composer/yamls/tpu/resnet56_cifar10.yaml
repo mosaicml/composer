@@ -30,17 +30,18 @@ model:
     initializers:
       - kaiming_normal
       - bn_uniform
+eval_interval: 160ep
 max_duration: 160ep
-train_batch_size: 1024
-eval_batch_size: 1000
+train_batch_size: 512
+eval_batch_size: 512
 seed: 17
 grad_accum: 1
 device:
-  gpu: {}
+  tpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
-precision: amp
+precision: fp32
