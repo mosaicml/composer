@@ -42,10 +42,10 @@ class EventCounterCallback(Callback):
         self.event_to_num_calls.update(state["events"])
 
 
-def _predict_events_called_expected_number_of_times(trainer: Trainer, loader: Union[DataLoader, DataSpec]):
+def _predict_events_called_expected_number_of_times(trainer: Trainer, length):
 
     num_predicts = 1
-    num_predict_steps = len(loader)
+    num_predict_steps = length
 
     event_to_num_expected_invocations = {
         Event.PREDICT_START: num_predicts,
@@ -80,4 +80,4 @@ class TestTrainerPredict():
         trainer = Trainer(**config)
         trainer.fit()
         trainer.predict(config['eval_dataloader'])
-        _predict_events_called_expected_number_of_times(trainer, config['eval_dataloader'])
+        _predict_events_called_expected_number_of_times(trainer, len(config['eval_dataloader']))
