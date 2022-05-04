@@ -3,13 +3,11 @@
 import numpy as np
 import pytest
 import torch
-import torch.nn.functional as F
 
 from composer.algorithms import CutMix, CutMixHparams
 from composer.algorithms.cutmix.cutmix import _rand_bbox, cutmix_batch
 from composer.core import Event
 from composer.models import ComposerClassifier
-from tests.common import SimpleConvModel
 
 
 # (N, C, d1, d2, num_classes)
@@ -23,7 +21,7 @@ def fake_data(request):
     return x_fake, y_fake, indices
 
 
-def validate_cutmix_batch(x, y, indices, x_cutmix, y_perm, cutmix_lambda, bbox):
+def validate_cutmix(x, y, indices, x_cutmix, y_perm, cutmix_lambda, bbox):
     # Create shuffled version of x, y for reference checking
     x_perm = x[indices]
     y_perm_ref = y[indices]
@@ -66,24 +64,24 @@ class TestCutMix:
 
         # Apply cutmix
         x_cutmix, y_perm, _, _ = cutmix_batch(x_fake,
-                                          y_fake,
-                                          alpha=1.0,
-                                          bbox=bbox,
-                                          indices=indices,
-                                          uniform_sampling=uniform_sampling)
+                                              y_fake,
+                                              alpha=1.0,
+                                              bbox=bbox,
+                                              indices=indices,
+                                              uniform_sampling=uniform_sampling)
 
         # Validate results
-        validate_cutmix_batch(x=x_fake,
-                              y=y_fake,
-                              indices=indices,
-                              x_cutmix=x_cutmix,
-                              y_perm=y_perm,
-                              cutmix_lambda=cutmix_lambda,
-                              bbox=bbox)
+        validate_cutmix(x=x_fake,
+                        y=y_fake,
+                        indices=indices,
+                        x_cutmix=x_cutmix,
+                        y_perm=y_perm,
+                        cutmix_lambda=cutmix_lambda,
+                        bbox=bbox)
 
     def test_cutmix_algorithm(self, fake_data, alpha, uniform_sampling, minimal_state, empty_logger):
         # Generate fake data
-        x_fake, y_fake, _, _ = fake_data
+        x_fake, y_fake, _ = fake_data
 
         algorithm = CutMix(alpha=alpha, uniform_sampling=uniform_sampling)
         state = minimal_state
@@ -91,21 +89,21 @@ class TestCutMix:
         state.batch = (x_fake, y_fake)
 
         # Apply algo, use test hooks to specify indices and override internally generated interpolation lambda for testability
-        algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
+        algorithm.apply(Event.BEFORE_FORWARD, state, empty_logger)
 
-        x, y = state.batch
+        x, _ = state.batch
+        y_perm = algorithm.permuted_target
         # Validate results
         validate_cutmix(x=x_fake,
                         y=y_fake,
                         indices=algorithm._indices,
                         x_cutmix=x,
-                        y_cutmix=y,
+                        y_perm=y_perm,
                         cutmix_lambda=algorithm._cutmix_lambda,
-                        bbox=algorithm._bbox,
-                        num_classes=algorithm.num_classes)
+                        bbox=algorithm._bbox)
 
 
 def test_cutmix_hparams():
-    hparams = CutMixHparams(alpha=1.0, num_classes=10)
+    hparams = CutMixHparams(alpha=1.0)
     algorithm = hparams.initialize_object()
     assert isinstance(algorithm, CutMix)

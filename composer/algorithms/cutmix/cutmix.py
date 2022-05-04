@@ -5,13 +5,11 @@
 from __future__ import annotations
 
 import logging
-from math import perm
 from typing import Optional, Tuple
 
 import numpy as np
 import torch
 from torch import Tensor
-from torch.nn import functional as F
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
@@ -28,7 +26,7 @@ def cutmix_batch(input: Tensor,
                  alpha: float = 1.,
                  bbox: Optional[Tuple] = None,
                  indices: Optional[torch.Tensor] = None,
-                 uniform_sampling: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+                 uniform_sampling: bool = False) -> Tuple[torch.Tensor, torch.Tensor, float, Tuple]:
     """Create new samples using combinations of pairs of samples.
 
     This is done by masking a region of each image in ``input`` and filling
@@ -100,13 +98,7 @@ def cutmix_batch(input: Tensor,
             num_classes = 10
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
-<<<<<<< HEAD
-            X_mixed, y_mixed = cutmix_batch(
-                X, y, num_classes=num_classes, alpha=0.2
-            )
-=======
             X_mixed, target_perm, area, _ = cutmix_batch(X, y, alpha=0.2)
->>>>>>> 70a73ee (Initial cutmix changes)
     """
     if bbox is not None and length is not None:
         raise ValueError(f"Cannot provide both length and bbox; got {length} and {bbox}")
@@ -162,7 +154,6 @@ class CutMix(Algorithm):
     Training in this fashion sometimes reduces generalization error.
 
     Args:
-        num_classes (int): the number of classes in the task labels.
         alpha (float, optional): the psuedocount for the Beta distribution
             used to sample area parameters. As ``alpha`` grows, the two samples
             in each pair tend to be weighted more equally. As ``alpha``
@@ -177,7 +168,7 @@ class CutMix(Algorithm):
         .. testcode::
 
             from composer.algorithms import CutMix
-            algorithm = CutMix(num_classes=10, alpha=0.2)
+            algorithm = CutMix(alpha=0.2)
             trainer = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
@@ -188,8 +179,7 @@ class CutMix(Algorithm):
             )
     """
 
-    def __init__(self, num_classes: int, alpha: float = 1., interpolate_loss: bool = False, uniform_sampling: bool = False):
-        self.num_classes = num_classes
+    def __init__(self, alpha: float = 1., interpolate_loss: bool = False, uniform_sampling: bool = False):
         self.alpha = alpha
         self.interpolate_loss = interpolate_loss
         self._uniform_sampling = uniform_sampling
@@ -229,7 +219,10 @@ class CutMix(Algorithm):
             # these are saved only for testing
             self._indices = _gen_indices(input)
             _cutmix_lambda = _gen_cutmix_coef(alpha)
-            self._bbox = _rand_bbox(input.shape[2], input.shape[3], _cutmix_lambda, uniform_sampling=self._uniform_sampling)
+            self._bbox = _rand_bbox(input.shape[2],
+                                    input.shape[3],
+                                    _cutmix_lambda,
+                                    uniform_sampling=self._uniform_sampling)
             self._cutmix_lambda = _adjust_lambda(_cutmix_lambda, input, self._bbox)
 
             new_input, self.permuted_target, self.adjusted_lambda, _ = cutmix_batch(
@@ -238,8 +231,7 @@ class CutMix(Algorithm):
                 alpha=self.alpha,
                 bbox=self._bbox,
                 indices=self._indices,
-                uniform_sampling=self._uniform_sampling
-            )
+                uniform_sampling=self._uniform_sampling)
 
             state.batch = (new_input, target)
 

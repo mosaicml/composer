@@ -5,8 +5,7 @@ import dataclasses
 import pytest
 from torch.utils.data import Dataset
 
-from composer.algorithms import (AlgorithmHparams, AlibiHparams, CutMixHparams, StochasticDepthHparams,
-                                 algorithm_registry)
+from composer.algorithms import AlgorithmHparams, AlibiHparams, StochasticDepthHparams, algorithm_registry
 from composer.core.algorithm import Algorithm
 from composer.models.base import ComposerModel
 from tests.algorithms.algorithm_settings import get_settings
@@ -18,9 +17,6 @@ default_required_fields = {
         'attr_to_replace': '_attn',
         'alibi_attention': 'composer.algorithms.alibi._gpt2_alibi._attn',
         'mask_replacement_function': 'composer.algorithms.alibi._gpt2_alibi.enlarge_mask',
-    },
-    CutMixHparams: {
-        'num_classes': 1000
     },
     StochasticDepthHparams: {
         'target_layer_name': 'ResNetBottleneck',

@@ -48,9 +48,7 @@ _settings = {
     'cutmix': {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
-        'kwargs': {
-            'num_classes': 2
-        }
+        'kwargs': {}
     },
     'cutout': simple_vision_settings,
     'ema': simple_vision_settings,
