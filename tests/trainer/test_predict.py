@@ -1,7 +1,8 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-import pytest
 from typing import Any, Dict
+
+import pytest
 from torch.utils.data import DataLoader
 
 from composer.core.callback import Callback
