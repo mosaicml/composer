@@ -3,6 +3,8 @@ from typing import Any, Mapping, Sequence, Tuple
 import numpy as np
 import torch
 
+__all__ = ['batch_get', 'batch_set']
+
 
 def batch_get(batch: Any, key: Any) -> Any:
     """Indexes into the batch given the key.
