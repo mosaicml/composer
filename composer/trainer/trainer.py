@@ -1127,10 +1127,67 @@ class Trainer:
     ):
         """Train the model.
 
-        .. note::
+        The Composer :class:`.Trainer` supports multiple calls to :meth:`.fit`. Any arguments specified during
+        the call to :meth:`.fit` will override the values specified when constructing the :class:`.Trainer`.
+        All arguments are optional, with the following exceptions:
 
-            All arguments to :meth:`.fit` are optional. Any values specified here will override
-            what was provided when constructing the :class:`.Trainer`.
+        *   The ``train_dataloader`` must be specified here if not provided when constructing the :class:`.Trainer`.
+        *   The ``duration`` must be specified here if not provided when constructing the :class:`.Trainer`,
+            or if this is a subsequent call to :meth:`.fit`.
+
+        For example, the following are equivalent:
+
+        .. testcode:
+
+            # The ``train_dataloader`` and ``duration`` can be specified when constructing the Trainer.
+            trainer_1 = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                max_duration="1ep",
+            )
+            trainer_1.fit()
+            # or, these arguments can be specified on `fit()`
+            trainer_2 = Trainer(model)
+            trainer_2.fit(
+                train_dataloader=train_dataloader,
+                duration="1ep"
+            )
+
+        When invoking :meth:`.fit` for a subsequent time, either ``reset_timer`` or ``duration`` must be specified.
+        Otherwise, it is ambiguous for how long to train.
+
+        *   If ``reset_timer`` is True, then :meth:`.fit` will train for the same amount of time as the previous
+            call (or for ``duration`` if that parameter is also specified). The :attr:`.State.timer` will be zeroed
+            out, causing :class:`.ComposerScheduler` and :class:`.Algorithm`
+            instances to start from the beginning, as if it is a new training run. Model gradients, optimizer states,
+            and native PyTorch schedulers will not be reset.
+
+        *   If ``reset_timer`` is False, then :meth:`.fit` will train for the amount of time specified by
+            ``duration``. The :attr:`.State.max_duration` will be incremented by ``duration``.
+
+        For example:
+
+        .. testcode:
+
+            
+            trainer = Trainer(max_duration="1ep") # Construct the trainer
+
+            trainer.fit()  # Train for 1 epoch
+            assert trainer.state.timer.epoch == "1ep"
+            
+            trainer.fit(reset_timer=True)  # Reset the timer to 0, then train for 1 epoch
+            assert trainer.state.timer.epoch == "1ep"
+
+            trainer.fit(duration="1ep")  # Train for another epoch (2 epochs total)
+            assert trainer.state.timer.epoch == "2ep"
+
+            trainer.fit(duration="1ba")  # Train for another batch (2 epochs, 1 batch total)
+            # It's OK to switch time units!
+            assert trainer.state.timer.epoch == "2ep"
+            assert trainer.state.timer.batch_in_epoch == "1ba"
+
+            trainer.fit(reset_timer=True, duration="3ep")  # Reset the timer, then train for 3 epochs
+            assert trainer.state.timer.epoch == "3ep"
 
         Args:
             train_dataloader (Iterable | DataSpec | Dict[str, Any], optional): See :class:`.Trainer`.
@@ -1141,7 +1198,8 @@ class Trainer:
 
                 If ``True``, the timer will be zeroed out, causing :class:`.ComposerScheduler` and :class:`.Algorithm`
                 instances to start from the beginning, as if it is a new training run.
-                The :attr:`~.State.max_duration` will be incremented by the ``duration`` parameter.
+                The model will be trained for current value of :attr:`~.State.max_duration` (or for ``duration``
+                if specified).
 
                 .. note::
 
@@ -1149,7 +1207,7 @@ class Trainer:
 
                 If ``False`` (the default), the timer will resume from where the previous call to :meth:`.fit`
                 finished (or from zero, if a new training run).
-                The :attr:`~.State.max_duration` will set to the ``duration`` parameter.
+                The :attr:`~.State.max_duration` will be incremented by the ``duration`` parameter.
 
             duration (Time[int] | str | int, optional): The duration to train. Can be an integer, which will be
                 interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
