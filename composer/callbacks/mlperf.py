@@ -175,10 +175,10 @@ class MLPerfCallback(Callback):
             with open(self.systems_path, 'w') as f:
                 json.dump(self.system_desc, f, indent=4)
 
-        dist.barrier()
+            if os.path.exists(self.filename):
+                raise FileExistsError(f'{self.filename} already exists.')
 
-        if os.path.exists(self.filename):
-            raise FileExistsError(f'{self.filename} already exists.')
+        dist.barrier()
 
         self._file_handler = logging.FileHandler(self.filename)
         self._file_handler.setLevel(logging.INFO)
