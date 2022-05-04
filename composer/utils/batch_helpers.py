@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Sequence, Tuple
+from typing import Any, Mapping, MutableMapping, MutableSequence, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -65,8 +65,8 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
     """Sets a key value pair in a non-tuple batch."""
     if isinstance(batch, tuple):
         batch = _batch_set_tuple(batch, key, value)
-    elif isinstance(batch, Mapping) or (isinstance(batch, Sequence) and not isinstance(batch, str)):
-        batch[key] = value  # type: ignore
+    elif isinstance(batch, MutableMapping) or isinstance(batch, MutableSequence):
+        batch[key] = value
     elif isinstance(batch, torch.Tensor) or isinstance(batch, np.ndarray):
         batch[key] = value
     else:
