@@ -1137,16 +1137,18 @@ class Trainer:
 
         For example, the following are equivalent:
 
-        .. testcode:
+        .. testcode::
 
-            # The ``train_dataloader`` and ``duration`` can be specified when constructing the Trainer.
+            # The `train_dataloader` and `duration` can be specified
+            # when constructing the Trainer
             trainer_1 = Trainer(
                 model=model,
                 train_dataloader=train_dataloader,
                 max_duration="1ep",
             )
             trainer_1.fit()
-            # or, these arguments can be specified on `fit()`
+
+            # Or, these arguments can be specified on `fit()`
             trainer_2 = Trainer(model)
             trainer_2.fit(
                 train_dataloader=train_dataloader,
@@ -1167,26 +1169,31 @@ class Trainer:
 
         For example:
 
-        .. testcode:
+        .. testcode::
 
-            
-            trainer = Trainer(max_duration="1ep") # Construct the trainer
+            # Construct the trainer
+            trainer = Trainer(max_duration="1ep")
 
-            trainer.fit()  # Train for 1 epoch
-            assert trainer.state.timer.epoch == "1ep"
-            
-            trainer.fit(reset_timer=True)  # Reset the timer to 0, then train for 1 epoch
+            # Train for 1 epoch
+            trainer.fit()
             assert trainer.state.timer.epoch == "1ep"
 
-            trainer.fit(duration="1ep")  # Train for another epoch (2 epochs total)
+            # Reset the timer to 0, then train for 1 epoch
+            trainer.fit(reset_timer=True)  
+            assert trainer.state.timer.epoch == "1ep"
+
+            # Train for another epoch (2 epochs total)
+            trainer.fit(duration="1ep")
             assert trainer.state.timer.epoch == "2ep"
 
-            trainer.fit(duration="1ba")  # Train for another batch (2 epochs, 1 batch total)
+            # Train for another batch (2 epochs + 1 batch total)
             # It's OK to switch time units!
-            assert trainer.state.timer.epoch == "2ep"
+            trainer.fit(duration="1ba")
+            assert trainer.state.timer.epoch == "3ep"  # In epoch 3 (fully finished 2 epochs)
             assert trainer.state.timer.batch_in_epoch == "1ba"
 
-            trainer.fit(reset_timer=True, duration="3ep")  # Reset the timer, then train for 3 epochs
+            # Reset the timer, then train for 3 epochs
+            trainer.fit(reset_timer=True, duration="3ep")
             assert trainer.state.timer.epoch == "3ep"
 
         Args:
