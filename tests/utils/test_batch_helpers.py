@@ -12,7 +12,7 @@ my_list = [3, 4, 5, 6, 7, 8, 9, 10]
 keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
 
-class myClass(object):
+class MyClass(object):
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
@@ -53,7 +53,7 @@ def example_deque_less_sequence(request):
 @pytest.fixture(scope="module",
                 params=[
                     dict(zip(keys, my_list)),
-                    myClass(**dict(zip(keys, my_list))),
+                    MyClass(**dict(zip(keys, my_list))),
                     my_named_tuple(*my_list),
                     defaultdict(list, **dict(zip(keys, my_list))),
                     ChainMap(dict(zip(keys, my_list)), dict(a=7, j=3)),
