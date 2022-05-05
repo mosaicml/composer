@@ -32,7 +32,7 @@ def apply_factorization(model: torch.nn.Module,
     :class:`~composer.algorithms.factorize.FactorizedLinear` and
     :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
 
-    Factorized modules replace one, full-rank operation with a sequence of two,
+    Factorized modules replace one full-rank operation with a sequence of two
     lower-rank operations. When the rank is low enough, this can save
     computation, at the cost of expressive power. See :class:`Factorize` for details.
 
