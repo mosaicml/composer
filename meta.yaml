@@ -44,6 +44,7 @@ requirements:
     - transformers >=4.11,<5
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
+    - boto3 >=1.21.45,<2
 
 test:
   requires:
@@ -64,6 +65,7 @@ test:
     - transformers >=4.11,<5
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
+    - boto3 >=1.21.45,<2
   files:
     - "**/composer/**"
     - "**/tests/**"
