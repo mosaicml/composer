@@ -53,9 +53,8 @@ from composer.algorithms.hparams import (AGCHparams, AlibiHparams, AugMixHparams
                                          ColOutHparams, CutMixHparams, CutOutHparams, EMAHparams, FactorizeHparams,
                                          GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
                                          MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
-                                         SAMHparams, ScaleScheduleHparams, SelectiveBackpropHparams,
-                                         SeqLengthWarmupHparams, SqueezeExciteHparams, StochasticDepthHparams,
-                                         SWAHparams)
+                                         SAMHparams, SelectiveBackpropHparams, SeqLengthWarmupHparams,
+                                         SqueezeExciteHparams, StochasticDepthHparams, SWAHparams)
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
@@ -63,7 +62,6 @@ from composer.algorithms.no_op_model import NoOpModel
 from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment, RandAugmentTransform
 from composer.algorithms.sam import SAM
-from composer.algorithms.scale_schedule import ScaleSchedule
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite, SqueezeExcite2d, SqueezeExciteConv2d
@@ -99,7 +97,6 @@ __all__ = [
     "RandAugment",
     "RandAugmentTransform",
     "SAM",
-    "ScaleSchedule",
     "SelectiveBackprop",
     "SeqLengthWarmup",
     "SqueezeExcite",
@@ -128,7 +125,6 @@ __all__ = [
     "ProgressiveResizingHparams",
     "RandAugmentHparams",
     "SAMHparams",
-    "ScaleScheduleHparams",
     "SelectiveBackpropHparams",
     "SeqLengthWarmupHparams",
     "SqueezeExciteHparams",
