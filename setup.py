@@ -157,6 +157,10 @@ extra_deps["mlperf"] = [
     "py-cpuinfo>=8.0.0,<9",
 ]
 
+extra_deps["streaming"] = [
+    "boto3>=1.21.45,<2",
+]
+
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ["py.typed"]
