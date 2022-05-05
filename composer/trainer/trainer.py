@@ -1440,50 +1440,72 @@ class Trainer:
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
-    def predict(self, loader: Union[DataLoader, DataSpec], _predict_subset_num_batches: Optional[int] = None):
-        """Output model prediction on the provided data and log appropriate metrics.
-        Args:
-            loader (DataLoader | DataSpec): The :class:`.DataLoader` or
-            :class:`.DataSpec` for the prediction data.
-            If a :class:`.DataLoader` is passed in, then all
-            metrics returned by ``model.metrics()`` will be used during evaluation.
-            :class:`.DataSpec` is not supported right now.
+    def predict(self, dataloader: Union[DataLoader, DataSpec], subset_num_batches: int = -1):
+        """Output model prediction on the provided data.
 
-            predict_subset_num_batches (int, optional): If specified, only perform model prediction
-            on this many batches. This parameter has no effect if it is greater than ``len(loader)``.
-            If ``None``, then the entire loader will be iterated over. (default: ``None``)
+        Args:
+            dataloader (DataLoader | DataSpec): The :class:`.DataLoader` or
+                :class:`.DataSpec` for the prediction data.
+
+                If a :class:`.DataLoader` is passed in, then all
+                metrics returned by ``model.metrics()`` will be used during evaluation.
+
+            subset_num_batches (int, optional): If specified, only perform model prediction
+                on this many batches. This parameter has no effect if it is greater than ``len(dataloader)``.
+                If ``-1``, then the entire loader will be iterated over. (default: ``-1``)
         """
 
-        if isinstance(loader, DataSpec):
-            raise NotImplementedError
+        if isinstance(dataloader, DataSpec):
+            data_spec = dataloader
+        else:
+            data_spec = DataSpec(dataloader)
 
+        # Put the model into evaluation mode, but be able to restore it to training mode afterwards
         restore_model_train = self.state.model.training
         self.state.model.eval()
+        
+        # Bind the dataloader to the state, but be able to restore the previous dataloader afterwards
+        original_dataloader = self.state.dataloader
+        original_dataloader_label = self.state.dataloader_label
+        original_dataloader_len = self.state.dataloader_len
+        self.state.set_dataloader(dataloader, "predict", subset_num_batches)
+
         with torch.no_grad():
 
             self.engine.run_event(Event.PREDICT_START)
 
-            for self.state.batch in itertools.islice(loader, _predict_subset_num_batches):
+            for self.state.batch in itertools.islice(self.state.dataloader, subset_num_batches):
+                # Update the batch size and num tokens
+                self.state.batch_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
+                self.state.batch_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
+                # Move the batch onto the device
                 self.state.batch = self._device.batch_to_device(self.state.batch)
+
+                # Perform any device transforms
+                if data_spec.device_transforms is not None:
+                    self.state.batch = data_spec.device_transforms(self.state.batch)
+ 
+                # Fix the batch if using DeepSpeed
                 if self.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                self.state.model(self.state.batch)
+                self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
                 self.engine.run_event(Event.PREDICT_BATCH_END)
 
-            self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
-            self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
-
             self.engine.run_event(Event.PREDICT_END)
 
+        # Restore training mode
         if restore_model_train:
             self.state.model.train()
+
+        # Restore the dataloader
+        self.state.set_dataloader(original_dataloader, original_dataloader_label, original_dataloader_len)
 
     def eval(
         self,
