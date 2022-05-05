@@ -85,6 +85,22 @@ Traces = Dict[str, "Trace"]
 
 _ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
 
+# Track whether atexit triggered _close(), which indicates whether the python process is shutting down
+# If so, do not run close() again via __del__(), as Python machinery (e.g. the ability to do conditional
+# imports) are destroyed between close() and __del__().
+# Using a global variable instead of an instance variable as _close() is not bound to the instance
+_did_atexit_run = False
+
+
+def _set_atexit_ran():
+    global _did_atexit_run
+    _did_atexit_run = True
+
+
+# Since atexit calls hooks in LIFO order, this hook will always be invoked after all atexit-triggered
+# _close() calls are invoked
+atexit.register(_set_atexit_ran)
+
 
 @dataclass
 class Trace():
@@ -299,6 +315,12 @@ class Engine():
                 cb.run_event(event, self.state, self.logger)
 
     def __del__(self):
+        global _did_atexit_run
+        if _did_atexit_run:
+            # Do not attempt to shutdown again, since close() already ran via __atexit__
+            # In this case, close() is no longer idempotent, since Python machenry (such as the ability to do
+            # conditional imports) has already been destroyed
+            return
         self.close()
 
     def close(self) -> None:

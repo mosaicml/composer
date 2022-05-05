@@ -1,11 +1,15 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+import os
+import subprocess
 import sys
+import textwrap
 from typing import List, Sequence
 from unittest.mock import Mock
 
 import pytest
 
+import composer
 from composer.algorithms import SelectiveBackprop
 from composer.core import Engine, Event
 from composer.core.algorithm import Algorithm
@@ -155,3 +159,55 @@ def test_engine_closes_on_del(dummy_state: State, dummy_logger: Logger):
 
     # Assert it is closed
     assert is_closed_callback.is_closed
+
+
+def check_output(proc: subprocess.CompletedProcess):
+    # Check the subprocess output, and raise an exception with the stdout/stderr dump if there was a non-zero exit
+    # The `check=True` flag available in `subprocess.run` does not print stdout/stderr
+    if proc.returncode == 0:
+        return
+    error_msg = textwrap.dedent(f"""\
+        Command {proc.args} failed with exit code {proc.returncode}.
+        ----Begin stdout----
+        {proc.stdout}
+        ----End stdout------
+        ----Begin stderr----
+        {proc.stderr}
+        ----End stderr------""")
+
+    raise RuntimeError(error_msg)
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.parametrize("exception", [True, False])
+def test_engine_closes_on_atexit(exception: bool):
+    # Running this test via a subprocess, as atexit() must trigger
+
+    code = textwrap.dedent("""\
+    from composer import Trainer, Callback
+    from tests.common import SimpleModel
+
+    class CallbackWithConditionalCloseImport(Callback):
+        def post_close(self):
+            import requests
+
+    model = SimpleModel(3, 10)
+    cb = CallbackWithConditionalCloseImport()
+    trainer = Trainer(
+        model=model,
+        callbacks=[cb],
+        max_duration="1ep",
+        train_dataloader=None,
+    )
+    """)
+    if exception:
+        # Should raise an exception, since no dataloader was provided
+        code += "trainer.fit()"
+
+    git_root_dir = os.path.join(os.path.dirname(composer.__file__), "..")
+    proc = subprocess.run(["python", "-c", code], cwd=git_root_dir, text=True, capture_output=True)
+    if exception:
+        # manually validate that there was no a conditional import exception
+        assert "ImportError: sys.meta_path is None, Python is likely shutting down" not in proc.stderr
+    else:
+        check_output(proc)
