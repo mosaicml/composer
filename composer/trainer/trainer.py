@@ -1446,10 +1446,6 @@ class Trainer:
         Args:
             dataloader (DataLoader | DataSpec): The :class:`.DataLoader` or
                 :class:`.DataSpec` for the prediction data.
-
-                If a :class:`.DataLoader` is passed in, then all
-                metrics returned by ``model.metrics()`` will be used during evaluation.
-
             subset_num_batches (int, optional): If specified, only perform model prediction
                 on this many batches. This parameter has no effect if it is greater than ``len(dataloader)``.
                 If ``-1``, then the entire loader will be iterated over. (default: ``-1``)
