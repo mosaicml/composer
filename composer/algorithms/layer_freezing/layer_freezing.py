@@ -149,11 +149,13 @@ class LayerFreezing(Algorithm):
         })
 
     def state_dict(self) -> Dict[str, Any]:
-        warnings.warn("Checkpoints with layer freezing cannot reliably be used to resume training.")
+        warnings.warn(("Checkpoints with layer freezing cannot reliably be used to resume training."
+                       "See: https://github.com/mosaicml/composer/issues/1002"))
         return {}
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        warnings.warn("Checkpoints with layer freezing cannot reliably be used to resume training.")
+        warnings.warn(("Checkpoints with layer freezing cannot reliably be used to resume training."
+                       "See: https://github.com/mosaicml/composer/issues/1002"))
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
