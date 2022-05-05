@@ -458,6 +458,8 @@ class State(Serializable):
         self._dataloader_label = dataloader_label
         if dataloader is not None:
             self.dataloader_len = dataloader_len  # setting it to -1 will do a failsafe read of len(dataloader)
+        else:
+            self._dataloader_len = None
 
     @property
     def dataloader_len(self):

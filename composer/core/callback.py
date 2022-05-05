@@ -292,6 +292,66 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
+    def predict_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_START` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_batch_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_BATCH_START` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_before_forward(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_BATCH_FORWARD` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_after_forward(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_AFTER_FORWARD` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_batch_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_BATCH_END` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_END` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
     def eval_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~.Event.EVAL_START` event.
 
