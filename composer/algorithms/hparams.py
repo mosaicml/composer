@@ -141,6 +141,8 @@ class CutMixHparams(AlgorithmHparams):
 
     alpha: float = hp.optional('Strength of interpolation, should be >= 0. No interpolation if alpha=0.', default=1.0)
     uniform_sampling: bool = hp.optional('Mix pixels with uniform probability', default=False)
+    interpolate_loss: bool = hp.optional('Use index labels and interpolate the loss instead of the labels.',
+                                         default=False)
 
     def initialize_object(self) -> CutMix:
         return CutMix(**asdict(self))
