@@ -240,8 +240,8 @@ class ShadowModel:
 
     def __init__(self, model: Union[None, torch.nn.Module]):
         if model is not None:
-            self.param_list = copy.deepcopy(list(model.parameters()))
-            self.buffer_list = copy.deepcopy(list(model.buffers()))
+            self.param_list = [copy.deepcopy(p.data) for p in model.parameters()]
+            self.buffer_list = [copy.deepcopy(b.data) for b in model.buffers()]
         else:
             self.param_list = []
             self.buffer_list = []
@@ -269,8 +269,10 @@ def _copy_model(source_model: T_Model, destination_model: T_Model):
 def _move_shadow_model_to_device(shadow_model: ShadowModel, destination_model: torch.nn.Module):
     """Ensures the tensors of a shadow model are on the same device as a destination model"""
     with torch.no_grad():
-        destination_params = itertools.chain(destination_model.parameters(), destination_model.buffers())
-        shadow_params = itertools.chain(shadow_model.parameters(), shadow_model.buffers())
+        destination_params = destination_model.parameters()
+        shadow_params = shadow_model.parameters()
+        shadow_model.param_list = [s.to(d.device) for s, d in zip(shadow_params, destination_params)]
 
-        for shadow_param, destination_param in zip(shadow_params, destination_params):
-            shadow_param = shadow_param.to(destination_param.device)
+        destination_buffers = destination_model.buffers()
+        shadow_buffers = shadow_model.buffers()
+        shadow_model.param_list = [s.to(d.device) for s, d in zip(shadow_buffers, destination_buffers)]
