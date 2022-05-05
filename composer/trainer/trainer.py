@@ -1440,6 +1440,72 @@ class Trainer:
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
+    def predict(self, dataloader: Union[DataLoader, DataSpec], subset_num_batches: int = -1):
+        """Output model prediction on the provided data.
+
+        Args:
+            dataloader (DataLoader | DataSpec): The :class:`.DataLoader` or
+                :class:`.DataSpec` for the prediction data.
+            subset_num_batches (int, optional): If specified, only perform model prediction
+                on this many batches. This parameter has no effect if it is greater than ``len(dataloader)``.
+                If ``-1``, then the entire loader will be iterated over. (default: ``-1``)
+        """
+
+        if isinstance(dataloader, DataSpec):
+            data_spec = dataloader
+        else:
+            data_spec = DataSpec(dataloader)
+
+        # Put the model into evaluation mode, but be able to restore it to training mode afterwards
+        restore_model_train = self.state.model.training
+        self.state.model.eval()
+
+        # Bind the dataloader to the state, but be able to restore the previous dataloader afterwards
+        original_dataloader = self.state.dataloader
+        original_dataloader_label = self.state.dataloader_label
+        original_dataloader_len = self.state.dataloader_len
+        self.state.set_dataloader(data_spec.dataloader, "predict", subset_num_batches)
+        assert self.state.dataloader is not None, "Already set the dataloader"
+
+        with torch.no_grad():
+
+            self.engine.run_event(Event.PREDICT_START)
+
+            for self.state.batch in self._iter_dataloader():
+                # Update the batch size and num tokens
+                self.state.batch_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
+                self.state.batch_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
+
+                # Move the batch onto the device
+                self.state.batch = self._device.batch_to_device(self.state.batch)
+
+                # Perform any device transforms
+                if data_spec.device_transforms is not None:
+                    self.state.batch = data_spec.device_transforms(self.state.batch)
+
+                # Fix the batch if using DeepSpeed
+                if self.deepspeed_enabled:
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+
+                self.engine.run_event(Event.PREDICT_BATCH_START)
+
+                self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
+                self.state.outputs = self.state.model(self.state.batch)
+                self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
+
+                self.engine.run_event(Event.PREDICT_BATCH_END)
+
+            self.engine.run_event(Event.PREDICT_END)
+
+        # Restore training mode
+        if restore_model_train:
+            self.state.model.train()
+
+        # Restore the dataloader
+        self.state.set_dataloader(original_dataloader, original_dataloader_label)
+        if original_dataloader_len is not None:
+            self.state.dataloader_len = original_dataloader_len
+
     def eval(
         self,
         dataloader: Union[Iterable, DataSpec, dict],
