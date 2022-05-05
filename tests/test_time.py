@@ -70,3 +70,24 @@ def test_timestamp_update():
     assert timestamp_2.batch == 2
     assert timestamp_2.sample == 0
     assert timestamp is not timestamp_2
+
+
+def test_timestamp_to_next_batch_epoch():
+    timestamp = Timestamp()
+    timestamp = timestamp.to_next_batch(10, 20)
+    assert timestamp.batch == 1
+    assert timestamp.batch_in_epoch == 1
+    assert timestamp.batch_in_epoch == 1
+    assert timestamp.sample == 10
+    assert timestamp.sample_in_epoch == 10
+    assert timestamp.token == 20
+    assert timestamp.token_in_epoch == 20
+    timestamp = timestamp.to_next_epoch()
+    timestamp = timestamp.to_next_batch(5)
+    assert timestamp.epoch == 1
+    assert timestamp.batch == 2
+    assert timestamp.batch_in_epoch == 1
+    assert timestamp.sample == 15
+    assert timestamp.sample_in_epoch == 5
+    assert timestamp.token == 20
+    assert timestamp.token_in_epoch == 0
