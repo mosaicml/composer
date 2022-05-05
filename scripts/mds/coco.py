@@ -1,7 +1,8 @@
-from argparse import ArgumentParser, Namespace
-import numpy as np
 import os
+from argparse import ArgumentParser, Namespace
 from typing import Dict, Iterable
+
+import numpy as np
 
 from composer.datasets.coco import COCODetection
 from composer.datasets.streaming import StreamingDatasetWriter

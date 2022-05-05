@@ -14,18 +14,13 @@ from typing import Any, Callable, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
-from PIL import Image
 import yahp as hp
-
-
-def _isArrayLike(obj):
-    return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
-
+from PIL import Image
 
 from composer.core import DataSpec
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams
+from composer.datasets.hparams import DatasetHparams
 from composer.datasets.streaming import StreamingDataset
 from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
 from composer.utils import dist
@@ -256,7 +251,7 @@ class StreamingCOCO(StreamingDataset):
 
 
 @dataclass
-class StreamingCOCOHparams(StreamingDatasetHparams):
+class StreamingCOCOHparams(DatasetHparams):
     """Streaming COCO hyperparameters.
 
     Args:

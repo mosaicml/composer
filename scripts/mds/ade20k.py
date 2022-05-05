@@ -35,14 +35,18 @@ def get(in_root: str, split: str) -> List[Tuple[str, int]]:
     images = sorted(glob(image_glob_pattern))
     uids = [s.strip(".jpg")[-8:] for s in images]
 
-    # Remove corrupted uids
-    corrupted_uids = ['00003020', '00001701', '00013508', '00008455']
-    uids = [uid for uid in uids if uid not in corrupted_uids]
+    # Remove some known corrupted uids from 'train' split
+    if split == "train":
+        corrupted_uids = ['00003020', '00001701', '00013508', '00008455']
+        uids = [uid for uid in uids if uid not in corrupted_uids]
 
     # Create and shuffle samples
     samples = [(uid, f'{in_root}/images/{split}/ADE_{split}_{uid}.jpg',
                 f'{in_root}/annotations/{split}/ADE_{split}_{uid}.png') for uid in uids]
+
+    # Shuffle samples at dataset creation for extra randomness
     shuffle(samples)
+
     return samples
 
 
@@ -74,15 +78,23 @@ def main(args: Namespace) -> None:
     """
     fields = 'uid', 'image', 'annotation'
 
-    samples = get(args.in_root, 'train')
+    # Get train samples
+    train_samples = get(args.in_root, 'train')
+    assert len(train_samples) == 20206
+
+    # Write train samples
     out_split_dir = os.path.join(args.out_root, 'train')
     with StreamingDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
-        out.write_samples(each(samples), bool(args.tqdm), len(samples))
+        out.write_samples(each(train_samples), bool(args.tqdm), len(train_samples))
 
-    samples = get(args.in_root, 'val')
+    # Get val samples
+    val_samples = get(args.in_root, 'val')
+    assert len(val_samples) == 2000
+
+    # Write val samples
     out_split_dir = os.path.join(args.out_root, 'val')
     with StreamingDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
-        out.write_samples(each(samples), bool(args.tqdm), len(samples))
+        out.write_samples(each(val_samples), bool(args.tqdm), len(val_samples))
 
 
 if __name__ == '__main__':

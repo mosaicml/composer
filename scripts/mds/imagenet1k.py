@@ -1,9 +1,10 @@
+import os
 from argparse import ArgumentParser, Namespace
 from glob import glob
-import numpy as np
-import os
 from random import shuffle
 from typing import Any, Dict, Iterable, List, Tuple
+
+import numpy as np
 
 from composer.datasets.streaming import StreamingDatasetWriter
 

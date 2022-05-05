@@ -15,7 +15,7 @@ of the important classes in this module are described below:
   settings.
 """
 
-from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams
+from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams, StreamingADE20kHparams
 from composer.datasets.brats import BratsDatasetHparams
 from composer.datasets.c4 import C4DatasetHparams
 from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHparams, CIFAR20WebDatasetHparams,
@@ -34,10 +34,10 @@ from composer.datasets.synthetic import (MemoryFormat, SyntheticBatchPairDataset
                                          SyntheticDataType, SyntheticPILDataset)
 
 __all__ = [
-    "ADE20kDatasetHparams", "ADE20kWebDatasetHparams", "BratsDatasetHparams", "C4DatasetHparams",
-    "CIFAR10DatasetHparams", "CIFAR10WebDatasetHparams", "CIFAR20WebDatasetHparams", "CIFAR100WebDatasetHparams",
-    "COCODatasetHparams", "DataLoaderHparams", "get_dataset_registry", "EvaluatorHparams", "GLUEHparams",
-    "DatasetHparams", "SyntheticHparamsMixin", "WebDatasetHparams", "Imagenet1kWebDatasetHparams",
+    "ADE20kDatasetHparams", "StreamingADE20kHparams", "ADE20kWebDatasetHparams", "BratsDatasetHparams",
+    "C4DatasetHparams", "CIFAR10DatasetHparams", "CIFAR10WebDatasetHparams", "CIFAR20WebDatasetHparams",
+    "CIFAR100WebDatasetHparams", "COCODatasetHparams", "DataLoaderHparams", "get_dataset_registry", "EvaluatorHparams",
+    "GLUEHparams", "DatasetHparams", "SyntheticHparamsMixin", "WebDatasetHparams", "Imagenet1kWebDatasetHparams",
     "ImagenetDatasetHparams", "TinyImagenet200WebDatasetHparams", "LMDatasetHparams", "MNISTDatasetHparams",
     "MNISTWebDatasetHparams", "MemoryFormat", "SyntheticBatchPairDataset", "SyntheticDataLabelType",
     "SyntheticDataType", "SyntheticPILDataset"

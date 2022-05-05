@@ -23,14 +23,14 @@ from torchvision import transforms
 
 from composer.core import DataSpec
 from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
 
-__all__ = ["ADE20k", "ADE20kDatasetHparams", "ADE20kWebDatasetHparams"]
+__all__ = ["ADE20k", "ADE20kDatasetHparams", "ADE20kWebDatasetHparams", "StreamingADE20k", "StreamingADE20kHparams"]
 
 
 class RandomResizePair(torch.nn.Module):
@@ -393,7 +393,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
 
 class StreamingADE20k(StreamingDataset):
-    """Streaming CIFAR."""
+    """Streaming ADE20k."""
 
     def decode_uid(self, data: bytes) -> Any:
         return data.decode('utf-8')
@@ -411,12 +411,12 @@ class StreamingADE20k(StreamingDataset):
                  both_transform: Optional[Callable] = None,
                  image_transform: Optional[Callable] = None,
                  annotation_transform: Optional[Callable] = None,
-                 device_batch_size: int = 0):
+                 batch_size: Optional[int] = None):
         decoders = {
             'image': self.decode_image,
             'annotation': self.decode_annotation,
         }
-        super().__init__(remote, local, shuffle, decoders, device_batch_size)
+        super().__init__(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size)
         self.both_transform = both_transform
         self.image_transform = image_transform
         self.annotation_transform = annotation_transform
@@ -435,7 +435,7 @@ class StreamingADE20k(StreamingDataset):
 
 
 @dataclass
-class StreamingADE20kHparams(StreamingDatasetHparams):
+class StreamingADE20kHparams(DatasetHparams):
     """Streaming ADE20k hyperparameters.
 
     Args:
