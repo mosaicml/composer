@@ -12,6 +12,7 @@ import textwrap
 from dataclasses import dataclass
 from typing import List
 
+import numpy as np
 import torch
 import torch.utils.data
 import yahp as hp
@@ -19,9 +20,8 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
 from composer.core import DataSpec
-from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.ffcv_utils import write_ffcv_dataset
+from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
@@ -44,8 +44,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         use_ffcv (bool): Whether to use FFCV dataloaders. Default: ``False``.
         ffcv_dir (str): A directory containing train/val <file>.ffcv files. If these files don't exist and
             ``ffcv_write_dataset`` is ``True``, train/val <file>.ffcv files will be created in this dir. Default: ``"/tmp"``.
-        ffcv_dest_train (str): <file>.ffcv file that has training samples. Default: ``"train.ffcv"``.
-        ffcv_dest_val (str): <file>.ffcv file that has validation samples. Default: ``"val.ffcv"``.
+        ffcv_dest (str): <file>.ffcv file that has dataset samples. Default: ``"imagenet_train.ffcv"``.
         ffcv_write_dataset (std): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
         ``False``.
     """
@@ -55,8 +54,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     ffcv_dir: str = hp.optional(
         "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
         default="/tmp")
-    ffcv_dest_train: str = hp.optional("<file>.ffcv file that has training samples", default="train.ffcv")
-    ffcv_dest_val: str = hp.optional("<file>.ffcv file that has validation samples", default="val.ffcv")
+    ffcv_dest: str = hp.optional("<file>.ffcv file that has dataset samples", default="imagenet_train.ffcv")
     ffcv_write_dataset: bool = hp.optional("Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
                                            default=False)
 
@@ -87,13 +85,10 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     To use ffcv with Composer, please install ffcv in your environment."""))
 
             if self.is_train:
-                dataset_file = self.ffcv_dest_train
                 split = "train"
             else:
-                dataset_file = self.ffcv_dest_val
                 split = "val"
-            dataset_file = self.ffcv_dest_train if self.is_train else self.ffcv_dest_val
-            dataset_filepath = os.path.join(self.ffcv_dir, dataset_file)
+            dataset_filepath = os.path.join(self.ffcv_dir, self.ffcv_dest)
             # always create if ffcv_write_dataset is true
             if self.ffcv_write_dataset:
                 if dist.get_local_rank() == 0:
@@ -110,25 +105,35 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 # Wait for the local rank 0 to be done creating the dataset in ffcv format.
                 dist.barrier()
 
-            label_pipeline: List[Operation] = [IntDecoder(), ffcv.transforms.ToTensor(), ffcv.transforms.Squeeze()]
+            this_device = torch.device(f'cuda:{dist.get_local_rank()}')
+            label_pipeline: List[Operation] = [
+                IntDecoder(),
+                ffcv.transforms.ToTensor(),
+                ffcv.transforms.Squeeze(),
+                ffcv.transforms.ToDevice(this_device, non_blocking=True)
+            ]
             image_pipeline: List[Operation] = []
             if self.is_train:
                 image_pipeline.extend([
                     RandomResizedCropRGBImageDecoder((self.crop_size, self.crop_size)),
                     ffcv.transforms.RandomHorizontalFlip()
                 ])
+                dtype = np.float16
             else:
-                image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=224 / 256)])
+                ratio = self.crop_size / self.resize_size if self.resize_size > 0 else 1.0
+                image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=ratio)])
+                dtype = np.float32
             # Common transforms for train and test
             image_pipeline.extend([
                 ffcv.transforms.ToTensor(),
-                ffcv.transforms.ToTorchImage(channels_last=False, convert_back_int16=False),
-                ffcv.transforms.Convert(torch.float32),
-                # The following doesn't work.
-                #ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD), np.float32),
-                transforms.Normalize(IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD),
+                ffcv.transforms.ToDevice(this_device, non_blocking=True),
+                ffcv.transforms.ToTorchImage(),
+                ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD), dtype),
             ])
 
+            is_distributed = dist.get_world_size() > 1
+
+            ffcv_monkey_patches()
             ordering = ffcv.loader.OrderOption.RANDOM if self.is_train else ffcv.loader.OrderOption.SEQUENTIAL
 
             return ffcv.Loader(
@@ -136,7 +141,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 batch_size=batch_size,
                 num_workers=dataloader_hparams.num_workers,
                 order=ordering,
-                distributed=False,
+                distributed=is_distributed,
                 pipelines={
                     'image': image_pipeline,
                     'label': label_pipeline
@@ -214,7 +219,7 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0.485, 0.456, 0.406))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.229, 0.224, 0.225))
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         from composer.datasets.webdataset_utils import load_webdataset
 
         if self.is_train:

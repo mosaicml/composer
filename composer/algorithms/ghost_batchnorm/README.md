@@ -6,7 +6,7 @@
 
 During training, BatchNorm normalizes each batch of inputs to have a mean of 0 and variance of 1.
 Ghost BatchNorm instead splits the batch into multiple "ghost" batches, each containing `ghost_batch_size` samples, and normalizes each one to have a mean of 0 and variance of 1.
-This causes training with a large batch size to behave more similarly to training with a small batch size.
+This causes training with a large batch size to behave similarly to training with a small batch size.
 
 | ![Ghost BatchNorm](https://storage.googleapis.com/docs.mosaicml.com/images/methods/ghost-batch-normalization.png) |
 |:--:
@@ -19,16 +19,20 @@ This causes training with a large batch size to behave more similarly to trainin
 ```python
 # Run the Ghost BatchNorm algorithm directly on the model using the Composer functional API
 
-import composer.functional as cf
 import torch
 import torch.nn.functional as F
+import composer.functional as cf
 
 def training_loop(model, train_loader):
     opt = torch.optim.Adam(model.parameters())
 
     # only need to pass in opt if apply_ghost_batchnorm is used after
     # optimizer creation; otherwise only the model needs to be passed in
-    cf.apply_ghost_batchnorm(model, ghost_batch_size=32, optimizers=opt)
+    cf.apply_ghost_batchnorm(
+        model,
+        ghost_batch_size=32,
+        optimizers=opt
+    )
 
     loss_fn = F.cross_entropy
     model.train()
@@ -53,16 +57,18 @@ from composer.trainer import Trainer
 
 def train_model(model, train_dataloader):
     ghostbn = GhostBatchNorm(ghost_batch_size=32)
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      max_duration='10ep',
-                      algorithms=[ghostbn])
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='10ep',
+        algorithms=[ghostbn]
+    )
     trainer.fit()
 ```
 
 ## Suggested Hyperparameters
 
-On ResNets on CIFAR-10 and ImageNet, we found that `ghost_batch_size` values of 16, 32, and 64 consistently yielded accuracy close to the baseline, and sometimes higher.
+On ResNets trained on CIFAR-10 and ImageNet, we found that `ghost_batch_size` values of 16, 32, and 64 consistently yielded accuracy close to the baseline and sometimes higher.
 
 ## Technical Details
 
@@ -94,7 +100,7 @@ The original paper on Ghost BatchNorm reports a 0-3% accuracy change across a nu
 
 > 🚧 Composing Regularization Methods
 >
-> As general rule, composing regularization methods may lead to diminishing returns in quality improvements. Ghost BatchNorm is one such regularization method.
+> As a general rule, composing regularization methods may lead to diminishing returns in quality improvements. Ghost BatchNorm is one such regularization method.
 
 
 ## Attribution

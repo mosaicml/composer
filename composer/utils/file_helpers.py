@@ -4,12 +4,13 @@
 
 import os
 import pathlib
+import re
 from typing import Iterator, Optional, Union
 
 import requests
 import tqdm
 
-from composer.core.time import Timestamp
+from composer.core.time import Time, Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
 from composer.utils.object_store import ObjectStore
@@ -18,6 +19,7 @@ __all__ = [
     'GetFileNotFoundException',
     'get_file',
     'ensure_folder_is_empty',
+    'ensure_folder_has_no_conflicting_files',
     'format_name_with_dist',
     'format_name_with_dist_and_time',
     'is_tar',
@@ -58,6 +60,67 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
         for file in files:
             if not file.startswith("."):
                 raise FileExistsError(f"{folder_name} is not empty; {os.path.join(root, file)} exists.")
+
+
+def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path], filename: str, timestamp: Timestamp):
+    """Ensure that the given folder does not have any files conflicting with the ``filename`` format string. If any
+    filename is formatted with a timestamp where the epoch, batch, sample, or token counts are after ``timestamp``, a
+    ``FileExistsError`` will be raised. ``filename`` and occurs later than ``timestamp``, raise a ``FileExistsError``.
+
+    Args:
+        folder_name (str | pathlib.Path): The folder to inspect.
+        filename (str): The pattern string for potential files.
+        timestamp (Timestamp): Ignore any files that occur before the provided timestamp.
+
+    Raises:
+        FileExistsError: If ``folder_name`` contains any files matching the ``filename`` template before ``timestamp``.
+    """
+    # Prepare regex pattern by replacing f-string formatting with regex.
+    pattern = f"^{filename}$"
+    # Format time vars for capture
+    time_names = ["epoch", "batch", "sample", "token", "batch_in_epoch", "sample_in_epoch", "token_in_epoch"]
+    captured_names = {time_name: f"{{{time_name}}}" in filename for time_name in time_names}
+    for time_name, is_captured in captured_names.items():
+        if is_captured:
+            pattern = pattern.replace(f"{{{time_name}}}", f"(?P<{time_name}>\\d+)")
+    # Format rank information
+    pattern = pattern.format(rank=dist.get_global_rank(),
+                             local_rank=dist.get_local_rank(),
+                             world_size=dist.get_world_size(),
+                             local_world_size=dist.get_local_world_size(),
+                             node_rank=dist.get_node_rank())
+
+    template = re.compile(pattern)
+
+    for file in os.listdir(folder_name):
+        match = template.match(file)
+        # Encountered an invalid match
+        if match is not None:
+            valid_match = True
+            # Check each base unit of time and flag later checkpoints
+            if captured_names["token"] and Time.from_token(int(match.group("token"))) > timestamp.token:
+                valid_match = False
+            elif captured_names["sample"] and Time.from_sample(int(match.group("sample"))) > timestamp.sample:
+                valid_match = False
+            elif captured_names["batch"] and Time.from_batch(int(match.group("batch"))) > timestamp.batch:
+                valid_match = False
+            elif captured_names["epoch"] and Time.from_epoch(int(match.group("epoch"))) > timestamp.epoch:
+                valid_match = False
+            # If epoch count is same, check batch_in_epoch, sample_in_epoch, token_in_epoch
+            elif captured_names["epoch"] and Time.from_epoch(int(match.group("epoch"))) == timestamp.epoch:
+                if captured_names["token_in_epoch"] and Time.from_token(int(
+                        match.group("token_in_epoch"))) > timestamp.token_in_epoch:
+                    valid_match = False
+                elif captured_names["sample_in_epoch"] and Time.from_sample(int(
+                        match.group("sample_in_epoch"))) > timestamp.sample_in_epoch:
+                    valid_match = False
+                elif captured_names["batch_in_epoch"] and Time.from_batch(int(
+                        match.group("batch_in_epoch"))) > timestamp.batch_in_epoch:
+                    valid_match = False
+            if not valid_match:
+                raise FileExistsError(
+                    f"{os.path.join(folder_name, file)} exists and conflicts in namespace with a future checkpoint of the current run."
+                )
 
 
 FORMAT_NAME_WITH_DIST_TABLE = """
@@ -123,48 +186,48 @@ Args:
 """
 
 FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """
-+------------------------+-------------------------------------------------------+
-| Variable               | Description                                           |
-+========================+=======================================================+
-| ``{run_name}``         | The name of the training run. See                     |
-|                        | :attr:`~composer.loggers.logger.Logger.run_name`.     |
-+------------------------+-------------------------------------------------------+
-| ``{rank}``             | The global rank, as returned by                       |
-|                        | :func:`~composer.utils.dist.get_global_rank`.         |
-+------------------------+-------------------------------------------------------+
-| ``{local_rank}``       | The local rank of the process, as returned by         |
-|                        | :func:`~composer.utils.dist.get_local_rank`.          |
-+------------------------+-------------------------------------------------------+
-| ``{world_size}``       | The world size, as returned by                        |
-|                        | :func:`~composer.utils.dist.get_world_size`.          |
-+------------------------+-------------------------------------------------------+
-| ``{local_world_size}`` | The local world size, as returned by                  |
-|                        | :func:`~composer.utils.dist.get_local_world_size`.    |
-+------------------------+-------------------------------------------------------+
-| ``{node_rank}``        | The node rank, as returned by                         |
-|                        | :func:`~composer.utils.dist.get_node_rank`.           |
-+------------------------+-------------------------------------------------------+
-| ``{epoch}``            | The total epoch count, as returned by                 |
-|                        | :meth:`~composer.core.time.Timer.epoch`.              |
-+------------------------+-------------------------------------------------------+
-| ``{batch}``            | The total batch count, as returned by                 |
-|                        | :meth:`~composer.core.time.Timer.batch`.              |
-+------------------------+-------------------------------------------------------+
-| ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by  |
-|                        | :meth:`~composer.core.time.Timer.batch_in_epoch`.     |
-+------------------------+-------------------------------------------------------+
-| ``{sample}``           | The total sample count, as returned by                |
-|                        | :meth:`~composer.core.time.Timer.sample`.             |
-+------------------------+-------------------------------------------------------+
-| ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by |
-|                        | :meth:`~composer.core.time.Timer.sample_in_epoch`.    |
-+------------------------+-------------------------------------------------------+
-| ``{token}``            | The total token count, as returned by                 |
-|                        | :meth:`~composer.core.time.Timer.token`.              |
-+------------------------+-------------------------------------------------------+
-| ``{token_in_epoch}``   | The token count in the current epoch, as returned by  |
-|                        | :meth:`~composer.core.time.Timer.token_in_epoch`.     |
-+------------------------+-------------------------------------------------------+
++------------------------+--------------------------------------------------------+
+| Variable               | Description                                            |
++========================+========================================================+
+| ``{run_name}``         | The name of the training run. See                      |
+|                        | :attr:`~composer.loggers.logger.Logger.run_name`.      |
++------------------------+--------------------------------------------------------+
+| ``{rank}``             | The global rank, as returned by                        |
+|                        | :func:`~composer.utils.dist.get_global_rank`.          |
++------------------------+--------------------------------------------------------+
+| ``{local_rank}``       | The local rank of the process, as returned by          |
+|                        | :func:`~composer.utils.dist.get_local_rank`.           |
++------------------------+--------------------------------------------------------+
+| ``{world_size}``       | The world size, as returned by                         |
+|                        | :func:`~composer.utils.dist.get_world_size`.           |
++------------------------+--------------------------------------------------------+
+| ``{local_world_size}`` | The local world size, as returned by                   |
+|                        | :func:`~composer.utils.dist.get_local_world_size`.     |
++------------------------+--------------------------------------------------------+
+| ``{node_rank}``        | The node rank, as returned by                          |
+|                        | :func:`~composer.utils.dist.get_node_rank`.            |
++------------------------+--------------------------------------------------------+
+| ``{epoch}``            | The total epoch count, as returned by                  |
+|                        | :meth:`~composer.core.time.Timestamp.epoch`.           |
++------------------------+--------------------------------------------------------+
+| ``{batch}``            | The total batch count, as returned by                  |
+|                        | :meth:`~composer.core.time.Timestamp.batch`.           |
++------------------------+--------------------------------------------------------+
+| ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by   |
+|                        | :meth:`~composer.core.time.Timestamp.batch_in_epoch`.  |
++------------------------+--------------------------------------------------------+
+| ``{sample}``           | The total sample count, as returned by                 |
+|                        | :meth:`~composer.core.time.Timestamp.sample`.          |
++------------------------+--------------------------------------------------------+
+| ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by  |
+|                        | :meth:`~composer.core.time.Timestamp.sample_in_epoch`. |
++------------------------+--------------------------------------------------------+
+| ``{token}``            | The total token count, as returned by                  |
+|                        | :meth:`~composer.core.time.Timestamp.token`.           |
++------------------------+--------------------------------------------------------+
+| ``{token_in_epoch}``   | The token count in the current epoch, as returned by   |
+|                        | :meth:`~composer.core.time.Timestamp.token_in_epoch`.  |
++------------------------+--------------------------------------------------------+
 """
 
 
@@ -202,7 +265,7 @@ For example, assume that the current epoch is ``0``, batch is ``0``, and rank is
 >>> format_name_with_dist_and_time(
 ...     format_str,
 ...     run_name='awesome_training_run',
-...     timestamp=state.timer.get_timestamp(),
+...     timestamp=state.timestamp,
 ...     extension='json',
 ... )
 'awesome_training_run/ep0-ba0-rank0.json'

@@ -117,8 +117,6 @@ html_favicon = 'https://mosaic-ml-staging.cdn.prismic.io/mosaic-ml-staging/b1f1a
 # Don't unfold our common type aliases
 autodoc_type_aliases = {
     'Batch': 'composer.core.types.Batch',
-    'BatchPair': 'composer.core.types.BatchPair',
-    'BatchDict': 'composer.core.types.BatchDict',
     'Hparams': 'yahp.hparams.Hparams',
 }
 

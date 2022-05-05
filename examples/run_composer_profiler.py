@@ -8,7 +8,6 @@ import sys
 import warnings
 from typing import Type
 
-import composer
 from composer.profiler import CyclicProfilerScheduleHparams, JSONTraceHparams
 from composer.trainer import TrainerHparams
 
@@ -34,7 +33,6 @@ def main() -> None:
 
     args, _ = parser.parse_known_args()
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
-    logging.getLogger(composer.__name__).setLevel(hparams.log_level)
 
     # Configure the Composer profiler
     hparams.prof_trace_handlers = [JSONTraceHparams(folder="composer_traces")]
@@ -55,14 +53,14 @@ def main() -> None:
             hparams.train_subset_num_batches = num_profiling_batches
 
         # Disable dataset shuffle, since shuffle is not supported when using subset_num_batches
-        hparams.train_dataset.shuffle = False
+        if hparams.train_dataset is not None:
+            hparams.train_dataset.shuffle = False
 
     # Disable validation
     # First, set the val dataset to the train dataset, to avoid any issues with initialization
     # We never run evaluation so it doesn't matter
     hparams.val_dataset = hparams.train_dataset
-    hparams.validate_every_n_batches = -1
-    hparams.validate_every_n_epochs = -1
+    hparams.eval_interval = "0ep"
 
     # Create the trainer and train
     trainer = hparams.initialize_object()

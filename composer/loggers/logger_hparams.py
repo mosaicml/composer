@@ -1,6 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Logger Hyperparameter classes."""
+"""Logger Hyperparameter classes.
+
+Attributes:
+    logger_registry (Dict[str, Type[LoggerDestinationHparams]]): The registry of all known
+        :class:`.LoggerDestinationHparams`.
+"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -16,7 +21,7 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.utils import ObjectStoreHparams, dist, import_object
+from composer.utils import ObjectStoreHparams, import_object
 
 __all__ = [
     "FileLoggerHparams",
@@ -127,18 +132,12 @@ class WandBLoggerHparams(LoggerDestinationHparams):
             config_dict = self.extra_init_params["config"]
 
         if self.flatten_config:
-            config_dict = self._flatten_dict(config_dict)
+            config_dict = self._flatten_dict(config_dict, prefix=[])
 
-        if self.rank_zero_only:
-            name = self.name
-            group = self.group
-        else:
-            name = f"{self.name} [RANK_{dist.get_global_rank()}]"
-            group = self.group if self.group else self.name
         init_params = {
             "project": self.project,
-            "name": name,
-            "group": group,
+            "name": self.name,
+            "group": self.group,
             "entity": self.entity,
             "tags": tags,
             "config": config_dict,
@@ -151,7 +150,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         )
 
     @classmethod
-    def _flatten_dict(cls, data: Dict[str, Any], _prefix: List[str] = []) -> Dict[str, Any]:
+    def _flatten_dict(cls, data: Dict[str, Any], prefix: List[str]) -> Dict[str, Any]:
         """Flattens a dictionary with list or sub dicts to have dot syntax.
 
         .. testcode::
@@ -176,7 +175,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
         """
         all_items = {}
         for key, val in data.items():
-            key_items = _prefix + [key]
+            key_items = list(prefix) + [key]
             key_name = ".".join(key_items)
             if isinstance(val, dict):
                 all_items.update(cls._flatten_dict(val, key_items))
@@ -200,11 +199,33 @@ class WandBLoggerHparams(LoggerDestinationHparams):
 @dataclass
 class ProgressBarLoggerHparams(LoggerDestinationHparams):
     """:class:`~composer.loggers.progress_bar_logger.ProgressBarLogger`
-    hyperparameters. This class takes no parameters.
+    hyperparameters.
+
+    .. deprecated:: 0.6.0
+
+        This class is deprecated. Instead, please specify the :class:`.ProgressBarLogger` arguments
+        directly in the :class:`~composer.trainer.trainer_hparams.TrainerHparams`. This class will be removed
+        in v0.7.0.
+
+    Args:
+        progress_bar (bool, optional): See :class:`.ProgressBarLogger`.
+        log_to_console (bool, optional): See :class:`.ProgressBarLogger`.
+        console_log_level (bool, optional): See :class:`.ProgressBarLogger`.
+        stream (bool, optional): See :class:`.ProgressBarLogger`.
     """
 
+    progress_bar: bool = hp.optional("Whether to show a progress bar.", default=True)
+    log_to_console: Optional[bool] = hp.optional("Whether to print log statements to the console.", default=None)
+    console_log_level: LogLevel = hp.optional("The maximum log level.", default=LogLevel.EPOCH)
+    stream: str = hp.optional("The stream at which to write the progress bar and log statements.", default="stderr")
+
     def initialize_object(self) -> ProgressBarLogger:
-        return ProgressBarLogger()
+        return ProgressBarLogger(
+            progress_bar=self.progress_bar,
+            log_to_console=self.log_to_console,
+            console_log_level=self.console_log_level,
+            stream=self.stream,
+        )
 
 
 @dataclass
@@ -278,4 +299,3 @@ logger_registry = {
     "in_memory": InMemoryLoggerHparams,
     "object_store": ObjectStoreLoggerHparams,
 }
-"""The registry of all known :class:`.LoggerDestinationHparams`."""

@@ -60,7 +60,7 @@ class TestMixUp:
         state.batch = (x_fake, y_fake)
 
         # Apply algo, use test hooks to specify indices and override internally generated interpolation lambda for testability
-        algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)
+        algorithm.apply(Event.BEFORE_FORWARD, state, empty_logger)
 
         x, _ = state.batch
         # Use algorithm generated indices and mixing_coef for validation

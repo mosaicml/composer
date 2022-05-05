@@ -51,7 +51,7 @@ class ComposerScheduler(Protocol):
     .. code:: python
 
         def ten_epoch_decay_scheduler(state: State) -> float:
-            if state.timer.epoch < 10:
+            if state.timestamp.epoch < 10:
                 return 1.0
             return 0.5
 
@@ -94,7 +94,7 @@ class ComposerScheduler(Protocol):
 
         A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's provided
         learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). A typical
-        implementation will read ``state.timer``, and possibly other fields like ``state.max_duration``, to determine
+        implementation will read ``state.timestamp``, and possibly other fields like ``state.max_duration``, to determine
         the trainer's latest temporal progress.
 
         .. note::
@@ -130,16 +130,22 @@ def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: f
     if isinstance(time, str):
         time = Time.from_timestring(time)
 
+    assert state.max_duration is not None, "max_duration should be set whenever schedulers are invoked"
+
     if time.unit == TimeUnit.DURATION:
+        if state.dataloader_len is None:
+            raise RuntimeError("Cannot convert time, as state.dataloader_len is None.")
         if state.max_duration.unit == TimeUnit.EPOCH:
-            return Time(int(time.value * state.steps_per_epoch * state.max_duration.value), TimeUnit.BATCH)
+            return Time(int(time.value * int(state.dataloader_len) * state.max_duration.value), TimeUnit.BATCH)
         return Time(int(time.value * state.max_duration.value), state.max_duration.unit)
 
     if time.unit == TimeUnit.EPOCH:
         # Epochs do not provide sufficient granularity for SSR scaling
         # e.g. if max_duration = 1ep, then any SSR would result in a new duration of 0.
         # so, convert the time into batches
-        time = Time(value=time.value * state.steps_per_epoch, unit=TimeUnit.BATCH)
+        if state.dataloader_len is None:
+            raise RuntimeError("Cannot convert time, as state.dataloader_len is None.")
+        time = Time(value=time.value * int(state.dataloader_len), unit=TimeUnit.BATCH)
 
     return Time(value=int(time.value * ssr), unit=time.unit)
 

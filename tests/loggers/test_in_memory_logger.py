@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
-from composer.core import State, Time, Timer, Timestamp
+from composer.core import State, Time, Timestamp
 from composer.loggers import InMemoryLogger, Logger, LogLevel
 
 
@@ -13,7 +13,7 @@ def test_in_memory_logger(dummy_state: State):
     logger = Logger(dummy_state, destinations=[in_memory_logger])
     logger.data_batch({"batch": "should_be_ignored"})
     logger.data_epoch({"epoch": "should_be_recorded"})
-    dummy_state.timestamp.on_batch_complete(samples=1, tokens=1)
+    dummy_state.timestamp = dummy_state.timestamp.to_next_batch(samples=1, tokens=1)
     logger.data_epoch({"epoch": "should_be_recorded_and_override"})
 
     # no batch events should be logged, since the level is epoch

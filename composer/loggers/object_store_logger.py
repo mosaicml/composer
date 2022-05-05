@@ -263,6 +263,9 @@ class ObjectStoreLogger(LoggerDestination):
                     "container": self.container,
                     "provider_kwargs": self.provider_kwargs,
                 },
+                # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status
+                # Setting daemon status prevents the process from hanging if close was never called (e.g. in doctests)
+                daemon=True,
             )
             worker.start()
             self._workers.append(worker)
@@ -294,6 +297,22 @@ class ObjectStoreLogger(LoggerDestination):
         object_name = self._object_name(artifact_name)
         self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
 
+    def log_symlink_artifact(self, state: State, log_level: LogLevel, existing_artifact_name: str,
+                             symlink_artifact_name: str, overwrite: bool):
+        """Object stores do not natively support symlinks, so we emulate symlinks by adding a .symlink file to the
+        object store, which is a text file containing the name of the object it is pointing to."""
+        # Only symlink if we're logging artifact to begin with
+        if not self.should_log_artifact(state, log_level, existing_artifact_name):
+            return
+        copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
+        os.makedirs(self._upload_staging_folder, exist_ok=True)
+        # Write artifact name into file to emulate symlink
+        with open(copied_path, 'w') as f:
+            f.write(existing_artifact_name)
+        # Add .symlink extension so we can identify as emulated symlink when downloading
+        object_name = self._object_name(symlink_artifact_name) + ".symlink"
+        self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
+
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         if self._finished is not None:
@@ -302,6 +321,8 @@ class ObjectStoreLogger(LoggerDestination):
             worker.join()
         if self._tempdir is not None:
             self._tempdir.cleanup()
+        self._tempdir = None
+        self._finished = None
         self._workers.clear()
 
     def get_uri_for_artifact(self, artifact_name: str) -> str:

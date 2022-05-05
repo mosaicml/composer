@@ -2,7 +2,7 @@
 
 import pytest
 
-from composer.core.time import Time, Timer, Timestamp, TimeUnit
+from composer.core.time import Time, Timestamp, TimeUnit
 
 
 @pytest.mark.parametrize("time_string,expected_value,expected_unit", [
@@ -56,24 +56,17 @@ def test_time_repr():
     assert eval(repr(time)) == time
 
 
-def test_timer():
-    timer = Timer()
-    timer_state = timer.state
-    timer_state.on_batch_complete(10, 20)
-    timer_state.on_epoch_complete()
-    timer_state.on_batch_complete(5)
-
-    assert timer_state.epoch == 1
-    assert timer_state.batch == 2
-    assert timer_state.batch_in_epoch == 1
-    assert timer_state.sample == 15
-    assert timer_state.sample_in_epoch == 5
-    assert timer_state.token == 20
-    assert timer_state.token_in_epoch == 0
-
-
 def test_timestamp():
     timestamp = Timestamp()
     time = Time(10, "ep")
     assert timestamp < time
-    timestamp.get(time.unit)  # get the value of a dynamic unit without getattr
+    assert timestamp.get(time.unit) == Time.from_epoch(0)
+
+
+def test_timestamp_update():
+    timestamp = Timestamp(epoch=1)
+    timestamp_2 = timestamp.copy(batch=2)
+    assert timestamp_2.epoch == 1
+    assert timestamp_2.batch == 2
+    assert timestamp_2.sample == 0
+    assert timestamp is not timestamp_2

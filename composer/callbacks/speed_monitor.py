@@ -126,6 +126,7 @@ class SpeedMonitor(Callback):
     def batch_end(self, state: State, logger: Logger):
         self.batch_end_times.append(time.time())
         new_num_samples = state.timestamp.sample
+        assert self.batch_start_num_samples is not None, "self.batch_start_num_samples should have been set on Event.BATCH_START"
         batch_num_samples = int(new_num_samples - self.batch_start_num_samples)
         self.batch_num_samples.append(batch_num_samples)
         self.train_examples_per_epoch += batch_num_samples

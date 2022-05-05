@@ -5,9 +5,9 @@
 Callbacks, algorithms, and schedulers can use the current training time to fire at certain points in the training
 process.
 
-The :class:`~.time.Timer` class tracks the total number of epochs, batches, samples, and tokens. The trainer is
+The :class:`~.time.Timestamp` class tracks the total number of epochs, batches, samples, and tokens. The trainer is
 responsible for updating it at the end of every epoch and batch.  There is only one instance of the
-:class:`~.time.Timer`, which is attached to the :class:`~.state.State`.
+:class:`~.time.Timestamp`, which is attached to the :class:`~.state.State`.
 
 The :class:`~.time.Time` class represents static durations of training time or points in the training process in terms
 of a specific :class:`~.time.TimeUnit` enum. This class supports comparisons, arithmetic, and conversions.
@@ -17,14 +17,12 @@ See the :doc:`Time Guide </trainer/time>` for more details on tracking time duri
 from __future__ import annotations
 
 import re
-import textwrap
-import warnings
-from typing import Any, Dict, Generic, TypeVar, Union, cast
+from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["TimeUnit", "Time", "Timer", "Timestamp"]
+__all__ = ["TimeUnit", "Time", "Timestamp", "ensure_time"]
 
 
 class TimeUnit(StringEnum):
@@ -224,18 +222,15 @@ class Time(Generic[TValue]):
         # parse ``other`` into a Time object
         if isinstance(other, Time):
             return other
+        if isinstance(other, int):
+            return Time(other, self.unit)
         if isinstance(other, str):
             other_parsed = Time.from_timestring(other)
-            warnings.warn(
-                textwrap.dedent(f"""\
-                    TimeImplicitStringConversion:
-                    Implicitly converting {other} to {other_parsed}.
-                    To fix this warning, replace {other} with {other_parsed}."""))
             return other_parsed
 
         raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
 
-    def _cmp(self, other: object) -> int:
+    def _cmp(self, other: Union[int, float, Time, str]) -> int:
         # When doing comparisions, and other is an integer (or float), we can safely infer
         # the unit from self.unit
         # E.g. calls like this should be allowed: if batch < 42: do_something()
@@ -254,40 +249,40 @@ class Time(Generic[TValue]):
         assert self.value > other.value
         return 1
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) == 0
 
-    def __ne__(self, other: object):
+    def __ne__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) != 0
 
-    def __lt__(self, other: object):
+    def __lt__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) < 0
 
-    def __le__(self, other: object):
+    def __le__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) <= 0
 
-    def __gt__(self, other: object):
+    def __gt__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) > 0
 
-    def __ge__(self, other: object):
+    def __ge__(self, other: Union[int, float, Time, str]):
         return self._cmp(other) >= 0
 
-    def __add__(self, other: object) -> Time[TValue]:
+    def __add__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot add {self} to {other} since they have different units.")
         return Time(self.value + other.value, self.unit)
 
-    def __radd__(self, other: object) -> Time[TValue]:
+    def __radd__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         return self + other
 
-    def __sub__(self, other: object) -> Time[TValue]:
+    def __sub__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         other = self._parse(other)
         if self.unit != other.unit:
             raise RuntimeError(f"Cannot subtract {other} from {self} since they have different units.")
         return Time(self.value - other.value, self.unit)
 
-    def __rsub__(self, other: object) -> Time[TValue]:
+    def __rsub__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         return (-self) + other
 
     def __neg__(self) -> Time[TValue]:
@@ -357,31 +352,38 @@ class Time(Generic[TValue]):
 
 
 class Timestamp(Serializable):
-    """Timer tracks the current training progress, in terms of epochs, batches, samples, and tokens.
+    """Timestamp represents a snapshot of the current training progress, in terms of epochs, batches,
+    samples, and tokens. Timestamps are not updated in-place.
 
     See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
 
-    .. note::
-
-        An instance of this class is automatically constructed by the :class:`~composer.core.state.State` constructor.
-        A user need not instantiate this class.
+    Args:
+        epoch (int | Time[int], optional): The epoch.
+        batch (int | Time[int], optional): the batch.
+        sample (int | Time[int], optional): The sample.
+        token (int | Time[int], optional): The token.
+        batch_in_epoch (int | Time[int], optional): The batch in the epoch.
+        sample_in_epoch (int | Time[int], optional): The sample in the epoch.
+        token_in_epoch (int | Time[int], optional): The token in the epoch.
     """
 
-    def __init__(self,
-                 epoch: Time = Time(0, TimeUnit.EPOCH),
-                 batch: Time = Time(0, TimeUnit.BATCH),
-                 sample: Time = Time(0, TimeUnit.SAMPLE),
-                 token: Time = Time(0, TimeUnit.TOKEN),
-                 batch_in_epoch: Time = Time(0, TimeUnit.BATCH),
-                 sample_in_epoch: Time = Time(0, TimeUnit.SAMPLE),
-                 token_in_epoch: Time = Time(0, TimeUnit.TOKEN)):
-        self._epoch = epoch
-        self._batch = batch
-        self._sample = sample
-        self._token = token
-        self._batch_in_epoch = batch_in_epoch
-        self._sample_in_epoch = sample_in_epoch
-        self._token_in_epoch = token_in_epoch
+    def __init__(
+        self,
+        epoch: Union[int, Time[int]] = 0,
+        batch: Union[int, Time[int]] = 0,
+        sample: Union[int, Time[int]] = 0,
+        token: Union[int, Time[int]] = 0,
+        batch_in_epoch: Union[int, Time[int]] = 0,
+        sample_in_epoch: Union[int, Time[int]] = 0,
+        token_in_epoch: Union[int, Time[int]] = 0,
+    ):
+        self._epoch = ensure_time(epoch)
+        self._batch = ensure_time(batch)
+        self._sample = ensure_time(sample)
+        self._token = ensure_time(token)
+        self._batch_in_epoch = ensure_time(batch_in_epoch)
+        self._sample_in_epoch = ensure_time(sample_in_epoch)
+        self._token_in_epoch = ensure_time(token_in_epoch)
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -469,47 +471,12 @@ class Timestamp(Serializable):
             return self.token
         raise ValueError(f"Invalid unit: {unit}")
 
-    def on_batch_complete(self, samples: Union[int, Time] = 0, tokens: Union[int, Time] = 0):
-        """Called by the trainer at the end of every optimization batch.
-
-        .. note::
-
-            For accurate time tracking, the trainer is responsible for accumulating the total number of
-            samples and/or tokens trained across all ranks before invoking this function.
-
-        Args:
-            samples (int or Time, optional): The number of samples trained in the batch. Defaults to 0.
-            tokens (int or Time, optional): The number of tokens trained in the batch. Defaults to 0.
-        """
-        self._batch += Time(1, TimeUnit.BATCH)
-        self._batch_in_epoch += Time(1, TimeUnit.BATCH)
-        if isinstance(samples, int):
-            samples = Time(samples, TimeUnit.SAMPLE)
-        if isinstance(tokens, int):
-            tokens = Time(tokens, TimeUnit.TOKEN)
-        self._sample += samples
-        self._sample_in_epoch += samples
-        self._token += tokens
-        self._token_in_epoch += tokens
-
-    def on_epoch_complete(self):
-        """Called by the trainer at the end of an epoch."""
-        self._epoch += Time(1, TimeUnit.EPOCH)
-        self._batch_in_epoch = Time(0, TimeUnit.BATCH)
-        self._sample_in_epoch = Time(0, TimeUnit.SAMPLE)
-        self._token_in_epoch = Time(0, TimeUnit.TOKEN)
-
     def _parse(self, other: object) -> Time:
         # parse ``other`` into a Time object
         if isinstance(other, Time):
             return other
         if isinstance(other, str):
             other_parsed = Time.from_timestring(other)
-            warnings.warn(
-                textwrap.dedent(f"""\
-                    TimeImplicitStringConversion:
-                    Implicitly converting {other} to {other_parsed}.
-                    To fix this warning, replace {other} with {other_parsed}."""))
             return other_parsed
 
         raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
@@ -560,53 +527,130 @@ class Timestamp(Serializable):
         self_counter = self.get(other.unit)
         return self_counter >= other
 
+    def to_next_batch(self, samples: Union[int, Time] = 0, tokens: Union[int, Time] = 0):
+        """Create a new :class:`.Timestamp`, with the batch, sample, and token counts properly incremented.
 
-class Timer(Serializable):
-    """Timer tracks the current training progress, in terms of epochs, batches, samples, and tokens. See the :doc:`Time
-    Guide </trainer/time>` for more details on tracking time during training.
+        Equivalent to:
 
-    .. note::     An instance of this class is automatically constructed by the :class:`~composer.core.state.State`
-    constructor.     A user need not instantiate this class.
-    """
+        .. testsetup::
 
-    def __init__(self) -> None:
-        self._state = Timestamp()
+            from composer.core.time import Timestamp
+            timestamp = Timestamp()
+            samples = 1
+            tokens = 2
 
-    def state_dict(self) -> Dict[str, Any]:
-        return self.state.state_dict()
+        .. doctest::
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.state.load_state_dict(state)
+            >>> timestamp.copy(
+            ...     batch=timestamp.batch + 1,
+            ...     batch_in_epoch=timestamp.batch_in_epoch + 1,
+            ...     sample=timestamp.sample + samples,
+            ...     sample_in_epoch=timestamp.sample_in_epoch + samples,
+            ...     token = timestamp.token + tokens,
+            ...     token_in_epoch=timestamp.token_in_epoch + tokens,
+            ... )
 
-    def get_timestamp(self) -> Timestamp:
-        """Returns a snapshot of the current time.
+        .. note::
 
-        Unlike the :class:`Timer`, the values in a :class:`Timestamp` are a snapshot and are NOT incremented as
-        training progresses.
+            For accurate time tracking, when doing distributed training, the ``samples`` and ``tokens`` should be
+            the total across all ranks for the given batch. This method will not accumulate these counts automatically.
+            If per-rank sample and token counts are provided, these counts will differ across ranks, which could lead
+            towards inconsistent behavior by :class:`.Algorithm` or :class:`.Callback` instances that use these counts.
+
+        Args:
+            samples (int or Time, optional): The number of samples trained in the batch. Defaults to 0.
+            tokens (int or Time, optional): The number of tokens trained in the batch. Defaults to 0.
+        """
+        return self.copy(
+            batch=self.batch + 1,
+            batch_in_epoch=self.batch_in_epoch + 1,
+            sample=self.sample + samples,
+            sample_in_epoch=self.sample_in_epoch + samples,
+            token=self.token + tokens,
+            token_in_epoch=self.token_in_epoch + tokens,
+        )
+
+    def to_next_epoch(self):
+        """Create a new :class:`.Timestamp` incremented by one epoch and with
+        :attr:`batch_in_epoch`, :attr:`sample_in_epoch`, and :attr:`token_in_epoch` reset.
+
+        Equivalent to:
+
+
+        .. testsetup::
+
+            from composer.core.time import Timestamp
+            timestamp = Timestamp()
+
+        .. doctest::
+
+            >>> timestamp.copy(
+            ...     epoch=timestamp.epoch+1,
+            ...     batch_in_epoch=0,
+            ...     sample_in_epoch=0,
+            ...     token_in_epoch=0,
+            ... )
+
+        """
+        return self.copy(
+            epoch=self.epoch + 1,
+            batch_in_epoch=0,
+            sample_in_epoch=0,
+            token_in_epoch=0,
+        )
+
+    def copy(
+        self,
+        epoch: Optional[Union[int, Time[int]]] = None,
+        batch: Optional[Union[int, Time[int]]] = None,
+        sample: Optional[Union[int, Time[int]]] = None,
+        token: Optional[Union[int, Time[int]]] = None,
+        batch_in_epoch: Optional[Union[int, Time[int]]] = None,
+        sample_in_epoch: Optional[Union[int, Time[int]]] = None,
+        token_in_epoch: Optional[Union[int, Time[int]]] = None,
+    ) -> Timestamp:
+        """Create a copy of the timestamp. Any specified values will override the existing values in the
+        returned copy.
+
+        Args:
+            epoch (int | Time[int], optional): The epoch.
+            batch (int | Time[int], optional): the batch.
+            sample (int | Time[int], optional): The sample.
+            token (int | Time[int], optional): The token.
+            batch_in_epoch (int | Time[int], optional): The batch in the epoch.
+            sample_in_epoch (int | Time[int], optional): The sample in the epoch.
+            token_in_epoch (int | Time[int], optional): The token in the epoch.
 
         Returns:
-            Timestamp: A snapshot of the current training time.
+            Timestamp: A new timestamp instance, created from a copy, but with any specified values
+                overriding the existing values.
         """
-        return self.state
+        return Timestamp(
+            epoch=epoch if epoch is not None else self.epoch,
+            batch=batch if batch is not None else self.batch,
+            sample=sample if sample is not None else self.sample,
+            token=token if token is not None else self.token,
+            batch_in_epoch=batch_in_epoch if batch_in_epoch is not None else self.batch_in_epoch,
+            sample_in_epoch=sample_in_epoch if sample_in_epoch is not None else self.sample_in_epoch,
+            token_in_epoch=token_in_epoch if token_in_epoch is not None else self.token_in_epoch,
+        )
 
-    def __eq__(self, other: object):
-        return self.state == other
 
-    def __ne__(self, other: object):
-        return self.state != other
-
-    def __lt__(self, other: object):
-        return self.state < other
-
-    def __le__(self, other: object):
-        return self.state <= other
-
-    def __gt__(self, other: object):
-        return self.state > other
-
-    def __ge__(self, other: object):
-        return self.state >= other
-
-    @property
-    def state(self):
-        return self._state
+def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str] = TimeUnit.EPOCH) -> Time:
+    """Ensure ``maybe_time`` is an instance of :class:`.Time`
+    
+    Args:
+        maybe_time (Time | str): A time string, integer, or instance of :class:`.Time`.
+        int_unit (TimeUnit | str, optional):
+            The unit to use if ``maybe_time`` is an integer. (default: :attr:`.TimeUnit.EPOCH`)
+    
+    Returns:
+        Time: An instance of :class:`.Time`.
+    """
+    if isinstance(maybe_time, str):
+        return Time.from_timestring(maybe_time)
+    if isinstance(maybe_time, int):
+        return Time(maybe_time, int_unit)
+    if isinstance(maybe_time, Time):
+        return maybe_time
+    raise TypeError(f"Unsupported type for ensure_time: {type(maybe_time)}")

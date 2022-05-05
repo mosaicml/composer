@@ -3,14 +3,18 @@
 
 `Vision` / `Image Classification`
 
-The ResNet model family is a set of convolutional neural networks that can be used as the base for a variety of vision tasks. Our implementation is a simple wrapper on top of the [torchvision ResNet implementation](https://pytorch.org/vision/stable/models.html).
+The ResNet model family is a set of convolutional neural networks that can be used as a basis for a variety of vision tasks. Our implementation is a simple wrapper on top of the [torchvision ResNet implementation](https://pytorch.org/vision/stable/models.html).
 
 ## How to Use
 
 ```python
 from composer.models import ComposerResNet
 
-model = ComposerResNet(model_name="resnet50", num_classes=1000, pretrained=False)
+model = ComposerResNet(
+    model_name="resnet50",
+    num_classes=1000,
+    pretrained=False
+)
 ```
 
 ## Architecture
@@ -19,7 +23,7 @@ The basic architecture defined in the original papers is as follows:
 
 - The first layer is a 7x7 Convolution with stride 2 and 64 filters.
 - Subsequent layers follow 4 stages with {64, 128, 256, 512} input channels with a varying number of residual blocks at each stage that depends on the family member. At the end of every stage, the resolution is reduced by half using a convolution with stride 2.
-- The final section consists of a global average pooling followed by a linear + softmax layer that outputs values for the specified number of classes
+- The final section consists of a global average pooling followed by a linear + softmax layer that outputs values for the specified number of classes.
 
 The below table from [He et al.](https://arxiv.org/abs/1512.03385) details some of the building blocks for ResNets of different sizes.
 
@@ -27,7 +31,7 @@ The below table from [He et al.](https://arxiv.org/abs/1512.03385) details some 
 
 ## Family Members
 
-ResNet family members are defined by their number of layers. Parameter count, accuracy, and training time are provided below.
+ResNet family members are identified by their number of layers. Parameter count, accuracy, and training time are provided below.
 
 | Model Family Members | Parameter Count | Our Accuracy | Training Time on 8xA100s |
 |----------------------|-----------------|--------------|--------------------------|
