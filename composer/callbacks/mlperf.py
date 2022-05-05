@@ -5,7 +5,7 @@ import platform
 import subprocess
 import sys
 import warnings
-from typing import Any, Dict, List, Optional, Sized
+from typing import Any, Dict, Iterable, List, Optional
 
 import torch
 from torch.utils.data import DataLoader
@@ -228,28 +228,42 @@ class MLPerfCallback(Callback):
         metric = state.current_metrics[self.metric_label][self.metric_name]
         return float(metric)
 
+    def _get_dataloader_stats(self, dataloader: Iterable):
+        """ returns tuple of (batch_size, num_samples)"""
+
+        if isinstance(dataloader, DataLoader):
+            return (dataloader.batch_size, len(dataloader.dataset))  # type: ignore
+        try:
+            # attempt to import ffcv and test if its an ffcv loader.
+            import ffcv  # type: ignore
+
+            if isinstance(dataloader, ffcv.loader.Loader):
+                return (dataloader.batch_size, len(dataloader) * dataloader.batch_size)  # type: ignore
+        except ImportError:
+            pass
+
+        raise TypeError(f"torch dataloader or ffcv dataloader required (and ffcv installed)")
+
     def fit_start(self, state: State, logger: Logger) -> None:
         if rank_zero():
-
-            if not isinstance(state.train_dataloader, DataLoader):
-                raise TypeError("train dataloader must be a torch dataloader")
-            if not isinstance(state.evaluators[0].dataloader.dataloader, DataLoader):
-                raise TypeError("eval dataset must be a torch dataloader.")
-            if state.train_dataloader.batch_size is None:
-                raise ValueError("Batch size is required to be set for dataloader.")
             if len(state.evaluators) > 1:
                 raise ValueError("Only one evaluator is supported for the MLPerfCallback.")
-            if not isinstance(state.train_dataloader.dataset, Sized):
-                raise TypeError("Train dataset must have __len__ property")
-            if not isinstance(state.evaluators[0].dataloader.dataloader.dataset, Sized):
-                raise TypeError("The eval dataset must have __len__ property")
+
+            if state.train_dataloader is None:
+                raise ValueError('Train dataloader need to be provided')
+
+            batch_size, num_samples = self._get_dataloader_stats(state.train_dataloader)
+            _, eval_num_samples = self._get_dataloader_stats(state.evaluators[0].dataloader.dataloader)
+
+            if batch_size is None:
+                raise ValueError("Batch size is required to be set for dataloader.")
 
             self._log_dict({
                 constants.SEED: state.seed,
-                constants.GLOBAL_BATCH_SIZE: state.train_dataloader.batch_size * dist.get_world_size(),
+                constants.GLOBAL_BATCH_SIZE: batch_size * dist.get_world_size(),
                 constants.GRADIENT_ACCUMULATION_STEPS: state.grad_accum,
-                constants.TRAIN_SAMPLES: len(state.train_dataloader.dataset),
-                constants.EVAL_SAMPLES: len(state.evaluators[0].dataloader.dataloader.dataset)
+                constants.TRAIN_SAMPLES: num_samples,
+                constants.EVAL_SAMPLES: eval_num_samples,
             })
 
         self.mllogger.event(key=constants.INIT_STOP)
