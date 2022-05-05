@@ -8,6 +8,12 @@ def _sample_drop(x: torch.Tensor, sample_drop_rate: float, is_training: bool):
     """Randomly drops samples from the input batch according to the `sample_drop_rate`.
 
     This is implemented by setting the samples to be dropped to zeros.
+
+    Args:
+        x (:class:`torch.Tensor`): the input batch tensor.
+        sample_drop_rate (float): the rate at which to drop samples. Must be
+            between 0 and 1.
+        is_training (bool): is the model training.
     """
 
     keep_probability = (1 - sample_drop_rate)
@@ -24,7 +30,7 @@ class SampleStochasticBottleneck(Bottleneck):
     """Sample-wise stochastic ResNet Bottleneck block.
 
     This block has a probability of dropping samples before the identity
-    connection, then adds back the untransformed samples using the identity
+    connection then adds back the untransformed samples using the identity
     connection.
 
     Args:
