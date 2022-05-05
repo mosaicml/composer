@@ -19,7 +19,8 @@ __all__ = ['SWA']
 
 
 class SWA(Algorithm):
-    """Apply Stochastic Weight Averaging (`Izmailov et al, 2018 <https://arxiv.org/abs/1803.05407>`_)
+    """Apply Stochastic Weight Averaging 
+    (`Izmailov et al, 2018 <https://arxiv.org/abs/1803.05407>`_)
 
     Stochastic Weight Averaging (SWA) averages model weights sampled at
     different times near the end of training. This leads to better
@@ -32,8 +33,8 @@ class SWA(Algorithm):
     optimizer state are not doubled.
 
     Uses PyTorch's `torch.optim.swa_util
-    <https://pytorch.org/docs/stable/optim.html#stochastic-weight-averaging>`_ under the
-    hood.
+    <https://pytorch.org/docs/stable/optim.html#stochastic-weight-averaging>`_ 
+    under the hood.
 
     See the :doc:`Method Card </method_cards/swa>` for more details.
 
@@ -59,7 +60,7 @@ class SWA(Algorithm):
     Args:
         swa_start (str, optional): The time string denoting the amount of training
             completed before stochastic weight averaging begins. Currently only units of
-            duration ('dur') and epoch ('ep') are supported. Defalt = ``'0.7dur'``.
+            duration ('dur') and epoch ('ep') are supported. Default: ``'0.7dur'``.
         swa_end (str, optional): The time string denoting the amount of training
             completed before the baseline (non-averaged) model is replaced with the
             stochastic weight averaged model. It's important to have at least one epoch
@@ -70,19 +71,19 @@ class SWA(Algorithm):
             the SWA model will not have its buffers updated, which can negatively impact
             accuracy, so ensure ``swa_end`` < :math:`\\frac{N_{epochs}-1}{N_{epochs}}`.
             Currently only units of duration ('dur') and epoch ('ep') are supported.
-            Default = ``'0.97dur'``.
+            Default: ``'0.97dur'``.
         update_interval (str, optional): Time string denoting how often the averaged
             model is updated. For example, ``'1ep'`` means the averaged model will be
-            updated once per epoch, and ``'5ba'`` means the averaged model will be updated
+            updated once per epoch and ``'5ba'`` means the averaged model will be updated
             every 5 batches. Note that for single-epoch training runs (e.g. many NLP
-            training runs) ``update_interval`` must be specified in units of ``'ba'``,
+            training runs), ``update_interval`` must be specified in units of ``'ba'``,
             otherwise SWA won't happen. Also note that very small update intervals (e.g.
-            ``"1ba"``) can substantially slow down training. Default = ``'1ep'``.
+            ``"1ba"``) can substantially slow down training. Default: ``'1ep'``.
         schedule_swa_lr (bool, optional): Flag to determine whether to apply an
-            SWA-specific LR schedule during the period in which SWA is active. Default =
+            SWA-specific LR schedule during the period in which SWA is active. Default:
             ``False``.
         anneal_strategy (str, optional): SWA learning rate annealing schedule strategy.
-            "linear" for linear annealing, "cos" for cosine annealing. Default =
+            ``"linear"`` for linear annealing, ``"cos"`` for cosine annealing. Default:
             ``"linear"``.
         anneal_steps (int, optional): Number of SWA model updates over which to
             anneal SWA learning rate. Note that updates are determined by the
@@ -90,9 +91,9 @@ class SWA(Algorithm):
             ``update_interval = '1ep'``, then the SWA LR will be annealed once per epoch
             for 10 epochs; if ``anneal_steps = 20`` and ``update_interval = '8ba'``, then
             the SWA LR will be annealed once every 8 batches over the course of 160
-            batches (20 steps * 8 batches/step). Default = ``10``.
+            batches (20 steps * 8 batches/step). Default: ``10``.
         swa_lr (float, optional): The final learning rate to anneal towards with the SWA
-            LR scheduler. Set to ``None`` for no annealing. Default = ``None``.
+            LR scheduler. Set to ``None`` for no annealing. Default :``None``.
     """
 
     def __init__(self,
