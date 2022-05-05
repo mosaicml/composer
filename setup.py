@@ -158,7 +158,7 @@ extra_deps["mlperf"] = [
 ]
 
 extra_deps["streaming"] = [
-    "boto3>=1.21.45",
+    "boto3>=1.21.45,<2",
 ]
 
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)
