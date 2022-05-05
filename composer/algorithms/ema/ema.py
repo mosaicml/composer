@@ -275,4 +275,4 @@ def _move_shadow_model_to_device(shadow_model: ShadowModel, destination_model: t
 
         destination_buffers = destination_model.buffers()
         shadow_buffers = shadow_model.buffers()
-        shadow_model.param_list = [s.to(d.device) for s, d in zip(shadow_buffers, destination_buffers)]
+        shadow_model.buffer_list = [s.to(d.device) for s, d in zip(shadow_buffers, destination_buffers)]
