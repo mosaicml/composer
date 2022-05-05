@@ -29,15 +29,16 @@ class LowRankSolution:
             the same size as the original operation.
         bias (:class:`torch.Tensor`, optional): vector added to the output of 
             the second linear operation.
-        rank (int, optional): output dimensionality (channels or features) of the first linear
-            operation, and input dimensionality of the second input operation. Default: ``-1``.
-        nmse (float, optional): normalized mean squared error obtained during the optimization
-            procedure used to derive ``Wa``, ``Wb``, and ``bias``. This is
-            equal to the raw mean squared error between the factorized
-            approximation's output and the original output, divided by the
-            variance of the original output. A value of 0 means no error
-            was introduced, and a value of 1 corresponds to capturing the
-            output no better than chance. Default: ``0.0``.
+        rank (int, optional): output dimensionality (channels or features) of 
+            the first linear operation, and input dimensionality of the second 
+            input operation. Default: ``-1``.
+        nmse (float, optional): normalized mean squared error obtained during 
+            the optimization procedure used to derive ``Wa``, ``Wb``, and 
+            ``bias``. This is equal to the raw mean squared error between 
+            the factorized approximation's output and the original output, 
+            divided by the variance of the original output. A value of 0 
+            means no error was introduced, and a value of 1 corresponds to
+            capturing the output no better than chance. Default: ``0.0``.
     """
     Wa: Optional[torch.Tensor] = None
     Wb: Optional[torch.Tensor] = None
