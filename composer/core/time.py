@@ -377,13 +377,43 @@ class Timestamp(Serializable):
         sample_in_epoch: Union[int, Time[int]] = 0,
         token_in_epoch: Union[int, Time[int]] = 0,
     ):
-        self._epoch = ensure_time(epoch)
-        self._batch = ensure_time(batch)
-        self._sample = ensure_time(sample)
-        self._token = ensure_time(token)
-        self._batch_in_epoch = ensure_time(batch_in_epoch)
-        self._sample_in_epoch = ensure_time(sample_in_epoch)
-        self._token_in_epoch = ensure_time(token_in_epoch)
+        epoch = ensure_time(epoch, TimeUnit.EPOCH)
+        if epoch.unit != TimeUnit.EPOCH:
+            raise ValueError(f"The `epoch` argument has units of {epoch.unit}; not {TimeUnit.EPOCH}.")
+        self._epoch = epoch
+
+        batch = ensure_time(batch, TimeUnit.BATCH)
+        if batch.unit != TimeUnit.BATCH:
+            raise ValueError(f"The `batch` argument has units of {batch.unit}; not {TimeUnit.BATCH}.")
+        self._batch = batch
+
+        sample = ensure_time(sample, TimeUnit.SAMPLE)
+        if sample.unit != TimeUnit.SAMPLE:
+            raise ValueError(f"The `sample` argument has units of {sample.unit}; not {TimeUnit.SAMPLE}.")
+        self._sample = sample
+
+        token = ensure_time(token, TimeUnit.TOKEN)
+        if token.unit != TimeUnit.TOKEN:
+            raise ValueError(f"The `token` argument has units of {token.unit}; not {TimeUnit.TOKEN}.")
+        self._token = token
+
+        batch_in_epoch = ensure_time(batch_in_epoch, TimeUnit.BATCH)
+        if batch_in_epoch.unit != TimeUnit.BATCH:
+            raise ValueError((f"The `batch_in_epoch` argument has units of {batch_in_epoch.unit}; "
+                              f"not {TimeUnit.BATCH}."))
+        self._batch_in_epoch = batch_in_epoch
+
+        sample_in_epoch = ensure_time(sample_in_epoch, TimeUnit.SAMPLE)
+        if sample_in_epoch.unit != TimeUnit.SAMPLE:
+            raise ValueError((f"The `sample_in_epoch` argument has units of {sample_in_epoch.unit}; "
+                              f"not {TimeUnit.SAMPLE}."))
+        self._sample_in_epoch = sample_in_epoch
+
+        token_in_epoch = ensure_time(token_in_epoch, TimeUnit.TOKEN)
+        if token_in_epoch.unit != TimeUnit.TOKEN:
+            raise ValueError((f"The `token_in_epoch` argument has units of {token_in_epoch.unit}; "
+                              f"not {TimeUnit.TOKEN}."))
+        self._token_in_epoch = token_in_epoch
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -636,13 +666,12 @@ class Timestamp(Serializable):
         )
 
 
-def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str] = TimeUnit.EPOCH) -> Time:
+def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str]) -> Time:
     """Ensure ``maybe_time`` is an instance of :class:`.Time`
     
     Args:
         maybe_time (Time | str): A time string, integer, or instance of :class:`.Time`.
-        int_unit (TimeUnit | str, optional):
-            The unit to use if ``maybe_time`` is an integer. (default: :attr:`.TimeUnit.EPOCH`)
+        int_unit (TimeUnit | str): The unit to use if ``maybe_time`` is an integer
     
     Returns:
         Time: An instance of :class:`.Time`.
