@@ -1,10 +1,8 @@
 import os
+import random
 from argparse import ArgumentParser, Namespace
 from glob import glob
-from random import shuffle
 from typing import Any, Dict, Iterable, List, Tuple
-
-import numpy as np
 
 from composer.datasets.streaming import StreamingDatasetWriter
 
@@ -19,7 +17,7 @@ def parse_args() -> Namespace:
     return args.parse_args()
 
 
-def get(in_root: str, split: str) -> List[Tuple[str, int]]:
+def get(in_root: str, split: str, shuffle: bool) -> List[Tuple[str, str, str]]:
     """Collect the samples for this dataset split.
 
     Args:
@@ -40,17 +38,18 @@ def get(in_root: str, split: str) -> List[Tuple[str, int]]:
         corrupted_uids = ['00003020', '00001701', '00013508', '00008455']
         uids = [uid for uid in uids if uid not in corrupted_uids]
 
-    # Create and shuffle samples
+    # Create samples
     samples = [(uid, f'{in_root}/images/{split}/ADE_{split}_{uid}.jpg',
                 f'{in_root}/annotations/{split}/ADE_{split}_{uid}.png') for uid in uids]
 
-    # Shuffle samples at dataset creation for extra randomness
-    shuffle(samples)
+    # Optionally shuffle samples at dataset creation for extra randomness
+    if shuffle:
+        random.shuffle(samples)
 
     return samples
 
 
-def each(samples: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
+def each(samples: List[Tuple[str, str, str]]) -> Iterable[Dict[str, Any]]:
     """Generator over each dataset sample.
 
     Args:
@@ -76,25 +75,27 @@ def main(args: Namespace) -> None:
     Args:
         args (Namespace): Commandline arguments.
     """
-    fields = 'uid', 'image', 'annotation'
+    fields = ['uid', 'image', 'annotation']
 
     # Get train samples
-    train_samples = get(args.in_root, 'train')
+    train_samples = get(in_root=args.in_root, split='train', shuffle=True)
     assert len(train_samples) == 20206
 
     # Write train samples
-    out_split_dir = os.path.join(args.out_root, 'train')
-    with StreamingDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
-        out.write_samples(each(train_samples), bool(args.tqdm), len(train_samples))
+    with StreamingDatasetWriter(dirname=os.path.join(args.out_root, 'train'),
+                                fields=fields,
+                                shard_size_limit=args.shard_size_limit) as out:
+        out.write_samples(samples=each(train_samples), use_tqdm=bool(args.tqdm), total=len(train_samples))
 
     # Get val samples
-    val_samples = get(args.in_root, 'val')
+    val_samples = get(in_root=args.in_root, split='val', shuffle=False)
     assert len(val_samples) == 2000
 
     # Write val samples
-    out_split_dir = os.path.join(args.out_root, 'val')
-    with StreamingDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
-        out.write_samples(each(val_samples), bool(args.tqdm), len(val_samples))
+    with StreamingDatasetWriter(dirname=os.path.join(args.out_root, 'val'),
+                                fields=fields,
+                                shard_size_limit=args.shard_size_limit) as out:
+        out.write_samples(samples=each(val_samples), use_tqdm=bool(args.tqdm), total=len(val_samples))
 
 
 if __name__ == '__main__':
