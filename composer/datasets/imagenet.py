@@ -11,19 +11,22 @@ Dataset <http://image-net.org/>`_ for more details. Also includes streaming data
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import List
+from typing import Any, List
 
 import numpy as np
 import torch
 import torch.utils.data
 import yahp as hp
+from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
 from composer.core import DataSpec
+from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
+from composer.datasets.hparams import DatasetHparams, StreamingDatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
+from composer.datasets.streaming import StreamingImageClassDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
@@ -45,7 +48,8 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         use_ffcv (bool): Whether to use FFCV dataloaders. Default: ``False``.
         ffcv_dir (str): A directory containing train/val <file>.ffcv files. If these files don't exist and
             ``ffcv_write_dataset`` is ``True``, train/val <file>.ffcv files will be created in this dir. Default: ``"/tmp"``.
-        ffcv_dest (str): <file>.ffcv file that has dataset samples. Default: ``"imagenet_train.ffcv"``.
+        ffcv_dest_train (str): <file>.ffcv file that has training samples. Default: ``"train.ffcv"``.
+        ffcv_dest_val (str): <file>.ffcv file that has validation samples. Default: ``"val.ffcv"``.
         ffcv_write_dataset (std): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
         ``False``.
     """
@@ -55,7 +59,8 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     ffcv_dir: str = hp.optional(
         "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
         default="/tmp")
-    ffcv_dest: str = hp.optional("<file>.ffcv file that has dataset samples", default="imagenet_train.ffcv")
+    ffcv_dest_train: str = hp.optional("<file>.ffcv file that has training samples", default="train.ffcv")
+    ffcv_dest_val: str = hp.optional("<file>.ffcv file that has validation samples", default="val.ffcv")
     ffcv_write_dataset: bool = hp.optional("Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
                                            default=False)
 
@@ -86,10 +91,13 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     To use ffcv with Composer, please install ffcv in your environment."""))
 
             if self.is_train:
+                dataset_file = self.ffcv_dest_train
                 split = "train"
             else:
+                dataset_file = self.ffcv_dest_val
                 split = "val"
-            dataset_filepath = os.path.join(self.ffcv_dir, self.ffcv_dest)
+            dataset_file = self.ffcv_dest_train if self.is_train else self.ffcv_dest_val
+            dataset_filepath = os.path.join(self.ffcv_dir, dataset_file)
             # always create if ffcv_write_dataset is true
             if self.ffcv_write_dataset:
                 if dist.get_local_rank() == 0:
@@ -121,8 +129,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 ])
                 dtype = np.float16
             else:
-                ratio = self.crop_size / self.resize_size if self.resize_size > 0 else 1.0
-                image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=ratio)])
+                image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=224 / 256)])
                 dtype = np.float32
             # Common transforms for train and test
             image_pipeline.extend([
@@ -192,6 +199,111 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                         device_transforms=device_transform_fn)
 
 
+class StreamingTinyImagenet200(StreamingImageClassDataset):
+    """Streaming TinyImagenet200."""
+
+    def decode_image(self, data: bytes) -> Any:
+        arr = np.frombuffer(data, np.uint8)
+        arr = arr.reshape(64, 64, 3)
+        return Image.fromarray(arr)
+
+
+@dataclass
+class StreamingTinyImagenet200Hparams(StreamingDatasetHparams):
+    """Streaming TinyImagenet200 hyperparameters.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+    """
+
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-tinyimagenet200/mds/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-tinyimagenet200/')
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+        if self.is_train:
+            split = 'train'
+            transform = transforms.Compose([
+                transforms.RandomCrop(64, 8),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+            ])
+        else:
+            split = 'val'
+            transform = transforms.Compose([
+                transforms.ToTensor(),
+            ])
+        remote = os.path.join(self.remote, split)
+        local = os.path.join(self.local, split)
+        dataset = StreamingTinyImagenet200(remote, local, self.shuffle, transform, batch_size)
+        return dataloader_hparams.initialize_object(dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=None,
+                                                    drop_last=self.drop_last)
+
+
+class StreamingImagenet1k(StreamingImageClassDataset):
+    """Streaming Imagenet."""
+
+    pass
+
+
+@dataclass
+class StreamingImagenet1kHparams(StreamingDatasetHparams):
+    """Streaming Imagenet1k hyperparameters.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+        resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
+    """
+
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-imagenet1k/')
+    resize_size: int = hp.optional("Resize size. Set to -1 to not resize", default=-1)
+    crop_size: int = hp.optional("Crop size", default=224)
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+        if self.is_train:
+            split = 'train'
+            # include fixed-size resize before RandomResizedCrop in training only
+            # if requested (by specifying a size > 0)
+            train_resize_size = self.resize_size
+            train_transforms: List[torch.nn.Module] = []
+            if train_resize_size > 0:
+                train_transforms.append(transforms.Resize(train_resize_size))
+            # always include RandomResizedCrop and RandomHorizontalFlip
+            train_transforms += [
+                transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+                transforms.RandomHorizontalFlip(),
+            ]
+            transform = transforms.Compose(train_transforms)
+        else:
+            split = 'val'
+            transform = transforms.Compose([
+                transforms.Resize(self.resize_size),
+                transforms.CenterCrop(self.crop_size),
+            ])
+        remote = os.path.join(self.remote, split)
+        local = os.path.join(self.local, split)
+        dataset = StreamingImagenet1k(remote, local, self.shuffle, transform, batch_size)
+        collate_fn = pil_image_collate
+        device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=None,
+            drop_last=self.drop_last,
+            collate_fn=collate_fn,
+        ),
+                        device_transforms=device_transform_fn)
+
+
 @dataclass
 class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the TinyImagenet-200 WebDataset for image classification.
@@ -220,7 +332,7 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0.485, 0.456, 0.406))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.229, 0.224, 0.225))
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         from composer.datasets.webdataset_utils import load_webdataset
 
         if self.is_train:
