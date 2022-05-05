@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import logging
 import textwrap
-from typing import List, Optional, Sequence, Tuple, Union
+import warnings
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import torch
 from torch.optim import Optimizer
@@ -146,6 +147,13 @@ class LayerFreezing(Algorithm):
             'layer_freezing/layers_frozen': freeze_depth,
             'layer_freezing/percentage_frozen': freeze_percentage
         })
+
+    def state_dict(self) -> Dict[str, Any]:
+        warnings.warn("Checkpoints with layer freezing cannot reliably be used to resume training.")
+        return {}
+
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        warnings.warn("Checkpoints with layer freezing cannot reliably be used to resume training.")
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
