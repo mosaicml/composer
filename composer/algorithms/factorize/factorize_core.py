@@ -292,12 +292,13 @@ def factorize_conv2d(X: torch.Tensor,
             ``[out_channels, in_channels, k_h, k_w]``. Otherwise, must be of
             shape ``[original_rank, in_channels, k_h, k_w]`` for some
             ``original_rank < min(in_channels, out_channels)``.
-        Wb (:class:`torch.Tensor`, optional): The second weight tensor to convolve with the input. If
-            provided, must be of shape ``[out_channels, original_rank, 1, 1]``.
+        Wb (:class:`torch.Tensor`, optional): The second weight tensor to convolve 
+            with the input. If provided, must be of shape ``[out_channels, original_rank, 1, 1]``.
         rank (int | float, optional): number of channels in the latent representation of ``X``. 
             Default: ``.25``.
-        biasA (:class:`torch.Tensor`, optional): optional vector of biases. If ``Wb`` is ``None``, must
-            have length ``out_channels``. Otherwise must have length ``original_rank``. 
+        biasA (:class:`torch.Tensor`, optional): optional vector of biases. If ``Wb`` is 
+            ``None``, must have length ``out_channels``. Otherwise must have length 
+            ``original_rank``. 
         biasB (:class:`torch.Tensor`, optional): if provided, must have length ``out_channels``.
         n_iters (int, optional): number of iterations used in the optimization process. Higher
             numbers yield lower mean squared error, though there are usually
