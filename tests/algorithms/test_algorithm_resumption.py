@@ -15,7 +15,7 @@ from tests.common import deep_compare, device
 
 
 @pytest.mark.timeout(180)
-@device('cpu')
+@device('gpu')
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
     [
@@ -42,7 +42,7 @@ def test_algorithm_resumption(
         # see: https://github.com/mosaicml/composer/issues/362
         pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
-    if algorithm in ('layer_freezing', 'swa', 'stochastic_depth'):
+    if algorithm in ('layer_freezing', 'swa', 'stochastic_depth', 'ema'):
         pytest.xfail('Known issues')
 
     setting = get_settings(algorithm)
