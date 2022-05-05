@@ -1475,7 +1475,7 @@ class Trainer:
 
             self.engine.run_event(Event.PREDICT_START)
 
-            for self.state.batch in itertools.islice(self.state.dataloader, subset_num_batches):
+            for self.state.batch in self._iter_dataloader():
                 # Update the batch size and num tokens
                 self.state.batch_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 self.state.batch_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)

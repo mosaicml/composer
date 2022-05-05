@@ -41,6 +41,9 @@ class TestTrainerPredict():
         )
         trainer.fit()
 
+        # Remove the datalaoder from the state (to ensure that the predict dl is being used)
+        trainer.state.set_dataloader(None)
+
         # Run predict()
         predict_dl = DataLoader(dataset=RandomClassificationDataset())
         trainer.predict(predict_dl, subset_num_batches)
