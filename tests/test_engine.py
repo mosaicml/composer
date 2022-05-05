@@ -197,7 +197,7 @@ def test_engine_closes_on_atexit(exception: bool):
             import requests
 
     model = SimpleModel(3, 10)
-    cb = CallbackWithConditionCloseImport()
+    cb = CallbackWithConditionalCloseImport()
     trainer = Trainer(
         model=model,
         callbacks=[cb],
