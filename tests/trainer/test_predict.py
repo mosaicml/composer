@@ -1,16 +1,11 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-from typing import Any, Dict
-
 import pytest
 from torch.utils.data import DataLoader
 
-from composer.core.callback import Callback
 from composer.core.event import Event
-from composer.core.state import State
-from composer.loggers import Logger
 from composer.trainer.trainer import Trainer
-from tests.common import RandomClassificationDataset, SimpleModel, EventCounterCallback
+from tests.common import EventCounterCallback, RandomClassificationDataset, SimpleModel
 
 
 def _assert_predict_events_called_expected_number_of_times(
@@ -45,11 +40,11 @@ class TestTrainerPredict():
             callbacks=[event_counter_callback],
         )
         trainer.fit()
-        
+
         # Run predict()
         predict_dl = DataLoader(dataset=RandomClassificationDataset())
         trainer.predict(predict_dl, subset_num_batches)
-        
+
         # Validate that the predict events were called the correct number of times
         num_predict_batches = subset_num_batches if subset_num_batches >= 0 else len(predict_dl)
         _assert_predict_events_called_expected_number_of_times(event_counter_callback, num_predict_batches)

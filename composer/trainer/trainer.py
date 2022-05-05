@@ -1463,12 +1463,13 @@ class Trainer:
         # Put the model into evaluation mode, but be able to restore it to training mode afterwards
         restore_model_train = self.state.model.training
         self.state.model.eval()
-        
+
         # Bind the dataloader to the state, but be able to restore the previous dataloader afterwards
         original_dataloader = self.state.dataloader
         original_dataloader_label = self.state.dataloader_label
         original_dataloader_len = self.state.dataloader_len
-        self.state.set_dataloader(dataloader, "predict", subset_num_batches)
+        self.state.set_dataloader(data_spec.dataloader, "predict", subset_num_batches)
+        assert self.state.dataloader is not None, "Already set the dataloader"
 
         with torch.no_grad():
 
@@ -1485,7 +1486,7 @@ class Trainer:
                 # Perform any device transforms
                 if data_spec.device_transforms is not None:
                     self.state.batch = data_spec.device_transforms(self.state.batch)
- 
+
                 # Fix the batch if using DeepSpeed
                 if self.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
@@ -1505,7 +1506,9 @@ class Trainer:
             self.state.model.train()
 
         # Restore the dataloader
-        self.state.set_dataloader(original_dataloader, original_dataloader_label, original_dataloader_len)
+        self.state.set_dataloader(original_dataloader, original_dataloader_label)
+        if original_dataloader_len is not None:
+            self.state.dataloader_len = original_dataloader_len
 
     def eval(
         self,
