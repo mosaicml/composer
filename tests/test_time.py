@@ -91,3 +91,8 @@ def test_timestamp_to_next_batch_epoch():
     assert timestamp.sample_in_epoch == 5
     assert timestamp.token == 20
     assert timestamp.token_in_epoch == 0
+
+
+def test_timestamp_repr():
+    timestamp = Timestamp()
+    assert timestamp == eval(repr(timestamp))

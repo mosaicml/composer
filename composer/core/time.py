@@ -579,6 +579,7 @@ class Timestamp(Serializable):
             ...     token = timestamp.token + tokens,
             ...     token_in_epoch=timestamp.token_in_epoch + tokens,
             ... )
+            Timestamp(...)
 
         .. note::
 
@@ -620,6 +621,7 @@ class Timestamp(Serializable):
             ...     sample_in_epoch=0,
             ...     token_in_epoch=0,
             ... )
+            Timestamp(...)
 
         """
         return self.copy(
@@ -664,6 +666,17 @@ class Timestamp(Serializable):
             sample_in_epoch=sample_in_epoch if sample_in_epoch is not None else self.sample_in_epoch,
             token_in_epoch=token_in_epoch if token_in_epoch is not None else self.token_in_epoch,
         )
+
+    def __repr__(self) -> str:
+        return (f"Timestamp("
+                f"epoch={int(self.epoch)}, "
+                f"batch={int(self.batch)}, "
+                f"sample={int(self.sample)}, "
+                f"token={int(self.token)}, "
+                f"batch_in_epoch={int(self.batch_in_epoch)}, "
+                f"sample_in_epoch={int(self.sample_in_epoch)}, "
+                f"token_in_epoch={int(self.token_in_epoch)}"
+                ")")
 
 
 def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str]) -> Time:
