@@ -52,9 +52,9 @@ class TestMetricSetter(Callback):
             self._update_metrics(state)
 
 
+@device('cpu', 'gpu')
 @pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.2, 1.3], [0.1, 0.2]])
 @pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
-@device('cpu', 'gpu')
 def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str):
 
     if unit == TimeUnit.EPOCH:
