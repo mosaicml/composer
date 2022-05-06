@@ -1,3 +1,5 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
 """A collection of common torchmetrics."""
 
 from composer.metrics.metrics import CrossEntropy, Dice, LossMetric, MIoU

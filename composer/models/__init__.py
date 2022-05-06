@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """The models module contains the :class:`.ComposerModel` base class along with reference
 implementations of many common models. Additionally, it includes task-specific convenience

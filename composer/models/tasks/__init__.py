@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Model tasks are ComposerModels with forward passes and logging built-in for many common deep learning tasks."""
 

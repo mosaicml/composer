@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """SAM (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) wraps an existing optimizer with a
 :class:`SAMOptimizer` which makes the optimizer minimize both loss value and sharpness.This can improves model

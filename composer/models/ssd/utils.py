@@ -1,3 +1,5 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
 """SSD 300 utils adapted from MLCommons.
 
 Based on MLCommons Reference Implementation `here`_
