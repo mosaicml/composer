@@ -330,8 +330,6 @@ def test_checkpoint_with_object_store_logger(
     composer_trainer_hparams.save_filename = "ep{epoch}.pt"
     composer_trainer_hparams.save_interval = "1ep"
     composer_trainer_hparams.seed = None
-    composer_trainer_hparams.validate_every_n_batches = 1
-    composer_trainer_hparams.validate_every_n_epochs = 0
     run_name = "electric-zebra"
     composer_trainer_hparams.run_name = run_name
     artifact_name = f"{run_name}/checkpoints/ep2-ba6-rank" + "{rank}"
