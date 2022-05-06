@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import shutil
 import os
 import pathlib
 import re
@@ -11,6 +12,7 @@ import sys
 import textwrap
 import warnings
 from typing import Any, Dict, Optional
+import tempfile
 
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
@@ -139,7 +141,13 @@ class WandBLogger(LoggerDestination):
         import wandb
 
         artifact = wandb.use_artifact(artifact_name)
-        artifact.download(root=destination)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_folder = os.path.join(tmpdir, "artifact_folder")
+            artifact.download(root=artifact_folder)
+            # We only log one file per artifact
+            checkpoint_name = os.listdir(artifact_folder)[0]
+            checkpoint_path = os.path.join(artifact_folder, checkpoint_name)
+            shutil.move(checkpoint_path, destination)
 
     def post_close(self) -> None:
         import wandb
