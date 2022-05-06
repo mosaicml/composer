@@ -99,7 +99,7 @@ def assert_checkpoints_equivalent(
 
     with tempfile.TemporaryDirectory() as tmpdir:
         a_checkpoint_dir = os.path.join(tmpdir, 'a')
-        b_checkpoint_dir = os.path.join(tmpdir, 'ba')
+        b_checkpoint_dir = os.path.join(tmpdir, 'b')
 
         checkpoint_a = _load_checkpoint(a_checkpoint_dir, checkpoint_file_a)
         checkpoint_b = _load_checkpoint(b_checkpoint_dir, checkpoint_file_b)
