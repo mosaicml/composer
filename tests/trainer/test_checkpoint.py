@@ -21,7 +21,7 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit
 from composer.datasets import DatasetHparams, SyntheticHparamsMixin
-from composer.loggers import ObjectStoreLoggerHparams
+from composer.loggers import ObjectStoreLoggerHparams, WandBLoggerHparams
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
@@ -362,6 +362,40 @@ def test_checkpoint_with_object_store_logger(
     second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
     second_trainer_hparams.load_path = artifact_name
     second_trainer_hparams.load_logger_destination = object_store_logger_hparams
+    second_trainer_hparams.load_weights_only = True
+    second_trainer_hparams.load_strict_model_weights = True
+
+    assert_weights_equivalent(
+        original_trainer_hparams=composer_trainer_hparams,
+        new_trainer_hparams=second_trainer_hparams,
+        overwrite_load_path=False,
+    )
+
+def test_checkpoint_with_wandb_logger(composer_trainer_hparams: TrainerHparams,):
+    """Train model while logging to Wandb.
+
+    Load model from Wandb and ensure it's the same.
+    """
+    # Train model and log to object store
+    composer_trainer_hparams.loggers = [WandBLoggerHparams(log_artifacts=True, rank_zero_only=False, project="mosaic-ml", name="test", group="group", entity="entity")]
+    composer_trainer_hparams.max_duration = "2ep"
+    checkpoint_a_folder = "first"
+    composer_trainer_hparams.save_folder = checkpoint_a_folder
+    composer_trainer_hparams.save_filename = "ep{epoch}.pt"
+    composer_trainer_hparams.save_interval = "1ep"
+    composer_trainer_hparams.seed = None
+    run_name = "electric-zebra"
+    composer_trainer_hparams.run_name = run_name
+    artifact_name = f"{run_name}/checkpoints/ep2-ba6-rank" + "{rank}"
+
+    final_checkpoint = "ep2.pt"
+    trainer = composer_trainer_hparams.initialize_object()
+    trainer.fit()
+
+    # Load model weights using wandb logger
+    second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
+    second_trainer_hparams.load_path = artifact_name
+    second_trainer_hparams.load_logger_destination = WandBLoggerHparams(log_artifacts=True, rank_zero_only=False, project="mosaic-ml", name="test", group="group", entity="entity")
     second_trainer_hparams.load_weights_only = True
     second_trainer_hparams.load_strict_model_weights = True
 
