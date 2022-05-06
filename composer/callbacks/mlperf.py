@@ -259,31 +259,31 @@ class MLPerfCallback(Callback):
 
     def epoch_start(self, state: State, logger: Logger) -> None:
         if rank_zero():
-            self.mllogger.event(key=constants.EPOCH_START, metadata={'epoch_num': state.timer.epoch.value})
+            self.mllogger.event(key=constants.EPOCH_START, metadata={'epoch_num': state.timestamp.epoch.value})
             self.mllogger.event(key=constants.BLOCK_START,
                                 metadata={
-                                    'first_epoch_num': state.timer.epoch.value,
+                                    'first_epoch_num': state.timestamp.epoch.value,
                                     'epoch_count': 1
                                 })
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         if rank_zero():
-            self.mllogger.event(key=constants.EPOCH_STOP, metadata={'epoch_num': state.timer.epoch.value})
+            self.mllogger.event(key=constants.EPOCH_STOP, metadata={'epoch_num': state.timestamp.epoch.value})
             logger.file_artifact(LogLevel.FIT, artifact_name=self.upload_name, file_path=self.filename)
 
     def eval_start(self, state: State, logger: Logger) -> None:
         if rank_zero():
-            self.mllogger.event(key=constants.EVAL_START, metadata={'epoch_num': state.timer.epoch.value})
+            self.mllogger.event(key=constants.EVAL_START, metadata={'epoch_num': state.timestamp.epoch.value})
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if rank_zero():
             accuracy = self._get_accuracy(state)
 
-            self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': state.timer.epoch.value})
+            self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': state.timestamp.epoch.value})
             self.mllogger.event(key=constants.EVAL_ACCURACY,
                                 value=accuracy,
-                                metadata={'epoch_num': state.timer.epoch.value})
-            self.mllogger.event(key=constants.BLOCK_STOP, metadata={'first_epoch_num': state.timer.epoch.value})
+                                metadata={'epoch_num': state.timestamp.epoch.value})
+            self.mllogger.event(key=constants.BLOCK_STOP, metadata={'first_epoch_num': state.timestamp.epoch.value})
 
             if accuracy > self.target and not self.success:
                 self.mllogger.event(key=constants.RUN_STOP, metadata={"status": "success"})

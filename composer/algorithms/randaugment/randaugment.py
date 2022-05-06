@@ -52,7 +52,7 @@ def randaugment_image(img: ImgT,
             )
 
     Args:
-        img (PIL.Image.Image or torch.Tensor): Image or batch of images to be RandAugmented.
+        img (PIL.Image.Image | torch.Tensor): Image or batch of images to be RandAugmented.
         severity (int, optional): See :class:`.RandAugment`.
         depth (int, optional): See :class:`.RandAugment`.
         augmentation_set (str, optional): See

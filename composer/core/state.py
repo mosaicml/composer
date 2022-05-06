@@ -15,7 +15,7 @@ from torch.optim import Optimizer
 
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
-from composer.core.time import Time, Timer, TimeUnit
+from composer.core.time import Time, Timestamp, TimeUnit
 from composer.utils import dist, ensure_tuple
 
 if TYPE_CHECKING:
@@ -54,7 +54,7 @@ _STATE_DICT_SERIALIZED_ATTRIBUTES = [
     "algorithms",
     "callbacks",
     "scaler",
-    "timer",
+    "timestamp",
 ]
 
 
@@ -144,7 +144,7 @@ class State(Serializable):
 
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward pass.
-        timer (Timer): The timer that tracks training loop progress.
+        timestamp (Timestamp): The current training timestamp.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
 
             By default, the following attributes are serialized:
@@ -164,7 +164,7 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | scaler                | The gradient scaler in use for mixed precision training.    |
             +-----------------------+-------------------------------------------------------------+
-            | timer                 | The timer that tracks training loop progress.               |
+            | timestamp             | The timestamp that tracks training loop progress.           |
             +-----------------------+-------------------------------------------------------------+
             | rank_zero_seed        | The seed of the rank zero process.                          |
             +-----------------------+-------------------------------------------------------------+
@@ -231,7 +231,7 @@ class State(Serializable):
         self.train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
 
-        self.timer = Timer()
+        self.timestamp = Timestamp()
         self._precision = Precision(precision)
 
         if optimizers is None:
@@ -259,7 +259,7 @@ class State(Serializable):
             "algorithms",
             "callbacks",
             "scaler",
-            "timer",
+            "timestamp",
             "rank_zero_seed",
             "current_metrics",
         ]
@@ -297,7 +297,7 @@ class State(Serializable):
         """
         if self.max_duration is None:
             return None
-        return self.timer.get(self.max_duration.unit) / self.max_duration
+        return self.timestamp.get(self.max_duration.unit) / self.max_duration
 
     @property
     def optimizers(self):
@@ -458,6 +458,8 @@ class State(Serializable):
         self._dataloader_label = dataloader_label
         if dataloader is not None:
             self.dataloader_len = dataloader_len  # setting it to -1 will do a failsafe read of len(dataloader)
+        else:
+            self._dataloader_len = None
 
     @property
     def dataloader_len(self):
