@@ -1,27 +1,32 @@
 import pytest
+
 from composer.core.state import State
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.lm_datasets import LMDatasetHparams
+from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.models import BERTHparams, GPT2Hparams
 from tests.common.models import generate_dummy_model_config
 from tests.datasets import test_synthetic_lm_data
-from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
+
 
 def make_dataset_configs():
-    lm_dataset_configs = [config[0] for config in test_synthetic_lm_data.generate_parameter_configs( ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'])]
+    lm_dataset_configs = [
+        config[0] for config in test_synthetic_lm_data.generate_parameter_configs(
+            ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'])
+    ]
     for config in lm_dataset_configs:
         config['drop_last'] = False
         config['use_masked_lm'] = config['tokenizer_family'] == 'bert'
-        if config['use_masked_lm']:
-            config['mlm_probability'] = 0.15
     return lm_dataset_configs
+
 
 def make_lm_tokenizer(config: dict):
     dataset = synthetic_hf_dataset_builder(num_samples=config['num_samples'],
-                                        chars_per_sample=config['chars_per_sample'],
-                                        column_names=config['column_names'])
+                                           chars_per_sample=config['chars_per_sample'],
+                                           column_names=config['column_names'])
     tokenizer = generate_synthetic_tokenizer(config['tokenizer_family'], dataset)
     return tokenizer
+
 
 def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
     pytest.importorskip("transformers")
@@ -30,19 +35,25 @@ def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
     elif model_name == 'bert':
         class_name = BERTHparams
     model_config = generate_dummy_model_config(class_name, tokenizer)
-    if model_name == 'bert':
-        model_config['num_labels'] = model_config['vocab_size']
-        model_config['max_position_embeddings'] = max_position_embeddings
+    model_config['max_position_embeddings'] = max_position_embeddings
     model = class_name(model_config=model_config).initialize_object()
     model.eval()
     return model
 
+
 def synthetic_to_dataloader(dataset_config: dict):
     """
     """
-    dataloader = LMDatasetHparams(use_synthetic=True, tokenizer_name=dataset_config['tokenizer_family'], use_masked_lm=dataset_config['use_masked_lm'], split='train', max_seq_length=dataset_config["chars_per_sample"])
-    dataloader = dataloader.initialize_object(batch_size=dataset_config['num_samples'], dataloader_hparams=DataLoaderHparams())
+    dataloader = LMDatasetHparams(use_synthetic=True,
+                                  tokenizer_name=dataset_config['tokenizer_family'],
+                                  use_masked_lm=dataset_config['use_masked_lm'],
+                                  max_seq_length=dataset_config["chars_per_sample"],
+                                  split='train')
+    dataloader = dataloader.initialize_object(batch_size=dataset_config['num_samples'],
+                                              dataloader_hparams=DataLoaderHparams(num_workers=0,
+                                                                                   persistent_workers=False))
     return dataloader
+
 
 def synthetic_hf_state(model, dataloader, rank_zero_seed=0):
     """
@@ -58,12 +69,13 @@ def synthetic_hf_state(model, dataloader, rank_zero_seed=0):
     state.batch = next(iter(state.dataloader)).data
     return state
 
+
 @pytest.mark.parametrize("config", make_dataset_configs())
 def test_synthetic_hf_state(config):
     tokenizer = make_lm_tokenizer(config)
     lm = make_dummy_lm(config['tokenizer_family'], config['chars_per_sample'], tokenizer)
     dataloader = synthetic_to_dataloader(config)
-    sample =  next(iter(dataloader)).data
+    sample = next(iter(dataloader)).data
     state = synthetic_hf_state(lm, dataloader)
     assert state.batch.keys() == sample.keys()
     for key in state.batch.keys():
