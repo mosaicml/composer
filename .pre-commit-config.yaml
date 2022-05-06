@@ -67,3 +67,4 @@ repos:
         - COPYRIGHT_HEADER
         - --comment-style
         - "#"
+        types: [python]
