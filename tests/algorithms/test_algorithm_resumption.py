@@ -92,7 +92,7 @@ def test_algorithm_resumption(
     )
 
     # check that different epoch checkpoints are _not_ equal
-    # this ensures that the model weights are being updated
+    # this ensures that the model weights are being updated.
     with pytest.raises(AssertionError):
         _assert_model_weights_equal(
             file1=os.path.join(folder1, save_filename.format(epoch=4, rank=0)),
