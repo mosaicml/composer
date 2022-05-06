@@ -5,12 +5,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import torch
 from torch.optim.swa_utils import SWALR, AveragedModel
 
 from composer.core import Algorithm, Event, State, Time, TimeUnit
+from composer.core.types import PyTorchScheduler
 from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
@@ -114,6 +115,7 @@ class SWA(Algorithm):
         self.swa_lr = swa_lr
         self.swa_model: Optional[torch.nn.Module] = None
         self.swa_completed = False
+        self.swa_started = False
 
         # Check timestrings are parsable and convert into time objects
         self.swa_start = Time.from_timestring(swa_start)
@@ -122,7 +124,7 @@ class SWA(Algorithm):
 
         # validate time units
         if self.swa_start.unit != self.swa_end.unit:
-            raise ValueError('swa_start and swa_end must have same units.')
+            raise ValueError(f'swa_start and swa_end must have same units, got {self.swa_start} and {self.swa_end}')
         if self.swa_start.unit not in [TimeUnit.DURATION, TimeUnit.EPOCH]:
             raise ValueError(f'swa_start must be DURATION or EPOCH, got {self.swa_start.unit}')
         if self.update_interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
@@ -154,20 +156,13 @@ class SWA(Algorithm):
         self.swa_model = None
 
         # Keeps track of # steps so that we can know when to update averaged model
-        self.step_counter = None
+        self.step_counter = 0
 
         # Check units for update_interval and set match event accordingly
         if self.update_interval.unit == TimeUnit.BATCH:
             self.match_event = Event.BATCH_END
         elif self.update_interval.unit == TimeUnit.EPOCH:
             self.match_event = Event.EPOCH_END
-
-    def match(self, event: Event, state: State) -> bool:
-        # only match on BATCH_END or EPOCH_END, depending on the setting
-        if event != self.match_event or self.swa_completed:
-            return False
-
-        return self._get_time(state) >= self.swa_start
 
     def _get_time(self, state: State):
         unit = self.swa_start.unit
@@ -181,21 +176,29 @@ class SWA(Algorithm):
         else:
             raise ValueError('units must be in epoch or duration.')
 
-    def apply(self, event: Event, state: State, logger: Logger) -> None:
-        if self.step_counter is None:
-            self.step_counter = 0
+    def _get_last_lr(self, schedulers: List[PyTorchScheduler]):
+        """ retrieves the last lr from current schedulers. """
+        if len(schedulers) != 1:
+            raise RuntimeError(f"SWA supports only one scheduler, got {len(schedulers)}")
+        scheduler = schedulers[0]
+        last_lr = scheduler.get_last_lr()
+        if len(last_lr) != 1:
+            raise RuntimeError(f"SWA supports only one LR; instead found {len(last_lr)}")
+        return last_lr[0]
 
-        if self.swa_scheduler is None and self.schedule_swa_lr:
+    def match(self, event: Event, state: State) -> bool:
+        if event == Event.INIT:
+            return True
 
-            if self.swa_lr is None:
-                if len(state.schedulers) != 1:
-                    raise RuntimeError("SWA supports only one scheduler")
-                scheduler = state.schedulers[0]
-                last_lr = scheduler.get_last_lr()
-                if len(last_lr) != 1:
-                    raise RuntimeError(f"SWA supports only one LR; instead found {len(last_lr)}")
-                log.info(f'Setting SWA LR to {last_lr}')
-                self.swa_lr = last_lr[0]
+        # only match on BATCH_END or EPOCH_END, depending on the setting
+        if event != self.match_event or self.swa_completed:
+            return False
+
+        return self._get_time(state) >= self.swa_start
+
+    def _initialize_swa(self, state: State) -> None:
+        if self.schedule_swa_lr:
+            self.swa_lr = self._get_last_lr(state.schedulers)
 
             if len(state.optimizers) != 1:
                 raise RuntimeError("SWA supports one and only one optimizer")
@@ -206,6 +209,20 @@ class SWA(Algorithm):
                 anneal_epochs=self.anneal_steps,
                 anneal_strategy=self.anneal_strategy,
             )
+
+        self.swa_model = AveragedModel(state.model)
+
+    def apply(self, event: Event, state: State, logger: Logger) -> None:
+
+        if event == event.INIT:
+            # on trainer init, we create the schedulers and models
+            self._initialize_swa(state)
+            return
+
+        if not self.swa_started:
+            # initialize swa once when time > swa_start
+            self._initialize_swa(state)
+            self.swa_started = True
 
         if self.step_counter % self.update_interval.value == 0:
             if self.swa_model is None:
@@ -220,14 +237,10 @@ class SWA(Algorithm):
 
         self.step_counter += 1
 
-        elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, "elapsed duration should be set on Event.BATCH_END or Event.EPOCH_END"
-
         # Determine whether it's time to end SWA
         if self._get_time(state) >= self.swa_end:
             self.swa_completed = True
 
-        if self.swa_completed:
             if state.get_elapsed_duration() == 1:
                 log.warning(("The baseline model was replaced with the SWA model after the end of "
                              "training. This means that SWA model will not have its batch norm "
@@ -235,3 +248,22 @@ class SWA(Algorithm):
                              "documentation for the `swa_end` parameter for details."))
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
             log.info('Set model to the averaged model')
+
+    def state_dict(self) -> Dict[str, Any]:
+        state_dict = {
+            'swa_model': self.swa_model.state_dict() if self.swa_model else None,
+            'swa_completed': self.swa_completed,
+            'swa_started': self.swa_start,
+            'swa_scheduler': self.swa_scheduler.state_dict() if self.swa_scheduler else None,
+            'step_counter': self.step_counter,
+        }
+        return state_dict
+
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        self.swa_completed = state['swa_completed']
+        self.step_counter = state['step_counter']
+        self.swa_started = state['swa_started']
+        if self.swa_scheduler:
+            self.swa_scheduler.load_state_dict(state['swa_scheduler'])
+        if self.swa_model:
+            self.swa_model.load_state_dict(state['swa_model'])
