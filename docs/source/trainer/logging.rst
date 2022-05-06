@@ -12,12 +12,6 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
 .. testsetup::
 
     import os
-    from composer.utils import run_directory
-
-    try:
-        os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
-    except FileNotFoundError:
-        pass
 
     os.environ["WANDB_MODE"] = "disabled"
 
@@ -38,9 +32,8 @@ Biases <https://www.wandb.com/>`__ and also saves them to the file
 
 .. testcleanup::
 
-    wandb_logger.post_close()
-    file_logger.close()
-    os.remove(os.path.join(run_directory.get_run_directory(), "log.txt"))
+    trainer.engine.close()
+    os.remove("log.txt")
 
 Available Loggers
 -----------------
@@ -61,11 +54,11 @@ Automatically Logged Data
 
 The :class:`~composer.trainer.trainer.Trainer` automatically logs the following data:
 
--  ``trainer/algorithms``: a list of specified algorithms names.
+-  ``trainer/algorithms``: a list of specified algorithm names.
 -  ``epoch``: the current epoch.
 -  ``trainer/global_step``: the total number of training steps that have
    been performed.
--  ``trainer/batch_idx``: the current training step within the epoch.
+-  ``trainer/batch_idx``: the current training step (batch) within the epoch.
 -  ``loss/train``: the training loss calculated from the current batch.
 -  All the validation metrics specified in the :class:`.ComposerModel`
    object passed to :class:`.Trainer`.
@@ -78,13 +71,13 @@ Each of its methods has access to the :class:`.Logger`.
 
 .. testcode::
 
-   from composer import Callback, State
-   from composer.loggers import Logger
+    from composer import Callback, State
+    from composer.loggers import Logger
 
-   class EpochMonitor(Callback):
+    class EpochMonitor(Callback):
 
-       def epoch_end(state: State, logger: Logger):
-           logger.data_epoch({"Epoch": state.epoch})
+        def epoch_end(state: State, logger: Logger):
+            logger.data_epoch({"Epoch": state.epoch})
 
 Similarly, :class:`.Algorithm` classes are also provided the :class:`.Logger`
 to log any desired information.
@@ -113,8 +106,10 @@ into a dictionary:
 
 .. testcode::
 
+    from typing import Any, Dict
+
     from composer.loggers.logger_destination import LoggerDestination
-    from composer.loggers.logger import LoggerDataDict, LogLevel
+    from composer.loggers.logger import LogLevel
     from composer.core.time import Timestamp
     from composer.core.state import State
 
@@ -124,12 +119,12 @@ into a dictionary:
             # Dictionary to store logged data
             self.data = {}
 
-        def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
+        def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
             if log_level <= self.log_level:
                 for k, v in data.items():
                     if k not in self.data:
                         self.data[k] = []
-                    self.data[k].append((state.timer.get_timestamp(), log_level, v))
+                    self.data[k].append((state.timestamp, log_level, v))
 
     # Construct a trainer using this logger
     trainer = Trainer(..., loggers=[DictionaryLogger()])

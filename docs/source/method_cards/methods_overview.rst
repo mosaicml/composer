@@ -21,7 +21,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Image-perserving data augmentations
+   Image-preserving data augmentations
 
    ---
    .. link-button:: blurpool.html
@@ -30,7 +30,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   applies blur before pooling
+   Applies blur before pooling or downsampling
 
    ---
    .. link-button:: channels_last.html
@@ -145,6 +145,7 @@
       :text: ScaleSchedule
       :classes: card-title
 
+   
    ++++++++++++++
    Scale the learning rate schedule by a factor
 

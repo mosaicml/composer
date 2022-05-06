@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Dict, cast
 
 import psutil
 
-from composer.callbacks import memory_monitor
 from composer.core.callback import Callback
 
 if TYPE_CHECKING:
@@ -22,15 +21,16 @@ __all__ = ["SystemProfiler"]
 
 
 class SystemProfiler(Callback):
-    """The SystemProfiler records system level metrics.  Implemented as a :class:`.Callback`, the profiler forks a
-    thread during :attr:`.Event.INIT` which polls and records system state.
-
-    When used with the Composer :class:`.Trainer`\\, the system profiler is enabled if profiling is enabled.
+    """The SystemProfiler records system level metrics.
 
     .. note::
 
-        The Composer :class:`.Trainer` creates an instance of :class:`.TorchProfiler` when ``tensorboard_trace_handler_dir`` is provided.
-        The user should not create and directly register an instance of :class:`.TorchProfiler` when using the Composer :class:`.Trainer`\\.
+        The Composer :class:`~composer.trainer.trainer.Trainer` automatically creates an instance of this
+        :class:`.SystemProfiler` callback whenever any of the System Profiler arguments (``sys_prof_cpu``,
+        ``sys_prof_memory``, ``sys_prof_disk``, or ``sys_prof_net``) are enabled.
+
+        When using the Composer :class:`~composer.trainer.trainer.Trainer`, one does not need to directly create an
+        instance of this :class:`.SystemProfiler` callback.
 
     Args:
         profile_cpu (bool): Whether to record cpu statistics (Default: ``True``)
@@ -52,15 +52,23 @@ class SystemProfiler(Callback):
         self.profile_memory = profile_memory
         self.profile_net = profile_net
         self.stats_thread_interval_seconds = stats_thread_interval_seconds
+        self.finished_event = threading.Event()
 
     def init(self, state: State, logger: Logger):
         del logger  # unused
-        assert state.profiler is not None, "The trainer should have set the profiler in state"
+        if state.profiler is None:
+            raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
+                                f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
 
         # Start the stats thread
+        self.finished_event.clear()
         threading.Thread(target=self._stats_thread, daemon=True, args=[state.profiler]).start()
 
+    def close(self, state: State, logger: Logger) -> None:
+        self.finished_event.set()
+
     def _stats_thread(self, profiler: Profiler):
+        from composer.callbacks import memory_monitor
         """Gathers requested system metrics at :attr:`SystemProfiler.stats_thread_interval_seconds` interval."""
 
         psutil.disk_io_counters.cache_clear()
@@ -68,7 +76,7 @@ class SystemProfiler(Callback):
         if self.profile_cpu:
             psutil.cpu_percent()  # spin it once to clear the default 0.0 value on the first call
 
-        while True:
+        while not self.finished_event.isSet():
             if self.profile_cpu:
                 cpu_percent = psutil.cpu_percent()
                 profiler.marker(name="cpu", categories=["cpu"]).counter({"cpu_percent": cpu_percent})

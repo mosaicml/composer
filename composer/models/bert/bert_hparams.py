@@ -3,13 +3,13 @@
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ general and classification interfaces for
 :class:`.BERTModel`."""
 
-import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import yahp as hp
 
 from composer.models.transformer_hparams import TransformerHparams
+from composer.utils import MissingConditionalImportError
 
 if TYPE_CHECKING:
     from composer.models.bert import BERTModel
@@ -25,7 +25,7 @@ class BERTForClassificationHparams(TransformerHparams):
     Args:
         pretrained_model_name (str): Pretrained model name to pull from Hugging Face Model Hub.
         model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
-        tokenizer_name (str): The tokenizer used for this model,
+        tokenizer_name (Optional[str]): The tokenizer used for this model,
             necessary to assert required model inputs.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
@@ -41,10 +41,7 @@ class BERTForClassificationHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -60,15 +57,22 @@ class BERTForClassificationHparams(TransformerHparams):
         config.num_labels = self.num_labels
 
         # setup the tokenizer in the hparams interface
-        tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        if self.tokenizer_name is not None:
+            tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        else:
+            tokenizer = None
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
+            assert transformers.AutoModelForSequenceClassification.from_pretrained is not None, "from_pretrained should not be None"
             model = transformers.AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name,
                                                                                     **model_hparams)
         else:
+            # an invariant to ensure that we don't lose keys when creating the HF config
+            for k, v in model_hparams.items():
+                assert getattr(config, k) == v
             model = transformers.AutoModelForSequenceClassification.from_config(  #type: ignore (thirdparty)
-                config, **model_hparams)
+                config)
 
         return BERTModel(
             module=model,
@@ -94,10 +98,7 @@ class BERTHparams(TransformerHparams):
         try:
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge transformers` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         from composer.models.bert.model import BERTModel
         self.validate()
@@ -113,10 +114,14 @@ class BERTHparams(TransformerHparams):
         config.num_labels = config.vocab_size
 
         # setup the tokenizer in the hparams interface
-        tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        if self.tokenizer_name is not None:
+            tokenizer = transformers.BertTokenizer.from_pretrained(self.tokenizer_name)
+        else:
+            tokenizer = None
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
+            assert transformers.AutoModelForMaskedLM.from_pretrained is not None, "from_pretrained should not be None"
             model = transformers.AutoModelForMaskedLM.from_pretrained(self.pretrained_model_name)
         else:
             model = transformers.AutoModelForMaskedLM.from_config(config)  #type: ignore (thirdparty)

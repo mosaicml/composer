@@ -69,7 +69,7 @@ Composer features:
 
 With no additional tuning, you can apply our methods to:
 <!-- start numbers -->
-- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.8 hours) on AWS.
+- Train ResNet-50 on ImageNet to the standard 76.6% top-one accuracy for \$40 in 1.2 hours (_with vanilla PyTorch:_ \$116 in 3.5 hours) on AWS.
 - Train a GPT-2 125M to a standard perplexity of 24.11 for \$145 in 4.5 hours (_with vanilla PyTorch_: \$255 in 7.8 hours) on AWS.
 <!-- end numbers -->
 
@@ -107,8 +107,8 @@ from torchvision import models
 my_model = models.resnet18()
 
 # add blurpool and squeeze excite layers
-model = cf.apply_blurpool(my_model)
-model = cf.apply_squeeze_excite(my_model)
+my_model = cf.apply_blurpool(my_model)
+my_model = cf.apply_squeeze_excite(my_model)
 
 # your own training code starts here
 ```
@@ -128,12 +128,15 @@ from composer.algorithms import BlurPool, ChannelsLast, CutMix, LabelSmoothing
 from composer.models import MNIST_Classifier
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = datasets.MNIST("data", download=True, transform=transform)
-train_dataloader = DataLoader(dataset, batch_size=128)
+train_dataset = datasets.MNIST("data", download=True, train=True, transform=transform)
+eval_dataset = datasets.MNIST("data", download=True, train=False, transform=transform)
+train_dataloader = DataLoader(train_dataset, batch_size=128)
+eval_dataloader = DataLoader(eval_dataset, batch_size=128)
 
 trainer = Trainer(
     model=MNIST_Classifier(num_classes=10),
     train_dataloader=train_dataloader,
+    eval_dataloader=eval_dataloader,
     max_duration="2ep",
     algorithms=[
         BlurPool(replace_convs=True, replace_maxpools=True, blur_first=True),
@@ -145,7 +148,7 @@ trainer = Trainer(
 trainer.fit()
 ```
 
-Composer's built-in trainer makes it easy to **add multiple speedup methods in a single line of code!**
+Composer's built-in [trainer](https://docs.mosaicml.com/en/stable/trainer/using_the_trainer.html) makes it easy to **add multiple speedup methods in a single line of code!**
 Trying out new methods or combinations of methods is as easy as changing a single list.
 As we continually implement more methods, they will be easy for you to add to your code.
 
@@ -153,7 +156,7 @@ For concrete examples of methods in Composer, here are some ([_see here for all_
 
 Name|Attribution|tl;dr|Example Benchmark|Speed Up*|
 ----|-----------|-----|---------|---------|
-[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|[Press et al, 2021](https://arxiv.org/abs/2108.12409v1)|Replace attention with AliBi.|GPT-2|1.5x
+[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|[Press et al, 2021](https://arxiv.org/abs/2108.12409)|Replace attention with AliBi.|GPT-2|1.5x
 [BlurPool](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/blurpool)|[Zhang, 2019](https://arxiv.org/abs/1904.11486)|Applies an anti-aliasing filter before every downsampling operation.|ResNet-101|1.2x
 [ChannelsLast](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/channels_last)|[PyTorch](https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html)|Uses channels last memory format (NHWC).|ResNet-101|1.5x
 [CutOut](https://docs.mosaicml.com/en/latest/method_cards/cutout.html)|[DeVries et al, 2017](https://arxiv.org/abs/1708.04552)|Randomly erases rectangular blocks from the image.|ResNet-101|1.2x
@@ -198,7 +201,7 @@ Name|Functional|tl;dr|Benchmark|Speed Up
 
 Name|Functional|tl;dr|Benchmark|Speed Up
 ----|----------|-----|---------|--------
-[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[Replace attention with AliBi.](https://arxiv.org/abs/2108.12409v1)|GPT-2|1.6x
+[Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|`cf.apply_alibi`|[Replace attention with AliBi.](https://arxiv.org/abs/2108.12409)|GPT-2|1.6x
 [Seq Length Warmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|`cf.set_batch_`<br>`sequence_length`|[Progressively increase sequence length.](https://arxiv.org/abs/2108.06084)|GPT-2|1.5x
 **Composition** | `N/A` | **Cheapest: \$145 @ 24.11 PPL** | **GPT-2** | **1.7x**
 
@@ -301,7 +304,7 @@ Easily [add your own methods](https://colab.research.google.com/github/mosaicml/
 
 # 🧐 Why shouldn’t I use Composer?
 
-* Composer currently supports only standard computer vision (CV) and natural language processing (NLP) use cases, and may be difficult to use with very custom data modalities. We are working on adding more flexibility around the data types.
+* Composer is mostly optimized for computer vision (CV) and natural language processing (NLP) use cases, including [custom models](https://docs.mosaicml.com/en/stable/composer_model.html) and custom datasets. We strongly encourage exploration on integrating our algorithms into new domains, such as reinforcement learning. Feel free to [join our Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg) and discuss!
 * Composer currently supports NVIDIA GPUs. We are adding support for additional hardware platforms, and you should expect more soon.
 * Composer is an active and ongoing project. Since Composer is still in alpha, our API may not be stable. We recommend pegging your work to a Composer version, and we will respond quickly to issues posted to this repository.
 
@@ -339,10 +342,12 @@ Here's some resources actively maintained by the Composer community to help you 
 </tbody>
 </table>
 
-If you have any questions, please feel free to reach out to us on [Twiter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
+If you have any questions, please feel free to reach out to us on [Twitter](https://twitter.com/mosaicml), [email](mailto:community@mosaicml.com), or our [Community Slack](https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg)!
 
 # 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!
+
+To start contributing, see our [Contributing](CONTRIBUTING.md) page. 
 
 # ✍️ Citation
 ```

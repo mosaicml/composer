@@ -18,14 +18,13 @@ import textwrap
 import types
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-import torch.nn
-
 import sphinx.application
 import sphinx.ext.autodoc
 import sphinx.util.logging
-from sphinx.ext.autodoc import ClassDocumenter, _
-import yahp as hp
 import torch
+import torch.nn
+import yahp as hp
+from sphinx.ext.autodoc import ClassDocumenter, _
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -118,8 +117,6 @@ html_favicon = 'https://mosaic-ml-staging.cdn.prismic.io/mosaic-ml-staging/b1f1a
 # Don't unfold our common type aliases
 autodoc_type_aliases = {
     'Batch': 'composer.core.types.Batch',
-    'BatchPair': 'composer.core.types.BatchPair',
-    'BatchDict': 'composer.core.types.BatchDict',
     'Hparams': 'yahp.hparams.Hparams',
 }
 
@@ -194,9 +191,9 @@ def skip_redundant_namedtuple_attributes(
 with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") as f:
     doctest_global_setup = f.read()
 
-
 with open(os.path.join(os.path.dirname(__file__), "doctest_cleanup.py"), "r") as f:
     doctest_global_cleanup = f.read()
+
 
 def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.MethodType, types.FunctionType],
                           module_name: str) -> Optional[str]:
@@ -409,13 +406,16 @@ html_context = {'metadata': get_algorithms_metadata()}
 add_line = ClassDocumenter.add_line
 line_to_delete = _('Bases: %s') % u':py:class:`object`'
 
+
 def add_line_no_object_base(self, text, *args, **kwargs):
     if text.strip() == line_to_delete:
         return
 
     add_line(self, text, *args, **kwargs)
 
+
 add_directive_header = ClassDocumenter.add_directive_header
+
 
 def add_directive_header_no_object_base(self, *args, **kwargs):
     self.add_line = add_line_no_object_base.__get__(self)
@@ -426,7 +426,9 @@ def add_directive_header_no_object_base(self, *args, **kwargs):
 
     return result
 
+
 ClassDocumenter.add_directive_header = add_directive_header_no_object_base
+
 
 def setup(app: sphinx.application.Sphinx):
     app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)

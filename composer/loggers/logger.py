@@ -1,14 +1,6 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
-"""Base classes, functions, and variables for logger.
-
-Attributes:
-     LoggerData: Data value(s) to be logged. Can be any of the following types:
-         ``str``; ``float``; ``int``; :class:`torch.Tensor`; ``Sequence[LoggerData]``;
-         ``Mapping[str, LoggerData]``.
-     LoggerDataDict: Name-value pair for data to be logged. Type ``Mapping[str, LoggerData]``.
-         Example: ``{"accuracy", 21.3}``.
-"""
+"""Base classes, functions, and variables for logger."""
 
 from __future__ import annotations
 
@@ -18,7 +10,7 @@ import pathlib
 import time
 from enum import IntEnum
 from functools import reduce
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
 import coolname
 import torch
@@ -29,10 +21,7 @@ if TYPE_CHECKING:
     from composer.core.state import State
     from composer.loggers.logger_destination import LoggerDestination
 
-__all__ = ["LoggerDestination", "Logger", "LogLevel", "LoggerData", "LoggerDataDict", "format_log_data_value"]
-
-LoggerData = Union[str, float, int, torch.Tensor, List["LoggerData"], Dict[str, "LoggerData"]]
-LoggerDataDict = Dict[str, LoggerData]
+__all__ = ["LoggerDestination", "Logger", "LogLevel", "format_log_data_value"]
 
 
 class LogLevel(IntEnum):
@@ -123,16 +112,17 @@ class Logger:
             # ensure all ranks have the same experiment name
             dist.broadcast_object_list(run_name_list)
             run_name = run_name_list[0]
+        assert run_name is not None, "run name is set above if not specified."
         self.run_name = run_name
         self._state = state
 
-    def data(self, log_level: Union[str, int, LogLevel], data: LoggerDataDict) -> None:
+    def data(self, log_level: Union[str, int, LogLevel], data: Dict[str, Any]) -> None:
         """Log data to the :attr:`destinations`.
 
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
                 :class:`LogLevel`.
-            data (LoggerDataDict): The data to log.
+            data (Dict[str, Any]): The data to log.
         """
         log_level = LogLevel(log_level)
 
@@ -168,20 +158,47 @@ class Logger:
                 overwrite=overwrite,
             )
 
-    def data_fit(self, data: LoggerDataDict) -> None:
+    def symlink_artifact(
+        self,
+        log_level: Union[str, int, LogLevel],
+        existing_artifact_name: str,
+        symlink_artifact_name: str,
+        overwrite: bool = False,
+    ):
+        """Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
+
+        Args:
+            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
+                :class:`LogLevel`.
+            existing_artifact_name (str): The name of symlinked artifact.
+            symlink_artifact_name (str): The symlink name of artifact.
+            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
+                (default: ``False``)
+        """
+        log_level = LogLevel(log_level)
+        for destination in self.destinations:
+            destination.log_symlink_artifact(
+                state=self._state,
+                log_level=log_level,
+                existing_artifact_name=existing_artifact_name,
+                symlink_artifact_name=symlink_artifact_name,
+                overwrite=overwrite,
+            )
+
+    def data_fit(self, data: Dict[str, Any]) -> None:
         """Helper function for ``self.data(LogLevel.FIT, data)``"""
         self.data(LogLevel.FIT, data)
 
-    def data_epoch(self, data: LoggerDataDict) -> None:
+    def data_epoch(self, data: Dict[str, Any]) -> None:
         """Helper function for ``self.data(LogLevel.EPOCH, data)``"""
         self.data(LogLevel.EPOCH, data)
 
-    def data_batch(self, data: LoggerDataDict) -> None:
+    def data_batch(self, data: Dict[str, Any]) -> None:
         """Helper function for ``self.data(LogLevel.BATCH, data)``"""
         self.data(LogLevel.BATCH, data)
 
 
-def format_log_data_value(data: LoggerData) -> str:
+def format_log_data_value(data: Any) -> str:
     """Recursively formats a given log data value into a string.
 
     Args:
@@ -211,4 +228,6 @@ def format_log_data_value(data: LoggerData) -> str:
         return "".join(output)
     if isinstance(data, collections.abc.Iterable):
         return "[" + ", ".join(format_log_data_value(v) for v in data) + "]"
-    raise NotImplementedError(f"Unable to format variable of type: {type(data)} with value {data}")
+
+    # Unknown format catch-all
+    return str(data)

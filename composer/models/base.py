@@ -4,17 +4,17 @@
 from __future__ import annotations
 
 import abc
+import copy
 from typing import Any, Optional, Sequence, Tuple, Union
 
 import torch
 from torch import Tensor
 from torchmetrics import Metric, MetricCollection
-from torchmetrics.classification import Accuracy
 
-from composer.core.types import Batch, BatchPair
-from composer.models.loss import CrossEntropyLoss, soft_cross_entropy
+from composer.core.types import Batch
+from composer.loggers import Logger
 
-__all__ = ["ComposerClassifier", "ComposerModel"]
+__all__ = ["ComposerModel"]
 
 
 class ComposerModel(torch.nn.Module, abc.ABC):
@@ -24,7 +24,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
     implement :meth:`forward` and :meth:`loss`. For full functionality (logging and validation), implement :meth:`metrics`
     and :meth:`validate`.
 
-    See the :doc:`Composer Model walkthrough </composer_model>` for more details.
+    See the :doc:`Composer Model walk through </composer_model>` for more details.
 
     Minimal Example:
 
@@ -50,7 +50,43 @@ class ComposerModel(torch.nn.Module, abc.ABC):
                 # pass batches and `forward` outputs to the loss
                 _, targets = batch
                 return F.cross_entropy(outputs, targets)
+
+    Attributes:
+        logger (Optional[Logger]): The training :class:`.Logger`.
+            The trainer sets the :class:`.Logger` on the:attr:`~composer.core.event.Event.INIT` event.
     """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.logger: Optional[Logger] = None
+
+    def __deepcopy__(self, memo: dict):
+        # From https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
+        # The `logger` should not be copied
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k == "logger":
+                copied_v = v
+            else:
+                copied_v = copy.deepcopy(v, memo)
+            setattr(result, k, copied_v)
+        return result
+
+    def __copy__(self):
+        # From https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
+        # Need to manually define `__copy__` so it does not rely on `__getstate__`, which would not copy the logger.
+        cls = self.__class__
+        result = cls.__new__(cls)
+        result.__dict__.update(self.__dict__)
+        return result
+
+    def __getstate__(self):
+        # Don't pickle the logger
+        state = self.__dict__.copy()
+        state['logger'] = None
+        return state
 
     @abc.abstractmethod
     def forward(self, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
@@ -196,59 +232,3 @@ class ComposerModel(torch.nn.Module, abc.ABC):
             metrics.compute() # compute final metrics
         """
         raise NotImplementedError('Implement validate in your ComposerModel to run validation.')
-
-
-class ComposerClassifier(ComposerModel):
-    """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a vanilla PyTorch model.
-    :class:`.ComposerClassifier` requires batches in the form: (``input``, ``target``) and includes a basic
-    classification training loop with :func:`.soft_cross_entropy` loss and accuracy logging.
-
-    Args:
-        module (torch.nn.Module): A PyTorch neural network module.
-
-    Returns:
-        ComposerClassifier: An instance of :class:`.ComposerClassifier`.
-
-    Example:
-
-    .. testcode::
-
-        import torchvision
-        from composer.models import ComposerClassifier
-
-        pytorch_model = torchvision.models.resnet18(pretrained=False)
-        model = ComposerClassifier(pytorch_model)
-    """
-
-    num_classes: Optional[int] = None
-
-    def __init__(self, module: torch.nn.Module) -> None:
-        super().__init__()
-        self.train_acc = Accuracy()
-        self.val_acc = Accuracy()
-        self.val_loss = CrossEntropyLoss()
-        self.module = module
-
-        if hasattr(self.module, "num_classes"):
-            self.num_classes = getattr(self.module, "num_classes")
-
-    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensor:
-        _, targets = batch
-        if not isinstance(outputs, Tensor):  # to pass typechecking
-            raise ValueError("Loss expects input as Tensor")
-        if not isinstance(targets, Tensor):
-            raise ValueError("Loss does not support multiple target Tensors")
-        return soft_cross_entropy(outputs, targets, *args, **kwargs)
-
-    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
-        return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])
-
-    def forward(self, batch: BatchPair) -> Tensor:
-        inputs, _ = batch
-        outputs = self.module(inputs)
-        return outputs
-
-    def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
-        _, targets = batch
-        outputs = self.forward(batch)
-        return outputs, targets

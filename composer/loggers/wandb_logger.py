@@ -4,17 +4,19 @@
 
 from __future__ import annotations
 
-import datetime
 import os
+import pathlib
+import re
 import sys
 import textwrap
 import warnings
 from typing import Any, Dict, Optional
 
 from composer.core.state import State
-from composer.loggers.logger import Logger, LoggerDataDict, LogLevel
+from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import dist, run_directory
+from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ["WandBLogger"]
 
@@ -25,12 +27,6 @@ class WandBLogger(LoggerDestination):
     Args:
         log_artifacts (bool, optional): Whether to log
             `artifacts <https://docs.wandb.ai/ref/python/artifact>`_ (Default: ``False``).
-        log_artifacts_every_n_batches (int, optional): Interval at which to upload
-            `artifacts <https://docs.wandb.ai/ref/python/artifact>`_ to wandb from the
-            :mod:`~.composer.utils.run_directory`. Logging very frequently (e.g. on every
-            batch) can substantially slow down training, so we recommend doing so
-            infrequently. Only applicable when ``log_artifacts`` is True (default:
-            ``100``).
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
             When logging `artifacts <https://docs.wandb.ai/ref/python/artifact>`_, it is
             highly recommended to log on all ranks.  Artifacts from ranks ≥1 will not be
@@ -44,16 +40,15 @@ class WandBLogger(LoggerDestination):
 
     def __init__(self,
                  log_artifacts: bool = False,
-                 log_artifacts_every_n_batches: int = 100,
                  rank_zero_only: bool = True,
                  init_params: Optional[Dict[str, Any]] = None) -> None:
         try:
             import wandb
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without WandB support. To use WandB with Composer, run `pip install mosaicml[wandb]`
-                if using pip or `conda install -c conda-forge wandb` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="wandb",
+                                                conda_package="wandb",
+                                                conda_channel="conda-forge") from e
+
         del wandb  # unused
         if log_artifacts and rank_zero_only:
             warnings.warn(
@@ -63,18 +58,17 @@ class WandBLogger(LoggerDestination):
                     restore from checkpoints."""))
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
+        self._rank_zero_only = rank_zero_only
         self._log_artifacts = log_artifacts
-        self._log_artifacts_every_n_batches = log_artifacts_every_n_batches
-        self._last_upload_timestamp = datetime.datetime.fromtimestamp(0)
         if init_params is None:
             init_params = {}
         self._init_params = init_params
 
-    def log_data(self, state: State, log_level: LogLevel, data: LoggerDataDict):
+    def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         import wandb
         del log_level  # unused
         if self._enabled:
-            wandb.log(data, step=int(state.timer.batch))
+            wandb.log(data, step=int(state.timestamp.batch))
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb
@@ -96,53 +90,52 @@ class WandBLogger(LoggerDestination):
     def init(self, state: State, logger: Logger) -> None:
         import wandb
         del state  # unused
-        if "name" not in self._init_params:
-            # Use the logger run name if the name is not set.
+
+        # Use the logger run name if the name is not set.
+        if "name" not in self._init_params or self._init_params["name"] is None:
             self._init_params["name"] = logger.run_name
+
+        # Adjust name and group based on `rank_zero_only`.
+        if not self._rank_zero_only:
+            name = self._init_params["name"]
+            group = self._init_params.get("group", None)
+            self._init_params["name"] = f"{name} [RANK_{dist.get_global_rank()}]"
+            self._init_params["group"] = group if group else name
 
         if self._enabled:
             wandb.init(**self._init_params)
 
-    def batch_end(self, state: State, logger: Logger) -> None:
-        del logger  # unused
-        if self._enabled and self._log_artifacts and int(
-                state.timer.batch_in_epoch) % self._log_artifacts_every_n_batches == 0:
-            self._upload_artifacts()
+    def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
+                          overwrite: bool):
+        del log_level, overwrite  # unused
 
-    def epoch_end(self, state: State, logger: Logger) -> None:
-        del state, logger  # unused
         if self._enabled and self._log_artifacts:
-            self._upload_artifacts()
+            import wandb
 
-    def _upload_artifacts(self):
-        import wandb
+            # Some WandB-specific alias extraction
+            timestamp = state.timestamp
+            aliases = ["latest", f"ep{int(timestamp.epoch)}-ba{int(timestamp.batch)}"]
 
-        # Scan the run directory and upload artifacts to wandb
-        # On resnet50, _log_artifacts() caused a 22% throughput degradation
-        # wandb.log_artifact() is async according to the docs
-        # (see https://docs.wandb.ai/guides/artifacts/api#2.-create-an-artifact)
-        # so uploads will not block the training loop
-        # slowdown is likely from extra I/O of scanning the directory and/or
-        # scheduling uploads
-        modified_files = run_directory.get_modified_files(self._last_upload_timestamp)
-        for modified_file in modified_files:
-            file_type = modified_file.split(".")[-1]
-            relpath = os.path.relpath(modified_file, run_directory.get_run_directory())
-            relpath = f"rank_{dist.get_global_rank()}-" + relpath.replace("/", "-")
-            artifact = wandb.Artifact(name=relpath, type=file_type)
-            artifact.add_file(os.path.abspath(modified_file))
-            wandb.log_artifact(artifact)
-        self._last_upload_timestamp = run_directory.get_run_directory_timestamp()
+            # replace all unsupported characters with periods
+            # Only alpha-numeric, periods, hyphens, and underscores are supported by wandb.
+            new_artifact_name = re.sub(r'[^a-zA-Z0-9-_\.]', '.', artifact_name)
+            if new_artifact_name != artifact_name:
+                warnings.warn(("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
+                               f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
+
+            if self._enabled and self._log_artifacts:
+                import wandb
+                extension = new_artifact_name.split(".")[-1]
+                artifact = wandb.Artifact(name=new_artifact_name, type=extension)
+                artifact.add_file(os.path.abspath(file_path))
+                wandb.log_artifact(artifact, aliases=aliases)
 
     def post_close(self) -> None:
         import wandb
 
         # Cleaning up on post_close so all artifacts are uploaded
-        if not self._enabled:
+        if not self._enabled or wandb.run is None:
             return
-
-        if self._log_artifacts:
-            self._upload_artifacts()
 
         exc_tpe, exc_info, tb = sys.exc_info()
 

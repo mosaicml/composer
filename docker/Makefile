@@ -1,6 +1,9 @@
 # Base image to use for the docker build.
 BASE_IMAGE ?= 'nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04'
 
+# The linux distro of the base image
+LINUX_DISTRO ?= ubuntu2004
+
 # Python version to install. Composer requires python>=3.7
 PYTHON_VERSION ?='3.9'
 
@@ -32,22 +35,37 @@ COMPOSER_EXTRA_DEPS ?= base
 # Resulting docker tag for the composer dockerimage
 COMPOSER_TAG ?= mosaicml/composer:$(COMPOSER_EXTRA_DEPS)
 
+# target stage to build
+TARGET ?= pytorch_stage
+
+MMCV_VERSION ?= '1.4.4'
+MMCV_TORCH_VERSION ?= 'torch1.10.0'
+
+MOFED_VERSION ?= ''
+MOFED_OS_VERSION ?= ''
+
 .PHONY: build pytorch composer
 
 build: composer
 
 pytorch:
 	cd pytorch && docker build -t $(PYTORCH_TAG) \
+		--target $(TARGET) \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg CUDA_VERSION_TAG=$(CUDA_VERSION_TAG) \
 		--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
 		--build-arg PYTORCH_VERSION=$(PYTORCH_VERSION) \
 		--build-arg TORCHVISION_VERSION=$(TORCHVISION_VERSION) \
+		--build-arg MMCV_VERSION=$(MMCV_VERSION) \
+		--build-arg MMCV_TORCH_VERSION=$(MMCV_TORCH_VERSION) \
+		--build-arg MOFED_VERSION=${MOFED_VERSION} \
+		--build-arg LINUX_DISTRO=${LINUX_DISTRO} \
+		--build-arg MOFED_OS_VERSION=${MOFED_OS_VERSION} \
 		.
 
 composer: pytorch
-	cd .. && docker build -t $(COMPOSER_TAG) \
+	docker build -t $(COMPOSER_TAG) \
 		--build-arg BASE_IMAGE=$(PYTORCH_TAG) \
 		--build-arg COMPOSER_EXTRA_DEPS=$(COMPOSER_EXTRA_DEPS) \
-		-f docker/composer/Dockerfile \
+		-f composer/Dockerfile \
 		.

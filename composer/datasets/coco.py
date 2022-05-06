@@ -13,11 +13,6 @@ from typing import Sequence
 import torch
 from PIL import Image
 
-
-def _isArrayLike(obj):
-    return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
-
-
 from composer.core import DataSpec
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataLoaderHparams

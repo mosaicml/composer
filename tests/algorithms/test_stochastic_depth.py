@@ -223,16 +223,19 @@ class TestStochasticDepthDropRate:
     @pytest.mark.parametrize("drop_distribution", ['uniform', 'linear'])
     @pytest.mark.parametrize("use_same_gpu_seed", [True])
     @pytest.mark.parametrize("drop_warmup", ["0.1dur"])
+    @pytest.mark.timeout(5)
     def test_drop_rate_warmup(self, algorithm: StochasticDepth, step: int, state: State):
         old_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=old_drop_rates)
-        state.timer._batch._value = step
+        state.timestamp._batch._value = step
         algorithm.apply(Event.BATCH_START, state, logger=Mock())
         new_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=new_drop_rates)
 
+        assert state.max_duration is not None
         assert state.max_duration.unit == TimeUnit.EPOCH
-        drop_warmup_iters = int(state.steps_per_epoch * int(state.max_duration.value) * algorithm.drop_warmup)
+        assert state.dataloader_len is not None
+        drop_warmup_iters = int(int(state.dataloader_len) * int(state.max_duration.value) * algorithm.drop_warmup)
         assert torch.all(torch.tensor(new_drop_rates) == ((step / drop_warmup_iters) * torch.tensor(old_drop_rates)))
 
 

@@ -16,18 +16,17 @@ Please refer to the `GLUE`_ benchmark for more details.
 """
 
 import logging
-import textwrap
 from dataclasses import dataclass
 from typing import cast
 
 import yahp as hp
+from torch.utils.data import DataLoader
 
-from composer.core import DataSpec
 from composer.core.types import Dataset
 from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams
-from composer.datasets.lm_datasets import _split_dict_fn
-from composer.utils import dist
+from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
+from composer.utils import MissingConditionalImportError, dist
 
 __all__ = ["GLUEHparams"]
 
@@ -46,7 +45,7 @@ _task_to_keys = {
 
 
 @dataclass
-class GLUEHparams(DatasetHparams):
+class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
     """Sets up a generic GLUE dataset loader.
 
     Args:
@@ -63,7 +62,7 @@ class GLUEHparams(DatasetHparams):
             they fail. Default: ``10``.
 
     Returns:
-       DataSpec: A :class:`~composer.core.DataSpec` object.
+        DataLoader: A PyTorch :class:`~torch.utils.data.DataLoader` object.
     """
 
     task: str = hp.optional(
@@ -72,7 +71,7 @@ class GLUEHparams(DatasetHparams):
     split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
-    num_workers: int = hp.optional(default=64,
+    num_workers: int = hp.optional(default=8,
                                    doc="Optionally, the number of CPU workers to use to preprocess the text.")
     max_network_retries: int = hp.optional(default=10,
                                            doc="Optionally, the number of times to retry HTTP requests if they fail.")
@@ -90,23 +89,31 @@ class GLUEHparams(DatasetHparams):
         if self.split is None:
             raise ValueError("A dataset split must be specified.")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
         try:
             import datasets
             import transformers
         except ImportError as e:
-            raise ImportError(
-                textwrap.dedent("""\
-                Composer was installed without NLP support. To use NLP with Composer, run `pip install mosaicml[nlp]`
-                if using pip or `conda install -c conda-forge datasets transformers` if using Anaconda.""")) from e
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         self.validate()
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+        if self.use_synthetic:
+            column_names = [i for i in _task_to_keys[self.task] if i is not None]
 
-        log.info(f"Loading {self.task.upper()} on rank ", dist.get_global_rank())
-        download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
-        dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
+            # we just use the max sequence length in tokens to upper bound the sequence length in characters
+            dataset = synthetic_hf_dataset_builder(num_samples=self.synthetic_num_unique_samples,
+                                                   chars_per_sample=self.max_seq_length,
+                                                   column_names=column_names)
+
+            # flatten the columnar dataset into one column
+            tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=dataset)
+        else:
+            tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
+
+            log.info(f"Loading {self.task.upper()} on rank {dist.get_global_rank()}")
+            download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
+            dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
 
         log.info(f"Starting tokenization step by preprocessing over {self.num_workers} threads!")
         text_column_names = _task_to_keys[self.task]
@@ -116,7 +123,7 @@ class GLUEHparams(DatasetHparams):
 
             first_half = inp[text_column_names[0]]
             second_half = inp[text_column_names[1]] if text_column_names[1] in inp else None
-            return self.tokenizer(
+            return tokenizer(
                 text=first_half,
                 text_pair=second_half,
                 padding="max_length",
@@ -125,6 +132,7 @@ class GLUEHparams(DatasetHparams):
             )
 
         columns_to_remove = ["idx"] + [i for i in text_column_names if i is not None]
+
         assert isinstance(dataset, datasets.Dataset)
         dataset = dataset.map(
             tokenize_function,
@@ -136,15 +144,12 @@ class GLUEHparams(DatasetHparams):
             load_from_cache_file=True,
         )
 
-        data_collator = transformers.data.data_collator.default_data_collator
+        data_collator = transformers.default_data_collator
         sampler = dist.get_sampler(cast(Dataset, dataset), drop_last=self.drop_last, shuffle=self.shuffle)
 
-        return DataSpec(
-            dataloader=dataloader_hparams.initialize_object(
-                dataset=dataset,  #type: ignore (thirdparty)
-                batch_size=batch_size,
-                sampler=sampler,
-                drop_last=self.drop_last,
-                collate_fn=data_collator,
-            ),
-            split_batch=_split_dict_fn)
+        return dataloader_hparams.initialize_object(
+            dataset=dataset,  #type: ignore (thirdparty)
+            batch_size=batch_size,
+            sampler=sampler,
+            drop_last=self.drop_last,
+            collate_fn=data_collator)

@@ -4,37 +4,38 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 import textwrap
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
 import yahp as hp
 
 import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
-                                RunDirectoryUploaderHparams, SpeedMonitorHparams)
+                                MLPerfCallbackHparams, SpeedMonitorHparams)
 from composer.core import Precision
 from composer.core.types import JSON
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import (FileLoggerHparams, InMemoryLoggerHparams, LoggerDestinationHparams,
-                              ProgressBarLoggerHparams, WandBLoggerHparams)
-from composer.models import (BERTForClassificationHparams, BERTHparams, CIFARResNet9Hparams, CIFARResNetHparams,
-                             DeepLabV3Hparams, EfficientNetB0Hparams, GPT2Hparams, MnistClassifierHparams, ModelHparams,
-                             ResNetHparams, SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
-from composer.models.resnet20_cifar10.resnet20_cifar10_hparams import CIFARResNet20Hparams
+from composer.loggers import LoggerDestinationHparams, logger_registry
+from composer.loggers.logger import LogLevel
+from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
+                             GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
+                             SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.optim import (AdamHparams, AdamWHparams, ConstantSchedulerHparams, CosineAnnealingSchedulerHparams,
                             CosineAnnealingWarmRestartsSchedulerHparams, CosineAnnealingWithWarmupSchedulerHparams,
                             DecoupledAdamWHparams, DecoupledSGDWHparams, ExponentialSchedulerHparams,
                             LinearSchedulerHparams, LinearWithWarmupSchedulerHparams, MultiStepSchedulerHparams,
                             MultiStepWithWarmupSchedulerHparams, OptimizerHparams, PolynomialSchedulerHparams,
                             RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
-from composer.profiler.profiler_hparams import JSONTraceHandlerHparams, ProfilerEventHandlerHparams
+from composer.profiler.profiler_hparams import (ProfileScheduleHparams, TraceHandlerHparams,
+                                                profiler_scheduler_registry, trace_handler_registry)
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
@@ -75,9 +76,7 @@ model_registry = {
     "ssd": SSDHparams,
     "deeplabv3": DeepLabV3Hparams,
     "efficientnetb0": EfficientNetB0Hparams,
-    "resnet56_cifar10": CIFARResNetHparams,
-    "resnet20_cifar10": CIFARResNet20Hparams,
-    "resnet9_cifar10": CIFARResNet9Hparams,
+    "resnet_cifar": ResNetCIFARHparams,
     "resnet": ResNetHparams,
     "mnist_classifier": MnistClassifierHparams,
     "gpt2": GPT2Hparams,
@@ -96,14 +95,7 @@ callback_registry = {
     "lr_monitor": LRMonitorHparams,
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
-    "run_directory_uploader": RunDirectoryUploaderHparams,
-}
-
-logger_registry = {
-    "file": FileLoggerHparams,
-    "wandb": WandBLoggerHparams,
-    "progress_bar": ProgressBarLoggerHparams,
-    "in_memory": InMemoryLoggerHparams,
+    "mlperf": MLPerfCallbackHparams,
 }
 
 device_registry = {
@@ -111,7 +103,7 @@ device_registry = {
     "cpu": CPUDeviceHparams,
 }
 
-prof_event_handlers_registry = {"json": JSONTraceHandlerHparams}
+evaluator_registry = {"evaluator": EvaluatorHparams}
 
 
 @dataclass
@@ -165,8 +157,7 @@ class TrainerHparams(hp.Hparams):
             (default: ``CPUDeviceHparams``)
         grad_accum (int, optional): See :class:`.Trainer`.
         grad_clip_norm (float, optional): See :class:`.Trainer`.
-        validate_every_n_batches (int, optional): See :class:`.Trainer`.
-        validate_every_n_epochs (int, optional): See :class:`.Trainer`.
+        eval_interval (str, optional): See :class:`.Trainer`.
         compute_training_metrics (bool, optional): See :class:`.Trainer`.
         precision (Precision, optional): See :class:`.Trainer`.
         scale_schedule_ratio (float, optional): See :class:`.Trainer`.
@@ -180,7 +171,11 @@ class TrainerHparams(hp.Hparams):
             to log to. (default: ``[]``)
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        log_level (str): The Python log level to use for log statements in the :mod:`composer`
+        progress_bar (bool, optional): See :class:`.Trainer`.
+        log_to_console (bool, optional): See :class:`.Trainer`.
+        console_log_level (bool, optional): See :class:`.Trainer`.
+        console_stream (bool, optional): See :class:`.Trainer`.
+        python_log_level (str): The Python log level to use for log statements in the :mod:`composer`
             module. (default: ``INFO``)
 
             .. seealso:: The :mod:`logging` module in Python.
@@ -188,42 +183,55 @@ class TrainerHparams(hp.Hparams):
             run during training. (default: ``[]``)
 
             .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
-        load_path_format (str, optional): See :class:`.Trainer`.
+        load_path (str, optional): See :class:`.Trainer`.
         load_object_store (ObjectStore, optional): See :class:`.Trainer`.
         load_weights_only (bool, optional): See :class:`.Trainer`.
+        load_strict_model_weights (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
+        load_progress_bar (bool, optional): See :class:`.Trainer`.
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_name_format (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_latest_format (str, optional): See
+        save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_latest_filename (str, optional): See
             :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        save_latest_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
+        save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         train_subset_num_batches (int, optional): See :class:`.Trainer`.
         eval_subset_num_batches (int, optional): See :class:`.Trainer`.
-        deepspeed_config (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
-            config for training  (see :class:`.Trainer` for more details). If ``None`` will pass ``False``
-            to the trainer for the ``deepspeed_config`` parameter signaling that DeepSpeed will not be used
-            for training.
-        profiler_trace_file (str, optional): See :class:`.Trainer`.
-        prof_event_handlers (List[ProfilerEventHandlerHparams], optional): See :class:`.Trainer`.
-        prof_skip_first (int, optional): See :class:`.Trainer`.
-        prof_wait (int, optional): See :class:`.Trainer`.
-        prof_warmup (int, optional): See :class:`.Trainer`.
-        prof_active (int, optional): See :class:`.Trainer`.
-        prof_repeat (int, optional): See :class:`.Trainer`.
+        deepspeed (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
+            config for training  (see :class:`.Trainer` for more details). If ``None`` (the default), DeepSpeed will not
+            be used.
+        prof_schedule (ProfileScheduleHparams, optional): Profile schedule hparams. Must be specified to enable the profiler.
+        prof_trace_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.
         sys_prof_cpu (bool, optional): See :class:`.Trainer`.
         sys_prof_memory (bool, optional): See :class:`.Trainer`.
         sys_prof_disk (bool, optional): See :class:`.Trainer`.
         sys_prof_net (bool, optional): See :class:`.Trainer`.
         sys_prof_stats_thread_interval_seconds (float, optional): See :class:`.Trainer`.
-        torch_profiler_trace_dir (str, optional): See :class:`.Trainer`.
-        torch_prof_use_gzip (bool): See :class:`.Trainer`.
-        torch_prof_record_shapes (bool, optional): See :class:`.Trainer`.
-        torch_prof_profile_memory (bool, optional): See :class:`.Trainer`.
-        torch_prof_with_stack (bool, optional): See :class:`.Trainer`.
-        torch_prof_with_flops (bool, optional): See :class:`.Trainer`.
+        torch_prof_folder (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_artifact_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_profile_memory (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_with_stack (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_with_flops (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        torch_prof_num_traces_to_keep (int, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
     """
 
     hparams_registry = {  # type: ignore
@@ -236,7 +244,9 @@ class TrainerHparams(hp.Hparams):
         "val_dataset": dataset_registry,
         "callbacks": callback_registry,
         "device": device_registry,
-        "prof_event_handlers": prof_event_handlers_registry,
+        "prof_trace_handlers": trace_handler_registry,
+        "prof_schedule": profiler_scheduler_registry,
+        "evaluators": evaluator_registry,
     }
 
     model: ModelHparams = hp.required(doc="model")
@@ -270,17 +280,16 @@ class TrainerHparams(hp.Hparams):
     device: DeviceHparams = hp.optional(doc="Device Parameters", default_factory=CPUDeviceHparams)
 
     # training hparams
-    grad_accum: int = hp.optional(textwrap.dedent("""\
+    grad_accum: Union[int, str] = hp.optional(textwrap.dedent("""\
         Determines the number of microbatches to split a per-gpu batch into,
-        used to compensate for low-memory-capacity devices."""),
-                                  default=1)
+        used to compensate for low-memory-capacity devices. If set to auto,
+        dynamically increases grad_accum if microbatch size is too large for
+        GPU. Defaults to ``1``"""),
+                                              default=1)
     grad_clip_norm: Optional[float] = hp.optional(
         default=None, doc='the norm to clip gradient magnitudes to. Default: None (no clip)')
-    validate_every_n_epochs: int = hp.optional(
-        doc="Validate every N epochs. Set to -1 to never validate on a epochwise frequency. Defaults to 1", default=1)
-    validate_every_n_batches: int = hp.optional(
-        doc="Validate every N batches. Set to -1 to never validate on a batchwise frequency. Defaults to -1.",
-        default=-1)
+    eval_interval: str = hp.optional(doc="Time string for the evaluation interval. Defaults to 1ep (every epoch)",
+                                     default="1ep")
     compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
     precision: Precision = hp.optional(doc="Precision to use for training", default=Precision.AMP)
     scale_schedule_ratio: float = hp.optional(
@@ -304,126 +313,126 @@ class TrainerHparams(hp.Hparams):
         deterministic implementations, which will result in a crash."""),
                                            default=False)
 
-    # logging and callbacks
+    # logging
     run_name: Optional[str] = hp.optional("Experiment name", default=None)
     loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
-    log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
+    progress_bar: bool = hp.optional("Whether to show a progress bar.", default=True)
+    log_to_console: Optional[bool] = hp.optional("Whether to print log statements to the console.", default=None)
+    console_log_level: LogLevel = hp.optional("The maximum log level for console logging.", default=LogLevel.EPOCH)
+    console_stream: str = hp.optional("The stream at which to write the progress bar and log statements.",
+                                      default="stderr")
+    python_log_level: str = hp.optional(doc="Python loglevel to use composer", default="INFO")
+
+    # callbacks
     callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
 
     # load checkpoint
-    load_path_format: Optional[str] = hp.optional(doc=textwrap.dedent("""\
+    load_path: Optional[str] = hp.optional(doc=textwrap.dedent("""\
         If specified, the path to an existing checkpoint file
         (if the checkpoint is on the local disk) or the object name for the checkpoint
         (if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint."""),
-                                                  default=None)
+                                           default=None)
     load_object_store: Optional[ObjectStoreHparams] = hp.optional(doc=textwrap.dedent("""\
         If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for
         connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath,
-        leave blank. This parameter has no effect if `load_path_format` is not specified."""),
+        leave blank. This parameter has no effect if `load_path` is not specified."""),
                                                                   default=None)
     load_weights_only: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to only load the weights from the model.
-        This parameter has no effect if `load_path_format`is not specified."""),
+        This parameter has no effect if `load_path`is not specified."""),
                                           default=False)
     load_strict_model_weights: bool = hp.optional(doc=textwrap.dedent("""\
         Ensure that the set of checkpoint weights in the checkpoint and model must exactly match.
-        This parameter has no effect if `load_path_format` is not specified."""),
+        This parameter has no effect if `load_path` is not specified."""),
                                                   default=False)
 
     load_chunk_size: int = hp.optional(doc=textwrap.dedent("""\
         Chunk size (in bytes) to use when downloading checkpoints.
-        This parameter has no effect if `load_path_format` is not specified or it is a local file path."""),
+        This parameter has no effect if `load_path` is not specified or it is a local file path."""),
                                        default=1_048_576)
     load_progress_bar: bool = hp.optional(doc=textwrap.dedent("""\
         Whether to show a progress bar when downloading checkpoints.
-        This parameter has no effect if `load_path_format` is not specified or it is a local file path."""),
+        This parameter has no effect if `load_path` is not specified or it is a local file path."""),
                                           default=True)
 
     # save checkpoint
-    save_folder: Optional[str] = hp.optional(doc="Folder where checkpoints will be saved.", default=None)
-    save_name_format: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
-    save_latest_format: str = hp.optional("Latest checkpoint symlink format string.", default="latest-rank{rank}")
+    save_folder: Optional[str] = hp.optional(doc="Checkpoint folder format string.", default=None)
+    save_filename: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
+    save_artifact_name: str = hp.optional("Checkpoint artifact name format",
+                                          default="{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}")
+    save_latest_filename: str = hp.optional("Latest checkpoint symlink format string.", default="latest-rank{rank}")
+    save_latest_artifact_name: str = hp.optional("Checkpoint symlink artifact name format",
+                                                 default="{run_name}/checkpoints/latest-rank{rank}")
     save_overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
     save_weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
     save_interval: str = hp.optional(textwrap.dedent("""\
         Checkpoint interval or path to a `(State, Event) -> bool` function
         returning whether a checkpoint should be saved."""),
                                      default="1ep")
+    save_num_checkpoints_to_keep: int = hp.optional(
+        "Number of checkpoints to persist locally. Set to -1 to never delete checkpoints.",
+        default=-1,
+    )
 
     # subset parameters
-    train_subset_num_batches: Optional[int] = hp.optional(
-        "If specified, finish every epoch early after training on this many batches.", default=None)
-    eval_subset_num_batches: Optional[int] = hp.optional("If specified, stop each evaluation after this many batches.",
-                                                         default=None)
+    train_subset_num_batches: int = hp.optional(
+        "If specified, finish every epoch early after training on this many batches.", default=-1)
+    eval_subset_num_batches: int = hp.optional("If specified, stop each evaluation after this many batches.",
+                                               default=-1)
 
     # DeepSpeed
     deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
     # profiling
-    profiler_trace_file: Optional[str] = hp.optional(doc=textwrap.dedent("""\
-        Name of the trace file, relative to the run directory.  Must be specified to activate the profiler."""),
-                                                     default=None)
-    prof_event_handlers: List[ProfilerEventHandlerHparams] = hp.optional(
-        doc=textwrap.dedent("""\
-        Trace event handler.  Ignored if `profiler_trace_file` is not specified."""),
-        default_factory=lambda: [JSONTraceHandlerHparams()])
-    prof_skip_first: int = hp.optional(doc=textwrap.dedent("""\
-        Number of batches to skip at epoch start.  Ignored if `profiler_trace_file` is not specified."""),
-                                       default=0)
-    prof_wait: int = hp.optional(doc=textwrap.dedent("""\
-        Number of batches to skip at the beginning of each cycle.  Ignored if `profiler_trace_file` is not specified."""
-                                                    ),
-                                 default=0)
-    prof_warmup: int = hp.optional(doc=textwrap.dedent("""\
-        Number of warmup batches in a cycle.  Ignored if `profiler_trace_file` is not specified."""),
-                                   default=1)
-    prof_active: int = hp.optional(doc=textwrap.dedent("""\
-        Number of batches to profile in a cycle.  Ignored if `profiler_trace_file` is not specified."""),
-                                   default=4)
-    prof_repeat: int = hp.optional(doc=textwrap.dedent("""\
-        Maximum number of profiling cycle repetitions per epoch (0 for no maximum).  Ignored if `profiler_trace_file` is not specified."""
-                                                      ),
-                                   default=1)
+    prof_schedule: Optional[ProfileScheduleHparams] = hp.optional(doc="Profile scheduler hparams", default=None)
+    prof_trace_handlers: List[TraceHandlerHparams] = hp.optional(doc=textwrap.dedent("""\
+        Trace event handlers. Must be specified to activate the profiler."""),
+                                                                 default_factory=list)
+
     sys_prof_cpu: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record cpu statistics.  Ignored if `profiler_trace_file` is not specified."""),
+        Whether to record cpu statistics.  Ignored if `prof_trace_handlers` is not specified."""),
                                      default=True)
     sys_prof_memory: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record memory statistics.  Ignored if `profiler_trace_file` is not specified."""),
+        Whether to record memory statistics.  Ignored if `prof_trace_handlers` is not specified."""),
                                         default=False)
     sys_prof_disk: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record disk statistics.  Ignored if `profiler_trace_file` is not specified."""),
+        Whether to record disk statistics.  Ignored if `prof_trace_handlers` is not specified."""),
                                       default=False)
     sys_prof_net: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record network statistics.  Ignored if `profiler_trace_file` is not specified."""),
+        Whether to record network statistics.  Ignored if `prof_trace_handlers` is not specified."""),
                                      default=False)
     sys_prof_stats_thread_interval_seconds: float = hp.optional(doc=textwrap.dedent("""\
-        Interval to record stats, in seconds.  Ignored if `profiler_trace_file` is not specified."""),
+        Interval to record stats, in seconds.  Ignored if `prof_trace_handlers` is not specified."""),
                                                                 default=0.5)
-    torch_profiler_trace_dir: Optional[str] = hp.optional(doc=textwrap.dedent("""\
-        Directory to store trace results relative to the run directory.  Must be specified to activate the Torch profiler.
-        Ignored if ``profiler_trace_file`` is not specified."""),
-                                                          default=None)
-    torch_prof_use_gzip: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to use gzip for trace.
-        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
-                                            default=False)
 
-    torch_prof_record_shapes: bool = hp.optional(doc=textwrap.dedent("""\
-        Whether to record tensor shapes.
-        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
-                                                 default=False)
-    torch_prof_profile_memory: bool = hp.optional(doc=textwrap.dedent("""\
-        Track tensor memory allocations and frees.
-        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
-                                                  default=True)
-    torch_prof_with_stack: bool = hp.optional(doc=textwrap.dedent("""\
-        Record stack information.
-        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
-                                              default=False)
-    torch_prof_with_flops: bool = hp.optional(doc=textwrap.dedent("""\
-        Estimate flops for operators.
-        Ignored if ``torch_profiler_trace_dir`` and `profiler_trace_file` are not specified."""),
-                                              default=True)
+    torch_prof_folder: str = hp.optional('Torch profiler folder format', default='{run_name}/torch_traces')
+    torch_prof_filename: str = hp.optional(
+        'Torch profiler filename format',
+        default='rank{rank}.{batch}.pt.trace.json',
+    )
+    torch_prof_artifact_name: str = hp.optional(
+        'Torch profiler artifact name format',
+        default='{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+    )
+    torch_prof_overwrite: bool = hp.optional('Torch profiler overwrite', default=False)
+    torch_prof_use_gzip: bool = hp.optional('Torch profiler use gzip', default=False)
+    torch_prof_record_shapes: bool = hp.optional(
+        "Whether to record tensor shapes. Ignored if `prof_trace_handlers` is not specified.",
+        default=False,
+    )
+    torch_prof_profile_memory: bool = hp.optional(
+        "Track tensor memory allocations and frees. Ignored if `prof_trace_handlers` is not specified.",
+        default=False,
+    )
+    torch_prof_with_stack: bool = hp.optional(
+        "Record stack information. Ignored if `prof_trace_handlers` is not specified.",
+        default=False,
+    )
+    torch_prof_with_flops: bool = hp.optional(
+        "Estimate flops for operators. Ignored if `prof_trace_handlers` is not specified.",
+        default=False,
+    )
+    torch_prof_num_traces_to_keep: int = hp.optional('Torch profiler num traces to keep', default=-1)
 
     def validate(self):
         super().validate()
@@ -441,9 +450,6 @@ class TrainerHparams(hp.Hparams):
 
             if isinstance(self.device, CPUDeviceHparams):
                 raise ValueError("Training on CPUs is not supported with DeepSpeed.")
-
-        elif self.precision == Precision.FP16:
-            raise ValueError("FP16 precision is only supported when training with DeepSpeed.")
 
         world_size = dist.get_world_size()
 
@@ -467,13 +473,21 @@ class TrainerHparams(hp.Hparams):
         if self.scale_schedule_ratio <= 0:
             raise ValueError("scale_schedule_ratio must be a positive value.")
 
+        if (isinstance(self.grad_accum, str) and self.grad_accum != "auto") or (isinstance(self.grad_accum, int) and
+                                                                                self.grad_accum < 1):
+            raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1')
+
     def initialize_object(self) -> Trainer:
         self.validate()
         import composer
-        logging.getLogger(composer.__name__).setLevel(self.log_level)
-
+        logging.getLogger(composer.__name__).setLevel(self.python_log_level)
         # devices and systems
         device = self.device.initialize_object()
+
+        # initialize distributed early so that it's already initialized when dataloders
+        # are created.
+        if dist.get_world_size() > 1:
+            dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
 
         seed = self.seed if self.seed else reproducibility.get_random_seed()
         # need to set seed before model initialization for determinism
@@ -486,8 +500,7 @@ class TrainerHparams(hp.Hparams):
         algorithms = [x.initialize_object() for x in self.algorithms]
 
         # callbacks, loggers, and seed
-        dict_config = self.to_dict()
-        loggers = [x.initialize_object(config=dict_config) for x in self.loggers]
+        loggers = [x.initialize_object() for x in self.loggers]
         callbacks = [x.initialize_object() for x in self.callbacks]
 
         if self.datadir is not None:
@@ -549,8 +562,7 @@ class TrainerHparams(hp.Hparams):
             # training hparams
             grad_accum=self.grad_accum,
             grad_clip_norm=self.grad_clip_norm,
-            validate_every_n_batches=self.validate_every_n_batches,
-            validate_every_n_epochs=self.validate_every_n_epochs,
+            eval_interval=self.eval_interval,
             compute_training_metrics=self.compute_training_metrics,
             precision=self.precision,
             scale_schedule_ratio=self.scale_schedule_ratio,
@@ -564,44 +576,55 @@ class TrainerHparams(hp.Hparams):
             seed=seed,
             deterministic_mode=self.deterministic_mode,
 
-            # Callbacks and logging
-            run_name=self.run_name,
-            loggers=loggers,
+            # Callbacks
             callbacks=callbacks,
 
+            # Logging
+            run_name=self.run_name,
+            loggers=loggers,
+            progress_bar=self.progress_bar,
+            log_to_console=self.log_to_console,
+            console_log_level=self.console_log_level,
+            console_stream=self.console_stream,
+
             # Profiler
-            profiler_trace_file=self.profiler_trace_file,
-            prof_event_handlers=[x.initialize_object() for x in self.prof_event_handlers],
-            prof_skip_first=self.prof_skip_first,
-            prof_wait=self.prof_wait,
-            prof_warmup=self.prof_warmup,
-            prof_active=self.prof_active,
-            prof_repeat=self.prof_repeat,
+            prof_trace_handlers=[x.initialize_object() for x in self.prof_trace_handlers],
+            prof_schedule=None if self.prof_schedule is None else self.prof_schedule.initialize_object(),
+
+            # System profiler
             sys_prof_cpu=self.sys_prof_cpu,
             sys_prof_memory=self.sys_prof_memory,
             sys_prof_disk=self.sys_prof_disk,
             sys_prof_net=self.sys_prof_net,
             sys_prof_stats_thread_interval_seconds=self.sys_prof_stats_thread_interval_seconds,
-            torch_profiler_trace_dir=self.torch_profiler_trace_dir,
+
+            # Torch profiler
+            torch_prof_folder=self.torch_prof_folder,
+            torch_prof_filename=self.torch_prof_filename,
+            torch_prof_artifact_name=self.torch_prof_artifact_name,
+            torch_prof_overwrite=self.torch_prof_overwrite,
             torch_prof_use_gzip=self.torch_prof_use_gzip,
+            torch_prof_num_traces_to_keep=self.torch_prof_num_traces_to_keep,
             torch_prof_record_shapes=self.torch_prof_record_shapes,
             torch_prof_profile_memory=self.torch_prof_profile_memory,
             torch_prof_with_stack=self.torch_prof_with_flops,
             torch_prof_with_flops=self.torch_prof_with_flops,
 
             # Checkpoint parameters
-            load_path_format=self.load_path_format,
-            load_object_store=self.load_object_store.initialize_object()
-            if self.load_object_store is not None else None,
+            load_path=self.load_path,
+            load_object_store=None if self.load_object_store is None else self.load_object_store.initialize_object(),
             load_weights_only=self.load_weights_only,
             load_strict=self.load_strict_model_weights,
             load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
             save_folder=self.save_folder,
             save_overwrite=self.save_overwrite,
-            save_name_format=self.save_name_format,
+            save_filename=self.save_filename,
+            save_latest_filename=self.save_latest_filename,
+            save_artifact_name=self.save_artifact_name,
             save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
+            save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,
 
             # Subset parameters
             train_subset_num_batches=self.train_subset_num_batches,

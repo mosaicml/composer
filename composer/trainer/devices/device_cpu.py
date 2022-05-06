@@ -5,13 +5,11 @@
 from __future__ import annotations
 
 import logging
-from contextlib import contextmanager
-from typing import Any, Dict, Generator, TypeVar, Union
+from typing import Any, Dict, TypeVar
 
 import torch
 
-from composer.core import Precision
-from composer.trainer.devices.device import Device, T_nnModule
+from composer.trainer.devices.device import Device
 
 logger = logging.getLogger(__name__)
 
@@ -27,20 +25,13 @@ class DeviceCPU(Device):
     """
 
     dist_backend = "gloo"
+    _device = torch.device('cpu')
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
-        return module
+        return module.to(self._device)
 
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
-        return tensor
-
-    @contextmanager
-    def precision_context(self, precision: Union[str, Precision]) -> Generator[None, None, None]:
-        precision = Precision(precision)
-        if precision == Precision.FP32:
-            yield
-        else:
-            raise ValueError(f"Precision {precision} not supported for a CPU")
+        return tensor.to(self._device)
 
     def state_dict(self) -> Dict[str, Any]:
         # CPU device has no RNG state

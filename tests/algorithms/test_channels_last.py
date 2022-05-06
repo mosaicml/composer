@@ -53,7 +53,7 @@ def test_channels_last_functional(simple_conv_model: SimpleConvModel):
 
 @pytest.mark.parametrize(
     "device",
-    [pytest.param("cpu"), pytest.param("gpu", marks=[pytest.mark.gpu, pytest.mark.timeout(5)])],
+    [pytest.param("cpu"), pytest.param("gpu", marks=pytest.mark.gpu)],
 )
 def test_channels_last_algorithm(state: State, empty_logger: Logger, device: str):
     channels_last = ChannelsLast()
@@ -68,9 +68,7 @@ def test_channels_last_algorithm(state: State, empty_logger: Logger, device: str
     assert _infer_memory_format(state.model.conv1.weight) == 'nhwc'
 
 
-"""
-Test helper utility _infer_memory_format
-"""
+# Test helper utility _infer_memory_format
 
 
 @pytest.fixture(params=[True, False])

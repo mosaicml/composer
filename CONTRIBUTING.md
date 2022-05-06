@@ -12,42 +12,44 @@ We welcome contributions for bug fixes, new efficient methods you'd like to cont
 
 Have a new algorithm you'd like to contribute to the library as part of your research? We welcome any PRs, and recommend filing an issue with the proposed method or reaching out on Slack first!
 
+## Prerequisites
+
+To set up the development environment in your local box, run the commands below.
+
+1\. Install the dependencies needed for testing and linting the code:
+
+```bash
+pip install -e .[dev]
+```
+
+2\. Configure [pre-commit](https://pre-commit.com/), which automatically formats code before
+each commit:
+
+```bash
+pre-commit install
+```
 
 ## Submitting a contribution
 
 To submit a contribution:
 
-1. Fork a copy of the [Composer](https://github.com/mosaicml/composer) library to your own account.
+1\. Fork a copy of the [Composer](https://github.com/mosaicml/composer) library to your own account.
 
-1. Clone your fork locally and add the mosaicml repo as a remote repository:
+2\. Clone your fork locally and add the mosaicml repo as a remote repository:
+
 ```bash
 git clone git@github.com:<github_id>/composer.git
 cd composer
 git remote add upstream https://github.com/mosaicml/composer.git
 ```
 
-1. Create a branch and make your proposed changes.
+3\. Create a branch and make your proposed changes.
 
 ```bash
 git checkout -b cool-new-feature
 ```
 
-1. To test and format the code, remember to install with the [dev] tag. This will install some needed dependencies for testing.
-
-```bash
-pip install -e .[dev]
-```
-
-We use a few formatters for code style, and you run the following to autocorrect your files:
-```bash
-make style
-```
-
-That will run the [yapf](https://github.com/google/yapf) formatter for general formatting,
-[isort](https://github.com/PyCQA/isort) to sort imports, and
-[docformatter](https://github.com/myint/docformatter) to format docstrings.
-
-1. When you are ready, submit a pull request into the composer repository! If merged, we'll reach out to send you some free swag :)
+4\. When you are ready, submit a pull request into the composer repository! If merged, we'll reach out to send you some free swag :)
 
 ## Running Tests
 
@@ -69,7 +71,8 @@ See the [Makefile](https://github.com/mosaicml/composer/blob/dev/Makefile) for m
 ## Code Style & Typing
 
 Follow Google's
-[Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code. Many of these guidelines are already taken care of by the `make style` command above.
+[Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code.
+Many of these guidelines are already taken care of by the pre commit hooks.
 
 Composer aims to annotate all functions with type annotations (introduced in
 [PEP 526](https://www.python.org/dev/peps/pep-0526/)). Don't worry if you are not a Python typing expert; put in the pull request, and we'll help you with getting the code into shape.

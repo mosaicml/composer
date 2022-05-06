@@ -4,7 +4,7 @@
 
 `Computer Vision`
 
-Label smoothing modifies the target distribution for a task by interpolating between the target distribution and a another distribution that usually has higher entropy (e.g., the uniform distribution). This typically reduces a model’s confidence in its outputs and serves as a form of regularization.
+Label smoothing modifies the target distribution for a task by interpolating between the target distribution and another distribution that usually has higher entropy (e.g., the uniform distribution). This typically reduces a model’s confidence in its outputs and serves as a form of regularization.
 
 <!--| ![LabelSmoothing](label_smoothing.png) |
 |:--:
@@ -16,7 +16,8 @@ Label smoothing modifies the target distribution for a task by interpolating bet
 
 ```python
 # Run the Label Smoothing algorithm directly on the targets using the Composer functional API
-
+import torch
+import torch.nn.functional as F
 import composer.functional as cf
 
 def training_loop(model, train_loader):
@@ -49,10 +50,12 @@ from composer.trainer import Trainer
 
 label_smoothing = LabelSmoothing(smoothing=0.1)
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[label_smoothing])
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration='1ep',
+    algorithms=[label_smoothing]
+)
 
 trainer.fit()
 ```
@@ -64,9 +67,9 @@ trainer.fit()
 
 `smoothed_labels = (targets * (1. - smoothing)) + (smoothing / n_classes)`
 
-The functional form of the algorithm (accessible with the function `smooth_labels` in `composer.functional`), simply computes smoothed labels and returns them.
+The functional form of the algorithm (accessible with the function `smooth_labels` in `composer.functional`) simply computes smoothed labels and returns them.
 
-The class form of the algorithm also takes care of setting the targets back to the original (pre-smoothing) targets after the loss is computed so that any calculations done with the targets after computing the loss (ex. training metrics) will use the original targets and not the smoothed targets.
+The class form of the algorithm also takes care of setting the targets back to the original (pre-smoothing) targets after the loss is computed so that any calculations done with the targets after computing the loss (e.g. training metrics) will use the original targets and not the smoothed targets.
 
 ## Suggested Hyperparameters
 
@@ -88,7 +91,7 @@ Label smoothing replaces the one-hot encoded label with a combination of the tru
 > This method interacts with other methods (such as MixUp) that alter the targets.
 > While such methods may still compose well with label smoothing in terms of improved accuracy, it is important to ensure that the implementations of these methods compose.
 
-Label smoothing is intended to act as regularization, and so possible effects are changes (ideally improvement) in generalization performance. We find this to be the case on all of our image classification benchmarks, which see improved accuracy under label smoothing.
+Label smoothing is intended to act as a regularizer, and a possible effect is a change (ideally improvement) in generalization performance. We find this to be the case on all of our image classification benchmarks, which see improved accuracy under label smoothing.
 
 We did not observe label smoothing to affect throughput in any way, although it may require a small amount of extra memory and compute to convert label indices into dense targets.
 

@@ -4,6 +4,7 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
+import torch
 from torch.cuda import device_count
 
 from composer.callbacks import MemoryMonitorHparams
@@ -20,8 +21,6 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, testing_with_gpu: 
 
     max_epochs = 1
     composer_trainer_hparams.max_duration = f"{max_epochs}ep"
-
-    composer_trainer_hparams.train_batch_size = 50
 
     trainer = composer_trainer_hparams.initialize_object()
 
@@ -46,6 +45,9 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, testing_with_gpu: 
 def test_memory_monitor_cpu(composer_trainer_hparams: TrainerHparams):
     log_destination, _ = _do_trainer_fit(composer_trainer_hparams, testing_with_gpu=False)
 
+    if torch.cuda.device_count() > 0:
+        pytest.skip('Skip CPU memory monitor tests if CUDA is available.')
+
     memory_monitor_called = False
     for log_call in log_destination.log_data.mock_calls:
         metrics = log_call[1][2]
@@ -56,7 +58,6 @@ def test_memory_monitor_cpu(composer_trainer_hparams: TrainerHparams):
     assert not memory_monitor_called
 
 
-@pytest.mark.timeout(60)
 @pytest.mark.gpu
 def test_memory_monitor_gpu(composer_trainer_hparams: TrainerHparams):
     n_cuda_devices = device_count()

@@ -6,27 +6,26 @@ from unittest.mock import Mock
 import torch
 
 from composer.algorithms import LayerFreezing, LayerFreezingHparams
-from composer.core import Event, Precision, State
+from composer.core import Event, Precision, State, Timestamp
 from composer.loggers import Logger
 from tests.common import SimpleConvModel
 
 
 def _generate_state(epoch: int, max_epochs: int):
-    """Generates a state and fast forwards the timer by epochs."""
+    """Generates a state and fast forwards the timestamp by epochs."""
     model = SimpleConvModel()
 
     state = State(model=model,
                   rank_zero_seed=0,
                   optimizers=torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),
                   precision=Precision.FP32,
+                  dataloader=Mock(__len__=lambda x: 100),
+                  dataloader_label="train",
                   grad_accum=1,
-                  train_dataloader=Mock(__len__=lambda x: 100),
-                  evaluators=Mock(),
                   max_duration=f'{max_epochs}ep')
 
     # fast forward by epochs
-    for _ in range(epoch):
-        state.timer.on_epoch_complete()
+    state.timestamp = Timestamp(epoch=epoch)
 
     return state
 

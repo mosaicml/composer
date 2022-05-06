@@ -10,7 +10,7 @@ import torch
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.models.loss import ensure_targets_one_hot
+from composer.loss.utils import ensure_targets_one_hot
 
 __all__ = ["LabelSmoothing", "smooth_labels"]
 
@@ -92,7 +92,7 @@ class LabelSmoothing(Algorithm):
         return event in [Event.BEFORE_LOSS, Event.AFTER_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        input, labels = state.batch_pair
+        input, labels = state.batch
 
         if event == Event.BEFORE_LOSS:
             assert isinstance(state.outputs, torch.Tensor), "Multiple tensors not supported yet"

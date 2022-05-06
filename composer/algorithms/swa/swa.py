@@ -172,10 +172,14 @@ class SWA(Algorithm):
             self.match_event = Event.EPOCH_END
 
     def match(self, event: Event, state: State) -> bool:
+        if event != self.match_event:
+            return False
         if self.swa_start.unit == TimeUnit.DURATION:
-            should_start_swa = state.get_elapsed_duration() >= self.swa_start and not self.swa_completed
+            elapsed_duration = state.get_elapsed_duration()
+            assert elapsed_duration is not None, "elapsed duration should be set on Event.BATCH_END or Event.EPOCH_END"
+            should_start_swa = elapsed_duration >= self.swa_start and not self.swa_completed
         elif self.swa_start.unit == TimeUnit.EPOCH:
-            should_start_swa = state.timer.get("ep") >= self.swa_start and not self.swa_completed
+            should_start_swa = state.timestamp.epoch >= self.swa_start and not self.swa_completed
         else:
             should_start_swa = False
         return event == self.match_event and should_start_swa
@@ -219,16 +223,19 @@ class SWA(Algorithm):
 
         self.step_counter += 1
 
+        elapsed_duration = state.get_elapsed_duration()
+        assert elapsed_duration is not None, "elapsed duration should be set on Event.BATCH_END or Event.EPOCH_END"
+
         # Determine whether it's time to end SWA
-        if self.swa_end.unit == TimeUnit.DURATION and (state.get_elapsed_duration() >= self.swa_end):
+        if self.swa_end.unit == TimeUnit.DURATION and (elapsed_duration >= self.swa_end):
             self.swa_completed = True
-        if self.swa_end.unit == TimeUnit.EPOCH and (state.timer.get("ep") >= self.swa_end):
+        if self.swa_end.unit == TimeUnit.EPOCH and (state.timestamp.epoch >= self.swa_end):
             self.swa_completed = True
         if self.swa_completed:
             if state.get_elapsed_duration() == 1:
-                log.warning("The baseline model was replaced with the SWA model after the end of "
-                            "training. This means that SWA model will not have its batch norm "
-                            "statistics updated. This will negatively impact accuracy. See the "
-                            "documentation for the `swa_end` parameter for details.")
+                log.warning(("The baseline model was replaced with the SWA model after the end of "
+                             "training. This means that SWA model will not have its batch norm "
+                             "statistics updated. This will negatively impact accuracy. See the "
+                             "documentation for the `swa_end` parameter for details."))
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
             log.info('Set model to the averaged model')

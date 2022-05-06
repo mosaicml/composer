@@ -1,12 +1,30 @@
-ARG BASE_IMAGE
+ ARG BASE_IMAGE
 
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE} AS pytorch_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
-# remove a bad symlink from the base composer image
+# Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
 RUN rm -f /usr/local/cuda-11.3/cuda-11.3
+
+# update repository keys
+# https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
+ARG LINUX_DISTRO
+RUN if [ -n "$CUDA_VERSION" ] ; then \
+        rm -f /etc/apt/sources.list.d/cuda.list && \
+        rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
+        apt-get update &&  \
+        apt-get install -y --no-install-recommends wget && \
+        apt-get autoclean && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* \
+        apt-key del 7fa2af80 && \
+        mkdir -p /tmp/cuda-keyring && \
+        wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/${LINUX_DISTRO}/x86_64/cuda-keyring_1.0-1_all.deb && \
+        dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
+        rm -rf /tmp/cuda-keyring ; \
+    fi
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -20,6 +38,7 @@ RUN apt-get update && \
         dirmngr \
         apt-utils \
         gpg-agent \
+        openssh-client \
         # For PILLOW:
         zlib1g-dev \
         libtiff-dev \
@@ -90,7 +109,8 @@ ARG PILLOW_SIMD_VERSION=7.0.0.post3
 COPY pillow_stub /tmp/pillow_stub
 
 RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION}
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
+    rm -rf /tmp/pillow_stub
 
 #################
 # Install Pytorch
@@ -103,11 +123,20 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.py
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
 
-#########
-# Cleanup
-#########
-RUN rm -rf /tmp/*
+###################################
+# Mellanox OFED driver installation
+###################################
 
+ARG MOFED_VERSION
+ARG MOFED_OS_VERSION
+
+RUN if [ -n "$MOFED_VERSION" ] ; then \
+        mkdir -p /tmp/mofed && \
+        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        rm -rf /tmp/mofed ; \
+    fi
 
 #######################
 # Set the shell to bash
@@ -146,6 +175,36 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-WORKDIR /home/mosaicml
+FROM pytorch_stage AS vision_stage
+ARG DEBIAN_FRONTEND=noninteractive
 
-USER mosaicml
+##############################
+# MosaicML Vision Dependencies
+##############################
+
+RUN sudo apt-get update && \
+    sudo apt-get install -y --no-install-recommends \
+    # For FFCV:
+    pkg-config \
+    libturbojpeg-dev \
+    libopencv-dev \
+    # For deeplabv3:
+    ffmpeg \
+    libsm6 \
+    libxext6 && \
+    sudo apt-get autoclean && \
+    sudo apt-get clean && \
+    sudo rm -rf /var/lib/apt/lists/*
+
+ARG CUDA_VERSION_TAG
+ARG MMCV_VERSION
+ARG MMCV_TORCH_VERSION
+ARG PYTHON_VERSION
+
+RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
+    ffcv==0.0.3 \
+    'opencv-python>=4.5.5.64,<4.6' \
+    'numba>=0.55.0,<0.56' \
+    cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`>=10.2.0 && \
+    sudo pip${PYTHON_VERSION} install --no-cache-dir mmcv-full==${MMCV_VERSION} -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
+    sudo pip${PYTHON_VERSION} install --no-cache-dir 'mmsegmentation>=0.22.0,<0.23'

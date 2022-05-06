@@ -4,7 +4,7 @@
 The :class:`.Trainer` supports both PyTorch :mod:`torch.optim.lr_scheduler` schedulers
 as well as our own schedulers, which take advantage of the :class:`.Time` representation.
 
-For pytorch schedulers, we step every epoch by default. To instead step every batch, set
+For PyTorch schedulers, we step every epoch by default. To instead step every batch, set
 ``step_schedulers_every_batch=True``:
 
 .. testcode::
@@ -23,8 +23,10 @@ For pytorch schedulers, we step every epoch by default. To instead step every ba
     If setting ``step_schedulers_every_batch`` to ``True``, remember to specify the
     arguments to your pytorch scheduler in units of batches, not epochs.
 
-Our experiments have shown better accuracy using stepwise schedulers, and so
-is the recommended setting in most cases.
+Our experiments have shown better accuracy using stepwise schedulers, so
+it is the recommended setting in most cases.
+
+.. _Composer Schedulers:
 
 Composer Schedulers
 -------------------
@@ -35,7 +37,7 @@ samples (``"sp"``), tokens (``"tok"``), batches (``"ba"``), epochs (``"ep"``),
 and duration (``"dur"``). See :doc:`Time</trainer/time>`.
 
 For example, the below would step the learning rate at 30%, 50%, and
-90% through training:
+90% of the way through training:
 
 
 .. testcode::
@@ -43,15 +45,16 @@ For example, the below would step the learning rate at 30%, 50%, and
     from composer import Trainer
     from composer.optim.scheduler import MultiStepScheduler
 
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      max_duration='90ep',
-                      schedulers=MultiStepScheduler(
-                          milestones=['0.3dur', '0.5dur', '0.9dur'],
-                          gamma=0.1
-                      ))
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='90ep',
+        schedulers=MultiStepScheduler(
+            milestones=['0.3dur', '0.5dur', '0.9dur'],
+            gamma=0.1
+        ))
 
-These schedulers typically read the ``state.timer`` to determine the trainer's progress
+These schedulers typically read the ``state.timestamp`` to determine the trainer's progress
 and return a learning rate multipler. Inside the Trainer, we convert these to
 :class:`~torch.optim.lr_scheduler.LabmdaLR` schedulers. By default, our schedulers
 are stepped at every batch.
@@ -80,10 +83,12 @@ Below are the supported schedulers found at :mod:`composer.optim.scheduler`.
     an optimizer directly. The trainer will handle binding the optimizer when
     it compiles the scheduler later.
 
+.. _Scale Schedule Ratio:
+
 Scale Schedule Ratio
 --------------------
 
-The Scale Schedule Ratio (SSR) scales the learning rate schedule by a factor, and
+The Scale Schedule Ratio (SSR) scales the learning rate schedule by some factor and
 is a powerful way to tradeoff training time and quality. ``scale_schedule_ratio``
 is an argument to the :class:`.Trainer`.
 
@@ -128,6 +133,6 @@ period is *never* scaled. For example, if we apply
         t_warmup="4ep",
     )
 
-The resulting scheduler would warmup for 4 epochs, and then
+The resulting scheduler would warmup for 4 epochs and then
 have step milestones at 5 epochs and 10 epochs.
 
