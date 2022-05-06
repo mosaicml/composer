@@ -187,8 +187,8 @@ class CutMix(Algorithm):
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox: Tuple[int, int, int, int] = (0, 0, 0, 0)
-        self.permuted_target = torch.Tensor()
-        self.adjusted_lambda = 0.0
+        self._permuted_target = torch.Tensor()
+        self._adjusted_lambda = 0.0
 
     def match(self, event: Event, state: State) -> bool:
         if self.interpolate_loss:
@@ -218,20 +218,20 @@ class CutMix(Algorithm):
 
             # these are saved only for testing
             self._indices = _gen_indices(input)
+
             _cutmix_lambda = _gen_cutmix_coef(alpha)
             self._bbox = _rand_bbox(input.shape[2],
                                     input.shape[3],
                                     _cutmix_lambda,
                                     uniform_sampling=self._uniform_sampling)
-            self._cutmix_lambda = _adjust_lambda(_cutmix_lambda, input, self._bbox)
+            self._adjusted_lambda = _adjust_lambda(_cutmix_lambda, input, self._bbox)
 
-            new_input, self.permuted_target, self.adjusted_lambda, _ = cutmix_batch(
-                input=input,
-                target=target,
-                alpha=self.alpha,
-                bbox=self._bbox,
-                indices=self._indices,
-                uniform_sampling=self._uniform_sampling)
+            new_input, self._permuted_target, _, _ = cutmix_batch(input=input,
+                                                                  target=target,
+                                                                  alpha=self.alpha,
+                                                                  bbox=self._bbox,
+                                                                  indices=self._indices,
+                                                                  uniform_sampling=self._uniform_sampling)
 
             state.batch = (new_input, target)
 
@@ -241,21 +241,21 @@ class CutMix(Algorithm):
                 raise NotImplementedError("Multiple output tensors not supported yet")
             if not isinstance(target, torch.Tensor):
                 raise NotImplementedError("Multiple target tensors not supported yet")
-            if self.permuted_target.ndim > 2 and self.permuted_target.shape[-2:] == input.shape[-2:]:
+            if self._permuted_target.ndim > 2 and self._permuted_target.shape[-2:] == input.shape[-2:]:
                 # Target has the same height and width as the input, no need to interpolate.
                 x1, y1, x2, y2 = self._bbox
-                target[..., x1:x2, y1:y2] = self.permuted_target[..., x1:x2, y1:y2]
+                target[..., x1:x2, y1:y2] = self._permuted_target[..., x1:x2, y1:y2]
             else:
                 # Need to interpolate on dense/one-hot targets.
                 target = ensure_targets_one_hot(state.outputs, target)
-                permuted_target = ensure_targets_one_hot(state.outputs, self.permuted_target)
+                permuted_target = ensure_targets_one_hot(state.outputs, self._permuted_target)
                 # Interpolate to get the new target
-                target = (1 - self.adjusted_lambda) * target + self.adjusted_lambda * permuted_target
+                target = (1 - self._adjusted_lambda) * target + self._adjusted_lambda * permuted_target
             # Create the new batch
             state.batch = (input, target)
 
         if self.interpolate_loss and event == Event.BEFORE_BACKWARD:
-            if self.permuted_target.ndim > 2 and self.permuted_target.shape[-2:] == input.shape[-2:]:
+            if self._permuted_target.ndim > 2 and self._permuted_target.shape[-2:] == input.shape[-2:]:
                 raise ValueError("Can't interpolate loss when target has the same height and width as the input")
 
             # Grab the loss function
@@ -272,12 +272,12 @@ class CutMix(Algorithm):
             if not callable(loss_fn):
                 raise TypeError("Loss must be callable")
             # Interpolate the loss
-            new_loss = loss_fn(state.outputs, (input, self.permuted_target))
+            new_loss = loss_fn(state.outputs, (input, self._permuted_target))
             if not isinstance(state.loss, torch.Tensor):
                 raise NotImplementedError("Multiple losses not supported yet")
             if not isinstance(new_loss, torch.Tensor):
                 raise NotImplementedError("Multiple losses not supported yet")
-            state.loss = (1 - self.adjusted_lambda) * state.loss + self.adjusted_lambda * new_loss
+            state.loss = (1 - self._adjusted_lambda) * state.loss + self._adjusted_lambda * new_loss
 
 
 def _gen_indices(x: Tensor) -> Tensor:

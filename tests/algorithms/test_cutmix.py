@@ -21,7 +21,7 @@ def fake_data(request):
     return x_fake, y_fake, indices
 
 
-def validate_cutmix(x, y, indices, x_cutmix, y_perm, cutmix_lambda, bbox):
+def validate_cutmix(x, y, indices, x_cutmix, y_perm, bbox):
     # Create shuffled version of x, y for reference checking
     x_perm = x[indices]
     y_perm_ref = y[indices]
@@ -41,9 +41,10 @@ def validate_cutmix(x, y, indices, x_cutmix, y_perm, cutmix_lambda, bbox):
 
 @pytest.mark.parametrize('alpha', [0.2, 1])
 @pytest.mark.parametrize('uniform_sampling', [True, False])
+@pytest.mark.parametrize('interpolate_loss', [True, False])
 class TestCutMix:
 
-    def test_cutmix(self, fake_data, alpha, uniform_sampling):
+    def test_cutmix(self, fake_data, alpha, uniform_sampling, interpolate_loss):
         # Generate fake data
         x_fake, y_fake, indices = fake_data
 
@@ -71,19 +72,13 @@ class TestCutMix:
                                               uniform_sampling=uniform_sampling)
 
         # Validate results
-        validate_cutmix(x=x_fake,
-                        y=y_fake,
-                        indices=indices,
-                        x_cutmix=x_cutmix,
-                        y_perm=y_perm,
-                        cutmix_lambda=cutmix_lambda,
-                        bbox=bbox)
+        validate_cutmix(x=x_fake, y=y_fake, indices=indices, x_cutmix=x_cutmix, y_perm=y_perm, bbox=bbox)
 
-    def test_cutmix_algorithm(self, fake_data, alpha, uniform_sampling, minimal_state, empty_logger):
+    def test_cutmix_algorithm(self, fake_data, alpha, uniform_sampling, minimal_state, empty_logger, interpolate_loss):
         # Generate fake data
         x_fake, y_fake, _ = fake_data
 
-        algorithm = CutMix(alpha=alpha, uniform_sampling=uniform_sampling)
+        algorithm = CutMix(alpha=alpha, uniform_sampling=uniform_sampling, interpolate_loss=interpolate_loss)
         state = minimal_state
         state.model = ComposerClassifier(torch.nn.Flatten())
         state.batch = (x_fake, y_fake)
@@ -92,15 +87,9 @@ class TestCutMix:
         algorithm.apply(Event.BEFORE_FORWARD, state, empty_logger)
 
         x, _ = state.batch
-        y_perm = algorithm.permuted_target
+        y_perm = algorithm._permuted_target
         # Validate results
-        validate_cutmix(x=x_fake,
-                        y=y_fake,
-                        indices=algorithm._indices,
-                        x_cutmix=x,
-                        y_perm=y_perm,
-                        cutmix_lambda=algorithm._cutmix_lambda,
-                        bbox=algorithm._bbox)
+        validate_cutmix(x=x_fake, y=y_fake, indices=algorithm._indices, x_cutmix=x, y_perm=y_perm, bbox=algorithm._bbox)
 
 
 def test_cutmix_hparams():
