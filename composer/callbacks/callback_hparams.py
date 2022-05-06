@@ -1,11 +1,11 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Hyperparameters for callbacks."""
 from __future__ import annotations
 
 import abc
 import textwrap
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional
 
 import yahp as hp
@@ -14,6 +14,7 @@ from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.grad_monitor import GradMonitor
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
+from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.core.callback import Callback
 from composer.core.time import Time
@@ -48,7 +49,7 @@ class GradMonitorHparams(CallbackHparams):
     """:class:`~.GradMonitor` hyperparamters.
 
     Args:
-        log_layer_grad_norms (bool, optional): 
+        log_layer_grad_norms (bool, optional):
             See :class:`~.GradMonitor` for documentation.
     """
 
@@ -120,9 +121,64 @@ class SpeedMonitorHparams(CallbackHparams):
 
 
 @dataclass
+class MLPerfCallbackHparams(CallbackHparams):
+    """:class:`~.MLPerfCallback` hyperparameters.
+
+    Args:
+        root_folder (str): The root submission folder
+        index (int): The repetition index of this run. The filename created will be
+            ``result_[index].txt``.
+        benchmark (str, optional): Benchmark name. Currently only ``resnet`` supported.
+        target (float, optional): The target metric before the mllogger marks the stop
+            of the timing run. Default: ``0.759`` (resnet benchmark).
+        division (str, optional): Division of submission. Currently only ``open`` division supported.
+        metric_name (str, optional): name of the metric to compare against the target. Default: ``Accuracy``.
+        metric_label (str, optional): label name. The metric will be accessed via ``state.current_metrics[metric_label][metric_name]``.
+        submitter (str, optional): Submitting organization. Default: MosaicML.
+        system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
+            not provided, system name will default to ``[world_size]x[device_name]_composer``,
+            e.g. ``8xNVIDIA_A100_80GB_composer``.
+        status (str, optional): Submission status. One of (onprem, cloud, or preview).
+            Default: ``"onprem"``.
+        cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
+            will call ``subprocess(cache_clear_cmd)``. Default is disabled (None)
+
+    """
+
+    root_folder: str = hp.required("The root submission folder.")
+    index: int = hp.required("The repetition index of this run.")
+    benchmark: str = hp.optional("Benchmark name. Default: resnet", default="resnet")
+    target: float = hp.optional("The target metric before mllogger marks run_stop. Default: 0.759 (resnet)",
+                                default=0.759)
+    division: Optional[str] = hp.optional(
+        "Division of submission. Currently only open division"
+        "is supported. Default: open", default="open")
+    metric_name: str = hp.optional('name of the metric to compare against the target. Default: Accuracy',
+                                   default='Accuracy')
+    metric_label: str = hp.optional(
+        'label name. The metric will be accessed via state.current_metrics[metric_label][metric_name]. Default: eval',
+        default='eval')
+    submitter: str = hp.optional("Submitting organization. Default: MosaicML", default='MosaicML')
+    system_name: Optional[str] = hp.optional("Name of the system, defaults to [world_size]x[device_name]", default=None)
+    status: str = hp.optional("Submission status. Default: onprem", default="onprem")
+    cache_clear_cmd: Optional[str] = hp.optional(
+        "Command to invoke during the cache clear. This callback will call subprocess(cache_clear_cmd). Default: Disabled.",
+        default=None,
+    )
+
+    def initialize_object(self) -> MLPerfCallback:
+        """Initialize the MLPerf Callback.
+
+        Returns:
+            MLPerfCallback: An instance of :class:`~.MLPerfCallback`
+        """
+        return MLPerfCallback(**asdict(self))
+
+
+@dataclass
 class CheckpointSaverHparams(CallbackHparams):
     """:class:`~.CheckpointSaver` hyperparameters.
-    
+
     Args:
         save_folder (str, optional): See :class:`~.CheckpointSaver`.
         filename (str, optional): See :class:`~.CheckpointSaver`.

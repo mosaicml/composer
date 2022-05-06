@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Log to Weights and Biases (https://wandb.ai/)"""
 
@@ -68,7 +68,7 @@ class WandBLogger(LoggerDestination):
         import wandb
         del log_level  # unused
         if self._enabled:
-            wandb.log(data, step=int(state.timer.batch))
+            wandb.log(data, step=int(state.timestamp.batch))
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb
@@ -112,7 +112,7 @@ class WandBLogger(LoggerDestination):
             import wandb
 
             # Some WandB-specific alias extraction
-            timestamp = state.timer.get_timestamp()
+            timestamp = state.timestamp
             aliases = ["latest", f"ep{int(timestamp.epoch)}-ba{int(timestamp.batch)}"]
 
             # replace all unsupported characters with periods
@@ -152,7 +152,7 @@ class WandBLogger(LoggerDestination):
         import wandb
 
         # Cleaning up on post_close so all artifacts are uploaded
-        if not self._enabled:
+        if not self._enabled or wandb.run is None:
             return
 
         exc_tpe, exc_info, tb = sys.exc_info()

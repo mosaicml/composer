@@ -35,6 +35,7 @@ requirements:
     - apache-libcloud >=3.3.1,<4
     - psutil >=5.8.0,<6
     - coolname >=1.1.0,<2
+    - py-cpuinfo>=8.0.0
   run_constrained:
     - wandb >=0.12.10,<0.13
     - monai >=0.8.0,<0.9
@@ -43,6 +44,7 @@ requirements:
     - transformers >=4.11,<5
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
+    - boto3 >=1.21.45,<2
 
 test:
   requires:
@@ -63,6 +65,7 @@ test:
     - transformers >=4.11,<5
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
+    - boto3 >=1.21.45,<2
   files:
     - "**/composer/**"
     - "**/tests/**"

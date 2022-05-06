@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """BraTS (Brain Tumor Segmentation) dataset.
 
@@ -17,7 +17,6 @@ import torch.utils.data
 import torchvision
 import yahp as hp
 
-from composer.core.types import DataLoader, Dataset
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
@@ -46,7 +45,7 @@ class BratsDatasetHparams(DatasetHparams):
 
     oversampling: float = hp.optional("oversampling", default=0.33)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
 
         oversampling = self.oversampling
 
@@ -208,7 +207,7 @@ class Transpose(object):
         return {'image': img, 'label': lbl}
 
 
-class PytTrain(Dataset):
+class PytTrain(torch.utils.data.Dataset):
 
     def __init__(self, images, labels, oversampling, transform=None):
         self.images, self.labels = images, labels
@@ -238,7 +237,7 @@ class PytTrain(Dataset):
         return data["image"], data["label"]
 
 
-class PytVal(Dataset):
+class PytVal(torch.utils.data.Dataset):
 
     def __init__(self, images, labels):
         self.images, self.labels = images, labels

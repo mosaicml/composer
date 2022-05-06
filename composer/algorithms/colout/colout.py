@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Core ColOut classes and functions."""
 
@@ -10,6 +10,7 @@ import weakref
 from typing import Tuple, TypeVar, Union
 
 import torch
+import torch.utils.data
 from PIL.Image import Image as PillowImage
 from torch import Tensor
 from torchvision.datasets import VisionDataset
@@ -43,7 +44,7 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
             new_X = colout_batch(X_example, p_row=0.15, p_col=0.15)
 
     Args:
-        sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:):
+        sample (:class:`torch.Tensor` | PIL.Image | Tuple[:class:`torch.Tensor`, :class:`torch.Tensor`] | Tuple[PIL.Image, PIL.Image]):
             Either a single tensor or image or a 2-tuple of tensors or images. When tensor(s), the tensor must be of shape
             ``CHW`` for a single image or ``NCHW`` for a batch of images of shape.
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
@@ -136,8 +137,8 @@ class ColOutTransform:
         """Drops random rows and columns from up to two images.
 
         Args:
-            sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]):
-                A single image or a 2-tuple of images as either torch.Tensor or PIL.Image.
+            sample (:class:`torch.Tensor` | PIL.Image | Tuple[:class:`torch.Tensor`, :class:`torch.Tensor`] | Tuple[PIL.Image, PIL.Image]):
+                A single image or a 2-tuple of images as either :class:`torch.Tensor` or PIL.Image.
 
         Returns:
             torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:
@@ -217,11 +218,13 @@ class ColOut(Algorithm):
             if event != Event.FIT_START:
                 return False
             assert state.dataloader is not None, "dataloader should be defined on fit start"
+            if not isinstance(state.dataloader, torch.utils.data.DataLoader):
+                raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
             return state.dataloader.dataset not in self._transformed_datasets
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""
-        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "dataloader type checked on match()"
         dataset = state.dataloader.dataset
 
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
@@ -236,7 +239,7 @@ class ColOut(Algorithm):
 
     def _apply_batch(self, state: State) -> None:
         """Transform a batch of images using the ColOut augmentation."""
-        inputs, target = state.batch_pair
+        inputs, target = state.batch
         assert isinstance(inputs, Tensor) and isinstance(target, Tensor), \
             "Inputs and target must be of type torch.Tensor for batch-wise ColOut"
 

@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Base class for logger callback."""
 
@@ -30,7 +30,7 @@ class LoggerDestination(Callback, ABC):
         >>> from composer.loggers import LoggerDestination
         >>> class MyLogger(LoggerDestination):
         ...     def log_data(self, state, log_level, data):
-        ...         print(f'Batch {int(state.timer.batch)}: {data}')
+        ...         print(f'Batch {int(state.timestamp.batch)}: {data}')
         >>> logger = MyLogger()
         >>> trainer = Trainer(
         ...     ...,
@@ -155,4 +155,4 @@ class LoggerDestination(Callback, ABC):
                 (default: ``True``)
         """
         del artifact_name, destination, chunk_size, progress_bar  # unused
-        pass
+        raise NotImplementedError

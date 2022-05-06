@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Logs metrics to dictionary objects that persist in memory throughout training.
 
@@ -50,7 +50,7 @@ class InMemoryLogger(LoggerDestination):
             trainer.engine.close()
 
     Args:
-        log_level (str or LogLevel, optional):
+        log_level (str | LogLevel, optional):
             :class:`~.logger.LogLevel` (i.e. unit of resolution) at
             which to record. Defaults to
             :attr:`~.LogLevel.BATCH`, which records
@@ -74,7 +74,7 @@ class InMemoryLogger(LoggerDestination):
         if log_level > self.log_level:
             # the logged metric is more verbose than what we want to record.
             return
-        timestamp = state.timer.get_timestamp()
+        timestamp = state.timestamp
         copied_data = copy.deepcopy(data)
         for k, v in copied_data.items():
             if k not in self.data:
@@ -131,8 +131,8 @@ class InMemoryLogger(LoggerDestination):
             timestamp, _, metric_value = datapoint
             timeseries.setdefault(metric, []).append(metric_value)
             # Iterate through time units and add them all!
-            for field in timestamp._fields:
-                time_value = getattr(timestamp, field).value
+            for field, time in timestamp.get_state().items():
+                time_value = time.value
                 timeseries.setdefault(field, []).append(time_value)
         # Convert to numpy arrays
         for k, v in timeseries.items():

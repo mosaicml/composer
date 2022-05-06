@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 from typing import Optional
 
@@ -26,8 +26,9 @@ def test_synthetic_batch_pair_creation(data_type: SyntheticDataType, label_type:
     else:
         num_classes = 10
         label_shape = (1, 10, 12)
-        # run run
-        return
+
+    if data_type == SyntheticDataType.GAUSSIAN and label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
+        pytest.xfail("classification_int is not currently supported with gaussian data")
 
     dataset_size = 1000
     data_shape = (3, 32, 32)
@@ -95,8 +96,9 @@ def test_synthetic_image_data_creation(data_type: SyntheticDataType, label_type:
     else:
         num_classes = 10
         label_shape = (1, 10, 12)
-        # run run
-        return
+
+    if data_type == SyntheticDataType.GAUSSIAN and label_type == SyntheticDataLabelType.CLASSIFICATION_INT:
+        pytest.xfail("classification_int is not currently supported with gaussian data")
 
     dataset_size = 1000
     data_shape = (32, 32)

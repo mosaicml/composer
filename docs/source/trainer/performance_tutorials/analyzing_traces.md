@@ -15,7 +15,7 @@ Details about various events of the trainer loop such as the forward pass, backw
 
 ## DataLoader 
 
-DataLoader profiling measures the time it takes the dataloader to return a batch. For a more detailed description of dataloader profiling, see the {class}`~.DataLoaderProfiler` API reference.  
+DataLoader profiling measures the time it takes the dataloader to return a batch.
 
 The image below shows the time taken by train dataloader (`dataloader/train` event) in loading batch 2 of epoch 0. 
 

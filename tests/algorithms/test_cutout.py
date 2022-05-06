@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import pytest
 import torch
@@ -6,12 +6,6 @@ import torch
 from composer.algorithms import CutOutHparams
 from composer.algorithms.cutout.cutout import _generate_mask
 from composer.core import Event
-
-
-def _is_square(cutout_box: torch.Tensor) -> bool:
-    height, width = cutout_box.size()
-
-    return height == width
 
 
 # Box validaton checks for a continuous rectangle, cannot handle multiple/coalesced boxes along x, y dimensions

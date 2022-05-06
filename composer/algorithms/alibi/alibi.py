@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Core ALiBi classes and functions."""
 
@@ -35,7 +35,7 @@ def apply_alibi(
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
-    according as per :class:`~composer.algorithms.alibi.alibi.Alibi`. Note that the
+    as per :class:`~composer.algorithms.alibi.alibi.Alibi`. Note that the
     majority of the training speed-up from using ALiBi comes from being able to train on
     shorter sequence lengths; this function does not scale the training sequence length as
     :class:`~composer.algorithms.alibi.alibi.Alibi` does, so little speedup will be
@@ -53,14 +53,16 @@ def apply_alibi(
         from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
         from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
-        cf.apply_alibi(model=model,
-                        heads_per_layer=12,
-                        max_sequence_length=8192,
-                        position_embedding_attribute="module.transformer.wpe",
-                        attention_module=GPT2Attention,
-                        attr_to_replace="_attn",
-                        alibi_attention=_attn,
-                        mask_replacement_function=enlarge_mask)
+        cf.apply_alibi(
+            model=model,
+            heads_per_layer=12,
+            max_sequence_length=8192,
+            position_embedding_attribute="module.transformer.wpe",
+            attention_module=GPT2Attention,
+            attr_to_replace="_attn",
+            alibi_attention=_attn,
+            mask_replacement_function=enlarge_mask
+        )
 
     Args:
         model (torch.nn.Module): Model to transform.
@@ -131,10 +133,10 @@ class Alibi(Algorithm):
     extrapolation capability by training with shorter sequence lengths,
     which reduces the memory and computation load.
 
-    This algorithm runs on :attr:`~composer.core.event.Event.INIT` to modify the model,
+    This algorithm runs on :attr:`~composer.core.event.Event.INIT` to modify the model
     before the model has been moved to accelerators. It also runs on
     :attr:`~composer.core.event.Event.AFTER_DATALOADER` to modify the shape of a batch of
-    data, after the model and data have been moved to accelerators.
+    data after the model and data have been moved to accelerators.
 
     See the :doc:`Method Card </method_cards/alibi>` for more details.
 
@@ -145,17 +147,21 @@ class Alibi(Algorithm):
         from composer.algorithms import Alibi
         from composer.trainer import Trainer
 
-        alibi = Alibi(position_embedding_attribute="module.transformer.wpe",
-                      attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention"
-                      attr_to_replace="_attn",
-                      alibi_attention="composer.algorithms._gpt2_alibi._attn",
-                      mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask"
-                      max_sequence_length=8192)
+        alibi = Alibi(
+            position_embedding_attribute="module.transformer.wpe",
+            attention_module_name="transformers.models.gpt2.modeling_gpt2.GPT2Attention"
+            attr_to_replace="_attn",
+            alibi_attention="composer.algorithms._gpt2_alibi._attn",
+            mask_replacement_function="composer.algorithms.alibi.gpt2_alibi.enlarge_mask"
+            max_sequence_length=8192
+        )
 
-        trainer = Trainer(model=model,
-                          train_dataloader=train_dataloader,
-                          max_duration="1ep",
-                          algorithms=[alibi])
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            max_duration="1ep",
+            algorithms=[alibi]
+        )
 
     Args:
         position_embedding_attribute (str): Attribute for position
@@ -172,14 +178,14 @@ class Alibi(Algorithm):
             ALiBi is implemented. Used to replace
             ``{attention_module}.{attr_to_replace}``. Example:
             ``'composer.algorithms.alibi._gpt2_alibi._attn'``.
-        mask_replacement_function (Union[str, None]): Path to function to replace model's
+        mask_replacement_function (str, optional): Path to function to replace model's
             attention mask. This can be necessary if evaluating
             on sequence lengths longer than the model was initialized to
             accommodate. Takes positional arguments ``module`` and
             ``max_sequence_length``. For example,
             ``'composer.algorithms.alibi._gpt2_alibi.enlarge_mask'``. Default = ``None``,
             which means no modification of the model's default attention mask.
-        heads_per_layer (int, optional): Number of attention heads per layer
+        heads_per_layer (int, optional): Number of attention heads per layer.
         max_sequence_length (int): Maximum sequence length that the
             model will be able to accept. This is sometimes necessary for evaluating
             on sequence lengths longer than the model was initialized to

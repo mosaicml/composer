@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 from typing import List
 
@@ -8,10 +8,7 @@ import torch
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import ExponentialLR
 
-from composer.algorithms import ScaleScheduleHparams
-from composer.core import State
-from composer.core.callback import Callback
-from composer.core.time import TimeUnit
+from composer.core import Callback, State, TimeUnit
 from composer.core.types import PyTorchScheduler
 from composer.loggers.logger import Logger
 from composer.optim import MultiStepSchedulerHparams, SGDHparams
@@ -90,7 +87,7 @@ class CheckScaleSchedule(Callback):
         for test_step, target_lr in zip(test_steps, target_lrs):
 
             while current_step < test_step:
-                state.timer.on_batch_complete()
+                state.timestamp = state.timestamp.to_next_batch()
                 current_step += 1
 
             scheduler.step()
@@ -99,17 +96,12 @@ class CheckScaleSchedule(Callback):
 
 
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
-@pytest.mark.parametrize('use_algorithm', [
-    False,
-    pytest.param(True, marks=pytest.mark.filterwarnings(r"ignore:.*ScaleScheduleDeprecationWarning.*")),
-])
 class TestScaleScheduleTrainer():
 
     @pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")
     def test_epochs_scaled(
         self,
         ssr: float,
-        use_algorithm: bool,
         composer_trainer_hparams: TrainerHparams,
     ):
 
@@ -117,10 +109,8 @@ class TestScaleScheduleTrainer():
         composer_trainer_hparams.max_duration = '10ep'
         composer_trainer_hparams.schedulers = [MultiStepSchedulerHparams(milestones=['30ba', '50ba'], gamma=0.1)]
 
-        if use_algorithm:
-            composer_trainer_hparams.algorithms = [ScaleScheduleHparams(ratio=ssr)]
-        else:
-            composer_trainer_hparams.scale_schedule_ratio = ssr
+        composer_trainer_hparams.scale_schedule_ratio = ssr
+        trainer = composer_trainer_hparams.initialize_object()
 
         trainer = composer_trainer_hparams.initialize_object()
         trainer.state.callbacks.append(CheckScaleSchedule(ssr))

@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Natively supported datasets.
 
@@ -20,7 +20,7 @@ from composer.datasets.c4 import C4DatasetHparams
 from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHparams, CIFAR20WebDatasetHparams,
                                      CIFAR100WebDatasetHparams)
 from composer.datasets.coco import COCODatasetHparams
-from composer.datasets.dataloader import DataLoaderHparams, WrappedDataLoader
+from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.datasets.glue import GLUEHparams
@@ -35,8 +35,8 @@ from composer.datasets.synthetic import (MemoryFormat, SyntheticBatchPairDataset
 __all__ = [
     "ADE20kDatasetHparams", "ADE20kWebDatasetHparams", "BratsDatasetHparams", "C4DatasetHparams",
     "CIFAR10DatasetHparams", "CIFAR10WebDatasetHparams", "CIFAR20WebDatasetHparams", "CIFAR100WebDatasetHparams",
-    "COCODatasetHparams", "DataLoaderHparams", "WrappedDataLoader", "get_dataset_registry", "EvaluatorHparams",
-    "GLUEHparams", "DatasetHparams", "SyntheticHparamsMixin", "WebDatasetHparams", "Imagenet1kWebDatasetHparams",
+    "COCODatasetHparams", "DataLoaderHparams", "get_dataset_registry", "EvaluatorHparams", "GLUEHparams",
+    "DatasetHparams", "SyntheticHparamsMixin", "WebDatasetHparams", "Imagenet1kWebDatasetHparams",
     "ImagenetDatasetHparams", "TinyImagenet200WebDatasetHparams", "LMDatasetHparams", "MNISTDatasetHparams",
     "MNISTWebDatasetHparams", "MemoryFormat", "SyntheticBatchPairDataset", "SyntheticDataLabelType",
     "SyntheticDataType", "SyntheticPILDataset"

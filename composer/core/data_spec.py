@@ -1,11 +1,11 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Specifications for operating and training on data."""
 from __future__ import annotations
 
 import collections.abc
 import textwrap
-from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import torch
 import torch.utils.data
@@ -13,7 +13,7 @@ import torch.utils.data
 from composer.utils.iter_helpers import ensure_tuple
 
 if TYPE_CHECKING:
-    from composer.core.types import Batch, DataLoader
+    from composer.core.types import Batch
 
 __all__ = ["DataSpec"]
 
@@ -114,24 +114,24 @@ class DataSpec:
         trainer.engine.close()
 
     Args:
-        dataloader (DataLoader): The dataloader.
+        dataloader (Iterable): The dataloader, which can be any iterable that yields batches.
 
         num_samples (int, optional): The total number of samples in an epoch, across all ranks. This field is used by
-            the :class:`~.time.Timer` (training progress tracker). If not specified, then ``len(dataloader.dataset)`` is
+            the :class:`~.time.Timestamp` (training progress tracker). If not specified, then ``len(dataloader.dataset)`` is
             used (if this property is available). Otherwise, the dataset is assumed to be unsized.
 
         num_tokens (int, optional): The total number of tokens in an epoch. This field is used by the
-            :class:`~.time.Timer` (training progress tracker).
+            :class:`~.time.Timestamp` (training progress tracker).
 
         device_transforms ((Batch) -> Batch, optional): Function called by the :class:`~.trainer.Trainer` to modify the
             batch once it has been moved onto the device. For example, this function can be used for GPU-based
-            normalization.  It can modify the batch in-place, and it should return the modified batch. If not specified, the
-            batch is not modified.
+            normalization.  It can modify the batch in-place, and it should return the modified batch. If not specified,
+            the batch is not modified.
 
         split_batch ((Batch, int) -> Sequence[Batch], optional): Function called by the :class:`~.trainer.Trainer` to
-            split a batch (the first parameter) into the number of microbatches specified (the second parameter).  By
-            default, batches of type :attr:`~.types.BatchPair` can be split automatically. If the ``dataloader`` yields
-            batches of a different type, then this function must be specified.
+            split a batch (the first parameter) into the number of microbatches specified (the second parameter). If the
+            ``dataloader`` yields batches not of type torch.Tensor, Mapping, Tuple, or List, then this function must 
+            be specified.
 
         get_num_samples_in_batch ((Batch) -> int, optional): Function that is called by the :class:`~.trainer.Trainer`
             to get the number of samples in the provided batch.
@@ -149,7 +149,7 @@ class DataSpec:
 
     def __init__(
         self,
-        dataloader: DataLoader,
+        dataloader: Iterable,
         num_samples: Optional[int] = None,
         num_tokens: Optional[int] = None,
         device_transforms: Optional[Callable[[Batch], Batch]] = None,
@@ -167,7 +167,6 @@ class DataSpec:
             self.num_samples = num_samples
 
         else:
-            # FFCV dataloaders don't have an associated dataset
             if isinstance(dataloader, torch.utils.data.DataLoader) and isinstance(dataloader.dataset,
                                                                                   collections.abc.Sized):
                 try:

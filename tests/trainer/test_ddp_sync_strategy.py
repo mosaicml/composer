@@ -1,6 +1,6 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import pytest
 import torch
@@ -8,8 +8,7 @@ import torch.nn as nn
 from torch import Tensor
 
 from composer.core import State
-from composer.core.types import DataLoader
-from composer.trainer.ddp import _ddp_sync_context, _prepare_ddp_module
+from composer.trainer.ddp import ddp_sync_context, prepare_ddp_module
 from composer.utils import dist
 
 
@@ -47,7 +46,7 @@ class MinimalConditionalModel(nn.Module):
 ])
 @pytest.mark.world_size(2)
 def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]],
-                           dummy_train_dataloader: DataLoader, rank_zero_seed: int):
+                           dummy_train_dataloader: Iterable, rank_zero_seed: int):
     original_model = MinimalConditionalModel()
     # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
@@ -63,11 +62,11 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
     )
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
-    state.model = _prepare_ddp_module(state.model, find_unused_parameters=True)
+    state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
     optimizer.zero_grad()
 
     for microbatch_idx in range(2):
-        with _ddp_sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
+        with ddp_sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
             input, target = batches[microbatch_idx][dist.get_local_rank()]
 
             output = state.model.forward(input)

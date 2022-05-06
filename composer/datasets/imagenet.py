@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """ImageNet classfication dataset.
 
@@ -20,7 +20,6 @@ from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
 from composer.core import DataSpec
-from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
@@ -220,7 +219,7 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0.485, 0.456, 0.406))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.229, 0.224, 0.225))
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         from composer.datasets.webdataset_utils import load_webdataset
 
         if self.is_train:
