@@ -120,7 +120,7 @@ void scheduleJobForBuildArgs(jobs, String image, buildArgs) {
     // jobs: The list of jobs. Modified in-place.
     // buildArgs: The build args matrix
 
-    String markers = 'not notebooks and not gpu and not vision and not daily'
+    String markers = 'not notebooks and not daily'
     Boolean isLintImage = false
     Boolean isVisionImage = false
     Boolean isGpu = false
@@ -128,15 +128,13 @@ void scheduleJobForBuildArgs(jobs, String image, buildArgs) {
     buildArgs.each { key, val ->
         if (key == 'CUDA_VERSION') {
             if (val != 'cpu') {
-                markers = 'not notebooks and gpu and not vision and not daily'
                 isGpu = true
             }
         }
         if (key == 'TARGET' && val == 'vision_stage') {
             isVisionImage = true
-            markers = 'not notebooks and vision'
         }
-        if (key == 'TAG') {
+        if (key == 'TAGS') {
             tag = val
             // there could be multiple tags
             isLintImage = isLintImage || tag == lintImage
@@ -145,7 +143,17 @@ void scheduleJobForBuildArgs(jobs, String image, buildArgs) {
     String extraDeps = 'all'
 
     if (isVisionImage) {
-        markers = 'not notebooks and vision and not daily'
+        markers = "$markers and vision"
+    }
+    else {
+        markers = "$markers and not vision"
+    }
+
+    if (isGpu) {
+        markers = "$markers and gpu"
+    }
+    else {
+        markers = "$markers and not gpu"
     }
 
     jobs << [
