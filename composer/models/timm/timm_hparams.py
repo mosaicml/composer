@@ -53,7 +53,9 @@ class TimmHparams(ModelHparams):
             try:
                 import timm
             except ImportError as e:
-                raise MissingConditionalImportError(extra_deps_group="timm", conda_package="timm >=0.5.4") from e
+                raise MissingConditionalImportError(extra_deps_group="timm",
+                                                    conda_package="timm >=0.5.4",
+                                                    conda_channel=None) from e
             raise ValueError(f"model must be one of {timm.models.list_models()}")
 
     def initialize_object(self):
