@@ -18,6 +18,11 @@ log = logging.getLogger(__name__)
 __all__ = ['SWA']
 
 
+def assert_valid_duration(time: Time):
+    if time.unit == TimeUnit.DURATION and (time < 0 or time > 1):
+        raise ValueError(f'time in duration units must be [0, 1], got {time}')
+
+
 class SWA(Algorithm):
     """Apply Stochastic Weight Averaging (`Izmailov et al, 2018 <https://arxiv.org/abs/1803.05407>`_)
 
@@ -124,24 +129,15 @@ class SWA(Algorithm):
             raise ValueError(f'update_iterval must be BATCH or EPOCH, got {self.update_interval.unit}')
 
         # validate time
-        if self.swa_start <= self.swa_end:
+        if self.swa_start >= self.swa_end:
             raise ValueError('swa_end must be > swa_start.')
         if self.swa_end.unit == TimeUnit.DURATION and self.swa_end == 1:
             log.warning("'swa_end' = '1dur'. Batch norm statistics of averaged model "
                         "will not be updated. This will negatively impact accuracy. "
                         "See the documentation for the `swa_end` parameter for details.")
-        # Check time objects have valid values
-        if self.swa_start.unit == TimeUnit.DURATION:
-            if self.swa_start < 0 or self.swa_start >= 1:
-                raise ValueError("If swa_start is specified in units of 'dur', it must "
-                                 "be in the interval [0, 1).")
-        if self.swa_end.unit == TimeUnit.DURATION:
-            if self.swa_end == 1:
 
-            if self.swa_end > 1:
-                raise ValueError("If swa_end is specified in units of 'dur', it must be ≤1.")
-        if self.update_interval < 1:
-            raise ValueError("update_interval must be ≥ 1.")
+        assert_valid_duration(self.swa_start)
+        assert_valid_duration(self.swa_end)
 
         if anneal_steps <= 0:
             raise ValueError("anneal_steps must be greater than 0")
@@ -152,7 +148,7 @@ class SWA(Algorithm):
         elif self.anneal_strategy.lower() in ["cos", "cosine"]:
             self.anneal_strategy = "cos"
         else:
-            raise ValueError("Parameter 'anneal_strategy' must have an argument that is one of {'linear', 'cos'}.")
+            raise ValueError("anneal_strategy must be one of {'linear', 'cos'}.")
 
         self.swa_scheduler = None
         self.swa_model = None
@@ -171,22 +167,19 @@ class SWA(Algorithm):
         if event != self.match_event or self.swa_completed:
             return False
 
-        # determine if the current time is within swa_start and swa_end
-        current_time = state.timestamp.epoch if self.swa_start.unit == TimeUnit.EPOCH else
-        return self._in_swa_interval(state.timestamp if )
+        return self._get_time(state) >= self.swa_start
 
-    def _in_swa_interval(self, elapsed_duration: Time[float]) -> bool:
-        assert elapsed_duration is not None, "Elapsed duration should have been set on BATCH_END or EPOCH_END."
+    def _get_time(self, state: State):
+        unit = self.swa_start.unit
 
-
-        if self.swa_start.unit == TimeUnit.DURATION:
-            elapsed_duration = state.get_elapsed_duration()
-            should_start_swa = elapsed_duration >= self.swa_start and not self.swa_completed
-        elif self.swa_start.unit == TimeUnit.EPOCH:
-            should_start_swa = state.timestamp.epoch >= self.swa_start and not self.swa_completed
+        if unit == TimeUnit.EPOCH:
+            return state.timestamp.epoch
+        elif unit == TimeUnit.DURATION:
+            time_elapsed = state.get_elapsed_duration()
+            assert time_elapsed is not None, "Time should have been set on BATCH_END or EPOCH_END."
+            return time_elapsed
         else:
-            should_start_swa = False
-        return event == self.match_event and should_start_swa
+            raise ValueError('units must be in epoch or duration.')
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         if self.step_counter is None:
@@ -231,10 +224,9 @@ class SWA(Algorithm):
         assert elapsed_duration is not None, "elapsed duration should be set on Event.BATCH_END or Event.EPOCH_END"
 
         # Determine whether it's time to end SWA
-        if self.swa_end.unit == TimeUnit.DURATION and (elapsed_duration >= self.swa_end):
+        if self._get_time(state) >= self.swa_end:
             self.swa_completed = True
-        if self.swa_end.unit == TimeUnit.EPOCH and (state.timestamp.epoch >= self.swa_end):
-            self.swa_completed = True
+
         if self.swa_completed:
             if state.get_elapsed_duration() == 1:
                 log.warning(("The baseline model was replaced with the SWA model after the end of "
