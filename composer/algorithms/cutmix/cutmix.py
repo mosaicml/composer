@@ -250,7 +250,7 @@ class CutMix(Algorithm):
                 target = ensure_targets_one_hot(state.outputs, target)
                 permuted_target = ensure_targets_one_hot(state.outputs, self._permuted_target)
                 # Interpolate to get the new target
-                target = (1 - self._adjusted_lambda) * target + self._adjusted_lambda * permuted_target
+                target = self._adjusted_lambda * target + (1 - self._adjusted_lambda) * permuted_target
             # Create the new batch
             state.batch = (input, target)
 
@@ -277,7 +277,7 @@ class CutMix(Algorithm):
                 raise NotImplementedError("Multiple losses not supported yet")
             if not isinstance(new_loss, torch.Tensor):
                 raise NotImplementedError("Multiple losses not supported yet")
-            state.loss = (1 - self._adjusted_lambda) * state.loss + self._adjusted_lambda * new_loss
+            state.loss = self._adjusted_lambda * state.loss + (1 - self._adjusted_lambda) * new_loss
 
 
 def _gen_indices(x: Tensor) -> Tensor:
