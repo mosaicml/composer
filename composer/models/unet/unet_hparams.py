@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for
 :class:`~composer.models.unet.unet.UNet`."""

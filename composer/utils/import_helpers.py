@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Dynamically import a Python object (e.g. module, class, function, ...)."""
 

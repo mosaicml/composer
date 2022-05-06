@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Specifications for operating and training on data."""
 from __future__ import annotations

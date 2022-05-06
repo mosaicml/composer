@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """The state of the trainer."""
 from __future__ import annotations

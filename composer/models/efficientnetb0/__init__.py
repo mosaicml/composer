@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """The EfficientNet model family is a set of convolutional neural networks that can be used as the basis for a variety
 of vision tasks, but were initially designed for image classification. The model family was designed to reach the
