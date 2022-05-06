@@ -51,7 +51,9 @@ class Timm(ComposerClassifier):
         try:
             import timm
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="timm", conda_package="timm>=0.5.4") from e
+            raise MissingConditionalImportError(extra_deps_group="timm",
+                                                conda_package="timm>=0.5.4",
+                                                conda_channel=None) from e
 
         model = timm.create_model(
             model_name=model_name,

@@ -97,7 +97,7 @@ void runLint(String pDockerImage) {
 
 void runPytest(String pDockerImage, String markers, String extraDeps, Boolean isGpu) {
     // pDockerImage (str): Base docker image to use.
-    // extraDeps (str): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps].
+    // extraDeps (str): The pip extra deps to install -- e.g. "pip install "mosaicml[$extraDeps]".
     // markers (str): Pyetst markers
     // isGpu (Boolean): Whether the test requires gpus
     String nGpus = '0'
