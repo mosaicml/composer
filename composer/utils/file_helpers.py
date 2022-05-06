@@ -326,7 +326,7 @@ def get_file(
             be raised.
     """
     if object_store is not None:
-        if type(object_store) == ObjectStore:
+        if isinstance(object_store, ObjectStore):
             # Type ObjectStore
             try:
                 total_size_in_bytes = object_store.get_object_size(path)
