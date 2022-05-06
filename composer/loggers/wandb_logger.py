@@ -7,7 +7,9 @@ from __future__ import annotations
 import os
 import pathlib
 import re
+import shutil
 import sys
+import tempfile
 import textwrap
 import warnings
 from typing import Any, Dict, Optional
@@ -126,6 +128,26 @@ class WandBLogger(LoggerDestination):
             artifact = wandb.Artifact(name=new_artifact_name, type=extension)
             artifact.add_file(os.path.abspath(file_path))
             wandb.log_artifact(artifact, aliases=aliases)
+
+    def get_file_artifact(
+        self,
+        artifact_name: str,
+        destination: str,
+        chunk_size: int = 2**20,
+        progress_bar: bool = True,
+    ):
+        # Note: Wandb doesn't support progress bars for downloading
+        del chunk_size, progress_bar
+        import wandb
+
+        artifact = wandb.use_artifact(artifact_name)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_folder = os.path.join(tmpdir, "artifact_folder")
+            artifact.download(root=artifact_folder)
+            # We only log one file per artifact
+            checkpoint_name = os.listdir(artifact_folder)[0]
+            checkpoint_path = os.path.join(artifact_folder, checkpoint_name)
+            shutil.move(checkpoint_path, destination)
 
     def post_close(self) -> None:
         import wandb
