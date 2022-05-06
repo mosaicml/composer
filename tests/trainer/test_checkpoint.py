@@ -377,7 +377,7 @@ def test_checkpoint_with_wandb_logger(composer_trainer_hparams: TrainerHparams,)
     Load model from Wandb and ensure it's the same.
     """
     # Train model and log to object store
-    composer_trainer_hparams.loggers = [WandBLoggerHparams(log_artifacts=True, rank_zero_only=False, project="mosaic-ml", name="test", group="group", entity="entity")]
+    composer_trainer_hparams.loggers = [WandBLoggerHparams(log_artifacts=True, rank_zero_only=False, entity="mosaic-ml", project="project", group="group", name="test")]
     composer_trainer_hparams.max_duration = "2ep"
     checkpoint_a_folder = "first"
     composer_trainer_hparams.save_folder = checkpoint_a_folder
@@ -395,7 +395,7 @@ def test_checkpoint_with_wandb_logger(composer_trainer_hparams: TrainerHparams,)
     # Load model weights using wandb logger
     second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
     second_trainer_hparams.load_path = artifact_name
-    second_trainer_hparams.load_logger_destination = WandBLoggerHparams(log_artifacts=True, rank_zero_only=False, project="mosaic-ml", name="test", group="group", entity="entity")
+    second_trainer_hparams.load_logger_destination = WandBLoggerHparams(log_artifacts=True, rank_zero_only=False, entity="mosaic-ml", project="project", group="group", name="test")
     second_trainer_hparams.load_weights_only = True
     second_trainer_hparams.load_strict_model_weights = True
 
