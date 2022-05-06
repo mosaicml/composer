@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """CIFAR image classification dataset.
 
@@ -17,7 +17,6 @@ import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
-from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
@@ -54,7 +53,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     ffcv_write_dataset: bool = hp.optional("Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
                                            default=False)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
 
         if self.use_synthetic:
             total_dataset_size = 50_000 if self.is_train else 10_000
@@ -198,7 +197,7 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0, 0, 0))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0, 0, 0))
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         from composer.datasets.webdataset_utils import load_webdataset
 
         if self.is_train:

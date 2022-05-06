@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Utility and helper functions for datasets."""
 
@@ -70,7 +70,7 @@ class NormalizationFn:
 def pil_image_collate(
         batch: List[Tuple[Image.Image, Union[Image.Image, np.ndarray]]],
         memory_format: torch.memory_format = torch.contiguous_format) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Constructs a :class:`~composer.core.types.BatchPair` from datasets that yield samples of type
+    """Constructs a length 2 tuple of torch.Tensors from datasets that yield samples of type
     :class:`PIL.Image.Image`.
 
     This function can be used as the ``collate_fn`` argument of a :class:`torch.utils.data.DataLoader`.
@@ -83,7 +83,7 @@ def pil_image_collate(
         memory_format (torch.memory_format): The memory format for the input and target tensors.
 
     Returns:
-        (torch.Tensor, torch.Tensor): :class:`~composer.core.types.BatchPair` of (image tensor, target tensor)
+        (torch.Tensor, torch.Tensor): Tuple of (image tensor, target tensor)
             The image tensor will be four-dimensional (NCHW or NHWC, depending on the ``memory_format``).
     """
     imgs = [sample[0] for sample in batch]

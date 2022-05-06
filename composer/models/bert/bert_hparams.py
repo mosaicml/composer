@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ general and classification interfaces for
 :class:`.BERTModel`."""
@@ -64,6 +64,7 @@ class BERTForClassificationHparams(TransformerHparams):
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
+            assert transformers.AutoModelForSequenceClassification.from_pretrained is not None, "from_pretrained should not be None"
             model = transformers.AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name,
                                                                                     **model_hparams)
         else:
@@ -120,6 +121,7 @@ class BERTHparams(TransformerHparams):
 
         if self.use_pretrained:
             # TODO (Moin): handle the warnings on not using the seq_relationship head
+            assert transformers.AutoModelForMaskedLM.from_pretrained is not None, "from_pretrained should not be None"
             model = transformers.AutoModelForMaskedLM.from_pretrained(self.pretrained_model_name)
         else:
             model = transformers.AutoModelForMaskedLM.from_config(config)  #type: ignore (thirdparty)

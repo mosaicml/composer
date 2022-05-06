@@ -65,7 +65,7 @@ event-related hooks. For example, below is a simple callback that runs on
     class EpochMonitor(Callback):
 
         def epoch_start(self, state: State, logger: Logger):
-            print(f'Epoch: {state.timer.epoch}')
+            print(f'Epoch: {state.timestamp.epoch}')
 
 Alternatively, one can override :meth:`.Callback.run_event` to run code
 at every event. The below is an equivalent implementation for ``EpochMonitor``:
@@ -78,7 +78,7 @@ at every event. The below is an equivalent implementation for ``EpochMonitor``:
 
         def run_event(self, event: Event, state: State, logger: Logger):
             if event == Event.EPOCH_START:
-                print(f'Epoch: {state.timer.epoch}')
+                print(f'Epoch: {state.timestamp.epoch}')
 
 .. warning::
 

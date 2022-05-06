@@ -1,7 +1,7 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import contextlib
-from typing import List, Optional, Type, cast
+from typing import Iterable, List, Optional, Type, cast
 
 import pytest
 import torch
@@ -9,7 +9,6 @@ import torch.utils.data
 
 from composer.core import State, Time
 from composer.core.time import TimeUnit
-from composer.core.types import DataLoader
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import (ComposerScheduler, CosineAnnealingScheduler, CosineAnnealingWarmRestartsScheduler,
                                       CosineAnnealingWithWarmupScheduler, ExponentialScheduler, LinearScheduler,
@@ -28,7 +27,7 @@ def dummy_schedulers_state(dummy_model: torch.nn.Module, rank_zero_seed: int):
         rank_zero_seed=rank_zero_seed,
         max_duration=MAX_DURATION,
     )
-    state.set_dataloader(cast(torch.utils.data.DataLoader, [None] * STEPS_PER_EPOCH), "train")
+    state.set_dataloader([None] * STEPS_PER_EPOCH, "train")
     return state
 
 
@@ -96,11 +95,15 @@ def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: Li
         parsed_time = Time.from_timestring(test_time)
         assert parsed_time.unit in [TimeUnit.EPOCH, TimeUnit.BATCH]
         if parsed_time.unit == TimeUnit.EPOCH:
-            state.timer._epoch = parsed_time
-            state.timer._batch = Time(int(state.dataloader_len) * int(state.timer.epoch), TimeUnit.BATCH)
+            state.timestamp = state.timestamp.copy(
+                epoch=parsed_time,
+                batch=Time(int(state.dataloader_len) * int(parsed_time), TimeUnit.BATCH),
+            )
         else:
-            state.timer._batch = parsed_time
-            state.timer._epoch = Time(int(state.timer.batch) // int(state.dataloader_len), TimeUnit.EPOCH)
+            state.timestamp = state.timestamp.copy(
+                batch=parsed_time,
+                epoch=Time(int(parsed_time) // int(state.dataloader_len), TimeUnit.EPOCH),
+            )
 
         lr = scheduler(state, ssr)
         assert lr == pytest.approx(expected_lr, abs=1e-3)
@@ -117,7 +120,7 @@ def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: Li
          ValueError),  # this should error since the ssr != 1.0 and the lambda doesn't support ssr
     ])
 def test_scheduler_trains(scheduler: ComposerScheduler, ssr: float, dummy_model: ComposerModel, rank_zero_seed: int,
-                          dummy_train_dataloader: DataLoader, should_raise: Optional[Type[Exception]]):
+                          dummy_train_dataloader: Iterable, should_raise: Optional[Type[Exception]]):
     with pytest.raises(should_raise) if should_raise is not None else contextlib.nullcontext():
         trainer = Trainer(
             model=dummy_model,

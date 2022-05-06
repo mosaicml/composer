@@ -1,12 +1,11 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
-from typing import Tuple
+from typing import Iterable, Tuple
 from unittest.mock import MagicMock
 
 import pytest
 
 from composer.core import Callback, State
-from composer.core.types import DataLoader
 from composer.loggers import Logger
 from composer.trainer import Trainer
 from tests.common import SimpleModel
@@ -52,22 +51,20 @@ class MetricsCallback(Callback):
 
 
 @pytest.mark.parametrize('compute_training_metrics', [True, False])
-@pytest.mark.parametrize('validate_every_n_batches', [-1, 1])
-@pytest.mark.parametrize('validate_every_n_epochs', [-1, 1])
+@pytest.mark.parametrize('eval_interval', ["1ba", "1ep", "0ep"])
 def test_current_metrics(
-    dummy_train_dataloader: DataLoader,
-    dummy_val_dataloader: DataLoader,
+    dummy_train_dataloader: Iterable,
+    dummy_val_dataloader: Iterable,
     dummy_num_classes: int,
     dummy_in_shape: Tuple[int, ...],
     compute_training_metrics: bool,
-    validate_every_n_batches: int,
-    validate_every_n_epochs: int,
+    eval_interval: str,
 ):
     # Configure the trainer
     num_channels = dummy_in_shape[0]
     mock_logger_destination = MagicMock()
     model = SimpleModel(num_features=num_channels, num_classes=dummy_num_classes)
-    compute_val_metrics = validate_every_n_batches == 1 or validate_every_n_epochs == 1
+    compute_val_metrics = eval_interval != "0ep"
     train_subset_num_batches = 2
     eval_subset_num_batches = 2
     num_epochs = 2
@@ -87,8 +84,7 @@ def test_current_metrics(
         eval_subset_num_batches=eval_subset_num_batches,
         loggers=[mock_logger_destination],
         callbacks=[metrics_callback],
-        validate_every_n_batches=validate_every_n_batches,
-        validate_every_n_epochs=validate_every_n_epochs,
+        eval_interval=eval_interval,
     )
 
     # Train the model
@@ -117,9 +113,9 @@ def test_current_metrics(
     if compute_val_metrics:
         num_calls_per_eval = eval_subset_num_batches + 1
         num_evals = 0
-        if validate_every_n_batches == 1:
+        if eval_interval == "1ba":
             num_evals += train_subset_num_batches * num_epochs
-        if validate_every_n_epochs == 1:
+        if eval_interval == "1ep":
             num_evals += num_epochs
         num_expected_calls += (num_calls_per_eval) * num_evals
     num_actual_calls = 0

@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Core Label Smoothing classes and functions."""
 
@@ -92,7 +92,7 @@ class LabelSmoothing(Algorithm):
         return event in [Event.BEFORE_LOSS, Event.AFTER_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        input, labels = state.batch_pair
+        input, labels = state.batch
 
         if event == Event.BEFORE_LOSS:
             assert isinstance(state.outputs, torch.Tensor), "Multiple tensors not supported yet"

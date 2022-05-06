@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Entrypoint that performs a profiling run on the provided yahp hparams file This example is interchangable with
 run_composer_trainer.py."""
@@ -53,14 +53,14 @@ def main() -> None:
             hparams.train_subset_num_batches = num_profiling_batches
 
         # Disable dataset shuffle, since shuffle is not supported when using subset_num_batches
-        hparams.train_dataset.shuffle = False
+        if hparams.train_dataset is not None:
+            hparams.train_dataset.shuffle = False
 
     # Disable validation
     # First, set the val dataset to the train dataset, to avoid any issues with initialization
     # We never run evaluation so it doesn't matter
     hparams.val_dataset = hparams.train_dataset
-    hparams.validate_every_n_batches = -1
-    hparams.validate_every_n_epochs = -1
+    hparams.eval_interval = "0ep"
 
     # Create the trainer and train
     trainer = hparams.initialize_object()

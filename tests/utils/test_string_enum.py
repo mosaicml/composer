@@ -1,4 +1,7 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
+
+# disabling unused class checks in this test, as string enum checks happen during class construction
+# pyright: reportUnusedClass=none
 
 import pytest
 

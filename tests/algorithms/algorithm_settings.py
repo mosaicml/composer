@@ -33,6 +33,7 @@ simple_resnet_settings = {
 }
 
 _settings = {
+    'agc': simple_vision_settings,
     'alibi': None,  # NLP settings needed
     'augmix': None,  # requires PIL dataset to test
     'blurpool': {
@@ -52,6 +53,7 @@ _settings = {
         }
     },
     'cutout': simple_vision_settings,
+    'ema': simple_vision_settings,
     'factorize': None,
     'ghost_batchnorm': {
         'model': (ComposerResNet, {

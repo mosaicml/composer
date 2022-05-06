@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """GLUE (General Language Understanding Evaluation) dataset (Wang et al, 2019).
 

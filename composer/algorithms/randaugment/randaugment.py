@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Core RandAugment code."""
 
@@ -9,6 +9,7 @@ from typing import List, TypeVar
 
 import numpy as np
 import torch
+import torch.utils.data
 from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
 
@@ -51,7 +52,7 @@ def randaugment_image(img: ImgT,
             )
 
     Args:
-        img (PIL.Image.Image or torch.Tensor): Image or batch of images to be RandAugmented.
+        img (PIL.Image.Image | torch.Tensor): Image or batch of images to be RandAugmented.
         severity (int, optional): See :class:`.RandAugment`.
         depth (int, optional): See :class:`.RandAugment`.
         augmentation_set (str, optional): See
@@ -191,11 +192,13 @@ class RandAugment(Algorithm):
         if event != Event.FIT_START:
             return False
         assert state.dataloader is not None, "dataloader should be defined on fit start"
+        if not isinstance(state.dataloader, torch.utils.data.DataLoader):
+            raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
         return state.dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
-        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "The dataloader type is checked on match()"
         dataset = state.dataloader.dataset
         if not isinstance(dataset, VisionDataset):
             raise TypeError(

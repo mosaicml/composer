@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Profiler to collect :mod:`torch` performance metrics during training."""
 
@@ -180,7 +180,7 @@ class TorchProfiler(Callback):
         dist.barrier()
 
         def scheduler_fn(torch_profiler_step: int) -> TorchProfilerAction:
-            del torch_profiler_step  # the torch profiler step is unused. Using the composer timer instead.
+            del torch_profiler_step  # the torch profiler step is unused. Using the composer timestamp instead.
 
             assert state.profiler is not None
             composer_profiler_action = state.profiler.schedule(state)
@@ -197,7 +197,7 @@ class TorchProfiler(Callback):
 
             assert state.profiler is not None
 
-            timestamp = state.timer.get_timestamp()
+            timestamp = state.timestamp
 
             trace_file_name = os.path.join(
                 folder_name,
@@ -253,3 +253,4 @@ class TorchProfiler(Callback):
         del state, logger  # unused
         if self.profiler is not None:
             self.profiler.__exit__(None, None, None)
+            self.profiler = None
