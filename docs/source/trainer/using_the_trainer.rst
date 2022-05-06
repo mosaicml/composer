@@ -485,7 +485,9 @@ large for the hardware, Composer catches this exception and continues training a
 ``grad_accum``. As a secondary benefit, automatic gradient accumulation is able to dynamically
 adjust throughout the training process. For example, when using ``ProgressiveResizing``, input
 size increases throughout training. Composer automatically increases ``grad_accum`` only when
-required, allowing for faster training at the start until image sizes are scaled up.
+required, such as when a Cuda OOM is encountered due to larger images, allowing for faster 
+training at the start until image sizes are scaled up. Note that this feature is experimental
+and may not work with all algorithms.
 
 Reproducibility
 ~~~~~~~~~~~~~~~
