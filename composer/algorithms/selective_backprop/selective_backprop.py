@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Core SelectiveBackprop class and functions."""
 
@@ -229,7 +229,7 @@ class SelectiveBackprop(Algorithm):
 
         is_chosen = should_selective_backprop(
             current_duration=float(elapsed_duration),
-            batch_idx=state.timer.batch_in_epoch.value,
+            batch_idx=int(state.timestamp.batch_in_epoch),
             start=self.start,
             end=self.end,
             interrupt=self.interrupt,
@@ -243,7 +243,7 @@ class SelectiveBackprop(Algorithm):
                     raise RuntimeError("Model must be of type ComposerModel")
                 self._loss_fn = state.model.loss
             return
-        input, target = state.batch_pair
+        input, target = state.batch
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 

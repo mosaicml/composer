@@ -5,21 +5,32 @@
 Composer generally follows Google's
 [Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code.
 
-### 2.2. Code Formatting
+### 2.2. Pre-Commit Hooks
 
-Composer uses the [yapf](https://github.com/google/yapf) formatter for general formatting,
-[isort](https://github.com/PyCQA/isort) to sort imports, and
-[docformatter](https://github.com/myint/docformatter) to format docstrings.
-
-To (auto)format code, run
-
-```bash
-make style
+Composer uses [Pre Commit](https://pre-commit.com/) to enforce style checks. To configure, run
+```
+pip install .[dev]  # if not already installed
+pre-commit install
 ```
 
-To verify that styling and typing (see below) is correct, run:
-```bash
-make lint
+The pre-commit hooks will now be run before each commit. You can also run the hooks manually via:
+
+```
+pre-commit run  # run all hooks on changed files
+pre-commit run --all-files  # or, run all hooks on all files
+```
+
+
+
+### 2.3. Code Formatting
+
+Composer uses the [yapf](https://github.com/google/yapf) formatter for general formatting
+[isort](https://github.com/PyCQA/isort) to sort imports. These checks run through pre-commit
+(see section 2.2). These checks can also be run manually via:
+
+```
+pre-commit run yahp --all-files  # for yahp
+pre-commit run isort --all-files  # for isort
 ```
 
 The configuration is stored in [pyproject.toml](pyproject.toml).
@@ -32,10 +43,11 @@ Composer aims to annotate all functions with type annotations (introduced in
 `AttributeError` bugs, in addition to other benefits, as outlined in the PEP.
 
 Composer uses [pyright](https://github.com/microsoft/pyright)
-to validate type annotations. To check typing, run:
+to validate type annotations. PyRight is automatically run as part of the pre-commit hooks, but you can also
+run PyRight specifically via:
 
-```bash
-make lint
+```
+pre-commit run pyright --all-files
 ```
 
 The pyright configuration is stored in [pyproject.toml](pyproject.toml).

@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Efficiency methods for training.
 
@@ -36,6 +36,7 @@ For example, a simple algorithm that shortens training:
 
 For more information about events, see :class:`~composer.core.event.Event`.
 """
+from composer.algorithms.agc import AGC
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.algorithm_registry import get_algorithm_registry, list_algorithms
 from composer.algorithms.alibi import Alibi
@@ -45,15 +46,15 @@ from composer.algorithms.channels_last import ChannelsLast
 from composer.algorithms.colout import ColOut, ColOutTransform
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
+from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
-from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                         ColOutHparams, CutMixHparams, CutOutHparams, FactorizeHparams,
+from composer.algorithms.hparams import (AGCHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
+                                         ColOutHparams, CutMixHparams, CutOutHparams, EMAHparams, FactorizeHparams,
                                          GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
                                          MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
-                                         SAMHparams, ScaleScheduleHparams, SelectiveBackpropHparams,
-                                         SeqLengthWarmupHparams, SqueezeExciteHparams, StochasticDepthHparams,
-                                         SWAHparams)
+                                         SAMHparams, SelectiveBackpropHparams, SeqLengthWarmupHparams,
+                                         SqueezeExciteHparams, StochasticDepthHparams, SWAHparams)
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
@@ -61,7 +62,6 @@ from composer.algorithms.no_op_model import NoOpModel
 from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment, RandAugmentTransform
 from composer.algorithms.sam import SAM
-from composer.algorithms.scale_schedule import ScaleSchedule
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite, SqueezeExcite2d, SqueezeExciteConv2d
@@ -76,6 +76,7 @@ __all__ = [
     "load_multiple",
     "get_algorithm_registry",
     "list_algorithms",
+    "AGC",
     "Alibi",
     "AugmentAndMixTransform",
     "AugMix",
@@ -85,6 +86,7 @@ __all__ = [
     "ColOutTransform",
     "CutMix",
     "CutOut",
+    "EMA",
     "Factorize",
     "GhostBatchNorm",
     "LabelSmoothing",
@@ -95,7 +97,6 @@ __all__ = [
     "RandAugment",
     "RandAugmentTransform",
     "SAM",
-    "ScaleSchedule",
     "SelectiveBackprop",
     "SeqLengthWarmup",
     "SqueezeExcite",
@@ -105,6 +106,7 @@ __all__ = [
     "SWA",
 
     # hparams objects
+    "AGCHparams",
     "AlgorithmHparams",
     "AlibiHparams",
     "AugMixHparams",
@@ -113,6 +115,7 @@ __all__ = [
     "ColOutHparams",
     "CutMixHparams",
     "CutOutHparams",
+    "EMAHparams",
     "FactorizeHparams",
     "GhostBatchNormHparams",
     "LabelSmoothingHparams",
@@ -122,7 +125,6 @@ __all__ = [
     "ProgressiveResizingHparams",
     "RandAugmentHparams",
     "SAMHparams",
-    "ScaleScheduleHparams",
     "SelectiveBackpropHparams",
     "SeqLengthWarmupHparams",
     "SqueezeExciteHparams",

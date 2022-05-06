@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """A U-Net model extending :class:`.ComposerModel`."""
 
@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 from torchmetrics import Metric, MetricCollection
 
-from composer.core.types import BatchPair
 from composer.metrics.metrics import Dice
 from composer.models.base import ComposerModel
 from composer.models.unet.model import UNet as UNetModel
@@ -47,7 +46,7 @@ class UNet(ComposerModel):
         self.dloss = DiceLoss(include_background=False, softmax=True, to_onehot_y=True, batch=True)
         self.closs = nn.CrossEntropyLoss()
 
-    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
+    def loss(self, outputs: Any, batch: Any, *args, **kwargs) -> Union[torch.Tensor, Sequence[torch.Tensor]]:
         _, y = batch
         y = y.squeeze(1)  # type: ignore
         loss = self.dloss(outputs, y)
@@ -61,7 +60,7 @@ class UNet(ComposerModel):
     def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.dice
 
-    def forward(self, batch: BatchPair) -> torch.Tensor:
+    def forward(self, batch: Any) -> torch.Tensor:
         x, _ = batch
         x = x.squeeze(1)  # type: ignore
         logits = self.module(x)
@@ -86,7 +85,7 @@ class UNet(ComposerModel):
             preds = preds[batch_pad:]  # type: ignore
         return torch.transpose(preds, 0, 1).unsqueeze(0)
 
-    def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
+    def validate(self, batch: Any) -> Tuple[Any, Any]:
         assert self.training is False, "For validation, model must be in eval mode"
         image, target = batch
         pred = self.inference2d(image)

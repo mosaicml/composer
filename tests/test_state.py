@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import pathlib
 import random
@@ -43,7 +43,7 @@ def train_one_step(state: State, batch: Batch) -> None:
     for optimizer in state.optimizers:
         optimizer.zero_grad()
 
-    state.outputs = state.model(state.batch_pair)
+    state.outputs = state.model(state.batch)
     assert isinstance(y, Tensor)
 
     state.loss = F.cross_entropy(state.outputs, y)
@@ -52,7 +52,7 @@ def train_one_step(state: State, batch: Batch) -> None:
         optimizer.step()
     for scheduler in state.schedulers:
         scheduler.step()
-    state.timer.on_batch_complete(len(batch))
+    state.timestamp = state.timestamp.to_next_batch(len(batch))
 
 
 def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHparams) -> Batch:

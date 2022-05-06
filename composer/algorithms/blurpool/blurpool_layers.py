@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 # type: ignore
 from typing import Optional
@@ -33,10 +33,10 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
     """Apply a spatial low-pass filter.
 
     Args:
-        input (torch.Tensor): a 4d tensor of shape NCHW
-        stride (int or tuple, optional): stride(s) along H and W axes. If a single value is passed, this
+        input (:class:`torch.Tensor`): a 4d tensor of shape NCHW
+        stride (int | tuple, optional): stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
-        filter (torch.Tensor, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
+        filter (:class:`torch.Tensor`, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
             is required to be ``(C, 1, kH, kW)`` where ``C`` is the number of
             channels in the input tensor and ``kH`` and ``kW`` are the spatial
@@ -98,20 +98,20 @@ def blurmax_pool2d(input: torch.Tensor,
     See also: :func:`~blur_2d`.
 
     Args:
-        input (torch.Tensor): a 4d tensor of shape NCHW
-        kernel_size (int or tuple, optional): size(s) of the spatial neighborhoods over which to pool.
+        input (:class:`torch.Tensor`): a 4d tensor of shape NCHW
+        kernel_size (int | tuple, optional): size(s) of the spatial neighborhoods over which to pool.
             This is mostly commonly 2x2. If only a scalar ``s`` is provided, the
-            neighborhood is of size ``(s, s)``.
-        stride (int or tuple, optional): stride(s) along H and W axes. If a single value is passed, this
-            value is used for both dimensions.
-        padding (int or tuple, optional): implicit zero-padding to use. For the default 3x3 low-pass
+            neighborhood is of size ``(s, s)``. Default: ``(2, 2)``.
+        stride (int | tuple, optional): stride(s) along H and W axes. If a single value is passed, this
+            value is used for both dimensions. Default: 2.
+        padding (int | tuple, optional): implicit zero-padding to use. For the default 3x3 low-pass
             filter, ``padding=1`` (the default) returns output of the same size
-            as the input.
-        dilation (int or tuple, optional): amount by which to "stretch" the pooling region for a given
+            as the input. Default: 0.
+        dilation (int | tuple, optional): amount by which to "stretch" the pooling region for a given
             total size. See :class:`~torch.nn.MaxPool2d`
-            for our favorite explanation of how this works.
-        ceil_mode (bool): when True, will use ceil instead of floor to compute the output shape
-        filter (torch.Tensor, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
+            for our favorite explanation of how this works. Default: 1.
+        ceil_mode (bool): when True, will use ceil instead of floor to compute the output shape. Default: ``False``.
+        filter (:class:`torch.Tensor`, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
             is required to be ``(C, 1, kH, kW)`` where ``C`` is the number of
             channels in the input tensor and ``kH`` and ``kW`` are the spatial
@@ -200,7 +200,7 @@ class BlurConv2d(nn.Module):
     applied.
 
     The one new parameter is ``blur_first``. When set to ``True``, the
-    anti-aliasing filter is applied before the underlying convolution, and
+    anti-aliasing filter is applied before the underlying convolution and
     vice-versa when set to ``False``. This mostly makes a difference when the
     stride is greater than one. In the former case, the only overhead is the
     cost of doing the anti-aliasing operation. In the latter case, the ``Conv2d``

@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 # [imports-start]
 import torch
@@ -44,8 +44,7 @@ trainer = Trainer(
     eval_dataloader=train_dataloader,
     max_duration=2,
     device="gpu" if torch.cuda.is_available() else "cpu",
-    validate_every_n_batches=-1,
-    validate_every_n_epochs=-1,
+    eval_interval=0,
     precision="amp" if torch.cuda.is_available() else "fp32",
     train_subset_num_batches=16,
     prof_trace_handlers=JSONTraceHandler(folder=composer_trace_dir, overwrite=True),

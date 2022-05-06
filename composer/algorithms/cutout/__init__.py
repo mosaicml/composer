@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """`Cutout <https://arxiv.org/abs/1708.04552>`_ is a data augmentation technique that works by masking out one or more
 square regions of an input image.

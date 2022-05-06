@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Core CutOut classes and functions."""
 
@@ -27,7 +27,7 @@ def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_s
     """See :class:`CutOut`.
 
     Args:
-        input (PIL.Image.Image or torch.Tensor): Image or batch of images. If
+        input (PIL.Image.Image | torch.Tensor): Image or batch of images. If
             a :class:`torch.Tensor`, must be a single image of shape ``(C, H, W)``
             or a batch of images of shape ``(N, C, H, W)``.
         num_holes: Integer number of holes to cut out. Default: ``1``.
@@ -115,7 +115,7 @@ class CutOut(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Apply cutout on input images."""
-        x, y = state.batch_pair
+        x, y = state.batch
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 
         new_x = cutout_batch(x, num_holes=self.num_holes, length=self.length, uniform_sampling=self.uniform_sampling)

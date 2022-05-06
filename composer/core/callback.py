@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Base module for callbacks."""
 from __future__ import annotations
@@ -34,7 +34,7 @@ class Callback(Serializable, abc.ABC):
 
             >>> class MyCallback(Callback):
             ...     def epoch_start(self, state: State, logger: Logger):
-            ...         print(f'Epoch: {int(state.timer.epoch)}')
+            ...         print(f'Epoch: {int(state.timestamp.epoch)}')
             >>> # construct trainer object with your callback
             >>> trainer = Trainer(
             ...     model=model,
@@ -67,7 +67,7 @@ class Callback(Serializable, abc.ABC):
             >>> class MyCallback(Callback):
             ...     def run_event(self, event: Event, state: State, logger: Logger):
             ...         if event == Event.EPOCH_START:
-            ...             print(f'Epoch: {int(state.timer.epoch)}')
+            ...             print(f'Epoch: {int(state.timestamp.epoch)}')
             >>> # construct trainer object with your callback
             >>> trainer = Trainer(
             ...     model=model,
@@ -233,22 +233,22 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-           The following :class:`~.time.Timer` member variables are incremented immediately before the
+           The following :attr:`~.State.timestamp` member variables are incremented immediately before the
            :attr:`~.Event.BATCH_END` event.
 
-           +-----------------------------------+
-           | :attr:`.Timer.batch`              |
-           +-----------------------------------+
-           | :attr:`.Timer.batch_in_epoch`     |
-           +-----------------------------------+
-           | :attr:`.Timer.sample`             |
-           +-----------------------------------+
-           | :attr:`.Timer.sample_in_epoch`    |
-           +-----------------------------------+
-           | :attr:`.Timer.token`              |
-           +-----------------------------------+
-           | :attr:`.Timer.token_in_epoch`     |
-           +-----------------------------------+
+           +------------------------------------+
+           | :attr:`.Timestamp.batch`           |
+           +------------------------------------+
+           | :attr:`.Timestamp.batch_in_epoch`  |
+           +------------------------------------+
+           | :attr:`.Timestamp.sample`          |
+           +------------------------------------+
+           | :attr:`.Timestamp.sample_in_epoch` |
+           +------------------------------------+
+           | :attr:`.Timestamp.token`           |
+           +------------------------------------+
+           | :attr:`.Timestamp.token_in_epoch`  |
+           +------------------------------------+
 
         Args:
             state (State): The global state.
@@ -272,7 +272,7 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-            :class:`~.time.Timer` member variable :attr:`.Timer.epoch` is incremented immediately before
+            :attr:`~.State.timestamp` member variable :attr:`.Timestamp.epoch` is incremented immediately before
             :attr:`~.Event.EPOCH_END`.
 
         Args:
@@ -284,6 +284,66 @@ class Callback(Serializable, abc.ABC):
 
     def epoch_checkpoint(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~.Event.EPOCH_CHECKPOINT` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_START` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_batch_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_BATCH_START` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_before_forward(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_BATCH_FORWARD` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_after_forward(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_AFTER_FORWARD` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_batch_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_BATCH_END` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_END` event.
 
         Args:
             state (State): The global state.
@@ -344,6 +404,16 @@ class Callback(Serializable, abc.ABC):
 
     def eval_end(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~.Event.EVAL_END` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def fit_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.FIT_END` event.
 
         Args:
             state (State): The global state.

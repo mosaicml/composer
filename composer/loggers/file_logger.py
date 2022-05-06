@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Logs to a file."""
 
@@ -140,21 +140,24 @@ class FileLogger(LoggerDestination):
         self.file: Optional[TextIO] = None
         self.overwrite = overwrite,
         self._queue: queue.Queue[str] = queue.Queue()
-        self._original_stdout_write = sys.stdout.write
-        self._original_stderr_write = sys.stderr.write
         self._run_name = None
+        # Track whether the next line is on a newline
+        # (and if so, then the prefix should be appended)
+        self._is_newline = True
+        self._closed = False
 
         if capture_stdout:
-            sys.stdout.write = self._get_new_writer("[stdout]: ", self._original_stdout_write)
+            sys.stdout.write = self._get_new_writer("[stdout]: ", sys.stdout.write)
 
         if capture_stderr:
-            sys.stderr.write = self._get_new_writer("[stderr]: ", self._original_stderr_write)
+            sys.stderr.write = self._get_new_writer("[stderr]: ", sys.stderr.write)
 
     def _get_new_writer(self, prefix: str, original_writer: Callable[[str], int]):
         """Returns a writer that intercepts calls to the ``original_writer``."""
 
         def new_write(s: str) -> int:
-            self.write(prefix, s)
+            if not self._closed:
+                self.write(prefix, s)
             return original_writer(s)
 
         return new_write
@@ -180,10 +183,10 @@ class FileLogger(LoggerDestination):
         return name
 
     def batch_start(self, state: State, logger: Logger) -> None:
-        self.is_batch_interval = (int(state.timer.batch) + 1) % self.log_interval == 0
+        self.is_batch_interval = (int(state.timestamp.batch) + 1) % self.log_interval == 0
 
     def epoch_start(self, state: State, logger: Logger) -> None:
-        self.is_epoch_interval = (int(state.timer.epoch) + 1) % self.log_interval == 0
+        self.is_epoch_interval = (int(state.timestamp.epoch) + 1) % self.log_interval == 0
         # Flush any log calls that occurred during INIT or FIT_START
         self._flush_file(logger)
 
@@ -209,12 +212,13 @@ class FileLogger(LoggerDestination):
             return
         data_str = format_log_data_value(data)
         self.write(
-            f'[{log_level.name}][batch={int(state.timer.batch)}]: ',
+            f'[{log_level.name}][batch={int(state.timestamp.batch)}]: ',
             data_str + "\n",
         )
 
     def init(self, state: State, logger: Logger) -> None:
         del state  # unused
+        self._is_newline = True
         self._run_name = logger.run_name
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
@@ -227,7 +231,7 @@ class FileLogger(LoggerDestination):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         assert self.file is not None
-        if self.log_level == LogLevel.BATCH and int(state.timer.batch) % self.flush_interval == 0:
+        if self.log_level == LogLevel.BATCH and int(state.timestamp.batch) % self.flush_interval == 0:
             self._flush_file(logger)
 
     def eval_start(self, state: State, logger: Logger) -> None:
@@ -236,7 +240,7 @@ class FileLogger(LoggerDestination):
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and int(
-                state.timer.epoch) % self.flush_interval == 0:
+                state.timestamp.epoch) % self.flush_interval == 0:
             self._flush_file(logger)
 
     def write(self, prefix: str, s: str):
@@ -253,11 +257,21 @@ class FileLogger(LoggerDestination):
         """
         formatted_lines = []
         for line in s.splitlines(True):
-            if line == os.linesep:
-                # If it's an empty line, don't print the prefix
-                formatted_lines.append(line)
+            if self._is_newline:
+                # Only print the prefix if it is a newline
+                # and the line is not empty
+                if line == os.linesep:
+                    formatted_lines.append(line)
+                else:
+                    formatted_lines.append(f"{prefix}{line}")
+                self._is_newline = False
             else:
-                formatted_lines.append(f"{prefix}{line}")
+                # Otherwise, append the line without the prefix
+                formatted_lines.append(line)
+            if line.endswith(os.linesep):
+                # if the line ends with newline, record that the next
+                # line should start with the prefix
+                self._is_newline = True
         formatted_s = ''.join(formatted_lines)
         if self.file is None:
             self._queue.put_nowait(formatted_s)
@@ -284,11 +298,15 @@ class FileLogger(LoggerDestination):
         os.fsync(self.file.fileno())
         logger.file_artifact(LogLevel.FIT, self.artifact_name, self.file.name, overwrite=True)
 
+    def fit_end(self, state: State, logger: Logger) -> None:
+        # Flush the file on fit_end, in case if was not flushed on epoch_end and the trainer is re-used
+        # (which would defer when `self.close()` would be invoked)
+        self._flush_file(logger)
+
     def close(self, state: State, logger: Logger) -> None:
         del state  # unused
+        self._closed = True  # Stop intercepting calls to stdout/stderr
         if self.file is not None:
-            sys.stdout.write = self._original_stdout_write
-            sys.stderr.write = self._original_stderr_write
             self._flush_file(logger)
             self.file.close()
             self.file = None

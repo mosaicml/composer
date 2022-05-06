@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import pytest
 import torch
@@ -164,7 +164,7 @@ class TestProgressiveResizingAlgorithm:
         """Test apply at different epoch fractions (fraction of max epochs)"""
         assert minimal_state.max_duration is not None
         assert minimal_state.max_duration.unit == TimeUnit.EPOCH
-        minimal_state.timer.epoch._value = int(epoch_frac * minimal_state.max_duration.value)
+        minimal_state.timestamp.epoch._value = int(epoch_frac * minimal_state.max_duration.value)
         s = pr_algorithm.initial_scale
         f = pr_algorithm.finetune_fraction
         d = pr_algorithm.delay_fraction

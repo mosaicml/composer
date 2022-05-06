@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Callback to save checkpoints during training."""
 
@@ -53,7 +53,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         raise NotImplementedError(
             f"Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.")
 
-    last_checkpoint_batch = None
+    last_checkpoint_batch: Optional[Time] = None
 
     def save_interval(state: State, event: Event):
         nonlocal last_checkpoint_batch
@@ -64,19 +64,19 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             # if doing batch-wise checkpointing, and we saved a checkpoint at the batch_checkpoint event
             # right before the epoch_checkpoint event, do not save another checkpoint at the epoch_checkpoint
             # event if the batch count didn't increase.
-            if state.timer.batch != last_checkpoint_batch:
-                last_checkpoint_batch = state.timer.batch
+            if state.timestamp.batch != last_checkpoint_batch:
+                last_checkpoint_batch = state.timestamp.batch
                 return True
 
         if save_event == Event.EPOCH_CHECKPOINT:
-            count = state.timer.epoch
+            count = state.timestamp.epoch
         elif save_event == Event.BATCH_CHECKPOINT:
-            count = state.timer.batch
+            count = state.timestamp.batch
         else:
             raise RuntimeError(f"Invalid save_event: {save_event}")
 
         if event == save_event and int(count) % int(interval) == 0:
-            last_checkpoint_batch = state.timer.batch
+            last_checkpoint_batch = state.timestamp.batch
             return True
 
         return False
@@ -322,11 +322,11 @@ class CheckpointSaver(Callback):
         os.makedirs(folder, exist_ok=True)
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        # Verify safety with self.overwrite. Note that this has to be done at fit_start as opposed to init since it requires state.timer
+        # Verify safety with self.overwrite. Note that this has to be done at fit_start as opposed to init since it requires state.timestamp
         # from any checkpoints which are loaded, and checkpoint loading happens after Event.INIT.
         if not self.overwrite:
             folder = format_name_with_dist(self.folder, logger.run_name)
-            ensure_folder_has_no_conflicting_files(folder, self.filename, state.timer.get_timestamp())
+            ensure_folder_has_no_conflicting_files(folder, self.filename, state.timestamp)
         # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
         dist.barrier()
         if state.is_model_deepspeed:
@@ -362,7 +362,7 @@ class CheckpointSaver(Callback):
             checkpoint_filepath = checkpoint_filepaths[dist.get_global_rank()]
             if self.artifact_name is not None:
                 artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
-                                                               state.timer.get_timestamp()).lstrip("/")
+                                                               state.timestamp).lstrip("/")
                 if state.is_model_deepspeed and not is_tar(artifact_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     artifact_name += ".tar"
@@ -374,8 +374,11 @@ class CheckpointSaver(Callback):
             if self.latest_filename is not None:
                 symlink_name = os.path.join(
                     format_name_with_dist(self.folder, logger.run_name),
-                    format_name_with_dist_and_time(self.latest_filename, logger.run_name,
-                                                   state.timer.get_timestamp()).lstrip("/"),
+                    format_name_with_dist_and_time(
+                        self.latest_filename,
+                        logger.run_name,
+                        state.timestamp,
+                    ).lstrip("/"),
                 )
                 if state.is_model_deepspeed and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
@@ -390,16 +393,16 @@ class CheckpointSaver(Callback):
                 os.symlink(checkpoint_filepath, symlink_name)
                 if self.artifact_name is not None and self.latest_artifact_name is not None:
                     symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, logger.run_name,
-                                                                           state.timer.get_timestamp()).lstrip("/")
+                                                                           state.timestamp).lstrip("/")
                     artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
-                                                                   state.timer.get_timestamp()).lstrip("/")
+                                                                   state.timestamp).lstrip("/")
                     # Always overwrite for symlinks since we use the same filename for latest
                     logger.symlink_artifact(log_level=log_level,
                                             existing_artifact_name=artifact_name,
                                             symlink_artifact_name=symlink_artifact_name,
                                             overwrite=True)
 
-        timestamp = state.timer.get_timestamp()
+        timestamp = state.timestamp
 
         self.saved_checkpoints.append((timestamp, checkpoint_filepaths))
         if self.num_checkpoints_to_keep >= 0:
