@@ -11,8 +11,9 @@ from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
 from composer.loggers import Logger
 from composer.trainer.devices.device import Device
-from composer.trainer.devices.device_hparams import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
-from tests.common import RandomClassificationDataset, SimpleModel
+from composer.trainer.devices.device_cpu import DeviceCPU
+from composer.trainer.devices.device_gpu import DeviceGPU
+from tests.common import RandomClassificationDataset, SimpleModel, device
 
 
 class TestMetricSetter(Callback):
@@ -53,15 +54,15 @@ class TestMetricSetter(Callback):
 
 @pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.2, 1.3], [0.1, 0.2]])
 @pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
-@pytest.mark.parametrize('device_hparams', [GPUDeviceHparams(), CPUDeviceHparams()])
-def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device_hparams: DeviceHparams):
+@device('cpu', 'gpu')
+def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str):
 
     if unit == TimeUnit.EPOCH:
         dataloader_label = "eval"
     else:
         dataloader_label = "train"
 
-    device = device_hparams.initialize_object()
+    device = DeviceGPU() if device == 'gpu' else DeviceCPU()
 
     early_stopper = EarlyStopper("Accuracy", dataloader_label, patience=Time(3, unit))
 
