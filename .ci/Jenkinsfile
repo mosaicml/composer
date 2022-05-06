@@ -282,11 +282,11 @@ stage('Build') {
                         booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
+                def subJobs = [:]
+                scheduleJobForBuildArgs(subJobs, stagingImage, buildArgs)
+                subJobs.failFast = true
+                parallel(subJobs)
             }]
-            def subJobs = [:]
-            scheduleJobForBuildArgs(subJobs, stagingImage, buildArgs)
-            subJobs.failFast = true
-            parallel(subJobs)
         }
         else {
             // If not rebuilding the docker image, then run all tests on the existing images
