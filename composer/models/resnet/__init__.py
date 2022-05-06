@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """The ResNet model family is a set of convolutional neural networks described in `Deep Residual Learning for Image
 Recognition <https://arxiv.org/abs/1512.03385>`_ (He et al, 2015). ResNets can be used as the base for a variety of

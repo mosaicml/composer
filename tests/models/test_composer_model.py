@@ -1,3 +1,5 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
 import copy
 import pickle
 from typing import Iterable
