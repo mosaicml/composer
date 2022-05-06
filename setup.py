@@ -167,7 +167,7 @@ composer_data_files = ["py.typed"]
 composer_data_files += package_files("composer", "yamls", ".yaml")
 composer_data_files += package_files("composer", "algorithms", ".json")
 
-setup(name="mosaicml",
+setup(name=os.environ.get('COMPOSER_PACKAGE_NAME', "mosaicml"),
       version="0.6.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
