@@ -1,3 +1,5 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
 import json
 import logging
 from typing import Optional

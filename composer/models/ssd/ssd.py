@@ -1,3 +1,5 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
 """Single Shot Object Detection model with pretrained ResNet34 backbone extending :class:`.ComposerModel`."""
 
 import os

@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Stochastic Weight Averaging (SWA; `Izmailov et al, 2018 <https://arxiv.org/abs/1803.05407>`_) averages model weights
 sampled at different times near the end of training.
