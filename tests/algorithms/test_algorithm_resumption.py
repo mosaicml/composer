@@ -14,6 +14,7 @@ from tests.algorithms.algorithm_settings import get_settings
 from tests.common import deep_compare, device
 
 ALGORITHMS = get_algorithm_registry().keys()
+ALGORITHMS = ['swa']
 
 
 @pytest.mark.timeout(180)
@@ -44,7 +45,7 @@ def test_algorithm_resumption(
         # see: https://github.com/mosaicml/composer/issues/362
         pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
-    if algorithm in ('layer_freezing', 'swa'):
+    if algorithm in ('layer_freezing'):
         pytest.xfail('Known issues')
 
     setting = get_settings(algorithm)

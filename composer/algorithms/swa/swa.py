@@ -111,28 +111,25 @@ class SWA(Algorithm):
         self.swa_completed = False
 
         # Check timestrings are parsable and convert into time objects
-        try:
-            self.swa_start = Time.from_timestring(swa_start)
-        except ValueError as error:
-            raise ValueError(f"Invalid time string for parameter swa_start") from error
-        try:
-            self.swa_end = Time.from_timestring(swa_end)
-        except ValueError as error:
-            raise ValueError(f"Invalid time string for parameter swa_end") from error
-        try:
-            self.update_interval = Time.from_timestring(update_interval)
-        except ValueError as error:
-            raise ValueError(f"Invalid time string for parameter update_interval") from error
+        self.swa_start = Time.from_timestring(swa_start)
+        self.swa_end = Time.from_timestring(swa_end)
+        self.update_interval = Time.from_timestring(update_interval)
 
-        # Check time objects have supported units
-        for time_attr in ["swa_start", "swa_end"]:
-            time_obj = getattr(self, time_attr)
-            if time_obj.unit not in [TimeUnit.DURATION, TimeUnit.EPOCH]:
-                raise ValueError(f"Invalid unit string for parameter {time_attr}: {time_obj.unit}")
+        # validate time units
+        if self.swa_start.unit != self.swa_end.unit:
+            raise ValueError('swa_start and swa_end must have same units.')
+        if self.swa_start.unit not in [TimeUnit.DURATION, TimeUnit.EPOCH]:
+            raise ValueError(f'swa_start must be DURATION or EPOCH, got {self.swa_start.unit}')
         if self.update_interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
-            raise ValueError(f"Invalid unit string for parameter update_interval: "
-                             f"{self.update_interval.unit}")
+            raise ValueError(f'update_iterval must be BATCH or EPOCH, got {self.update_interval.unit}')
 
+        # validate time
+        if self.swa_start <= self.swa_end:
+            raise ValueError('swa_end must be > swa_start.')
+        if self.swa_end.unit == TimeUnit.DURATION and self.swa_end == 1:
+            log.warning("'swa_end' = '1dur'. Batch norm statistics of averaged model "
+                        "will not be updated. This will negatively impact accuracy. "
+                        "See the documentation for the `swa_end` parameter for details.")
         # Check time objects have valid values
         if self.swa_start.unit == TimeUnit.DURATION:
             if self.swa_start < 0 or self.swa_start >= 1:
@@ -140,9 +137,7 @@ class SWA(Algorithm):
                                  "be in the interval [0, 1).")
         if self.swa_end.unit == TimeUnit.DURATION:
             if self.swa_end == 1:
-                log.warning("'swa_end' = '1dur'. Batch norm statistics of averaged model "
-                            "will not be updated. This will negatively impact accuracy. "
-                            "See the documentation for the `swa_end` parameter for details.")
+
             if self.swa_end > 1:
                 raise ValueError("If swa_end is specified in units of 'dur', it must be ≤1.")
         if self.update_interval < 1:
@@ -172,11 +167,20 @@ class SWA(Algorithm):
             self.match_event = Event.EPOCH_END
 
     def match(self, event: Event, state: State) -> bool:
-        if event != self.match_event:
+        # only match on BATCH_END or EPOCH_END, depending on the setting
+        if event != self.match_event or self.swa_completed:
             return False
+
+        # determine if the current time is within swa_start and swa_end
+        current_time = state.timestamp.epoch if self.swa_start.unit == TimeUnit.EPOCH else
+        return self._in_swa_interval(state.timestamp if )
+
+    def _in_swa_interval(self, elapsed_duration: Time[float]) -> bool:
+        assert elapsed_duration is not None, "Elapsed duration should have been set on BATCH_END or EPOCH_END."
+
+
         if self.swa_start.unit == TimeUnit.DURATION:
             elapsed_duration = state.get_elapsed_duration()
-            assert elapsed_duration is not None, "elapsed duration should be set on Event.BATCH_END or Event.EPOCH_END"
             should_start_swa = elapsed_duration >= self.swa_start and not self.swa_completed
         elif self.swa_start.unit == TimeUnit.EPOCH:
             should_start_swa = state.timestamp.epoch >= self.swa_start and not self.swa_completed
