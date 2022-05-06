@@ -26,7 +26,7 @@ class MissingConditionalImportError(ImportError):
             conda_command = f"pip install {conda_package}"
         super().__init__(
             (f"Composer was installed without {extra_deps_group} support. To use {extra_deps_group} related "
-             f"packages, with Composer, run `pip install mosaicml[{extra_deps_group}]` if using pip or "
+             f"packages, with Composer, run `pip install 'mosaicml[{extra_deps_group}]'` if using pip or "
              f"`{conda_command}` if using Anaconda."
              ""))
 
