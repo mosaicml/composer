@@ -283,7 +283,7 @@ stage('Build') {
                     ]
                 )
             }]
-            def subJobs = []
+            def subJobs = [:]
             scheduleJobForBuildArgs(subJobs, stagingImage, buildArgs)
             subJobs.failFast = true
             parallel(subJobs)
