@@ -147,7 +147,7 @@ class Trainer:
             with Composer.
 
             .. seealso:: :mod:`composer.models` for models built into Composer.
-        train_dataloader (Iterable, DataSpec, or dict, optional): The dataloader, :class:`.DataSpec`,
+        train_dataloader (Iterable | DataSpec | dict, optional): The dataloader, :class:`.DataSpec`,
             or dict of :class:`.DataSpec` kwargs for the training data. In order to specify custom
             preprocessing steps on each data batch, specify a :class:`.DataSpec` instead of a dataloader.
             It is recommended that the dataloader, whether specified directly or as part of a :class:`.DataSpec`,
@@ -158,7 +158,7 @@ class Trainer:
                 desired optimization batch size is ``2048`` and training is happening across 8 GPUs, then each
                 ``train_dataloader`` should yield a batch of size ``2048 / 8 = 256``. If ``grad_accum = 2``,
                 then the per-rank batch will be divided into microbatches of size ``256 / 2 = 128``.
-        max_duration (int, str, or Time): The maximum duration to train. Can be an integer, which will be
+        max_duration (int | str | Time): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
         eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): The dataloader,
             :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
@@ -182,7 +182,7 @@ class Trainer:
             (default: ``None``).
 
             .. seealso:: :mod:`composer.optim.scheduler` for the different schedulers built into Composer.
-        device (str or Device, optional): The device to use for training. Either ``cpu`` or ``gpu``.
+        device (str | Device, optional): The device to use for training. Either ``cpu`` or ``gpu``.
             (default: ``cpu``)
         grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
             are summed over the microbatches per device. If set to ``auto``, dynamically increases grad_accum
@@ -213,7 +213,7 @@ class Trainer:
             ``eval_dataloader`` is not specified.
         compute_training_metrics (bool, optional): ``True`` to compute metrics on training data and ``False`` to not.
             (default: ``False``)
-        precision (str or Precision, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
+        precision (str | Precision, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
             or ``amp`` (recommended). (default: ``Precision.FP32``)
 
             .. note::
@@ -247,7 +247,7 @@ class Trainer:
             (default: ``None``)
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
-        ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
+        ddp_sync_strategy (str | DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
         seed (int, optional): The seed used in randomization. If ``None``, then a random seed
@@ -461,7 +461,7 @@ class Trainer:
             This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
             ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` and ``subset_num_batches``
             was specified as part of the :class:`.Evaluator`.
-        deepspeed_config (bool or Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
+        deepspeed_config (bool | Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. If ``True`` is
             provided, the trainer will initialize the DeepSpeed engine with an empty config ``{}``. If ``False``
             is provided, deepspeed will not be used. (default: ``False``)

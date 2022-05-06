@@ -126,8 +126,8 @@ class Trace():
     """Record of an algorithm's execution.
 
     Attributes:
-        exit_code (int or None): Optional return value from an algorithm. Default: None.
-        order (int or None): Order in which the algorithm was executed
+        exit_code (int | None): Optional return value from an algorithm. Default: None.
+        order (int | None): Order in which the algorithm was executed
                              in the list of algorithms. None means algorithm was not run.
         run (bool): Whether the algorithm was run. Default: False
     """
@@ -191,7 +191,7 @@ class Engine():
 
 
         Args:
-            event (Event or str): The current :class:`~.event.Event`. It can be the enum member values or a
+            event (Event | str): The current :class:`~.event.Event`. It can be the enum member values or a
                 string with the event value.
         Returns:
             traces (Traces): Ordered dictionary of trace for each algorithm.

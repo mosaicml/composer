@@ -108,8 +108,8 @@ class Time(Generic[TValue]):
     Time(2, TimeUnit.EPOCH)
 
     Args:
-        value (int or float): The amount of time.
-        unit (str or TimeUnit): The :class:`TimeUnit` for ``value``.
+        value (int | float): The amount of time.
+        unit (str | TimeUnit): The :class:`TimeUnit` for ``value``.
     """
 
     def __init__(
@@ -485,7 +485,7 @@ class Timestamp(Serializable):
         """Returns the current time in the specified unit.
 
         Args:
-            unit (str or TimeUnit): The desired unit.
+            unit (str | TimeUnit): The desired unit.
 
         Returns:
             Time: The current time, in the specified unit.
@@ -589,8 +589,8 @@ class Timestamp(Serializable):
             towards inconsistent behavior by :class:`.Algorithm` or :class:`.Callback` instances that use these counts.
 
         Args:
-            samples (int or Time, optional): The number of samples trained in the batch. Defaults to 0.
-            tokens (int or Time, optional): The number of tokens trained in the batch. Defaults to 0.
+            samples (int | Time, optional): The number of samples trained in the batch. Defaults to 0.
+            tokens (int | Time, optional): The number of tokens trained in the batch. Defaults to 0.
         """
         return self.copy(
             batch=self.batch + 1,

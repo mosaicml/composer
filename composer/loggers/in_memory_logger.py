@@ -50,7 +50,7 @@ class InMemoryLogger(LoggerDestination):
             trainer.engine.close()
 
     Args:
-        log_level (str or LogLevel, optional):
+        log_level (str | LogLevel, optional):
             :class:`~.logger.LogLevel` (i.e. unit of resolution) at
             which to record. Defaults to
             :attr:`~.LogLevel.BATCH`, which records
