@@ -110,8 +110,8 @@ class Time(Generic[TValue]):
     Time(2, TimeUnit.EPOCH)
 
     Args:
-        value (int or float): The amount of time.
-        unit (str or TimeUnit): The :class:`TimeUnit` for ``value``.
+        value (int | float): The amount of time.
+        unit (str | TimeUnit): The :class:`TimeUnit` for ``value``.
     """
 
     def __init__(
@@ -437,7 +437,7 @@ class Timer(Serializable):
         """Returns the current time in the specified unit.
 
         Args:
-            unit (str or TimeUnit): The desired unit.
+            unit (str | TimeUnit): The desired unit.
 
         Returns:
             Time: The current time, in the specified unit.
@@ -462,8 +462,8 @@ class Timer(Serializable):
             samples and/or tokens trained across all ranks before invoking this function.
 
         Args:
-            samples (int or Time, optional): The number of samples trained in the batch. Defaults to 0.
-            tokens (int or Time, optional): The number of tokens trained in the batch. Defaults to 0.
+            samples (int | Time, optional): The number of samples trained in the batch. Defaults to 0.
+            tokens (int | Time, optional): The number of tokens trained in the batch. Defaults to 0.
         """
         self._batch += Time(1, TimeUnit.BATCH)
         self._batch_in_epoch += Time(1, TimeUnit.BATCH)

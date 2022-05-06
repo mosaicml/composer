@@ -27,7 +27,7 @@ def cutout_batch(input: ImgT, num_holes: int = 1, length: float = 0.5, uniform_s
     """See :class:`CutOut`.
 
     Args:
-        input (PIL.Image.Image or torch.Tensor): Image or batch of images. If
+        input (PIL.Image.Image | torch.Tensor): Image or batch of images. If
             a :class:`torch.Tensor`, must be a single image of shape ``(C, H, W)``
             or a batch of images of shape ``(N, C, H, W)``.
         num_holes: Integer number of holes to cut out. Default: ``1``.

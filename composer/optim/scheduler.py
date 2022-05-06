@@ -210,7 +210,7 @@ class StepScheduler(ComposerScheduler):
     :math:`\gamma` represents the multiplicative decay factor.
     
     Args:
-        step_size (str or Time): Time between changes to the learning rate.
+        step_size (str | Time): Time between changes to the learning rate.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
@@ -243,7 +243,7 @@ class MultiStepScheduler(ComposerScheduler):
     multiplicative decay factor.
     
     Args:
-        milestones (List[str or Time]): Times at which the learning rate should change.
+        milestones (List[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
@@ -280,7 +280,7 @@ class ConstantScheduler(ComposerScheduler):
     
     Args:
         alpha (float): Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.
-        t_max (str or Time): Duration of this scheduler. Default = ``"1dur"``.
+        t_max (str | Time): Duration of this scheduler. Default = ``"1dur"``.
     """
 
     def __init__(self, alpha: float = 1.0, t_max: Union[str, Time] = "1dur") -> None:
@@ -326,7 +326,7 @@ class LinearScheduler(ComposerScheduler):
     Args:
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
         alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
-        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
     """
 
     def __init__(self, alpha_i: float = 1.0, alpha_f: float = 0.0, t_max: Union[str, Time] = "1dur"):
@@ -360,7 +360,7 @@ class ExponentialScheduler(ComposerScheduler):
     Where :math:`\rho` represents the decay period, and :math:`\gamma` represents the multiplicative decay factor.
     
     Args:
-        decay_period (str or Time): Decay period. Default = ``"1ep"``.
+        decay_period (str | Time): Decay period. Default = ``"1ep"``.
         gamma (float): Multiplicative decay factor.
     """
 
@@ -406,7 +406,7 @@ class CosineAnnealingScheduler(ComposerScheduler):
     represents the duration of this scheduler, and :math:`\alpha_f` represents the learning rate multiplier to decay to.
     
     Args:
-        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
@@ -447,7 +447,7 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
     cycles, and :math:`\alpha_f` represents the learning rate multiplier to decay to.
     
     Args:
-        t_0 (str or Time): The period of the first cycle.
+        t_0 (str | Time): The period of the first cycle.
         t_mult (float): The multiplier for the duration of successive cycles. Default = ``1.0``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
@@ -495,7 +495,7 @@ class PolynomialScheduler(ComposerScheduler):
 
     Args:
         power (float): The exponent to be used for the proportionality relationship.
-        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
@@ -543,8 +543,8 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
         will still be scaled accordingly.
 
     Args:
-        t_warmup (str or Time): Warmup time.
-        milestones (List[str or Time]): Times at which the learning rate should change.
+        t_warmup (str | Time): Warmup time.
+        milestones (List[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
@@ -601,10 +601,10 @@ class LinearWithWarmupScheduler(ComposerScheduler):
         slightly distorted from what would otherwise be expected.
 
     Args:
-        t_warmup (str or Time): Warmup time.
+        t_warmup (str | Time): Warmup time.
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
         alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
-        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
     """
 
     def __init__(self,
@@ -667,8 +667,8 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         slightly distorted from what would otherwise be expected.
     
     Args:
-        t_warmup (str or Time): Warmup time.
-        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
+        t_warmup (str | Time): Warmup time.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 

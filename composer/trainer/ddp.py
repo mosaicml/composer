@@ -52,7 +52,7 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
         state (State): The state of the :class:`~composer.trainer.trainer.Trainer`.
         is_final_microbatch (bool): Whether or not the context is being used during the final
             microbatch of the gradient accumulation steps.
-        sync_strategy (str or DDPSyncStrategy): The ddp sync strategy to use. If a string
+        sync_strategy (str | DDPSyncStrategy): The ddp sync strategy to use. If a string
             is provided, the string must be one of the values in :class:`DDPSyncStrategy`.
     """
     if not isinstance(state.model, DistributedDataParallel):
