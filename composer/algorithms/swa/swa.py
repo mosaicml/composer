@@ -178,6 +178,8 @@ class SWA(Algorithm):
 
     def _get_last_lr(self, schedulers: List[PyTorchScheduler]):
         """ retrieves the last lr from current schedulers. """
+        if len(schedulers) == 0:
+            return 1.0
         if len(schedulers) != 1:
             raise RuntimeError(f"SWA supports only one scheduler, got {len(schedulers)}")
         scheduler = schedulers[0]
