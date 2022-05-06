@@ -934,7 +934,8 @@ class Trainer:
                 import deepspeed
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group="deepspeed",
-                                                    conda_package="deepspeed>=0.5.5") from e
+                                                    conda_package="deepspeed>=0.5.5",
+                                                    conda_channel=None) from e
             assert self._deepspeed_config is not None
             self._deepspeed_config = _parse_deepspeed_config(self._deepspeed_config,
                                                              state=self.state,

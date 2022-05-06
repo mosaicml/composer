@@ -19,7 +19,7 @@ To set up the development environment in your local box, run the commands below.
 1\. Install the dependencies needed for testing and linting the code:
 
 ```bash
-pip install -e .[dev]
+pip install -e '.[dev]'
 ```
 
 2\. Configure [pre-commit](https://pre-commit.com/), which automatically formats code before
