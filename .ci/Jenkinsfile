@@ -250,7 +250,7 @@ stage('Build') {
 
     pytorchDockerBuildMatrix.each { entry ->
         // Extract the values from the buildMatrix
-        String kanikoCommand = entry[0]  // command is the command to run
+        String kanikoCommand = entry[0]  // kanikoCommand is the command to run
         String destinations = entry[1]  // The destinations to append to the kanikoCommand to push the image
         String stagingImage = entry[2]  // stagingImage is where the built docker image is always pushed
         // buildArgs contains the entry from the build matrix. It has the format [{key: key, value: value}, ...].
@@ -275,7 +275,7 @@ stage('Build') {
                         string(name: 'P_GIT_COMMIT', value: gitCommit),
                         string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: dockerBuildMemLimit),
-                        text(name: 'P_COMMAND', value: command),
+                        text(name: 'P_COMMAND', value: kanikoCommand),
                         string(name: 'P_TIMEOUT', value: dockerBuildTimeout),
                         string(name: 'P_CPU_LIMIT', value: dockerBuildCpuLimit),
                         string(name: 'P_MEM_LIMIT', value: dockerBuildMemLimit),
