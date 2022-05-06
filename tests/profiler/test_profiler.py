@@ -20,21 +20,21 @@ def test_cyclic_schedule(dummy_state: State, repeat: int):
     assert schedule(dummy_state) == ProfilerAction.SKIP  # skip first epoch
 
     for _ in range(skip_first):
-        dummy_state.timer.on_batch_complete()
+        dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
     assert schedule(dummy_state) == ProfilerAction.SKIP
 
     for _ in range(wait):
-        dummy_state.timer.on_batch_complete()
+        dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
 
     assert schedule(dummy_state) == ProfilerAction.WARMUP
 
     for _ in range(warmup):
-        dummy_state.timer.on_batch_complete()
+        dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
 
     assert schedule(dummy_state) == ProfilerAction.ACTIVE
 
     for _ in range(active + wait + warmup):
-        dummy_state.timer.on_batch_complete()
+        dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
 
     if repeat == 0:
         assert schedule(dummy_state) == ProfilerAction.ACTIVE

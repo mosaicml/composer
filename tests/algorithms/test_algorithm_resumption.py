@@ -15,7 +15,7 @@ from tests.common import deep_compare, device
 
 
 @pytest.mark.timeout(180)
-@device('cpu')
+@device('gpu')
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
     [
