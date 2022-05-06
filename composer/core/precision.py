@@ -42,7 +42,7 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
         the precision context will be a no-op.
 
     Args:
-        precision (str or Precision): Precision for the context
+        precision (str | Precision): Precision for the context
     """
 
     precision = Precision(precision)

@@ -153,7 +153,7 @@ class EMA(Algorithm):
         self.smoothing = 2**(-(self.update_interval.value / self.half_life.value))
 
         # Construct the appropriate matching events
-        self.match_events = [Event.EVAL_START, Event.EVAL_END]
+        self.match_events = [Event.FIT_START, Event.EVAL_START, Event.EVAL_END]
         if self.half_life.unit == TimeUnit.EPOCH:
             self.match_events.append(Event.EPOCH_END)
         if self.half_life.unit == TimeUnit.BATCH:
@@ -165,9 +165,15 @@ class EMA(Algorithm):
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         assert isinstance(self.update_interval, Time)
 
+        if event == Event.FIT_START:
+            if self.ema_model is not None:
+                _move_shadow_model_to_device(self.ema_model, state.model)
+            if self.training_model is not None:
+                _move_shadow_model_to_device(self.training_model, state.model)
+
         if event in [Event.BATCH_END, Event.EPOCH_END]:
             # Check if an update should happen
-            if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
+            if state.timestamp.get(self.update_interval.unit).value % self.update_interval.value == 0:
                 # Initialize the shadow models if they don't exist yet
                 if self.ema_model is None:
                     self.ema_model = ShadowModel(state.model)
@@ -234,8 +240,8 @@ class ShadowModel:
 
     def __init__(self, model: Union[None, torch.nn.Module]):
         if model is not None:
-            self.param_list = copy.deepcopy(list(model.parameters()))
-            self.buffer_list = copy.deepcopy(list(model.buffers()))
+            self.param_list = [copy.deepcopy(p.data) for p in model.parameters()]
+            self.buffer_list = [copy.deepcopy(b.data) for b in model.buffers()]
         else:
             self.param_list = []
             self.buffer_list = []
@@ -258,3 +264,15 @@ def _copy_model(source_model: T_Model, destination_model: T_Model):
 
         for source_param, destination_param in zip(source_params, destination_params):
             destination_param.data = source_param.data
+
+
+def _move_shadow_model_to_device(shadow_model: ShadowModel, destination_model: torch.nn.Module):
+    """Ensures the tensors of a shadow model are on the same device as a destination model"""
+    with torch.no_grad():
+        destination_params = destination_model.parameters()
+        shadow_params = shadow_model.parameters()
+        shadow_model.param_list = [s.to(d.device) for s, d in zip(shadow_params, destination_params)]
+
+        destination_buffers = destination_model.buffers()
+        shadow_buffers = shadow_model.buffers()
+        shadow_model.buffer_list = [s.to(d.device) for s, d in zip(shadow_buffers, destination_buffers)]

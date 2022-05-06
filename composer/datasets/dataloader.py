@@ -81,7 +81,7 @@ class DataLoaderHparams(hp.Hparams):
         Args:
             dataset (Dataset): The dataset.
             batch_size (int): The per-device batch size.
-            sampler (torch.utils.data.Sampler[int] or None): The sampler to use for the dataloader.
+            sampler (torch.utils.data.Sampler[int] | None): The sampler to use for the dataloader.
             drop_last (bool): Whether to drop the last batch if the number of
                 samples is not evenly divisible by the batch size.
             collate_fn (callable, optional): Custom collate function. Default: ``None``.

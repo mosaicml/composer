@@ -4,7 +4,7 @@
 
 Central parts of composer such as :class:`~.engine.Engine`, base class for critical components such as
 :class:`~.algorithm.Algorithm` and :class:`~.callback.Callback` and other useful functionality such as
-:class:`~.logger.Logger` and :class:`~.time.Timer` are implemented under core.
+:class:`~.logger.Logger` and :class:`~.time.Timestamp` are implemented under core.
 """
 
 from composer.core.algorithm import Algorithm
@@ -15,7 +15,7 @@ from composer.core.evaluator import Evaluator, ensure_evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
-from composer.core.time import Time, Timer, Timestamp, TimeUnit, ensure_time
+from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 
 __all__ = [
     "Algorithm",
@@ -29,7 +29,6 @@ __all__ = [
     "Precision",
     "State",
     "Time",
-    "Timer",
     "Timestamp",
     "TimeUnit",
     "ensure_time",

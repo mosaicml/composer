@@ -229,7 +229,7 @@ class SelectiveBackprop(Algorithm):
 
         is_chosen = should_selective_backprop(
             current_duration=float(elapsed_duration),
-            batch_idx=state.timer.batch_in_epoch.value,
+            batch_idx=int(state.timestamp.batch_in_epoch),
             start=self.start,
             end=self.end,
             interrupt=self.interrupt,
