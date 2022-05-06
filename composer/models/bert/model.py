@@ -1,10 +1,10 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Implements a BERT wrapper around a :class:`.ComposerTransformer`."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 import torch
 from torchmetrics import MeanSquaredError, Metric, MetricCollection
@@ -18,7 +18,7 @@ from composer.models.transformer_shared import ComposerTransformer
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch, BatchDict, BatchPair
+    from composer.core.types import Batch
 
 __all__ = ["BERTModel"]
 
@@ -89,11 +89,11 @@ class BERTModel(ComposerTransformer):
         else:
             raise NotImplementedError('Calculating loss directly not supported yet.')
 
-    def validate(self, batch: BatchDict) -> BatchPair:
+    def validate(self, batch: Any) -> Any:
         """Runs the validation step.
 
         Args:
-            batch (BatchDict): a dictionary of Dict[str, Tensor] of inputs
+            batch (Dict): a dictionary of Dict[str, Tensor] of inputs
                 that the model expects, as found in :meth:`.ComposerTransformer.get_model_inputs`.
 
         Returns:

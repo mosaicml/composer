@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import numpy as np
 import pytest
@@ -68,9 +68,7 @@ def test_channels_last_algorithm(state: State, empty_logger: Logger, device: str
     assert _infer_memory_format(state.model.conv1.weight) == 'nhwc'
 
 
-"""
-Test helper utility _infer_memory_format
-"""
+# Test helper utility _infer_memory_format
 
 
 @pytest.fixture(params=[True, False])

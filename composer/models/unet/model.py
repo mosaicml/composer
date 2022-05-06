@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """The Unet architecture used in image segmentation. The example we are using is for BRATS medical brain tumor dataset.
 

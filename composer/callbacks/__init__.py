@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Callbacks that run at each training loop :class:`~composer.core.event.Event`.
 
@@ -6,11 +6,13 @@ Each callback inherits from the :class:`~composer.core.callback.Callback` base c
 examples for writing your own callbacks at the :class:`~composer.core.callback.Callback` base class.
 """
 from composer.callbacks.callback_hparams import (CallbackHparams, CheckpointSaverHparams, GradMonitorHparams,
-                                                 LRMonitorHparams, MemoryMonitorHparams, SpeedMonitorHparams)
+                                                 LRMonitorHparams, MemoryMonitorHparams, MLPerfCallbackHparams,
+                                                 SpeedMonitorHparams)
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.grad_monitor import GradMonitor
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
+from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.speed_monitor import SpeedMonitor
 
 __all__ = [
@@ -19,6 +21,7 @@ __all__ = [
     "MemoryMonitor",
     "SpeedMonitor",
     "CheckpointSaver",
+    "MLPerfCallback",
     # hparams objects
     "CallbackHparams",
     "CheckpointSaverHparams",
@@ -26,4 +29,5 @@ __all__ = [
     "LRMonitorHparams",
     "MemoryMonitorHparams",
     "SpeedMonitorHparams",
+    "MLPerfCallbackHparams",
 ]

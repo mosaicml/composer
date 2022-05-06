@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """EfficientNet model.
 
@@ -7,7 +7,7 @@ Adapted from `(Generic) EfficientNets for PyTorch. <https://github.com/rwightman
 
 import math
 import re
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -56,13 +56,13 @@ class EfficientNet(nn.Module):
                  drop_rate: float = 0.2,
                  drop_connect_rate: float = 0.2,
                  act_layer: Callable[..., nn.Module] = nn.SiLU,
-                 norm_kwargs: dict = {
-                     "momentum": 0.1,
-                     "eps": 1e-5
-                 },
+                 norm_kwargs: Optional[dict] = None,
                  norm_layer: Callable[..., nn.Module] = nn.BatchNorm2d):
         super(EfficientNet, self).__init__()
         self.num_classes = num_classes
+
+        if norm_kwargs is None:
+            norm_kwargs = {"momentum": 0.1, "eps": 1e-5}
 
         in_channels = 3
         out_channels = round_channels(32, width_multiplier)

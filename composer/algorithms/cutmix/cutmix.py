@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Core CutMix classes and functions."""
 
@@ -42,7 +42,7 @@ def cutmix_batch(input: Tensor,
     ``alpha``. If ``length`` is provided, it directly determines the size
     of the masked region. If it is not provided, the fraction of the input
     area to mask is drawn from a ``Beta(alpha, alpha)`` distribution.
-    The original paper used a fixed value of ``alpha = 1``.
+    The original paper uses a fixed value of ``alpha = 1``.
 
     Alternatively, one may provide a bounding box to mask directly, in
     which case ``alpha`` is ignored and ``length`` must not be provided.
@@ -56,8 +56,8 @@ def cutmix_batch(input: Tensor,
         or ``alpha``.
 
     Args:
-        input (torch.Tensor): input tensor of shape ``(N, C, H, W)``
-        target (torch.Tensor): target tensor of either shape ``N`` or
+        input (:class:`torch.Tensor`): input tensor of shape ``(N, C, H, W)``
+        target (:class:`torch.Tensor`): target tensor of either shape ``N`` or
             ``(N, num_classes)``. In the former case, elements of ``target``
             must be integer class ids in the range ``0..num_classes``. In the
             latter case, rows of ``target`` may be arbitrary vectors of targets,
@@ -107,7 +107,8 @@ def cutmix_batch(input: Tensor,
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
             X_mixed, y_mixed = cutmix_batch(
-                X, y, num_classes=num_classes, alpha=0.2)
+                X, y, num_classes=num_classes, alpha=0.2
+            )
     """
     if bbox is not None and length is not None:
         raise ValueError(f"Cannot provide both length and bbox; got {length} and {bbox}")
@@ -221,12 +222,12 @@ class CutMix(Algorithm):
         """Applies CutMix augmentation on State input.
 
         Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
+            event (:class:`Event`): the current event
+            state (:class:`State`): the current trainer state
+            logger (:class:`Logger`): the training logger
         """
 
-        input, target = state.batch_pair
+        input, target = state.batch
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
         alpha = self.alpha
@@ -253,7 +254,7 @@ def _gen_indices(x: Tensor) -> Tensor:
     """Generates indices of a random permutation of elements of a batch.
 
     Args:
-        x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
+        x (:class:`torch.Tensor): input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
             are feature dimensions.
 
     Returns:
@@ -266,7 +267,7 @@ def _gen_cutmix_coef(alpha: float) -> float:
     """Generates lambda from ``Beta(alpha, alpha)``
 
     Args:
-        alpha: Parameter for the ``Beta(alpha, alpha)`` distribution
+        alpha (float): Parameter for the ``Beta(alpha, alpha)`` distribution
 
     Returns:
         cutmix_lambda: Lambda parameter for performing cutmix.
@@ -294,17 +295,15 @@ def _rand_bbox(W: int,
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
 
     Args:
-        W: Width of the image
-        H: Height of the image
-        cutmix_lambda: Lambda param from cutmix, used to set the area of the
+        W (int): Width of the image
+        H (int): Height of the image
+        cutmix_lambda (float): Lambda param from cutmix, used to set the area of the
             box if ``cut_w`` or ``cut_h`` is not provided.
-        cx: Optional x coordinate of the center of the box.
-        cy: Optional y coordinate of the center of the box.
-        cut_w: Optional width of the box
-        cut_h: Optional height of the box
-        uniform_sampling: If true, sample the bounding box such that each pixel
+        cx (int, optional): Optional x coordinate of the center of the box.
+        cy (int, optional): Optional y coordinate of the center of the box.
+        uniform_sampling (bool, optional): If true, sample the bounding box such that each pixel
             has an equal probability of being mixed. If false, defaults to the
-            sampling used in the original paper implementation.
+            sampling used in the original paper implementation. Default: ``False``.
 
     Returns:
         bbx1: Leftmost edge of the bounding box
@@ -340,10 +339,10 @@ def _adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
     """Rescale the cutmix lambda according to the size of the clipped bounding box.
 
     Args:
-        cutmix_lambda: Lambda param from cutmix, used to set the area of the box.
-        x: input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
+        cutmix_lambda (float): Lambda param from cutmix, used to set the area of the box.
+        x (:class:`torch.Tensor`): input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
             are feature dimensions.
-        bbox: (x1, y1, x2, y2) coordinates of the boundind box, obeying x2 > x1, y2 > y1.
+        bbox (tuple): (x1, y1, x2, y2) coordinates of the boundind box, obeying x2 > x1, y2 > y1.
 
     Returns:
         adjusted_lambda: Rescaled cutmix_lambda to account for part of the bounding box

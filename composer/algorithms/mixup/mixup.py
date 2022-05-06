@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Core MixUp classes and functions."""
 
@@ -131,7 +131,7 @@ class MixUp(Algorithm):
             return event in [Event.BEFORE_FORWARD, Event.BEFORE_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
-        input, target = state.batch_pair
+        input, target = state.batch
 
         if event == Event.BEFORE_FORWARD:
             if not isinstance(input, torch.Tensor):

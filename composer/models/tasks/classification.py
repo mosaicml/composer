@@ -1,3 +1,5 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
 """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a vanilla PyTorch model.
 
 :class:`.ComposerClassifier` requires batches in the form: (``input``, ``target``) and includes a basic
@@ -14,7 +16,6 @@ from torch import Tensor
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import Accuracy
 
-from composer.core.types import BatchPair
 from composer.loss import loss_registry
 from composer.metrics import CrossEntropy
 from composer.models import ComposerModel
@@ -72,7 +73,7 @@ class ComposerClassifier(ComposerModel):
                         "Please ensure you are using `initializers. "
                         "linear_log_constant_bias`.")
 
-    def loss(self, outputs: Any, batch: BatchPair, *args, **kwargs) -> Tensor:
+    def loss(self, outputs: Any, batch: Any, *args, **kwargs) -> Tensor:
         _, targets = batch
         if not isinstance(outputs, Tensor):  # to pass typechecking
             raise ValueError("Loss expects input as Tensor")
@@ -83,12 +84,12 @@ class ComposerClassifier(ComposerModel):
     def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])
 
-    def forward(self, batch: BatchPair) -> Tensor:
+    def forward(self, batch: Any) -> Tensor:
         inputs, _ = batch
         outputs = self.module(inputs)
         return outputs
 
-    def validate(self, batch: BatchPair) -> Tuple[Any, Any]:
+    def validate(self, batch: Any) -> Tuple[Any, Any]:
         _, targets = batch
         outputs = self.forward(batch)
         return outputs, targets

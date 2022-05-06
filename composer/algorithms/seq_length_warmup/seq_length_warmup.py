@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Core code for sequence length warmup."""
 
@@ -265,13 +265,13 @@ class SeqLengthWarmup(Algorithm):
         num_update_steps = (self.max_seq_length - self.min_seq_length) // self.step_size
         update_every_n_steps = num_warmup_steps // num_update_steps
 
-        curr_seq_len = self.step_size * (int(state.timer.batch) // update_every_n_steps)
+        curr_seq_len = self.step_size * (int(state.timestamp.batch) // update_every_n_steps)
         curr_seq_len = max(curr_seq_len, self.min_seq_length)
         curr_seq_len = min(curr_seq_len, self.max_seq_length)
 
-        state.batch = set_batch_sequence_length(state.batch_dict, curr_seq_len, self.truncate)
+        state.batch = set_batch_sequence_length(state.batch, curr_seq_len, self.truncate)
 
-        batch_size = state.batch_dict['input_ids'].shape[0]
+        batch_size = state.batch['input_ids'].shape[0]
         logger.data_batch({
             'seq_length_warmup/curr_seq_len': curr_seq_len,
             'seq_length_warmup/curr_bs': batch_size,

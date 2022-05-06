@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Composer Profiler."""
 
@@ -87,7 +87,7 @@ class Profiler:
                                                  ProfilerAction.ACTIVE_AND_SAVE),
             record_instant_on_start: bool = False,
             record_instant_on_finish: bool = False,
-            categories: Union[List[str], Tuple[str, ...]] = tuple(),
+            categories: Union[List[str], Tuple[str, ...]] = (),
     ) -> Marker:
         """Create and get an instance of a :class:`.Marker`.
 

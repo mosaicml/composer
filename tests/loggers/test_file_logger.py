@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import os
 import pathlib
@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from composer import Callback, Event, State, Trainer
 from composer.loggers import FileLogger, FileLoggerHparams, Logger, LoggerDestination, LogLevel
+from composer.utils.collect_env import disable_env_report
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
 
@@ -41,34 +42,34 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
     log_destination.run_event(Event.INIT, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
-    dummy_state.timer.on_batch_complete()
+    dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
-    dummy_state.timer.on_batch_complete()
+    dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
-    dummy_state.timer.on_epoch_complete()
+    dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     logger.data_fit({"metric": "fit"})  # should print
     logger.data_epoch({"metric": "epoch"})  # should print on batch level, since epoch calls are always printed
     logger.data_batch({"metric": "batch"})  # should print on batch level, since we print every 3 steps
-    dummy_state.timer.on_epoch_complete()
+    dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     logger.data_epoch({"metric": "epoch1"})  # should print, since we log every 3 epochs
-    dummy_state.timer.on_epoch_complete()
+    dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
-    dummy_state.timer.on_batch_complete()
+    dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
     logger.data_epoch({"metric": "epoch2"})  # should print on batch level, since epoch calls are always printed
     logger.data_batch({"metric": "batch1"})  # should NOT print
-    dummy_state.timer.on_batch_complete()
+    dummy_state.timestamp = dummy_state.timestamp.to_next_batch()
     log_destination.run_event(Event.BATCH_END, dummy_state, logger)
-    dummy_state.timer.on_epoch_complete()
+    dummy_state.timestamp = dummy_state.timestamp.to_next_epoch()
     log_destination.run_event(Event.EPOCH_END, dummy_state, logger)
     log_destination.close(dummy_state, logger)
     with open(log_file_name, 'r') as f:
@@ -92,12 +93,12 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
     # If the loglevel is batch, flushing also happens every epoch end
     if log_level == LogLevel.EPOCH:
         #
-        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.epoch) + int(
-            dummy_state.timer.epoch) + 1
+        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timestamp.epoch) + int(
+            dummy_state.timestamp.epoch) + 1
     else:
         assert log_level == LogLevel.BATCH
-        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timer.batch) + int(
-            dummy_state.timer.epoch) + int(dummy_state.timer.epoch) + 1
+        assert len(file_tracker_destination.logged_artifacts) == int(dummy_state.timestamp.batch) + int(
+            dummy_state.timestamp.epoch) + int(dummy_state.timestamp.epoch) + 1
 
 
 @pytest.mark.timeout(15)  # disk can be slow on Jenkins
@@ -148,6 +149,7 @@ def test_exceptions_are_printed(tmpdir: pathlib.Path):
                       max_duration=1,
                       callbacks=[exception_raising_callback],
                       loggers=[file_logger])
+    disable_env_report()  # Printing the full report in this test can cause timeouts
     # manually calling `sys.excepthook` for the exception, as it is impossible to write a test
     # that validates unhandled exceptions are logged, since the test validation code would by definition
     # need to handle the exception!

@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Logs metrics to the console and show a progress bar."""
 
@@ -140,7 +140,7 @@ class ProgressBarLogger(LoggerDestination):
         if not self.should_log(state, log_level):
             return
         data_str = format_log_data_value(data)
-        log_str = f'[{log_level.name}][batch={int(state.timer.batch)}]: {data_str}'
+        log_str = f'[{log_level.name}][batch={int(state.timestamp.batch)}]: {data_str}'
 
         if self.is_train in self.pbars:
             # use tqdm.write to avoid interleaving with a progress bar
@@ -156,10 +156,10 @@ class ProgressBarLogger(LoggerDestination):
         assert self.is_train is not None, "self.is_train should be set by the callback"
         assert state.dataloader_len is not None, "dataloader_len should be set when using tqdm"
 
-        desc = f'Epoch {int(state.timer.epoch)}'
+        desc = f'Epoch {int(state.timestamp.epoch)}'
         position = 0 if self.is_train else 1
         if not self.is_train:
-            desc += f", Batch {int(state.timer.batch)} (val)"
+            desc += f", Batch {int(state.timestamp.batch)} (val)"
         self.pbars[self.is_train] = _ProgressBarLoggerInstance(
             file=self.stream,
             state=_ProgressBarLoggerInstanceState(

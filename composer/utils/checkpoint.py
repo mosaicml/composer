@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Utilities for working with training checkpoints."""
 
@@ -304,7 +304,7 @@ def save_checkpoint(state: State,
     if weights_only and not state.is_model_deepspeed:
         state_dict['state'] = {"model": state_dict['state']['model']}
 
-    checkpoint_filepath = format_name_with_dist_and_time(filename, logger.run_name, state.timer.get_timestamp())
+    checkpoint_filepath = format_name_with_dist_and_time(filename, logger.run_name, state.timestamp)
     if state.is_model_deepspeed and not is_tar(checkpoint_filepath):
         # Deepspeed requires tarballs; appending `.tar`
         checkpoint_filepath += ".tar"
