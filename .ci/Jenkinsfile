@@ -10,10 +10,11 @@ gitCommit = null
 baseBranch = 'dev'  // the branch on which merge-commits should be pushed to dockerhub
 
 // Docker build settings
-pytorchDockerBuildMatrix = null // The pytorch docker build matrix (populated only if the docker/ changed)
+pytorchDockerBuildMatrix = null // The pytorch docker build matrix
+didDockerChange = false
 dockerBuildCpuLimit = '4'
 dockerBuildMemLimit = '20Gi'
-dockerBuildTimeout = '3600'  // timeout for docker builds, in seconds
+dockerBuildTimeout = '7200'  // timeout for docker builds, in seconds. Builds from scratch can be slow.
 // must use the kaniko debug image, as Jenkins needs shell access
 // see https://github.com/GoogleContainerTools/kaniko#debug-image
 kanikoDockerImage = 'gcr.io/kaniko-project/executor:v1.7.0-debug' // Docker image for kaniko docker builds
@@ -27,6 +28,7 @@ pytestGpuTestCpuLimit = '15'
 pytestGpuTestMemLimit = '30Gi' // memory limit for ram and ephemeral storage
 
 // Lint settings
+lintImage = 'mosaicml/pytorch:latest_cpu'
 lintCpuLimit = '2'
 lintMemLimit = '7Gi'
 pLintTimeout = '1800' // timeout to run lint + doctests, in seconds
@@ -44,7 +46,7 @@ jenkinsfileRepo = 'https://github.com/mosaicml/testing' // Repo containing helpe
 jenkinsShellJobName = 'scratch/command2' // The jenkins job name used to spawn sub-jobs
 gitCredentialsId = '9cf9add1-2cdd-414b-8160-94bd4ac4a13d' // Jenkins credential ID to use for git clones
 
-// Artifacts setting
+// Artifact setting
 buildOutputFolder = 'build/output' // Folder where build artifacts are stored
 artifactsGlob = "$buildOutputFolder/**" // Files matching this glob will be archived by Jenkins
 junitGlob = "$buildOutputFolder/*.junit.xml" // Files matching this glob will be presented Junit test reports
@@ -94,19 +96,6 @@ void trackBuild(Map buildArgs) {
     }
 }
 
-String getDockerImageName(String baseImage, String pythonVersion, Boolean gpu) {
-    String pytorchVersion = pythonVersion == '3.9' ? '1.10.0' : '1.9.1'
-    String cudaVersion = 'cpu'
-    if (gpu) {
-        cudaVersion = pythonVersion == '3.9' ? 'cu113' : 'cu111'
-
-    }
-    return "${baseImage}:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
-}
-
-lintImage = getDockerImageName('mosaicml/pytorch', '3.9', false)
-visionImage = getDockerImageName('mosaicml/pytorch_vision', '3.9', true)
-
 void runLint(String pDockerImage) {
     trackBuild(
         job: jenkinsShellJobName,
@@ -127,11 +116,51 @@ void runLint(String pDockerImage) {
     )
 }
 
+void scheduleJobForBuildArgs(jobs, String image, buildArgs) {
+    // jobs: The list of jobs. Modified in-place.
+    // buildArgs: The build args matrix
+
+    String markers = 'not notebooks and not gpu and not vision and not daily'
+    Boolean isLintImage = false
+    Boolean isVisionImage = false
+    Boolean isGpu = false
+    def tag = null
+    buildArgs.each { key, val ->
+        if (key == 'CUDA_VERSION') {
+            if (val != 'cpu') {
+                markers = 'not notebooks and gpu and not vision and not daily'
+                isGpu = true
+            }
+        }
+        if (key == 'TARGET' && val == 'vision_stage') {
+            isVisionImage = true
+            markers = 'not notebooks and vision'
+        }
+        if (key == 'TAG') {
+            tag = val
+            // there could be multiple tags
+            isLintImage = isLintImage || tag == lintImage
+        }
+    }
+    String extraDeps = 'all'
+
+    if (isVisionImage) {
+        markers = 'not notebooks and vision and not daily'
+    }
+
+    jobs << [
+        "Pytest - ${tag}" : { -> runPytest(image, markers, extraDeps, isGpu) }
+    ]
+    if (isLintImage) {
+        // and run lint and a dev install on this image
+        jobs << [
+            'Pytest - extraDeps=dev': { -> runPytest(image, markers, 'dev', isGpu) },
+            'Lint': { -> runLint(image) },
+        ]
+    }
+}
+
 void runPytest(String pDockerImage, String markers, String extraDeps, Boolean isGpu) {
-    // pDockerImage (str): Base docker image to use.
-    // extraDeps (str): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps].
-    // markers (str): Pyetst markers
-    // isGpu (Boolean): Whether the test requires gpus
     String nGpus = '0'
     String cpuLimit = pytestCpuTestCpuLimit
     String memLimit = pytestCpuTestMemLimit
@@ -196,12 +225,13 @@ stage('Prepare') {
 
         isPathModified = load "$jenkinsfileWorkspace/utils/isPathModified.groovy"
 
-        if (isPathModified('docker/pytorch/')) {
-            String dockerfile = 'Dockerfile'
-            String buildContext = './docker/pytorch'
-            String buildMatrix = './docker/pytorch/build_matrix.yaml'
-            pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile)
-        }
+        didDockerChange = isPathModified('docker/pytorch/')
+
+        String dockerfile = 'Dockerfile'
+        String buildContext = './docker/pytorch'
+        String buildMatrix = './docker/pytorch/build_matrix.yaml'
+        pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile)
+
         // Keep track of whether dependencies changed, in which case a conda build should be tested
         dependenciesChanged = isPathModified('setup.py') || isPathModified('meta.yaml')
     }
@@ -213,17 +243,21 @@ stage('Build') {
     if (env.CHANGE_ID) {
         isMergeCommit = false
     }
-    if (pytorchDockerBuildMatrix) {
-        // If changing docker, build the docker images first
-        // Then, run pytest in the newly-built image
-        pytorchDockerBuildMatrix.each { entry ->
-            // Extract the values from the buildMatrix
-            String kanikoCommand = entry[0]  // command is the command to run
-            String destinations = entry[1]  // The destinations to append to the kanikoCommand to push the image
-            String stagingImage = entry[2]  // stagingImage is where the built docker image is always pushed
-            // buildArgs contains the entry from the build matrix. It has the format [{key: key, value: value}, ...].
-            def buildArgs = entry[3]
+
+    pytorchDockerBuildMatrix.each { entry ->
+        // Extract the values from the buildMatrix
+        String kanikoCommand = entry[0]  // command is the command to run
+        String destinations = entry[1]  // The destinations to append to the kanikoCommand to push the image
+        String stagingImage = entry[2]  // stagingImage is where the built docker image is always pushed
+        // buildArgs contains the entry from the build matrix. It has the format [{key: key, value: value}, ...].
+        def buildArgs = entry[3]
+
+        if (didDockerChange) {
+            // If changing docker, build the docker images first
+            // Then, run pytest in the newly-built image
+
             Boolean shouldPushToDestinations = isMergeCommit && gitBranch == baseBranch
+
             if (shouldPushToDestinations) {
                 kanikoCommand = "$kanikoCommand $destinations"
             }
@@ -244,102 +278,17 @@ stage('Build') {
                         booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
-                String markers = 'not notebooks and not gpu and not vision and not daily'
-                Boolean isLintImage = false
-                Boolean isVisionImage = false
-                Boolean isGpuImage = false
-                def tag = null
-                buildArgs.each { key, val ->
-                    if (key == 'CUDA_VERSION') {
-                        if (val != 'cpu') {
-                            markers = 'not notebooks and gpu and not vision and not daily'
-                            isGpuImage = true
-                        }
-                    }
-                    if (key == 'TARGET' && val == 'vision_stage') {
-                        isVisionImage = true
-                        markers = 'not notebooks and vision'
-                    }
-                    if (key == 'TAG') {
-                        tag = val
-                        // there could be multiple tags
-                        isLintImage = isLintImage || tag == lintImage
-                    }
-                }
-                String extraDeps = 'all'
-
-                if (isVisionImage) {
-                    markers = 'not notebooks and vision and not daily'
-                }
-
-                def subJobs = [
-                    "Pytest - ${tag}" : { -> runPytest(stagingImage, markers, extraDeps, isGpuImage) }
-                ]
-                if (isLintImage) {
-                    // and run lint and a dev install on this image
-                    subJobs << [
-                        'Pytest - extraDeps=dev': { -> runPytest(stagingImage, markers, 'dev', false) },
-                        'Lint': { -> runLint(stagingImage) },
-                    ]
-                }
-                subJobs.failFast = true
-                parallel(subJobs)
             }]
+            def subJobs = []
+            scheduleJobForBuildArgs(subJobs, stagingImage, buildArgs)
+            subJobs.failFast = true
+            parallel(subJobs)
         }
-    }
-    else {
-        // If not rebuilding the docker image, then run all tests on the existing image.
-        jobs << [
-            'Python 3.7': { ->
-                runPytest(
-                    getDockerImageName('mosaicml/pytorch', '3.7', false),
-                    'not notebooks and not gpu and not vision and not daily', // markers
-                    'all', // extraDeps
-                    false, // gpu
-                )
-            },
-            'Python 3.8': { ->
-                runPytest(
-                    getDockerImageName('mosaicml/pytorch', '3.8', false),
-                    'not notebooks and not gpu and not vision and not daily', // markers
-                    'all', // extraDeps
-                    false, // gpu
-                )
-            },
-            'Python 3.9': { ->
-                runPytest(
-                    getDockerImageName('mosaicml/pytorch', '3.9', false),
-                    'not notebooks and not gpu and not vision and not daily', // markers
-                    'all', // extraDeps
-                    false, // gpu
-                )
-            },
-            'Python 3.7 - GPU': { ->
-                runPytest(
-                    getDockerImageName('mosaicml/pytorch', '3.7', true),
-                    'not notebooks and gpu and not vision and not daily', // markers
-                    'all', // extraDeps
-                    true, // gpu
-                )
-            },
-            'Python 3.7 - Vision': { ->
-                runPytest(
-                    visionImage,
-                    'not notebooks and vision and not daily',
-                    'all', // extraDeps
-                    true, // gpu
-                )
-            },
-            'Lint': { -> runLint(lintImage) },
-            'Python 3.7 - extraDeps=dev': { ->
-                runPytest(
-                    getDockerImageName('mosaicml/pytorch', '3.7', false),
-                    'not notebooks and not gpu and not vision and not daily', // markers
-                    'dev', // extraDeps
-                    false, // gpu
-                )
-            },
-        ]
+        else {
+            // If not rebuilding the docker image, then run all tests on the existing images
+            String existingImageTag = buildArgs['TAGS'][0]
+            scheduleJobForBuildArgs(jobs, existingImageTag, buildArgs)
+        }
     }
 
     if (dependenciesChanged) {
