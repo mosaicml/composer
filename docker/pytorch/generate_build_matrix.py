@@ -1,10 +1,12 @@
-# Helper script to generate the build_matrix.yaml
-# pip install tabulate if not installed
+"""
+Helper script to generate the build_matrix.yaml
 
-# Output a docker build matrix across: {Python 3.7, 3.8, 3.9, 3.10} x { CPU, GPU } x { torch 1.10, torch 1.11 } x {vision, base}
-# The following combinations are skipped:
-#  * Pytorch 1.11 + Python 3.10 -- not compatible
-#  * CPU + Vision Image -- need to fix a bug to remove the cupy dependency if on CPU
+Note: this script requires tabulate. Run `pip install tabulate` if not installed
+
+To run: python generate_build_matrix.py
+
+Also update the `README.md` in the docker folder with the resulting table.
+"""
 
 import itertools
 import os
