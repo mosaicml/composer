@@ -108,21 +108,20 @@ class EarlyStopper(Callback):
         if not torch.is_tensor(metric_val):
             metric_val = torch.tensor(metric_val)
 
-        assert self.comp is not None
         if self.best is None:
             self.best = metric_val
-            self.best_occurred = state.timer.get_timestamp()
+            self.best_occurred = state.timestamp
         elif self.comp(metric_val, self.best) and torch.abs(metric_val - self.best) > self.min_delta:
             self.best = metric_val
-            self.best_occurred = state.timer.get_timestamp()
+            self.best_occurred = state.timestamp
 
         assert self.best_occurred is not None
         if self.patience.unit == TimeUnit.EPOCH:
-            if state.timer.epoch - self.best_occurred.epoch > self.patience:
-                state.max_duration = state.timer.batch
+            if state.timestamp.epoch - self.best_occurred.epoch > self.patience:
+                state.max_duration = state.timestamp.batch
         elif self.patience.unit == TimeUnit.BATCH:
-            if state.timer.batch - self.best_occurred.batch > self.patience:
-                state.max_duration = state.timer.batch
+            if state.timestamp.batch - self.best_occurred.batch > self.patience:
+                state.max_duration = state.timestamp.batch
         else:
             raise ValueError(f"The units of `patience` should be EPOCH or BATCH.")
 

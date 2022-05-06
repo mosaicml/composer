@@ -30,7 +30,7 @@ class TestMetricSetter(Callback):
         self.device = device
 
     def _update_metrics(self, state: State):
-        idx = min(len(self.metric_sequence) - 1, state.timer.get(self.unit).value)
+        idx = min(len(self.metric_sequence) - 1, state.timestamp.get(self.unit).value)
         metric_val = self.metric_sequence[idx]
         state.current_metrics[self.dataloader_label] = state.current_metrics.get(self.dataloader_label, dict())
         metric_tensor = tensor(metric_val)
@@ -83,4 +83,4 @@ def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device_hpar
 
     trainer.fit()
 
-    assert trainer.state.timer.get(unit).value == len(metric_sequence) + int(early_stopper.patience)
+    assert trainer.state.timestamp.get(unit).value == len(metric_sequence) + int(early_stopper.patience)
