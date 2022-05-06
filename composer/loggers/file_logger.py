@@ -183,10 +183,10 @@ class FileLogger(LoggerDestination):
         return name
 
     def batch_start(self, state: State, logger: Logger) -> None:
-        self.is_batch_interval = (int(state.timer.batch) + 1) % self.log_interval == 0
+        self.is_batch_interval = (int(state.timestamp.batch) + 1) % self.log_interval == 0
 
     def epoch_start(self, state: State, logger: Logger) -> None:
-        self.is_epoch_interval = (int(state.timer.epoch) + 1) % self.log_interval == 0
+        self.is_epoch_interval = (int(state.timestamp.epoch) + 1) % self.log_interval == 0
         # Flush any log calls that occurred during INIT or FIT_START
         self._flush_file(logger)
 
@@ -212,7 +212,7 @@ class FileLogger(LoggerDestination):
             return
         data_str = format_log_data_value(data)
         self.write(
-            f'[{log_level.name}][batch={int(state.timer.batch)}]: ',
+            f'[{log_level.name}][batch={int(state.timestamp.batch)}]: ',
             data_str + "\n",
         )
 
@@ -231,7 +231,7 @@ class FileLogger(LoggerDestination):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         assert self.file is not None
-        if self.log_level == LogLevel.BATCH and int(state.timer.batch) % self.flush_interval == 0:
+        if self.log_level == LogLevel.BATCH and int(state.timestamp.batch) % self.flush_interval == 0:
             self._flush_file(logger)
 
     def eval_start(self, state: State, logger: Logger) -> None:
@@ -240,7 +240,7 @@ class FileLogger(LoggerDestination):
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         if self.log_level > LogLevel.EPOCH or self.log_level == LogLevel.EPOCH and int(
-                state.timer.epoch) % self.flush_interval == 0:
+                state.timestamp.epoch) % self.flush_interval == 0:
             self._flush_file(logger)
 
     def write(self, prefix: str, s: str):
