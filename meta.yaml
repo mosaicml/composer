@@ -77,7 +77,8 @@ test:
     - composer
     - tests
   commands:
-    - pip install deepspeed>=0.5.5 timm>=0.5.4 # deepspeed is not available on conda, and timm has a conda version conflict
+    # deepspeed is not available on conda, and timm has a conda version conflict
+    - pip install 'deepspeed>=0.5.5' 'timm>=0.5.4'
     - make test DURATION=all EXTRA_ARGS="-v -m 'not notebooks and not gpu and not vision and not daily'"
     - make test-dist DURATION=all WORLD_SIZE=2 EXTRA_ARGS="-v -m 'not notebooks and not gpu and not vision and not daily'"
 

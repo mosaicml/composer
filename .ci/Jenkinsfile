@@ -161,6 +161,10 @@ void scheduleJobForBuildArgs(jobs, String image, buildArgs) {
 }
 
 void runPytest(String pDockerImage, String markers, String extraDeps, Boolean isGpu) {
+    // pDockerImage (str): Base docker image to use.
+    // extraDeps (str): The pip extra deps to install -- e.g. "pip install "mosaicml[$extraDeps]".
+    // markers (str): Pyetst markers
+    // isGpu (Boolean): Whether the test requires gpus
     String nGpus = '0'
     String cpuLimit = pytestCpuTestCpuLimit
     String memLimit = pytestCpuTestMemLimit
