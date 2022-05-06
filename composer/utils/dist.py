@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Helper methods for :mod:`torch.distributed`.
 
@@ -33,8 +33,6 @@ from __future__ import annotations
 
 import datetime
 import os
-import textwrap
-import warnings
 from typing import Any, List, Optional, Sequence, TypeVar, cast
 
 import torch
@@ -353,10 +351,6 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
             or ``nccl`` for GPU training.
         timeout (datetime.timedelta): The timeout for operations exected against the process group.
     """
-    if get_world_size() == 1:
-        warnings.warn("DistributedWarning: Initializing of torch.distributed required but the world size is 1."
-                      "This is supported, but not recommended.")
-
     if get_world_size() > 1 and not dist.is_available():
         raise RuntimeError("When the world size is > 1, ``torch.distributed`` must be used. However, it is "
                            "not available in your installation of PyTorch. Please install or build PyTorch "
@@ -370,23 +364,26 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
                                "wish to change backends, please restart the python process.")
         return
 
-    dist_env_variable_names = ("NODE_RANK", "WORLD_SIZE", "LOCAL_WORLD_SIZE", "RANK", "LOCAL_RANK")
+    # If any of these variables are set, and they do not match the single rank defaults,
+    # then do not automatically configure distributed. There are no reasonable defaults to infer
+    # for the other variables. Instead, let torch.dist error on an incomplete configuration.
 
-    is_missing_all_dist_env_vars = all(x not in os.environ for x in dist_env_variable_names)
-    if is_missing_all_dist_env_vars:
-        # missing all variables, in which case we should assume a single process
-        # if any variables are set, then it's likely an incomplete configuration, in which case we should not assume
-        # defaults (it would be better to let dist.init_process_group crash)
-        warnings.warn(
-            textwrap.dedent(f"""\
-                NoDistributedWarning: No distributed environment variables are set; assuming no
-                parallelization. If this is unexpected, please run the script with the composer CLI tool."""))
-        # setting the environment variables to single-rank defaults
-        os.environ["LOCAL_RANK"] = "0"
-        os.environ["RANK"] = "0"
-        os.environ["LOCAL_WORLD_SIZE"] = "1"
-        os.environ["WORLD_SIZE"] = "1"
-        os.environ["NODE_RANK"] = "0"
+    # If none of these variables are set, or some are set but they match the single rank defaults,
+    # then fill the rest in.
+
+    dist_env_var_defaults = {
+        "NODE_RANK": "0",
+        "WORLD_SIZE": "1",
+        "LOCAL_WORLD_SIZE": "1",
+        "RANK": "0",
+        "LOCAL_RANK": "0",
+    }
+
+    dist_env_vars_match_defaults = all(os.environ.get(k, v) == v for (k, v) in dist_env_var_defaults.items())
+
+    if dist_env_vars_match_defaults:
+        # Fill in the remaining single-rank variables
+        os.environ.update(dist_env_var_defaults)
         dist.init_process_group(backend, store=dist.HashStore(), world_size=1, rank=0)
         return
 

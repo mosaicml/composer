@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def factorizing_could_speedup(module: torch.nn.Module, latent_size: Union[int, f
     Args:
         module (torch.nn.Module): a :py:class:`~torch.nn.Conv2d`, :py:class:`~torch.nn.Linear`,
             :py:class:`~FactorizedConv2d`, or :py:class:`~FactorizedLinear`.
-        latent_size (int or float): number of channels (for convolution) or
+        latent_size (int | float): number of channels (for convolution) or
             features (for linear) in the latent representation. Can be
             specified as either an integer > 1 or as float within [0, 1).
             In the latter case, the value is interpreted as a fraction of
@@ -238,8 +238,8 @@ class FactorizedConv2d(_FactorizedModule):
     Args:
         in_channels (int): number of channels in the input image
         out_channels (int): number of channels produced by the convolution
-        kernel_size (int or tuple, optional): size of the convolving kernel
-        latent_channels (int or float, optional): number of channels in the
+        kernel_size (int | tuple, optional): size of the convolving kernel
+        latent_channels (int | float, optional): number of channels in the
             latent representation produced by the first small convolution.
             Can be specified as either an integer > 1 or as float within
             [0, 1). In the latter case, the value is interpreted as a fraction
@@ -384,7 +384,7 @@ class FactorizedLinear(_FactorizedModule):
         in_features (int): size of each input sample
         out_features (int): size of each output sample
         bias (bool): If set to False, the layer will not learn an additive bias.
-        latent_features (int or float, optional): size of the latent space.
+        latent_features (int | float, optional): size of the latent space.
             Can be specified as either an integer > 1 or as a float within
             [0, 0.5). In the latter case, the value is interpreted as a fraction
             of ``min(in_features, out_features)``, and is converted to the

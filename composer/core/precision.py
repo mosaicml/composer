@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Enum class for the numerical precision to be used by the model."""
 
@@ -42,7 +42,7 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
         the precision context will be a no-op.
 
     Args:
-        precision (str or Precision): Precision for the context
+        precision (str | Precision): Precision for the context
     """
 
     precision = Precision(precision)

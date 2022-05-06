@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.GPT2Model`."""
 
@@ -51,6 +51,7 @@ class GPT2Hparams(TransformerHparams):
             tokenizer = None
 
         if self.use_pretrained:
+            assert transformers.AutoModelForCausalLM.from_pretrained is not None, "from_pretrained should not be None"
             model = transformers.AutoModelForCausalLM.from_pretrained(self.pretrained_model_name)
         else:
             model = transformers.AutoModelForCausalLM.from_config(config)  #type: ignore (thirdparty)

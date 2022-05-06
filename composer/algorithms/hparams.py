@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import textwrap
 from dataclasses import asdict, dataclass
@@ -25,7 +25,6 @@ from composer.algorithms.no_op_model import NoOpModel
 from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment
 from composer.algorithms.sam import SAM
-from composer.algorithms.scale_schedule import ScaleSchedule
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite
@@ -270,8 +269,8 @@ class ProgressiveResizingHparams(AlgorithmHparams):
     initial_scale: float = hp.optional(doc="Initial scale factor", default=0.5)
     finetune_fraction: float = hp.optional(doc="Fraction of training to reserve for finetuning on full-sized inputs",
                                            default=0.2)
-    delay_fraction: float = hp.optional(doc="Fraction of training before resizing ramp begins", default=0.0)
-    size_increment: int = hp.optional(doc="Align sizes to a multiple of this number.", default=1)
+    delay_fraction: float = hp.optional(doc="Fraction of training before resizing ramp begins", default=0.5)
+    size_increment: int = hp.optional(doc="Align sizes to a multiple of this number.", default=4)
     resize_targets: bool = hp.optional(doc="Also resize targets", default=False)
 
     def initialize_object(self) -> ProgressiveResizing:
@@ -305,16 +304,6 @@ class SAMHparams(AlgorithmHparams):
 
     def initialize_object(self) -> SAM:
         return SAM(**asdict(self))
-
-
-@dataclass
-class ScaleScheduleHparams(AlgorithmHparams):
-    """See :class:`ScaleSchedule`"""
-
-    ratio: float = hp.optional('Ratio to scale the schedule.', default=1.0)
-
-    def initialize_object(self) -> "ScaleSchedule":
-        return ScaleSchedule(**asdict(self))
 
 
 @dataclass
