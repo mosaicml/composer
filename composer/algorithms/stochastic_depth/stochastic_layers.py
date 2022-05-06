@@ -76,6 +76,19 @@ class StochasticBottleneck(Bottleneck):
                                  use_same_gpu_seed=self.use_same_gpu_seed,
                                  use_same_depth_across_gpus=self.use_same_depth_across_gpus)
 
+    """ Special consideration to serialize the layer's rng state.
+    """
+
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        super()._save_to_state_dict(destination, prefix, keep_vars)
+        destination[prefix + 'rng_state'] = self.rand_generator.get_state()
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+                              error_msgs):
+        self.rand_generator.set_state(state_dict[prefix + 'rng_state'])
+        return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+                                             error_msgs)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         identity = x
 
