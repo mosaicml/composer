@@ -173,7 +173,7 @@ class EMA(Algorithm):
 
         if event in [Event.BATCH_END, Event.EPOCH_END]:
             # Check if an update should happen
-            if state.timer.get(self.update_interval.unit).value % self.update_interval.value == 0:
+            if state.timestamp.get(self.update_interval.unit).value % self.update_interval.value == 0:
                 # Initialize the shadow models if they don't exist yet
                 if self.ema_model is None:
                     self.ema_model = ShadowModel(state.model)

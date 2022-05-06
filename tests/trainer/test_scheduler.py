@@ -95,11 +95,15 @@ def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: Li
         parsed_time = Time.from_timestring(test_time)
         assert parsed_time.unit in [TimeUnit.EPOCH, TimeUnit.BATCH]
         if parsed_time.unit == TimeUnit.EPOCH:
-            state.timer._epoch = parsed_time
-            state.timer._batch = Time(int(state.dataloader_len) * int(state.timer.epoch), TimeUnit.BATCH)
+            state.timestamp = state.timestamp.copy(
+                epoch=parsed_time,
+                batch=Time(int(state.dataloader_len) * int(parsed_time), TimeUnit.BATCH),
+            )
         else:
-            state.timer._batch = parsed_time
-            state.timer._epoch = Time(int(state.timer.batch) // int(state.dataloader_len), TimeUnit.EPOCH)
+            state.timestamp = state.timestamp.copy(
+                batch=parsed_time,
+                epoch=Time(int(parsed_time) // int(state.dataloader_len), TimeUnit.EPOCH),
+            )
 
         lr = scheduler(state, ssr)
         assert lr == pytest.approx(expected_lr, abs=1e-3)

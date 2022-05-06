@@ -34,7 +34,7 @@ class Callback(Serializable, abc.ABC):
 
             >>> class MyCallback(Callback):
             ...     def epoch_start(self, state: State, logger: Logger):
-            ...         print(f'Epoch: {int(state.timer.epoch)}')
+            ...         print(f'Epoch: {int(state.timestamp.epoch)}')
             >>> # construct trainer object with your callback
             >>> trainer = Trainer(
             ...     model=model,
@@ -67,7 +67,7 @@ class Callback(Serializable, abc.ABC):
             >>> class MyCallback(Callback):
             ...     def run_event(self, event: Event, state: State, logger: Logger):
             ...         if event == Event.EPOCH_START:
-            ...             print(f'Epoch: {int(state.timer.epoch)}')
+            ...             print(f'Epoch: {int(state.timestamp.epoch)}')
             >>> # construct trainer object with your callback
             >>> trainer = Trainer(
             ...     model=model,
@@ -233,22 +233,22 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-           The following :class:`~.time.Timer` member variables are incremented immediately before the
+           The following :attr:`~.State.timestamp` member variables are incremented immediately before the
            :attr:`~.Event.BATCH_END` event.
 
-           +-----------------------------------+
-           | :attr:`.Timer.batch`              |
-           +-----------------------------------+
-           | :attr:`.Timer.batch_in_epoch`     |
-           +-----------------------------------+
-           | :attr:`.Timer.sample`             |
-           +-----------------------------------+
-           | :attr:`.Timer.sample_in_epoch`    |
-           +-----------------------------------+
-           | :attr:`.Timer.token`              |
-           +-----------------------------------+
-           | :attr:`.Timer.token_in_epoch`     |
-           +-----------------------------------+
+           +------------------------------------+
+           | :attr:`.Timestamp.batch`           |
+           +------------------------------------+
+           | :attr:`.Timestamp.batch_in_epoch`  |
+           +------------------------------------+
+           | :attr:`.Timestamp.sample`          |
+           +------------------------------------+
+           | :attr:`.Timestamp.sample_in_epoch` |
+           +------------------------------------+
+           | :attr:`.Timestamp.token`           |
+           +------------------------------------+
+           | :attr:`.Timestamp.token_in_epoch`  |
+           +------------------------------------+
 
         Args:
             state (State): The global state.
@@ -272,7 +272,7 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-            :class:`~.time.Timer` member variable :attr:`.Timer.epoch` is incremented immediately before
+            :attr:`~.State.timestamp` member variable :attr:`.Timestamp.epoch` is incremented immediately before
             :attr:`~.Event.EPOCH_END`.
 
         Args:

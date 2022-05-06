@@ -265,7 +265,7 @@ class SeqLengthWarmup(Algorithm):
         num_update_steps = (self.max_seq_length - self.min_seq_length) // self.step_size
         update_every_n_steps = num_warmup_steps // num_update_steps
 
-        curr_seq_len = self.step_size * (int(state.timer.batch) // update_every_n_steps)
+        curr_seq_len = self.step_size * (int(state.timestamp.batch) // update_every_n_steps)
         curr_seq_len = max(curr_seq_len, self.min_seq_length)
         curr_seq_len = min(curr_seq_len, self.max_seq_length)
 
