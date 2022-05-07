@@ -50,57 +50,9 @@
   MOFED_OS_VERSION: ubuntu20.04-x86_64
   MOFED_VERSION: 5.5-1.0.3.2
   PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.10.2
-  TAGS:
-  - mosaicml/pytorch:1.10.2_cu113-python3.9-ubuntu20.04
-  TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.11.3
-- BASE_IMAGE: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
-  CUDA_VERSION: 11.3.1
-  CUDA_VERSION_TAG: cu113
-  LINUX_DISTRO: ubuntu2004
-  MMCV_TORCH_VERSION: torch1.10.2
-  MMCV_VERSION: 1.4.8
-  MOFED_OS_VERSION: ubuntu20.04-x86_64
-  MOFED_VERSION: 5.5-1.0.3.2
-  PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.10.2
-  TAGS:
-  - mosaicml/pytorch_vision:1.10.2_cu113-python3.9-ubuntu20.04
-  TARGET: vision_stage
-  TORCHVISION_VERSION: 0.11.3
-- BASE_IMAGE: ubuntu:20.04
-  CUDA_VERSION: cpu
-  CUDA_VERSION_TAG: cpu
-  LINUX_DISTRO: ubuntu2004
-  PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.10.2
-  TAGS:
-  - mosaicml/pytorch:1.10.2_cpu-python3.9-ubuntu20.04
-  TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.11.3
-- BASE_IMAGE: ubuntu:20.04
-  CUDA_VERSION: cpu
-  CUDA_VERSION_TAG: cpu
-  LINUX_DISTRO: ubuntu2004
-  MMCV_TORCH_VERSION: torch1.10.2
-  MMCV_VERSION: 1.4.8
-  PYTHON_VERSION: '3.9'
-  PYTORCH_VERSION: 1.10.2
-  TAGS:
-  - mosaicml/pytorch_vision:1.10.2_cpu-python3.9-ubuntu20.04
-  TARGET: vision_stage
-  TORCHVISION_VERSION: 0.11.3
-- BASE_IMAGE: nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
-  CUDA_VERSION: 11.3.1
-  CUDA_VERSION_TAG: cu113
-  LINUX_DISTRO: ubuntu2004
-  MOFED_OS_VERSION: ubuntu20.04-x86_64
-  MOFED_VERSION: 5.5-1.0.3.2
-  PYTHON_VERSION: '3.10'
   PYTORCH_VERSION: 1.11.0
   TAGS:
-  - mosaicml/pytorch:1.11.0_cu113-python3.10-ubuntu20.04
+  - mosaicml/pytorch:1.11.0_cu113-python3.9-ubuntu20.04
   - mosaicml/pytorch:latest
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.12.0
@@ -112,10 +64,10 @@
   MMCV_VERSION: 1.4.8
   MOFED_OS_VERSION: ubuntu20.04-x86_64
   MOFED_VERSION: 5.5-1.0.3.2
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.9'
   PYTORCH_VERSION: 1.11.0
   TAGS:
-  - mosaicml/pytorch_vision:1.11.0_cu113-python3.10-ubuntu20.04
+  - mosaicml/pytorch_vision:1.11.0_cu113-python3.9-ubuntu20.04
   - mosaicml/pytorch_vision:latest
   TARGET: vision_stage
   TORCHVISION_VERSION: 0.12.0
@@ -123,10 +75,10 @@
   CUDA_VERSION: cpu
   CUDA_VERSION_TAG: cpu
   LINUX_DISTRO: ubuntu2004
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.9'
   PYTORCH_VERSION: 1.11.0
   TAGS:
-  - mosaicml/pytorch:1.11.0_cpu-python3.10-ubuntu20.04
+  - mosaicml/pytorch:1.11.0_cpu-python3.9-ubuntu20.04
   - mosaicml/pytorch:latest_cpu
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.12.0
@@ -136,10 +88,10 @@
   LINUX_DISTRO: ubuntu2004
   MMCV_TORCH_VERSION: torch1.11.0
   MMCV_VERSION: 1.4.8
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.9'
   PYTORCH_VERSION: 1.11.0
   TAGS:
-  - mosaicml/pytorch_vision:1.11.0_cpu-python3.10-ubuntu20.04
+  - mosaicml/pytorch_vision:1.11.0_cpu-python3.9-ubuntu20.04
   - mosaicml/pytorch_vision:latest_cpu
   TARGET: vision_stage
   TORCHVISION_VERSION: 0.12.0

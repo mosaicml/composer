@@ -16,9 +16,9 @@ import yaml
 
 
 def get_pytorch_version(python_version: str):
-    if python_version == "3.10":
+    if python_version == "3.9":
         return "1.11.0"
-    if python_version in ("3.7", "3.8", "3.9"):
+    if python_version in ("3.7", "3.8"):
         return "1.10.2"
     raise ValueError(f"Invalid python version: {python_version}")
 
@@ -56,7 +56,7 @@ def get_tags(python_version: str, pytorch_version: str, cuda_version_tag: str, c
         raise ValueError(f"Invalid stage: {stage}")
     tags = [f"{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04"]
 
-    if python_version == "3.10":
+    if python_version == "3.9":
         if cuda_version == "cpu":
             tags.append(f"{base_image_name}:latest_cpu")
         else:
@@ -66,7 +66,7 @@ def get_tags(python_version: str, pytorch_version: str, cuda_version_tag: str, c
 
 
 def main():
-    python_versions = ["3.7", "3.8", "3.9", "3.10"]
+    python_versions = ["3.7", "3.8", "3.9"]
     cuda_versions = ["11.3.1", "cpu"]
     stages = ["pytorch_stage", "vision_stage"]
 
@@ -106,10 +106,8 @@ def main():
                 ),
         }
 
-        if stage == "vision_stage":
-            if python_version == "3.7" or python_version == "3.8":
-                # only build the vision image on python 3.9 and 3.10
-                continue
+        if stage == "vision_stage" and python_version == "3.9":
+            # only build the vision image on python 3.9
             entry["MMCV_TORCH_VERSION"] = f"torch{pytorch_version}"
             entry["MMCV_VERSION"] = "1.4.8"
 
