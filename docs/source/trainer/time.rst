@@ -41,17 +41,15 @@ see the documentation for |Time|.
 
 Tracking Time
 -------------
-The trainer has a :class:`.Timer` object stored in :attr:`.State.timer` that
-measures progress in all the time formats above. :attr:`.State.timer` can be
+The trainer has a :class:`.Timestamp` object stored in :attr:`.State.timestamp` that
+measures progress in all the time formats above. :attr:`.State.timestamp` can be
 read by algorithms and callbacks to trigger behavior at different times
 during training. This feature allows algorithms to specify time in whatever unit
 is most useful -- e.g. an algorithm could activate once every *n* batches or
 during the last 20% of training.
 
-When the trainer's timer unit is specified in terms of samples or tokens,
-the timer increments time in response to the data being consumed. As each 
-batch of data is read, the timer accumulates the total number of samples 
-and/or tokens consumed.
+After each batch and epoch, :attr:`.State.timestamp` is updated to reflect
+the amount of data being consumed in terms of epochs, batches, samples, and tokens.
 
 By default, we attempt to infer the number of samples based on the batch type:
 
@@ -113,6 +111,6 @@ this default behavior.
     TODO: discuss how to handle `drop_last`
     TODO: warn users against converting between time units
 
-.. |Timer| replace:: :class:`.Timer`
+.. |Timestamp| replace:: :class:`.Timestamp`
 .. |Time| replace:: :class:`.Time`
 .. |TimeUnit| replace:: :class:`.TimeUnit`

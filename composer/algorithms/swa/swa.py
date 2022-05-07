@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Core code for Stochastic Weight Averaging."""
 
@@ -179,7 +179,7 @@ class SWA(Algorithm):
             assert elapsed_duration is not None, "elapsed duration should be set on Event.BATCH_END or Event.EPOCH_END"
             should_start_swa = elapsed_duration >= self.swa_start and not self.swa_completed
         elif self.swa_start.unit == TimeUnit.EPOCH:
-            should_start_swa = state.timer.get("ep") >= self.swa_start and not self.swa_completed
+            should_start_swa = state.timestamp.epoch >= self.swa_start and not self.swa_completed
         else:
             should_start_swa = False
         return event == self.match_event and should_start_swa
@@ -229,7 +229,7 @@ class SWA(Algorithm):
         # Determine whether it's time to end SWA
         if self.swa_end.unit == TimeUnit.DURATION and (elapsed_duration >= self.swa_end):
             self.swa_completed = True
-        if self.swa_end.unit == TimeUnit.EPOCH and (state.timer.get("ep") >= self.swa_end):
+        if self.swa_end.unit == TimeUnit.EPOCH and (state.timestamp.epoch >= self.swa_end):
             self.swa_completed = True
         if self.swa_completed:
             if state.get_elapsed_duration() == 1:

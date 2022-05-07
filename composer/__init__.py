@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 from composer import algorithms as algorithms
 from composer import callbacks as callbacks
@@ -18,7 +18,7 @@ from composer.core import Evaluator as Evaluator
 from composer.core import Event as Event
 from composer.core import State as State
 from composer.core import Time as Time
-from composer.core import Timer as Timer
+from composer.core import Timestamp as Timestamp
 from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
 from composer.models import ComposerModel as ComposerModel

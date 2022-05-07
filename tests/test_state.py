@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import pathlib
 import random
@@ -52,7 +52,7 @@ def train_one_step(state: State, batch: Batch) -> None:
         optimizer.step()
     for scheduler in state.schedulers:
         scheduler.step()
-    state.timer.on_batch_complete(len(batch))
+    state.timestamp = state.timestamp.to_next_batch(len(batch))
 
 
 def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHparams) -> Batch:

@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 from unittest.mock import MagicMock
 
@@ -13,7 +13,7 @@ def test_in_memory_logger(dummy_state: State):
     logger = Logger(dummy_state, destinations=[in_memory_logger])
     logger.data_batch({"batch": "should_be_ignored"})
     logger.data_epoch({"epoch": "should_be_recorded"})
-    dummy_state.timer.on_batch_complete(samples=1, tokens=1)
+    dummy_state.timestamp = dummy_state.timestamp.to_next_batch(samples=1, tokens=1)
     logger.data_epoch({"epoch": "should_be_recorded_and_override"})
 
     # no batch events should be logged, since the level is epoch
@@ -49,7 +49,7 @@ def test_in_memory_logger_get_timeseries():
             token_in_epoch=Time(0, "tok"),
         )
         state = MagicMock()
-        state.timer.get_timestamp.return_value = timestamp
+        state.timestamp = timestamp
         datapoint = i / 3
         in_memory_logger.log_data(state=state, log_level=LogLevel.BATCH, data={"accuracy/val": datapoint})
         data["accuracy/val"].append(datapoint)

@@ -29,7 +29,7 @@ PYTORCH_TAG ?= mosaicml/pytorch
 
 # Extra dependencies to install for composer.
 # Composer is installed like:
-# pip install composer[$COMPOSER_EXTRA_DEPS]
+# pip install "composer[$COMPOSER_EXTRA_DEPS]"
 COMPOSER_EXTRA_DEPS ?= base
 
 # Resulting docker tag for the composer dockerimage

@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Stateless learning rate schedulers.
 
@@ -51,7 +51,7 @@ class ComposerScheduler(Protocol):
     .. code:: python
 
         def ten_epoch_decay_scheduler(state: State) -> float:
-            if state.timer.epoch < 10:
+            if state.timestamp.epoch < 10:
                 return 1.0
             return 0.5
 
@@ -94,7 +94,7 @@ class ComposerScheduler(Protocol):
 
         A scheduler function should be a pure function that returns a multiplier to apply to the optimizer's provided
         learning rate, given the current trainer state, and optionally a "scale schedule ratio" (SSR). A typical
-        implementation will read ``state.timer``, and possibly other fields like ``state.max_duration``, to determine
+        implementation will read ``state.timestamp``, and possibly other fields like ``state.max_duration``, to determine
         the trainer's latest temporal progress.
 
         .. note::
@@ -210,7 +210,7 @@ class StepScheduler(ComposerScheduler):
     :math:`\gamma` represents the multiplicative decay factor.
     
     Args:
-        step_size (str or Time): Time between changes to the learning rate.
+        step_size (str | Time): Time between changes to the learning rate.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
@@ -220,7 +220,7 @@ class StepScheduler(ComposerScheduler):
 
     def __call__(self, state: State, ssr: float = 1.0):
         step_size = _convert_time(self.step_size, state, ssr=ssr)
-        current_time = state.timer.get(step_size.unit)
+        current_time = state.timestamp.get(step_size.unit)
         steps = int(current_time / step_size)
 
         return self.gamma**steps
@@ -243,7 +243,7 @@ class MultiStepScheduler(ComposerScheduler):
     multiplicative decay factor.
     
     Args:
-        milestones (List[str or Time]): Times at which the learning rate should change.
+        milestones (List[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
@@ -256,7 +256,7 @@ class MultiStepScheduler(ComposerScheduler):
 
         factor = 1.0
         for milestone in milestones:
-            if state.timer >= milestone:
+            if state.timestamp >= milestone:
                 factor *= self.gamma
 
         return factor
@@ -280,7 +280,7 @@ class ConstantScheduler(ComposerScheduler):
     
     Args:
         alpha (float): Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.
-        t_max (str or Time): Duration of this scheduler. Default = ``"1dur"``.
+        t_max (str | Time): Duration of this scheduler. Default = ``"1dur"``.
     """
 
     def __init__(self, alpha: float = 1.0, t_max: Union[str, Time] = "1dur") -> None:
@@ -290,7 +290,7 @@ class ConstantScheduler(ComposerScheduler):
     def __call__(self, state: State, ssr: float = 1.0) -> float:
         t_max = _convert_time(self.t_max, state, ssr=ssr)
 
-        if state.timer < t_max:
+        if state.timestamp < t_max:
             return self.alpha
 
         return 1.0
@@ -326,7 +326,7 @@ class LinearScheduler(ComposerScheduler):
     Args:
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
         alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
-        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
     """
 
     def __init__(self, alpha_i: float = 1.0, alpha_f: float = 0.0, t_max: Union[str, Time] = "1dur"):
@@ -336,7 +336,7 @@ class LinearScheduler(ComposerScheduler):
 
     def __call__(self, state: State, ssr: float = 1.0):
         t_max = _convert_time(self.t_max, state, ssr=ssr)
-        current_time = state.timer.get(t_max.unit)
+        current_time = state.timestamp.get(t_max.unit)
         frac_of_total = min(1.0, (current_time / t_max).value)
 
         current_factor = self.alpha_i + frac_of_total * (self.alpha_f - self.alpha_i)
@@ -360,7 +360,7 @@ class ExponentialScheduler(ComposerScheduler):
     Where :math:`\rho` represents the decay period, and :math:`\gamma` represents the multiplicative decay factor.
     
     Args:
-        decay_period (str or Time): Decay period. Default = ``"1ep"``.
+        decay_period (str | Time): Decay period. Default = ``"1ep"``.
         gamma (float): Multiplicative decay factor.
     """
 
@@ -370,7 +370,7 @@ class ExponentialScheduler(ComposerScheduler):
 
     def __call__(self, state: State, ssr: float = 1.0):
         decay_period = _convert_time(self.decay_period, state, ssr)
-        current_time_in_decay_units = state.timer.get(decay_period.unit)
+        current_time_in_decay_units = state.timestamp.get(decay_period.unit)
 
         return self.gamma**float(current_time_in_decay_units / decay_period)
 
@@ -406,7 +406,7 @@ class CosineAnnealingScheduler(ComposerScheduler):
     represents the duration of this scheduler, and :math:`\alpha_f` represents the learning rate multiplier to decay to.
     
     Args:
-        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
@@ -416,7 +416,7 @@ class CosineAnnealingScheduler(ComposerScheduler):
 
     def __call__(self, state: State, ssr: float = 1.0):
         t_max = _convert_time(self.t_max, state, ssr=ssr)
-        current_time = state.timer.get(t_max.unit)
+        current_time = state.timestamp.get(t_max.unit)
         frac_of_total = (current_time / t_max).value
 
         return _cosine_anneal(x=frac_of_total, min_y=self.alpha_f)
@@ -447,7 +447,7 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
     cycles, and :math:`\alpha_f` represents the learning rate multiplier to decay to.
     
     Args:
-        t_0 (str or Time): The period of the first cycle.
+        t_0 (str | Time): The period of the first cycle.
         t_mult (float): The multiplier for the duration of successive cycles. Default = ``1.0``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
@@ -461,7 +461,7 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
         t_0 = _convert_time(self.t_0, state, ssr=ssr)
         current_interval_len = t_0
         current_interval_end = t_0
-        while current_interval_end <= state.timer.get(current_interval_end.unit):
+        while current_interval_end <= state.timestamp.get(current_interval_end.unit):
             if current_interval_len.value == 0:
                 raise ValueError(
                     "Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.")
@@ -471,7 +471,8 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
             current_interval_end += current_interval_len
 
         current_interval_start = current_interval_end - current_interval_len
-        frac_of_current_interval = ((state.timer.get(t_0.unit) - current_interval_start) / current_interval_len).value
+        frac_of_current_interval = ((state.timestamp.get(t_0.unit) - current_interval_start) /
+                                    current_interval_len).value
 
         return _cosine_anneal(x=frac_of_current_interval, min_y=self.alpha_f)
 
@@ -495,7 +496,7 @@ class PolynomialScheduler(ComposerScheduler):
 
     Args:
         power (float): The exponent to be used for the proportionality relationship.
-        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
@@ -506,7 +507,7 @@ class PolynomialScheduler(ComposerScheduler):
 
     def __call__(self, state: State, ssr: float = 1.0):
         t_max = _convert_time(self.t_max, state, ssr=ssr)
-        current_time = state.timer.get(t_max.unit)
+        current_time = state.timestamp.get(t_max.unit)
         frac_of_total = (current_time / t_max).value
 
         coeff = (1 - frac_of_total)**self.power
@@ -543,8 +544,8 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
         will still be scaled accordingly.
 
     Args:
-        t_warmup (str or Time): Warmup time.
-        milestones (List[str or Time]): Times at which the learning rate should change.
+        t_warmup (str | Time): Warmup time.
+        milestones (List[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
     """
 
@@ -564,7 +565,7 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
                 training duration, take note that the warmup duration is calculated in the
                 same unit as the trainer's max_duration parameter."""))
 
-        if state.timer < t_warmup:
+        if state.timestamp < t_warmup:
             return self.warmup_scheduler(state)
 
         return self.step_scheduler(state, ssr)
@@ -601,10 +602,10 @@ class LinearWithWarmupScheduler(ComposerScheduler):
         slightly distorted from what would otherwise be expected.
 
     Args:
-        t_warmup (str or Time): Warmup time.
+        t_warmup (str | Time): Warmup time.
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
         alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
-        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
     """
 
     def __init__(self,
@@ -627,11 +628,11 @@ class LinearWithWarmupScheduler(ComposerScheduler):
                 training duration, take note that the warmup duration is calculated in the
                 same unit as the trainer's max_duration parameter."""))
 
-        if state.timer < t_warmup:
+        if state.timestamp < t_warmup:
             return self.warmup_scheduler(state)
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
-        current_time = state.timer.get(t_warmup.unit)
+        current_time = state.timestamp.get(t_warmup.unit)
         frac_of_total = min(1.0, ((current_time - t_warmup) / (t_max - t_warmup)).value)
 
         current_factor = self.alpha_i + frac_of_total * (self.alpha_f - self.alpha_i)
@@ -667,8 +668,8 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         slightly distorted from what would otherwise be expected.
     
     Args:
-        t_warmup (str or Time): Warmup time.
-        t_max (str or Time): The duration of this scheduler. Default = ``"1dur"``.
+        t_warmup (str | Time): Warmup time.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
@@ -687,11 +688,11 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
                 training duration, take note that the warmup duration is calculated in the
                 same unit as the trainer's max_duration parameter."""))
 
-        if state.timer < t_warmup:
+        if state.timestamp < t_warmup:
             return self.warmup_scheduler(state)
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
-        current_time = state.timer.get(t_warmup.unit)
+        current_time = state.timestamp.get(t_warmup.unit)
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value
 
         return _cosine_anneal(x=frac_of_total, min_y=self.alpha_f)
