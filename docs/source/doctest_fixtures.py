@@ -51,7 +51,7 @@ from composer.loggers import LogLevel as LogLevel
 from composer.loggers import ObjectStoreLogger as OriginalObjectStoreLogger
 from composer.models import ComposerModel as ComposerModel
 from composer.optim.scheduler import ConstantScheduler
-from composer.utils import ObjectStore as OriginalObjectStore
+from composer.utils import ObjectStore
 from composer.utils import ensure_tuple as ensure_tuple
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
@@ -190,8 +190,11 @@ def ObjectStoreLogger(fake_ellipses: None = None, **kwargs: Any):
     )
     return OriginalObjectStoreLogger(**kwargs)
 
-
-def ObjectStore(fake_ellipses: None = None, **kwargs: Any):
+# Patch __init__ function to replace provider, container, key arguments. Since certain files
+# use ObjectStore in ``isinstance``, we can't wrap the class in a function like we do for
+# ``ObjectStoreLogger``
+original_init = ObjectStore.__init__
+def new_init(self, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         provider='local',
@@ -200,8 +203,8 @@ def ObjectStore(fake_ellipses: None = None, **kwargs: Any):
             'key': os.path.abspath("./object_store"),
         },
     )
-    return OriginalObjectStore(**kwargs)
-
+    original_init(self, **kwargs)
+ObjectStore.__init__ = new_init
 
 composer.loggers.object_store_logger.ObjectStoreLogger = ObjectStoreLogger
 composer.loggers.ObjectStoreLogger = ObjectStoreLogger
