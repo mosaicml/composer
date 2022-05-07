@@ -62,11 +62,11 @@ def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str
     else:
         dataloader_label = "train"
 
-    device = DeviceGPU() if device == 'gpu' else DeviceCPU()
+    test_device = DeviceGPU() if device == 'gpu' else DeviceCPU()
 
     early_stopper = EarlyStopper("Accuracy", dataloader_label, patience=Time(3, unit))
 
-    test_metric_setter = TestMetricSetter("Accuracy", dataloader_label, metric_sequence, unit, device)
+    test_metric_setter = TestMetricSetter("Accuracy", dataloader_label, metric_sequence, unit, test_device)
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),
