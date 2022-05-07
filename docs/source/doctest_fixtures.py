@@ -190,10 +190,13 @@ def ObjectStoreLogger(fake_ellipses: None = None, **kwargs: Any):
     )
     return OriginalObjectStoreLogger(**kwargs)
 
+
 # Patch __init__ function to replace provider, container, key arguments. Since certain files
 # use ObjectStore in ``isinstance``, we can't wrap the class in a function like we do for
 # ``ObjectStoreLogger``
 original_init = ObjectStore.__init__
+
+
 def new_init(self, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
@@ -204,6 +207,8 @@ def new_init(self, **kwargs: Any):
         },
     )
     original_init(self, **kwargs)
+
+
 ObjectStore.__init__ = new_init
 
 composer.loggers.object_store_logger.ObjectStoreLogger = ObjectStoreLogger
