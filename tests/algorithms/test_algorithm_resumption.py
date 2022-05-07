@@ -14,7 +14,6 @@ from tests.algorithms.algorithm_settings import get_settings
 from tests.common import deep_compare, device
 
 ALGORITHMS = get_algorithm_registry().keys()
-ALGORITHMS = ['swa']
 
 
 @pytest.mark.timeout(180)

@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Tuple, Union
 import numpy as np
 import torch
 
+from composer import Time
+
 
 def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0):
     """Compare two items recursively. Supports dicts, lists, tuples, tensors, and numpy arrays.
@@ -42,6 +44,15 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         assert isinstance(item2, type(item1)), f"{path} differs: {item1} != {item2}"
         _check_list_recursively(item1, item2, path, atol=atol, rtol=rtol)
         return
+    if isinstance(item1, Time):
+        assert type(item1) == type(item2)
+        assert item1 == item2, f"{path} differs: {item1} != {item2}"
+        return
+    if callable(item1):
+        assert callable(item2)
+        assert item1.__name__ == item2.__name__, f"{path} differs: {item1} != {item2}"
+        return
+
     raise NotImplementedError(f"Unsupported item type: {type(item1)}")
 
 

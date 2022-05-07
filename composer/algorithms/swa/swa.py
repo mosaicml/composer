@@ -122,24 +122,7 @@ class SWA(Algorithm):
         self.swa_end = Time.from_timestring(swa_end)
         self.update_interval = Time.from_timestring(update_interval)
 
-        # validate time units
-        if self.swa_start.unit != self.swa_end.unit:
-            raise ValueError(f'swa_start and swa_end must have same units, got {self.swa_start} and {self.swa_end}')
-        if self.swa_start.unit not in [TimeUnit.DURATION, TimeUnit.EPOCH]:
-            raise ValueError(f'swa_start must be DURATION or EPOCH, got {self.swa_start.unit}')
-        if self.update_interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
-            raise ValueError(f'update_iterval must be BATCH or EPOCH, got {self.update_interval.unit}')
-
-        # validate time
-        if self.swa_start >= self.swa_end:
-            raise ValueError('swa_end must be > swa_start.')
-        if self.swa_end.unit == TimeUnit.DURATION and self.swa_end == 1:
-            log.warning("'swa_end' = '1dur'. Batch norm statistics of averaged model "
-                        "will not be updated. This will negatively impact accuracy. "
-                        "See the documentation for the `swa_end` parameter for details.")
-
-        assert_valid_duration(self.swa_start)
-        assert_valid_duration(self.swa_end)
+        self._validate_time()
 
         if anneal_steps <= 0:
             raise ValueError("anneal_steps must be greater than 0")
@@ -164,7 +147,28 @@ class SWA(Algorithm):
         elif self.update_interval.unit == TimeUnit.EPOCH:
             self.match_event = Event.EPOCH_END
 
+    def _validate_time(self):
+        # validate time units
+        if self.swa_start.unit != self.swa_end.unit:
+            raise ValueError(f'swa_start and swa_end must have same units, got {self.swa_start} and {self.swa_end}')
+        if self.swa_start.unit not in [TimeUnit.DURATION, TimeUnit.EPOCH]:
+            raise ValueError(f'swa_start must be DURATION or EPOCH, got {self.swa_start.unit}')
+        if self.update_interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
+            raise ValueError(f'update_iterval must be BATCH or EPOCH, got {self.update_interval.unit}')
+
+        # validate time
+        if self.swa_start >= self.swa_end:
+            raise ValueError('swa_end must be > swa_start.')
+        if self.swa_end.unit == TimeUnit.DURATION and self.swa_end == 1:
+            log.warning("'swa_end' = '1dur'. Batch norm statistics of averaged model "
+                        "will not be updated. This will negatively impact accuracy. "
+                        "See the documentation for the `swa_end` parameter for details.")
+
+        assert_valid_duration(self.swa_start)
+        assert_valid_duration(self.swa_end)
+
     def _get_time(self, state: State):
+        """helper function to retrieve wiether the epoch or the duration depending on the units"""
         unit = self.swa_start.unit
 
         if unit == TimeUnit.EPOCH:
@@ -203,7 +207,7 @@ class SWA(Algorithm):
             self.swa_lr = self._get_last_lr(state.schedulers)
 
             if len(state.optimizers) != 1:
-                raise RuntimeError("SWA supports one and only one optimizer")
+                raise RuntimeError("SWA supports only one optimizer")
 
             self.swa_scheduler = SWALR(
                 state.optimizers[0],
@@ -212,29 +216,28 @@ class SWA(Algorithm):
                 anneal_strategy=self.anneal_strategy,
             )
 
-        self.swa_model = AveragedModel(state.model)
+        self.swa_model = AveragedModel(state.model, device=torch.device('cpu'))
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
 
         if event == event.INIT:
             # on trainer init, we create the schedulers and models
+            # so that the checkpoints can be loaded
             self._initialize_swa(state)
             return
 
         if not self.swa_started:
-            # initialize swa once when time > swa_start
+            # re-initialize swa once time > swa_start
             self._initialize_swa(state)
             self.swa_started = True
 
         if self.step_counter % self.update_interval.value == 0:
-            if self.swa_model is None:
-                self.swa_model = AveragedModel(state.model)
+            assert self.swa_model is not None
 
             self.swa_model.update_parameters(state.model)  # type: ignore
 
             if self.schedule_swa_lr:
-                if self.swa_scheduler is None:
-                    raise ValueError('SWA LR scheduler was not set.')
+                assert self.swa_scheduler is not None
                 self.swa_scheduler.step()
 
         self.step_counter += 1
@@ -248,6 +251,7 @@ class SWA(Algorithm):
                              "training. This means that SWA model will not have its batch norm "
                              "statistics updated. This will negatively impact accuracy. See the "
                              "documentation for the `swa_end` parameter for details."))
+
             state.model.load_state_dict(self.swa_model.module.state_dict())  # type: ignore
             log.info('Set model to the averaged model')
 
@@ -255,7 +259,7 @@ class SWA(Algorithm):
         state_dict = {
             'swa_model': self.swa_model.state_dict() if self.swa_model else None,
             'swa_completed': self.swa_completed,
-            'swa_started': self.swa_start,
+            'swa_started': self.swa_started,
             'swa_scheduler': self.swa_scheduler.state_dict() if self.swa_scheduler else None,
             'step_counter': self.step_counter,
         }
@@ -265,7 +269,8 @@ class SWA(Algorithm):
         self.swa_completed = state['swa_completed']
         self.step_counter = state['step_counter']
         self.swa_started = state['swa_started']
-        if self.swa_scheduler:
+
+        if self.swa_scheduler and state['swa_scheduler']:
             self.swa_scheduler.load_state_dict(state['swa_scheduler'])
-        if self.swa_model:
+        if self.swa_model and state['swa_model']:
             self.swa_model.load_state_dict(state['swa_model'])
