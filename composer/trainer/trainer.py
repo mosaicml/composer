@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Train models!"""
 
@@ -490,10 +490,11 @@ class Trainer:
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (ObjectStore, optional): If the ``load_path`` is in an object store
-            (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` which
-            will be used to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath,
-            set to ``None``. Ignored if ``load_path`` is ``None``. (default: ``None``)
+        load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
+            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
+            :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
+            checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
+            (default: ``None``)
 
             Example:
 
@@ -760,7 +761,7 @@ class Trainer:
 
         # Load Checkpoint
         load_path: Optional[str] = None,
-        load_object_store: Optional[ObjectStore] = None,
+        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict: bool = False,
         load_chunk_size: int = 1_048_576,
@@ -1005,8 +1006,11 @@ class Trainer:
             try:
                 import deepspeed
             except ImportError as e:
-                raise MissingConditionalImportError(extra_deps_group="deepspeed",
-                                                    conda_package="deepspeed>=0.5.5") from e
+                raise MissingConditionalImportError(
+                    extra_deps_group="deepspeed",
+                    conda_package="deepspeed>=0.5.5",
+                    conda_channel=None,
+                ) from e
             deepspeed_config = _parse_deepspeed_config(
                 deepspeed_config,
                 state=self.state,

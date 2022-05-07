@@ -1,11 +1,13 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Helpers for working with files."""
+
+from __future__ import annotations
 
 import os
 import pathlib
 import re
-from typing import Iterator, Optional, Union
+from typing import TYPE_CHECKING, Iterator, Optional, Union
 
 import requests
 import tqdm
@@ -14,6 +16,9 @@ from composer.core.time import Time, Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
 from composer.utils.object_store import ObjectStore
+
+if TYPE_CHECKING:
+    from composer.loggers import LoggerDestination
 
 __all__ = [
     'GetFileNotFoundException',
@@ -281,7 +286,7 @@ Args:
 def get_file(
     path: str,
     destination: str,
-    object_store: Optional[ObjectStore] = None,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     chunk_size: int = 2**20,
     progress_bar: bool = True,
 ):
@@ -320,21 +325,29 @@ def get_file(
         GetFileNotFoundException: If the ``path`` does not exist, a ``GetFileNotFoundException`` exception will
             be raised.
     """
-
     if object_store is not None:
-        try:
-            total_size_in_bytes = object_store.get_object_size(path)
-        except Exception as e:
-            if "ObjectDoesNotExistError" in str(e):
-                raise GetFileNotFoundException(f"Object name {path} not found in object store {object_store}") from e
-            raise
-        _write_to_file_with_pbar(
-            destination=destination,
-            total_size=total_size_in_bytes,
-            iterator=object_store.download_object_as_stream(path, chunk_size=chunk_size),
-            progress_bar=progress_bar,
-            description=f"Downloading {path}",
-        )
+        if isinstance(object_store, ObjectStore):
+            # Type ObjectStore
+            try:
+                total_size_in_bytes = object_store.get_object_size(path)
+            except Exception as e:
+                if "ObjectDoesNotExistError" in str(e):
+                    raise GetFileNotFoundException(
+                        f"Object name {path} not found in object store {object_store}") from e
+                raise
+            _write_to_file_with_pbar(
+                destination=destination,
+                total_size=total_size_in_bytes,
+                iterator=object_store.download_object_as_stream(path, chunk_size=chunk_size),
+                progress_bar=progress_bar,
+                description=f"Downloading {path}",
+            )
+        else:
+            # Type LoggerDestination
+            object_store.get_file_artifact(artifact_name=path,
+                                           destination=destination,
+                                           chunk_size=chunk_size,
+                                           progress_bar=progress_bar)
         return
 
     if path.lower().startswith("http://") or path.lower().startswith("https://"):

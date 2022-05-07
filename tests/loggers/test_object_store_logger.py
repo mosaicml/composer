@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import os
 import pathlib
@@ -31,7 +31,7 @@ def object_store_test_helper(tmpdir: pathlib.Path,
     container = "."
     hparams = ObjectStoreLoggerHparams(
         object_store_hparams=ObjectStoreHparams(
-            provider='local',
+            provider=provider,
             container=container,
             key_environ="OBJECT_STORE_KEY",
         ),
@@ -85,6 +85,13 @@ def object_store_test_helper(tmpdir: pathlib.Path,
     upload_uri = destination.get_uri_for_artifact(symlink_artifact_name)
     expected_upload_uri = f"{provider}://{container}/{symlink_artifact_name}"
     assert upload_uri == expected_upload_uri
+
+    if not should_filter:
+        # Test downloading artifact
+        download_path = os.path.join(tmpdir, "download")
+        destination.get_file_artifact(artifact_name, download_path)
+        with open(download_path, "r") as f:
+            assert f.read() == "1" if not overwrite else "2"
 
     # now assert that we have a dummy file in the artifact folder
     artifact_file = os.path.join(str(remote_dir), artifact_name)

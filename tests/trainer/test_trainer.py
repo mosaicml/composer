@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import collections.abc
 import contextlib
@@ -29,7 +29,7 @@ from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
 from composer.trainer.trainer_hparams import callback_registry, logger_registry
-from composer.utils import MissingConditionalImportError, dist
+from composer.utils import dist
 from composer.utils.object_store import ObjectStoreHparams
 from tests.algorithms.algorithm_settings import get_settings
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
@@ -999,8 +999,9 @@ class TestFFCVDataloaders:
     def config(self):
         try:
             import ffcv  # type: ignore
-        except ImportError:
-            raise MissingConditionalImportError(extra_deps_group="ffcv", conda_package="ffcv")
+        except ImportError as e:
+            raise ImportError(("Composer was installed without ffcv support. "
+                               "To use ffcv with Composer, please install ffcv in your environment.")) from e
         train_dataloader = self._get_dataloader(is_train=True)
         val_dataloader = self._get_dataloader(is_train=False)
         assert isinstance(train_dataloader, ffcv.Loader)

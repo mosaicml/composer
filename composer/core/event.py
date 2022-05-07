@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Events represent specific points in the training loop where an :class:`~.core.Algorithm` and :class:`~.core.Callback`
 can run."""

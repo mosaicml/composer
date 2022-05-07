@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Enum class for the numerical precision to be used by the model."""
 
@@ -65,7 +65,7 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
     elif precision == Precision.BF16:
         if version.parse(torch.__version__) < version.parse("1.10"):
             raise ValueError(f"BF16 precision requires torch > 1.10, got version {torch.__version__}")
-        with torch.cuda.amp.autocast(True, torch.bfloat16):
+        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
             yield
     else:
         raise ValueError(f"Unsupported precision: {precision}")

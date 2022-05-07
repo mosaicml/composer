@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import os
 from typing import Optional
@@ -13,6 +13,8 @@ from composer.algorithms import get_algorithm_registry
 from tests.algorithms.algorithm_settings import get_settings
 from tests.common import deep_compare, device
 
+ALGORITHMS = get_algorithm_registry().keys()
+
 
 @pytest.mark.timeout(180)
 @device('gpu')
@@ -24,7 +26,7 @@ from tests.common import deep_compare, device
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
-@pytest.mark.parametrize("algorithm", get_algorithm_registry().keys())
+@pytest.mark.parametrize("algorithm", ALGORITHMS)
 def test_algorithm_resumption(
     algorithm: str,
     device,
@@ -42,7 +44,7 @@ def test_algorithm_resumption(
         # see: https://github.com/mosaicml/composer/issues/362
         pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
-    if algorithm in ('layer_freezing', 'swa', 'stochastic_depth'):
+    if algorithm in ('layer_freezing', 'swa'):
         pytest.xfail('Known issues')
 
     setting = get_settings(algorithm)
@@ -90,7 +92,7 @@ def test_algorithm_resumption(
     )
 
     # check that different epoch checkpoints are _not_ equal
-    # this ensures that the model weights are being updated
+    # this ensures that the model weights are being updated.
     with pytest.raises(AssertionError):
         _assert_model_weights_equal(
             file1=os.path.join(folder1, save_filename.format(epoch=4, rank=0)),

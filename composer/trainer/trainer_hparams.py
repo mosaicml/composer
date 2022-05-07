@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """The :class:`~yahp.hparams.Hparams` used to construct the :class:`~composer.trainer.trainer.Trainer`."""
 
@@ -187,7 +187,12 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: The :mod:`logging` module in Python.
 
         load_path (str, optional): See :class:`.Trainer`.
-        load_object_store (ObjectStore, optional): See :class:`.Trainer`.
+        load_object_store (ObjectStore, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
+            ``load_object_store`` should not be provided since there can only be one location to load from.
+        load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for
+            ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects. Both
+            ``load_logger_destination`` and ``load_object_store`` should not be provided since there can only be one location
+            to load from.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_strict_model_weights (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
@@ -257,6 +262,7 @@ class TrainerHparams(hp.Hparams):
         "optimizer": optimizer_registry,
         "schedulers": scheduler_registry,
         "loggers": logger_registry,
+        "load_logger_destination": logger_registry,
         "model": model_registry,
         "train_dataset": dataset_registry,
         "val_dataset": dataset_registry,
@@ -351,6 +357,11 @@ class TrainerHparams(hp.Hparams):
         doc=(("If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for "
               "connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, "
               "leave blank. This parameter has no effect if `load_path` is not specified.")),
+        default=None)
+    load_logger_destination: Optional[LoggerDestinationHparams] = hp.optional(
+        ("Alternative argument to `load_object_store` to support loading from a logger destination. This parameter "
+         "has no effect if `load_path` is not specified or `load_object_store` is specified, which will be "
+         "used instead of this."),
         default=None)
     load_weights_only: bool = hp.optional(
         doc=(("Whether to only load the weights from the model. "
@@ -622,6 +633,16 @@ class TrainerHparams(hp.Hparams):
         optimizer = self.optimizer.initialize_object(model.parameters()) if self.optimizer is not None else None
         schedulers = [scheduler.initialize_object() for scheduler in self.schedulers]
 
+        load_object_store = None
+        if self.load_object_store is not None and self.load_logger_destination is not None:
+            raise ValueError(
+                "load_object_store and load_logger_destination cannot both be non-None. Please provide only one location to load from."
+            )
+        elif self.load_object_store is not None:
+            load_object_store = self.load_object_store.initialize_object()
+        elif self.load_logger_destination is not None:
+            load_object_store = self.load_logger_destination.initialize_object()
+
         trainer = Trainer(
             # Model
             model=model,
@@ -662,7 +683,7 @@ class TrainerHparams(hp.Hparams):
 
             # Checkpoint Loading
             load_path=self.load_path,
-            load_object_store=None if self.load_object_store is None else self.load_object_store.initialize_object(),
+            load_object_store=load_object_store,
             load_weights_only=self.load_weights_only,
             load_strict=self.load_strict_model_weights,
             load_chunk_size=self.load_chunk_size,
