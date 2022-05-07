@@ -13,7 +13,7 @@ baseBranch = 'dev'  // the branch on which merge-commits should be pushed to doc
 pytorchDockerBuildMatrix = null // The pytorch docker build matrix
 didDockerChange = false
 dockerBuildCpuLimit = '4'
-dockerBuildMemLimit = '20Gi'
+dockerBuildMemLimit = '30Gi'
 dockerBuildTimeout = '7200'  // timeout for docker builds, in seconds. Builds from scratch can be slow.
 // must use the kaniko debug image, as Jenkins needs shell access
 // see https://github.com/GoogleContainerTools/kaniko#debug-image
@@ -124,7 +124,7 @@ void scheduleJobForBuildArgs(jobs, String image, buildArgs) {
     Boolean isLintImage = false
     Boolean isVisionImage = false
     Boolean isGpu = false
-    def tag = null
+    String tag = ''
     buildArgs.each { key, val ->
         if (key == 'CUDA_VERSION') {
             if (val != 'cpu') {
@@ -135,9 +135,10 @@ void scheduleJobForBuildArgs(jobs, String image, buildArgs) {
             isVisionImage = true
         }
         if (key == 'TAGS') {
-            tag = val
-            // there could be multiple tags
-            isLintImage = isLintImage || tag == lintImage
+            tag = val[0]
+            val.each { tagName ->
+                isLintImage = isLintImage || tagName == lintImage
+            }
         }
     }
     String extraDeps = 'all'

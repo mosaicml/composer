@@ -51,3 +51,31 @@ def test_run_doctests():
     # Must build the html first to ensure that doctests in .. autosummary:: generated pages are included
     check_output(subprocess.run(["make", "html"], cwd=docs_folder, capture_output=True, text=True))
     check_output(subprocess.run(["make", "doctest"], cwd=docs_folder, capture_output=True, text=True))
+
+
+@pytest.mark.timeout(10)
+def test_docker_build_matrix():
+    """Test that the docker build matrix is up to date"""
+    docker_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docker'
+
+    # Capture the existing readme and build matrix contents
+    with open(docker_folder / "README.md", "r") as f:
+        existing_readme = f.read()
+
+    with open(docker_folder / "pytorch" / "build_matrix.yaml", "r") as f:
+        existing_build_matrix = f.read()
+
+    # Run the script
+    check_output(
+        subprocess.run(["python", "generate_build_matrix.py"],
+                       cwd=docker_folder / "pytorch",
+                       capture_output=True,
+                       text=True))
+
+    # Assert that the files did not change
+
+    with open(docker_folder / "README.md", "r") as f:
+        assert existing_readme == f.read()
+
+    with open(docker_folder / "pytorch" / "build_matrix.yaml", "r") as f:
+        assert existing_build_matrix == f.read()

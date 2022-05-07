@@ -5,6 +5,7 @@ leverage.
 
 ## Pytorch Images
 
+<!-- BEGIN_BUILD_MATRIX -->
 | Linux Distro   | Flavor   | PyTorch Version   | CUDA Version   | Python Version   | Docker Tags                                                                                      |
 |----------------|----------|-------------------|----------------|------------------|--------------------------------------------------------------------------------------------------|
 | Ubuntu 20.04   | Base     | 1.11.0            | 11.3.1         | 3.9              | `mosaicml/pytorch:latest`, `mosaicml/pytorch:1.11.0_cu113-python3.9-ubuntu20.04`                 |
@@ -15,6 +16,7 @@ leverage.
 | Ubuntu 20.04   | Base     | 1.10.2            | cpu            | 3.7              | `mosaicml/pytorch:1.10.2_cpu-python3.7-ubuntu20.04`                                              |
 | Ubuntu 20.04   | Vision   | 1.11.0            | 11.3.1         | 3.9              | `mosaicml/pytorch_vision:latest`, `mosaicml/pytorch_vision:1.11.0_cu113-python3.9-ubuntu20.04`   |
 | Ubuntu 20.04   | Vision   | 1.11.0            | cpu            | 3.9              | `mosaicml/pytorch_vision:latest_cpu`, `mosaicml/pytorch_vision:1.11.0_cpu-python3.9-ubuntu20.04` |
+<!-- END_BUILD_MATRIX -->
 
 ``Pillow-SIMD`` is installed by default in all images.
 

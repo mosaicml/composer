@@ -10,6 +10,7 @@ Also update the `README.md` in the docker folder with the resulting table.
 
 import itertools
 import os
+import sys
 
 import tabulate
 import yaml
@@ -106,7 +107,9 @@ def main():
                 ),
         }
 
-        if stage == "vision_stage" and python_version == "3.9":
+        if stage == "vision_stage":
+            if python_version != "3.9":
+                continue
             # only build the vision image on python 3.9
             entry["MMCV_TORCH_VERSION"] = f"torch{pytorch_version}"
             entry["MMCV_VERSION"] = "1.4.8"
@@ -141,10 +144,21 @@ def main():
     table.sort(key=lambda x: x[2], reverse=True)
     table.sort(key=lambda x: x[1])
 
-    print("Successfully updated `build_matrix.yaml`. Please also update the README.md with the following table:")
-    print()
+    with open(os.path.join(os.path.dirname(__name__), "..", "README.md"), "r") as f:
+        contents = f.read()
 
-    print(tabulate.tabulate(table, headers, tablefmt="github", floatfmt="", disable_numparse=True))
+    begin_table_tag = "<!-- BEGIN_BUILD_MATRIX -->"
+    end_table_tag = "<!-- END_BUILD_MATRIX -->"
+
+    pre = contents.split(begin_table_tag)[0]
+    post = contents.split(end_table_tag)[1]
+    table = tabulate.tabulate(table, headers, tablefmt="github", floatfmt="", disable_numparse=True)
+    new_readme = f"{pre}{begin_table_tag}\n{table}\n{end_table_tag}{post}"
+
+    with open(os.path.join(os.path.dirname(__name__), "..", "README.md"), "w") as f:
+        f.write(new_readme)
+
+    print("Successfully updated `build_matrix.yaml` and `README.md`.", file=sys.stderr)
 
 
 if __name__ == "__main__":
