@@ -144,10 +144,13 @@ class WandBLogger(LoggerDestination):
         with tempfile.TemporaryDirectory() as tmpdir:
             artifact_folder = os.path.join(tmpdir, "artifact_folder")
             artifact.download(root=artifact_folder)
+            artifact_names = os.listdir(artifact_folder)
             # We only log one file per artifact
-            checkpoint_name = os.listdir(artifact_folder)[0]
-            checkpoint_path = os.path.join(artifact_folder, checkpoint_name)
-            shutil.move(checkpoint_path, destination)
+            if len(artifact_names) > 1:
+                raise RuntimeError("Found more than one file in artifact. We assume the checkpoint is the only file in the artifact.")
+            artifact_name = artifact_names[0]
+            artifact_path = os.path.join(artifact_folder, artifact_name)
+            shutil.move(artifact_path, destination)
 
     def post_close(self) -> None:
         import wandb
