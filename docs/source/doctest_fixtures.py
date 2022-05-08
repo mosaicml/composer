@@ -158,7 +158,7 @@ def new_trainer_init(self, **kwargs: Any):
         kwargs["progress_bar"] = False  # hide tqdm logging
     if "log_to_console" not in kwargs:
         kwargs["log_to_console"] = False  # hide console logging
-    original_trainer_init(**kwargs)
+    original_trainer_init(self, **kwargs)
 
 
 Trainer.__init__ = new_trainer_init
