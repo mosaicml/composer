@@ -141,7 +141,7 @@ def loss_fun(output, target, reduction="none"):
 original_trainer_init = Trainer.__init__
 
 
-def new_trainer_init(self, **kwargs: Any):
+def new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
     if "model" not in kwargs:
         kwargs["model"] = model
     if "optimizers" not in kwargs:
@@ -175,7 +175,7 @@ composer.loggers.object_store_logger._validate_credentials = do_not_validate
 original_objectStoreLogger_init = ObjectStoreLogger.__init__
 
 
-def new_objectStoreLogger_init(self, **kwargs: Any):
+def new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         use_procs=False,
@@ -195,7 +195,7 @@ ObjectStoreLogger.__init__ = new_objectStoreLogger_init
 original_objectStore_init = ObjectStore.__init__
 
 
-def new_objectStore_init(self, **kwargs: Any):
+def new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         provider='local',
