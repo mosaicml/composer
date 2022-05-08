@@ -147,7 +147,8 @@ class WandBLogger(LoggerDestination):
             artifact_names = os.listdir(artifact_folder)
             # We only log one file per artifact
             if len(artifact_names) > 1:
-                raise RuntimeError("Found more than one file in artifact. We assume the checkpoint is the only file in the artifact.")
+                raise RuntimeError(
+                    "Found more than one file in artifact. We assume the checkpoint is the only file in the artifact.")
             artifact_name = artifact_names[0]
             artifact_path = os.path.join(artifact_folder, artifact_name)
             shutil.move(artifact_path, destination)
