@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
 
 import tqdm.auto
+import yaml
 
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel, format_log_data_value
@@ -102,7 +103,7 @@ class ProgressBarLogger(LoggerDestination):
         progress_bar: bool = True,
         log_to_console: Optional[bool] = None,
         console_log_level: Union[LogLevel, str, Callable[[State, LogLevel], bool]] = LogLevel.EPOCH,
-        stream: Union[str, TextIO] = sys.stderr,
+        stream: Union[str, TextIO] = 'stderr',
     ) -> None:
         self.show_pbar = progress_bar
         log_to_console = not progress_bar if log_to_console is None else log_to_console
@@ -130,6 +131,20 @@ class ProgressBarLogger(LoggerDestination):
             else:
                 raise ValueError("Invalid stream option: Should be 'stdout', 'stderr', or a TextIO-like object.")
         self.stream = stream
+
+    def log_config(self, config: Dict[str, Any]):
+        config_yaml = yaml.safe_dump(config)
+        config_str = f"Configuration:\n{config_yaml}"
+        if self.is_train in self.pbars:
+            # use tqdm.write to avoid interleaving with a progress bar
+            assert self.is_train is not None
+
+            # It would be nice to keep the config in a consistant place in the terminal, so it can be
+            # updated in-place. But for now, just print the new configuration values
+            self.pbars[self.is_train].pbar.write(config_str)
+        else:
+            # write directly to self.stream; no active progress bar
+            print(config_str, file=self.stream, flush=True)
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
         if dist.get_local_rank() == 0 and self.is_train in self.pbars:

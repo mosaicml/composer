@@ -101,6 +101,43 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmpdir: pathlib.Pa
             dummy_state.timestamp.epoch) + int(dummy_state.timestamp.epoch) + 1
 
 
+def test_file_logger_config(minimal_state: State, tmpdir: pathlib.Path):
+    log_file_name = os.path.join(tmpdir, "output.log")
+    file_logger = FileLogger(
+        filename=log_file_name,
+        buffer_size=1,
+        flush_interval=1,
+        capture_stderr=False,
+        capture_stdout=False,
+    )
+    logger = Logger(minimal_state, destinations=[file_logger])
+
+    # Log config before running Event.INIT
+    file_logger.log_config({"seed": 42})
+
+    # Run Event.INIT
+    file_logger.run_event(Event.INIT, minimal_state, logger)
+
+    # Log something else
+    file_logger.log_data(minimal_state, log_level=LogLevel.FIT, data={"accuracy": "0.99"})
+    file_logger.log_config({"seed": 69, "hello": "world"})
+
+    # Run Event.FIT_START, which is when the config should be printed
+    file_logger.run_event(Event.FIT_START, minimal_state, logger)
+
+    # Finally, close the logger and assert the contents
+    file_logger.close(minimal_state, logger)
+
+    with open(log_file_name, "r") as f:
+        assert f.readlines() == [
+            '[FIT][batch=0]: { "accuracy": "0.99", }\n',
+            '###Begin Configuration###\n',
+            'hello: world\n',
+            'seed: 69\n',
+            '###End Configuration#####\n',
+        ]
+
+
 @pytest.mark.timeout(15)  # disk can be slow on Jenkins
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmpdir: pathlib.Path):
     log_file_name = os.path.join(tmpdir, "output.log")

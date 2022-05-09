@@ -10,6 +10,8 @@ import sys
 import textwrap
 from typing import Any, Callable, Dict, Optional, TextIO
 
+import yaml
+
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
@@ -138,6 +140,7 @@ class FileLogger(LoggerDestination):
         self.is_batch_interval = False
         self.is_epoch_interval = False
         self.file: Optional[TextIO] = None
+        self._config = {}
         self.overwrite = overwrite,
         self._queue: queue.Queue[str] = queue.Queue()
         self._run_name = None
@@ -157,10 +160,25 @@ class FileLogger(LoggerDestination):
 
         def new_write(s: str) -> int:
             if not self._closed:
-                self.write(prefix, s)
+                self.write(s, prefix=prefix)
             return original_writer(s)
 
         return new_write
+
+    def log_config(self, config: Dict[str, Any]):
+        # Keep track of the local config, which is then dumped on FIT_START
+        self._config.update(config)
+
+    def fit_start(self, state: State, logger: Logger):
+        # Writing the config on fit_start, as config should be logged on Event.INIT
+        if len(self._config) == 0:
+            # No config to log
+            return
+
+        # Write the config, without a prefix, so it can be yaml parsed
+        self.write("###Begin Configuration###\n")
+        self.write(yaml.safe_dump(self._config))
+        self.write("###End Configuration#####\n")
 
     @property
     def filename(self) -> str:
@@ -212,8 +230,8 @@ class FileLogger(LoggerDestination):
             return
         data_str = format_log_data_value(data)
         self.write(
-            f'[{log_level.name}][batch={int(state.timestamp.batch)}]: ',
             data_str + "\n",
+            prefix=f'[{log_level.name}][batch={int(state.timestamp.batch)}]: ',
         )
 
     def init(self, state: State, logger: Logger) -> None:
@@ -243,7 +261,7 @@ class FileLogger(LoggerDestination):
                 state.timestamp.epoch) % self.flush_interval == 0:
             self._flush_file(logger)
 
-    def write(self, prefix: str, s: str):
+    def write(self, s: str, prefix: str = ""):
         """Write to the logfile.
 
         .. note::
@@ -252,8 +270,8 @@ class FileLogger(LoggerDestination):
             the write will be enqueued, as the file is not yet open.
 
         Args:
-            prefix (str): A prefix for each line in the logfile.
             s (str): The string to write. Each line will be prefixed with ``prefix``.
+            prefix (str): A prefix for each line in the logfile.
         """
         formatted_lines = []
         for line in s.splitlines(True):
@@ -310,3 +328,4 @@ class FileLogger(LoggerDestination):
             self._flush_file(logger)
             self.file.close()
             self.file = None
+            self._config = {}

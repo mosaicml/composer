@@ -33,6 +33,15 @@ def test_in_memory_logger(dummy_state: State):
     assert in_memory_logger.most_recent_timestamps["epoch"].batch == 1
 
 
+def test_in_memory_logger_log_config(dummy_state: State):
+    in_memory_logger = InMemoryLogger(LogLevel.EPOCH)
+    logger = Logger(dummy_state, destinations=[in_memory_logger])
+    logger.log_config({"seed": 42})
+    assert in_memory_logger.config == {"seed": 42}
+    logger.log_config({"seed": 69})
+    assert in_memory_logger.config == {"seed": 69}
+
+
 def test_in_memory_logger_get_timeseries():
     in_memory_logger = InMemoryLogger(LogLevel.BATCH)
     data = {"accuracy/val": [], "batch": [], "batch_in_epoch": []}

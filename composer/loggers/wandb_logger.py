@@ -72,6 +72,11 @@ class WandBLogger(LoggerDestination):
         if self._enabled:
             wandb.log(data, step=int(state.timestamp.batch))
 
+    def log_config(self, config: Dict[str, Any]):
+        import wandb
+        if self._enabled:
+            wandb.config.update(config)
+
     def state_dict(self) -> Dict[str, Any]:
         import wandb
 
