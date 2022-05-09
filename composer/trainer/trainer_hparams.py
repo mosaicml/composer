@@ -805,7 +805,7 @@ class FitKwargs(TypedDict):
     compute_training_metrics: Optional[bool]
 
     # Timing
-    reset_timer: bool
+    reset_time: bool
     duration: Optional[Union[int, str, Time[int]]]
 
     # Schedulers
@@ -837,7 +837,7 @@ class FitHparams(hp.Hparams):
         train_dataloader_label (str, optional): See :meth:`.Trainer.fit`.
         train_subset_num_batches (int, optional): See :meth:`.Trainer.fit`.
         compute_training_metrics (bool, optional): See :meth:`.Trainer.fit`.
-        reset_timer (bool, optional): See :meth:`.Trainer.fit`.
+        reset_time (bool, optional): See :meth:`.Trainer.fit`.
         duration (int | str, optional): See :meth:`.Trainer.fit`.
         schedulers (List[SchedulerHparams], optional): Scheduler hyperparameters.
         scale_schedule_ratio (float, optional): See :meth:`.Trainer.fit`.
@@ -870,7 +870,7 @@ class FitHparams(hp.Hparams):
     compute_training_metrics: Optional[bool] = hp.optional("Whether to compute training metrics", default=None)
 
     # Timing
-    reset_timer: bool = hp.optional("Whether to reset the timer", default=False)
+    reset_time: bool = hp.optional("Whether to reset the time", default=False)
     duration: Optional[Union[int, str]] = hp.optional("Duration", default=None)
 
     # Schedulers
@@ -951,7 +951,7 @@ class FitHparams(hp.Hparams):
             "train_dataloader_label": self.train_dataloader_label,
             "train_subset_num_batches": self.train_subset_num_batches,
             "compute_training_metrics": self.compute_training_metrics,
-            "reset_timer": self.reset_timer,
+            "reset_time": self.reset_time,
             "duration": self.duration,
             "schedulers": schedulers,
             "scale_schedule_ratio": self.scale_schedule_ratio,
