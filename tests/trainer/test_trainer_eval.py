@@ -173,6 +173,6 @@ def test_eval_params_evaluator():
 
     # Assert that the evaluator ran once every batch
     # (and not the `eval_interval` as specified for the Trainer)
-    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == trainer.state.timer.batch
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == trainer.state.timestamp.batch
     assert event_counter_callback.event_to_num_calls[
-        Event.EVAL_BATCH_START] == eval_subset_num_batches * trainer.state.timer.batch
+        Event.EVAL_BATCH_START] == eval_subset_num_batches * trainer.state.timestamp.batch

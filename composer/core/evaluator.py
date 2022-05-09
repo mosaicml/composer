@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """A wrapper for a dataloader to include metrics that apply to a specific dataset."""
 
@@ -39,9 +39,9 @@ def evaluate_periodically(eval_interval: Union[str, Time, int]):
             return False
 
         if eval_interval.unit == TimeUnit.EPOCH:
-            return int(state.timer.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END
+            return int(state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END
         if eval_interval.unit == TimeUnit.BATCH:
-            return int(state.timer.batch) % int(eval_interval) == 0 and event == Event.BATCH_END
+            return int(state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END
 
         return False
 

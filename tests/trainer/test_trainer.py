@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import collections.abc
 import contextlib
@@ -29,7 +29,7 @@ from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
 from composer.trainer.trainer_hparams import callback_registry, logger_registry
-from composer.utils import MissingConditionalImportError, dist
+from composer.utils import dist
 from composer.utils.object_store import ObjectStoreHparams
 from tests.algorithms.algorithm_settings import get_settings
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
@@ -172,20 +172,20 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
-    @pytest.mark.parametrize("reset_timer", [True, False])
+    @pytest.mark.parametrize("reset_time", [True, False])
     @pytest.mark.parametrize("new_duration", [
         Time.from_timestring("1ep"),
         Time.from_timestring("1ba"),
         Time.from_timestring("2ep"),
         None,
     ])
-    def test_reset_timer(
+    def test_reset_time(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
         new_duration: Time,
-        reset_timer: bool,
+        reset_time: bool,
     ):
         # Train once
         trainer = Trainer(
@@ -196,28 +196,28 @@ class TestTrainerInitOrFit:
         trainer.fit()
 
         # Get the timestamp
-        first_timestamp = trainer.state.timer.get_timestamp()
+        first_timestamp = trainer.state.timestamp
 
-        # It should error if the timer is not being reset. Otherwise, it should be reset and train OK.
-        error_msg = "Please provide the `duration` or specify `reset_timer=True`"
+        # It should error if the time is not being reset. Otherwise, it should be reset and train OK.
+        error_msg = "Please provide the `duration` or specify `reset_time=True`"
         ctx = pytest.raises(ValueError,
-                            match=error_msg) if not new_duration and not reset_timer else contextlib.nullcontext()
+                            match=error_msg) if not new_duration and not reset_time else contextlib.nullcontext()
         with ctx:
             # Train again for the same amount of time
             trainer.fit(
                 duration=new_duration,
                 train_dataloader=train_dataloader,
-                reset_timer=reset_timer,
+                reset_time=reset_time,
             )
 
         # If the fit did not error (new_duration is specified), then assert that the time
         # matches what is expected
         if new_duration is not None:
-            if reset_timer:
-                assert trainer.state.timer.get(new_duration.unit) == new_duration
+            if reset_time:
+                assert trainer.state.timestamp.get(new_duration.unit) == new_duration
             else:
                 first_timestamp_in_new_unit = getattr(first_timestamp, new_duration.unit.name.lower())
-                assert trainer.state.timer.get(new_duration.unit) == first_timestamp_in_new_unit + new_duration
+                assert trainer.state.timestamp.get(new_duration.unit) == first_timestamp_in_new_unit + new_duration
 
     @pytest.mark.parametrize("scale_schedule_ratio", [1.0, 2.0])
     @pytest.mark.parametrize("step_schedulers_every_batch", [None, True, False])
@@ -504,7 +504,7 @@ class TestTrainerInitOrFit:
         # Train again.
         trainer.fit(duration=max_duration)
 
-        assert trainer.state.timer.get(max_duration.unit) == 2 * max_duration
+        assert trainer.state.timestamp.get(max_duration.unit) == 2 * max_duration
 
     @pytest.mark.parametrize("unit", [TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.SAMPLE])
     def test_training_duration_unit(
@@ -513,7 +513,7 @@ class TestTrainerInitOrFit:
         model: ComposerModel,
         unit: TimeUnit,
     ):
-        """Test that the timer is correctly set, and events fire correctly, with multiple calls to fit,
+        """Test that the time is correctly set, and events fire correctly, with multiple calls to fit,
         regardless of the time unit"""
 
         # Construct the trainer
@@ -564,11 +564,11 @@ class TestTrainerInitOrFit:
             else:
                 num_batches_trained = dataloader_len
 
-            # Validate the timer
-            assert trainer.state.timer.batch == num_batches_trained
-            assert trainer.state.timer.sample == num_batches_trained * batch_size
-            assert trainer.state.timer.token == 0  # tokens not tracked
-            assert trainer.state.timer.token_in_epoch == 0  # tokens not tracked
+            # Validate the time
+            assert trainer.state.timestamp.batch == num_batches_trained
+            assert trainer.state.timestamp.sample == num_batches_trained * batch_size
+            assert trainer.state.timestamp.token == 0  # tokens not tracked
+            assert trainer.state.timestamp.token_in_epoch == 0  # tokens not tracked
 
             # Validate the event counter callback
             assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 1
@@ -578,16 +578,16 @@ class TestTrainerInitOrFit:
 
             if num_batches_trained < num_steps_per_epoch:
                 # Not yet finished the epoch
-                assert trainer.state.timer.epoch == 0
-                assert trainer.state.timer.batch_in_epoch == num_batches_trained
-                assert trainer.state.timer.sample_in_epoch == num_batches_trained * batch_size
+                assert trainer.state.timestamp.epoch == 0
+                assert trainer.state.timestamp.batch_in_epoch == num_batches_trained
+                assert trainer.state.timestamp.sample_in_epoch == num_batches_trained * batch_size
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 0
             else:
                 # Finished the epoch
-                assert trainer.state.timer.epoch == 1
-                assert trainer.state.timer.batch_in_epoch == 0
-                assert trainer.state.timer.sample_in_epoch == 0
+                assert trainer.state.timestamp.epoch == 1
+                assert trainer.state.timestamp.batch_in_epoch == 0
+                assert trainer.state.timestamp.sample_in_epoch == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 1
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 1
 
@@ -603,11 +603,11 @@ class TestTrainerInitOrFit:
             else:
                 num_batches_trained = dataloader_len
 
-            # Validate the timer
-            assert trainer.state.timer.batch == dataloader_len + num_batches_trained
-            assert trainer.state.timer.sample == num_samples_per_epoch + num_batches_trained * batch_size
-            assert trainer.state.timer.token == 0  # tokens not tracked
-            assert trainer.state.timer.token_in_epoch == 0  # tokens not tracked
+            # Validate the time
+            assert trainer.state.timestamp.batch == dataloader_len + num_batches_trained
+            assert trainer.state.timestamp.sample == num_samples_per_epoch + num_batches_trained * batch_size
+            assert trainer.state.timestamp.token == 0  # tokens not tracked
+            assert trainer.state.timestamp.token_in_epoch == 0  # tokens not tracked
 
             # Validate the event counter callback
             assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 2
@@ -618,16 +618,16 @@ class TestTrainerInitOrFit:
 
             if num_batches_trained < num_steps_per_epoch:
                 # Not yet finished the epoch
-                assert trainer.state.timer.epoch == 1
-                assert trainer.state.timer.batch_in_epoch == num_batches_trained
-                assert trainer.state.timer.sample_in_epoch == num_batches_trained * batch_size
+                assert trainer.state.timestamp.epoch == 1
+                assert trainer.state.timestamp.batch_in_epoch == num_batches_trained
+                assert trainer.state.timestamp.sample_in_epoch == num_batches_trained * batch_size
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 1
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 1
             else:
                 # Finished the epoch
-                assert trainer.state.timer.epoch == 2
-                assert trainer.state.timer.batch_in_epoch == 0
-                assert trainer.state.timer.sample_in_epoch == 0
+                assert trainer.state.timestamp.epoch == 2
+                assert trainer.state.timestamp.batch_in_epoch == 0
+                assert trainer.state.timestamp.sample_in_epoch == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 2
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 2
 
@@ -730,7 +730,7 @@ class TestTrainerEquivalence():
         config['load_path'] = checkpoint_file
 
         trainer = Trainer(**config)
-        assert trainer.state.timer.epoch == "1ep"  # ensure checkpoint state loaded
+        assert trainer.state.timestamp.epoch == "1ep"  # ensure checkpoint state loaded
         trainer.fit()
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
@@ -771,7 +771,7 @@ class AssertDataAugmented(Callback):
     def after_forward(self, state, logger):
         if state.grad_accum != 1:
             raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
-        batch_idx = state.timer.batch_in_epoch.value
+        batch_idx = state.timestamp.batch_in_epoch.value
         batch_size = state.batch_num_samples
         original_batch = self.dataset[batch_idx:batch_idx + batch_size]
         original_outputs = state.model(original_batch)
@@ -999,8 +999,9 @@ class TestFFCVDataloaders:
     def config(self):
         try:
             import ffcv  # type: ignore
-        except ImportError:
-            raise MissingConditionalImportError(extra_deps_group="ffcv", conda_package="ffcv")
+        except ImportError as e:
+            raise ImportError(("Composer was installed without ffcv support. "
+                               "To use ffcv with Composer, please install ffcv in your environment.")) from e
         train_dataloader = self._get_dataloader(is_train=True)
         val_dataloader = self._get_dataloader(is_train=False)
         assert isinstance(train_dataloader, ffcv.Loader)

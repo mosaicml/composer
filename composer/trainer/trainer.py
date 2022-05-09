@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Train models!"""
 
@@ -326,7 +326,7 @@ class Trainer:
             with Composer.
 
             .. seealso:: :mod:`composer.models` for models built into Composer.
-        train_dataloader (Iterable, DataSpec, or dict, optional): The dataloader, :class:`.DataSpec`,
+        train_dataloader (Iterable | DataSpec | dict, optional): The dataloader, :class:`.DataSpec`,
             or dict of :class:`.DataSpec` kwargs for the training data. In order to specify custom
             preprocessing steps on each data batch, specify a :class:`.DataSpec` instead of a dataloader.
             It is recommended that the dataloader, whether specified directly or as part of a :class:`.DataSpec`,
@@ -490,10 +490,11 @@ class Trainer:
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (ObjectStore, optional): If the ``load_path`` is in an object store
-            (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` which
-            will be used to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath,
-            set to ``None``. Ignored if ``load_path`` is ``None``. (default: ``None``)
+        load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
+            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
+            :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
+            checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
+            (default: ``None``)
 
             Example:
 
@@ -607,7 +608,8 @@ class Trainer:
             The default behavior sets the device to ``'gpu'`` if CUDA is available; otherwise, it sets the device to
             ``'cpu'``.
         precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``fp16``
-            or ``amp`` (recommended). (default: ``Precision.FP32``)
+            or ``amp`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP`` if training
+            on GPU)
 
             .. note::
                 ``fp16`` only works if ``deepspeed_config`` is also provided.
@@ -640,7 +642,7 @@ class Trainer:
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
             (default: ``15.0``)
-        ddp_sync_strategy (str or DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
+        ddp_sync_strategy (str | DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1`` for no gradient
@@ -759,7 +761,7 @@ class Trainer:
 
         # Load Checkpoint
         load_path: Optional[str] = None,
-        load_object_store: Optional[ObjectStore] = None,
+        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict: bool = False,
         load_chunk_size: int = 1_048_576,
@@ -950,7 +952,7 @@ class Trainer:
 
         # Max Duration
         if max_duration is not None:
-            self.state.max_duration = ensure_time(max_duration)
+            self.state.max_duration = ensure_time(max_duration, TimeUnit.EPOCH)
 
         self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
 
@@ -1004,8 +1006,11 @@ class Trainer:
             try:
                 import deepspeed
             except ImportError as e:
-                raise MissingConditionalImportError(extra_deps_group="deepspeed",
-                                                    conda_package="deepspeed>=0.5.5") from e
+                raise MissingConditionalImportError(
+                    extra_deps_group="deepspeed",
+                    conda_package="deepspeed>=0.5.5",
+                    conda_channel=None,
+                ) from e
             deepspeed_config = _parse_deepspeed_config(
                 deepspeed_config,
                 state=self.state,
@@ -1105,7 +1110,7 @@ class Trainer:
 
         # Timing
         duration: Optional[Union[int, str, Time[int]]] = None,
-        reset_timer: bool = False,
+        reset_time: bool = False,
 
         # Schedulers
         schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
@@ -1155,16 +1160,15 @@ class Trainer:
                 duration="1ep"
             )
 
-        When invoking :meth:`.fit` for a subsequent time, either ``reset_timer`` or ``duration`` must be specified.
+        When invoking :meth:`.fit` for a subsequent time, either ``reset_time`` or ``duration`` must be specified.
         Otherwise, it is ambiguous for how long to train.
 
-        *   If ``reset_timer`` is True, then :meth:`.fit` will train for the same amount of time as the previous
-            call (or for ``duration`` if that parameter is also specified). The :attr:`.State.timer` will be zeroed
-            out, causing :class:`.ComposerScheduler` and :class:`.Algorithm`
-            instances to start from the beginning, as if it is a new training run. Model gradients, optimizer states,
-            and native PyTorch schedulers will not be reset.
+        *   If ``reset_time`` is True, then :meth:`.fit` will train for the same amount of time as the previous
+            call (or for ``duration`` if that parameter is also specified). The :attr:`.State.timestamp` will be reset,
+            causing :class:`.ComposerScheduler` and :class:`.Algorithm` instances to start from the beginning, as if it
+            is a new training run. Model gradients, optimizer states, and native PyTorch schedulers will not be reset.
 
-        *   If ``reset_timer`` is False, then :meth:`.fit` will train for the amount of time specified by
+        *   If ``reset_time`` is False, then :meth:`.fit` will train for the amount of time specified by
             ``duration``. The :attr:`.State.max_duration` will be incremented by ``duration``.
 
         For example:
@@ -1176,54 +1180,54 @@ class Trainer:
 
             # Train for 1 epoch
             trainer.fit()
-            assert trainer.state.timer.epoch == "1ep"
+            assert trainer.state.timestamp.epoch == "1ep"
 
-            # Reset the timer to 0, then train for 1 epoch
-            trainer.fit(reset_timer=True)  
-            assert trainer.state.timer.epoch == "1ep"
+            # Reset the time to 0, then train for 1 epoch
+            trainer.fit(reset_time=True)  
+            assert trainer.state.timestamp.epoch == "1ep"
 
             # Train for another epoch (2 epochs total)
             trainer.fit(duration="1ep")
-            assert trainer.state.timer.epoch == "2ep"
+            assert trainer.state.timestamp.epoch == "2ep"
 
             # Train for another batch (2 epochs + 1 batch total)
             # It's OK to switch time units!
             trainer.fit(duration="1ba")
-            assert trainer.state.timer.epoch == "2ep"
-            assert trainer.state.timer.batch_in_epoch == "1ba"
+            assert trainer.state.timestamp.epoch == "2ep"
+            assert trainer.state.timestamp.batch_in_epoch == "1ba"
 
-            # Reset the timer, then train for 3 epochs
-            trainer.fit(reset_timer=True, duration="3ep")
-            assert trainer.state.timer.epoch == "3ep"
+            # Reset the time, then train for 3 epochs
+            trainer.fit(reset_time=True, duration="3ep")
+            assert trainer.state.timestamp.epoch == "3ep"
 
         Args:
             train_dataloader (Iterable | DataSpec | Dict[str, Any], optional): See :class:`.Trainer`.
             train_dataloader_label (str, optional): See :class:`.Trainer`.
             train_subset_num_batches (int, optional): See :class:`.Trainer`.
             compute_training_metrics (bool, optional): See :class:`.Trainer`.
-            reset_timer (bool): Whether to reset the :attr:`.State.timer`. Defaults to False.
+            reset_time (bool): Whether to reset the :attr:`.State.timestamp` to zero values. Defaults to False.
 
-                If ``True``, the timer will be zeroed out, causing :class:`.ComposerScheduler` and :class:`.Algorithm`
-                instances to start from the beginning, as if it is a new training run.
-                The model will be trained for current value of :attr:`~.State.max_duration` (or for ``duration``
-                if specified).
+                If ``True``, the timestamp will be zeroed out, causing :class:`.ComposerScheduler` and
+                :class:`.Algorithm` instances to start from the beginning, as if it is a new training run. The model
+                will be trained for ``duration``, if specified, or for :attr:`.State.max_duration`, which would have
+                been provided when construting the :class:`.Trainer` or by a previous call to :meth:`.fit`.
 
                 .. note::
 
                     Model gradients, optimizer states, and native PyTorch schedulers will not be reset.
 
-                If ``False`` (the default), the timer will resume from where the previous call to :meth:`.fit`
-                finished (or from zero, if a new training run).
+                If ``False`` (the default), training time will be incremented from where the previous call to
+                :meth:`.fit` finished (or from zero, if a new training run).
                 The :attr:`~.State.max_duration` will be incremented by the ``duration`` parameter.
 
             duration (Time[int] | str | int, optional): The duration to train. Can be an integer, which will be
                 interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
 
-                If ``reset_timer`` is False (the default), then :attr:`.State.max_duration` will be converted
+                If ``reset_time`` is False (the default), then :attr:`.State.max_duration` will be converted
                 into the same units as this parameter (if necessary), and then the max duration incremented by the
                 value of this parameter.
 
-                If ``reset_timer`` is True, then :attr:`.State.max_duration` will be set to this parameter.
+                If ``reset_time`` is True, then :attr:`.State.max_duration` will be set to this parameter.
 
             optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): See :class:`.Trainer`.
             schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional):
@@ -1248,27 +1252,27 @@ class Trainer:
         if compute_training_metrics is not None:
             self.train_metrics = _get_training_metrics(self._original_model) if compute_training_metrics else None
 
-        # Reset Timer
-        if reset_timer:
-            self.state.timer.reset()
+        # Reset Time
+        if reset_time:
+            self.state.timestamp = Timestamp()
 
         # Max Duration
         if duration is not None:
-            duration = ensure_time(duration)
-            # Effectively increment the max duration (if not resetting the Timer)
-            # or set the max_duration (if resetting the timer -- self.state.timer.get(duration.unit) will be 0)
+            duration = ensure_time(duration, TimeUnit.EPOCH)
+            # Effectively increment the max duration (if not resetting the Time)
+            # or set the max_duration (if resetting the time -- self.state.timestamp.get(duration.unit) will be 0)
             # It is important to set the duration, rather than incrementing it, as ``duration`` could be in
             # different units than ``max_duration``
-            self.state.max_duration = duration + self.state.timer.get(duration.unit)
+            self.state.max_duration = duration + self.state.timestamp.get(duration.unit)
 
         if self.state.max_duration is None:
             _raise_missing_argument_exception("max_duration")
 
-        if self.state.max_duration <= self.state.timer.get(self.state.max_duration.unit) and not reset_timer:
+        if self.state.max_duration <= self.state.timestamp.get(self.state.max_duration.unit) and not reset_time:
             raise ValueError(
                 (f"The max_duration ({self.state.max_duration}) is less than or equal to the elapsed training duration "
-                 f"({self.state.timer.get(self.state.max_duration.unit)}). No training would occur. "
-                 "Please provide the `duration` or specify `reset_timer=True` in Trainer.fit()."))
+                 f"({self.state.timestamp.get(self.state.max_duration.unit)}). No training would occur. "
+                 "Please provide the `duration` or specify `reset_time=True` in Trainer.fit()."))
 
         # Scale Schedule Ratio and Schedulers
         if scale_schedule_ratio != 1.0:
@@ -1392,7 +1396,7 @@ class Trainer:
         # spin the train dataloader's sampler to get to the state of the desired epoch
         dataloader = self.state.dataloader
         assert dataloader is not None, "train dataloader is set on state after FIT_START"
-        for epoch in range(int(self.state.timer.epoch)):
+        for epoch in range(int(self.state.timestamp.epoch)):
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 dataloader.sampler.set_epoch(epoch)
             for _ in dataloader:
@@ -1416,7 +1420,7 @@ class Trainer:
 
         self._spin_dataloaders()
 
-        if self.state.timer.batch_in_epoch == 0 and self._rng_state is not None:
+        if self.state.timestamp.batch_in_epoch == 0 and self._rng_state is not None:
             # only restore the rng state here if the step in the current epoch is zero.
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
@@ -1427,27 +1431,27 @@ class Trainer:
         # Flag if the epoch finished early, so it can be tracked whether to run the epoch end events
         finished_epoch_early = False
 
-        while self.state.timer < self.state.max_duration:
+        while self.state.timestamp < self.state.max_duration:
             try:
                 self.state.model.train()
 
-                if int(self.state.timer.batch_in_epoch) == 0:
+                if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.data_epoch({"epoch": int(self.state.timer.epoch)})
+                    self.logger.data_epoch({"epoch": int(self.state.timestamp.epoch)})
                     if self.train_metrics is not None:
                         # reset the metrics before every epoch
                         self.train_metrics.reset()
 
                 dataloader = self.state.dataloader
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                    dataloader.sampler.set_epoch(int(self.state.timer.epoch))
+                    dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader()):
 
                     # if resuming, skip dataloader forward to the minibatch index
-                    if batch_idx < int(self.state.timer.batch_in_epoch):
+                    if batch_idx < int(self.state.timestamp.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
-                        if batch_idx + 1 == int(self.state.timer.batch_in_epoch) and self._rng_state is not None:
+                        if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
                             reproducibility.load_rng_state(self._rng_state)
                             self._rng_state = None
                         continue
@@ -1482,8 +1486,8 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.data_batch({
-                        "trainer/global_step": int(self.state.timer.batch),
-                        "trainer/batch_idx": self.state.timer.batch_in_epoch.value,
+                        "trainer/global_step": int(self.state.timestamp.batch),
+                        "trainer/batch_idx": self.state.timestamp.batch_in_epoch.value,
                     })
 
                     total_loss = self._train_batch(use_grad_scaling)
@@ -1500,7 +1504,7 @@ class Trainer:
                         full_loss = total_loss.cpu().item()
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
-                    self.state.timer.on_batch_complete(
+                    self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=int(num_samples_in_batch.item()),
                         tokens=int(num_tokens_in_batch.item()),
                     )
@@ -1532,7 +1536,7 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
 
-                    if self.state.timer >= self.state.max_duration:
+                    if self.state.timestamp >= self.state.max_duration:
                         # If max_duration is specified in batches, samples, or tokens, and
                         # and the max_duration is reached mid-epoch, then break out of the dataloader
                         # to finish the epoch early and finish training.
@@ -1540,14 +1544,14 @@ class Trainer:
                         break
 
             except BreakEpochException:
-                log.info(f'Skipping the rest of Epoch {int(self.state.timer.epoch)}')
+                log.info(f'Skipping the rest of Epoch {int(self.state.timestamp.epoch)}')
 
-            if not finished_epoch_early or self.state.dataloader_len == self.state.timer.batch_in_epoch:
+            if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
                 # Trigger the epoch end events if the dataloader was exhausted.
                 # This happens if the "break" did not trigger above, or if it
                 # did (e.g. duration specified in samples/batches/tokens), but it is still
                 # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
-                self.state.timer.on_epoch_complete()
+                self.state.timestamp = self.state.timestamp.to_next_epoch()
 
                 if self.train_metrics is not None:
                     self._compute_and_log_metrics(
@@ -1774,6 +1778,72 @@ class Trainer:
         if self.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
+    def predict(self, dataloader: Union[DataLoader, DataSpec], subset_num_batches: int = -1):
+        """Output model prediction on the provided data.
+
+        Args:
+            dataloader (DataLoader | DataSpec): The :class:`.DataLoader` or
+                :class:`.DataSpec` for the prediction data.
+            subset_num_batches (int, optional): If specified, only perform model prediction
+                on this many batches. This parameter has no effect if it is greater than ``len(dataloader)``.
+                If ``-1``, then the entire loader will be iterated over. (default: ``-1``)
+        """
+
+        if isinstance(dataloader, DataSpec):
+            data_spec = dataloader
+        else:
+            data_spec = DataSpec(dataloader)
+
+        # Put the model into evaluation mode, but be able to restore it to training mode afterwards
+        restore_model_train = self.state.model.training
+        self.state.model.eval()
+
+        # Bind the dataloader to the state, but be able to restore the previous dataloader afterwards
+        original_dataloader = self.state.dataloader
+        original_dataloader_label = self.state.dataloader_label
+        original_dataloader_len = self.state.dataloader_len
+        self.state.set_dataloader(data_spec.dataloader, "predict", subset_num_batches)
+        assert self.state.dataloader is not None, "Already set the dataloader"
+
+        with torch.no_grad():
+
+            self.engine.run_event(Event.PREDICT_START)
+
+            for self.state.batch in self._iter_dataloader():
+                # Update the batch size and num tokens
+                self.state.batch_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
+                self.state.batch_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
+
+                # Move the batch onto the device
+                self.state.batch = self._device.batch_to_device(self.state.batch)
+
+                # Perform any device transforms
+                if data_spec.device_transforms is not None:
+                    self.state.batch = data_spec.device_transforms(self.state.batch)
+
+                # Fix the batch if using DeepSpeed
+                if self.deepspeed_enabled:
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+
+                self.engine.run_event(Event.PREDICT_BATCH_START)
+
+                self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
+                self.state.outputs = self.state.model(self.state.batch)
+                self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
+
+                self.engine.run_event(Event.PREDICT_BATCH_END)
+
+            self.engine.run_event(Event.PREDICT_END)
+
+        # Restore training mode
+        if restore_model_train:
+            self.state.model.train()
+
+        # Restore the dataloader
+        self.state.set_dataloader(original_dataloader, original_dataloader_label)
+        if original_dataloader_len is not None:
+            self.state.dataloader_len = original_dataloader_len
+
     def eval(
         self,
         dataloader: Union[Iterable, DataSpec, dict],
@@ -1833,7 +1903,7 @@ class Trainer:
                 # Because evaluation can run on each batch, we use the batch to seed the sampler
                 # so each evaluation will get a proper shuffle.
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                dataloader.sampler.set_epoch(int(self.state.timer.batch))
+                dataloader.sampler.set_epoch(int(self.state.timestamp.batch))
 
             for self.state.batch in self._iter_dataloader():
                 self.state.batch = self._device.batch_to_device(self.state.batch)
@@ -1856,8 +1926,8 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 
-            self.logger.data_epoch({"epoch": self.state.timer.epoch.value})
-            self.logger.data_batch({"trainer/global_step": self.state.timer.batch.value})
+            self.logger.data_epoch({"epoch": self.state.timestamp.epoch.value})
+            self.logger.data_batch({"trainer/global_step": self.state.timestamp.batch.value})
 
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
 

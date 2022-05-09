@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """Base class for logger callback."""
 
@@ -30,7 +30,7 @@ class LoggerDestination(Callback, ABC):
         >>> from composer.loggers import LoggerDestination
         >>> class MyLogger(LoggerDestination):
         ...     def log_data(self, state, log_level, data):
-        ...         print(f'Batch {int(state.timer.batch)}: {data}')
+        ...         print(f'Batch {int(state.timestamp.batch)}: {data}')
         >>> logger = MyLogger()
         >>> trainer = Trainer(
         ...     ...,
@@ -137,3 +137,22 @@ class LoggerDestination(Callback, ABC):
         """
         del state, log_level, existing_artifact_name, symlink_artifact_name, overwrite  # unused
         pass
+
+    def get_file_artifact(
+        self,
+        artifact_name: str,
+        destination: str,
+        chunk_size: int = 2**20,
+        progress_bar: bool = True,
+    ):
+        """Handle downloading an artifact named ``artifact_name`` to ``destination``.
+
+        Args:
+            artifact_name (str): The name of the artifact.
+            destination (str): The destination filepath.
+            chunk_size (int, optional): Chunk size (in bytes). Ignored if ``path`` is a local file. (default: 1MB)
+            progress_bar (bool, optional): Whether to show a progress bar. Ignored if ``path`` is a local file.
+                (default: ``True``)
+        """
+        del artifact_name, destination, chunk_size, progress_bar  # unused
+        raise NotImplementedError
