@@ -45,10 +45,11 @@ def test_cyclic_schedule(dummy_state: State, repeat: int):
 def test_marker(dummy_state: State):
     mock_trace_handler = MagicMock()
     profiler = Profiler(
-        state=dummy_state,
         trace_handlers=[mock_trace_handler],
         schedule=cyclic_schedule(),
     )
+    profiler.bind_to_state(dummy_state)
+    dummy_state.profiler = profiler
     marker = profiler.marker("name",
                              actions=[ProfilerAction.SKIP, ProfilerAction.WARMUP, ProfilerAction.ACTIVE],
                              categories=["cat1"])
