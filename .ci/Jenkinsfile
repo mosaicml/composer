@@ -18,6 +18,8 @@ dockerBuildTimeout = '7200'  // timeout for docker builds, in seconds. Builds fr
 // must use the kaniko debug image, as Jenkins needs shell access
 // see https://github.com/GoogleContainerTools/kaniko#debug-image
 kanikoDockerImage = 'gcr.io/kaniko-project/executor:v1.7.0-debug' // Docker image for kaniko docker builds
+stagingDockerRepo = 'mosaicml/jenkins-staging'  // The repo where staging images are pushed
+cacheRepo = 'mosaicml/docker-cache'  // The repo where docker image layers are cached
 
 // Pytest settings
 pytestTimeout = '1800' // timeout to run pytest, in seconds
@@ -69,6 +71,7 @@ properties(
     ]
 )
 
+@NonCPS
 Boolean isPathModified(...prefixes) {
     // returns whether any file in the PR (or commit if it's a merge commit)
     // starts with any specified prefix
