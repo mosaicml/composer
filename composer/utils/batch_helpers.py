@@ -1,4 +1,4 @@
-from typing import Any, Sequence
+from typing import Any, Sequence, Union
 
 __all__ = ['batch_get', 'batch_set']
 
@@ -113,7 +113,7 @@ def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
     return batch
 
 
-def _batch_set_tuple(batch: Any, key: Any, value: Any) -> Any:
+def _batch_set_tuple(batch: Any, key: Union[int, str], value: Any) -> Any:
     """"Sets key value pairs in tuples and NamedTuples."""
     if hasattr(batch, '_fields'):  # NamedTuple
         if isinstance(key, str):
@@ -131,7 +131,7 @@ def _batch_set_tuple(batch: Any, key: Any, value: Any) -> Any:
     return batch
 
 
-def _batch_get_tuple(batch: Any, key: Any) -> Any:
+def _batch_get_tuple(batch: Any, key: Union[int, str]) -> Any:
     """"Gets keys in tuples and NamedTuples."""
     is_named_tuple = hasattr(batch, '_fields')
     if is_named_tuple and isinstance(key, str):  # NamedTuple w/ named key
