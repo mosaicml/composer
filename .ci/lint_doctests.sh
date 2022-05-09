@@ -7,7 +7,6 @@ set -euxo pipefail
 
 # Install dependencies
 pip install '.[all]'
-pip install tabulate==0.8.9  # Needed for auto-generating tables
 
 # Mark the root folder as trusted (necessarry for pre-commit hooks to work on Jenkins)
 git config --global --add safe.directory $WORKSPACE
