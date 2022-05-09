@@ -48,7 +48,6 @@ condaTimeout = '3600' // timeout for conda builds, in seconds
 
 // Jenkins settings
 numDaysOfBuildsToKeep = '7' // number of days to keep builds (so Jenkins doesn't crash)
-jenkinsfileRepo = 'https://github.com/mosaicml/testing' // Repo containing helper scripts for Jenkins
 jenkinsShellJobName = 'scratch/command2' // The jenkins job name used to spawn sub-jobs
 gitCredentialsId = '9cf9add1-2cdd-414b-8160-94bd4ac4a13d' // Jenkins credential ID to use for git clones
 
@@ -70,21 +69,84 @@ properties(
     ]
 )
 
-String cloneJenkinsfilesRepo() {
-    // Clone the remote jenkins file in WORKSPACE_TMP
-    String jenkinsfileRepoTargetDir = 'jenkinsfiles'
-    dir("$WORKSPACE_TMP") {
-        checkout([
-            $class: 'GitSCM',
-            branches: [[name: 'main']],
-            doGenerateSubmoduleConfigurations: false,
-            extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: jenkinsfileRepoTargetDir]],
-            submoduleCfg: [],
-            changelog: false,
-            userRemoteConfigs: [[url: jenkinsfileRepo, credentialsId: gitCredentialsId]]
-        ])
+Boolean isPathModified(...prefixes) {
+    // returns whether any file in the PR (or commit if it's a merge commit)
+    // starts with any specified prefix
+    def changedFiles = []
+
+    // Adapted from https://stackoverflow.com/questions/50437626/how-to-get-list-of-all-modified-files-in-pipeline-jenkins
+    currentBuild.changeSets.each { entries ->
+        entries.each { entry ->
+            entry.affectedFiles.each { file ->
+                changedFiles << file.path
+            }
+        }
     }
-    return "$WORKSPACE_TMP/$jenkinsfileRepoTargetDir"
+    if (env.CHANGE_ID) {
+        // it's a PR, so look at all files in the PR rather than just
+        // the most recent commit
+        changedFiles = pullRequest.files.collect { file -> file.filename }
+    }
+    for (changedFile in changedFiles) {
+        for (prefix in prefixes) {
+            if (changedFile.startsWith(prefix)) {
+                return true
+            }
+        }
+    }
+    return false
+}
+
+def getDockerBuildMatrix(String buildConfigYamlPath, String buildContext, String dockerfile) {
+    /*
+    Generates a build matrix from the given yaml file
+    For each entry in the matrix, it returns a tuple of
+    (
+        (str) base kaniko command,
+        (str) destinations. To push the image to these destinations, append this string to the base kaniko command.
+        (str) the staging image to where the base kaniko command always pushes
+        (list) a list of (key, value) pairs of build args
+    )
+    */
+
+    def buildMatrix = readYaml(file: buildConfigYamlPath)
+
+    return buildMatrix.collect { buildArgs ->
+
+        def cliArgsList = []
+        def tags = []
+
+        buildArgs.each { key, val ->
+            if (key == 'TAGS') {
+                val.each { tag -> 
+                    tags << tag
+                }
+                return
+            }
+            if (key == 'TARGET') {
+                cliArgsList << "--target '$val'"
+                return
+            }
+            cliArgsList << "--build-arg '$key=$val'"
+        }
+        String cliArgs = cliArgsList.join(' ')
+        String stagingTag = UUID.randomUUID()
+        cliArgs = "$cliArgs --dockerfile $dockerfile --context $buildContext"
+        cliArgs = "$cliArgs --destination ${stagingDockerRepo}:${stagingTag}"
+        String destinations = ""
+        for (tag in tags) {
+            destinations = "$destinations --destination $tag"
+        }
+
+        if (cliArgs.contains(cacheRepo)) {
+            error("The kaniko args should not ever attempt to push images to the cache repo, ${cacheRepo}")
+        }
+
+        String kanikoCommand = "/kaniko/executor --cache=true --cache-repo=${cacheRepo} ${cliArgs} --cleanup"
+        String stagingImage = "${stagingDockerRepo}:${stagingTag}"
+
+        return [kanikoCommand, destinations, stagingImage, buildArgs]
+    }
 }
 
 void trackBuild(Map buildArgs) {
@@ -236,13 +298,6 @@ stage('Prepare') {
         echo "gitUrl: $gitUrl"
         echo "gitBranch: $gitBranch"
         echo "gitCommit: $gitCommit"
-
-        def jenkinsfileWorkspace = cloneJenkinsfilesRepo()
-
-        // TODO ravi: Update the testing repo; remove the "Next" before merging
-        def getDockerBuildMatrix = load "$jenkinsfileWorkspace/utils/getDockerBuildMatrixNext.groovy"
-
-        isPathModified = load "$jenkinsfileWorkspace/utils/isPathModified.groovy"
 
         didDockerChange = isPathModified('docker/pytorch/')
 
