@@ -53,7 +53,7 @@ def test_run_doctests():
     check_output(subprocess.run(["make", "doctest"], cwd=docs_folder, capture_output=True, text=True))
 
 
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(30)
 def test_docker_build_matrix():
     """Test that the docker build matrix is up to date"""
     docker_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docker'
