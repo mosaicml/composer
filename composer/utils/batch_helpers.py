@@ -10,8 +10,7 @@ def batch_get(batch: Any, key: Any) -> Any:
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (BatchKeys): A key to index into the batch. BatchKeys is of type Union[BatchKey Sequence[BatchKey]]
-            and BatchKey is of type Union[int, str, slice].
+        key (Any): A key to index into the batch.
 
     Returns:
         The part of the batch specified by the key. This could be any type depending on
@@ -67,8 +66,7 @@ def batch_set(batch: Any, key: Any, value: Any) -> Any:
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (BatchKeys): A key to index into the batch. BatchKeys is of type Union[BatchKey Sequence[BatchKey]]
-            and BatchKey is of type Union[int, str, slice].
+        key (Any): A key to index into the batch.
         value (Any): The value that batch[key] or batch.key gets set to.
     Returns:
         batch (Any): updated batch with value set at key.
