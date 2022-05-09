@@ -116,6 +116,19 @@ class Logger:
         self.run_name = run_name
         self._state = state
 
+    def log_config(self, config: Dict[str, Any]) -> None:
+        """Log a config value to the :attr:`destinations`.
+        
+        Args:
+            config (Dict[str, Any]): The configuration dictionary.
+
+                Each element in the dictionary represents a configuration option as a key/value pair.
+
+                Each :class:`.LoggerDestination` is responsible for processing the logged config.
+        """
+        for destination in self.destinations:
+            destination.log_config(config)
+
     def data(self, log_level: Union[str, int, LogLevel], data: Dict[str, Any]) -> None:
         """Log data to the :attr:`destinations`.
 

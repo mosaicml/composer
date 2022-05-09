@@ -156,3 +156,16 @@ class LoggerDestination(Callback, ABC):
         """
         del artifact_name, destination, chunk_size, progress_bar  # unused
         raise NotImplementedError
+
+    def log_config(
+        self,
+        config: Dict[str, Any],
+    ):
+        """Log a configuration dictionary.
+
+        Args:
+            config (Dict[str, Any]): The configuration dictionary.
+
+                Each element in the dictionary represents a configuration option as a key/value pair.
+        """
+        del config  # unused
