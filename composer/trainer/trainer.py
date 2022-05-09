@@ -1402,6 +1402,12 @@ class Trainer:
             for _ in dataloader:
                 break
 
+    def _accumulate_samples_and_tokens_across_ranks(self, num_samples: int, num_tokens: int) -> Tuple[int, int]:
+        """Accumulate the number of samples and tokens across ranks. Returns a (num_samples, num_tokens) tuple."""
+        tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
+        dist.all_reduce(tensor, reduce_operation="SUM")
+        return int(tensor[0].cpu().item()), int(tensor[1].cpu().item())
+
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
         # print training start
@@ -1477,13 +1483,6 @@ class Trainer:
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    num_samples_in_batch = self._device.tensor_to_device(
-                        torch.tensor([self.state.batch_num_samples], dtype=torch.int))
-                    num_tokens_in_batch = self._device.tensor_to_device(
-                        torch.tensor([self.state.batch_num_tokens], dtype=torch.int))
-                    dist.all_reduce(num_samples_in_batch, reduce_operation="SUM")
-                    dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
-
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.data_batch({
                         "trainer/global_step": int(self.state.timestamp.batch),
@@ -1504,9 +1503,14 @@ class Trainer:
                         full_loss = total_loss.cpu().item()
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
+                    total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                        num_samples=self.state.batch_num_samples,
+                        num_tokens=self.state.batch_num_tokens,
+                    )
+
                     self.state.timestamp = self.state.timestamp.to_next_batch(
-                        samples=int(num_samples_in_batch.item()),
-                        tokens=int(num_tokens_in_batch.item()),
+                        samples=total_num_samples,
+                        tokens=total_num_tokens,
                     )
 
                     if self._scheduler_step_frequency == TimeUnit.BATCH:
@@ -1805,6 +1809,9 @@ class Trainer:
         self.state.set_dataloader(data_spec.dataloader, "predict", subset_num_batches)
         assert self.state.dataloader is not None, "Already set the dataloader"
 
+        # Reset the predict timestamp
+        self.state.predict_timestamp = Timestamp()
+
         with torch.no_grad():
 
             self.engine.run_event(Event.PREDICT_START)
@@ -1830,6 +1837,16 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
                 self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
+
+                total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                    num_samples=self.state.batch_num_samples,
+                    num_tokens=self.state.batch_num_tokens,
+                )
+
+                self.state.predict_timestamp = self.state.predict_timestamp.to_next_batch(
+                    samples=total_num_samples,
+                    tokens=total_num_tokens,
+                )
 
                 self.engine.run_event(Event.PREDICT_BATCH_END)
 
@@ -1885,6 +1902,9 @@ class Trainer:
             dataloader = DataSpec(dataloader)
         data_spec = dataloader
 
+        # Reset the eval timestamp
+        self.state.eval_timestamp = Timestamp()
+
         self.state.model.eval()
         with torch.no_grad():
             self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
@@ -1923,6 +1943,16 @@ class Trainer:
 
                 metrics.update(self.state.outputs, targets)
                 self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
+
+                total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                    num_samples=self.state.batch_num_samples,
+                    num_tokens=self.state.batch_num_tokens,
+                )
+
+                self.state.eval_timestamp = self.state.eval_timestamp.to_next_batch(
+                    samples=total_num_samples,
+                    tokens=total_num_tokens,
+                )
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 

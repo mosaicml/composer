@@ -145,6 +145,12 @@ class State(Serializable):
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward pass.
         timestamp (Timestamp): The current training timestamp.
+        eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
+            before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
+            ``0``.
+        predict_timestamp (Timestamp): The timestamp for the current prediction dataloader. This timestamp is reset
+            before the dataloader is used. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
+            ``0``.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
 
             By default, the following attributes are serialized:
@@ -232,6 +238,8 @@ class State(Serializable):
         self._evaluators = list(ensure_tuple(evaluators))
 
         self.timestamp = Timestamp()
+        self.eval_timestamp = Timestamp()
+        self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
 
         if optimizers is None:
