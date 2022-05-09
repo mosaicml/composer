@@ -59,6 +59,9 @@ def _batch_get_multiple(batch: Any, key: Any):
 
 def batch_set(batch: Any, key: Any, value: Any) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
+
+    This is not an in-place operation for batches of type tuple as tuples are not mutable.
+    
     Args:
         batch (Any): An object that contains the input and label of the items in the batch.
             Can be any abritrary type that user creates, but we assume some sort of
