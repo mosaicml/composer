@@ -13,7 +13,7 @@ Attributes:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any, Dict, List, Union
 
 import torch
 import torch.utils.data
@@ -29,9 +29,6 @@ Dataset = torch.utils.data.Dataset[Batch]
 PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
-
-BatchKey = Union[int, str, slice]
-BatchKeys = Union[BatchKey, Sequence[BatchKey]]
 
 
 class BreakEpochException(Exception):
