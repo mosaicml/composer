@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from composer.core import State
-from composer.profiler import Profiler, ProfilerAction, cyclic_schedule
+from composer.profiler import Profiler, ProfilerAction, SystemProfiler, TorchProfiler, cyclic_schedule
 
 
 @pytest.mark.parametrize("repeat", [1, 0])
@@ -40,6 +40,20 @@ def test_cyclic_schedule(dummy_state: State, repeat: int):
         assert schedule(dummy_state) == ProfilerAction.ACTIVE
     else:
         assert schedule(dummy_state) == ProfilerAction.SKIP
+
+
+def test_profiler_init(minimal_state: State):
+    # Construct a profiler and assert that it created the correct callbacks from the arguments
+    mock_trace_handler = MagicMock()
+    profiler = Profiler(
+        trace_handlers=[mock_trace_handler],
+        schedule=cyclic_schedule(),
+        torch_prof_profile_memory=True,
+        sys_prof_cpu=True,
+    )
+    profiler.bind_to_state(minimal_state)
+    assert any(isinstance(cb, TorchProfiler) for cb in minimal_state.callbacks)
+    assert any(isinstance(cb, SystemProfiler) for cb in minimal_state.callbacks)
 
 
 def test_marker(dummy_state: State):
