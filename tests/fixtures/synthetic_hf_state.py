@@ -1,5 +1,9 @@
 import pytest
 
+import torch
+
+from collections.abc import Iterable
+
 from composer.core.state import State
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.lm_datasets import LMDatasetHparams
@@ -34,6 +38,8 @@ def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
         class_name = GPT2Hparams
     elif model_name == 'bert':
         class_name = BERTHparams
+    else:
+        raise ValueError("Model name must be one of 'gpt2' or 'bert'")
     model_config = generate_dummy_model_config(class_name, tokenizer)
     model_config['max_position_embeddings'] = max_position_embeddings
     model = class_name(model_config=model_config).initialize_object()
@@ -66,6 +72,7 @@ def synthetic_hf_state(model, dataloader, rank_zero_seed=0):
         dataloader_label="train",
         max_duration='1ep',
     )
+    assert isinstance(state.dataloader, Iterable)
     state.batch = next(iter(state.dataloader)).data
     return state
 
@@ -84,6 +91,7 @@ def test_synthetic_hf_state(config):
     assert hasattr(state, "batch")
     state_output = state.model(state.batch)
     if labels is not None:
+        assert isinstance(logits, torch.Tensor)
         assert state_output['logits'].size() == logits.size()
         assert state.batch['labels'].size() == labels.size()
     else:
