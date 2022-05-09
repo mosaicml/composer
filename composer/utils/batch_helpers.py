@@ -45,7 +45,7 @@ def _batch_get(batch: Any, key: Any) -> Any:
         value = getattr(batch, key)
 
     # If both getattr and __getitem__ result in exceptions then raise both of them.
-    except Exception as e:  # AttributeError, TypeError.
+    except (AttributeError, TypeError) as e:
         exceptions.append(e)
         raise Exception(exceptions)
     else:
@@ -101,7 +101,7 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
         setattr(batch, key, value)
 
     # If both setattr and __setitem__ raise exceptions then raise both of them.
-    except Exception as e:  # AttributeError, TypeError.
+    except (AttributeError, TypeError) as e:
         exceptions.append(e)
         raise Exception(exceptions)
     else:
