@@ -26,31 +26,31 @@ def batch_get(batch: Any, key: Any) -> Any:
 def _batch_get(batch: Any, key: Any) -> Any:
     if isinstance(batch, tuple):
         return _batch_get_tuple(batch, key)
-    else:
-        exceptions = []
-        try:
-            value = batch[key]
 
-        # The only acceptable TypeError is for an object that doesn't have a __getitem__,
-        # which is TypeError("... object is not subscriptable").
-        except TypeError as e:
-            if 'object is not subscriptable' in str(e):
-                exceptions.append(e)
-                pass
-            else:
-                raise e
-        else:
-            return value
+    exceptions = []
+    try:
+        value = batch[key]
 
-        try:
-            value = getattr(batch, key)
-
-        # If both getattr and __getitem__ result in exceptions then raise both of them.
-        except Exception as e:  # AttributeError, TypeError.
+    # The only acceptable TypeError is for an object that doesn't have a __getitem__,
+    # which is TypeError("... object is not subscriptable").
+    except TypeError as e:
+        if 'object is not subscriptable' in str(e):
             exceptions.append(e)
-            raise Exception(exceptions)
+            pass
         else:
-            return value
+            raise e
+    else:
+        return value
+
+    try:
+        value = getattr(batch, key)
+
+    # If both getattr and __getitem__ result in exceptions then raise both of them.
+    except Exception as e:  # AttributeError, TypeError.
+        exceptions.append(e)
+        raise Exception(exceptions)
+    else:
+        return value
 
 
 def _batch_get_multiple(batch: Any, key: Any):
@@ -80,31 +80,31 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
     """Sets a key value pair in a non-tuple batch."""
     if isinstance(batch, tuple):
         return _batch_set_tuple(batch, key, value)
-    else:
-        exceptions = []
-        try:
-            batch[key] = value
 
-        # The only acceptable TypeError is for an object that doesn't have a __setitem__,
-        # which is TypeError("... object does not support item assignment").
-        except TypeError as e:
-            if 'object does not support item assignment' in str(e):
-                exceptions.append(e)
-                pass
-            else:
-                raise e
-        else:
-            return batch
+    exceptions = []
+    try:
+        batch[key] = value
 
-        try:
-            setattr(batch, key, value)
-
-        # If both setattr and __setitem__ raise exceptions then raise both of them.
-        except Exception as e:  # AttributeError, TypeError.
+    # The only acceptable TypeError is for an object that doesn't have a __setitem__,
+    # which is TypeError("... object does not support item assignment").
+    except TypeError as e:
+        if 'object does not support item assignment' in str(e):
             exceptions.append(e)
-            raise Exception(exceptions)
+            pass
         else:
-            return batch
+            raise e
+    else:
+        return batch
+
+    try:
+        setattr(batch, key, value)
+
+    # If both setattr and __setitem__ raise exceptions then raise both of them.
+    except Exception as e:  # AttributeError, TypeError.
+        exceptions.append(e)
+        raise Exception(exceptions)
+    else:
+        return batch
 
 
 def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
