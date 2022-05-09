@@ -12,6 +12,7 @@ import itertools
 import os
 import sys
 
+import packaging.version
 import tabulate
 import yaml
 
@@ -157,10 +158,10 @@ def main():
             ", ".join(reversed(list(f"`{x}`" for x in entry["TAGS"]))),  # Docker tags
         ])
 
-    table.sort(key=lambda x: x[3])
-    table.sort(key=lambda x: x[4], reverse=True)
-    table.sort(key=lambda x: x[2], reverse=True)
-    table.sort(key=lambda x: x[1])
+    table.sort(key=lambda x: x[3])  # cuda version
+    table.sort(key=lambda x: packaging.version.parse(x[4]), reverse=True)  # python version
+    table.sort(key=lambda x: packaging.version.parse(x[2]), reverse=True)  # pytorch version
+    table.sort(key=lambda x: x[1])  # flavor
 
     with open(os.path.join(os.path.dirname(__name__), "..", "README.md"), "r") as f:
         contents = f.read()
