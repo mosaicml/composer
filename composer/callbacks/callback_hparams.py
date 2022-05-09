@@ -6,11 +6,13 @@ from __future__ import annotations
 import abc
 import textwrap
 from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import Optional, Union
 
+import torch
 import yahp as hp
 
 from composer.callbacks.checkpoint_saver import CheckpointSaver
+from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.grad_monitor import GradMonitor
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
@@ -118,6 +120,52 @@ class SpeedMonitorHparams(CallbackHparams):
             SpeedMonitor: An instance of :class:`~.SpeedMonitor`.
         """
         return SpeedMonitor(window_size=self.window_size)
+
+
+@dataclass
+class EarlyStopperHparams(CallbackHparams):
+    """:class:`~.EarlyStopper` hyperparameters.
+
+    Args:
+        monitor (str): The name of the metric to monitor.
+        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If 
+            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
+            monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
+            should be set to 'train' or 'eval' respectively.
+        comp (str, optional): A string dictating which comparison operator to use to measure
+            change in the monitored metric. Set ``comp`` to "less" to use the function :func:`torch.less`,
+            and "greater" to use the function :func:`torch.greater`. The comparison operator will be called
+            ``comp(current_value, prev_best)``. For example, for metrics where the optimal value is low
+            (error, loss, perplexity), use a less than operator.
+        min_delta (float, optional): An optional float that requires a new value to exceed the best value by at
+            least that amount. Defaults to 0.
+        patience (int | str, optional): The interval of time the monitored metric can not improve without stopping
+            training. Defaults to 1 epoch. If patience is an integer, it is interpreted as the number of epochs.
+    """
+    monitor: str = hp.required("The name of the metric to monitor.")
+    dataloader_label: str = hp.required("Label of the dataloader/evaluator associated with the metric.")
+    comp: Optional[str] = hp.optional("Which comparison operator to use to track change in the metric.", default=None)
+    min_delta: float = hp.optional("New metric value must exceed the best value by min_delta to continue training.",
+                                   default=0.0)
+    patience: Optional[Union[int, str]] = hp.optional("Interval the trainer can wait without stopping training.",
+                                                      default=1)
+
+    def initialize_object(self) -> EarlyStopper:
+        """Initialize the EarlyStopper callback.
+
+        Returns:
+            EarlyStopper: An instance of :class:`~.EarlyStopper`.
+        """
+        comp_function = None
+        if self.comp in ("greater", "gt"):
+            comp_function = torch.greater
+        elif self.comp in ("less", "lt"):
+            comp_function = torch.less
+        return EarlyStopper(monitor=self.monitor,
+                            dataloader_label=self.dataloader_label,
+                            comp=comp_function,
+                            min_delta=self.min_delta,
+                            patience=self.patience)
 
 
 @dataclass

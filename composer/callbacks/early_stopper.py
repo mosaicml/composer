@@ -108,6 +108,7 @@ class EarlyStopper(Callback):
         if not torch.is_tensor(metric_val):
             metric_val = torch.tensor(metric_val)
 
+        assert self.comp is not None
         if self.best is None:
             self.best = metric_val
             self.best_occurred = state.timestamp
