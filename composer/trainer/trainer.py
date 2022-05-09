@@ -1240,6 +1240,11 @@ class Trainer:
             grad_accum (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
             grad_clip_norm (float, optional): See :class:`.Trainer`.
+
+                .. note::
+                
+                    If using DeepSpeed, it is not possible to change the ``grad_clip_norm``. Instead, it must
+                    be specified when constructing the Trainer.
         """
         # Train Dataloader
         if train_dataloader is not None:
@@ -1276,6 +1281,9 @@ class Trainer:
 
         # Scale Schedule Ratio and Schedulers
         if scale_schedule_ratio != 1.0:
+            # Not scaling the schedulers if the ratio is 1.0 in case if the scheduler cannot be scaled
+            # (e.g. a custom LambdaLR). However, since 1.0 implies no scaling, it is still possible
+            # to train with it.
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
         if schedulers is not None:
             self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
