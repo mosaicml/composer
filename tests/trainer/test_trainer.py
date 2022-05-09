@@ -47,9 +47,6 @@ class TestTrainerInit():
         config['precision'] = precision
         config['device'] = 'gpu'
 
-        if precision == Precision.BF16:
-            pytest.importorskip("torch", minversion="1.10", reason="BF16 precision requires PyTorch 1.10+")
-
         with pytest.raises(ValueError) if precision == Precision.FP16 else contextlib.nullcontext():
             Trainer(**config)
 
@@ -59,9 +56,6 @@ class TestTrainerInit():
         config['deepspeed_config'] = {}
         config['precision'] = precision
         config['device'] = 'gpu'
-
-        if precision == Precision.BF16:
-            pytest.importorskip("torch", minversion="1.10", reason="BF16 precision requires PyTorch 1.10+")
 
         trainer = Trainer(**config)
 
@@ -457,10 +451,6 @@ class TestTrainerAlgorithms:
     def test_algorithm_trains(self, name, rank_zero_seed, device):
         if name in ('no_op_model', 'scale_schedule'):
             pytest.skip('stub algorithms')
-
-        if name in ('cutmix, mixup, label_smoothing'):
-            # see: https://github.com/mosaicml/composer/issues/362
-            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
         setting = get_settings(name)
         if setting is None:

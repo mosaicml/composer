@@ -6,7 +6,6 @@ import contextlib
 from typing import Generator, Union
 
 import torch
-from packaging import version
 
 from composer.utils.string_enum import StringEnum
 
@@ -48,7 +47,7 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
     precision = Precision(precision)
     if precision == Precision.FP32:
         if torch.cuda.is_available():
-            with torch.cuda.amp.autocast(False):
+            with torch.autocast(device_type='cuda', enabled=False):
                 yield
         else:
             # Yield here to avoid warnings about cuda not being available
@@ -58,14 +57,9 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
         # DeepSpeed ignores `get_precision_context`. The Trainer init validates that Precision.FP16 is used
         # only when using DeepSpeed.
         yield
-    elif precision == Precision.AMP:
-        # Retain compatibility with PyTorch < 1.10
-        with torch.cuda.amp.autocast(True):
-            yield
-    elif precision == Precision.BF16:
-        if version.parse(torch.__version__) < version.parse("1.10"):
-            raise ValueError(f"BF16 precision requires torch > 1.10, got version {torch.__version__}")
-        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+    elif precision in (Precision.AMP, Precision.BF16):
+        dtype = torch.bfloat16 if precision == Precision.BF16 else torch.float16
+        with torch.autocast(device_type='cuda', dtype=dtype, enabled=True):
             yield
     else:
         raise ValueError(f"Unsupported precision: {precision}")

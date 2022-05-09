@@ -1,7 +1,8 @@
 # Docker
 
 To simplify environment setup for the MosaicML `Composer` library, we provide a set of Docker Images that users can
-leverage.
+leverage. The `Base` flavor of Docker Images contains PyTorch pre-installed; the `Vision` flavor also includes OpenCV,
+MM Segmentation, and FFCV dependencies.
 
 ## Pytorch Images
 

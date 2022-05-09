@@ -40,10 +40,6 @@ def test_algorithm_resumption(
     if algorithm in ('no_op_model', 'scale_schedule'):
         pytest.skip('stub algorithms')
 
-    if algorithm in ('cutmix, mixup, label_smoothing'):
-        # see: https://github.com/mosaicml/composer/issues/362
-        pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
-
     if algorithm in ('layer_freezing', 'swa'):
         pytest.xfail('Known issues')
 

@@ -304,7 +304,7 @@ def print_env(file: Optional[TextIO] = None) -> None:
 
         PyTorch information
         -------------------
-        PyTorch version: 1-91+cu111
+        PyTorch version: 1-110+cu113
         Is debug build: False
         CUDA used to build PyTorch: 111
         ROCM used to build PyTorch: N/A
@@ -340,7 +340,7 @@ def print_env(file: Optional[TextIO] = None) -> None:
         Versions of relevant libraries:
         [pip3] numpy==1.22.3
         [pip3] pytorch-ranger==0.1.1
-        [pip3] torch==1.9.1+cu111
+        [pip3] torch==1.11.0+cu113
         [pip3] torch-optimizer==0.1.0
         [pip3] torchmetrics==0.7.3
         [pip3] torchvision==0.10.1+cu111
