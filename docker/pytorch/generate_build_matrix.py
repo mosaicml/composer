@@ -19,8 +19,10 @@ import yaml
 def get_pytorch_version(python_version: str):
     if python_version == "3.9":
         return "1.11.0"
-    if python_version in ("3.7", "3.8"):
+    if python_version in "3.8":
         return "1.10.2"
+    if python_version == "3.7":
+        return "1.9.1"
     raise ValueError(f"Invalid python version: {python_version}")
 
 
@@ -29,20 +31,36 @@ def get_torchvision_version(pytorch_version: str):
         return "0.11.3"
     if pytorch_version == "1.11.0":
         return "0.12.0"
+    if pytorch_version == "1.9.1":
+        return "0.10.1"
     raise ValueError(f"Invalid pytorch_version: {pytorch_version}")
 
 
 def get_base_image(cuda_version: str):
     if cuda_version == "cpu":
         return "ubuntu:20.04"
+    if cuda_version == "11.1.1":
+        return "nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04"
     if cuda_version == "11.3.1":
         return "nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04"
     raise ValueError(f"Invalid cuda_version: {cuda_version}")
 
 
+def get_cuda_version(pytorch_version: str, use_cuda: bool):
+    if not use_cuda:
+        return "cpu"
+    if pytorch_version == "1.9.1":
+        return "11.1.1"
+    if pytorch_version in ("1.10.2", "1.11.0"):
+        return "11.3.1"
+    raise ValueError(f"Invalid pytorch_version: {str}")
+
+
 def get_cuda_version_tag(cuda_version: str):
     if cuda_version == "cpu":
         return "cpu"
+    if cuda_version == "11.1.1":
+        return "cu111"
     if cuda_version == "11.3.1":
         return "cu113"
     raise ValueError(f"Invalid cuda_version: {cuda_version}")
@@ -68,16 +86,16 @@ def get_tags(python_version: str, pytorch_version: str, cuda_version_tag: str, c
 
 def main():
     python_versions = ["3.7", "3.8", "3.9"]
-    cuda_versions = ["11.3.1", "cpu"]
+    cuda_options = [True, False]
     stages = ["pytorch_stage", "vision_stage"]
 
     entries = []
 
-    for product in itertools.product(python_versions, cuda_versions, stages):
-        python_version, cuda_version, stage = product
+    for product in itertools.product(python_versions, cuda_options, stages):
+        python_version, use_cuda, stage = product
 
         pytorch_version = get_pytorch_version(python_version)
-
+        cuda_version = get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
         cuda_version_tag = get_cuda_version_tag(cuda_version)
 
         entry = {
