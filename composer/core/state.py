@@ -17,7 +17,6 @@ from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timer, TimeUnit
 from composer.utils import batch_get, batch_set, dist, ensure_tuple
-from composer.utils.batch_helpers import batch_get
 
 if TYPE_CHECKING:
     import deepspeed
