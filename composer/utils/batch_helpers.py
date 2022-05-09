@@ -28,7 +28,7 @@ def _batch_get(batch: Any, key: Any) -> Any:
 
     exceptions = []
     try:
-        value = batch[key]
+        return batch[key]
 
     # The only acceptable TypeError is for an object that doesn't have a __getitem__,
     # which is TypeError("... object is not subscriptable").
@@ -38,18 +38,14 @@ def _batch_get(batch: Any, key: Any) -> Any:
             pass
         else:
             raise e
-    else:
-        return value
 
     try:
-        value = getattr(batch, key)
+        return getattr(batch, key)
 
     # If both getattr and __getitem__ result in exceptions then raise both of them.
     except (AttributeError, TypeError) as e:
         exceptions.append(e)
         raise Exception(exceptions)
-    else:
-        return value
 
 
 def _batch_get_multiple(batch: Any, key: Any):
