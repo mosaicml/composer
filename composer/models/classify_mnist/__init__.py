@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """A simple example convolutional neural network which can be used to classify MNIST data."""
 from composer.models.classify_mnist.mnist_hparams import MnistClassifierHparams as MnistClassifierHparams

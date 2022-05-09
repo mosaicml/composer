@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import os
 import site
@@ -157,13 +157,22 @@ extra_deps["mlperf"] = [
     "py-cpuinfo>=8.0.0,<9",
 ]
 
+extra_deps["streaming"] = [
+    "boto3>=1.21.45,<2",
+]
+
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ["py.typed"]
 composer_data_files += package_files("composer", "yamls", ".yaml")
 composer_data_files += package_files("composer", "algorithms", ".json")
 
-setup(name="mosaicml",
+package_name = os.environ.get('COMPOSER_PACKAGE_NAME', "mosaicml")
+
+if package_name != "mosaicml":
+    print(f"`Building composer as `{package_name}`)", file=sys.stderr)
+
+setup(name=package_name,
       version="0.6.0",
       author="MosaicML",
       author_email="team@mosaicml.com",

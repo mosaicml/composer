@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import contextlib
 import os
@@ -22,7 +22,7 @@ from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.loggers import FileLogger, ProgressBarLogger, WandBLogger
 from composer.trainer.devices.device import Device
 from composer.trainer.trainer_hparams import callback_registry, logger_registry
-from composer.utils import MissingConditionalImportError, dist
+from composer.utils import dist
 from composer.utils.object_store import ObjectStoreHparams
 from tests.algorithms.algorithm_settings import get_settings
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
@@ -134,7 +134,7 @@ class TestTrainerInit():
             if isinstance(callback, CheckpointSaver):
                 checkpoint_saver = callback
         assert checkpoint_saver is not None
-        trainer.state.timer.epoch._value = 10
+        trainer.state.timestamp.epoch._value = 10
         assert checkpoint_saver.save_interval(trainer.state, Event.EPOCH_CHECKPOINT)
 
     @pytest.mark.timeout(5.0)
@@ -243,7 +243,7 @@ class TestTrainerEquivalence():
         config['load_path'] = checkpoint_file
 
         trainer = Trainer(**config)
-        assert trainer.state.timer.epoch == "1ep"  # ensure checkpoint state loaded
+        assert trainer.state.timestamp.epoch == "1ep"  # ensure checkpoint state loaded
         trainer.fit()
 
         self.assert_models_equal(trainer.state.model, self.reference_model)
@@ -284,7 +284,7 @@ class AssertDataAugmented(Callback):
     def after_forward(self, state, logger):
         if state.grad_accum != 1:
             raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
-        batch_idx = state.timer.batch_in_epoch.value
+        batch_idx = state.timestamp.batch_in_epoch.value
         batch_size = state.batch_num_samples
         original_batch = self.dataset[batch_idx:batch_idx + batch_size]
         original_outputs = state.model(original_batch)
@@ -509,8 +509,9 @@ class TestFFCVDataloaders:
     def config(self):
         try:
             import ffcv  # type: ignore
-        except ImportError:
-            raise MissingConditionalImportError(extra_deps_group="ffcv", conda_package="ffcv")
+        except ImportError as e:
+            raise ImportError(("Composer was installed without ffcv support. "
+                               "To use ffcv with Composer, please install ffcv in your environment.")) from e
         train_dataloader = self._get_dataloader(is_train=True)
         val_dataloader = self._get_dataloader(is_train=False)
         assert isinstance(train_dataloader, ffcv.Loader)

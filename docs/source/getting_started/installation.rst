@@ -16,14 +16,14 @@ as well as with Anaconda:
 To include non-core dependencies that are required by some algorithms, callbacks, datasets, or models,
 the following installation targets are available:
 
-* ``pip install mosaicml[dev]``: Installs development dependencies, which are required for running tests
+* ``pip install 'mosaicml[dev]'``: Installs development dependencies, which are required for running tests
   and building documentation.
-* ``pip install mosaicml[deepspeed]``: Installs Composer with support for :mod:`deepspeed`.
-* ``pip install mosaicml[nlp]``: Installs Composer with support for NLP models and algorithms.
-* ``pip install mosaicml[unet]``: Installs Composer with support for :doc:`Unet </model_cards/unet>`.
-* ``pip install mosaicml[timm]``: Installs Composer with support for :mod:`timm`.
-* ``pip install mosaicml[wandb]``: Installs Composer with support for :mod:`wandb`.
-* ``pip install mosaicml[all]``: Install all optional dependencies.
+* ``pip install 'mosaicml[deepspeed]'``: Installs Composer with support for :mod:`deepspeed`.
+* ``pip install 'mosaicml[nlp]'``: Installs Composer with support for NLP models and algorithms.
+* ``pip install 'mosaicml[unet]'``: Installs Composer with support for :doc:`Unet </model_cards/unet>`.
+* ``pip install 'mosaicml[timm]'``: Installs Composer with support for :mod:`timm`.
+* ``pip install 'mosaicml[wandb]'``: Installs Composer with support for :mod:`wandb`.
+* ``pip install 'mosaicml[all]'``: Install all optional dependencies.
 
 For a developer install, clone directly:
 
@@ -31,7 +31,7 @@ For a developer install, clone directly:
 
     git clone https://github.com/mosaicml/composer.git
     cd composer
-    pip install -e .[all]
+    pip install -e ".[all]"
 
 
 .. note::

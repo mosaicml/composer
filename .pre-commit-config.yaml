@@ -57,3 +57,14 @@ repos:
     # -   id: name-tests-test  # TODO(ravi): Enable this check later. Generates a large diff.
     #     args: ['--django']
     # -   id: double-quote-string-fixer  # TODO(ravi): Enable this check later. Generates a large diff.
+-   repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.1.13
+    hooks:
+    -   id: insert-license
+        files: composer
+        args:
+        - --license-filepath
+        - COPYRIGHT_HEADER
+        - --comment-style
+        - "#"
+        types: [python]

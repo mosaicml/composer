@@ -7,7 +7,7 @@ import torch
 
 from composer.algorithms import EMAHparams
 from composer.algorithms.ema.ema import ShadowModel, compute_ema
-from composer.core import Event, Time, Timer, TimeUnit
+from composer.core import Event, Time, Timestamp, TimeUnit
 from tests.common import SimpleConvModel, SimpleModel
 
 
@@ -65,12 +65,12 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
     original_model = copy.deepcopy(state.model)
     state.model = SimpleConvModel()
     # Do the EMA update
-    state.timer = Timer()
+    state.timestamp = Timestamp()
     if half_life.unit == TimeUnit.BATCH:
-        state.timer._batch = update_interval
+        state.timestamp._batch = update_interval
         algorithm.apply(Event.BATCH_END, state, empty_logger)
     elif half_life.unit == TimeUnit.EPOCH:
-        state.timer._epoch = update_interval
+        state.timestamp._epoch = update_interval
         algorithm.apply(Event.EPOCH_END, state, empty_logger)
     else:
         raise ValueError(f"Invalid time string for parameter half_life")
