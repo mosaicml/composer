@@ -387,9 +387,9 @@ class TrainerHparams(hp.Hparams):
     val_dataset: Optional[DatasetHparams] = hp.optional(doc="Validation dataset hparams", default=None)
     evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default=None)
     eval_batch_size: Optional[int] = hp.optional(doc="batch size to use for each evaluation step", default=None)
-    eval_interval: str = hp.optional(
-        doc="Time string for the evaluation interval. Defaults to 1ep (every epoch)",
-        default="1ep",
+    eval_interval: Union[int, str] = hp.optional(
+        doc="Time string or integers in epochs for the evaluation interval.",
+        default=1,
     )
     eval_subset_num_batches: int = hp.optional(
         doc="If specified, stop each evaluation after this many batches.",
@@ -889,7 +889,7 @@ class FitHparams(hp.Hparams):
     evaluators: Optional[List[EvaluatorHparams]] = hp.optional(doc="Evaluators", default=None)
     eval_batch_size: Optional[int] = hp.optional(doc="batch size to use for each evaluation step", default=None)
     eval_interval: Union[int, str] = hp.optional(
-        doc="Time string for the evaluation interval. Defaults to 1ep (every epoch)",
+        doc="Time string for the evaluation interval. Defaults to 1 (every epoch)",
         default=1,
     )
     eval_subset_num_batches: int = hp.optional(
