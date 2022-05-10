@@ -2,11 +2,8 @@
 
 import pathlib
 import random
-from collections import OrderedDict
-from typing import NamedTuple
+from unittest.mock import patch
 
-import numpy as np
-import pytest
 import torch
 import torch.nn.functional as F
 from torch.functional import Tensor
@@ -16,7 +13,6 @@ from composer.core import DataSpec, Precision, State
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
-from composer.utils.batch_helpers import batch_get
 from tests.common import SimpleModel, assert_state_equivalent
 
 
@@ -99,64 +95,21 @@ def test_state_serialize(
     assert_state_equivalent(state1, state2)
 
 
-my_list = [3, 4, 5, 6, 7, 8, 9, 10]
-keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-
-
-class MyClass(object):
-
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-
-list_types = [type(element) for element in my_list]
-my_named_tuple = NamedTuple('nt', **dict(zip(keys, list_types)))
-
-
-@pytest.fixture(scope="module",
-                params=[my_list,
-                        tuple(my_list),
-                        my_named_tuple(*my_list),
-                        np.asarray(my_list),
-                        torch.tensor(my_list)])
-def example_sequence(request):
-    return request.param
-
-
-# All key value pair data structures that have a __getitem__ function thats takes str.
-@pytest.fixture(scope="module",
-                params=[
-                    dict(zip(keys, my_list)),
-                    MyClass(**dict(zip(keys, my_list))),
-                    my_named_tuple(*my_list),
-                    OrderedDict(**dict(zip(keys, my_list)))
-                ])
-def example_mapping(request):
-    return request.param
-
-
-def test_state_batch_get_item_sequence(example_sequence, key=3):
+def test_state_batch_get_item():
     state = get_dummy_state()
-    state.batch = example_sequence
-    assert state.batch_get_item(key) == batch_get(state.batch, key)
+    with patch('composer.core.state.batch_get') as mock_batch_get:
+        dummy_return = 7
+        mock_batch_get.return_value = dummy_return
+        ret = state.batch_get_item(2)
+        mock_batch_get.assert_called_once_with(state.batch, 2)
+        assert ret == dummy_return
 
 
-def test_state_batch_get_item_mapping(example_mapping, key='b'):
+def test_state_batch_set_item():
     state = get_dummy_state()
-    state.batch = example_mapping
-    assert state.batch_get_item(key) == batch_get(state.batch, key)
-
-
-def test_state_batch_set_item_sequence(example_sequence, key=2, value=31):
-    state = get_dummy_state()
-    state.batch = example_sequence
-    state.batch_set_item(key, value)
-    assert state.batch_get_item(key) == value
-
-
-def test_state_batch_set_item_mapping(example_mapping, key='d', value=42):
-    state = get_dummy_state()
-    state.batch = example_mapping
-    state.batch_set_item(key, value)
-    assert state.batch_get_item(key) == value
+    with patch('composer.core.state.batch_set') as mock_batch_set:
+        dummy_return = [7, 10]
+        mock_batch_set.return_value = dummy_return
+        state.batch_set_item(2, 154)
+        mock_batch_set.assert_called_once()
+        assert state.batch == dummy_return
