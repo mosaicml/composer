@@ -9,7 +9,7 @@ from composer import Time
 
 
 def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0):
-    """Compare two items recursively. Supports dicts, lists, tuples, tensors, and numpy arrays.
+    """Compare two items recursively. Supports dicts, lists, tuples, tensors, numpy arrays, Composer Time objects, and callables.
 
     Args:
         item1 (Any): The first item

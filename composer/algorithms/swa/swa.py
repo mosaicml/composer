@@ -168,7 +168,7 @@ class SWA(Algorithm):
         assert_valid_duration(self.swa_end)
 
     def _get_time(self, state: State):
-        """helper function to retrieve wiether the epoch or the duration depending on the units"""
+        """helper function to retrieve either the epoch or the duration depending on the units"""
         unit = self.swa_start.unit
 
         if unit == TimeUnit.EPOCH:
