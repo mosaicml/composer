@@ -31,11 +31,11 @@ class ScaleSchedule(Algorithm):
             category=DeprecationWarning)
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on :attr:`~composer.core.event.Event.INIT`.
+        """Run on :attr:`.Event.INIT`.
 
         Args:
-            event (:class:`~composer.core.event.Event`): The current event.
-            state (:class:`~composer.core.state.State`): The current state.
+            event (:class:`.Event`): The current event.
+            state (:class:`.State`): The current state.
         Returns:
             bool: True if this algorithm should run.
         """
