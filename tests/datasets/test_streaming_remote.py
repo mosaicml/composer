@@ -1,45 +1,36 @@
-import math
-import os
 import pathlib
-import shutil
 import time
-from typing import Any, Callable, Dict, List, Tuple
 
-import numpy as np
-import py
 import pytest
-import torchvision.transforms.functional as TF
 from PIL.Image import Image
 from torch.utils.data import DataLoader
-from torchvision import transforms
 
 from composer.datasets.ade20k import StreamingADE20k
 from composer.datasets.utils import pil_image_collate
-from composer.utils import dist
 
 
-@pytest.mark.skip()
+# @pytest.mark.skip()
 @pytest.mark.timeout(0)
 @pytest.mark.parametrize("split", ["val"])
-def test_streaming_ade20k_dataset(tmpdir: pathlib.Path, split: str):
+def test_streaming_ade20k_dataset(tmpdir: pathlib.Path, split: str) -> None:
     assert split in ["train", "val"]
     expected_samples = {"train": 20206, "val": 2000}[split]
 
     # Paths
     # Must have valid AWS credentials in order to access this remote S3 path
-    remote = f"s3://mosaicml-internal-dataset-ade20k/mds/{split}"
+    remote = f"s3://mosaicml-internal-dataset-ade20k/mds/"
     local = str(tmpdir)
 
     # Build StreamingDataset
     build_start = time.time()
-    dataset = StreamingADE20k(remote=remote, local=local, shuffle=False)
+    dataset = StreamingADE20k(remote=remote, local=local, split=split, shuffle=False)
     build_end = time.time()
     build_dur = build_end - build_start
 
     # Test basic iteration
     rcvd_samples = 0
     iter_start = time.time()
-    for ix, sample in enumerate(dataset):
+    for _, sample in enumerate(dataset):
         assert len(sample) == 2
         image, annotation = sample
         assert isinstance(image, Image)
@@ -59,13 +50,13 @@ def test_streaming_ade20k_dataset(tmpdir: pathlib.Path, split: str):
 # @pytest.mark.skip()
 @pytest.mark.timeout(0)
 @pytest.mark.parametrize("split", ["val"])
-def test_streaming_ade20k_dataloader(tmpdir: pathlib.Path, split: str):
+def test_streaming_ade20k_dataloader(tmpdir: pathlib.Path, split: str) -> None:
     assert split in ["train", "val"]
     expected_samples = {"train": 20206, "val": 2000}[split]
 
     # Paths
     # Must have valid AWS credentials in order to access this remote S3 path
-    remote = f"s3://mosaicml-internal-dataset-ade20k/mds/{split}"
+    remote = f"s3://mosaicml-internal-dataset-ade20k/mds/"
     local = str(tmpdir)
 
     # Data loading info
@@ -76,17 +67,14 @@ def test_streaming_ade20k_dataloader(tmpdir: pathlib.Path, split: str):
     persistent_workers = True
 
     # Build StreamingDataset
-    final_size = 512
-    image_transform = transforms.Resize(size=(final_size, final_size), interpolation=TF.InterpolationMode.BILINEAR)
-    annotation_transform = transforms.Resize(size=(final_size, final_size), interpolation=TF.InterpolationMode.NEAREST)
-
     ds_build_start = time.time()
-    dataset = StreamingADE20k(remote=remote,
-                              local=local,
-                              shuffle=shuffle,
-                              batch_size=batch_size,
-                              image_transform=image_transform,
-                              annotation_transform=annotation_transform)
+    dataset = StreamingADE20k(
+        remote=remote,
+        local=local,
+        split=split,
+        shuffle=shuffle,
+        batch_size=batch_size,
+    )
     ds_build_end = time.time()
     ds_build_dur = ds_build_end - ds_build_start
 
@@ -107,7 +95,7 @@ def test_streaming_ade20k_dataloader(tmpdir: pathlib.Path, split: str):
     for epoch in range(3):
         rcvd_samples = 0
         epoch_start = time.time()
-        for ix, (images, annotations) in enumerate(loader):
+        for _, (images, _) in enumerate(loader):
             n_samples = images.shape[0]
             rcvd_samples += n_samples
         epoch_end = time.time()
@@ -115,4 +103,5 @@ def test_streaming_ade20k_dataloader(tmpdir: pathlib.Path, split: str):
         samples_per_sec = rcvd_samples / epoch_dur
         print(f"Epoch {epoch}: epoch_dur={epoch_dur:.2f}s, samples_per_sec={samples_per_sec:.2f}")
 
-    assert True
+        # Test all samples arrived
+        assert rcvd_samples == expected_samples

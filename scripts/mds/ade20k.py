@@ -77,25 +77,19 @@ def main(args: Namespace) -> None:
     """
     fields = ['uid', 'image', 'annotation']
 
-    # Get train samples
-    train_samples = get(in_root=args.in_root, split='train', shuffle=True)
-    assert len(train_samples) == 20206
+    for (split, expected_num_samples, shuffle) in [
+        ("train", 20206, True),
+        ("val", 2000, False),
+    ]:
+        # Get samples
+        samples = get(in_root=args.in_root, split=split, shuffle=shuffle)
+        assert len(samples) == expected_num_samples
 
-    # Write train samples
-    with StreamingDatasetWriter(dirname=os.path.join(args.out_root, 'train'),
-                                fields=fields,
-                                shard_size_limit=args.shard_size_limit) as out:
-        out.write_samples(samples=each(train_samples), use_tqdm=bool(args.tqdm), total=len(train_samples))
-
-    # Get val samples
-    val_samples = get(in_root=args.in_root, split='val', shuffle=False)
-    assert len(val_samples) == 2000
-
-    # Write val samples
-    with StreamingDatasetWriter(dirname=os.path.join(args.out_root, 'val'),
-                                fields=fields,
-                                shard_size_limit=args.shard_size_limit) as out:
-        out.write_samples(samples=each(val_samples), use_tqdm=bool(args.tqdm), total=len(val_samples))
+        # Write train samples
+        with StreamingDatasetWriter(dirname=os.path.join(args.out_root, split),
+                                    fields=fields,
+                                    shard_size_limit=args.shard_size_limit) as out:
+            out.write_samples(samples=each(samples), use_tqdm=bool(args.tqdm), total=len(samples))
 
 
 if __name__ == '__main__':

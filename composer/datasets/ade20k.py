@@ -11,7 +11,7 @@ import os
 from dataclasses import dataclass
 from io import BytesIO
 from math import ceil
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -393,7 +393,19 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
 
 class StreamingADE20k(StreamingDataset):
-    """Streaming ADE20k."""
+    """
+    Implementation of the ADE20k dataset using StreamingDataset.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+        split (str): The dataset split to use, either 'train', or 'val'. Default: ``'train```.
+        shuffle (bool): Whether to shuffle the samples in this dataset.
+        base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
+        min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
+        max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
+        final_size (int): the final size of the image and target. Default: ``512``.
+    """
 
     def decode_uid(self, data: bytes) -> Any:
         return data.decode('utf-8')
@@ -407,19 +419,63 @@ class StreamingADE20k(StreamingDataset):
     def __init__(self,
                  remote: str,
                  local: str,
+                 split: str,
                  shuffle: bool,
-                 both_transform: Optional[Callable] = None,
-                 image_transform: Optional[Callable] = None,
-                 annotation_transform: Optional[Callable] = None,
+                 base_size: int = 512,
+                 min_resize_scale: float = 0.5,
+                 max_resize_scale: float = 2.0,
+                 final_size: int = 512,
                  batch_size: Optional[int] = None):
+
+        # Validation
+        if split not in ['train', 'val']:
+            raise ValueError(f"split value {split} must be one of ['train', 'val'].")
+        if base_size <= 0:
+            raise ValueError("base_size cannot be zero or negative.")
+        if min_resize_scale <= 0:
+            raise ValueError("min_resize_scale cannot be zero or negative")
+        if max_resize_scale < min_resize_scale:
+            raise ValueError("max_resize_scale cannot be less than min_resize_scale")
+
+        # Build StreamingDataset
         decoders = {
             'image': self.decode_image,
             'annotation': self.decode_annotation,
         }
-        super().__init__(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size)
-        self.both_transform = both_transform
-        self.image_transform = image_transform
-        self.annotation_transform = annotation_transform
+        super().__init__(remote=os.path.join(remote, split),
+                         local=os.path.join(local, split),
+                         shuffle=shuffle,
+                         decoders=decoders,
+                         batch_size=batch_size)
+
+        # Define custom transforms
+        if split == 'train':
+            self.both_transform = torch.nn.Sequential(
+                RandomResizePair(min_scale=min_resize_scale,
+                                 max_scale=max_resize_scale,
+                                 base_size=(base_size, base_size)),
+                RandomCropPair(
+                    crop_size=(final_size, final_size),
+                    class_max_percent=0.75,
+                    num_retry=10,
+                ),
+                RandomHFlipPair(),
+            )
+
+            # Photometric distoration values come from mmsegmentation:
+            # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+            r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
+            self.image_transform = torch.nn.Sequential(
+                PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
+                PadToSize(size=(final_size, final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
+
+            self.annotation_transform = PadToSize(size=(final_size, final_size), fill=0)
+        else:
+            self.both_transform = None
+            self.image_transform = transforms.Resize(size=(final_size, final_size),
+                                                     interpolation=TF.InterpolationMode.BILINEAR)
+            self.annotation_transform = transforms.Resize(size=(final_size, final_size),
+                                                          interpolation=TF.InterpolationMode.NEAREST)
 
     def __getitem__(self, idx: int) -> Any:
         obj = super().__getitem__(idx)
@@ -462,54 +518,17 @@ class StreamingADE20kHparams(DatasetHparams):
     final_size: int = hp.optional("Final size of the image and target", default=512)
     ignore_background: bool = hp.optional("If true, ignore the background class in training loss", default=True)
 
-    def validate(self):
-        if self.split not in ['train', 'val', 'test']:
-            raise ValueError(f"split value {self.split} must be one of ['train', 'val', 'test'].")
-
-        if self.base_size <= 0:
-            raise ValueError("base_size cannot be zero or negative.")
-
-        if self.min_resize_scale <= 0:
-            raise ValueError("min_resize_scale cannot be zero or negative")
-
-        if self.max_resize_scale < self.min_resize_scale:
-            raise ValueError("max_resize_scale cannot be less than min_resize_scale")
-
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
-        self.validate()
+        dataset = StreamingADE20k(remote=self.remote,
+                                  local=self.local,
+                                  split=self.split,
+                                  shuffle=self.shuffle,
+                                  base_size=self.base_size,
+                                  min_resize_scale=self.min_resize_scale,
+                                  max_resize_scale=self.max_resize_scale,
+                                  final_size=self.final_size,
+                                  batch_size=batch_size)
 
-        if self.split == 'train':
-            both_transform = torch.nn.Sequential(
-                RandomResizePair(min_scale=self.min_resize_scale,
-                                 max_scale=self.max_resize_scale,
-                                 base_size=(self.base_size, self.base_size)),
-                RandomCropPair(
-                    crop_size=(self.final_size, self.final_size),
-                    class_max_percent=0.75,
-                    num_retry=10,
-                ),
-                RandomHFlipPair(),
-            )
-
-            # Photometric distoration values come from mmsegmentation:
-            # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
-            r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
-            image_transform = torch.nn.Sequential(
-                PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                PadToSize(size=(self.final_size, self.final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
-
-            annotation_transform = PadToSize(size=(self.final_size, self.final_size), fill=0)
-        else:
-            both_transform = None
-            image_transform = transforms.Resize(size=(self.final_size, self.final_size),
-                                                interpolation=TF.InterpolationMode.BILINEAR)
-            annotation_transform = transforms.Resize(size=(self.final_size, self.final_size),
-                                                     interpolation=TF.InterpolationMode.NEAREST)
-
-        remote = os.path.join(self.remote, self.split)
-        local = os.path.join(self.local, self.split)
-        dataset = StreamingADE20k(remote, local, self.shuffle, both_transform, image_transform, annotation_transform,
-                                  batch_size)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
                                               std=IMAGENET_CHANNEL_STD,
