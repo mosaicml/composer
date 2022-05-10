@@ -1,7 +1,12 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
+"""
+A block for adding sample-wise stochastic in a ResNet Bottleneck.
+"""
 
 import torch
 from torchvision.models.resnet import Bottleneck
+
+__all__ = ["SampleStochasticBottleneck"]
 
 
 def _sample_drop(x: torch.Tensor, sample_drop_rate: float, is_training: bool):
