@@ -202,9 +202,13 @@ ARG MMCV_TORCH_VERSION
 ARG PYTHON_VERSION
 
 RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
-    ffcv==0.0.3 \
-    'opencv-python>=4.5.5.64,<4.6' \
-    'numba>=0.55.0,<0.56' \
-    cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`>=10.2.0 && \
-    sudo pip${PYTHON_VERSION} install --no-cache-dir mmcv-full==${MMCV_VERSION} -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
-    sudo pip${PYTHON_VERSION} install --no-cache-dir 'mmsegmentation>=0.22.0,<0.23'
+        ffcv==0.0.3 \
+        'opencv-python>=4.5.5.64,<4.6' \
+        'numba>=0.55.0,<0.56' \
+        'mmsegmentation>=0.22.0,<0.23' && \
+    sudo pip${PYTHON_VERSION} install --no-cache-dir \
+        mmcv-full==${MMCV_VERSION} \
+        -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html ; \
+    if [ -n "$CUDA_VERSION" ] ; then \
+        sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`>=10.2.0; \
+    fi
