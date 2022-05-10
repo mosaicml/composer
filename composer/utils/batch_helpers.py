@@ -150,6 +150,8 @@ def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
     # results in an IndexError.
     except (IndexError, TypeError, KeyError):
         pass
+    if not hasattr(value, '__len__') or isinstance(value, str):
+        raise ValueError(f'value must be a sequence or array or tensor! and not {type(value)}')
     if len(key) != len(value):
         raise ValueError(f'value must be the same length as key ({len(key)}), but it is f{len(value)} instead')
     for single_key, single_value in zip(key, value):

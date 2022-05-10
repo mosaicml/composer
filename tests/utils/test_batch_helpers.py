@@ -327,3 +327,10 @@ def test_all_nones(example_complicated_object):
         batch_get(example_complicated_object)
     with pytest.raises(ValueError):
         batch_set(example_complicated_object)
+
+
+def test_set_with_mismatched_key_values(example_list):
+    with pytest.raises(ValueError):
+        batch_set(example_list, key=[1, 3, 5], value=[1, 2])
+    with pytest.raises(ValueError):
+        batch_set(example_list, key=[1, 3, 5], value=1)
