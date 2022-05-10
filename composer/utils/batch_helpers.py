@@ -49,6 +49,15 @@ def _batch_get(batch: Any, key: Any) -> Any:
 
 
 def _batch_get_multiple(batch: Any, key: Any):
+    # Numpy arrays and Torch tensors can take tuples and lists as keys.
+    try:
+        return batch[key]
+    # Indexing a list with a sequence results in TypeError
+    # Indexing an array/tensor with a sequence that is longer than the rank of the array
+    # results in an IndexError.
+    # Indexing a dict with a tuple results in a key error.
+    except (IndexError, TypeError, KeyError):
+        pass
     return [_batch_get(batch, k) for k in key]
 
 
@@ -106,6 +115,18 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
 
 def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
     """Sets multiple key value pairs in a non-tuple batch."""
+    # Numpy arrays and Torch tensors can take tuples and lists as keys.
+    try:
+        # Check if one can do a __getitem__ before doing a __setitem__ because dicts can
+        # so __setitem__ for elements not in the dict and we do not want that.
+        batch[key]
+        batch[key] = value
+        return batch
+    # Indexing a list with a sequence results in TypeError
+    # Indexing an array/tensor with a sequence that is longer than the rank of the array
+    # results in an IndexError.
+    except (IndexError, TypeError, KeyError):
+        pass
     if len(key) != len(value):
         raise ValueError(f'value must be the same length as key ({len(key)}), but it is f{len(value)} instead')
     for single_key, single_value in zip(key, value):

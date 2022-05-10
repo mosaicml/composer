@@ -102,9 +102,16 @@ def test_seq_of_slices_key(batch, key, expected):
 @pytest.mark.parametrize('batch,key,expected', [(torch.tensor(my_list), [slice(1, 4), slice(5, 7)], [
     torch.tensor([4, 5, 6]), torch.tensor([8, 9])
 ]), (np.asarray(my_list), [slice(1, 4), slice(5, 7)], [np.asarray([4, 5, 6]), np.asarray([8, 9])])])
-def test_seq_of_slices_key_for_tensors_and_arrays(batch, key, expected):
+def test_seq_of_slices_key_for_1D_tensors_and_arrays(batch, key, expected):
     for actual, expectation in zip(batch_get(batch, key), expected):
         assert all(actual == expectation)
+
+
+# Test whether arrays and tensors can be indexed by a sequence of int objects.
+@pytest.mark.parametrize('batch,key,expected', [(torch.tensor(my_list), [1, 4], torch.tensor([4, 7])),
+                                                (np.asarray(my_list), [1, 4], np.asarray([4, 7]))])
+def test_seq_of_ints_key_for_1D_tensors_and_arrays(batch, key, expected):
+    assert all(batch_get(batch, key) == expected)
 
 
 @pytest.fixture
@@ -125,6 +132,21 @@ def example_tensor():
 @pytest.fixture
 def example_array():
     return np.asarray([3, 4, 5, 6, 7, 8, 9, 10])
+
+
+@pytest.fixture
+def example_2D_array():
+    return np.arange(12).reshape(4, 3)
+
+
+@pytest.fixture
+def example_2D_tensor():
+    return torch.arange(12).reshape(4, 3)
+
+
+@pytest.fixture(scope="module", params=[np.arange(12).reshape(4, 3), torch.arange(12).reshape(4, 3)])
+def example_2D_array_tensor(request):
+    return request.param
 
 
 @pytest.mark.parametrize('batch', [my_list, tuple(my_list), my_named_tuple(*my_list)])
@@ -165,16 +187,6 @@ def test_batch_set_tensor(example_tensor, key, value):
     assert torch.equal(torch.tensor(batch_get(new_batch, key)), value)
 
 
-# Test whether tensors can be set using batch_set with a list of slices.
-def test_batch_set_tensor_list_of_slices(example_tensor,
-                                         key=[slice(0, 3, 1), slice(4, 7, 1)],
-                                         value=[torch.tensor([10, 11, 12]),
-                                                torch.tensor([13, 14, 15])]):
-    new_batch = batch_set(example_tensor, key, value)
-    for actual, expectation in zip(batch_get(new_batch, key), value):
-        assert torch.equal(actual, expectation)
-
-
 # Test whether arrays can be set using batch_set.
 @pytest.mark.parametrize('key,value', [(1, np.asarray(2)), (3, np.asarray(7)), ([2, 5], np.asarray([11, 13])),
                                        (slice(1, 6, 2), np.asarray([-1, -3, -5]))])
@@ -183,18 +195,76 @@ def test_batch_set_array(example_array, key, value):
     assert np.all(batch_get(new_batch, key) == value)
 
 
-# Test whether arrays can be set using batch_set with a list of slices.
-def test_batch_set_array_list_of_slices(example_array,
-                                        key=[slice(0, 3, 1), slice(4, 7, 1)],
-                                        value=[np.asarray([10, 11, 12]),
-                                               np.asarray([13, 14, 15])]):
-    new_batch = batch_set(example_array, key, value)
-    for actual, expectation in zip(batch_get(new_batch, key), value):
-        assert np.all(actual == expectation)
-
-
 # Test whether mutable key value data structures can be set using batch_set.
 @pytest.mark.parametrize('key,value', [('b', -10), ('c', -20), (['d', 'e'], [100, 101])])
 def test_batch_set_map(example_map, key, value):
     new_batch = batch_set(example_map, key, value)
     assert batch_get(new_batch, key) == value
+
+
+# Test whether tensors can be set using batch_set with a list of slices.
+def test_batch_set_1D_tensor_list_of_slices(example_tensor,
+                                            key=[slice(0, 3, 1), slice(4, 7, 1)],
+                                            value=[torch.tensor([10, 11, 12]),
+                                                   torch.tensor([13, 14, 15])]):
+    new_batch = batch_set(example_tensor, key, value)
+    for actual, expectation in zip(batch_get(new_batch, key), value):
+        assert torch.equal(actual, expectation)
+
+
+# Test whether arrays can be set using batch_set with a list of slices.
+def test_batch_set_1D_array_list_of_slices(example_array,
+                                           key=[slice(0, 3, 1), slice(4, 7, 1)],
+                                           value=[np.asarray([10, 11, 12]),
+                                                  np.asarray([13, 14, 15])]):
+    new_batch = batch_set(example_array, key, value)
+    for actual, expectation in zip(batch_get(new_batch, key), value):
+        assert np.all(actual == expectation)
+
+
+@pytest.mark.parametrize('key,expected', [((1, 2), 5)])
+def test_2D_array_tensor_batch_get_2D_tuple_key(example_2D_array_tensor, key, expected):
+    actual = batch_get(example_2D_array_tensor, key)
+    assert int(actual) == expected
+
+
+@pytest.mark.parametrize('key,expected', [([1, 2], [[3, 4, 5], [6, 7, 8]])])
+def test_2D_array_tensor_batch_get_2D_list_key(example_2D_array_tensor, key, expected):
+    actual = batch_get(example_2D_array_tensor, key)
+    assert actual.tolist() == expected
+
+
+@pytest.mark.parametrize('key,expected', [([slice(2, 4), slice(1, 3)], [[7, 8], [10, 11]])])
+def test_2D_array_tensor_batch_get_2D_slice_key(example_2D_array_tensor, key, expected):
+    actual = batch_get(example_2D_array_tensor, key)
+    assert actual.tolist() == expected
+
+
+@pytest.mark.parametrize('key,value', [((1, 2), 6)])
+def test_2D_array_and_tensor_batch_set_2D_tuple_key(example_2D_array_tensor, key, value):
+    batch = batch_set(example_2D_array_tensor, key, value)
+    assert batch_get(batch, key) == value
+
+
+def test_2D_tensor_set_2D_list_key(example_2D_tensor, key=[1, 2], value=torch.tensor([[3, 6, 9], [6, 12, 18]])):
+    new_batch = batch_set(example_2D_tensor, key, value)
+    assert torch.equal(batch_get(new_batch, key), value)
+
+
+def test_batch_set_2D_tensor_list_of_slices(example_2D_tensor,
+                                            key=[slice(2, 4), slice(1, 3)],
+                                            value=torch.tensor([[7, 14], [10, 20]])):
+    new_batch = batch_set(example_2D_tensor, key, value)
+    assert torch.equal(batch_get(new_batch, key), value)
+
+
+def test_2D_array_set_2D_list_key(example_2D_array, key=[1, 2], value=np.asarray([[3, 6, 9], [6, 12, 18]])):
+    new_batch = batch_set(example_2D_array, key, value)
+    assert np.all(np.equal(batch_get(new_batch, key), value))
+
+
+def test_batch_set_2D_array_list_of_slices(example_2D_array,
+                                           key=[slice(2, 4), slice(1, 3)],
+                                           value=np.asarray([[7, 14], [10, 20]])):
+    new_batch = batch_set(example_2D_array, key, value)
+    assert np.all(np.equal(batch_get(new_batch, key), value))
