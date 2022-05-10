@@ -1,8 +1,13 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""
+Stochastic layers for ResNet.
+"""
+
 import torch
 from torchvision.models.resnet import Bottleneck
 
+__all__ = ["StochasticBottleneck"]
 
 def _sample_bernoulli(probability: torch.Tensor,
                       device_id: int,
