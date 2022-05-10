@@ -201,6 +201,7 @@ def test_load_weights(
     second_trainer_hparams.optimizer = AdamWHparams()
 
     # setup a new LR scheduler
+    assert isinstance(second_trainer_hparams.max_duration, str)
     second_trainer_hparams.schedulers = [CosineAnnealingSchedulerHparams(t_max=second_trainer_hparams.max_duration)]
 
     # ensure our new choice of scheduler is different than the original scheduler
@@ -265,11 +266,6 @@ def test_save_overwrite(
     final_checkpoint = "ep2.pt"
     _test_checkpoint_trainer(composer_trainer_hparams)
 
-    # Make train loop noop for future calls. Note that we require training when testing save_overwrite as
-    # validation for save_overwrite occurs at Event.FIT_START. This is because the state of the loaded
-    # checkpoint is not available at Event.INIT.
-    composer_trainer_hparams.max_duration = "0ep"
-
     # re-create the trainers from the YAMLs and move filepaths to rank zero process
     middle_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
     middle_checkpoint_path = [os.path.join(os.path.abspath(checkpoint_a_folder), middle_checkpoint)]
@@ -283,17 +279,19 @@ def test_save_overwrite(
     if save_overwrite:
         # succesfully load if save_overwrite is True
         trainer = middle_trainer_hparams.initialize_object()
-        trainer.fit()
+        # Train for a minimal amount of time
+        trainer.fit(duration="1ba")
     else:
         # raise FileExistsError if save_overwrite is False
         with pytest.raises(FileExistsError):
             trainer = middle_trainer_hparams.initialize_object()
-            trainer.fit()
+            # Train for a minimal amount of time
+            trainer.fit(duration="1ba")
 
     # load model from last checkpoint, which should work regardless of save_overwrite
     final_trainer_hparams.load_path = final_checkpoint_path[0]
     trainer = final_trainer_hparams.initialize_object()
-    trainer.fit()
+    trainer.fit(duration="1ba")
 
 
 @pytest.mark.timeout(90)
@@ -574,12 +572,12 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer, eval_inte
     if eval_interval.unit == TimeUnit.EPOCH:
         num_evals = num_epochs // int(eval_interval)
 
-    assert trainer.evaluators is not None
-    for evaluator in trainer.evaluators:
+    assert trainer.state.evaluators is not None
+    for evaluator in trainer.state.evaluators:
         assert evaluator.dataloader is not None
-    assert trainer.evaluators[0].subset_num_batches != -1
-    assert trainer.evaluators[0].subset_num_batches is not None
-    num_eval_steps = num_evals * trainer.evaluators[0].subset_num_batches * len(trainer.evaluators)
+    assert trainer.state.evaluators[0].subset_num_batches != -1
+    assert trainer.state.evaluators[0].subset_num_batches is not None
+    num_eval_steps = num_evals * trainer.state.evaluators[0].subset_num_batches * len(trainer.state.evaluators)
 
     event_to_num_expected_invocations = {
         Event.INIT: 1,

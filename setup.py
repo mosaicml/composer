@@ -106,6 +106,7 @@ extra_deps["dev"] = [
     "sphinxemoji==0.2.0",
     "furo==2022.3.4",
     "sphinx-copybutton==0.5.0",
+    "tabulate==0.8.9",  # for auto-generating tables
     "testbook==0.4.2",
     "myst-parser==0.16.1",
     "sphinx_panels==0.6.0",
