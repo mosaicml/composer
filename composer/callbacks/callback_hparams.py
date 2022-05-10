@@ -147,8 +147,7 @@ class EarlyStopperHparams(CallbackHparams):
     comp: Optional[str] = hp.optional("Which comparison operator to use to track change in the metric.", default=None)
     min_delta: float = hp.optional("New metric value must exceed the best value by min_delta to continue training.",
                                    default=0.0)
-    patience: Optional[Union[int, str]] = hp.optional("Interval the trainer can wait without stopping training.",
-                                                      default=1)
+    patience: Union[int, str] = hp.optional("Interval the trainer can wait without stopping training.", default=1)
 
     def initialize_object(self) -> EarlyStopper:
         """Initialize the EarlyStopper callback.
