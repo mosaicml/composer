@@ -816,11 +816,19 @@ class Trainer:
         torch_prof_with_flops: bool = True,
         torch_prof_num_traces_to_keep: int = -1,
     ):
+        # Dictionary of config values that will be logged at the end of __init__
+        config = {}
+
+        # The original model
+        self._original_model = model
+        config["trainer/model_class"] = type(model).__name__
+
         # Determine whether DeepSpeed is enabled
         deepspeed_enabled = deepspeed_config is not None
 
         # Device
         self._device = _get_device(device)
+        config["trainer/device"] = type(self._device).__name__
 
         # Distributed
         if deepspeed_enabled or dist.get_world_size() > 1:
@@ -832,7 +840,7 @@ class Trainer:
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
         # If hparams is used to create the Trainer this function is called twice
         # which is okay because all runs with the hparams codepath will do this
-        log.info(f"Setting seed to {seed}")
+        config["trainer/rank_zero_seed"] = rank_zero_seed
         reproducibility.seed_all(seed)
         if deterministic_mode:
             reproducibility.configure_deterministic_mode()
@@ -844,6 +852,7 @@ class Trainer:
             precision = Precision(precision)
 
         _validate_precision(precision, self._device, deepspeed_enabled)
+        config["trainer/precision"] = str(precision)
 
         # optimizers and schedulers
         if not optimizers:
@@ -854,7 +863,10 @@ class Trainer:
         if num_optimizers != 1:
             raise NotImplementedError(f"Only one optimizer is supported; found {num_optimizers} optimizers")
 
+        config["trainer/optimizers"] = [type(optim).__name__ for optim in ensure_tuple(optimizers)]
+
         # Grad Accum
+        config["trainer/grad_accum"] = grad_accum
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
 
@@ -868,6 +880,7 @@ class Trainer:
             precision=precision,
             optimizers=optimizers,
         )
+        config["trainer/algorithms"] = [type(alg).__name__ for alg in self.state.algorithms],
 
         # Profiler
         _initialize_profiler(
@@ -890,6 +903,8 @@ class Trainer:
             torch_prof_use_gzip=torch_prof_use_gzip,
             torch_prof_num_traces_to_keep=torch_prof_num_traces_to_keep,
         )
+        if self.state.profiler is not None:
+            config["trainer/profiler_enabled"] = True
 
         # Console Logging
         loggers = list(ensure_tuple(loggers))
@@ -911,9 +926,8 @@ class Trainer:
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
-
-        # Callbacks
-        self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
+        config["trainer/loggers"] = [type(logger) for logger in loggers]
+        config["trainer/run_name"] = self.logger.run_name
 
         # Checkpoint Saving
         self._checkpoint_saver = None
@@ -931,6 +945,10 @@ class Trainer:
             )
             self.state.callbacks.append(self._checkpoint_saver)
 
+        # Callbacks
+        self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
+        config["trainer/callbacks"] = [type(cb) for cb in self.state.callbacks if not isinstance(cb, LoggerDestination)]
+
         # The Engine
         self.engine = Engine(state=self.state, logger=self.logger)
 
@@ -946,30 +964,38 @@ class Trainer:
         # Train Dataloader
         self._train_data_spec = None if train_dataloader is None else ensure_data_spec(train_dataloader)
         if self._train_data_spec is not None:
+            config["trainer/train_dataloader_label"] = train_dataloader_label
+            if hasattr(self._train_data_spec.dataloader, "batch_size"):
+                config["trainer/batch_size"] = getattr(self._train_data_spec.dataloader, "batch_size")
+            if train_subset_num_batches >= 0:
+                config["trainer/train_subset_num_batches"] = train_subset_num_batches
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
         self.train_metrics = _get_training_metrics(model) if compute_training_metrics else None
+        if self.train_metrics is not None:
+            config["trainer/train_metrics"] = list(self.train_metrics.keys())
 
         # Max Duration
         if max_duration is not None:
             self.state.max_duration = ensure_time(max_duration, TimeUnit.EPOCH)
-
-        self.logger.data_fit({"rank_zero_seed": rank_zero_seed})
-
-        assert isinstance(self.state.model, ComposerModel)
-        self._original_model = self.state.model
+            config["trainer/max_duration"] = str(max_duration)
 
         # Schedulers
+        if schedulers is not None:
+            config["trainer/schedulers"] = [type(sch).__name__ for sch in ensure_tuple(schedulers)]
         self.state.schedulers = _compile_schedulers(schedulers, self.state, scale_schedule_ratio)
         if scale_schedule_ratio != 1.0:
             if len(self.state.schedulers) == 0:
                 raise ValueError("Specifying `scale_schedule_ratio` without `schedulers` has no effect.")
+            config["trainer/scale_schedule_ratio"] = scale_schedule_ratio
             self.state.max_duration = _scale_max_duration_by_ssr(scale_schedule_ratio, self.state.max_duration)
+            config["trainer/max_duration"] = max_duration
 
         if step_schedulers_every_batch is None:
             self._scheduler_step_frequency = _get_default_scheduler_frequency(schedulers)
         else:
             self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
+        config["trainer/scheduler_step_frequency"] = self._scheduler_step_frequency
 
         if len(ensure_tuple(schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
@@ -992,14 +1018,20 @@ class Trainer:
             if eval_interval != 1:
                 raise ValueError("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
         self.state.evaluators = evaluators
+        # TODO(ravi): Log the evaluators
 
         # Grad Clip Norm
         self._grad_clip_norm = grad_clip_norm
+        if grad_clip_norm >= 0:
+            config["trainer/grad_clip_norm"] = grad_clip_norm
 
         # Some algorithms require specific settings
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
+        config["trainer/backwards_create_graph"] = self._backwards_create_graph
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
+        config["trainer/find_unused_parameters"] = self._find_unused_parameters
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
+        config["trainer/ddp_sync_strategy"] = self._ddp_sync_strategy
 
         # Configure Deepspeed
         if deepspeed_config is not None:
@@ -1016,6 +1048,7 @@ class Trainer:
                 state=self.state,
                 grad_clip_norm=self._grad_clip_norm,
             )
+            config["trainer/deepspeed_config"] = deepspeed_config
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
                 config=deepspeed_config,
@@ -1042,6 +1075,10 @@ class Trainer:
         # Load Checkpoint
         self._rng_state = None
         if load_path is not None:
+            config["trainer/load_path"] = load_path
+            config["trainer/load_strict_model_weights"] = load_strict
+            config["trainer/load_chunk_size"] = load_chunk_size
+            config["trainer/load_weights_only"] = load_weights_only
             self._rng_state = load_checkpoint(state=self.state,
                                               path=load_path,
                                               object_store=load_object_store,
@@ -1049,7 +1086,7 @@ class Trainer:
                                               strict_model_weights=load_strict,
                                               chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
-            log.info(f"Setting seed to {self.state.seed}")
+            config["trainer/rank_zero_seed"] = self.state.rank_zero_seed
             reproducibility.seed_all(self.state.seed)
 
         # Move the model and optimizers to the specified device
@@ -1069,7 +1106,11 @@ class Trainer:
 
             if dist.get_world_size() > 1:
                 # Only wrap the module if required
+                config["trainer/ddp_enabled"] = True
                 self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+
+        # Log the configuration
+        self.logger.log_config(config)
 
     @property
     def deepspeed_enabled(self):
@@ -1412,9 +1453,6 @@ class Trainer:
 
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
-        # print training start
-        self.logger.data_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
-
         assert self.state.dataloader is not None, "dataloader is set in __init__() or fit()"
         assert self._train_data_spec is not None, "The train data spec is set in __init__() or fit()"
 

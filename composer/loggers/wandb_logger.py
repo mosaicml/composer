@@ -60,6 +60,8 @@ class WandBLogger(LoggerDestination):
                     restore from checkpoints."""))
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
+        self._config = {}
+
         self._rank_zero_only = rank_zero_only
         self._log_artifacts = log_artifacts
         if init_params is None:
@@ -75,7 +77,13 @@ class WandBLogger(LoggerDestination):
     def log_config(self, config: Dict[str, Any]):
         import wandb
         if self._enabled:
-            wandb.config.update(config)
+
+            if wandb.run is not None:
+                # Log it directly
+                wandb.config.update(config)
+            else:
+                # Will be logged in Event.INIT
+                self._config.update(config)
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb
@@ -102,12 +110,18 @@ class WandBLogger(LoggerDestination):
         if "name" not in self._init_params or self._init_params["name"] is None:
             self._init_params["name"] = logger.run_name
 
+        # Merge in the config
+        if "config" not in self._init_params or self._init_params["config"] is None:
+            self._init_params["config"] = {}
+        self._init_params["config"].update(self._config)
+
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
             name = self._init_params["name"]
             group = self._init_params.get("group", None)
             self._init_params["name"] = f"{name} [RANK_{dist.get_global_rank()}]"
             self._init_params["group"] = group if group else name
+
         if self._enabled:
             wandb.init(**self._init_params)
 
@@ -166,6 +180,8 @@ class WandBLogger(LoggerDestination):
             return
 
         exc_tpe, exc_info, tb = sys.exc_info()
+
+        self._config = {}
 
         if (exc_tpe, exc_info, tb) == (None, None, None):
             wandb.finish(0)

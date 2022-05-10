@@ -148,6 +148,8 @@ class FileLogger(LoggerDestination):
         # (and if so, then the prefix should be appended)
         self._is_newline = True
         self._closed = False
+        self.capture_stdout = capture_stdout
+        self.capture_stderr = capture_stderr
 
         if capture_stdout:
             sys.stdout.write = self._get_new_writer("[stdout]: ", sys.stdout.write)
@@ -235,7 +237,6 @@ class FileLogger(LoggerDestination):
         )
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
         self._is_newline = True
         self._run_name = logger.run_name
         if self.file is not None:
@@ -245,6 +246,21 @@ class FileLogger(LoggerDestination):
             os.makedirs(file_dirname, exist_ok=True)
         mode = 'w+' if self.overwrite else 'x+'
         self.file = open(self.filename, mode, buffering=self.buffer_size)
+        # There could be multiple file loggers; ensure that each has a unique config name
+        file_loggers = [cb for cb in state.callbacks if isinstance(cb, FileLogger)]
+        key = "file"
+        if len(file_loggers) > 1:
+            key = f"{key}/{file_loggers.index(self)}"
+        logger.log_config({
+            f"loggers/{key}/filename": self.filename,
+            f"loggers/{key}/capture_stdout": self.capture_stdout,
+            f"loggers/{key}/capture_stderr": self.capture_stderr,
+            f"loggers/{key}/buffer_size": self.buffer_size,
+            f"loggers/{key}/log_level": self.log_level,
+            f"loggers/{key}/log_interval": self.log_interval,
+            f"loggers/{key}/flush_interval": self.flush_interval,
+            f"loggers/{key}/overwrite": self.overwrite,
+        })
         self._flush_queue()
 
     def batch_end(self, state: State, logger: Logger) -> None:

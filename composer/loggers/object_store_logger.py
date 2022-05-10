@@ -246,9 +246,20 @@ class ObjectStoreLogger(LoggerDestination):
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
         if self._finished is not None:
             raise RuntimeError("The ObjectStoreLogger is already initialized.")
+
+        # There could be multiple object store loggers; ensure that each has a unique config name
+        object_store_loggers = [cb for cb in state.callbacks if isinstance(cb, ObjectStoreLogger)]
+        key = "object_store"
+        if len(object_store_loggers) > 1:
+            key = f"{key}/{object_store_loggers.index(self)}"
+        logger.log_config({
+            f"loggers/{key}/provider": self.provider,
+            f"loggers/{key}/container": self.container,
+            f"loggers/{key}/num_concurrent_uploads": self._num_concurrent_uploads,
+            f"loggers/{key}/upload_staging_folder": self._upload_staging_folder,
+        })
         self._finished = self._finished_cls()
         self._run_name = logger.run_name
         object_name_to_test = self._object_name(".credentials_validated_successfully")
