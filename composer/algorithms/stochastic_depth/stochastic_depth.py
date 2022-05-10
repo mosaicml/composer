@@ -1,5 +1,9 @@
 # Copyright 2021 MosaicML. All Rights Reserved.
 
+"""
+Modules and layers for applying the Stochastic Depth algorithm.
+"""
+
 from __future__ import annotations
 
 import functools
@@ -30,6 +34,7 @@ _STOCHASTIC_LAYER_MAPPING = {
     }
 }
 
+__all__ = ["apply_stochastic_depth", "StochasticDepth"]
 
 def apply_stochastic_depth(model: torch.nn.Module,
                            target_layer_name: str,
