@@ -317,6 +317,7 @@ class CheckpointSaver(Callback):
         self.weights_only = weights_only
 
     def init(self, state: State, logger: Logger) -> None:
+        del state  # unused
         folder = format_name_with_dist(self.folder, logger.run_name)
         os.makedirs(folder, exist_ok=True)
 

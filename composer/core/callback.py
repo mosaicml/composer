@@ -90,10 +90,10 @@ class Callback(Serializable, abc.ABC):
     def get_config(self) -> Dict[str, Any]:
         """Get the configuration for the callback.
 
-        Subclasses should override this method to return any relevant configuration
+        Callbacks should override this method to return any relevant configuration
         for the callback that should be logged. The :class:`.Trainer` will invoke this method
-        after :attr:`.Event.INIT` and during each call to :meth:`.Trainer.fit` and pass any
-        logged config to the loggers.
+        after :attr:`.Event.INIT` and during each call to :meth:`.Trainer.fit` to get the
+        callback's coinfiguration and add it to the training run's dictionary.
 
         Returns:
             Dict[str, Any]: The configuration dictionary for the callback.

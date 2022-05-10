@@ -111,10 +111,10 @@ class Algorithm(Serializable, ABC):
     def get_config(self) -> Dict[str, Any]:
         """Get the configuration for the algorithm.
 
-        Subclasses should override this method to return any relevant configuration
+        Algorithms should override this method to return any relevant configuration
         for the algorithm that should be logged. The :class:`.Trainer` will invoke this method
-        after :attr:`.Event.INIT` and during each call to :meth:`.Trainer.fit` and pass any
-        logged config to the loggers.
+        after :attr:`.Event.INIT` and during each call to :meth:`.Trainer.fit` to get the
+        algorithm's coinfiguration and add it to the training run's dictionary.
 
         Returns:
             Dict[str, Any]: The configuration dictionary for the algorithm.
