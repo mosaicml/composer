@@ -38,8 +38,7 @@ from composer.optim import (AdamHparams, AdamWHparams, ComposerScheduler, Consta
                             MultiStepSchedulerHparams, MultiStepWithWarmupSchedulerHparams, OptimizerHparams,
                             PolynomialSchedulerHparams, RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams,
                             StepSchedulerHparams)
-from composer.profiler.profiler_hparams import (ProfileScheduleHparams, TraceHandlerHparams,
-                                                profiler_scheduler_registry, trace_handler_registry)
+from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
@@ -293,34 +292,7 @@ class TrainerHparams(hp.Hparams):
 
         grad_clip_norm (float, optional): See :class:`.Trainer`.
 
-
-        prof_schedule (ProfileScheduleHparams, optional): Profile schedule hparams. Must be specified to enable the profiler.
-        prof_trace_handlers (List[TraceHandlerHparams], optional): See :class:`.Trainer`. Must be specified to enable the profiler.
-        sys_prof_cpu (bool, optional): See :class:`.Trainer`.
-        sys_prof_memory (bool, optional): See :class:`.Trainer`.
-        sys_prof_disk (bool, optional): See :class:`.Trainer`.
-        sys_prof_net (bool, optional): See :class:`.Trainer`.
-        sys_prof_stats_thread_interval_seconds (float, optional): See :class:`.Trainer`.
-        torch_prof_folder (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_artifact_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_profile_memory (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_with_stack (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_with_flops (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_num_traces_to_keep (int, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+        profiler (ProfilerHparams, optional): Profiler hyperparameters.
     """
 
     hparams_registry = {  # type: ignore
@@ -334,8 +306,6 @@ class TrainerHparams(hp.Hparams):
         "val_dataset": dataset_registry,
         "callbacks": callback_registry,
         "device": device_registry,
-        "prof_trace_handlers": trace_handler_registry,
-        "prof_schedule": profiler_scheduler_registry,
         "evaluators": evaluator_registry,
     }
 
@@ -519,61 +489,7 @@ class TrainerHparams(hp.Hparams):
     )
 
     # Profiling
-    prof_schedule: Optional[ProfileScheduleHparams] = hp.optional(doc="Profile scheduler hparams", default=None)
-    prof_trace_handlers: List[TraceHandlerHparams] = hp.optional(
-        doc="Trace event handlers. Must be specified to activate the profiler.",
-        default_factory=list,
-    )
-
-    sys_prof_cpu: bool = hp.optional(
-        doc="Whether to record cpu statistics.  Ignored if `prof_trace_handlers` is not specified.",
-        default=True,
-    )
-    sys_prof_memory: bool = hp.optional(
-        doc="Whether to record memory statistics.  Ignored if `prof_trace_handlers` is not specified.",
-        default=False,
-    )
-    sys_prof_disk: bool = hp.optional(
-        doc="Whether to record disk statistics.  Ignored if `prof_trace_handlers` is not specified.",
-        default=False,
-    )
-    sys_prof_net: bool = hp.optional(
-        doc="Whether to record network statistics.  Ignored if `prof_trace_handlers` is not specified.",
-        default=False,
-    )
-    sys_prof_stats_thread_interval_seconds: float = hp.optional(
-        doc="Interval to record stats, in seconds.  Ignored if `prof_trace_handlers` is not specified.",
-        default=0.5,
-    )
-
-    torch_prof_folder: str = hp.optional('Torch profiler folder format', default='{run_name}/torch_traces')
-    torch_prof_filename: str = hp.optional(
-        'Torch profiler filename format',
-        default='rank{rank}.{batch}.pt.trace.json',
-    )
-    torch_prof_artifact_name: str = hp.optional(
-        'Torch profiler artifact name format',
-        default='{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
-    )
-    torch_prof_overwrite: bool = hp.optional('Torch profiler overwrite', default=False)
-    torch_prof_use_gzip: bool = hp.optional('Torch profiler use gzip', default=False)
-    torch_prof_record_shapes: bool = hp.optional(
-        "Whether to record tensor shapes. Ignored if `prof_trace_handlers` is not specified.",
-        default=False,
-    )
-    torch_prof_profile_memory: bool = hp.optional(
-        "Track tensor memory allocations and frees. Ignored if `prof_trace_handlers` is not specified.",
-        default=False,
-    )
-    torch_prof_with_stack: bool = hp.optional(
-        "Record stack information. Ignored if `prof_trace_handlers` is not specified.",
-        default=False,
-    )
-    torch_prof_with_flops: bool = hp.optional(
-        "Estimate flops for operators. Ignored if `prof_trace_handlers` is not specified.",
-        default=False,
-    )
-    torch_prof_num_traces_to_keep: int = hp.optional('Torch profiler num traces to keep', default=-1)
+    profiler: Optional[ProfilerHparams] = hp.optional(doc="Profiler parameters", default=None)
 
     def validate(self):
         super().validate()
@@ -756,27 +672,7 @@ class TrainerHparams(hp.Hparams):
             grad_clip_norm=self.grad_clip_norm,
 
             # Profiler
-            prof_schedule=None if self.prof_schedule is None else self.prof_schedule.initialize_object(),
-            prof_trace_handlers=[x.initialize_object() for x in self.prof_trace_handlers],
-
-            # System profiler
-            sys_prof_cpu=self.sys_prof_cpu,
-            sys_prof_memory=self.sys_prof_memory,
-            sys_prof_disk=self.sys_prof_disk,
-            sys_prof_net=self.sys_prof_net,
-            sys_prof_stats_thread_interval_seconds=self.sys_prof_stats_thread_interval_seconds,
-
-            # Torch profiler
-            torch_prof_folder=self.torch_prof_folder,
-            torch_prof_filename=self.torch_prof_filename,
-            torch_prof_artifact_name=self.torch_prof_artifact_name,
-            torch_prof_overwrite=self.torch_prof_overwrite,
-            torch_prof_use_gzip=self.torch_prof_use_gzip,
-            torch_prof_num_traces_to_keep=self.torch_prof_num_traces_to_keep,
-            torch_prof_record_shapes=self.torch_prof_record_shapes,
-            torch_prof_profile_memory=self.torch_prof_profile_memory,
-            torch_prof_with_stack=self.torch_prof_with_flops,
-            torch_prof_with_flops=self.torch_prof_with_flops,
+            profiler=None if self.profiler is None else self.profiler.initialize_object(),
         )
 
         return trainer
