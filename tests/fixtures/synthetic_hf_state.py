@@ -1,14 +1,15 @@
-import pytest
-
-import torch
-
 from collections.abc import Iterable
+
+import pytest
+import torch
+from transformers import PreTrainedTokenizer
 
 from composer.core.state import State
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
-from composer.models import BERTHparams, GPT2Hparams
+from composer.models import BERTHparams, GPT2Hparams, TransformerHparams
+from composer.models.transformer_shared import ComposerTransformer
 from tests.common.models import generate_dummy_model_config
 from tests.datasets import test_synthetic_lm_data
 
@@ -32,8 +33,9 @@ def make_lm_tokenizer(config: dict):
     return tokenizer
 
 
-def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
+def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer: PreTrainedTokenizer):
     pytest.importorskip("transformers")
+    class_name = TransformerHparams
     if model_name == 'gpt2':
         class_name = GPT2Hparams
     elif model_name == 'bert':
@@ -61,7 +63,7 @@ def synthetic_to_dataloader(dataset_config: dict):
     return dataloader
 
 
-def synthetic_hf_state(model, dataloader, rank_zero_seed=0):
+def synthetic_hf_state(model: ComposerTransformer, dataloader: Iterable, rank_zero_seed: int = 0):
     """
     An example state using synthetic HF transformer function which could used for testing purposes
     """
@@ -78,7 +80,7 @@ def synthetic_hf_state(model, dataloader, rank_zero_seed=0):
 
 
 @pytest.mark.parametrize("config", make_dataset_configs())
-def test_synthetic_hf_state(config):
+def test_synthetic_hf_state(config: dict):
     tokenizer = make_lm_tokenizer(config)
     lm = make_dummy_lm(config['tokenizer_family'], config['chars_per_sample'], tokenizer)
     dataloader = synthetic_to_dataloader(config)
