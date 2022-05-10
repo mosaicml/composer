@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helpers to gather system information for debugging and bug reporting.
 
@@ -202,14 +203,14 @@ def configure_excepthook() -> None:
     """Collect and print system information when :func:`sys.excepthook` is called.
 
     The custom exception handler causes an exception message to be printed when :func:`sys.excepthook`
-    is called.  The exception message provides the user with information on the nature of the exception 
+    is called.  The exception message provides the user with information on the nature of the exception
     and directs the user to file GitHub issues as appropriate.
 
     By default, the custom exception handler also generates an environment report users can attach to
-    bug reports.  Environment report generation can be optionally enabled/disabled by using the 
+    bug reports.  Environment report generation can be optionally enabled/disabled by using the
     :func:`enable_env_report` and :func:`disable_env_report` helper functions, respectively.
 
-    Additioanlly, the custom exceptionhook checks if the user is running from an IPython session and 
+    Additioanlly, the custom exceptionhook checks if the user is running from an IPython session and
     sets up the custom exception handler accordingly.
 
     To override the default :func:`sys.excepthook` with the custom except hook:
@@ -226,7 +227,7 @@ def configure_excepthook() -> None:
     .. doctest:: composer.utils.collect_env.configure_excepthook
 
         >>> configure_excepthook()
-        >>> sys.excepthook 
+        >>> sys.excepthook
         <function _custom_exception_handler at ...>
     """
 

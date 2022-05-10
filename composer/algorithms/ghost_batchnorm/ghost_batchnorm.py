@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import logging
 import math
@@ -61,7 +62,7 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
 
 
 class GhostBatchNorm(Algorithm):
-    """Replaces batch normalization modules with 
+    """Replaces batch normalization modules with
     `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`_ modules
     that simulate the effect of using a smaller batch size.
 

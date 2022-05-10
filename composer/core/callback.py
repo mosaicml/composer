@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Base module for callbacks."""
 from __future__ import annotations
@@ -22,7 +23,7 @@ class Callback(Serializable, abc.ABC):
     :class:`~.algorithm.Algorithm` in that they are run on specific events. Callbacks differ from
     :class:`~.algorithm.Algorithm` in that they do not modify the training of the model.  By convention, callbacks
     should not modify the :class:`~.state.State`. They are typically used to for non-essential recording functions such
-    as logging or timing. 
+    as logging or timing.
 
     Callbacks can be implemented in two ways:
 

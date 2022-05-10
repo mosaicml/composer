@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Monitor learning rate during training."""
 from composer.core import Callback, State
@@ -27,7 +28,7 @@ class LRMonitor(Callback):
         ...     max_duration="1ep",
         ...     callbacks=[LRMonitor()],
         ... )
-    
+
     .. testcleanup::
 
         trainer.engine.close()
