@@ -76,22 +76,24 @@ class State(Serializable):
         model (torch.nn.Module): The model, typically as a subclass of :class:`~.ComposerModel`.
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
-        grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch size for
-            each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
+        grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch
+            size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         train_dataloader (types.DataLoader, optional): Dataloader used for training
         evaluators (Evalutor | Evaluators, optional): :class:`.Evaluator` used for evaluation.
         dataloader (types.DataLoader, optional): The active DataLoader.
         dataloader_len (int | Time[int], optional): The number of batches per dataloader iteration (e.g. epoch).
             The trainer will yield the first ``dataloader_len`` batches per iteration. If ``-1`` (the default),
             the entire dataloader will be iterated over.
-        dataloader_label (str, optional): The name for the dataloader. Required if ``dataloader`` is specified. (default: ``None``)
+        dataloader_label (str, optional): The name for the dataloader. Required if ``dataloader`` is specified.
+            (default: ``None``)
+
             By convention, the training dataloader is called ``'train'``. The evaluator dataloader is called
             ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
         max_duration (str | Time, optional): The maximum duration to train for. (default: ``None``)
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
-        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to train the model.
-            Multiple optimizers are not currently supported.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to
+            train the model. Multiple optimizers are not currently supported.
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
@@ -142,9 +144,22 @@ class State(Serializable):
             >>> trainer.state.current_metrics
             {'train': {'Accuracy': tensor(...)}, 'eval1': {'Accuracy': tensor(...)}, 'eval2': {'Accuracy': tensor(...)}}
 
+        grad_accum (int): The number of gradient accumulation steps per batch.
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
-        outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward pass.
-        timestamp (Timestamp): The current training timestamp.
+        model (torch.nn.Module): The training model.
+
+            .. note::
+
+                When using DeepSpeed or multi-rank training, the model will be wrapped with
+                :class:`~deepspeed.DeepSpeedEngine` or :class:`~torch.nn.parallel.DistributedDataParallel`,
+                respectively.
+
+        outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward
+            pass.
+        profiler (Profiler): The profiler (if profiling is enabled), or ``None`` if not profiling.
+        rank_zero_seed (int): The seed of the rank zero process.
+        scaler (torch.cuda.amp.GradScaler): The gradient scaler if using mixed-precision training, or
+            ``None`` if not using mixed-precision training.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
 
             By default, the following attributes are serialized:
@@ -170,6 +185,9 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | current_metrics       | The current metrics.                                        |
             +-----------------------+-------------------------------------------------------------+
+
+        timestamp (Timestamp): The current training timestamp.
+        train_dataloader (Iterable): The training dataloader. (May be ``None`` if not training.)
     """
 
     _dataloader: Optional[Iterable]
@@ -301,6 +319,7 @@ class State(Serializable):
 
     @property
     def optimizers(self):
+        """The optimizers."""
         return self._optimizers
 
     @optimizers.setter
@@ -309,6 +328,7 @@ class State(Serializable):
 
     @property
     def schedulers(self):
+        """The schedulers."""
         return self._schedulers
 
     @schedulers.setter
@@ -317,6 +337,7 @@ class State(Serializable):
 
     @property
     def callbacks(self):
+        """The callbacks."""
         return self._callbacks
 
     @callbacks.setter
@@ -325,6 +346,7 @@ class State(Serializable):
 
     @property
     def algorithms(self):
+        """The algorithms."""
         return self._algorithms
 
     @algorithms.setter
@@ -333,6 +355,7 @@ class State(Serializable):
 
     @property
     def evaluators(self):
+        """The evaluators."""
         return self._evaluators
 
     @evaluators.setter
@@ -340,7 +363,6 @@ class State(Serializable):
         self._evaluators[:] = list(ensure_tuple(evaluators))
 
     def state_dict(self) -> Dict[str, Any]:
-        """Returns the state as a :class:`dict`."""
         state_dict = {}
 
         for attribute_name in self.serialized_attributes:
@@ -365,7 +387,7 @@ class State(Serializable):
         return state_dict
 
     def load_model_state(self, state_dict: Dict[str, Any], strict: bool):
-        """Loads the model's state from a state_dict.
+        """Loads the model's state from a ``state_dict``.
 
         Args:
             state_dict (Dict[str, Any]): The state dict, generated from a previous call to :meth:`state_dict`.
@@ -421,13 +443,17 @@ class State(Serializable):
 
     @property
     def dataloader(self):
-        """The dataloader."""
+        """The active dataloader."""
         return self._dataloader
 
     @property
     def dataloader_label(self):
-        """The dataloader label. By convention, the training dataloader is called ``'train'``. The evaluator dataloader
+        """The dataloader label for the active dataloader.
+        
+        By default, the training dataloader is called ``'train'``. The evaluator dataloader
         is called ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
+        However, the dataloader label can be explicitely specified in :meth:`.Trainer.fit`
+        and :meth:`.Trainer.eval`.
 
         Returns:
             Optional[str]: The dataloader label, or None if no dataloader is set.
@@ -440,7 +466,7 @@ class State(Serializable):
         dataloader_label: Optional[str] = None,
         dataloader_len: Union[int, Time[int]] = -1,
     ):
-        """Update the dataloader and dataloader label.
+        """Update the active dataloader and dataloader label.
 
         Args:
             dataloader (Iterable, optional): The dataloader. Defaults to None.

@@ -15,16 +15,10 @@ from tests.common.datasets import RandomClassificationDatasetHparams
 from tests.common.events import EventCounterCallbackHparams
 
 
-@pytest.mark.filterwarnings(r"ignore:.*NoSchedulerWarning.*")
 @pytest.mark.filterwarnings(r"ignore:.*No `eval_dataloader` was specified.*")
 def test_trainer_eval_only():
     # Construct the trainer
-    train_dataloader = DataLoader(dataset=RandomClassificationDataset())
-    trainer = Trainer(
-        model=SimpleModel(),
-        train_dataloader=train_dataloader,  # TODO(ravi): Remove in #948
-        max_duration='1ep',  # TODO(ravi): Remove in #948
-    )
+    trainer = Trainer(model=SimpleModel(),)
 
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
@@ -38,16 +32,12 @@ def test_trainer_eval_only():
     assert trainer.state.current_metrics['eval']['Accuracy'] != 0.0
 
 
-@pytest.mark.filterwarnings(r"ignore:.*NoSchedulerWarning.*")
 @pytest.mark.filterwarnings(r"ignore:.*No `eval_dataloader` was specified.*")
 def test_trainer_eval_subset_num_batches():
     # Construct the trainer
-    train_dataloader = DataLoader(dataset=RandomClassificationDataset())
     event_counter_callback = EventCounterCallback()
     trainer = Trainer(
         model=SimpleModel(),
-        train_dataloader=train_dataloader,  # TODO(ravi): Remove in #948
-        max_duration='1ep',  # TODO(ravi): Remove in #948
         callbacks=[event_counter_callback],
     )
 
@@ -81,7 +71,6 @@ def test_trainer_eval_subset_num_batches():
         Time(1, TimeUnit.EPOCH),
         lambda state, event: event == Event.EPOCH_END,
     ])
-@pytest.mark.filterwarnings(r"ignore:.*NoSchedulerWarning.*")
 def test_eval_params_init(
     eval_dataloader: Union[DataLoader, Evaluator],
     eval_interval: Union[Time, str, int, Callable[[State, Event], bool]],
@@ -133,8 +122,8 @@ def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
     trainer = composer_trainer_hparams.initialize_object()
 
     # Validate that `subset_num_batches` was set correctly
-    assert trainer.evaluators[0].subset_num_batches == composer_trainer_hparams.evaluators[0].subset_num_batches
-    assert trainer.evaluators[1].subset_num_batches == composer_trainer_hparams.eval_subset_num_batches
+    assert trainer.state.evaluators[0].subset_num_batches == composer_trainer_hparams.evaluators[0].subset_num_batches
+    assert trainer.state.evaluators[1].subset_num_batches == composer_trainer_hparams.eval_subset_num_batches
 
     # Train the model
     trainer.fit()
@@ -154,7 +143,6 @@ def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
         Event.EVAL_BATCH_START] == composer_trainer_hparams.eval_subset_num_batches
 
 
-@pytest.mark.filterwarnings(r"ignore:.*NoSchedulerWarning.*")
 def test_eval_params_evaluator():
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified as part of an evaluator."""
     # Construct the trainer

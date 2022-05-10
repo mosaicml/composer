@@ -68,7 +68,7 @@ def tokenized_dataset(tokenizer, dataset, config):
     dataset = dataset.map(lambda inp: tokenizer(
         text=inp[config['column_names'][0]], padding="max_length", max_length=max_length, truncation=True),
                           batched=True,
-                          num_proc=1,
+                          num_proc=None,
                           keep_in_memory=True)
     return dataset
 

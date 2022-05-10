@@ -7,15 +7,30 @@ Central parts of composer such as :class:`~.engine.Engine`, base class for criti
 :class:`~.logger.Logger` and :class:`~.time.Timestamp` are implemented under core.
 """
 
-from composer.core.algorithm import Algorithm as Algorithm
-from composer.core.callback import Callback as Callback
-from composer.core.data_spec import DataSpec as DataSpec
-from composer.core.engine import Engine as Engine
-from composer.core.engine import Trace as Trace
-from composer.core.evaluator import Evaluator as Evaluator
-from composer.core.event import Event as Event
-from composer.core.precision import Precision as Precision
-from composer.core.state import State as State
-from composer.core.time import Time as Time
-from composer.core.time import Timestamp as Timestamp
-from composer.core.time import TimeUnit as TimeUnit
+from composer.core.algorithm import Algorithm
+from composer.core.callback import Callback
+from composer.core.data_spec import DataSpec, ensure_data_spec
+from composer.core.engine import Engine, Trace
+from composer.core.evaluator import Evaluator, ensure_evaluator
+from composer.core.event import Event
+from composer.core.precision import Precision
+from composer.core.state import State
+from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
+
+__all__ = [
+    "Algorithm",
+    "Callback",
+    "DataSpec",
+    "ensure_data_spec",
+    "Engine",
+    "Trace",
+    "Evaluator",
+    "Event",
+    "Precision",
+    "State",
+    "Time",
+    "Timestamp",
+    "TimeUnit",
+    "ensure_time",
+    "ensure_evaluator",
+]
