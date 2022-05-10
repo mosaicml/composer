@@ -122,7 +122,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -184,7 +185,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -209,7 +211,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
