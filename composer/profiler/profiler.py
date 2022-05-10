@@ -31,9 +31,20 @@ class Profiler:
         schedule ((State) -> ProfilerAction): The profiling scheduling function.
 
             It takes the training state and returns a :class:`.ProfilerAction`.
-            For convenience, Composer includes a :meth:`~composer.profiler.cyclic_schedule.cyclic_schedule` helper,
-            which ....
+            For convenience, Composer includes a :meth:`~composer.profiler.cyclic_schedule.cyclic_schedule` helper.
 
+            .. testsetup::
+
+                from composer.profiler import Profiler, cyclic_schedule
+
+                original_profiler_init = Profiler.__init__
+
+                def new_profiler_init(self, dummy_ellipsis=None, **kwargs):
+                    if 'trace_handlers' not in kwargs:
+                        kwargs['trace_handlers'] = []
+                    original_profiler_init(self, **kwargs)
+
+                Profiler.__init__ = new_profiler_init
 
             .. testcode::
 
@@ -183,14 +194,15 @@ class Profiler:
 
             For example:
 
-            .. testsetup::
+            .. testsetup:: composer.profiler.profiler.Profiler.marker
 
                 from composer.profiler import Profiler, cyclic_schedule
 
                 profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
                 profiler.bind_to_state(state)
+                state.profiler = profiler
 
-            .. doctest::
+            .. doctest:: composer.profiler.profiler.Profiler.marker
 
                 >>> marker = profiler.marker("foo")
                 >>> marker
