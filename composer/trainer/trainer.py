@@ -292,6 +292,9 @@ class Trainer:
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
 
+            When using the profiler, it can be helpful to set this parameter to the length of the profile schedule.
+            This setting will end each epoch early to avoid additional training that will not be profiled.
+
             This parameter is ignored if ``train_dataloader`` is not specified.
         compute_training_metrics (bool, optional): Whether to compute training metrics. (default: ``False``)
 
@@ -742,12 +745,6 @@ class Trainer:
             warnings.warn("The profiler is enabled. Using the profiler adds additional overhead when training.")
             self.state.profiler = profiler
             self.state.profiler.bind_to_state(self.state)
-
-            # Warn the user if there are likely misconfigurations when using the Profiler
-            if train_subset_num_batches != -1:
-                warnings.warn("When using the profiler, it is recommended to set `train_subset_num_batches` "
-                              "to the length of the profile schedule. This setting will end each epoch early to avoid "
-                              "additional training that will not be profiled.")
 
         # Console Logging
         loggers = list(ensure_tuple(loggers))
