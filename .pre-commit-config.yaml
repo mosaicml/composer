@@ -1,10 +1,10 @@
 default_language_version:
-    python: python3
+  python: python3
 repos:
--   repo: https://github.com/google/yapf
+  - repo: https://github.com/google/yapf
     rev: v0.32.0
     hooks:
-    -   id: yapf
+      - id: yapf
         name: yapf
         description: "A formatter for Python files."
         entry: yapf
@@ -13,22 +13,22 @@ repos:
         types: [python]
         additional_dependencies:
           - "toml"
--   repo: https://github.com/pycqa/isort
+  - repo: https://github.com/pycqa/isort
     hooks:
       - id: isort
     rev: 5.10.1
-# -   repo: https://github.com/pycqa/pylint
-#     hooks:
-#         - id: pylint
-#           entry: pylint
-#           args: ['composer', 'examples', 'tests']
-#           language: python
-#           types: [python]
-#           require_serial: true
-#     rev: v2.12.2
--   repo: local
+  # -   repo: https://github.com/pycqa/pylint
+  #     hooks:
+  #         - id: pylint
+  #           entry: pylint
+  #           args: ['composer', 'examples', 'tests']
+  #           language: python
+  #           types: [python]
+  #           require_serial: true
+  #     rev: v2.12.2
+  - repo: local
     hooks:
-    -   id: pyright
+      - id: pyright
         name: pyright
         entry: pyright
         language: node
@@ -36,35 +36,35 @@ repos:
         pass_filenames: false
         args: [--warnings]
         additional_dependencies: ["pyright@1.1.243"]
-# -   repo: https://github.com/PyCQA/pydocstyle
-#     hooks:
-#     -   id: pydocstyle
-#         name: pydocstyle
-#         entry: pydocstyle
-#         language: python
-#         types: [python]
-#         additional_dependencies:
-#           - "toml"
-#     rev: 6.1.1
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  # -   repo: https://github.com/PyCQA/pydocstyle
+  #     hooks:
+  #     -   id: pydocstyle
+  #         name: pydocstyle
+  #         entry: pydocstyle
+  #         language: python
+  #         types: [python]
+  #         additional_dependencies:
+  #           - "toml"
+  #     rev: 6.1.1
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.1.0
     hooks:
-    # -   id: trailing-whitespace  # TODO(ravi): Enable this check later. Generates a large diff.
-    # -   id: end-of-file-fixer  # TODO(ravi): Enable this check later. Generates a large diff.
-    -   id: check-docstring-first
-    -   id: check-yaml
-    -   id: debug-statements
+      # -   id: trailing-whitespace  # TODO(ravi): Enable this check later. Generates a large diff.
+      # -   id: end-of-file-fixer  # TODO(ravi): Enable this check later. Generates a large diff.
+      - id: check-docstring-first
+      - id: check-yaml
+      - id: debug-statements
     # -   id: name-tests-test  # TODO(ravi): Enable this check later. Generates a large diff.
     #     args: ['--django']
     # -   id: double-quote-string-fixer  # TODO(ravi): Enable this check later. Generates a large diff.
--   repo: https://github.com/Lucas-C/pre-commit-hooks
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.1.13
     hooks:
-    -   id: insert-license
+      - id: insert-license
         files: composer
         args:
-        - --license-filepath
-        - COPYRIGHT_HEADER
-        - --comment-style
-        - "#"
+          - --license-filepath
+          - .ci/COPYRIGHT_HEADER
+          - --comment-style
+          - "#"
         types: [python]
