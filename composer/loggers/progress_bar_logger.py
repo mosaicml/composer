@@ -149,7 +149,7 @@ class ProgressBarLogger(LoggerDestination):
 
     def log_config(self, config: Dict[str, Any]):
         # Capture the config, and dump it on Event.FIT_START
-        self._config.update(config)
+        self._config = config
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
         if dist.get_local_rank() == 0 and self.is_train in self.pbars:

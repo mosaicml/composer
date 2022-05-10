@@ -341,4 +341,3 @@ class FileLogger(LoggerDestination):
             self._flush_file(logger)
             self.file.close()
             self.file = None
-            self._config = {}

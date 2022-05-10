@@ -850,7 +850,7 @@ class Trainer:
         # optimizers and schedulers
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
-            warnings.warn(f"No optimizer was specified. Defaulting to {repr(optimizers)}")
+            warnings.warn(f"No optimizer was specified. Defaulting to {str(optimizers)}")
 
         num_optimizers = len(ensure_tuple(optimizers))
         if num_optimizers != 1:
@@ -1087,12 +1087,6 @@ class Trainer:
     ):
         """Helper method to log the config"""
 
-        # Get the train batch size
-        assert self._train_data_spec is not None
-        train_batch_size = None
-        if hasattr(self._train_data_spec.dataloader, "batch_size"):
-            train_batch_size = getattr(self._train_data_spec.dataloader, "batch_size")
-
         # Build the config dictionary
         config = {
             # Model
@@ -1128,12 +1122,6 @@ class Trainer:
             # Optimizers
             "trainer/optimizers": [type(optim).__name__ for optim in self.state.optimizers],
 
-            # Train Data
-            "trainer/train_dataloader_len": self.state.dataloader_len,
-            "trainer/train_dataloader_label": self.state.dataloader_label,
-            "trainer/train_batch_size": train_batch_size,
-            "trainer/train_metrics": None if self.train_metrics is None else list(self.train_metrics.keys()),
-
             # Grad Clip Norm
             "trainer/grad_clip_norm": self._grad_clip_norm,
 
@@ -1145,6 +1133,20 @@ class Trainer:
             # Timing
             config["trainer/max_duration"] = str(self.state.max_duration)
             config["trainer/start_time"] = str(self.state.timestamp.get(self.state.max_duration.unit))
+
+        if self.state.dataloader is not None:
+            # Train Data
+            # Get the train batch size
+            assert self._train_data_spec is not None
+            train_batch_size = None
+            if hasattr(self._train_data_spec.dataloader, "batch_size"):
+                train_batch_size = getattr(self._train_data_spec.dataloader, "batch_size")
+
+            dataloader_len = self.state.dataloader_len.value if self.state.dataloader_len is not None else None
+            config["trainer/train_dataloader_len"] = dataloader_len
+            config["trainer/train_dataloader_label"] = self.state.dataloader_label
+            config["trainer/train_batch_size"] = train_batch_size
+            config["trainer/train_metrics"] = None if self.train_metrics is None else list(self.train_metrics.keys())
 
         # Log any config from callbacks, algorithms, loggers, and evaluators
         type_to_instances = {}

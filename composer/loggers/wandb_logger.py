@@ -83,8 +83,9 @@ class WandBLogger(LoggerDestination):
                 # First, remove any previous logged config keys
                 # Then, log the new config keys
                 for key in self._config:
-                    del wandb.config[key]
-                wandb.config.update(config)
+                    # WandB does not support deleting items, so instead set it to None
+                    wandb.config.update({key: None}, allow_val_change=True)
+                wandb.config.update(config, allow_val_change=True)
                 self._config = config
             else:
                 # Will be logged in Event.INIT
@@ -126,7 +127,6 @@ class WandBLogger(LoggerDestination):
             group = self._init_params.get("group", None)
             self._init_params["name"] = f"{name} [RANK_{dist.get_global_rank()}]"
             self._init_params["group"] = group if group else name
-
         if self._enabled:
             wandb.init(**self._init_params)
 
@@ -185,8 +185,6 @@ class WandBLogger(LoggerDestination):
             return
 
         exc_tpe, exc_info, tb = sys.exc_info()
-
-        self._config = {}
 
         if (exc_tpe, exc_info, tb) == (None, None, None):
             wandb.finish(0)
