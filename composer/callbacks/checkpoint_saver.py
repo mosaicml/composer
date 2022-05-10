@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Callback to save checkpoints during training."""
 
@@ -112,7 +113,7 @@ class CheckpointSaver(Callback):
         ...         weights_only=False,
         ...     )
         ... ])
-    
+
     .. testcleanup::
 
         trainer.engine.close()
@@ -143,7 +144,7 @@ class CheckpointSaver(Callback):
             .. note::
 
                 *   By default, only the rank zero process will save a checkpoint file.
-                
+
                 *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
                     requires tarball format, as it saves model and optimizer states in separate files.
                     Ensure that ``'{{rank}}'`` appears within the ``filename``. Otherwise, multiple ranks
@@ -153,7 +154,7 @@ class CheckpointSaver(Callback):
                 *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
                     to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
                     compression algorithm).
-            
+
             .. warning::
 
                 Using compression will block the training loop while checkpoints are being compressed. As such, we
@@ -175,10 +176,10 @@ class CheckpointSaver(Callback):
                 awesome-training-run/checkpoints/ep1-ba42-rank1.tar
                 awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
-        
+
         artifact_name (str, optional): Format string for the checkpoint's artifact name.
             (default: ``'{{run_name}}/checkpoints/ep{{epoch}}-ba{{batch}}-rank{{rank}}"``)
-        
+
             After the checkpoint is saved, it will be periodically logged as a file artifact.
             The artifact name will be determined by this format string.
 
@@ -191,8 +192,8 @@ class CheckpointSaver(Callback):
             To disable logging trace files as file artifacts, set this parameter to ``None``.
         latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
             (default: ``'latest-rank{{rank}}'``)
-            
-            Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``. 
+
+            Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``.
 
             The same format variables as for ``name`` are available.
 
@@ -227,7 +228,7 @@ class CheckpointSaver(Callback):
                 ...
         latest_artifact_name (str, optional): Format string for the checkpoint's latest symlink artifact name.
             (default: ``'{{run_name}}/checkpoints/latest-rank{{rank}}"``)
-        
+
             Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
             The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is None."
 
@@ -268,7 +269,7 @@ class CheckpointSaver(Callback):
             is used in conjunction with the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`, set this
             parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
             the object store.
-            
+
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             artifact stores.
 
@@ -280,7 +281,7 @@ class CheckpointSaver(Callback):
             will be at the end.
 
             .. note::
-                
+
                 When using DeepSpeed, the index of a filepath in each list corresponds to the global rank of
                 the process that wrote that file. Each filepath is valid only on the process's (rank's) node.
 

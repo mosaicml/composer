@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The GPT-2 model family is set of transformer-based networks for autoregressive language modeling at various scales.
 This family was originally proposed by OpenAI, and is trained on the OpenWebText dataset. It is useful for downstream

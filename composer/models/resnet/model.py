@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """A :class:`.ComposerClassifier` wrapper around the torchvision implementations of the ResNet model family."""
 

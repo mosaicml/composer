@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helper utilities for configuring deterministic training to ensure reproducibility.
 
@@ -145,7 +146,7 @@ def seed_all(seed: int):
         .. doctest::
 
             >>> trainer = Trainer(seed=42)
-        
+
         .. testcleanup::
 
             trainer.engine.close()
