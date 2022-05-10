@@ -59,7 +59,7 @@ class InMemoryLogger(LoggerDestination):
     Attributes:
         data (dict): Mapping of a logged key to a (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`, data dictionary) tuple.
             This dictionary contains all logged data.
-        config (Dict[str, Any]): Mapping of a configuration key to the most recent value for that config key.
+        config (Dict[str, Any]): The latest logged config.
         most_recent_values (Dict[str, Any]): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
@@ -73,7 +73,7 @@ class InMemoryLogger(LoggerDestination):
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
 
     def log_config(self, config: Dict[str, Any]):
-        self.config.update(config)
+        self.config = config
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         if log_level > self.log_level:

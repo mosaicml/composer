@@ -111,6 +111,7 @@ class ProgressBarLogger(LoggerDestination):
             console_log_level = lambda state, ll: False
         self.pbars: Dict[bool, _ProgressBarLoggerInstance] = {}
         self.is_train: Optional[bool] = None
+        self._config = {}
 
         if isinstance(console_log_level, str):
             console_log_level = LogLevel(console_log_level)
@@ -132,19 +133,23 @@ class ProgressBarLogger(LoggerDestination):
                 raise ValueError("Invalid stream option: Should be 'stdout', 'stderr', or a TextIO-like object.")
         self.stream = stream
 
-    def log_config(self, config: Dict[str, Any]):
-        config_yaml = yaml.safe_dump(config)
-        config_str = f"Configuration:\n{config_yaml}"
+    def fit_start(self, state: State, logger: Logger) -> None:
+        # Dump the configuration
+        config_str = "###Begin Configuration###\n"
+        config_str += yaml.safe_dump(self._config)
+        config_str += "###End Configuration#####\n"
         if self.is_train in self.pbars:
             # use tqdm.write to avoid interleaving with a progress bar
             assert self.is_train is not None
 
-            # It would be nice to keep the config in a consistant place in the terminal, so it can be
-            # updated in-place. But for now, just print the new configuration values
             self.pbars[self.is_train].pbar.write(config_str)
         else:
             # write directly to self.stream; no active progress bar
             print(config_str, file=self.stream, flush=True)
+
+    def log_config(self, config: Dict[str, Any]):
+        # Capture the config, and dump it on Event.FIT_START
+        self._config.update(config)
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
         if dist.get_local_rank() == 0 and self.is_train in self.pbars:

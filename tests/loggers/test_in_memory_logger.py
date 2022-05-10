@@ -35,10 +35,10 @@ def test_in_memory_logger(dummy_state: State):
 
 def test_in_memory_logger_log_config(dummy_state: State):
     in_memory_logger = InMemoryLogger(LogLevel.EPOCH)
-    logger = Logger(dummy_state, destinations=[in_memory_logger])
-    logger.log_config({"seed": 42})
-    assert in_memory_logger.config == {"seed": 42}
-    logger.log_config({"seed": 69})
+    in_memory_logger.log_config({"seed": 42, "hello": "world"})
+    assert in_memory_logger.config == {"seed": 42, "hello": "world"}
+    in_memory_logger.log_config({"seed": 69})
+    # hello world should be removed, since `log_config` should overwrite the entire config
     assert in_memory_logger.config == {"seed": 69}
 
 

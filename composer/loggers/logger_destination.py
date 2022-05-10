@@ -163,9 +163,15 @@ class LoggerDestination(Callback, ABC):
     ):
         """Log a configuration dictionary.
 
+        The :class:`.Trainer` will invoke this method after :attr:`.Event.INIT` and during each
+        invocation to :meth:`.Trainer.fit`. The latest ``config`` dictionary should supercede
+        any previous logged configuration.
+
         Args:
             config (Dict[str, Any]): The configuration dictionary.
 
                 Each element in the dictionary represents a configuration option as a key/value pair.
+                This dictionary should replace any previous configuration dictionary (rather than
+                update it in place).
         """
         del config  # unused

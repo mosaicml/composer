@@ -59,10 +59,10 @@ class GradMonitor(Callback):
         super().__init__()
         self.log_layer_grad_norms = log_layer_grad_norms
 
-    def init(self, state: State, logger: Logger) -> None:
-        logger.log_config({
-            f"callbacks/grad_monitor/log_layer_grad_norms": self.log_layer_grad_norms,
-        })
+    def get_config(self):
+        return {
+            "log_layer_grad_norms": self.log_layer_grad_norms,
+        }
 
     def after_train_batch(self, state: State, logger: Logger):
         norm = 0.0

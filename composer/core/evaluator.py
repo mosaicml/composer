@@ -134,6 +134,21 @@ class Evaluator:
         else:
             self._eval_interval = eval_interval
 
+    def get_config(self):
+        """Get the config for the evaluator, which is logged by the :class:`.Trainer`
+
+        Returns:
+            Dict[str, Any]: The configuration dictionary for the evaluator.
+        """
+        config = {
+            'label': self.label,
+            'metrics': list(self.metrics.keys()),
+            'subset_num_batches': self.subset_num_batches,
+        }
+        if hasattr(self.dataloader.dataloader, "batch_size"):
+            config['batch_size'] = getattr(self.dataloader.dataloader, "batch_size")
+        return config
+
 
 def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, Any]],
                      default_metrics: Union[Metric, MetricCollection]):

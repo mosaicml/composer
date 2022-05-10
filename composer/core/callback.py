@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
 from composer.core.serializable import Serializable
 
@@ -86,6 +86,19 @@ class Callback(Serializable, abc.ABC):
 
             trainer.engine.close()
     """
+
+    def get_config(self) -> Dict[str, Any]:
+        """Get the configuration for the callback.
+
+        Subclasses should override this method to return any relevant configuration
+        for the callback that should be logged. The :class:`.Trainer` will invoke this method
+        after :attr:`.Event.INIT` and during each call to :meth:`.Trainer.fit` and pass any
+        logged config to the loggers.
+
+        Returns:
+            Dict[str, Any]: The configuration dictionary for the callback.
+        """
+        return {}
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         """This method is called by the engine on each event.

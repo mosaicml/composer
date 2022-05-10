@@ -80,10 +80,15 @@ class WandBLogger(LoggerDestination):
 
             if wandb.run is not None:
                 # Log it directly
+                # First, remove any previous logged config keys
+                # Then, log the new config keys
+                for key in self._config:
+                    del wandb.config[key]
                 wandb.config.update(config)
+                self._config = config
             else:
                 # Will be logged in Event.INIT
-                self._config.update(config)
+                self._config = config
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb

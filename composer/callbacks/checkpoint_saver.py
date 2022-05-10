@@ -320,16 +320,12 @@ class CheckpointSaver(Callback):
         folder = format_name_with_dist(self.folder, logger.run_name)
         os.makedirs(folder, exist_ok=True)
 
-        # There could be multiple checkpoint saver callbacks; ensure that each has a unique config name
-        checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
-        key = "checkpoint_saver"
-        if len(checkpoint_savers) > 1:
-            key = f"{key}/{checkpoint_savers.index(self)}"
-        logger.log_config({
-            f"callbacks/{key}/folder": self.folder,
-            f"callbacks/{key}/weights_only": self.weights_only,
-            f"callbacks/{key}/num_checkpoints_to_keep": self.num_checkpoints_to_keep,
-        })
+    def get_config(self):
+        return {
+            "folder": self.folder,
+            "weights_only": self.weights_only,
+            "num_checkpoints_to_keep": self.num_checkpoints_to_keep,
+        }
 
     def fit_start(self, state: State, logger: Logger) -> None:
         # Verify safety with self.overwrite. Note that this has to be done at fit_start as opposed to init since it requires state.timestamp

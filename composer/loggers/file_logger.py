@@ -141,7 +141,7 @@ class FileLogger(LoggerDestination):
         self.is_epoch_interval = False
         self.file: Optional[TextIO] = None
         self._config = {}
-        self.overwrite = overwrite,
+        self.overwrite = overwrite
         self._queue: queue.Queue[str] = queue.Queue()
         self._run_name = None
         # Track whether the next line is on a newline
@@ -169,7 +169,7 @@ class FileLogger(LoggerDestination):
 
     def log_config(self, config: Dict[str, Any]):
         # Keep track of the local config, which is then dumped on FIT_START
-        self._config.update(config)
+        self._config = config
 
     def fit_start(self, state: State, logger: Logger):
         # Writing the config on fit_start, as config should be logged on Event.INIT
@@ -246,22 +246,19 @@ class FileLogger(LoggerDestination):
             os.makedirs(file_dirname, exist_ok=True)
         mode = 'w+' if self.overwrite else 'x+'
         self.file = open(self.filename, mode, buffering=self.buffer_size)
-        # There could be multiple file loggers; ensure that each has a unique config name
-        file_loggers = [cb for cb in state.callbacks if isinstance(cb, FileLogger)]
-        key = "file"
-        if len(file_loggers) > 1:
-            key = f"{key}/{file_loggers.index(self)}"
-        logger.log_config({
-            f"loggers/{key}/filename": self.filename,
-            f"loggers/{key}/capture_stdout": self.capture_stdout,
-            f"loggers/{key}/capture_stderr": self.capture_stderr,
-            f"loggers/{key}/buffer_size": self.buffer_size,
-            f"loggers/{key}/log_level": self.log_level,
-            f"loggers/{key}/log_interval": self.log_interval,
-            f"loggers/{key}/flush_interval": self.flush_interval,
-            f"loggers/{key}/overwrite": self.overwrite,
-        })
         self._flush_queue()
+
+    def get_config(self) -> Dict[str, Any]:
+        return {
+            "filename": self.filename,
+            "capture_stdout": self.capture_stdout,
+            "capture_stderr": self.capture_stderr,
+            "buffer_size": self.buffer_size,
+            "log_level": self.log_level.value,
+            "log_interval": self.log_interval,
+            "flush_interval": self.flush_interval,
+            "overwrite": self.overwrite,
+        }
 
     def batch_end(self, state: State, logger: Logger) -> None:
         assert self.file is not None

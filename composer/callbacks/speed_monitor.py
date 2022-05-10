@@ -73,10 +73,10 @@ class SpeedMonitor(Callback):
         self.window_size = window_size
         self.loaded_state: Optional[Dict[str, Any]] = None
 
-    def init(self, state: State, logger: Logger) -> None:
-        logger.log_config({
-            "callbacks/speed_monitor/window_size": self.window_size,
-        })
+    def get_config(self):
+        return {
+            "window_size": self.window_size,
+        }
 
     def state_dict(self) -> Dict[str, Any]:
         """Returns a dictionary representing the internal state of the SpeedMonitor object.

@@ -1,7 +1,6 @@
 # Copyright 2022 MosaicML. All Rights Reserved.
 
 import pathlib
-from unittest.mock import Mock
 
 import pytest
 
@@ -21,13 +20,6 @@ def test_logger_run_name(dummy_state: State):
     run_names = dist.all_gather_object(logger.run_name)
     assert len(run_names) == 2  # 2 ranks
     assert all(run_name == run_names[0] for run_name in run_names)
-
-
-def test_log_config(minimal_state: State):
-    mock_destination = Mock()
-    logger = Logger(state=minimal_state, destinations=mock_destination)
-    logger.log_config({"seed": 42})
-    mock_destination.log_config.assert_called_once_with({"seed": 42})
 
 
 def test_logger_file_artifact(dummy_state: State):

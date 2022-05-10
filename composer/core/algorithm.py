@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from composer.core.serializable import Serializable
 
@@ -107,3 +107,16 @@ class Algorithm(Serializable, ABC):
             int or None: exit code that will be stored in :class:`~.engine.Trace` and made accessible for debugging.
         """
         raise NotImplementedError(f'implement apply() required for {self.__class__.__name__}')
+
+    def get_config(self) -> Dict[str, Any]:
+        """Get the configuration for the algorithm.
+
+        Subclasses should override this method to return any relevant configuration
+        for the algorithm that should be logged. The :class:`.Trainer` will invoke this method
+        after :attr:`.Event.INIT` and during each call to :meth:`.Trainer.fit` and pass any
+        logged config to the loggers.
+
+        Returns:
+            Dict[str, Any]: The configuration dictionary for the algorithm.
+        """
+        return {}

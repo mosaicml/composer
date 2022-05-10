@@ -15,6 +15,7 @@ from torchmetrics import Accuracy
 
 from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, algorithm_registry
+from composer.algorithms.channels_last.channels_last import ChannelsLast
 from composer.callbacks import LRMonitor
 from composer.core.callback import Callback
 from composer.core.evaluator import Evaluator
@@ -26,7 +27,7 @@ from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.loggers import FileLogger, WandBLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.models.base import ComposerModel
-from composer.optim.scheduler import ExponentialScheduler
+from composer.optim.scheduler import ExponentialScheduler, StepScheduler
 from composer.trainer.devices import Device
 from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import dist
@@ -36,6 +37,12 @@ from tests.common import (RandomClassificationDataset, RandomImageDataset, Simpl
                           world_size)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
+
+
+class CallbackWithConfig(Callback):
+
+    def get_config(self):
+        return {"hello": "world"}
 
 
 class TestTrainerInit():
@@ -90,6 +97,111 @@ class TestTrainerInit():
         parameters = trainer.state.optimizers[0].param_groups[0]["params"]
         target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
+
+    @pytest.mark.parametrize(
+        'compute_training_metrics,num_callbacks,include_evaluator',
+        [
+            [False, 0, False],  # base case
+            [True, 0, False],  # compute training metrics
+            [False, 1, False],  # 1 callback
+            [False, 2, False],  # 2 callbacks
+            [False, 0, True]  # evaluator
+        ])
+    def test_log_config(
+        self,
+        model: ComposerModel,
+        rank_zero_seed: int,
+        num_callbacks: int,
+        compute_training_metrics: bool,
+        include_evaluator: int,
+    ):
+        # Construct the trainer
+        train_dataloader = DataLoader(RandomClassificationDataset())
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        scheduler = StepScheduler("1ba")
+        max_duration = "2ba"
+        logger = InMemoryLogger()  # Use the InMemoryLogger to capture the config
+        callbacks = [CallbackWithConfig() for _ in range(num_callbacks)]
+        eval_dataloader = DataLoader(RandomClassificationDataset()) if include_evaluator else None
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            optimizers=optimizer,
+            loggers=logger,
+            schedulers=scheduler,
+            algorithms=ChannelsLast(),
+            callbacks=callbacks,
+            compute_training_metrics=compute_training_metrics,
+            eval_dataloader=eval_dataloader,
+        )
+
+        # Validate some keys in the logged config
+        expected_config = {
+            # Model
+            "trainer/model_class": 'SimpleModel',
+
+            # Algorithms
+            "trainer/algorithms": ['ChannelsLast'],
+            "trainer/backwards_create_graph": False,
+            "trainer/find_unused_parameters": False,
+
+            # Loggers and Callbacks
+            "trainer/run_name": trainer.logger.run_name,
+            "trainer/loggers": ['InMemoryLogger', 'ProgressBarLogger'],
+            "trainer/callbacks": ['CallbackWithConfig' for _ in range(num_callbacks)],
+
+            # System
+            "trainer/ddp_enabled": False,
+            "trainer/ddp_sync_strategy": None,
+            "trainer/grad_accum": 1,
+            "trainer/device": 'DeviceCPU',
+            "trainer/precision": 'fp32',
+
+            # Profiling
+            "trainer/profiler_enabled": False,
+
+            # Reproducibility
+            "trainer/deterministic_mode": True,
+            "trainer/rank_zero_seed": rank_zero_seed,
+
+            # Optimizers
+            "trainer/optimizers": ['SGD'],
+            "trainer/schedulers": ["StepScheduler"],
+            "trainer/scale_schedule_ratio": 1.0,
+            "trainer/scheduler_step_frequency": "batch",
+
+            # Train Data
+            "trainer/train_dataloader_len": len(train_dataloader),
+            "trainer/train_dataloader_label": 'train',
+            "trainer/train_batch_size": 1,
+            "trainer/train_metrics": ['Accuracy'] if compute_training_metrics else None,
+
+            # Timing
+            "trainer/max_duration": '2ba',
+            "trainer/start_time": '0ba',
+
+            # Grad Clip Norm
+            "trainer/grad_clip_norm": -1.0,
+
+            # DeepSpeed
+            "trainer/deepspeed_config": None,
+        }
+        if num_callbacks == 1:
+            # There should be one entry for the the callback, without sub-foldering
+            expected_config["callback/CallbackWithConfig/hello"] = "world"
+        if num_callbacks == 2:
+            # There should be sub-foldering, since the same callback was specified multiple times
+            expected_config["callback/CallbackWithConfig/1/hello"] = "world"
+            expected_config["callback/CallbackWithConfig/2/hello"] = "world"
+
+        if include_evaluator:
+            expected_config['trainer/evaluator/label'] = 'eval'
+            expected_config['trainer/evaluator/subset_num_batches'] = -1
+            expected_config['trainer/evaluator/metrics'] = ['Accuracy', 'CrossEntropy']
+            expected_config['trainer/evaluator/batch_size'] = 1
+
+        assert logger.config == expected_config
 
 
 class TestTrainerInitOrFit:
