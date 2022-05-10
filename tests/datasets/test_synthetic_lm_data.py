@@ -15,7 +15,7 @@ def generate_parameter_configs(keys, num_replicas=1):
         "tokenizer_family": ['bert', 'gpt2'],
         "chars_per_sample": [128],
         "column_names": [['sentence'], ['sentence1', 'sentence2']],
-        "num_samples": [50],
+        "num_samples": [50]
     }
 
     config_combinations = []
