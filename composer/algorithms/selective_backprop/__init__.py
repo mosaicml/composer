@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """`Selective Backprop <https://arxiv.org/abs/1910.00762>`_ prunes minibatches according to the difficulty of the
 individual training examples, and only computes weight gradients over the pruned subset, reducing iteration time and

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Log artifacts to an object store."""
 
@@ -58,7 +59,7 @@ class ObjectStoreLogger(LoggerDestination):
                 'region': 'ap-northeast-1',
             },
         )
-        
+
         # Construct the trainer using this logger
         trainer = Trainer(
             ...,
@@ -110,7 +111,7 @@ class ObjectStoreLogger(LoggerDestination):
         provider_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
             for the specified provider. These arguments would usually include the cloud region
             and credentials.
-            
+
             Common keys are:
 
             * ``key`` (str): API key or username to be used (required).
@@ -187,7 +188,7 @@ class ObjectStoreLogger(LoggerDestination):
                 # Shut down the uploader
                 object_store_logger._check_workers()
                 object_store_logger.post_close()
-           
+
             Assuming that the process's rank is ``0``, the object store would store the contents of
             ``'path/to/file.txt'`` in an object named ``'rank0/bar.txt'``.
 
