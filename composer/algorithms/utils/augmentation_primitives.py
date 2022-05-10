@@ -113,7 +113,7 @@ def autocontrast(pil_img: Image.Image, level: float = 0.0):
     .. seealso:: :func:`PIL.ImageOps.autocontrast`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
     """
     del level  # unused
     return ImageOps.autocontrast(pil_img)
