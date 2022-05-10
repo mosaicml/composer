@@ -64,7 +64,7 @@ class DataLoaderHparams(hp.Hparams):
             If ``num_workers = 0``, then the ``pin_memory`` must be ``False``."""),
                                    default=True)
     timeout: float = hp.optional(
-        "Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.", default=0)
+        "Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.", default=0.0)
 
     def initialize_object(
         self,
