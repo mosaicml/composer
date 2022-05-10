@@ -113,7 +113,7 @@ def autocontrast(pil_img: Image.Image, level: float = 0.0):
     .. seealso:: :func:`PIL.ImageOps.autocontrast`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
     """
     del level  # unused
     return ImageOps.autocontrast(pil_img)
@@ -125,7 +125,7 @@ def equalize(pil_img: Image.Image, level: float):
     .. seealso:: :func:`PIL.ImageOps.equalize`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
     """
     del level  # unused
     return ImageOps.equalize(pil_img)
@@ -137,9 +137,9 @@ def posterize(pil_img: Image.Image, level: float):
     .. seealso:: :func:`PIL.ImageOps.posterize`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
-            be in ``[0, 10]``
+            be in ``[0, 10]``.
     """
     level = _int_parameter(_sample_level(level), 4)
     return ImageOps.posterize(pil_img, 4 - level)
@@ -149,7 +149,7 @@ def rotate(pil_img: Image.Image, level: float):
     """Rotate an image.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -165,7 +165,7 @@ def solarize(pil_img: Image.Image, level: float):
     .. seealso:: :func:`PIL.ImageOps.solarize`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -177,7 +177,7 @@ def shear_x(pil_img: Image.Image, level: float):
     """Shear an image horizontally.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -191,7 +191,7 @@ def shear_y(pil_img: Image.Image, level: float):
     """Shear an image vertically.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -219,7 +219,7 @@ def translate_y(pil_img: Image.Image, level: float):
     """Shear an image vertically.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -244,7 +244,7 @@ def color(pil_img: Image.Image, level: float):
     .. seealso:: :class:`PIL.ImageEnhance.Color`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -259,7 +259,7 @@ def color_original(pil_img: Image.Image, level: float):
     .. seealso :class:`PIL.ImageEnhance.Color`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -288,7 +288,7 @@ def contrast_original(pil_img: Image.Image, level: float):
     .. seealso:: :class:`PIL.ImageEnhance.Contrast`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -302,7 +302,7 @@ def brightness(pil_img: Image.Image, level: float):
     .. seealso:: :class:`PIL.ImageEnhance.Brightness`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should be
             in ``[0, 10]``.
     """
@@ -320,7 +320,7 @@ def brightness_original(pil_img: Image.Image, level: float):
     .. seealso:: :class:`PIL.ImageEnhance.Brightness`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -334,7 +334,7 @@ def sharpness(pil_img: Image.Image, level: float):
     .. seealso:: :class:`PIL.ImageEnhance.Sharpness`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -349,7 +349,7 @@ def sharpness_original(pil_img: Image.Image, level: float):
     .. seealso:: :class:`PIL.ImageEnhance.Sharpness`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (:class:`PIL.Image.Image`): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
