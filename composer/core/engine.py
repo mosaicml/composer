@@ -63,10 +63,12 @@ from __future__ import annotations
 import atexit
 import contextlib
 import logging
+import warnings
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import ContextManager, Dict, Optional, Sequence, Union, cast
 
+from composer.algorithms.warnings import NotIntendedUseWarning
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
@@ -298,11 +300,19 @@ class Engine():
         Returns:
             algorithms_to_run(Sequence[Algorithm]): Modified sequence of algorithms
         """
-        from composer.algorithms import SelectiveBackprop, StochasticDepth
+        from composer.algorithms import CutMix, MixUp, SelectiveBackprop, StochasticDepth
 
         # Move selective backprop to the beginning while maintaining order of other algorithms
         algorithms = sorted(algorithms_to_run,
                             key=lambda x: not isinstance(x, SelectiveBackprop) and not isinstance(x, StochasticDepth))
+
+        # Check for the cutmix/mixup interaction
+        mixups = [a for a in algorithms if isinstance(a, MixUp)]
+        cutmixes = [a for a in algorithms if isinstance(a, CutMix)]
+        if len(mixups) > 0 and len(cutmixes) > 0:
+            if mixups[0].interpolate_loss and cutmixes[0].interpolate_loss:
+                warnings.warn("Using MixUp and CutMix both with `interpolate_loss=True` can behave strangely",
+                              NotIntendedUseWarning)
 
         if event.is_after_event:
             """Establish a FILO queue of algorithms before_ and after_ an event.
