@@ -82,7 +82,9 @@ class TestCallbacks:
     def test_multiple_fit_start_and_end(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
         dummy_state.callbacks.append(callback_factory())
-        dummy_state.profiler = Profiler(dummy_state, lambda _: ProfilerAction.SKIP, [])
+        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
+        dummy_state.profiler.bind_to_state(dummy_state)
+
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
@@ -97,7 +99,8 @@ class TestCallbacks:
     def test_idempotent_close(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
         dummy_state.callbacks.append(callback_factory())
-        dummy_state.profiler = Profiler(dummy_state, lambda _: ProfilerAction.SKIP, [])
+        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
+        dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
@@ -109,7 +112,8 @@ class TestCallbacks:
     def test_multiple_init_and_close(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
         dummy_state.callbacks.append(callback_factory())
-        dummy_state.profiler = Profiler(dummy_state, lambda _: ProfilerAction.SKIP, [])
+        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
+        dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
