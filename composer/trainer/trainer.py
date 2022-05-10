@@ -30,7 +30,7 @@ from composer.loggers import Logger, LoggerDestination, LogLevel, ProgressBarLog
 from composer.models.base import ComposerModel
 from composer.optim.decoupled_weight_decay import DecoupledSGDW
 from composer.optim.scheduler import ComposerScheduler, compile_composer_scheduler
-from composer.profiler import Profiler, ProfilerAction, SystemProfiler, TorchProfiler, TraceHandler
+from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
@@ -200,64 +200,6 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _initialize_profiler(
-    state: State,
-    prof_schedule: Optional[Callable[[State], ProfilerAction]],
-    prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]],
-    sys_prof_cpu: bool,
-    sys_prof_memory: bool,
-    sys_prof_disk: bool,
-    sys_prof_net: bool,
-    torch_prof_record_shapes: bool,
-    torch_prof_profile_memory: bool,
-    torch_prof_with_stack: bool,
-    torch_prof_with_flops: bool,
-    torch_prof_use_gzip: bool,
-    torch_prof_overwrite: bool,
-    torch_prof_num_traces_to_keep: int,
-    torch_prof_artifact_name: str,
-    torch_prof_folder: str,
-    torch_prof_filename: str,
-    sys_prof_stats_thread_interval_seconds: float,
-):
-    # Configure profilers if profiling is enabled
-
-    profiler = None
-    profiler_callbacks: List[Callback] = []
-    if prof_schedule is not None or len(ensure_tuple(prof_trace_handlers)) > 0:
-        if prof_schedule is None or len(ensure_tuple(prof_trace_handlers)) == 0:
-            raise ValueError("To use the profiler, both `prof_schedule` and `prof_trans_handlers` must be specified.")
-
-        profiler = Profiler(state=state, trace_handlers=ensure_tuple(prof_trace_handlers), schedule=prof_schedule)
-
-        if sys_prof_cpu or sys_prof_memory or sys_prof_disk or sys_prof_net:
-            profiler_callbacks.append(
-                SystemProfiler(profile_cpu=sys_prof_cpu,
-                               profile_memory=sys_prof_memory,
-                               profile_disk=sys_prof_disk,
-                               profile_net=sys_prof_net,
-                               stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds))
-
-        if torch_prof_record_shapes or torch_prof_profile_memory or torch_prof_with_stack or torch_prof_with_flops:
-            profiler_callbacks.append(
-                TorchProfiler(filename=torch_prof_filename,
-                              folder=torch_prof_folder,
-                              artifact_name=torch_prof_artifact_name,
-                              num_traces_to_keep=torch_prof_num_traces_to_keep,
-                              overwrite=torch_prof_overwrite,
-                              record_shapes=torch_prof_record_shapes,
-                              profile_memory=torch_prof_profile_memory,
-                              use_gzip=torch_prof_use_gzip,
-                              with_stack=torch_prof_with_stack,
-                              with_flops=torch_prof_with_flops))
-
-        # Append the trace handlers at the end, so profilers will log events before the traces are written.
-        profiler_callbacks.extend(profiler.trace_handlers)
-
-    state.profiler = profiler
-    state.callbacks.extend(profiler_callbacks)
-
-
 class Trainer:
     """Train models with Composer algorithms.
 
@@ -349,6 +291,9 @@ class Trainer:
         train_subset_num_batches (int, optional): If specified, finish every epoch early after training
             on this many batches. This parameter has no effect if it is greater than ``len(train_dataloader)``.
             If ``-1``, then the entire dataloader will be iterated over. (default: ``-1``)
+
+            When using the profiler, it can be helpful to set this parameter to the length of the profile schedule.
+            This setting will end each epoch early to avoid additional training that will not be profiled.
 
             This parameter is ignored if ``train_dataloader`` is not specified.
         compute_training_metrics (bool, optional): Whether to compute training metrics. (default: ``False``)
@@ -647,70 +592,12 @@ class Trainer:
             for more details.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1`` for no gradient
             clipping. (default: ``-1``)
-        prof_schedule ((State) -> ProfilerAction, optional): The profiler scheduler.
+        profiler (Profiler, optional): The profiler, if profiling should be enabled. (default: ``None``)
 
-            Must be specified in conjunction with ``prof_trace_handlers`` to use the profiler.
+            .. seealso::
 
-            .. testcode::
-
-                from composer.trainer import Trainer
-                from composer.profiler import JSONTraceHandler, cyclic_schedule
-
-                trainer = Trainer(
-                    ...,
-                    prof_trace_handlers=JSONTraceHandler(
-                        folder='traces',
-                    ),
-                    prof_schedule=cyclic_schedule(
-                        skip_first=1,
-                        wait=0,
-                        warmup=1,
-                        active=4,
-                        repeat=1,
-                    ),
-                )
-
-            .. testcleanup::
-
-                trainer.engine.close()
-
-            .. seealso:: :mod:`composer.profiler` for more details on profiling with the trainer.
-
-        prof_trace_handlers (TraceHandler | Sequence[TraceHandler], optional): Profiler trace handlers.
-
-            Must be specified in conjunction with ``prof_trace_handlers`` to use the profiler.
-
-            .. seealso:: :mod:`composer.profiler` for more details on profiling with the trainer.
-        sys_prof_cpu (bool, optional): Whether to record cpu statistics.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified. (default: ``True``).
-        sys_prof_memory (bool, optional): Whether to record memory statistics.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified. (default: ``False``).
-        sys_prof_disk (bool, optional): Whether to record disk statistics.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified. (default: ``False``).
-        sys_prof_net (bool, optional): Whether to record network statistics.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified. (default: ``False``).
-        sys_prof_stats_thread_interval_seconds (float, optional): Interval to record stats, in seconds.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified. (default: ``0.5``).
-        torch_prof_folder (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_artifact_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_profile_memory (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_with_stack (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_with_flops (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
-        torch_prof_num_traces_to_keep (int, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
-            Ignored if ``prof_schedule`` and ``prof_trace_handlers`` are not specified.
+                See the :doc:`Profiling Guide </trainer/performance_tutorials/profiling>` for
+                additional information.
 
     Attributes:
         state (State): The :class:`.State` object used to store training state.
@@ -798,23 +685,7 @@ class Trainer:
         grad_clip_norm: float = -1.0,
 
         # Profiling
-        prof_schedule: Optional[Callable[[State], ProfilerAction]] = None,
-        prof_trace_handlers: Optional[Union[TraceHandler, Sequence[TraceHandler]]] = None,
-        sys_prof_cpu: bool = True,
-        sys_prof_memory: bool = False,
-        sys_prof_disk: bool = False,
-        sys_prof_net: bool = False,
-        sys_prof_stats_thread_interval_seconds: float = 0.5,
-        torch_prof_folder: str = '{run_name}/torch_traces',
-        torch_prof_filename: str = 'rank{rank}.{batch}.pt.trace.json',
-        torch_prof_artifact_name: str = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
-        torch_prof_overwrite: bool = False,
-        torch_prof_use_gzip: bool = False,
-        torch_prof_record_shapes: bool = False,
-        torch_prof_profile_memory: bool = True,
-        torch_prof_with_stack: bool = False,
-        torch_prof_with_flops: bool = True,
-        torch_prof_num_traces_to_keep: int = -1,
+        profiler: Optional[Profiler] = None,
     ):
         # The original model
         self._original_model = model
@@ -872,26 +743,10 @@ class Trainer:
         )
 
         # Profiler
-        _initialize_profiler(
-            state=self.state,
-            prof_schedule=prof_schedule,
-            prof_trace_handlers=prof_trace_handlers,
-            sys_prof_stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds,
-            sys_prof_cpu=sys_prof_cpu,
-            sys_prof_disk=sys_prof_disk,
-            sys_prof_memory=sys_prof_memory,
-            sys_prof_net=sys_prof_net,
-            torch_prof_artifact_name=torch_prof_artifact_name,
-            torch_prof_filename=torch_prof_filename,
-            torch_prof_folder=torch_prof_folder,
-            torch_prof_overwrite=torch_prof_overwrite,
-            torch_prof_record_shapes=torch_prof_record_shapes,
-            torch_prof_profile_memory=torch_prof_profile_memory,
-            torch_prof_with_stack=torch_prof_with_stack,
-            torch_prof_with_flops=torch_prof_with_flops,
-            torch_prof_use_gzip=torch_prof_use_gzip,
-            torch_prof_num_traces_to_keep=torch_prof_num_traces_to_keep,
-        )
+        if profiler is not None:
+            warnings.warn("The profiler is enabled. Using the profiler adds additional overhead when training.")
+            self.state.profiler = profiler
+            self.state.profiler.bind_to_state(self.state)
 
         # Console Logging
         loggers = list(ensure_tuple(loggers))
