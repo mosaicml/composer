@@ -287,3 +287,43 @@ def test_batch_set_2D_array_list_of_slices(example_2D_array,
                                            value=np.asarray([[7, 14], [10, 20]])):
     new_batch = batch_set(example_2D_array, key, value)
     assert np.all(np.equal(batch_get(new_batch, key), value))
+
+
+@pytest.fixture
+def example_complicated_object():
+    return [dict(a=[1, 2], b=[2, 4]), dict(c=[3, 6], d=[5, 7])]
+
+
+@pytest.fixture
+def example_get_callable():
+
+    def my_get_callable(batch):
+        return batch[1]['d'][0]
+
+    return my_get_callable
+
+
+@pytest.fixture
+def example_set_callable():
+
+    def my_set_callable(batch):
+        batch[1]['d'][0] = 11
+        return batch
+
+    return my_set_callable
+
+
+def test_batch_get_callable(example_complicated_object, example_get_callable):
+    assert batch_get(example_complicated_object, get_fn=example_get_callable) == 5
+
+
+def test_batch_set_callable(example_complicated_object, example_set_callable, example_get_callable):
+    new_batch = batch_set(example_complicated_object, set_fn=example_set_callable)
+    assert batch_get(new_batch, get_fn=example_get_callable) == 11
+
+
+def test_all_nones(example_complicated_object):
+    with pytest.raises(ValueError):
+        batch_get(example_complicated_object)
+    with pytest.raises(ValueError):
+        batch_set(example_complicated_object)

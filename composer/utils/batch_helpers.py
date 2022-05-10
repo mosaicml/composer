@@ -1,21 +1,30 @@
-from typing import Any, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union
 
 __all__ = ['batch_get', 'batch_set']
 
 
-def batch_get(batch: Any, key: Any) -> Any:
+def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable] = None) -> Any:
     """Indexes into the batch given the key.
     Args:
         batch (Any): An object that contains the input and label of the items in the batch.
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (Any): A key to index into the batch.
+        key (Any): A key to index into the batch. Key is optional if get_fn is supplied.
+        get_fn (Callable): A user-specified function to do the extracting. Note, the key
+            will be ignored if get_fn is specified. get_fn is optional if key is supplied.
 
     Returns:
-        The part of the batch specified by the key. This could be any type depending on
-            what the batch is composed of.
+        The part of the batch specified by the key or the get_fn. This could be any type 
+            depending on what the batch is composed of.
+    
+    Raises:
+        ValueError if key is unset and set_fn is unset.
     """
+    if key is None and get_fn is None:
+        raise ValueError("key or get_fn must be specified and neither were!")
+    if get_fn is not None:
+        return get_fn(batch)
     if isinstance(key, Sequence) and not isinstance(key, str):
         return _batch_get_multiple(batch, key)
     else:
@@ -61,7 +70,10 @@ def _batch_get_multiple(batch: Any, key: Any):
     return [_batch_get(batch, k) for k in key]
 
 
-def batch_set(batch: Any, key: Any, value: Any) -> Any:
+def batch_set(batch: Any,
+              key: Optional[Any] = None,
+              value: Optional[Any] = None,
+              set_fn: Optional[Callable] = None) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
@@ -73,9 +85,20 @@ def batch_set(batch: Any, key: Any, value: Any) -> Any:
             or attribute store (object with data members, namedtuple).
         key (Any): A key to index into the batch.
         value (Any): The value that batch[key] or batch.key gets set to.
+        set_fn (Callable): A user-specified function to do the setting. Note, key and 
+            value will be ignored if set_fn is specified. set_fn is optional if key and 
+            value are supplied.
+
     Returns:
         batch (Any): updated batch with value set at key.
+
+    Raises:
+        ValueError if key or value are unset and set_fn is unset.
     """
+    if (key is None or value is None) and set_fn is None:
+        raise ValueError("key and value or set_fn must be specified and neither were!")
+    if set_fn is not None:
+        return set_fn(batch)
     if isinstance(key, Sequence) and not isinstance(key, str):
         return _batch_set_multiple(batch, key, value)
     else:

@@ -6,7 +6,7 @@ from __future__ import annotations
 import collections.abc
 import logging
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -301,11 +301,11 @@ class State(Serializable):
     def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
-    def batch_set_item(self, key: Any, value: Any):
-        self.batch = batch_set(self.batch, key, value)
+    def batch_set_item(self, key: Optional[Any] = None, value: Optional[Any] = None, set_fn: Optional[Callable] = None):
+        self.batch = batch_set(self.batch, key, value, set_fn)
 
-    def batch_get_item(self, key: Any):
-        return batch_get(self.batch, key)
+    def batch_get_item(self, key: Optional[Any] = None, get_fn: Optional[Callable] = None):
+        return batch_get(self.batch, key, get_fn)
 
     @property
     def callbacks(self):

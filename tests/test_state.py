@@ -97,19 +97,39 @@ def test_state_serialize(
 
 def test_state_batch_get_item():
     state = get_dummy_state()
+    state.batch = [1, 2]
     with patch('composer.core.state.batch_get') as mock_batch_get:
         dummy_return = 7
         mock_batch_get.return_value = dummy_return
         ret = state.batch_get_item(2)
-        mock_batch_get.assert_called_once_with(state.batch, 2)
+        mock_batch_get.assert_called_once_with(state.batch, 2, None)
         assert ret == dummy_return
 
 
 def test_state_batch_set_item():
     state = get_dummy_state()
+    state.batch = [1, 2]
     with patch('composer.core.state.batch_set') as mock_batch_set:
         dummy_return = [7, 10]
         mock_batch_set.return_value = dummy_return
-        state.batch_set_item(2, 154)
-        mock_batch_set.assert_called_once()
+        state.batch_set_item(1, 154)
+        mock_batch_set.assert_called_once_with([1, 2], 1, 154, None)
         assert state.batch == dummy_return
+
+
+def test_state_batch_get_item_callable():
+    state = get_dummy_state()
+    state.batch = [1, 2]
+    with patch('composer.core.state.batch_get') as mock_batch_get:
+        getter = lambda x: x**2
+        state.batch_get_item(get_fn=getter)
+        mock_batch_get.assert_called_once_with(state.batch, None, getter)
+
+
+def test_state_batch_set_item_callable():
+    state = get_dummy_state()
+    state.batch = [1, 2]
+    with patch('composer.core.state.batch_set') as mock_batch_set:
+        setter = lambda x: x[1]
+        state.batch_set_item(set_fn=setter)
+        mock_batch_set.assert_called_once_with([1, 2], None, None, setter)
