@@ -858,6 +858,9 @@ class TestTrainerAssets:
         if name == 'mlperf':
             pytest.skip('mlperf callback tested separately.')
 
+        if name == 'early_stopper':
+            pytest.skip('early_stopper callback tested separately.')
+
         callback = hparams().initialize_object()
 
         return callback
