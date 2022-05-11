@@ -20,7 +20,7 @@ from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
-from composer.core.time import Time, TimeUnit
+from composer.core.time import Time, TimeUnit, ensure_time
 from composer.datasets import DatasetHparams, SyntheticHparamsMixin
 from composer.loggers import ObjectStoreLoggerHparams
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
@@ -554,7 +554,8 @@ def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
 
     trainer = trainer_hparams.initialize_object()
     trainer.fit()
-    _validate_events_called_expected_number_of_times(trainer, Time.from_timestring(trainer_hparams.eval_interval))
+    _validate_events_called_expected_number_of_times(trainer, ensure_time(trainer_hparams.eval_interval,
+                                                                          TimeUnit.EPOCH))
     return trainer
 
 

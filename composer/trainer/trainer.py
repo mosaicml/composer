@@ -804,6 +804,7 @@ class Trainer:
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
+            self.state.train_dataloader = self.state.dataloader
         self.train_metrics = _get_training_metrics(model) if compute_training_metrics else None
 
         # Max Duration
@@ -1106,6 +1107,7 @@ class Trainer:
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
+            self.state.train_dataloader = self.state.dataloader
         if self._train_data_spec is None:
             _raise_missing_argument_exception("train_dataloader")
         if train_subset_num_batches is not None:
