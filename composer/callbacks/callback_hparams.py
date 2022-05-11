@@ -183,14 +183,9 @@ class CheckpointSaverHparams(CallbackHparams):
 
     Args:
         save_folder (str, optional): See :class:`~.CheckpointSaver`.
-            Default: ``"{run_name}/checkpoints"``. 
         filename (str, optional): See :class:`~.CheckpointSaver`.
-            Default: ``"ep{epoch}-ba{batch}-rank{rank}"``.
         artifact_name (str, optional): See :class:`~.CheckpointSaver`.
-            
-            Default: ``"{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}"``.
         latest_filename (str, optional): See :class:`~.CheckpointSaver`.
-            Default: ``"latest-rank{rank}"``.
         overwrite (bool, optional): See :class:`~.CheckpointSaver`.
             Default: ``False``.
         weights_only (bool, optional): See :class:`~.CheckpointSaver`.
