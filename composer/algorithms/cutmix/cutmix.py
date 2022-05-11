@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import numpy as np
 import torch
@@ -182,6 +182,8 @@ class CutMix(Algorithm):
             box such that each pixel has an equal probability of being mixed.
             If ``False``, defaults to the sampling used in the original
             paper implementation. Default: ``False``.
+        input_key (Any, optional): A key that indexes to the input from the batch.
+        target_key (Any, optional): A key that indexes to the target from the batch.
 
     Example:
         .. testcode::
@@ -198,13 +200,20 @@ class CutMix(Algorithm):
             )
     """
 
-    def __init__(self, num_classes: int, alpha: float = 1., uniform_sampling: bool = False):
+    def __init__(self,
+                 num_classes: int,
+                 alpha: float = 1.,
+                 uniform_sampling: bool = False,
+                 input_key: Any = 0,
+                 target_key: Any = 1):
         self.num_classes = num_classes
         self.alpha = alpha
         self._uniform_sampling = uniform_sampling
         self._indices = torch.Tensor()
         self._cutmix_lambda = 0.0
         self._bbox: Tuple[int, int, int, int] = (0, 0, 0, 0)
+        self.input_key = input_key
+        self.target_key = target_key
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.INIT and Event.AFTER_DATALOADER.
@@ -226,7 +235,9 @@ class CutMix(Algorithm):
             logger (Logger): the training logger
         """
 
-        input, target = state.batch
+        input = state.batch_get_item(self.input_key)
+        target = state.batch_get_item(self.target_key)
+
         assert isinstance(input, Tensor) and isinstance(target, Tensor), \
             "Multiple tensors for inputs or targets not supported yet."
         alpha = self.alpha
@@ -246,7 +257,8 @@ class CutMix(Algorithm):
             indices=self._indices,
         )
 
-        state.batch = (new_input, new_target)
+        state.batch_set_item(key=self.input_key, value=new_input)
+        state.batch_set_item(key=self.target_key, value=new_target)
 
 
 def _gen_indices(x: Tensor) -> Tensor:
