@@ -11,7 +11,7 @@ Dataset <http://image-net.org/>`_ for more details. Also includes streaming data
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -208,7 +208,7 @@ class StreamingImageNet1k(StreamingImageClassDataset):
                          batch_size=batch_size)
 
         # Define custom transforms
-        if self.split == "train"
+        if self.split == "train":
             # include fixed-size resize before RandomResizedCrop in training only
             # if requested (by specifying a size > 0)
             train_resize_size = self.resize_size
@@ -253,7 +253,7 @@ class StreamingImagenet1kHparams(DatasetHparams):
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
 
-        dataset = StreamingImageClassDataset(remote=self.remote, local=self.local, shuffle=self.shuffle, transform, batch_size)
+        dataset = StreamingImageNet1k(remote=self.remote, local=self.local, split=self.split, shuffle=self.shuffle, resize_size=self.resize_size, crop_size=self.crop_size, batch_size=self.batch_size)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(

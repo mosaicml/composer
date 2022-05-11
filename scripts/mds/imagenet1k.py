@@ -56,12 +56,13 @@ def each(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
         Sample dicts.
     """
     for image_filename, class_id in pairs:
-        print(image_filename)
+        uid = image_filename.strip(".JPEG")[-8:]
+        assert len(uid) == 8
         image = open(image_filename, 'rb').read()
         yield {
-            'uid': image_filename,
+            'uid': uid.encode("utf-8"),
             'x': image,
-            'y': np.int64(y).tobytes(),
+            'y': np.int64(class_id).tobytes(),
         }
 
 
@@ -72,10 +73,10 @@ def main(args: Namespace) -> None:
         args (Namespace): Commandline arguments.
     """
 
-    fields = ['uid', 'image', 'class']
+    fields = ['uid', 'x', 'y']
 
     for (split, expected_num_samples, shuffle) in [
-        ("train", 1218176, True),
+        ("train", 1281167, True),
         ("val", 50000, False),
     ]:
         # Get samples
