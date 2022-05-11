@@ -1,7 +1,7 @@
 import os
+import random
 from argparse import ArgumentParser, Namespace
 from glob import glob
-from random import shuffle
 from typing import Any, Dict, Iterable, List, Tuple
 
 import numpy as np
@@ -19,14 +19,15 @@ def parse_args() -> Namespace:
     return args.parse_args()
 
 
-def get(split_dir: str) -> List[Tuple[str, int]]:
+def get(split_dir: str, shuffle: bool) -> List[Tuple[str, int]]:
     """Collect the samples for this dataset split.
 
     Args:
         split_dir (str): Input dataset split directory.
+        shuffle (bool): Whether to shuffle the samples before writing.
 
     Returns:
-        List of pairs of (image filename, class ID).
+        List of pairs of (image_filename, class_id).
     """
     pattern = os.path.join(split_dir, '*', '*.JPEG')
     filenames = sorted(glob(pattern))
@@ -40,7 +41,8 @@ def get(split_dir: str) -> List[Tuple[str, int]]:
             cls = len(wnid2class)
             wnid2class[wnid] = cls
         pairs.append((filename, cls))
-    shuffle(pairs)
+    if shuffle:
+        random.shuffle(pairs)
     return pairs
 
 
@@ -48,15 +50,17 @@ def each(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
     """Generator over each dataset sample.
 
     Args:
-        pairs (list): List of pairs of (image filename, class ID).
+        pairs (list): List of pairs of (image_filename, class_id).
 
     Yields:
         Sample dicts.
     """
-    for f, y in pairs:
-        x = open(f, 'rb').read()
+    for image_filename, class_id in pairs:
+        print(image_filename)
+        image = open(image_filename, 'rb').read()
         yield {
-            'x': x,
+            'uid': image_filename,
+            'x': image,
             'y': np.int64(y).tobytes(),
         }
 
@@ -67,19 +71,23 @@ def main(args: Namespace) -> None:
     Args:
         args (Namespace): Commandline arguments.
     """
-    fields = 'x', 'y'
 
-    in_split_dir = os.path.join(args.in_root, 'train')
-    pairs = get(in_split_dir)
-    out_split_dir = os.path.join(args.out_root, 'train')
-    with StreamingDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
-        out.write_samples(each(pairs), bool(args.tqdm), len(pairs))
+    fields = ['uid', 'image', 'class']
 
-    in_split_dir = os.path.join(args.in_root, 'val')
-    pairs = get(in_split_dir)
-    out_split_dir = os.path.join(args.out_root, 'val')
-    with StreamingDatasetWriter(out_split_dir, fields, args.shard_size_limit) as out:
-        out.write_samples(each(pairs), bool(args.tqdm), len(pairs))
+    for (split, expected_num_samples, shuffle) in [
+        ("train", 1218176, True),
+        ("val", 50000, False),
+    ]:
+        # Get samples
+        split_dir = os.path.join(args.in_root, split)
+        samples = get(split_dir=split_dir, shuffle=shuffle)
+        assert len(samples) == expected_num_samples
+
+        # Write samples
+        with StreamingDatasetWriter(dirname=os.path.join(args.out_root, split),
+                                    fields=fields,
+                                    shard_size_limit=args.shard_size_limit) as out:
+            out.write_samples(samples=each(samples), use_tqdm=bool(args.tqdm), total=len(samples))
 
 
 if __name__ == '__main__':

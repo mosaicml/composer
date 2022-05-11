@@ -23,9 +23,10 @@ def get(in_root: str, split: str, shuffle: bool) -> List[Tuple[str, str, str]]:
     Args:
         in_root (str): Input dataset directory.
         split (str): Split name.
+        shuffle (bool): Whether to shuffle the samples before writing.
 
     Returns:
-        List of samples of (uid, image filename, annotation filename).
+        List of samples of (uid, image_filename, annotation_filename).
     """
 
     # Get uids
@@ -53,7 +54,7 @@ def each(samples: List[Tuple[str, str, str]]) -> Iterable[Dict[str, Any]]:
     """Generator over each dataset sample.
 
     Args:
-        samples (list): List of samples of (uid, image filename, annotation filename).
+        samples (list): List of samples of (uid, image_filename, annotation_filename).
 
     Yields:
         Sample dicts.
@@ -85,7 +86,7 @@ def main(args: Namespace) -> None:
         samples = get(in_root=args.in_root, split=split, shuffle=shuffle)
         assert len(samples) == expected_num_samples
 
-        # Write train samples
+        # Write samples
         with StreamingDatasetWriter(dirname=os.path.join(args.out_root, split),
                                     fields=fields,
                                     shard_size_limit=args.shard_size_limit) as out:

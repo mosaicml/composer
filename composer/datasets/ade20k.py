@@ -399,7 +399,7 @@ class StreamingADE20k(StreamingDataset):
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): The dataset split to use, either 'train', or 'val'. Default: ``'train```.
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
         shuffle (bool): Whether to shuffle the samples in this dataset.
         base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
         min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
@@ -429,13 +429,17 @@ class StreamingADE20k(StreamingDataset):
 
         # Validation
         if split not in ['train', 'val']:
-            raise ValueError(f"split value {split} must be one of ['train', 'val'].")
+            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
         if base_size <= 0:
-            raise ValueError("base_size cannot be zero or negative.")
+            raise ValueError("base_size must be positive.")
         if min_resize_scale <= 0:
-            raise ValueError("min_resize_scale cannot be zero or negative")
+            raise ValueError("min_resize_scale must be positive")
+        if max_resize_scale <= 0:
+            raise ValueError("max_resize_scale must be positive")
         if max_resize_scale < min_resize_scale:
             raise ValueError("max_resize_scale cannot be less than min_resize_scale")
+        if final_size <= 0:
+            raise ValueError("final_size must be positive")
 
         # Build StreamingDataset
         decoders = {
@@ -497,7 +501,7 @@ class StreamingADE20kHparams(DatasetHparams):
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        split (str): the dataset split to use, either 'train' or 'val'. Default: ``'train```.
         base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
         min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
         max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
@@ -510,7 +514,7 @@ class StreamingADE20kHparams(DatasetHparams):
                               default='s3://mosaicml-internal-dataset-ade20k/mds/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-ade20k/')
-    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
+    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
 
     base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
     min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)

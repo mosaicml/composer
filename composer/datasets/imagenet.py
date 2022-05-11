@@ -193,27 +193,22 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                         device_transforms=device_transform_fn)
 
 
-@dataclass
-class StreamingImagenet1kHparams(DatasetHparams):
-    """Streaming Imagenet1k hyperparameters.
 
-    Args:
-        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-        local (str): Local filesystem directory where dataset is cached during operation.
-        resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
-        crop size (int): The crop size to use. Default: ``224``.
-    """
+class StreamingImageNet1k(StreamingImageClassDataset):
+    def __init__(self, remote: str, local: str, split: str, shuffle: bool, resize_size: int = -1, crop_size: int = 224, batch_size: Optional[int] = None):
 
-    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/')
-    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
-                             default='/tmp/mds-cache/mds-imagenet1k/')
-    resize_size: int = hp.optional("Resize size. Set to -1 to not resize", default=-1)
-    crop_size: int = hp.optional("Crop size", default=224)
+        # Validation
+        if split not in ['train', 'val']:
+            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
-        if self.is_train:
-            split = 'train'
+        # Build StreamingDataset
+        super().__init__(remote=os.path.join(remote, split),
+                         local=os.path.join(local, split),
+                         shuffle=shuffle,
+                         batch_size=batch_size)
+
+        # Define custom transforms
+        if self.split == "train"
             # include fixed-size resize before RandomResizedCrop in training only
             # if requested (by specifying a size > 0)
             train_resize_size = self.resize_size
@@ -227,14 +222,38 @@ class StreamingImagenet1kHparams(DatasetHparams):
             ]
             transform = transforms.Compose(train_transforms)
         else:
-            split = 'val'
             transform = transforms.Compose([
                 transforms.Resize(self.resize_size),
                 transforms.CenterCrop(self.crop_size),
             ])
         remote = os.path.join(self.remote, split)
         local = os.path.join(self.local, split)
-        dataset = StreamingImageClassDataset(remote, local, self.shuffle, transform, batch_size)
+
+
+
+@dataclass
+class StreamingImagenet1kHparams(DatasetHparams):
+    """Streaming Imagenet1k hyperparameters.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
+        resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
+    """
+
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-imagenet1k/')
+    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
+    resize_size: int = hp.optional("Resize size. Set to -1 to not resize", default=-1)
+    crop_size: int = hp.optional("Crop size", default=224)
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+
+        dataset = StreamingImageClassDataset(remote=self.remote, local=self.local, shuffle=self.shuffle, transform, batch_size)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
