@@ -33,7 +33,10 @@ from composer.utils import dist
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
-__all__ = ["ImagenetDatasetHparams", "Imagenet1kWebDatasetHparams", "TinyImagenet200WebDatasetHparams"]
+__all__ = [
+    "ImagenetDatasetHparams", "Imagenet1kWebDatasetHparams", "TinyImagenet200WebDatasetHparams", "StreamingImageNet1k",
+    "StreamingImageNet1kHparams"
+]
 
 
 @dataclass

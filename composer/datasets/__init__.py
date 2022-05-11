@@ -20,13 +20,13 @@ from composer.datasets.brats import BratsDatasetHparams
 from composer.datasets.c4 import C4DatasetHparams
 from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHparams, CIFAR20WebDatasetHparams,
                                      CIFAR100WebDatasetHparams)
-from composer.datasets.coco import COCODatasetHparams
+from composer.datasets.coco import COCODatasetHparams, StreamingCOCOHparams
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.datasets.glue import GLUEHparams
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
-from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams,
+from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams, StreamingImageNet1kHparams,
                                         TinyImagenet200WebDatasetHparams)
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams
@@ -36,9 +36,9 @@ from composer.datasets.synthetic import (MemoryFormat, SyntheticBatchPairDataset
 __all__ = [
     "ADE20kDatasetHparams", "StreamingADE20kHparams", "ADE20kWebDatasetHparams", "BratsDatasetHparams",
     "C4DatasetHparams", "CIFAR10DatasetHparams", "CIFAR10WebDatasetHparams", "CIFAR20WebDatasetHparams",
-    "CIFAR100WebDatasetHparams", "COCODatasetHparams", "DataLoaderHparams", "get_dataset_registry", "EvaluatorHparams",
-    "GLUEHparams", "DatasetHparams", "SyntheticHparamsMixin", "WebDatasetHparams", "Imagenet1kWebDatasetHparams",
-    "ImagenetDatasetHparams", "TinyImagenet200WebDatasetHparams", "LMDatasetHparams", "MNISTDatasetHparams",
-    "MNISTWebDatasetHparams", "MemoryFormat", "SyntheticBatchPairDataset", "SyntheticDataLabelType",
-    "SyntheticDataType", "SyntheticPILDataset"
+    "CIFAR100WebDatasetHparams", "COCODatasetHparams", "StreamingCOCOHparams", "DataLoaderHparams",
+    "get_dataset_registry", "EvaluatorHparams", "GLUEHparams", "DatasetHparams", "SyntheticHparamsMixin",
+    "WebDatasetHparams", "Imagenet1kWebDatasetHparams", "ImagenetDatasetHparams", "TinyImagenet200WebDatasetHparams",
+    "StreamingImageNet1kHparams", "LMDatasetHparams", "MNISTDatasetHparams", "MNISTWebDatasetHparams", "MemoryFormat",
+    "SyntheticBatchPairDataset", "SyntheticDataLabelType", "SyntheticDataType", "SyntheticPILDataset"
 ]

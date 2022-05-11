@@ -26,7 +26,7 @@ from composer.datasets.streaming import StreamingDataset
 from composer.models.ssd.utils import SSDTransformer, dboxes300_coco
 from composer.utils import dist
 
-__all__ = ["COCODatasetHparams", "COCODetection"]
+__all__ = ["COCODatasetHparams", "COCODetection", "StreamingCOCO", "StreamingCOCOHparams"]
 
 
 @dataclass

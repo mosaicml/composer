@@ -1,55 +1,68 @@
 import pathlib
 import time
-from typing import Tuple
+from typing import Optional, Tuple
 
 import pytest
-from PIL.Image import Image
 from torch.utils.data import DataLoader
 
 from composer.datasets.ade20k import StreamingADE20k
+from composer.datasets.coco import StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
 from composer.datasets.utils import pil_image_collate
 
 
-def get_dataset(name: str, split: str, local: str) -> Tuple[int, StreamingDataset]:
+def get_dataset(name: str, local: str, split: str, shuffle: bool,
+                batch_size: Optional[int]) -> Tuple[int, StreamingDataset]:
     dataset_map = {
         "ade20k": {
-            "train": (20206, lambda local: StreamingADE20k(
-                remote="s3://mosaicml-internal-dataset-ade20k/mds/", local=local, split="train", shuffle=True)),
-            "val": (2000, lambda local: StreamingADE20k(
-                remote="s3://mosaicml-internal-dataset-ade20k/mds/", local=local, split="val", shuffle=False)),
+            "remote": "s3://mosaicml-internal-dataset-ade20k/mds/",
+            "num_samples": {
+                "train": 20206,
+                "val": 2000,
+            },
+            "class": StreamingADE20k,
         },
         "imagenet1k": {
-            "train": (1281167,
-                      lambda local: StreamingImageNet1k(remote="s3://mosaicml-internal-dataset-imagenet1k/mds-new-128/",
-                                                        local=local,
-                                                        split="train",
-                                                        shuffle=True)),
-            "val": (50000,
-                    lambda local: StreamingImageNet1k(remote="s3://mosaicml-internal-dataset-imagenet1k/mds-new-128/",
-                                                      local=local,
-                                                      split="val",
-                                                      shuffle=False)),
-        }
+            "remote": "s3://mosaicml-internal-dataset-imagenet1k/mds/",
+            "num_samples": {
+                "train": 1281167,
+                "val": 50000,
+            },
+            "class": StreamingImageNet1k
+        },
+        "coco": {
+            "remote": "s3://mosaicml-internal-dataset-coco/mds/",
+            "num_samples": {
+                "train": 117266,
+                "val": 4952,
+            },
+            "class": StreamingCOCO
+        },
     }
-    if name not in dataset_map and split not in dataset_map[name]:
+    if name not in dataset_map and split not in dataset_map[name]["num_samples"][split]:
         raise ValueError("Could not load dataset with name={name} and split={split}")
 
-    expected_samples, build_dataset_fn = dataset_map[name][split]
-    dataset = build_dataset_fn(local)
+    d = dataset_map[name]
+    expected_samples = d["num_samples"][split]
+    remote = d["remote"]
+    dataset = d["class"](remote=remote, local=local, split=split, shuffle=shuffle, batch_size=batch_size)
     return (expected_samples, dataset)
 
 
 @pytest.mark.remote()
 @pytest.mark.timeout(0)
-@pytest.mark.parametrize("name", ["ade20k", "imagenet1k"])
+@pytest.mark.parametrize("name", [
+    "ade20k",
+    "imagenet1k",
+    pytest.param("coco", marks=pytest.mark.xfail(reason="StreamingCOCO dataset needs to be debugged.")),
+])
 @pytest.mark.parametrize("split", ["val"])
 def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -> None:
 
     # Build StreamingDataset
     build_start = time.time()
-    expected_samples, dataset = get_dataset(name=name, split=split, local=str(tmpdir))
+    expected_samples, dataset = get_dataset(name=name, local=str(tmpdir), split=split, shuffle=False, batch_size=None)
     build_end = time.time()
     build_dur = build_end - build_start
     print("Built dataset")
@@ -74,61 +87,59 @@ def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -
     assert rcvd_samples == expected_samples
 
 
-# @pytest.mark.remote()
-# @pytest.mark.timeout(0)
-# @pytest.mark.parametrize("split", ["val"])
-# def test_streaming_ade20k_dataloader(tmpdir: pathlib.Path, split: str) -> None:
-#     assert split in ["train", "val"]
-#     expected_samples = {"train": 20206, "val": 2000}[split]
+@pytest.mark.remote()
+@pytest.mark.timeout(0)
+@pytest.mark.parametrize("name", [
+    "ade20k",
+    "imagenet1k",
+    pytest.param("coco", marks=pytest.mark.xfail(reason="StreamingCOCO dataset needs to be debugged.")),
+])
+@pytest.mark.parametrize("split", ["val"])
+def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str) -> None:
 
-#     # Paths
-#     # Must have valid AWS credentials in order to access this remote S3 path
-#     remote = f"s3://mosaicml-internal-dataset-ade20k/mds/"
-#     local = str(tmpdir)
+    # Data loading info
+    shuffle = True
+    batch_size = 8
+    num_workers = 8
+    drop_last = False
+    persistent_workers = True
+    collate_fn = pil_image_collate if name in ["ade20k", "imagenet1k"] else None
 
-#     # Data loading info
-#     shuffle = True
-#     batch_size = 8
-#     num_workers = 8
-#     drop_last = False
-#     persistent_workers = True
+    # Build StreamingDataset
+    ds_build_start = time.time()
+    expected_samples, dataset = get_dataset(name=name,
+                                            local=str(tmpdir),
+                                            split=split,
+                                            shuffle=shuffle,
+                                            batch_size=batch_size)
+    ds_build_end = time.time()
+    ds_build_dur = ds_build_end - ds_build_start
+    print("Built dataset")
 
-#     # Build StreamingDataset
-#     ds_build_start = time.time()
-#     dataset = StreamingADE20k(
-#         remote=remote,
-#         local=local,
-#         split=split,
-#         shuffle=shuffle,
-#         batch_size=batch_size,
-#     )
-#     ds_build_end = time.time()
-#     ds_build_dur = ds_build_end - ds_build_start
+    # Build DataLoader
+    loader_build_start = time.time()
+    loader = DataLoader(dataset=dataset,
+                        batch_size=batch_size,
+                        num_workers=num_workers,
+                        drop_last=drop_last,
+                        persistent_workers=persistent_workers,
+                        collate_fn=collate_fn)
+    loader_build_end = time.time()
+    loader_build_dur = loader_build_end - loader_build_start
 
-#     # Build DataLoader
-#     loader_build_start = time.time()
-#     loader = DataLoader(dataset=dataset,
-#                         batch_size=batch_size,
-#                         num_workers=num_workers,
-#                         drop_last=drop_last,
-#                         persistent_workers=persistent_workers,
-#                         collate_fn=pil_image_collate)
-#     loader_build_end = time.time()
-#     loader_build_dur = loader_build_end - loader_build_start
+    # Print debug info
+    print(f"ds_build_dur={ds_build_dur:.2f}s, loader_build_dur={loader_build_dur:.2f}s")
 
-#     # Print debug info
-#     print(f"ds_build_dur={ds_build_dur:.2f}s, loader_build_dur={loader_build_dur:.2f}s")
+    for epoch in range(3):
+        rcvd_samples = 0
+        epoch_start = time.time()
+        for _, (images, _) in enumerate(loader):
+            n_samples = images.shape[0]
+            rcvd_samples += n_samples
+        epoch_end = time.time()
+        epoch_dur = epoch_end - epoch_start
+        samples_per_sec = rcvd_samples / epoch_dur
+        print(f"Epoch {epoch}: epoch_dur={epoch_dur:.2f}s, samples_per_sec={samples_per_sec:.2f}")
 
-#     for epoch in range(3):
-#         rcvd_samples = 0
-#         epoch_start = time.time()
-#         for _, (images, _) in enumerate(loader):
-#             n_samples = images.shape[0]
-#             rcvd_samples += n_samples
-#         epoch_end = time.time()
-#         epoch_dur = epoch_end - epoch_start
-#         samples_per_sec = rcvd_samples / epoch_dur
-#         print(f"Epoch {epoch}: epoch_dur={epoch_dur:.2f}s, samples_per_sec={samples_per_sec:.2f}")
-
-#         # Test all samples arrived
-#         assert rcvd_samples == expected_samples
+        # Test all samples arrived
+        assert rcvd_samples == expected_samples
