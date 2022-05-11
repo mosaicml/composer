@@ -3,8 +3,10 @@
 
 import json
 import logging
-from typing import Optional
+from dataclasses import replace
+from typing import Callable, Optional, Tuple
 
+from PIL import Image
 import numpy as np
 
 from composer.core.types import Dataset
@@ -109,3 +111,53 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
         # We call this internal API instead of writer.from_webdataset because with writer.from_webdataset
         # FFCV downloads the whole dataset twice.
         writer._write_common(total_len, todos, ffcv.writer.worker_job_webdataset, (pipeline,))
+
+
+if ffcv_installed:
+
+    from ffcv.pipeline.operation import Operation
+    from ffcv.pipeline.compiler import Compiler
+    from ffcv.pipeline.state import State
+    from ffcv.pipeline.allocation_query import AllocationQuery
+
+    class FFCVAlgoWrapper(Operation):
+        """ Wrapper around data augmentation algorithms
+
+        Parameters
+        ----------
+        module: A callable
+        row_scale: output rows is row_scale * input_rows
+        col_scale: output cols is col_scale * input_cols
+        """
+
+        def __init__(self, module, row_scale=1.0, col_scale=1.0):
+            super().__init__()
+            self.module = module
+            self.row_scale = row_scale
+            self.col_scale = col_scale
+
+        def generate_code(self) -> Callable:
+            my_range = Compiler.get_iterator()
+            def apply_tx(images, dst):
+                for i in my_range(images.shape[0]):
+                    img = Image.fromarray(images[i])
+                    img_tx = self.module(img)
+                    dst[i] = np.array(img_tx)
+                return dst
+
+            apply_tx.is_parallel = True
+            return apply_tx
+
+        def declare_state_and_memory(
+            self, previous_state: State
+        ) -> Tuple[State, Optional[AllocationQuery]]:
+
+            new_height = int(self.row_scale * previous_state.shape[0])
+            new_width = int(self.col_scale * previous_state.shape[1])
+            return (
+                replace(previous_state, jit_mode=False, shape=(new_height, new_width, 3)),
+                AllocationQuery((new_height, new_width, 3), previous_state.dtype),
+            )
+else:
+    class FFCVAlgoWrapper:
+        pass

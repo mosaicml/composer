@@ -22,11 +22,13 @@ from torchvision.datasets import ImageFolder
 
 from composer.core import DataSpec
 from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset
+from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset, FFCVAlgoWrapper
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
+from composer.algorithms.randaugment import RandAugmentTransform
+from composer.algorithms.colout import ColOutTransform
 
 # ImageNet normalization values from torchvision: https://pytorch.org/vision/stable/models.html
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
@@ -43,6 +45,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         resize_size (int, optional): The resize size to use. Use ``-1`` to not resize. Default: ``-1``.
         crop size (int): The crop size to use. Default: ``224``.
         use_ffcv (bool): Whether to use FFCV dataloaders. Default: ``False``.
+        use_ffcv_randaugment (bool): Use randaugment with ffcv. Default: ``False``.
         ffcv_dir (str): A directory containing train/val <file>.ffcv files. If these files don't exist and
             ``ffcv_write_dataset`` is ``True``, train/val <file>.ffcv files will be created in this dir. Default: ``"/tmp"``.
         ffcv_dest (str): <file>.ffcv file that has dataset samples. Default: ``"imagenet_train.ffcv"``.
@@ -52,6 +55,11 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     resize_size: int = hp.optional("resize size. Set to -1 to not resize", default=-1)
     crop_size: int = hp.optional("crop size", default=224)
     use_ffcv: bool = hp.optional("whether to use ffcv for faster dataloading", default=False)
+    use_ffcv_randaugment: bool = hp.optional("Use randaugment with ffcv.", default=False)
+    randaugment_depth: int = hp.optional("randaugment depth.", default=2)
+    randaugment_severity: int = hp.optional("randaugment severity.", default=9)
+    use_ffcv_colout: bool = hp.optional("Use colout with ffcv.", default=False)
+    colout_p: float = hp.optional("colout fraction of rows/cols to drop.", default=0.15)
     ffcv_dir: str = hp.optional(
         "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
         default="/tmp")
@@ -120,6 +128,15 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                     ffcv.transforms.RandomHorizontalFlip()
                 ])
                 dtype = np.float16
+                if self.use_ffcv_randaugment:
+                    image_pipeline.extend([
+                        FFCVAlgoWrapper(RandAugmentTransform(self.randaugment_severity, self.randaugment_depth))
+                        ])
+                if self.use_ffcv_colout:
+                    image_pipeline.extend([
+                        FFCVAlgoWrapper(ColOutTransform(self.colout_p, self.colout_p), 1.0 - self.colout_p, 1.0 -
+                            self.colout_p)
+                        ])
             else:
                 ratio = self.crop_size / self.resize_size if self.resize_size > 0 else 1.0
                 image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=ratio)])
