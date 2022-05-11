@@ -36,6 +36,7 @@ BENCHMARKS = ("resnet",)
 DIVISIONS = ("open",)
 STATUS = ("onprem", "cloud", "preview")
 
+__all__ = ["MLPerfCallback", "get_system_description"]
 
 def rank_zero() -> bool:
     return dist.get_global_rank() == 0
