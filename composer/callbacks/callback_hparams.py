@@ -138,7 +138,7 @@ class MLPerfCallbackHparams(CallbackHparams):
             Default: ``"eval"``.
         submitter (str, optional): Submitting organization. Default: ``"MosaicML"``.
         system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
-            not provided, system name will default to ``[world_size]x[device_name]_composer``,
+            ``None``, system name will default to ``[world_size]x[device_name]_composer``,
             e.g. ``8xNVIDIA_A100_80GB_composer``. Default: ``None``.
         status (str, optional): Submission status. One of (onprem, cloud, or preview).
             Default: ``"onprem"``.
