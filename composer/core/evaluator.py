@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """A wrapper for a dataloader to include metrics that apply to a specific dataset."""
 
@@ -92,7 +93,7 @@ class Evaluator:
 
             Set to ``0`` to disable evaluation.
 
-            If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool 
+            If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool
             representing whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`
             or :attr:`.Event.EPOCH_END`.
     """

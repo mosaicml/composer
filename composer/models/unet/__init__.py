@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The Unet architecture used in image segmentation. The example we are using is for BRATS medical brain tumor dataset.
 

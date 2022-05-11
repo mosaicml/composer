@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Hyperparameter classes for the :mod:`~composer.profiler`.
 
@@ -121,7 +122,7 @@ profiler_scheduler_registry = {'cyclic': cast(Type[hp.Hparams], CyclicProfilerSc
 @dataclasses.dataclass
 class ProfilerHparams(hp.Hparams):
     """Hyperparameters for the :class:`.Profiler`.
-    
+
     Args:
         prof_schedule (ProfileScheduleHparams): Profile schedule hparams.
         prof_trace_handlers (List[TraceHandlerHparams]): See :class:`.Profiler`.

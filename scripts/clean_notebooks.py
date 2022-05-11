@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Utility script to clean jupyter notebooks.
 
@@ -18,12 +19,12 @@ import nbformat
 
 def clean_notebook(notebook: nbformat.NotebookNode):
     """Clean jupyter notebooks.
-    
+
     Removes any outputs, all cell metadata except for 'tags', and also remove the notebook metadata "widgets".
 
     Args:
         notebook (nbformat.NotebookNode): The notebook
-    
+
     Returns:
         None: modifies the notebook in place.
     """

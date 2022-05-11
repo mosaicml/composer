@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Shrinks targets towards a uniform distribution to counteract label noise. Introduced in `Rethinking the Inception
 Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`_.
