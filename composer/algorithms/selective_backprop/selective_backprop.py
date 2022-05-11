@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core SelectiveBackprop class and functions."""
 
@@ -182,7 +183,7 @@ class SelectiveBackprop(Algorithm):
          keep (float, optional): fraction of minibatch to select and keep for gradient computation
              Default: ``0.5``.
          scale_factor (float, optional): scale for downsampling input for selection forward pass
-             Default: ``0.5``.
+             Default: ``1.``.
          interrupt (int, optional): interrupt SB with a vanilla minibatch step every
              ``interrupt`` batches. Default: ``2``.
 
@@ -205,7 +206,7 @@ class SelectiveBackprop(Algorithm):
                  start: float = 0.5,
                  end: float = 0.9,
                  keep: float = 0.5,
-                 scale_factor: float = 0.5,
+                 scale_factor: float = 1.,
                  interrupt: int = 2):
         self.start = start
         self.end = end
@@ -229,7 +230,7 @@ class SelectiveBackprop(Algorithm):
 
         is_chosen = should_selective_backprop(
             current_duration=float(elapsed_duration),
-            batch_idx=state.timer.batch_in_epoch.value,
+            batch_idx=int(state.timestamp.batch_in_epoch),
             start=self.start,
             end=self.end,
             interrupt=self.interrupt,
@@ -243,7 +244,7 @@ class SelectiveBackprop(Algorithm):
                     raise RuntimeError("Model must be of type ComposerModel")
                 self._loss_fn = state.model.loss
             return
-        input, target = state.batch_pair
+        input, target = state.batch
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 

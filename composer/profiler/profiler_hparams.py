@@ -1,24 +1,36 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
-"""Example usage and definition of hparams."""
+"""Hyperparameter classes for the :mod:`~composer.profiler`.
+
+Attributes:
+    trace_handler_registry (Dict[str, Type[TraceHandlerHparams]]): Trace handler registry.
+    profiler_scheduler_registry (Dict[str, Type[ProfileScheduleHparams]]): Profiler scheduler registry.
+"""
 
 from __future__ import annotations
 
 import abc
 import dataclasses
-from typing import Callable, Optional
+from typing import Callable, List, Optional, Type, cast
 
 import yahp as hp
 
 from composer.core.state import State
+from composer.profiler import Profiler
 from composer.profiler.json_trace_handler import JSONTraceHandler
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.profiler_schedule import cyclic_schedule
 from composer.profiler.trace_handler import TraceHandler
 
 __all__ = [
-    "TraceHandlerHparams", "JSONTraceHparams", "trace_handler_registory", "ProfileScheduleHparams",
-    "CyclicProfilerScheduleHparams", "profiler_scheduler_registry"
+    "TraceHandlerHparams",
+    "JSONTraceHparams",
+    "trace_handler_registry",
+    "ProfileScheduleHparams",
+    "CyclicProfilerScheduleHparams",
+    "profiler_scheduler_registry",
+    "ProfilerHparams",
 ]
 
 
@@ -64,8 +76,7 @@ class JSONTraceHparams(TraceHandlerHparams):
         return JSONTraceHandler(**dataclasses.asdict(self))
 
 
-trace_handler_registory = {"json": JSONTraceHparams}
-"""Trace handler registry."""
+trace_handler_registry = {"json": JSONTraceHparams}
 
 
 @dataclasses.dataclass
@@ -105,5 +116,86 @@ class CyclicProfilerScheduleHparams(ProfileScheduleHparams):
         return cyclic_schedule(**dataclasses.asdict(self))
 
 
-profiler_scheduler_registry = {'cyclic': CyclicProfilerScheduleHparams}
-"""Profiler scheduler registry."""
+profiler_scheduler_registry = {'cyclic': cast(Type[hp.Hparams], CyclicProfilerScheduleHparams)}
+
+
+@dataclasses.dataclass
+class ProfilerHparams(hp.Hparams):
+    """Hyperparameters for the :class:`.Profiler`.
+
+    Args:
+        prof_schedule (ProfileScheduleHparams): Profile schedule hparams.
+        prof_trace_handlers (List[TraceHandlerHparams]): See :class:`.Profiler`.
+        sys_prof_cpu (bool, optional): See :class:`.Profiler`.
+        sys_prof_memory (bool, optional): See :class:`.Profiler`.
+        sys_prof_disk (bool, optional): See :class:`.Profiler`.
+        sys_prof_net (bool, optional): See :class:`.Profiler`.
+        sys_prof_stats_thread_interval_seconds (float, optional): See :class:`.Profiler`.
+        torch_prof_folder (str, optional): See :class:`~.TorchProfiler`.
+        torch_prof_filename (str, optional): See :class:`~.TorchProfiler`.
+        torch_prof_artifact_name (str, optional): See :class:`~.TorchProfiler`.
+        torch_prof_overwrite (bool, optional): See :class:`~.TorchProfiler`.
+        torch_prof_use_gzip (bool, optional): See :class:`~.TorchProfiler`.
+        torch_prof_record_shapes (bool, optional): See :class:`~.TorchProfiler`.
+        torch_prof_profile_memory (bool, optional): See :class:`~.TorchProfiler`.
+        torch_prof_with_stack (bool, optional): See :class:`~.TorchProfiler`.
+        torch_prof_with_flops (bool, optional): See :class:`~.TorchProfiler`.
+        torch_prof_num_traces_to_keep (int, optional): See :class:`~.TorchProfiler`.
+    """
+
+    hparams_registry = {
+        "schedule": profiler_scheduler_registry,
+    }
+
+    # profiling
+    prof_schedule: ProfileScheduleHparams = hp.required("Profile scheduler hparams")
+    prof_trace_handlers: List[TraceHandlerHparams] = hp.required("Trace event handlers")
+
+    sys_prof_cpu: bool = hp.optional("Whether to record cpu statistics.", default=True)
+    sys_prof_memory: bool = hp.optional("Whether to record memory statistics.", default=False)
+    sys_prof_disk: bool = hp.optional("Whether to record disk statistics.", default=False)
+    sys_prof_net: bool = hp.optional("Whether to record network statistics.", default=False)
+    sys_prof_stats_thread_interval_seconds: float = hp.optional("Interval to record stats, in seconds", default=0.5)
+
+    torch_prof_folder: str = hp.optional('Torch profiler folder format', default='{run_name}/torch_traces')
+    torch_prof_filename: str = hp.optional(
+        'Torch profiler filename format',
+        default='rank{rank}.{batch}.pt.trace.json',
+    )
+    torch_prof_artifact_name: str = hp.optional(
+        'Torch profiler artifact name format',
+        default='{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+    )
+    torch_prof_overwrite: bool = hp.optional('Torch profiler overwrite', default=False)
+    torch_prof_use_gzip: bool = hp.optional('Torch profiler use gzip', default=False)
+    torch_prof_record_shapes: bool = hp.optional("Whether to record tensor shapes", default=False)
+    torch_prof_profile_memory: bool = hp.optional("Track tensor memory allocations and frees.", default=False)
+    torch_prof_with_stack: bool = hp.optional("Record stack information.", default=False)
+    torch_prof_with_flops: bool = hp.optional("Estimate flops for operators.", default=False)
+    torch_prof_num_traces_to_keep: int = hp.optional('Torch profiler num traces to keep', default=-1)
+
+    def initialize_object(self):
+
+        return Profiler(
+            trace_handlers=[x.initialize_object() for x in self.prof_trace_handlers],
+            schedule=self.prof_schedule.initialize_object(),
+
+            # System profiler
+            sys_prof_cpu=self.sys_prof_cpu,
+            sys_prof_memory=self.sys_prof_memory,
+            sys_prof_disk=self.sys_prof_disk,
+            sys_prof_net=self.sys_prof_net,
+            sys_prof_stats_thread_interval_seconds=self.sys_prof_stats_thread_interval_seconds,
+
+            # Torch profiler
+            torch_prof_folder=self.torch_prof_folder,
+            torch_prof_filename=self.torch_prof_filename,
+            torch_prof_artifact_name=self.torch_prof_artifact_name,
+            torch_prof_overwrite=self.torch_prof_overwrite,
+            torch_prof_use_gzip=self.torch_prof_use_gzip,
+            torch_prof_num_traces_to_keep=self.torch_prof_num_traces_to_keep,
+            torch_prof_record_shapes=self.torch_prof_record_shapes,
+            torch_prof_profile_memory=self.torch_prof_profile_memory,
+            torch_prof_with_stack=self.torch_prof_with_flops,
+            torch_prof_with_flops=self.torch_prof_with_flops,
+        )

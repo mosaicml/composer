@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from typing import Callable
 
@@ -148,9 +149,11 @@ def state(minimal_state: State, conv_model: ComposerClassifier, loss_fun_tuple: 
     conv_model.loss = loss_fun_tuple
     minimal_state.model = conv_model
 
-    minimal_state.timer.epoch._value = epoch
-    minimal_state.timer.batch._value = epoch * int(minimal_state.dataloader_len) + batch
-    minimal_state.timer.batch_in_epoch._value = batch
+    minimal_state.timestamp = minimal_state.timestamp.copy(
+        epoch=epoch,
+        batch=epoch * int(minimal_state.dataloader_len) + batch,
+        batch_in_epoch=batch,
+    )
 
     return minimal_state
 
@@ -234,12 +237,10 @@ class TestSelectiveBackprop:
         assert MATCH in str(execinfo.value)
 
 
-"""
-Test Selective Backprop Algorithm
-"""
-
-
 class TestSelectiveBackpropAlgorithm:
+    """
+    Test Selective Backprop Algorithm
+    """
 
     @pytest.fixture
     def sb_algorithm(self, scale_factor, keep) -> SelectiveBackprop:

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core AugMix classes and functions."""
 
@@ -9,6 +10,7 @@ from typing import List, TypeVar
 
 import numpy as np
 import torch
+import torch.utils.data
 from PIL import Image
 from PIL.Image import Image as PillowImage
 from torchvision.datasets import VisionDataset
@@ -55,7 +57,7 @@ def augmix_image(img: ImgT,
             )
 
     Args:
-        img (PIL.Image.Image or torch.Tensor): Image or batch of images to be AugMix'd.
+        img (PIL.Image.Image | torch.Tensor): Image or batch of images to be AugMix'd.
         severity (int, optional): See :class:`.AugMix`.
         depth (int, optional): See :class:`.AugMix`.
         width (int, optional): See :class:`.AugMix`.
@@ -119,7 +121,10 @@ class AugmentAndMixTransform(torch.nn.Module):
                 alpha=1.0,
                 augmentation_set="all"
             )
-            composed = transforms.Compose([augmix_transform, transforms.RandomHorizontalFlip()])
+            composed = transforms.Compose([
+                augmix_transform,
+                transforms.RandomHorizontalFlip()
+            ])
             transformed_image = composed(image)
 
     Args:
@@ -204,15 +209,16 @@ class AugMix(Algorithm):
             > 0.  Higher values yield mixing coefficients closer to uniform weighting. As
             the value approaches 0, the mixing coefficients approach using only one
             version of each image. Default: ``1.0``.
-        augmentation_set (str, optional): Must be one of the following options:
+        augmentation_set (str, optional): Must be one of the following options as also described
+            in :attr:`~composer.algorithms.utils.augmentation_primitives.augmentation_sets`:
 
-            * ``"augmentations_all"``
+            * ``"all"``
                 Uses all augmentations from the paper.
-            * ``"augmentations_corruption_safe"``
-                Like ``"augmentations_all"``, but excludes transforms that are part of
-                the ImageNet-C/CIFAR10-C test sets
-            * ``"augmentations_original"``
-                Like ``"augmentations_all"``, but some of the implementations
+            * ``"safe"``
+                Like ``"all"``, but excludes transforms that are part of
+                the ImageNet-C/CIFAR10-C test sets.
+            * ``"original"``
+                Like ``"all"``, but some of the implementations
                 are identical to the original Github repository, which contains
                 implementation specificities for the augmentations
                 ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``. The
@@ -221,7 +227,7 @@ class AugMix(Algorithm):
                 :math:`intensity \\times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
                 to 1.9 (intensity 10). These augmentations have different effects
                 depending on whether they are < 0 or > 0 (or < 1 or > 1).
-                "augmentations_all" uses implementations of "color", "contrast",
+                "all" uses implementations of "color", "contrast",
                 "sharpness", and "brightness" that account for diverging effects around 0
                 (or 1).
 
@@ -254,6 +260,8 @@ class AugMix(Algorithm):
         if event != Event.FIT_START:
             return False
         assert state.dataloader is not None, "dataloader should be defined on fit start"
+        if not isinstance(state.dataloader, torch.utils.data.DataLoader):
+            raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
         return state.dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
@@ -262,7 +270,7 @@ class AugMix(Algorithm):
                                     width=self.width,
                                     alpha=self.alpha,
                                     augmentation_set=self.augmentation_set)
-        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "dataloader type checked on match()"
         dataset = state.dataloader.dataset
         if not isinstance(dataset, VisionDataset):
             raise TypeError(

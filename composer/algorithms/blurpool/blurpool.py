@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
@@ -33,7 +34,7 @@ def apply_blurpool(model: torch.nn.Module,
     (`Zhang 2019 <http://proceedings.mlr.press/v97/zhang19a.html>`_).
 
     Args:
-        model (torch.nn.Module): the model to modify in-place
+        model (:class:`torch.nn.Module`): the model to modify in-place
         replace_convs (bool, optional): replace strided :class:`torch.nn.Conv2d` modules with
             :class:`.BlurConv2d` modules. Default: ``True``.
         replace_maxpools (bool, optional): replace eligible :class:`torch.nn.MaxPool2d` modules
@@ -46,7 +47,7 @@ def apply_blurpool(model: torch.nn.Module,
             See :class:`.BlurConv2d` for further discussion. Default: ``True``.
         min_channels (int, optional): Skip replacing layers with in_channels < min_channels.
             Commonly used to prevent the blurring of the first layer. Default: 16.
-        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
+        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so
             they will optimize the correct parameters.

@@ -6,8 +6,10 @@ set -euxo pipefail
 # executed only once on an install with all dependencies
 
 # Install dependencies
-sudo npm install -g pyright@1.1.224
-pip install .[all]
+pip install '.[all]'
+
+# Mark the root folder as trusted (necessarry for pre-commit hooks to work on Jenkins)
+git config --global --add safe.directory $WORKSPACE
 
 # Clean and make the output directory
 BUILD_DIR="build/output"

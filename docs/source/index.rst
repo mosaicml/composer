@@ -82,6 +82,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :caption: Methods Library
 
    method_cards/methods_overview.rst
+   method_cards/agc.md
    method_cards/alibi.md
    method_cards/augmix.md
    method_cards/blurpool.md
@@ -89,6 +90,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/colout.md
    method_cards/cutmix.md
    method_cards/cutout.md
+   method_cards/ema.md
    method_cards/factorize.md
    method_cards/ghost_batchnorm.md
    method_cards/label_smoothing.md
