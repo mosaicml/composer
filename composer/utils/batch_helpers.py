@@ -140,23 +140,30 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
 
     exceptions = []
     try:
+        # Check if one can do a __getitem__ before doing a __setitem__ because dicts can
+        # do __setitem__ for elements not in the dict and we do not want that.
+        # Note for defaultdict and Counter objects, just calling batch[key] for
+        # with a new keyword will create a new key, value pair in the object.
+        batch[key]
         batch[key] = value
 
-    # The only acceptable TypeError is for an object that doesn't have a __setitem__,
-    # which is TypeError("... object does not support item assignment").
+    # The only acceptable TypeErrors are for an object that doesn't have a __setitem__ or a __getitem__,
+    # which is TypeError("... object does not support item assignment") and TypeError('.. object is not subscriptable')
     except TypeError as e:
-        if 'object does not support item assignment' in str(e):
+        if 'object does not support item assignment' in str(e) or 'object is not subscriptable' in str(e):
             exceptions.append(e)
             pass
-        else:
+        else:  # Other type errors should be raised.
             raise e
     else:
         return batch
 
     try:
+        # Make sure batch has key before setting it.
+        getattr(batch, key)
         setattr(batch, key, value)
 
-    # If both setattr and __setitem__ raise exceptions then raise both of them.
+    # If both (setattr or getattr) and __setitem__ raise exceptions then raise both of them.
     except (AttributeError, TypeError) as e:
         exceptions.append(e)
         raise Exception(exceptions)
@@ -166,11 +173,11 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
 
 def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
     """Sets multiple key value pairs in a non-tuple batch."""
-    # Numpy arrays and Torch tensors can take tuples and lists as keys.
+    # Numpy arrays and Torch tensors can take tuples and lists as keys, so try to do a normal
+    # __getitem__ call before resulting to list comprehension.
     try:
         # Check if one can do a __getitem__ before doing a __setitem__ because dicts can
-        # do __setitem__ for elements not in the dict and we do not want that for sequence
-        # keys.
+        # do __setitem__ for elements not in the dict and we do not want that.
         batch[key]
         batch[key] = value
         return batch

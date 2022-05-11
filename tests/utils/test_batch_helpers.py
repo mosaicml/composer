@@ -352,3 +352,17 @@ def test_set_with_mismatched_key_values(example_list):
         batch_set(example_list, key=[1, 3, 5], value=[1, 2])
     with pytest.raises(ValueError):
         batch_set(example_list, key=[1, 3, 5], value=1)
+
+
+# It's almost impossible to stop Counter and defaultdict from adding
+# new items, so we don't incliude them here.
+@pytest.mark.parametrize('batch', [
+    dict(zip(keys, my_list)),
+    MyClass(**dict(zip(keys, my_list))),
+    my_named_tuple(*my_list),
+    ChainMap(dict(zip(keys, my_list)), dict(a=7, j=3)),
+    OrderedDict(**dict(zip(keys, my_list)))
+])
+def test_batch_set_with_new_key_fails(batch):
+    with pytest.raises(Exception):
+        batch_set(batch, key='key_that_is_certainly_not_present', value=5)
