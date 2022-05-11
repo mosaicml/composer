@@ -52,7 +52,7 @@ class EarlyStopper(Callback):
             monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
             monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
             should be set to 'train' or 'eval' respectively.
-        comp (Callable[[Any, Any], Any], optional): A comparison operator to measure change of the monitored metric. The comparison
+        comp (Union[str, Callable[[Any, Any], Any]], optional): A comparison operator to measure change of the monitored metric. The comparison
             operator will be called ``comp(current_value, prev_best)``. For metrics where the optimal value is low
             (error, loss, perplexity), use a less than operator and for metrics like accuracy where the optimal value
             is higher, use a greater than operator. Defaults to :func:`torch.less` if loss, error, or perplexity are substrings
@@ -67,10 +67,10 @@ class EarlyStopper(Callback):
         self,
         monitor: str,
         dataloader_label: str,
-        comp: Optional[Callable[[
+        comp: Optional[Union[str, Callable[[
             Any,
             Any,
-        ], Any]] = None,
+        ], Any]]] = None,
         min_delta: float = 0.0,
         patience: Union[int, str, Time] = 1,
     ):
@@ -78,6 +78,15 @@ class EarlyStopper(Callback):
         self.dataloader_label = dataloader_label
         self.comp = comp
         self.min_delta = abs(min_delta)
+        if isinstance(self.comp, str):
+            if self.comp.lower() in ("greater", "gt"):
+                self.comp = torch.greater
+            elif self.comp.lower() in ("less", "lt"):
+                self.comp = torch.less
+            else:
+                raise ValueError(
+                    "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator"
+                )
         if self.comp is None:
             if any(substr in monitor.lower() for substr in ["loss", "error", "perplexity"]):
                 self.comp = torch.less

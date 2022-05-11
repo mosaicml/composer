@@ -157,14 +157,9 @@ class EarlyStopperHparams(CallbackHparams):
         Returns:
             EarlyStopper: An instance of :class:`~.EarlyStopper`.
         """
-        comp_function = None
-        if self.comp in ("greater", "gt"):
-            comp_function = torch.greater
-        elif self.comp in ("less", "lt"):
-            comp_function = torch.less
         return EarlyStopper(monitor=self.monitor,
                             dataloader_label=self.dataloader_label,
-                            comp=comp_function,
+                            comp=self.comp,
                             min_delta=self.min_delta,
                             patience=self.patience)
 
@@ -202,16 +197,11 @@ class ThresholdStopperHparams(CallbackHparams):
         Returns:
             ThresholdStopper: An instance of :class:`~.ThresholdStopper`.
         """
-        comp_function = None
-        if self.comp in ("greater", "gt"):
-            comp_function = torch.greater
-        elif self.comp in ("less", "lt"):
-            comp_function = torch.less
         return ThresholdStopper(
             monitor=self.monitor,
             dataloader_label=self.dataloader_label,
             threshold=self.threshold,
-            comp=comp_function,
+            comp=self.comp,
             stop_on_batch=self.stop_on_batch,
         )
 

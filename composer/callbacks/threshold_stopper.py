@@ -3,7 +3,7 @@
 
 """Threshold stopping callback."""
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Union
 
 import torch
 
@@ -61,13 +61,25 @@ class ThresholdStopper(Callback):
                  dataloader_label: str,
                  threshold: float,
                  *,
-                 comp: Optional[Callable[[Any, Any], Any]] = None,
+                 comp: Optional[Union[str, Callable[[
+                     Any,
+                     Any,
+                 ], Any]]] = None,
                  stop_on_batch: bool = False):
         self.monitor = monitor
         self.threshold = threshold
         self.comp = comp
         self.dataloader_label = dataloader_label
         self.stop_on_batch = stop_on_batch
+        if isinstance(self.comp, str):
+            if self.comp.lower() in ("greater", "gt"):
+                self.comp = torch.greater
+            elif self.comp.lower() in ("less", "lt"):
+                self.comp = torch.less
+            else:
+                raise ValueError(
+                    "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator"
+                )
         if self.comp is None:
             if any(substr in monitor.lower() for substr in ["loss", "error", "perplexity"]):
                 self.comp = torch.less
