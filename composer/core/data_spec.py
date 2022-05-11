@@ -1,11 +1,12 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Specifications for operating and training on data."""
 from __future__ import annotations
 
 import collections.abc
 import textwrap
-from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.utils.data
@@ -15,10 +16,10 @@ from composer.utils.iter_helpers import ensure_tuple
 if TYPE_CHECKING:
     from composer.core.types import Batch
 
-__all__ = ["DataSpec"]
+__all__ = ["DataSpec", "ensure_data_spec"]
 
 
-def _split_list(l, num_microbatches):
+def _split_list(l, num_microbatches: int):
     if len(l) < num_microbatches:
         raise ValueError(
             textwrap.dedent(f"""\
@@ -27,7 +28,7 @@ def _split_list(l, num_microbatches):
     return [l[i::num_microbatches] for i in range(num_microbatches)]
 
 
-def _split_tensor(t, num_microbatches):
+def _split_tensor(t, num_microbatches: int):
     if len(t) < num_microbatches:
         raise ValueError(
             textwrap.dedent(f"""\
@@ -36,7 +37,7 @@ def _split_tensor(t, num_microbatches):
     return t.chunk(num_microbatches)
 
 
-def _split_mapping(m, num_microbatches):
+def _split_mapping(m, num_microbatches: int):
     chunked = {}
     for k, v in m.items():
         if isinstance(v, torch.Tensor):
@@ -91,7 +92,7 @@ class DataSpec:
 
     .. doctest::
 
-       >>> # In this case, we apply NormalizationFn 
+       >>> # In this case, we apply NormalizationFn
        >>> # Construct DataSpec as shown below to apply this transformation
        >>> from composer.datasets.utils import NormalizationFn
        >>> CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
@@ -117,11 +118,11 @@ class DataSpec:
         dataloader (Iterable): The dataloader, which can be any iterable that yields batches.
 
         num_samples (int, optional): The total number of samples in an epoch, across all ranks. This field is used by
-            the :class:`~.time.Timer` (training progress tracker). If not specified, then ``len(dataloader.dataset)`` is
+            the :class:`~.time.Timestamp` (training progress tracker). If not specified, then ``len(dataloader.dataset)`` is
             used (if this property is available). Otherwise, the dataset is assumed to be unsized.
 
         num_tokens (int, optional): The total number of tokens in an epoch. This field is used by the
-            :class:`~.time.Timer` (training progress tracker).
+            :class:`~.time.Timestamp` (training progress tracker).
 
         device_transforms ((Batch) -> Batch, optional): Function called by the :class:`~.trainer.Trainer` to modify the
             batch once it has been moved onto the device. For example, this function can be used for GPU-based
@@ -130,7 +131,7 @@ class DataSpec:
 
         split_batch ((Batch, int) -> Sequence[Batch], optional): Function called by the :class:`~.trainer.Trainer` to
             split a batch (the first parameter) into the number of microbatches specified (the second parameter). If the
-            ``dataloader`` yields batches not of type torch.Tensor, Mapping, Tuple, or List, then this function must 
+            ``dataloader`` yields batches not of type torch.Tensor, Mapping, Tuple, or List, then this function must
             be specified.
 
         get_num_samples_in_batch ((Batch) -> int, optional): Function that is called by the :class:`~.trainer.Trainer`
@@ -176,6 +177,15 @@ class DataSpec:
             else:
                 self.num_samples = None
 
+        if isinstance(dataloader, torch.utils.data.DataLoader) and dataloader._iterator is not None:
+            raise ValueError(
+                ("The dataloader has an active iterator. This could occur "
+                 "if `persistent_workers=True` and the dataloader has already been iterated, "
+                 "or if the dataloader is mid-epoch. It is required that the training dataloader "
+                 "does not have an active iterator, so CPU dataset augmentations can be "
+                 "correctly inserted. To fix, please do not iterate over the dataloader before passing it into "
+                 "the Trainer."))
+
     def _default_device_transforms(self, batch: Batch):
         return batch
 
@@ -203,3 +213,21 @@ class DataSpec:
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
         del batch  # unused
         return 0
+
+
+def ensure_data_spec(dataloader: Union[DataSpec, Iterable, dict]) -> DataSpec:
+    """Ensures that the ``dataloader`` is a :class:`.DataSpec`
+
+    Args:
+        dataloader (DataSpec | Iterable | dict): A DataSpec, DataLoader, or Dict of DataSpec kwargs.
+
+    Returns:
+        DataSpec: A DataSpec
+    """
+    if isinstance(dataloader, dict):
+        # treat as kwargs for DataSpec
+        dataloader = DataSpec(**dataloader)
+    if not isinstance(dataloader, DataSpec):
+        dataloader = DataSpec(dataloader)
+
+    return dataloader

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import textwrap
 from dataclasses import asdict, dataclass
@@ -269,8 +270,8 @@ class ProgressiveResizingHparams(AlgorithmHparams):
     initial_scale: float = hp.optional(doc="Initial scale factor", default=0.5)
     finetune_fraction: float = hp.optional(doc="Fraction of training to reserve for finetuning on full-sized inputs",
                                            default=0.2)
-    delay_fraction: float = hp.optional(doc="Fraction of training before resizing ramp begins", default=0.0)
-    size_increment: int = hp.optional(doc="Align sizes to a multiple of this number.", default=1)
+    delay_fraction: float = hp.optional(doc="Fraction of training before resizing ramp begins", default=0.5)
+    size_increment: int = hp.optional(doc="Align sizes to a multiple of this number.", default=4)
     resize_targets: bool = hp.optional(doc="Also resize targets", default=False)
 
     def initialize_object(self) -> ProgressiveResizing:
