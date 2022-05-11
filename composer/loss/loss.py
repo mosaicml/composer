@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Custom loss functions."""
 
@@ -26,8 +27,8 @@ def binary_cross_entropy_with_logits(
     pos_weight: Optional[Tensor] = None,
     scale_by_batch_size: Optional[bool] = True,
 ) -> torch.Tensor:
-    r"""Replacement for 
-    :class:`~torch.nn.functional.binary_cross_entropy_with_logits` that can handle class 
+    r"""Replacement for
+    :class:`~torch.nn.functional.binary_cross_entropy_with_logits` that can handle class
     indices or one-hot labels.
 
     :class:`~torch.nn.functional.binary_cross_entropy_with_logits` with ``reduction =
@@ -83,7 +84,7 @@ def soft_cross_entropy(input: Tensor,
                        reduce: Optional[bool] = None,
                        reduction: str = 'mean'):
     r"""Drop-in replacement for :class:`~torch.nn.functional.cross_entropy` that can
-     handle class indices or one-hot labels. 
+     handle class indices or one-hot labels.
     Args:
         input (torch.Tensor) : :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
             in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`

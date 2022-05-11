@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Profiler Marker."""
 
@@ -38,7 +39,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -54,7 +56,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -120,7 +123,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -182,7 +186,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -207,7 +212,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
