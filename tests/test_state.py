@@ -5,6 +5,7 @@ import pathlib
 import random
 from unittest.mock import Mock
 
+import pytest
 import torch
 import torch.nn.functional as F
 from torch.functional import Tensor
@@ -113,8 +114,8 @@ def test_state_batch_set_item(monkeypatch):
     mock_batch_set = Mock()
     mock_batch_set.return_value = [7, 10]
     monkeypatch.setattr(state_module, 'batch_set', mock_batch_set)
-    state.batch_set_item(1, 154)
-    mock_batch_set.assert_called_once_with([1, 2], 1, 154, None)
+    state.batch_set_item(key=1, value=154)
+    mock_batch_set.assert_called_once_with([1, 2], key=1, value=154, set_fn=None)
 
 
 def test_state_batch_get_item_callable(monkeypatch):
@@ -138,4 +139,17 @@ def test_state_batch_set_item_callable(monkeypatch):
         return x
 
     state.batch_set_item(value=3, set_fn=setter)
-    mock_batch_set.assert_called_once_with([1, 2], None, 3, setter)
+    mock_batch_set.assert_called_once_with([1, 2], key=None, value=3, set_fn=setter)
+
+
+def test_batch_set_item_errors(monkeypatch):
+    state = get_dummy_state()
+    state.batch = [1, 2]
+    mock_setter = Mock()
+    # key and set_fn unset.
+    with pytest.raises(ValueError):
+        state.batch_set_item(value=2)
+
+    # key and set_fn set.
+    with pytest.raises(ValueError):
+        state.batch_set_item(key=1, value=2, set_fn=mock_setter)
