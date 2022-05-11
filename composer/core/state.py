@@ -336,7 +336,7 @@ class State(Serializable):
     def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
-    def batch_set_item(self, key: Optional[Any] = None, value: Optional[Any] = None, set_fn: Optional[Callable] = None):
+    def batch_set_item(self, key: Optional[Any] = None, value: Any = None, set_fn: Optional[Callable] = None):
         self.batch = batch_set(self.batch, key, value, set_fn)
 
     def batch_get_item(self, key: Optional[Any] = None, get_fn: Optional[Callable] = None):

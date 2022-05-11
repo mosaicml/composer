@@ -132,6 +132,10 @@ def test_state_batch_set_item_callable(monkeypatch):
     state.batch = [1, 2]
     mock_batch_set = Mock()
     monkeypatch.setattr(state_module, 'batch_set', mock_batch_set)
-    setter = lambda x: x[1]
-    state.batch_set_item(set_fn=setter)
-    mock_batch_set.assert_called_once_with([1, 2], None, None, setter)
+
+    def setter(x, v):
+        x[0] = v
+        return x
+
+    state.batch_set_item(value=3, set_fn=setter)
+    mock_batch_set.assert_called_once_with([1, 2], None, 3, setter)

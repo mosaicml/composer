@@ -311,8 +311,8 @@ def example_get_callable():
 @pytest.fixture
 def example_set_callable():
 
-    def my_set_callable(batch):
-        batch[1]['d'][0] = 11
+    def my_set_callable(batch, value):
+        batch[1]['d'][0] = value
         return batch
 
     return my_set_callable
@@ -323,15 +323,28 @@ def test_batch_get_callable(example_complicated_object, example_get_callable):
 
 
 def test_batch_set_callable(example_complicated_object, example_set_callable, example_get_callable):
-    new_batch = batch_set(example_complicated_object, set_fn=example_set_callable)
+    new_batch = batch_set(example_complicated_object, value=11, set_fn=example_set_callable)
     assert batch_get(new_batch, get_fn=example_get_callable) == 11
 
 
-def test_all_nones(example_complicated_object):
+def test_batch_get_errors(example_complicated_object):
+    # Neither key nor gert_fn specified
     with pytest.raises(ValueError):
         batch_get(example_complicated_object)
+
+
+def test_batch_set_errors(example_complicated_object, example_set_callable):
+    # value unset.
+    with pytest.raises(ValueError):
+        batch_set(example_complicated_object, set_fn=example_set_callable)
+
+    # key and set_fn unset.
     with pytest.raises(ValueError):
         batch_set(example_complicated_object)
+
+    # key and set_fn set.
+    with pytest.raises(ValueError):
+        batch_set(example_complicated_object, key=1, set_fn=example_set_callable)
 
 
 def test_set_with_mismatched_key_values(example_list):

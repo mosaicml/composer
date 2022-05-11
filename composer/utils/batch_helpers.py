@@ -81,10 +81,7 @@ def _batch_get_multiple(batch: Any, key: Any):
     return [_batch_get(batch, k) for k in key]
 
 
-def batch_set(batch: Any,
-              key: Optional[Any] = None,
-              value: Optional[Any] = None,
-              set_fn: Optional[Callable] = None) -> Any:
+def batch_set(batch: Any, key: Optional[Any] = None, value: Any = None, set_fn: Optional[Callable] = None) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
@@ -115,12 +112,19 @@ def batch_set(batch: Any,
         batch (Any): updated batch with value set at key.
 
     Raises:
-        ValueError if key or value are unset and set_fn is unset.
+        ValueError if:
+            * value is unset
+            * key and set_fn are both unset
+            * key and set_fn are both set
     """
-    if (key is None or value is None) and set_fn is None:
-        raise ValueError("key and value or set_fn must be specified and neither were!")
-    if set_fn is not None:
-        return set_fn(batch)
+    if value is None:
+        raise ValueError('value must be set!')
+    if key is None and set_fn is None:
+        raise ValueError("key or set_fn must be specified and neither were!")
+    if key is not None and set_fn is not None:
+        raise ValueError("key and set_fn were both set. Only one can be set!")
+    if set_fn:
+        return set_fn(batch, value)
     if isinstance(key, Sequence) and not isinstance(key, str):
         return _batch_set_multiple(batch, key, value)
     else:
