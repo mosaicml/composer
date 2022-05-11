@@ -55,6 +55,8 @@ else:
 # They exist purely for pyright and should never need
 __all__ = ["TrainerHparams", "FitHparams", "EvalHparams", "ExperimentHparams"]
 
+Scheduler = Union[ComposerScheduler, PyTorchScheduler]
+
 optimizer_registry = {
     "adam": AdamHparams,
     "adamw": AdamWHparams,
@@ -350,9 +352,9 @@ class TrainerHparams(hp.Hparams):
         doc="Ratio by which to scale the training duration and learning rate schedules.",
         default=1.0,
     )
-    step_schedulers_every_batch: bool = hp.optional(
+    step_schedulers_every_batch: Optional[bool] = hp.optional(
         doc="Whether schedulers will update after every optimizer step (True), or every epoch (False).",
-        default=True,
+        default=None,
     )
 
     # Evaluation
@@ -707,8 +709,7 @@ class FitKwargs(TypedDict):
     duration: Optional[Union[int, str, Time[int]]]
 
     # Schedulers
-    schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
-                                                                                   PyTorchScheduler]]]]
+    schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]]
     scale_schedule_ratio: float
     step_schedulers_every_batch: Optional[bool]
 
@@ -777,9 +778,9 @@ class FitHparams(hp.Hparams):
         doc="Ratio by which to scale the training duration and learning rate schedules.",
         default=1.0,
     )
-    step_schedulers_every_batch: bool = hp.optional(
+    step_schedulers_every_batch: Optional[bool] = hp.optional(
         doc="Whether schedulers will update after every optimizer step (True), or every epoch (False).",
-        default=True,
+        default=None,
     )
 
     # Evaluation
