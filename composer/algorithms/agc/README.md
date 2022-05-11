@@ -59,15 +59,12 @@ trainer.fit()
 
 ### Implementation Details
 
-AGC is implemented as follows. On `Event.AFTER_TRAIN_BATCH`:
-1. For every parameter in the model that has gradients:
-    a. The L2 norm of the parameter is computed (normalized across rows for MLP's, across entire filters for CNN's, and across the entire vector for biases).
-    b. The L2 norm of each parameters corresponding gradients are computed in a similar fashion.
-    c. If a norm of some gradients is greater than the norm of the correpsonding weights multiplied by the `clipping_threshold`:
-            * Scale all the gradients that contributed to that norm by the clipping threshold multiplied by the ratio of weight norm to the gradient norm.
-        Otherwise:
-            * Keep those gradients the same.
+AGC is implemented as follows:
 
+On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradients:
+1. Compute the parameter's weight norm with an L2 norm (normalized across rows for MLP's, across entire filters for CNN's, and across the entire vector for biases).
+2. Compute the parameter's gradient norm with an L2 norm.
+3. If `grad_norm > weight_norm * clipping_threshold`, scale all the contributing gradients by `clipping_threshold * (weight_norm / grad_norm)`. 
 
 
 ## Suggested Hyperparameters

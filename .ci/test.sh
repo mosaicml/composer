@@ -12,7 +12,7 @@ MARKERS="$2"
 if [ -z "${EXTRA_DEPS}" ]; then
     pip install .
 else
-    pip install .[${EXTRA_DEPS}]
+    pip install ".[${EXTRA_DEPS}]"
 fi
 
 # Clean and make the output directory

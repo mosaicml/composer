@@ -124,7 +124,7 @@ into a dictionary:
                 for k, v in data.items():
                     if k not in self.data:
                         self.data[k] = []
-                    self.data[k].append((state.timer.get_timestamp(), log_level, v))
+                    self.data[k].append((state.timestamp, log_level, v))
 
     # Construct a trainer using this logger
     trainer = Trainer(..., loggers=[DictionaryLogger()])

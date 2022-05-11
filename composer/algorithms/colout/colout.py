@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core ColOut classes and functions."""
 
@@ -44,7 +45,7 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
             new_X = colout_batch(X_example, p_row=0.15, p_col=0.15)
 
     Args:
-        sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:):
+        sample (:class:`torch.Tensor` | PIL.Image | Tuple[:class:`torch.Tensor`, :class:`torch.Tensor`] | Tuple[PIL.Image, PIL.Image]):
             Either a single tensor or image or a 2-tuple of tensors or images. When tensor(s), the tensor must be of shape
             ``CHW`` for a single image or ``NCHW`` for a batch of images of shape.
         p_row (float, optional): Fraction of rows to drop (drop along H). Default: ``0.15``.
@@ -137,8 +138,8 @@ class ColOutTransform:
         """Drops random rows and columns from up to two images.
 
         Args:
-            sample (torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]):
-                A single image or a 2-tuple of images as either torch.Tensor or PIL.Image.
+            sample (:class:`torch.Tensor` | PIL.Image | Tuple[:class:`torch.Tensor`, :class:`torch.Tensor`] | Tuple[PIL.Image, PIL.Image]):
+                A single image or a 2-tuple of images as either :class:`torch.Tensor` or PIL.Image.
 
         Returns:
             torch.Tensor | PIL.Image | Tuple[torch.Tensor, torch.Tensor] | Tuple[PIL.Image, PIL.Image]:

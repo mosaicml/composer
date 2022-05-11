@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helpers for running distributed data parallel training."""
 
@@ -12,7 +13,7 @@ from composer.core.state import State
 from composer.utils import dist
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["DDPSyncStrategy"]
+__all__ = ["DDPSyncStrategy", "ddp_sync_context", "prepare_ddp_module"]
 
 
 class DDPSyncStrategy(StringEnum):
@@ -45,14 +46,14 @@ class DDPSyncStrategy(StringEnum):
 
 
 @contextmanager
-def _ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
+def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Union[str, DDPSyncStrategy]):
     """A context manager for handling the :class:`DDPSyncStrategy`.
 
     Args:
         state (State): The state of the :class:`~composer.trainer.trainer.Trainer`.
         is_final_microbatch (bool): Whether or not the context is being used during the final
             microbatch of the gradient accumulation steps.
-        sync_strategy (str or DDPSyncStrategy): The ddp sync strategy to use. If a string
+        sync_strategy (str | DDPSyncStrategy): The ddp sync strategy to use. If a string
             is provided, the string must be one of the values in :class:`DDPSyncStrategy`.
     """
     if not isinstance(state.model, DistributedDataParallel):
@@ -91,7 +92,7 @@ def _ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Un
         raise ValueError("Unknown sync strategy", sync_strategy)
 
 
-def _prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
+def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
     """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
 
     Args:
