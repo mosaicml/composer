@@ -19,13 +19,14 @@ __all__ = ["MemoryMonitor"]
 class MemoryMonitor(Callback):
     """Logs the memory usage of the model.
 
-    This callback calls the torch memory stats API for cuda (see :func:`torch.cuda.memory_stats`) on the
-    :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` and reports different memory statistics.
+    This callback calls the torch memory stats API for CUDA (see :func:`torch.cuda.memory_stats`)
+    on the :attr:`.Event.AFTER_TRAIN_BATCH` and reports different memory statistics.
 
     Example
 
     .. doctest::
 
+        >>> from composer import Trainer
         >>> from composer.callbacks import MemoryMonitor
         >>> # constructing trainer object with this callback
         >>> trainer = Trainer(
@@ -49,7 +50,7 @@ class MemoryMonitor(Callback):
     +==========================+=============================================================+
     |                          | Several memory usage statistics                             |
     | ``memory/{statistic}``   | are logged on                                               |
-    |                          | :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` event. |
+    |                          | :attr:`.Event.AFTER_TRAIN_BATCH` event.                     |
     +--------------------------+-------------------------------------------------------------+
 
     The following statistics are recorded:
@@ -73,7 +74,7 @@ class MemoryMonitor(Callback):
     +----------------+--------------------------------------------------------------------------------+
 
     .. note::
-        Memory usage monitoring is only supported for the GPU devices.
+        Memory usage monitoring is only supported for GPU devices.
     """
 
     def __init__(self):
