@@ -336,15 +336,19 @@ class State(Serializable):
     def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
-    def batch_set_item(self, *, key: Optional[Any] = None, value: Any, set_fn: Optional[Callable] = None):
+    def batch_get_item(self, key: Optional[Any] = None, get_fn: Optional[Callable[[Any], Any]] = None):
+        return batch_get(self.batch, key, get_fn)
+
+    def batch_set_item(self,
+                       *,
+                       key: Optional[Any] = None,
+                       value: Any,
+                       set_fn: Optional[Callable[[Any, Any], Any]] = None):
         if key is None and set_fn is None:
             raise ValueError("key or set_fn must be specified and neither were!")
         if key is not None and set_fn is not None:
             raise ValueError("key and set_fn were both set. Only one can be set!")
         self.batch = batch_set(self.batch, key=key, value=value, set_fn=set_fn)
-
-    def batch_get_item(self, key: Optional[Any] = None, get_fn: Optional[Callable] = None):
-        return batch_get(self.batch, key, get_fn)
 
     @property
     def callbacks(self):

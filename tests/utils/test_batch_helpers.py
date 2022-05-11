@@ -327,14 +327,14 @@ def test_batch_set_callable(example_complicated_object, example_set_callable, ex
     assert batch_get(new_batch, get_fn=example_get_callable) == 11
 
 
-def test_batch_get_errors(example_complicated_object):
+def test_batch_get_errors(example_complicated_object, example_get_callable):
     # Neither key nor gert_fn specified
     with pytest.raises(ValueError):
         batch_get(example_complicated_object)
 
     # key and get_fn set.
     with pytest.raises(ValueError):
-        batch_get(example_complicated_object, key=1, get_fn=example_set_callable)
+        batch_get(example_complicated_object, key=1, get_fn=example_get_callable)
 
 
 def test_batch_set_errors(example_complicated_object, example_set_callable):

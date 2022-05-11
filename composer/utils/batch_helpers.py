@@ -6,7 +6,7 @@ from typing import Any, Callable, Optional, Sequence, Union
 __all__ = ['batch_get', 'batch_set']
 
 
-def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable] = None) -> Any:
+def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable[[Any], Any]] = None) -> Any:
     """Indexes into the batch given the key.
 
     >>> batch_get([1,2,3], 1)
@@ -83,7 +83,11 @@ def _batch_get_multiple(batch: Any, key: Any):
     return [_batch_get(batch, k) for k in key]
 
 
-def batch_set(batch: Any, *, key: Optional[Any] = None, value: Any, set_fn: Optional[Callable] = None) -> Any:
+def batch_set(batch: Any,
+              *,
+              key: Optional[Any] = None,
+              value: Any,
+              set_fn: Optional[Callable[[Any, Any], Any]] = None) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
@@ -108,7 +112,7 @@ def batch_set(batch: Any, *, key: Optional[Any] = None, value: Any, set_fn: Opti
         value (Any): The value that batch[key] or batch.key gets set to.
         set_fn (Callable): A user-specified function to do the setting. Note, key and 
             value will be ignored if set_fn is specified. set_fn is optional if key and 
-            value are supplied.
+            value are supplied. set_fn must return the updated batch.
 
     Returns:
         batch (Any): updated batch with value set at key.
