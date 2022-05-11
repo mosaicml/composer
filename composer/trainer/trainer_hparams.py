@@ -998,6 +998,7 @@ class ExperimentHparams(hp.Hparams):
             train_dataset=RandomClassificationDatasetHparams(),
             train_batch_size=1,
             train_subset_num_batches=1,
+            reset_time=True,
         )
         fit_2_hparams = fit_1_hparams
         eval_1_hparams = EvalHparams(
