@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 """A convenience class that creates a :class:`.ComposerModel` for classification tasks from a vanilla PyTorch model.
 
 :class:`.ComposerClassifier` requires batches in the form: (``input``, ``target``) and includes a basic
@@ -32,7 +35,7 @@ class ComposerClassifier(ComposerModel):
         module (torch.nn.Module): A PyTorch neural network module.
         loss_name (str, optional): Loss function to use. E.g. 'soft_cross_entropy' or
             'binary_cross_entropy_with_logits'. Loss function must be in
-            :mod:`~composer.loss.loss`. Default: ``'soft_cross_entropy'``".      
+            :mod:`~composer.loss.loss`. Default: ``'soft_cross_entropy'``".
 
     Returns:
         ComposerClassifier: An instance of :class:`.ComposerClassifier`.

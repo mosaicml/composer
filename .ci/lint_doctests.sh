@@ -6,7 +6,7 @@ set -euxo pipefail
 # executed only once on an install with all dependencies
 
 # Install dependencies
-pip install .[all]
+pip install '.[all]'
 
 # Mark the root folder as trusted (necessarry for pre-commit hooks to work on Jenkins)
 git config --global --add safe.directory $WORKSPACE

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Logger Hyperparameter classes.
 
@@ -234,7 +235,7 @@ class InMemoryLoggerHparams(LoggerDestinationHparams):
     hyperparameters.
 
     Args:
-        log_level (str or LogLevel, optional):
+        log_level (str | LogLevel, optional):
             See :class:`~composer.loggers.in_memory_logger.InMemoryLogger`.
     """
     log_level: LogLevel = hp.optional("The maximum verbosity to log. Default: BATCH", default=LogLevel.BATCH)

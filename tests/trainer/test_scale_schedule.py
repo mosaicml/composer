@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from typing import List
 
@@ -87,7 +88,7 @@ class CheckScaleSchedule(Callback):
         for test_step, target_lr in zip(test_steps, target_lrs):
 
             while current_step < test_step:
-                state.timer.on_batch_complete()
+                state.timestamp = state.timestamp.to_next_batch()
                 current_step += 1
 
             scheduler.step()

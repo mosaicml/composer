@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Download handling for :class:`StreamingDataset`.
 """
@@ -39,8 +40,8 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
         timeout (float): How long to wait for shard to download before raising an exception.
     """
     try:
-        import boto3
-        from botocore import Config
+        import boto3  # type: ignore (third-party)
+        from botocore import Config  # type: ignore (third-party)
     except ImportError as e:
         raise ImportError(
             textwrap.dedent("""\
