@@ -19,7 +19,7 @@ import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
 from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
                                 MLPerfCallbackHparams, SpeedMonitorHparams)
-from composer.callbacks.callback_hparams import EarlyStopperHparams
+from composer.callbacks.callback_hparams import EarlyStopperHparams, ThresholdStopperHparams
 from composer.core import Precision
 from composer.core.types import JSON
 from composer.datasets import DataLoaderHparams, DatasetHparams
@@ -98,6 +98,7 @@ callback_registry = {
     "memory_monitor": MemoryMonitorHparams,
     "mlperf": MLPerfCallbackHparams,
     "early_stopper": EarlyStopperHparams,
+    "threshold_stopper": ThresholdStopperHparams,
 }
 
 device_registry = {

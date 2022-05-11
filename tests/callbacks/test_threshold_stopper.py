@@ -1,58 +1,35 @@
-from typing import List, Sequence
+from typing import List
 
 import pytest
-from torch import tensor
 from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.callbacks.threshold_stopper import ThresholdStopper
-from composer.core import State
-from composer.core.callback import Callback
 from composer.core.time import TimeUnit
-from composer.loggers import Logger
-from tests.common import RandomClassificationDataset, SimpleModel
+from composer.trainer.devices.device_cpu import DeviceCPU
+from composer.trainer.devices.device_gpu import DeviceGPU
+from tests.callbacks.test_early_stopper import TestMetricSetter
+from tests.common import RandomClassificationDataset, SimpleModel, device
 
 
-class TestMetricSetter(Callback):
-
-    def __init__(self, monitor: str, dataloader_label: str, metric_sequence: Sequence, unit: TimeUnit):
-        self.monitor = monitor
-        self.dataloader_label = dataloader_label
-        self.metric_sequence = metric_sequence
-        self.unit = unit
-
-    def _update_metrics(self, state: State):
-        idx = min(len(self.metric_sequence) - 1, state.timer.get(self.unit).value)
-        metric_val = self.metric_sequence[idx]
-        state.current_metrics[self.dataloader_label] = state.current_metrics.get(self.dataloader_label, dict())
-        state.current_metrics[self.dataloader_label][self.monitor] = tensor(metric_val)
-
-    def eval_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label != "train":
-            self._update_metrics(state)
-
-    def epoch_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label == "train":
-            self._update_metrics(state)
-
-    def batch_end(self, state: State, logger: Logger) -> None:
-        if self.unit == TimeUnit.BATCH:
-            self._update_metrics(state)
-
-
+@device('cpu', 'gpu')
 @pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8], [0.6, 0.7]])
 @pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
-def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit):
+def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit, device: str):
     metric_threshold = 0.65
 
     if unit == TimeUnit.EPOCH:
         dataloader_label = "eval"
+        stop_on_batch = False
     else:
         dataloader_label = "train"
+        stop_on_batch = True
 
-    tstop = ThresholdStopper("Accuracy", dataloader_label, metric_threshold)
+    test_device = DeviceGPU() if device == 'gpu' else DeviceCPU()
 
-    test_metric_setter = TestMetricSetter("Accuracy", dataloader_label, metric_sequence, unit)
+    tstop = ThresholdStopper("Accuracy", dataloader_label, metric_threshold, comp=None, stop_on_batch=stop_on_batch)
+
+    test_metric_setter = TestMetricSetter("Accuracy", dataloader_label, metric_sequence, unit, test_device)
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),
@@ -75,4 +52,4 @@ def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit):
         if metric_threshold > metric:
             count_before_threshold += 1
 
-    assert trainer.state.timer.get(unit).value == count_before_threshold
+    assert trainer.state.timestamp.get(unit).value == count_before_threshold

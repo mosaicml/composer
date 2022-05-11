@@ -1,6 +1,11 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+"""Threshold stopping callback."""
+
 from typing import Any, Callable, Optional
 
-import numpy as np
+import torch
 
 from composer import Callback
 from composer.core import State
@@ -42,29 +47,33 @@ class ThresholdStopper(Callback):
             callback will stop training in the middle of the epoch.
         threshold (float): The threshold that dictates when to halt training. Whether training stops if the metric
             exceeds or falls below the threshold depends on the comparison operator.
-        comp (Callable[[Any, Any], bool], optional): A comparison operator to measure change of the monitored metric.
-            The comparison operator will be called as `comp(current_value, threshold)`. For metrics where the optimal 
-            value is low (error, loss, perplexity), use a less than operator and for metrics like accuracy where the optimal
-            value is higher, use a greater than operator. Defaults to numpy.less if loss, error, or perplexity are substrings
-            of the monitored metric, otherwise defaults to numpy.greater.
+        comp (Callable[[Any, Any], Any], optional): A comparison operator to measure change of the monitored metric. The comparison
+            operator will be called ``comp(current_value, prev_best)``. For metrics where the optimal value is low
+            (error, loss, perplexity), use a less than operator and for metrics like accuracy where the optimal value
+            is higher, use a greater than operator. Defaults to :func:`torch.less` if loss, error, or perplexity are substrings
+            of the monitored metric, otherwise defaults to :func:`torch.greater`
+        stop_on_batch (bool, optional): A bool that indicates whether to stop training in the middle of an epoch if
+            the training metrics satisfy the threshold comparison. Defaults to False.
     """
 
-    def __init__(
-        self,
-        monitor: str,
-        dataloader_label: str,
-        threshold: float,
-        comp: Optional[Callable[[Any, Any], bool]] = None,
-    ):
+    def __init__(self,
+                 monitor: str,
+                 dataloader_label: str,
+                 threshold: float,
+                 *,
+                 comp: Optional[Callable[[Any, Any], Any]] = None,
+                 stop_on_batch: bool = False):
         self.monitor = monitor
         self.threshold = threshold
         self.comp = comp
         self.dataloader_label = dataloader_label
+        self.stop_on_batch = stop_on_batch
         if self.comp is None:
             if any(substr in monitor.lower() for substr in ["loss", "error", "perplexity"]):
-                self.comp = np.less
+                self.comp = torch.less
             else:
-                self.comp = np.greater
+                self.comp = torch.greater
+        pass
 
     def _get_monitored_metric(self, state: State):
         if self.dataloader_label in state.current_metrics:
@@ -75,18 +84,24 @@ class ThresholdStopper(Callback):
 
     def _compare_metric_and_update_state(self, state: State):
         metric_val = self._get_monitored_metric(state)
+
+        if not torch.is_tensor(metric_val):
+            metric_val = torch.tensor(metric_val)
+
         assert self.comp is not None
         if self.comp(metric_val, self.threshold):
-            state.max_duration = state.timer.batch
+            state.max_duration = state.timestamp.batch
 
-    def batch_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label == "train":
+    def eval_end(self, state: State, logger: Logger) -> None:
+        if self.dataloader_label == state.dataloader_label:
+            # if the monitored metric is an eval metric or in an evaluator
             self._compare_metric_and_update_state(state)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label == "train":
+        if self.dataloader_label == state.dataloader_label:
+            # if the monitored metric is not an eval metric, the right logic is run on EPOCH_END
             self._compare_metric_and_update_state(state)
 
-    def eval_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label != "train":
+    def batch_end(self, state: State, logger: Logger) -> None:
+        if self.stop_on_batch and self.dataloader_label == state.dataloader_label:
             self._compare_metric_and_update_state(state)
