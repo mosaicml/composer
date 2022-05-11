@@ -19,14 +19,15 @@ class SpeedMonitor(Callback):
     """Logs the training throughput.
 
     The training throughput in terms of number of samples per second is logged on the
-    :attr:`~composer.core.event.Event.BATCH_END` event if we have reached the ``window_size`` threshold.  Per epoch
-    average throughput and wall clock train time is also logged on the :attr:`~composer.core.event.Event.EPOCH_END`
-    event.
+    :attr:`.Event.BATCH_END` event if we have reached the ``window_size`` threshold.
+    Per epoch average throughput and wall clock train time is also logged on the 
+    :attr:`.Event.EPOCH_END` event.
 
     Example
 
     .. doctest::
 
+        >>> from composer import Trainer
         >>> from composer.callbacks import SpeedMonitor
         >>> # constructing trainer object with this callback
         >>> trainer = Trainer(
@@ -49,18 +50,18 @@ class SpeedMonitor(Callback):
     | Key                   | Logged data                                                 |
     +=======================+=============================================================+
     |                       | Rolling average (over ``window_size`` most recent           |
-    | ``throughput/step``   | batches) of the number of samples processed per second      |
+    | ``throughput/step``   | batches) of the number of samples processed per second.     |
     |                       |                                                             |
     +-----------------------+-------------------------------------------------------------+
     |                       | Number of samples processed per second (averaged over       |
-    | ``throughput/epoch``  | an entire epoch)                                            |
+    | ``throughput/epoch``  | an entire epoch).                                           |
     +-----------------------+-------------------------------------------------------------+
-    |``wall_clock_train``   | Total elapsed training time                                 |
+    |``wall_clock_train``   | Total elapsed training time.                                |
     +-----------------------+-------------------------------------------------------------+
 
     Args:
-        window_size (int, optional):
-            Number of batches to use for a rolling average of throughput. Default to 100.
+        window_size (int, optional): Number of batches to use for a rolling average of throughput.
+            Default: ``100``.
     """
 
     def __init__(self, window_size: int = 100):
@@ -80,7 +81,7 @@ class SpeedMonitor(Callback):
         The returned dictionary is pickle-able via :func:`torch.save`.
 
         Returns:
-            Dict[str, Any]: The state of the SpeedMonitor object
+            Dict[str, Any]: The state of the SpeedMonitor object.
         """
         current_time = time.time()
         return {
@@ -96,7 +97,7 @@ class SpeedMonitor(Callback):
 
         Args:
             state (Dict[str, Any]): The state of the object,
-                as previously returned by :meth:`.state_dict`
+                as previously returned by :meth:`.state_dict`.
         """
         self.loaded_state = state
 
