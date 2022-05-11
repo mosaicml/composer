@@ -76,22 +76,23 @@ class EarlyStopper(Callback):
     ):
         self.monitor = monitor
         self.dataloader_label = dataloader_label
-        self.comp = comp
         self.min_delta = abs(min_delta)
-        if isinstance(self.comp, str):
-            if self.comp.lower() in ("greater", "gt"):
-                self.comp = torch.greater
-            elif self.comp.lower() in ("less", "lt"):
-                self.comp = torch.less
+        if callable(comp):
+            self.comp_func = comp
+        if isinstance(comp, str):
+            if comp.lower() in ("greater", "gt"):
+                self.comp_func = torch.greater
+            elif comp.lower() in ("less", "lt"):
+                self.comp_func = torch.less
             else:
                 raise ValueError(
                     "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator"
                 )
-        if self.comp is None:
+        if comp is None:
             if any(substr in monitor.lower() for substr in ["loss", "error", "perplexity"]):
-                self.comp = torch.less
+                self.comp_func = torch.less
             else:
-                self.comp = torch.greater
+                self.comp_func = torch.greater
 
         self.best = None
         self.best_occurred = None
@@ -118,11 +119,10 @@ class EarlyStopper(Callback):
         if not torch.is_tensor(metric_val):
             metric_val = torch.tensor(metric_val)
 
-        assert self.comp is not None
         if self.best is None:
             self.best = metric_val
             self.best_occurred = state.timestamp
-        elif self.comp(metric_val, self.best) and torch.abs(metric_val - self.best) > self.min_delta:
+        elif self.comp_func(metric_val, self.best) and torch.abs(metric_val - self.best) > self.min_delta:
             self.best = metric_val
             self.best_occurred = state.timestamp
 

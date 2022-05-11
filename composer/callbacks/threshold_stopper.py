@@ -68,24 +68,24 @@ class ThresholdStopper(Callback):
                  stop_on_batch: bool = False):
         self.monitor = monitor
         self.threshold = threshold
-        self.comp = comp
         self.dataloader_label = dataloader_label
         self.stop_on_batch = stop_on_batch
-        if isinstance(self.comp, str):
-            if self.comp.lower() in ("greater", "gt"):
-                self.comp = torch.greater
-            elif self.comp.lower() in ("less", "lt"):
-                self.comp = torch.less
+        if callable(comp):
+            self.comp_func = comp
+        if isinstance(comp, str):
+            if comp.lower() in ("greater", "gt"):
+                self.comp_func = torch.greater
+            elif comp.lower() in ("less", "lt"):
+                self.comp_func = torch.less
             else:
                 raise ValueError(
                     "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator"
                 )
-        if self.comp is None:
+        if comp is None:
             if any(substr in monitor.lower() for substr in ["loss", "error", "perplexity"]):
-                self.comp = torch.less
+                self.comp_func = torch.less
             else:
-                self.comp = torch.greater
-        pass
+                self.comp_func = torch.greater
 
     def _get_monitored_metric(self, state: State):
         if self.dataloader_label in state.current_metrics:
@@ -100,8 +100,7 @@ class ThresholdStopper(Callback):
         if not torch.is_tensor(metric_val):
             metric_val = torch.tensor(metric_val)
 
-        assert self.comp is not None
-        if self.comp(metric_val, self.threshold):
+        if self.comp_func(metric_val, self.threshold):
             state.max_duration = state.timestamp.batch
 
     def eval_end(self, state: State, logger: Logger) -> None:
