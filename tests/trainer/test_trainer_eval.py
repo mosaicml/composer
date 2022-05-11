@@ -15,10 +15,9 @@ from tests.common.datasets import RandomClassificationDatasetHparams
 from tests.common.events import EventCounterCallbackHparams
 
 
-@pytest.mark.filterwarnings(r"ignore:.*No `eval_dataloader` was specified.*")
 def test_trainer_eval_only():
     # Construct the trainer
-    trainer = Trainer(model=SimpleModel(),)
+    trainer = Trainer(model=SimpleModel())
 
     # Evaluate the model
     eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
@@ -32,7 +31,6 @@ def test_trainer_eval_only():
     assert trainer.state.current_metrics['eval']['Accuracy'] != 0.0
 
 
-@pytest.mark.filterwarnings(r"ignore:.*No `eval_dataloader` was specified.*")
 def test_trainer_eval_subset_num_batches():
     # Construct the trainer
     event_counter_callback = EventCounterCallback()
@@ -53,6 +51,42 @@ def test_trainer_eval_subset_num_batches():
     # Ensure that just one batch was evaluated
     assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == 1
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == 1
+
+
+def test_trainer_eval_timestamp():
+    # Construct the trainer
+    event_counter_callback = EventCounterCallback()
+    trainer = Trainer(
+        model=SimpleModel(),
+        callbacks=[event_counter_callback],
+    )
+
+    # Evaluate the model
+    eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    trainer.eval(
+        dataloader=eval_dataloader,
+        dataloader_label='eval',
+        metrics=torchmetrics.Accuracy(),
+    )
+
+    # Ensure that the eval timestamp matches the number of evaluation events
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == trainer.state.eval_timestamp.batch
+    assert trainer.state.eval_timestamp.batch == trainer.state.eval_timestamp.batch_in_epoch
+
+    # Ensure that if we eval again, the eval timestamp was reset
+
+    # Reset the event counter callback
+    event_counter_callback.event_to_num_calls = {k: 0 for k in event_counter_callback.event_to_num_calls}
+
+    # Eval again
+    trainer.eval(
+        dataloader=eval_dataloader,
+        dataloader_label='eval',
+        metrics=torchmetrics.Accuracy(),
+    )
+    # Validate the same invariants
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == trainer.state.eval_timestamp.batch
+    assert trainer.state.eval_timestamp.batch == trainer.state.eval_timestamp.batch_in_epoch
 
 
 @pytest.mark.parametrize("eval_dataloader", [

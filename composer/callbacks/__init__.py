@@ -30,6 +30,7 @@ __all__ = [
     # hparams objects
     "CallbackHparams",
     "CheckpointSaverHparams",
+    "EarlyStopperHparams",
     "GradMonitorHparams",
     "LRMonitorHparams",
     "MemoryMonitorHparams",
