@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """COCO (Common Objects in Context) dataset.
 
@@ -12,11 +13,6 @@ from typing import Sequence
 
 import torch
 from PIL import Image
-
-
-def _isArrayLike(obj):
-    return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
-
 
 from composer.core import DataSpec
 from composer.core.types import Batch

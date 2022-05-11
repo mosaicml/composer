@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Log artifacts to an object store."""
 
@@ -27,6 +28,7 @@ from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import format_name_with_dist
+from composer.utils.file_helpers import get_file
 from composer.utils.object_store import ObjectStore
 
 log = logging.getLogger(__name__)
@@ -57,7 +59,7 @@ class ObjectStoreLogger(LoggerDestination):
                 'region': 'ap-northeast-1',
             },
         )
-        
+
         # Construct the trainer using this logger
         trainer = Trainer(
             ...,
@@ -109,7 +111,7 @@ class ObjectStoreLogger(LoggerDestination):
         provider_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
             for the specified provider. These arguments would usually include the cloud region
             and credentials.
-            
+
             Common keys are:
 
             * ``key`` (str): API key or username to be used (required).
@@ -186,7 +188,7 @@ class ObjectStoreLogger(LoggerDestination):
                 # Shut down the uploader
                 object_store_logger._check_workers()
                 object_store_logger.post_close()
-           
+
             Assuming that the process's rank is ``0``, the object store would store the contents of
             ``'path/to/file.txt'`` in an object named ``'rank0/bar.txt'``.
 
@@ -263,6 +265,9 @@ class ObjectStoreLogger(LoggerDestination):
                     "container": self.container,
                     "provider_kwargs": self.provider_kwargs,
                 },
+                # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status
+                # Setting daemon status prevents the process from hanging if close was never called (e.g. in doctests)
+                daemon=True,
             )
             worker.start()
             self._workers.append(worker)
@@ -310,6 +315,22 @@ class ObjectStoreLogger(LoggerDestination):
         object_name = self._object_name(symlink_artifact_name) + ".symlink"
         self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
 
+    def get_file_artifact(
+        self,
+        artifact_name: str,
+        destination: str,
+        chunk_size: int = 2**20,
+        progress_bar: bool = True,
+    ):
+        object_store = ObjectStore(provider=self.provider,
+                                   container=self.container,
+                                   provider_kwargs=self.provider_kwargs)
+        get_file(path=artifact_name,
+                 destination=destination,
+                 object_store=object_store,
+                 chunk_size=chunk_size,
+                 progress_bar=progress_bar)
+
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         if self._finished is not None:
@@ -318,6 +339,8 @@ class ObjectStoreLogger(LoggerDestination):
             worker.join()
         if self._tempdir is not None:
             self._tempdir.cleanup()
+        self._tempdir = None
+        self._finished = None
         self._workers.clear()
 
     def get_uri_for_artifact(self, artifact_name: str) -> str:

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Log to Weights and Biases (https://wandb.ai/)"""
 
@@ -7,7 +8,9 @@ from __future__ import annotations
 import os
 import pathlib
 import re
+import shutil
 import sys
+import tempfile
 import textwrap
 import warnings
 from typing import Any, Dict, Optional
@@ -68,7 +71,7 @@ class WandBLogger(LoggerDestination):
         import wandb
         del log_level  # unused
         if self._enabled:
-            wandb.log(data, step=int(state.timer.batch))
+            wandb.log(data, step=int(state.timestamp.batch))
 
     def state_dict(self) -> Dict[str, Any]:
         import wandb
@@ -101,7 +104,6 @@ class WandBLogger(LoggerDestination):
             group = self._init_params.get("group", None)
             self._init_params["name"] = f"{name} [RANK_{dist.get_global_rank()}]"
             self._init_params["group"] = group if group else name
-
         if self._enabled:
             wandb.init(**self._init_params)
 
@@ -113,7 +115,7 @@ class WandBLogger(LoggerDestination):
             import wandb
 
             # Some WandB-specific alias extraction
-            timestamp = state.timer.get_timestamp()
+            timestamp = state.timestamp
             aliases = ["latest", f"ep{int(timestamp.epoch)}-ba{int(timestamp.batch)}"]
 
             # replace all unsupported characters with periods
@@ -123,18 +125,40 @@ class WandBLogger(LoggerDestination):
                 warnings.warn(("WandB permits only alpha-numeric, periods, hyphens, and underscores in artifact names. "
                                f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
 
-            if self._enabled and self._log_artifacts:
-                import wandb
-                extension = new_artifact_name.split(".")[-1]
-                artifact = wandb.Artifact(name=new_artifact_name, type=extension)
-                artifact.add_file(os.path.abspath(file_path))
-                wandb.log_artifact(artifact, aliases=aliases)
+            extension = new_artifact_name.split(".")[-1]
+            artifact = wandb.Artifact(name=new_artifact_name, type=extension)
+            artifact.add_file(os.path.abspath(file_path))
+            wandb.log_artifact(artifact, aliases=aliases)
+
+    def get_file_artifact(
+        self,
+        artifact_name: str,
+        destination: str,
+        chunk_size: int = 2**20,
+        progress_bar: bool = True,
+    ):
+        # Note: Wandb doesn't support progress bars for downloading
+        del chunk_size, progress_bar
+        import wandb
+
+        artifact = wandb.use_artifact(artifact_name)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_folder = os.path.join(tmpdir, "artifact_folder")
+            artifact.download(root=artifact_folder)
+            artifact_names = os.listdir(artifact_folder)
+            # We only log one file per artifact
+            if len(artifact_names) > 1:
+                raise RuntimeError(
+                    "Found more than one file in artifact. We assume the checkpoint is the only file in the artifact.")
+            artifact_name = artifact_names[0]
+            artifact_path = os.path.join(artifact_folder, artifact_name)
+            shutil.move(artifact_path, destination)
 
     def post_close(self) -> None:
         import wandb
 
         # Cleaning up on post_close so all artifacts are uploaded
-        if not self._enabled:
+        if not self._enabled or wandb.run is None:
             return
 
         exc_tpe, exc_info, tb = sys.exc_info()

@@ -1,4 +1,8 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+# disabling general type issues because of monkeypatching
+# pyright: reportGeneralTypeIssues=none
 
 """
 Fixtures available in doctests.
@@ -20,22 +24,16 @@ from PIL import Image
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import composer
-import composer.trainer
-import composer.trainer.trainer
 import composer.loggers
 import composer.loggers.logger_hparams
-
-from composer import Trainer as OriginalTrainer
-from composer.loggers import LogLevel as LogLevel
-from composer.loggers import Logger as Logger
-from composer.loggers import InMemoryLogger as InMemoryLogger
-from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.optim.scheduler import ConstantScheduler
+import composer.loggers.object_store_logger
+import composer.trainer
+import composer.trainer.trainer
 import composer.utils
-import composer.utils.object_store
 import composer.utils.checkpoint
 import composer.utils.file_helpers
-from composer.utils import ensure_tuple as ensure_tuple, ObjectStore as OriginalObjectStore
+import composer.utils.object_store
+from composer import Trainer
 from composer.core import Algorithm as Algorithm
 from composer.core import Callback as Callback
 from composer.core import DataSpec as DataSpec
@@ -44,7 +42,6 @@ from composer.core import Evaluator as Evaluator
 from composer.core import Event as Event
 from composer.core import State as State
 from composer.core import Time as Time
-from composer.core import Timer as Timer
 from composer.core import Timestamp as Timestamp
 from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
@@ -52,9 +49,11 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
 from composer.loggers import LogLevel as LogLevel
+from composer.loggers import ObjectStoreLogger
 from composer.models import ComposerModel as ComposerModel
-import composer.loggers.object_store_logger
-from composer.loggers import ObjectStoreLogger as OriginalObjectStoreLogger
+from composer.optim.scheduler import ConstantScheduler
+from composer.utils import ObjectStore
+from composer.utils import ensure_tuple as ensure_tuple
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory
@@ -134,13 +133,16 @@ logits = torch.randn(batch_size, num_classes)  # type: ignore
 # error: "randint" is not a known member of module (reportGeneralTypeIssues)
 y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
+
 def loss_fun(output, target, reduction="none"):
     return torch.ones_like(target)
 
-# patch the Trainer to accept ellipses and bind the required arguments to the Trainer
-# so it can be used without arguments in the doctests
-def Trainer(fake_ellipses: None = None, **kwargs: Any):
-    del fake_ellipses  # unused
+
+# Patch Trainer __init__ function to replace arguments while preserving type
+original_trainer_init = Trainer.__init__
+
+
+def new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
     if "model" not in kwargs:
         kwargs["model"] = model
     if "optimizers" not in kwargs:
@@ -153,27 +155,28 @@ def Trainer(fake_ellipses: None = None, **kwargs: Any):
         kwargs["train_dataloader"] = train_dataloader
     if "eval_dataloader" not in kwargs:
         kwargs["eval_dataloader"] = eval_dataloader
-    if "loggers" not in kwargs:
-        kwargs["loggers"] = []  # hide tqdm logging
-    trainer = OriginalTrainer(**kwargs)
+    if "progress_bar" not in kwargs:
+        kwargs["progress_bar"] = False  # hide tqdm logging
+    if "log_to_console" not in kwargs:
+        kwargs["log_to_console"] = False  # hide console logging
+    original_trainer_init(self, **kwargs)
 
-    return trainer
 
+Trainer.__init__ = new_trainer_init
 
-# patch composer so that 'from composer import Trainer' calls do not override change above
-composer.Trainer = Trainer
-composer.trainer.Trainer = Trainer
-composer.trainer.trainer.Trainer = Trainer
-            
 
 # Do not attempt to validate cloud credentials
 def do_not_validate(*args, **kwargs) -> None:
     pass
 
+
 composer.loggers.object_store_logger._validate_credentials = do_not_validate
 
-def ObjectStoreLogger(fake_ellipses: None = None, **kwargs: Any):
-    # ignore all arguments, and use a local folder
+# Patch ObjectStoreLogger __init__ function to replace arguments while preserving type
+original_objectStoreLogger_init = ObjectStoreLogger.__init__
+
+
+def new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         use_procs=False,
@@ -184,10 +187,16 @@ def ObjectStoreLogger(fake_ellipses: None = None, **kwargs: Any):
             'key': os.path.abspath("./object_store"),
         },
     )
-    return OriginalObjectStoreLogger(**kwargs)
+    original_objectStoreLogger_init(self, **kwargs)
 
 
-def ObjectStore(fake_ellipses: None = None, **kwargs: Any):
+ObjectStoreLogger.__init__ = new_objectStoreLogger_init
+
+# Patch ObjectStore __init__ function to replace arguments while preserving type
+original_objectStore_init = ObjectStore.__init__
+
+
+def new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         provider='local',
@@ -196,14 +205,7 @@ def ObjectStore(fake_ellipses: None = None, **kwargs: Any):
             'key': os.path.abspath("./object_store"),
         },
     )
-    return OriginalObjectStore(**kwargs)
+    original_objectStore_init(self, **kwargs)
 
-composer.loggers.object_store_logger.ObjectStoreLogger = ObjectStoreLogger
-composer.loggers.ObjectStoreLogger = ObjectStoreLogger
-composer.loggers.logger_hparams.ObjectStoreLogger = ObjectStoreLogger
-composer.utils.object_store.ObjectStore = ObjectStore
-composer.utils.ObjectStore = ObjectStore
-composer.utils.checkpoint.ObjectStore = ObjectStore
-composer.utils.file_helpers.ObjectStore = ObjectStore
-composer.trainer.trainer.ObjectStore = ObjectStore
-composer.loggers.object_store_logger.ObjectStore = ObjectStore
+
+ObjectStore.__init__ = new_objectStore_init

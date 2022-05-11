@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Contains commonly used models that are shared across the test suite."""
 
@@ -83,7 +84,7 @@ class SimpleConvModel(ComposerClassifier):
         self.num_classes = num_classes
         self.num_channels = num_channels
 
-        conv_args = dict(kernel_size=(3, 3), padding=1)
+        conv_args = dict(kernel_size=(3, 3), padding=1, stride=2)
         conv1 = torch.nn.Conv2d(in_channels=num_channels, out_channels=8, **conv_args)
         conv2 = torch.nn.Conv2d(in_channels=8, out_channels=4, **conv_args)
         pool = torch.nn.AdaptiveAvgPool2d(1)

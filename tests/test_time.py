@@ -1,8 +1,9 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import pytest
 
-from composer.core.time import Time, Timer, TimeUnit
+from composer.core.time import Time, Timestamp, TimeUnit
 
 
 @pytest.mark.parametrize("time_string,expected_value,expected_unit", [
@@ -56,36 +57,43 @@ def test_time_repr():
     assert eval(repr(time)) == time
 
 
-def test_timer():
-    timer = Timer()
-    timer.on_batch_complete(10, 20)
-    timer.on_epoch_complete()
-    timer.on_batch_complete(5)
-    assert timer.epoch == 1
-    assert timer.batch == 2
-    assert timer.batch_in_epoch == 1
-    assert timer.sample == 15
-    assert timer.sample_in_epoch == 5
-    assert timer.token == 20
-    assert timer.token_in_epoch == 0
+def test_timestamp():
+    timestamp = Timestamp()
+    time = Time(10, "ep")
+    assert timestamp < time
+    assert timestamp.get(time.unit) == Time.from_epoch(0)
 
 
-def test_timer_reset():
-    timer = Timer()
-    timer.on_epoch_complete()
-    timer.on_batch_complete(10, 20)
-    assert timer.epoch != 0
-    assert timer.batch != 0
-    assert timer.batch_in_epoch != 0
-    assert timer.sample != 0
-    assert timer.sample_in_epoch != 0
-    assert timer.token != 0
-    assert timer.token_in_epoch != 0
-    timer.reset()
-    assert timer.epoch == 0
-    assert timer.batch == 0
-    assert timer.batch_in_epoch == 0
-    assert timer.sample == 0
-    assert timer.sample_in_epoch == 0
-    assert timer.token == 0
-    assert timer.token_in_epoch == 0
+def test_timestamp_update():
+    timestamp = Timestamp(epoch=1)
+    timestamp_2 = timestamp.copy(batch=2)
+    assert timestamp_2.epoch == 1
+    assert timestamp_2.batch == 2
+    assert timestamp_2.sample == 0
+    assert timestamp is not timestamp_2
+
+
+def test_timestamp_to_next_batch_epoch():
+    timestamp = Timestamp()
+    timestamp = timestamp.to_next_batch(10, 20)
+    assert timestamp.batch == 1
+    assert timestamp.batch_in_epoch == 1
+    assert timestamp.batch_in_epoch == 1
+    assert timestamp.sample == 10
+    assert timestamp.sample_in_epoch == 10
+    assert timestamp.token == 20
+    assert timestamp.token_in_epoch == 20
+    timestamp = timestamp.to_next_epoch()
+    timestamp = timestamp.to_next_batch(5)
+    assert timestamp.epoch == 1
+    assert timestamp.batch == 2
+    assert timestamp.batch_in_epoch == 1
+    assert timestamp.sample == 15
+    assert timestamp.sample_in_epoch == 5
+    assert timestamp.token == 20
+    assert timestamp.token_in_epoch == 0
+
+
+def test_timestamp_repr():
+    timestamp = Timestamp()
+    assert timestamp == eval(repr(timestamp))

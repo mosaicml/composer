@@ -45,7 +45,7 @@ For example:
 *   ``save_interval=1`` to save every epoch (the default).
 *   ``save_interval="10ep"`` to save every 10 epochs.
 *   ``save_interval="500ba"`` to save every 500 batches/steps.
-*   ``save_interval=lambda state, event: state.timer.epoch > 50 and event == Event.EPOCH_CHECKPOINT``
+*   ``save_interval=lambda state, event: state.timestamp.epoch > 50 and event == Event.EPOCH_CHECKPOINT``
     to save every epoch, starting after the 50th epoch.
 
 Putting this together, here's how to save checkpoints:
@@ -83,7 +83,7 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
-    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timer', 'rank_zero_seed', 'current_metrics']
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'current_metrics']
 
 Resume training
 ---------------
@@ -155,7 +155,7 @@ state from the checkpoint are not compatible with these new objects.
     +-----------------------+-------------------------------------------------------------+
     | scaler                | The gradient scaler in use for mixed precision training.    |
     +-----------------------+-------------------------------------------------------------+
-    | timer                 | The timer that tracks training loop progress.               |
+    | timestamp             | The timestamp that tracks training loop progress.           |
     +-----------------------+-------------------------------------------------------------+
     | rank_zero_seed        | The seed of the rank zero process.                          |
     +-----------------------+-------------------------------------------------------------+

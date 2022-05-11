@@ -1,11 +1,14 @@
 # Base image to use for the docker build.
 BASE_IMAGE ?= 'nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04'
 
+# The linux distro of the base image
+LINUX_DISTRO ?= ubuntu2004
+
 # Python version to install. Composer requires python>=3.7
 PYTHON_VERSION ?='3.9'
 
 # Pytorch version to install. Composer requires pytorch>=1.9
-PYTORCH_VERSION ?= '1.10.0'
+PYTORCH_VERSION ?= '1.11.0'
 
 # Torchvision version to install.
 # See https://github.com/pytorch/vision#installation
@@ -26,7 +29,7 @@ PYTORCH_TAG ?= mosaicml/pytorch
 
 # Extra dependencies to install for composer.
 # Composer is installed like:
-# pip install composer[$COMPOSER_EXTRA_DEPS]
+# pip install "composer[$COMPOSER_EXTRA_DEPS]"
 COMPOSER_EXTRA_DEPS ?= base
 
 # Resulting docker tag for the composer dockerimage
@@ -56,6 +59,7 @@ pytorch:
 		--build-arg MMCV_VERSION=$(MMCV_VERSION) \
 		--build-arg MMCV_TORCH_VERSION=$(MMCV_TORCH_VERSION) \
 		--build-arg MOFED_VERSION=${MOFED_VERSION} \
+		--build-arg LINUX_DISTRO=${LINUX_DISTRO} \
 		--build-arg MOFED_OS_VERSION=${MOFED_OS_VERSION} \
 		.
 

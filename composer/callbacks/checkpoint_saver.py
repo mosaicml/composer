@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Callback to save checkpoints during training."""
 
@@ -17,8 +18,8 @@ from composer.loggers import Logger
 from composer.loggers.logger import LogLevel
 from composer.utils import checkpoint, dist
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
-                                         ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
-                                         is_tar)
+                                         ensure_folder_has_no_conflicting_files, format_name_with_dist,
+                                         format_name_with_dist_and_time, is_tar)
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         raise NotImplementedError(
             f"Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.")
 
-    last_checkpoint_batch = None
+    last_checkpoint_batch: Optional[Time] = None
 
     def save_interval(state: State, event: Event):
         nonlocal last_checkpoint_batch
@@ -64,19 +65,19 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             # if doing batch-wise checkpointing, and we saved a checkpoint at the batch_checkpoint event
             # right before the epoch_checkpoint event, do not save another checkpoint at the epoch_checkpoint
             # event if the batch count didn't increase.
-            if state.timer.batch != last_checkpoint_batch:
-                last_checkpoint_batch = state.timer.batch
+            if state.timestamp.batch != last_checkpoint_batch:
+                last_checkpoint_batch = state.timestamp.batch
                 return True
 
         if save_event == Event.EPOCH_CHECKPOINT:
-            count = state.timer.epoch
+            count = state.timestamp.epoch
         elif save_event == Event.BATCH_CHECKPOINT:
-            count = state.timer.batch
+            count = state.timestamp.batch
         else:
             raise RuntimeError(f"Invalid save_event: {save_event}")
 
         if event == save_event and int(count) % int(interval) == 0:
-            last_checkpoint_batch = state.timer.batch
+            last_checkpoint_batch = state.timestamp.batch
             return True
 
         return False
@@ -112,7 +113,7 @@ class CheckpointSaver(Callback):
         ...         weights_only=False,
         ...     )
         ... ])
-    
+
     .. testcleanup::
 
         trainer.engine.close()
@@ -143,7 +144,7 @@ class CheckpointSaver(Callback):
             .. note::
 
                 *   By default, only the rank zero process will save a checkpoint file.
-                
+
                 *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
                     requires tarball format, as it saves model and optimizer states in separate files.
                     Ensure that ``'{{rank}}'`` appears within the ``filename``. Otherwise, multiple ranks
@@ -153,7 +154,7 @@ class CheckpointSaver(Callback):
                 *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
                     to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
                     compression algorithm).
-            
+
             .. warning::
 
                 Using compression will block the training loop while checkpoints are being compressed. As such, we
@@ -175,10 +176,10 @@ class CheckpointSaver(Callback):
                 awesome-training-run/checkpoints/ep1-ba42-rank1.tar
                 awesome-training-run/checkpoints/ep1-ba42-rank2.tar
                 ...
-        
+
         artifact_name (str, optional): Format string for the checkpoint's artifact name.
             (default: ``'{{run_name}}/checkpoints/ep{{epoch}}-ba{{batch}}-rank{{rank}}"``)
-        
+
             After the checkpoint is saved, it will be periodically logged as a file artifact.
             The artifact name will be determined by this format string.
 
@@ -191,8 +192,8 @@ class CheckpointSaver(Callback):
             To disable logging trace files as file artifacts, set this parameter to ``None``.
         latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
             (default: ``'latest-rank{{rank}}'``)
-            
-            Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``. 
+
+            Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``.
 
             The same format variables as for ``name`` are available.
 
@@ -227,7 +228,7 @@ class CheckpointSaver(Callback):
                 ...
         latest_artifact_name (str, optional): Format string for the checkpoint's latest symlink artifact name.
             (default: ``'{{run_name}}/checkpoints/latest-rank{{rank}}"``)
-        
+
             Whenever a new checkpoint is saved, a symlink artifact is created or updated to point to the latest checkpoint's ``artifact_name``.
             The artifact name will be determined by this format string. This parameter has no effect if ``latest_filename`` or ``artifact_name`` is None."
 
@@ -240,8 +241,8 @@ class CheckpointSaver(Callback):
             To disable symlinks in logger, set this parameter to ``None``.
 
         overwrite (bool, optional): Whether existing checkpoints should be overridden.
-            If ``False`` (the default), then the ``folder`` must not exist or be empty.
-            (default: ``False``)
+            If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
+            with the current run. (default: ``False``)
 
         save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
@@ -268,7 +269,7 @@ class CheckpointSaver(Callback):
             is used in conjunction with the :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`, set this
             parameter to ``0`` to immediately delete checkpoints from the local disk after they have been uploaded to
             the object store.
-            
+
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             artifact stores.
 
@@ -280,7 +281,7 @@ class CheckpointSaver(Callback):
             will be at the end.
 
             .. note::
-                
+
                 When using DeepSpeed, the index of a filepath in each list corresponds to the global rank of
                 the process that wrote that file. Each filepath is valid only on the process's (rank's) node.
 
@@ -320,12 +321,15 @@ class CheckpointSaver(Callback):
         del state  # unused
         folder = format_name_with_dist(self.folder, logger.run_name)
         os.makedirs(folder, exist_ok=True)
-        if not self.overwrite:
-            ensure_folder_is_empty(folder)
-        # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is empty.
-        dist.barrier()
 
     def fit_start(self, state: State, logger: Logger) -> None:
+        # Verify safety with self.overwrite. Note that this has to be done at fit_start as opposed to init since it requires state.timestamp
+        # from any checkpoints which are loaded, and checkpoint loading happens after Event.INIT.
+        if not self.overwrite:
+            folder = format_name_with_dist(self.folder, logger.run_name)
+            ensure_folder_has_no_conflicting_files(folder, self.filename, state.timestamp)
+        # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
+        dist.barrier()
         if state.is_model_deepspeed:
             if self.weights_only:
                 NotImplementedError(
@@ -359,7 +363,7 @@ class CheckpointSaver(Callback):
             checkpoint_filepath = checkpoint_filepaths[dist.get_global_rank()]
             if self.artifact_name is not None:
                 artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
-                                                               state.timer.get_timestamp()).lstrip("/")
+                                                               state.timestamp).lstrip("/")
                 if state.is_model_deepspeed and not is_tar(artifact_name):
                     # Deepspeed requires tarballs; appending `.tar`
                     artifact_name += ".tar"
@@ -371,8 +375,11 @@ class CheckpointSaver(Callback):
             if self.latest_filename is not None:
                 symlink_name = os.path.join(
                     format_name_with_dist(self.folder, logger.run_name),
-                    format_name_with_dist_and_time(self.latest_filename, logger.run_name,
-                                                   state.timer.get_timestamp()).lstrip("/"),
+                    format_name_with_dist_and_time(
+                        self.latest_filename,
+                        logger.run_name,
+                        state.timestamp,
+                    ).lstrip("/"),
                 )
                 if state.is_model_deepspeed and not is_tar(symlink_name):
                     # Deepspeed requires tarballs; appending `.tar`
@@ -387,15 +394,16 @@ class CheckpointSaver(Callback):
                 os.symlink(checkpoint_filepath, symlink_name)
                 if self.artifact_name is not None and self.latest_artifact_name is not None:
                     symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, logger.run_name,
-                                                                           state.timer.get_timestamp()).lstrip("/")
+                                                                           state.timestamp).lstrip("/")
                     artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
-                                                                   state.timer.get_timestamp()).lstrip("/")
+                                                                   state.timestamp).lstrip("/")
+                    # Always overwrite for symlinks since we use the same filename for latest
                     logger.symlink_artifact(log_level=log_level,
                                             existing_artifact_name=artifact_name,
                                             symlink_artifact_name=symlink_artifact_name,
-                                            overwrite=self.overwrite)
+                                            overwrite=True)
 
-        timestamp = state.timer.get_timestamp()
+        timestamp = state.timestamp
 
         self.saved_checkpoints.append((timestamp, checkpoint_filepaths))
         if self.num_checkpoints_to_keep >= 0:

@@ -14,19 +14,19 @@ Have a new algorithm you'd like to contribute to the library as part of your res
 
 ## Prerequisites
 
-To set up the development environment in your local box, run the command below. 
+To set up the development environment in your local box, run the commands below.
 
-1\. This should bring most the dependencies needed for testing and linting the code:
+1\. Install the dependencies needed for testing and linting the code:
 
 ```bash
-pip install -e .[dev]
+pip install -e '.[dev]'
 ```
 
-2\. Next, you need to install `pyright` (we have not included it in `setup.py` because we have found that pyright is unreliable when it comes to version pinning). For this, you will need to first install NodeJS, more instructions can be found at https://nodejs.org/en/download/package-manager/. Then, to install pyright run:
+2\. Configure [pre-commit](https://pre-commit.com/), which automatically formats code before
+each commit:
 
 ```bash
-# NOTE. You might need sudo permissions.
-npm install -g pyright@1.1.224
+pre-commit install
 ```
 
 ## Submitting a contribution
@@ -49,17 +49,7 @@ git remote add upstream https://github.com/mosaicml/composer.git
 git checkout -b cool-new-feature
 ```
 
-4\. We use a few formatters for code style, and you run the following to autocorrect your files:
-
-```bash
-make style
-```
-
-That will run the [yapf](https://github.com/google/yapf) formatter for general formatting,
-[isort](https://github.com/PyCQA/isort) to sort imports, and
-[docformatter](https://github.com/myint/docformatter) to format docstrings.
-
-5\. When you are ready, submit a pull request into the composer repository! If merged, we'll reach out to send you some free swag :)
+4\. When you are ready, submit a pull request into the composer repository! If merged, we'll reach out to send you some free swag :)
 
 ## Running Tests
 
@@ -81,7 +71,8 @@ See the [Makefile](https://github.com/mosaicml/composer/blob/dev/Makefile) for m
 ## Code Style & Typing
 
 Follow Google's
-[Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code. Many of these guidelines are already taken care of by the `make style` command above.
+[Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code.
+Many of these guidelines are already taken care of by the pre commit hooks.
 
 Composer aims to annotate all functions with type annotations (introduced in
 [PEP 526](https://www.python.org/dev/peps/pep-0526/)). Don't worry if you are not a Python typing expert; put in the pull request, and we'll help you with getting the code into shape.

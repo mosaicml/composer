@@ -1,16 +1,16 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """DeepLabV3 model extending :class:`.ComposerClassifier`."""
 
 import textwrap
-from typing import Any, List
+from typing import Any, Sequence
 
 import torch
 import torch.nn.functional as F
 from torchmetrics import MetricCollection
 from torchvision.models import _utils, resnet
 
-from composer.core.types import BatchPair
 from composer.loss import soft_cross_entropy
 from composer.metrics import CrossEntropy, MIoU
 from composer.models.base import ComposerModel
@@ -40,7 +40,7 @@ def deeplabv3_builder(num_classes: int,
                       backbone_url: str = '',
                       sync_bn: bool = True,
                       use_plus: bool = True,
-                      initializers: List[Initializer] = []):
+                      initializers: Sequence[Initializer] = ()):
     """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed.
 
     Args:
@@ -52,7 +52,7 @@ def deeplabv3_builder(num_classes: int,
             Default: ``''``.
         sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers. Default: ``True``.
         use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
-        initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``[]``.
+        initializers (Sequence[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``()``.
 
     Returns:
         deeplabv3: A DeepLabV3 :class:`torch.nn.Module`.
@@ -168,7 +168,7 @@ class ComposerDeepLabV3(ComposerModel):
                  backbone_url: str = '',
                  sync_bn: bool = True,
                  use_plus: bool = True,
-                 initializers: List[Initializer] = []):
+                 initializers: Sequence[Initializer] = ()):
 
         super().__init__()
         self.num_classes = num_classes
@@ -186,12 +186,12 @@ class ComposerDeepLabV3(ComposerModel):
         self.val_miou = MIoU(self.num_classes, ignore_index=-1)
         self.val_ce = CrossEntropy(ignore_index=-1)
 
-    def forward(self, batch: BatchPair):
+    def forward(self, batch: Any):
         x = batch[0]
         logits = self.model(x)
         return logits
 
-    def loss(self, outputs: Any, batch: BatchPair):
+    def loss(self, outputs: Any, batch: Any):
         target = batch[1]
         loss = soft_cross_entropy(outputs, target, ignore_index=-1)  # type: ignore
         return loss
@@ -200,7 +200,7 @@ class ComposerDeepLabV3(ComposerModel):
         metric_list = [self.train_miou, self.train_ce] if train else [self.val_miou, self.val_ce]
         return MetricCollection(metric_list)
 
-    def validate(self, batch: BatchPair):
+    def validate(self, batch: Any):
         assert self.training is False, "For validation, model must be in eval mode"
         target = batch[1]
         logits = self.forward(batch)

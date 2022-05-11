@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Functional API for applying algorithms in your own training loop.
 
@@ -14,6 +15,7 @@
     # replace some layers with squeeze-excite
     cf.apply_squeeze_excite(model, latent_channels=64, min_channels=128)
 """
+from composer.algorithms.agc import apply_agc
 from composer.algorithms.alibi.alibi import apply_alibi
 from composer.algorithms.augmix import augmix_image
 from composer.algorithms.blurpool import apply_blurpool
@@ -21,6 +23,7 @@ from composer.algorithms.channels_last import apply_channels_last
 from composer.algorithms.colout import colout_batch
 from composer.algorithms.cutmix import cutmix_batch
 from composer.algorithms.cutout import cutout_batch
+from composer.algorithms.ema import compute_ema
 from composer.algorithms.factorize import apply_factorization
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm
 from composer.algorithms.label_smoothing import smooth_labels
@@ -35,11 +38,13 @@ from composer.algorithms.stochastic_depth import apply_stochastic_depth
 
 # All must be manually defined so sphinx automodule will work properly
 __all__ = [
+    "apply_agc",
     "apply_alibi",
     "augmix_image",
     "apply_blurpool",
     "apply_channels_last",
     "colout_batch",
+    "compute_ema",
     "cutmix_batch",
     "cutout_batch",
     "apply_factorization",

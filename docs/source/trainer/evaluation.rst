@@ -4,8 +4,7 @@
 To track training progress, validation datasets can be provided to the
 Composer Trainer through the ``eval_dataloader`` parameter. The trainer
 will compute evaluation metrics on the evaluation dataset at a frequency
-specified by the the :class:`.Trainer` parameters ``validate_every_n_batches``
-and ``validate_every_n_epochs``.
+specified by the the :class:`.Trainer` parameter ``eval_interval``.
 
 .. code:: python
 
@@ -14,8 +13,7 @@ and ``validate_every_n_epochs``.
     trainer = Trainer(
         ...,
         eval_dataloader=my_eval_dataloader,
-        validate_every_n_batches=100,  # Default is -1
-        validate_every_n_epochs=1  # Default is 1
+        eval_interval="1ep",  # Default is every epoch
     )
 
 The metrics should be provided by :meth:`.ComposerModel.metrics`.
