@@ -5,6 +5,14 @@ __all__ = ['batch_get', 'batch_set']
 
 def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable] = None) -> Any:
     """Indexes into the batch given the key.
+
+    >>> batch_get([1,2,3], 1)
+    2
+    >>> batch_get({'a':1, 'b':7}, 'b')
+    7
+    >>> batch_get([{'a':1, 'b':7},{'c':5}], get_fn=lambda x: x[1]['c'])
+    5
+
     Args:
         batch (Any): An object that contains the input and label of the items in the batch.
             Can be any abritrary type that user creates, but we assume some sort of
@@ -78,6 +86,17 @@ def batch_set(batch: Any,
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
     
+    >>> batch_set([1,2,3], 1, 8)
+    [1, 8, 3]
+    >>> batch_set({'a':1, 'b':7}, 'b', 11)
+    {'a': 1, 'b': 11}
+    >>> def setter(batch):
+    ...     batch[1]['d'] = 20
+    ...     return batch
+    ...
+    >>> batch_set([{'a':1, 'b':7},{'d':3}], set_fn=setter)
+    [{'a': 1, 'b': 7}, {'d': 20}]
+
     Args:
         batch (Any): An object that contains the input and label of the items in the batch.
             Can be any abritrary type that user creates, but we assume some sort of
