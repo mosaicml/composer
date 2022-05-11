@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 # _attn is used by the yaml codepath, even though it is private
 # pyright: reportUnusedFunction=none

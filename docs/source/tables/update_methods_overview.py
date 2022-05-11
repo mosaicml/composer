@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helper function to generate the method overview rst."""
 import json

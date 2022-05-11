@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Logs to a file."""
 
@@ -80,7 +81,7 @@ class FileLogger(LoggerDestination):
             Default: `'{{run_name}}/logs-rank{{rank}}.txt'`
 
         artifact_name (str, optional): Format string for the logfile's artifact name.
-        
+
             The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
             The artifact name will be determined by this format string.
 

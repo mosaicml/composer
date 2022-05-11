@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The state of the trainer."""
 from __future__ import annotations
@@ -449,7 +450,7 @@ class State(Serializable):
     @property
     def dataloader_label(self):
         """The dataloader label for the active dataloader.
-        
+
         By default, the training dataloader is called ``'train'``. The evaluator dataloader
         is called ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
         However, the dataloader label can be explicitely specified in :meth:`.Trainer.fit`

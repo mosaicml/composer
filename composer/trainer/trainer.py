@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Train models!"""
 
@@ -544,7 +545,7 @@ class Trainer:
             artifact stores.
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)
-            
+
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
         device (Device | str, optional): The device to use for training, which can be ``'cpu'`` or ``'gpu'``.
@@ -1038,7 +1039,7 @@ class Trainer:
             assert trainer.state.timestamp.epoch == "1ep"
 
             # Reset the time to 0, then train for 1 epoch
-            trainer.fit(reset_time=True)  
+            trainer.fit(reset_time=True)
             assert trainer.state.timestamp.epoch == "1ep"
 
             # Train for another epoch (2 epochs total)
@@ -1097,7 +1098,7 @@ class Trainer:
             grad_clip_norm (float, optional): See :class:`.Trainer`.
 
                 .. note::
-                
+
                     If using DeepSpeed, it is not possible to change the ``grad_clip_norm``. Instead, it must
                     be specified when constructing the Trainer.
         """
