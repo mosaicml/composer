@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The :class:`~yahp.hparams.Hparams` used to construct the :class:`~composer.trainer.trainer.Trainer`."""
 
@@ -18,8 +19,8 @@ from torchmetrics import Metric, MetricCollection
 
 import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
-from composer.callbacks import (CallbackHparams, GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
-                                MLPerfCallbackHparams, SpeedMonitorHparams)
+from composer.callbacks import (CallbackHparams, EarlyStopperHparams, GradMonitorHparams, LRMonitorHparams,
+                                MemoryMonitorHparams, MLPerfCallbackHparams, SpeedMonitorHparams)
 from composer.core import DataSpec, Evaluator, Event, Precision, State, Time
 from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
@@ -103,6 +104,7 @@ callback_registry = {
     "grad_monitor": GradMonitorHparams,
     "memory_monitor": MemoryMonitorHparams,
     "mlperf": MLPerfCallbackHparams,
+    "early_stopper": EarlyStopperHparams,
 }
 
 device_registry = {

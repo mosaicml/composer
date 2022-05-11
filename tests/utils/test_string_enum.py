@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 # disabling unused class checks in this test, as string enum checks happen during class construction
 # pyright: reportUnusedClass=none

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Specifies an instance of an :class:`~.evaluator.Evaluator`, which wraps a dataloader to include metrics that apply to
 a specific dataset."""

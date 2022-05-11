@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Monitor gradient during training."""
 
@@ -30,7 +31,7 @@ class GradMonitor(Callback):
         ...     max_duration="1ep",
         ...     callbacks=[GradMonitor()],
         ... )
-    
+
     .. testcleanup::
 
         trainer.engine.close()

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Utility for uploading to and downloading from cloud object stores."""
 import dataclasses
@@ -56,11 +57,11 @@ class ObjectStoreHparams(hp.Hparams):
         key_environ (str, optional): The name of an environment variable containing the API key or username
             to use to connect to the provider. If no key is required, then set this field to ``None``.
             (default: ``None``)
-            
+
             For security reasons, composer requires that the key be specified via an environment variable.
             For example, if your key is an environment variable called ``OBJECT_STORE_KEY`` that is set to ``MY_KEY``,
             then you should set this parameter equal to ``OBJECT_STORE_KEY``. Composer will read the key like this:
-            
+
             .. testsetup::  composer.utils.object_store.ObjectStoreHparams.__init__.key
 
                 import os
@@ -69,7 +70,7 @@ class ObjectStoreHparams(hp.Hparams):
 
                 os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
                 ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")
-            
+
             .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.key
 
                 >>> import os
@@ -84,7 +85,7 @@ class ObjectStoreHparams(hp.Hparams):
             For security reasons, composer requires that the secret be specified via an environment variable.
             For example, if your secret is an environment variable called ``OBJECT_STORE_SECRET`` that is set to ``MY_SECRET``,
             then you should set this parameter equal to ``OBJECT_STORE_SECRET``. Composer will read the secret like this:
-                
+
             .. testsetup:: composer.utils.object_store.ObjectStoreHparams.__init__.secret
 
                 import os
@@ -205,7 +206,7 @@ class ObjectStore:
         provider_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
             for the specified provider. These arguments would usually include the cloud region
             and credentials.
-            
+
             Common keys are:
 
             * ``key`` (str): API key or username to be used (required).
