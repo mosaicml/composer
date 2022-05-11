@@ -141,7 +141,8 @@ def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
     # Numpy arrays and Torch tensors can take tuples and lists as keys.
     try:
         # Check if one can do a __getitem__ before doing a __setitem__ because dicts can
-        # so __setitem__ for elements not in the dict and we do not want that.
+        # do __setitem__ for elements not in the dict and we do not want that for sequence
+        # keys.
         batch[key]
         batch[key] = value
         return batch
