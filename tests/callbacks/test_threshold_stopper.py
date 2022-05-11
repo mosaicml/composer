@@ -4,7 +4,7 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer import Trainer
-from composer.callbacks.threshold_stopper import ThresholdStopper
+from composer.callbacks import ThresholdStopper
 from composer.core.time import TimeUnit
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
