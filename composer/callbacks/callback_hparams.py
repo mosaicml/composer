@@ -207,7 +207,7 @@ class ThresholdStopperHparams(CallbackHparams):
             comp_function = torch.greater
         elif self.comp in ("less", "lt"):
             comp_function = torch.less
-        return EarlyStopper(
+        return ThresholdStopper(
             monitor=self.monitor,
             dataloader_label=self.dataloader_label,
             threshold=self.threshold,
