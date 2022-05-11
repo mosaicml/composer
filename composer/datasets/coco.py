@@ -10,12 +10,13 @@ import json
 import os
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Callable, Optional, Sequence, Tuple
+from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
 import torch
 import yahp as hp
 from PIL import Image
+from torch.utils.data import Dataset
 
 from composer.core import DataSpec
 from composer.core.types import Batch
@@ -71,10 +72,7 @@ class COCODatasetHparams(DatasetHparams):
                             split_batch=split_dict_fn)
 
 
-import torch.utils.data as data
-
-
-class COCODetection(data.Dataset):
+class COCODetection(Dataset):
     """PyTorch Dataset for the COCO dataset.
 
     Args:
@@ -185,44 +183,45 @@ def split_dict_fn(batch: Batch, num_microbatches: int) -> Sequence[Batch]:  #typ
 
 
 class StreamingCOCO(StreamingDataset):
-    """Streaming COCO detection dataset."""
+    """
+    Implementation of the COCO dataset using StreamingDataset.
 
-    def decode_img(self, data: bytes) -> Any:
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+        split (str): The dataset split to use, either 'train' or 'val'.
+        shuffle (bool): Whether to shuffle the samples in this dataset.
+        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
+    """
+
+    def decode_img(self, data: bytes) -> Image.Image:
         return Image.open(BytesIO(data)).convert('RGB')
 
-    def decode_img_id(self, data: bytes) -> Any:
+    def decode_img_id(self, data: bytes) -> np.int64:
         return np.frombuffer(data, np.int64)[0]
 
-    def decode_htot(self, data: bytes) -> Any:
+    def decode_htot(self, data: bytes) -> np.int64:
         return np.frombuffer(data, np.int64)[0]
 
-    def decode_wtot(self, data: bytes) -> Any:
+    def decode_wtot(self, data: bytes) -> np.int64:
         return np.frombuffer(data, np.int64)[0]
 
-    def decode_bbox_sizes(self, data: bytes) -> Any:
+    def decode_bbox_sizes(self, data: bytes) -> torch.Tensor:
         arr = np.frombuffer(data, np.float32)
         arr = arr.reshape(-1, 4)
         return torch.tensor(arr)
 
-    def decode_bbox_labels(self, data: bytes) -> Any:
+    def decode_bbox_labels(self, data: bytes) -> torch.Tensor:
         arr = np.frombuffer(data, np.int64)
         return torch.tensor(arr)
 
-    def __init__(self,
-                 remote: str,
-                 local: str,
-                 shuffle: bool,
-                 transform: Optional[Callable] = None,
-                 device_batch_size: int = 0) -> None:
-        """Initialize the streaming image classification dataset.
+    def __init__(self, remote: str, local: str, split: str, shuffle: bool, batch_size: Optional[int] = None) -> None:
 
-        Args:
-            remote (str): Download shards from this remote directory.
-            local (str): Download shards to this local filesystem directory for reuse.
-            shuffle (bool): Whether to shuffle the samples.
-            transform (Optional[Callable]): Optional input data transform for data augmentation, etc.
-            device_batch_size (int): Batch size per device.
-        """
+        # Validation
+        if split not in ['train', 'val']:
+            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
+
+        # Build StreamingDataset
         decoders = {
             'img': self.decode_img,
             'img_id': self.decode_img_id,
@@ -231,18 +230,21 @@ class StreamingCOCO(StreamingDataset):
             'bbox_sizes': self.decode_bbox_sizes,
             'bbox_labels': self.decode_bbox_labels,
         }
-        super().__init__(remote, local, shuffle, decoders, device_batch_size)
-        self.transform = transform
+        super().__init__(remote=os.path.join(remote, split),
+                         local=os.path.join(local, split),
+                         shuffle=shuffle,
+                         decoders=decoders,
+                         batch_size=batch_size)
 
-    def __getitem__(self, idx: int) -> Tuple[Any, Any]:
-        """Get the decoded and transformemd (image, class) pair by ID.
+        # Define custom transforms
+        dboxes = dboxes300_coco()
+        input_size = 300
+        if split == "train":
+            self.transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
+        else:
+            self.transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
 
-        Args:
-            idx (int): Sample ID.
-
-        Returns:
-            Tuple[Any, Any]: Pair of (x, y) for this sample.
-        """
+    def __getitem__(self, idx: int) -> Any:
         x = super().__getitem__(idx)
         args = x['img'], x['img_id'], (x['htot'], x['wtot']), x['bbox_sizes'], x['bbox_labels']
         if self.transform:
@@ -252,32 +254,33 @@ class StreamingCOCO(StreamingDataset):
 
 @dataclass
 class StreamingCOCOHparams(DatasetHparams):
-    """Streaming COCO hyperparameters.
+    """DatasetHparams for creating an instance of StreamingCOCO.
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+            Default: ``'s3://mosaicml-internal-dataset-coco/mds/```
         local (str): Local filesystem directory where dataset is cached during operation.
+            Default: ``'/tmp/mds-cache/mds-coco/```
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
                               default='s3://mosaicml-internal-dataset-coco/mds/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-coco/')
+    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
-        dboxes = dboxes300_coco()
-        input_size = 300
-        if self.is_train:
-            transform = SSDTransformer(dboxes, (input_size, input_size), val=False, num_cropping_iterations=1)
-        else:
-            transform = SSDTransformer(dboxes, (input_size, input_size), val=True)
-
-        dataset = StreamingCOCO(self.remote, self.local, self.shuffle, transform)
-
+        dataset = StreamingCOCO(remote=self.remote,
+                                local=self.local,
+                                split=self.split,
+                                shuffle=self.shuffle,
+                                batch_size=batch_size)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
             dataset=dataset,
             drop_last=self.drop_last,
             batch_size=batch_size,
             sampler=None,
+            collate_fn=None,
         ),
                         split_batch=split_dict_fn)

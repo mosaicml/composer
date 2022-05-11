@@ -399,21 +399,22 @@ class StreamingADE20k(StreamingDataset):
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
+        split (str): The dataset split to use, either 'train' or 'val'.
         shuffle (bool): Whether to shuffle the samples in this dataset.
         base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
         min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
         max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
         final_size (int): the final size of the image and target. Default: ``512``.
+        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
     """
 
-    def decode_uid(self, data: bytes) -> Any:
+    def decode_uid(self, data: bytes) -> str:
         return data.decode('utf-8')
 
-    def decode_image(self, data: bytes) -> Any:
+    def decode_image(self, data: bytes) -> Image.Image:
         return Image.open(BytesIO(data))
 
-    def decode_annotation(self, data: bytes) -> Any:
+    def decode_annotation(self, data: bytes) -> Image.Image:
         return Image.open(BytesIO(data))
 
     def __init__(self,
@@ -481,7 +482,7 @@ class StreamingADE20k(StreamingDataset):
             self.annotation_transform = transforms.Resize(size=(final_size, final_size),
                                                           interpolation=TF.InterpolationMode.NEAREST)
 
-    def __getitem__(self, idx: int) -> Any:
+    def __getitem__(self, idx: int) -> Tuple[Any, Any]:
         obj = super().__getitem__(idx)
         x = obj['image']
         y = obj['annotation']
@@ -496,12 +497,14 @@ class StreamingADE20k(StreamingDataset):
 
 @dataclass
 class StreamingADE20kHparams(DatasetHparams):
-    """Streaming ADE20k hyperparameters.
+    """DatasetHparams for creating an instance of StreamingADE20k.
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+            Default: ``'s3://mosaicml-internal-dataset-ade20k/md/```
         local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): the dataset split to use, either 'train' or 'val'. Default: ``'train```.
+            Default: ``'/tmp/mds-cache/mds-ade20k/```
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
         base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
         min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
         max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
@@ -510,12 +513,11 @@ class StreamingADE20kHparams(DatasetHparams):
             Default: ``true``.
     """
 
-    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-ade20k/mds/')
-    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
-                             default='/tmp/mds-cache/mds-ade20k/')
+    remote: str = hp.optional("Remote directory (S3 or local filesystem) where dataset is stored",
+                              default="s3://mosaicml-internal-dataset-ade20k/mds/")
+    local: str = hp.optional("Local filesystem directory where dataset is cached during operation",
+                             default="/tmp/mds-cache/mds-ade20k/")
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
-
     base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
     min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)
     max_resize_scale: float = hp.optional("Maximum value that the image and target can be scaled", default=2.0)
@@ -532,7 +534,6 @@ class StreamingADE20kHparams(DatasetHparams):
                                   max_resize_scale=self.max_resize_scale,
                                   final_size=self.final_size,
                                   batch_size=batch_size)
-
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
                                               std=IMAGENET_CHANNEL_STD,

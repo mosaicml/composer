@@ -58,7 +58,7 @@ def main(args: Namespace) -> None:
     Args:
         args (Namespace): Commandline arguments.
     """
-    fields = 'img', 'img_id', 'htot', 'wtot', 'bbox_sizes', 'bbox_labels'
+    fields = ['img', 'img_id', 'htot', 'wtot', 'bbox_sizes', 'bbox_labels']
     splits = args.splits.split(',')
     for split in splits:
         split_dir = os.path.join(args.out_root, split)

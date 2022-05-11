@@ -193,51 +193,72 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                         device_transforms=device_transform_fn)
 
 
-
 class StreamingImageNet1k(StreamingImageClassDataset):
-    def __init__(self, remote: str, local: str, split: str, shuffle: bool, resize_size: int = -1, crop_size: int = 224, batch_size: Optional[int] = None):
+    """
+    Implementation of the ImageNet1k dataset using StreamingDataset.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+        split (str): The dataset split to use, either 'train' or 'val'.
+        shuffle (bool): Whether to shuffle the samples in this dataset.
+        resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
+        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
+    """
+
+    def __init__(self,
+                 remote: str,
+                 local: str,
+                 split: str,
+                 shuffle: bool,
+                 resize_size: int = -1,
+                 crop_size: int = 224,
+                 batch_size: Optional[int] = None):
 
         # Validation
         if split not in ['train', 'val']:
             raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
+        if crop_size <= 0:
+            raise ValueError(f"crop_size must be positive.")
+
+        # Define custom transforms
+        if split == "train":
+            # include fixed-size resize before RandomResizedCrop in training only
+            # if requested (by specifying a size > 0)
+            train_transforms: List[torch.nn.Module] = []
+            if resize_size > 0:
+                train_transforms.append(transforms.Resize(resize_size))
+            # always include RandomResizedCrop and RandomHorizontalFlip
+            train_transforms += [
+                transforms.RandomResizedCrop(crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+                transforms.RandomHorizontalFlip(),
+            ]
+            transform = transforms.Compose(train_transforms)
+        else:
+            val_transforms: List[torch.nn.Module] = []
+            if resize_size > 0:
+                val_transforms.append(transforms.Resize(resize_size))
+            val_transforms += [transforms.CenterCrop(crop_size)]
+            transform = transforms.Compose(val_transforms)
 
         # Build StreamingDataset
         super().__init__(remote=os.path.join(remote, split),
                          local=os.path.join(local, split),
                          shuffle=shuffle,
+                         transform=transform,
                          batch_size=batch_size)
-
-        # Define custom transforms
-        if self.split == "train":
-            # include fixed-size resize before RandomResizedCrop in training only
-            # if requested (by specifying a size > 0)
-            train_resize_size = self.resize_size
-            train_transforms: List[torch.nn.Module] = []
-            if train_resize_size > 0:
-                train_transforms.append(transforms.Resize(train_resize_size))
-            # always include RandomResizedCrop and RandomHorizontalFlip
-            train_transforms += [
-                transforms.RandomResizedCrop(self.crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
-                transforms.RandomHorizontalFlip(),
-            ]
-            transform = transforms.Compose(train_transforms)
-        else:
-            transform = transforms.Compose([
-                transforms.Resize(self.resize_size),
-                transforms.CenterCrop(self.crop_size),
-            ])
-        remote = os.path.join(self.remote, split)
-        local = os.path.join(self.local, split)
-
 
 
 @dataclass
-class StreamingImagenet1kHparams(DatasetHparams):
-    """Streaming Imagenet1k hyperparameters.
+class StreamingImageNet1kHparams(DatasetHparams):
+    """DatasetHparams for creating an instance of StreamingImageNet1k.
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+            Default: ``'s3://mosaicml-internal-dataset-imagenet1k/mds/```
         local (str): Local filesystem directory where dataset is cached during operation.
+            Default: ``'/tmp/mds-cache/mds-imagenet1k/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
         resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
         crop size (int): The crop size to use. Default: ``224``.
@@ -252,8 +273,13 @@ class StreamingImagenet1kHparams(DatasetHparams):
     crop_size: int = hp.optional("Crop size", default=224)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
-
-        dataset = StreamingImageNet1k(remote=self.remote, local=self.local, split=self.split, shuffle=self.shuffle, resize_size=self.resize_size, crop_size=self.crop_size, batch_size=self.batch_size)
+        dataset = StreamingImageNet1k(remote=self.remote,
+                                      local=self.local,
+                                      split=self.split,
+                                      shuffle=self.shuffle,
+                                      resize_size=self.resize_size,
+                                      crop_size=self.crop_size,
+                                      batch_size=batch_size)
         collate_fn = pil_image_collate
         device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
         return DataSpec(dataloader=dataloader_hparams.initialize_object(
