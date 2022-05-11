@@ -375,7 +375,7 @@ class StreamingImageClassDataset(StreamingDataset):
         Returns:
             Image: PIL image encoded by the bytes.
         """
-        return Image.open(BytesIO(data))
+        return Image.open(BytesIO(data)).convert('RGB')
 
     def decode_class(self, data: bytes) -> np.int64:
         """Decode the sample class.

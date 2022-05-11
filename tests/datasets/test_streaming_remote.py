@@ -55,7 +55,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
 @pytest.mark.parametrize("name", [
     "ade20k",
     "imagenet1k",
-    pytest.param("coco", marks=pytest.mark.xfail(reason="StreamingCOCO dataset needs to be debugged.")),
+    pytest.param("coco", marks=pytest.mark.skip(reason="StreamingCOCO dataset needs to be debugged.")),
 ])
 @pytest.mark.parametrize("split", ["val"])
 def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -> None:
@@ -92,7 +92,7 @@ def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -
 @pytest.mark.parametrize("name", [
     "ade20k",
     "imagenet1k",
-    pytest.param("coco", marks=pytest.mark.xfail(reason="StreamingCOCO dataset needs to be debugged.")),
+    pytest.param("coco", marks=pytest.mark.skip(reason="StreamingCOCO dataset needs to be debugged.")),
 ])
 @pytest.mark.parametrize("split", ["val"])
 def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str) -> None:
