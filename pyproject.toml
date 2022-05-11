@@ -55,7 +55,7 @@ reportUnusedCoroutine = "error"
 # Pytest
 [tool.pytest.ini_options]
 # By default, do not run gpu, vision, notebook, or daily tests
-addopts = "--strict-markers -m 'not notebooks and not gpu and not vision and not daily'"
+addopts = "--strict-markers -m 'not notebooks and not gpu and not vision and not daily and not remote'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
@@ -74,6 +74,8 @@ markers = [
     "vision",
     # Should be run during daily regression
     "daily",
+    # Whether the test will be reading data from a remote source, and may require credentials
+    "remote",
 ]
 filterwarnings = [
     # "error",  # warnings should be treated like errors, but still need to fix some warnings

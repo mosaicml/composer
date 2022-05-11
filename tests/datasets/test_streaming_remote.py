@@ -41,7 +41,7 @@ def get_dataset(name: str, split: str, local: str) -> Tuple[int, StreamingDatase
     return (expected_samples, dataset)
 
 
-# @pytest.mark.skip()
+@pytest.mark.remote()
 @pytest.mark.timeout(0)
 @pytest.mark.parametrize("name", ["ade20k", "imagenet1k"])
 @pytest.mark.parametrize("split", ["val"])
@@ -74,7 +74,7 @@ def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -
     assert rcvd_samples == expected_samples
 
 
-# # @pytest.mark.skip()
+# @pytest.mark.remote()
 # @pytest.mark.timeout(0)
 # @pytest.mark.parametrize("split", ["val"])
 # def test_streaming_ade20k_dataloader(tmpdir: pathlib.Path, split: str) -> None:
