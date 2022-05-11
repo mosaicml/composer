@@ -9,7 +9,6 @@ import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional, Union
 
-import torch
 import yahp as hp
 
 from composer.callbacks.checkpoint_saver import CheckpointSaver
