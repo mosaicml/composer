@@ -2,6 +2,8 @@
 Tests a variety of export options with our surgery methods applied, including
 torchscript, torch.fx, and ONNX.
 """
+import os
+
 import pytest
 import torch
 import torch.fx
@@ -26,7 +28,7 @@ def input():
     return torch.Tensor(4, 3, 224, 224)
 
 
-""" torchscript export """
+# <--- torchscript export --->
 
 
 @pytest.mark.parametrize("surgery_method", [
@@ -73,7 +75,7 @@ def test_surgery_torchscript_eval(surgery_method, input):
     torch.testing.assert_allclose(scripted_func(input), model(input))  # type: ignore (third-party)
 
 
-""" torch.fx export """
+# <--- torch.fx export --->
 
 
 @pytest.mark.parametrize("surgery_method", [
@@ -98,7 +100,7 @@ def test_surgery_torchfx_eval(surgery_method, input):
     torch.testing.assert_allclose(traced_func(input), model(input))  # type: ignore (third-party)
 
 
-"""ONNX export"""
+# <--- onnx export --->
 
 
 @pytest.mark.parametrize("surgery_method", [
