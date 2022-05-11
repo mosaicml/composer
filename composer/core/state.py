@@ -336,7 +336,25 @@ class State(Serializable):
     def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
-    def batch_get_item(self, key: Optional[Any] = None, get_fn: Optional[Callable[[Any], Any]] = None):
+    def batch_get_item(self, key: Optional[Any] = None, get_fn: Optional[Callable[[Any], Any]] = None) -> Any:
+        """Gets element from batch either specified by key or user-specified function.
+
+        Args:
+            key (Any): A key to index into the batch. Key is optional if get_fn is supplied.
+            get_fn (Callable): A user-specified function to do the extracting. 
+                Note: get_fn is optional if key is supplied.
+
+        Returns:
+            The part of the batch specified by the key extracted by the get_fn. This could
+                be any type depending on what the batch is composed of.
+        
+        Raises:
+            ValueError if key is unset and get_fn is unset or if both are set.
+        """
+        if key is None and get_fn is None:
+            raise ValueError("key or get_fn must be specified and neither were!")
+        if key is not None and get_fn is not None:
+            raise ValueError("key and get_fn were both set. Only one can be set!")
         return batch_get(self.batch, key, get_fn)
 
     def batch_set_item(self,
@@ -344,6 +362,26 @@ class State(Serializable):
                        key: Optional[Any] = None,
                        value: Any,
                        set_fn: Optional[Callable[[Any, Any], Any]] = None):
+        """Sets the element specified by the key of the set_fn to the specified value. 
+
+        This is not an in-place operation, as for tuple-typed batches, a new batch object 
+        must be created to modify them.
+
+        Args:
+            key (Any): A key to index into the batch. Optional if set_fn is specified.
+            value (Any): The value that batch[key] or batch.key gets set to or that the 
+                set_fn uses to set a part of the batch to.
+            set_fn (Callable): A user-specified function to do the setting. set_fn is optional if key and 
+                value are supplied. The set_fn must return the updated batch.
+
+        Returns:
+            batch (Any): The updated batch with value set at key.
+
+        Raises:
+            ValueError if:
+                * key and set_fn are both unset
+                * key and set_fn are both set
+        """
         if key is None and set_fn is None:
             raise ValueError("key or set_fn must be specified and neither were!")
         if key is not None and set_fn is not None:

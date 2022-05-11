@@ -22,15 +22,15 @@ def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable[[
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
         key (Any): A key to index into the batch. Key is optional if get_fn is supplied.
-        get_fn (Callable): A user-specified function to do the extracting. Note, the key
-            will be ignored if get_fn is specified. get_fn is optional if key is supplied.
+        get_fn (Callable): A user-specified function to do the extracting. 
+        get_fn is optional if key is supplied.
 
     Returns:
         The part of the batch specified by the key or the get_fn. This could be any type 
             depending on what the batch is composed of.
     
     Raises:
-        ValueError if key is unset and set_fn is unset or if both are set.
+        ValueError if key is unset and get_fn is unset or if both are set.
     """
     if key is None and get_fn is None:
         raise ValueError("key or get_fn must be specified and neither were!")
@@ -110,8 +110,7 @@ def batch_set(batch: Any,
             or attribute store (object with data members, namedtuple).
         key (Any): A key to index into the batch.
         value (Any): The value that batch[key] or batch.key gets set to.
-        set_fn (Callable): A user-specified function to do the setting. Note, key and 
-            value will be ignored if set_fn is specified. set_fn is optional if key and 
+        set_fn (Callable): A user-specified function to do the setting. set_fn is optional if key and 
             value are supplied. set_fn must return the updated batch.
 
     Returns:
