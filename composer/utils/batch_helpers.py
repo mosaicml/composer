@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Any, Callable, Optional, Sequence, Union
 
 __all__ = ['batch_get', 'batch_set']
@@ -173,7 +176,7 @@ def _batch_set_multiple(batch: Any, key: Any, value: Any) -> Any:
     if not hasattr(value, '__len__') or isinstance(value, str):
         raise ValueError(f'value must be a sequence or array or tensor! and not {type(value)}')
     if len(key) != len(value):
-        raise ValueError(f'value must be the same length as key ({len(key)}), but it is f{len(value)} instead')
+        raise ValueError(f'value must be the same length as key ({len(key)}), but it is {len(value)} instead')
     for single_key, single_value in zip(key, value):
         batch = _batch_set(batch, single_key, single_value)
     return batch

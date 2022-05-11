@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Engine is a coordinator for running algorithms and resolving ordering conflicts among them for composition.
 
@@ -104,14 +105,30 @@ _EVENTS_WHERE_MAX_DURATION_IS_SET = [
     Event.EPOCH_CHECKPOINT,
 ]
 
+# Track whether atexit triggered _close(), which indicates whether the python process is shutting down
+# If so, do not run close() again via __del__(), as Python machinery (e.g. the ability to do conditional
+# imports) are destroyed between close() and __del__().
+# Using a global variable instead of an instance variable as _close() is not bound to the instance
+_did_atexit_run = False
+
+
+def _set_atexit_ran():
+    global _did_atexit_run
+    _did_atexit_run = True
+
+
+# Since atexit calls hooks in LIFO order, this hook will always be invoked after all atexit-triggered
+# _close() calls are invoked
+atexit.register(_set_atexit_ran)
+
 
 @dataclass
 class Trace():
     """Record of an algorithm's execution.
 
     Attributes:
-        exit_code (int or None): Optional return value from an algorithm. Default: None.
-        order (int or None): Order in which the algorithm was executed
+        exit_code (int | None): Optional return value from an algorithm. Default: None.
+        order (int | None): Order in which the algorithm was executed
                              in the list of algorithms. None means algorithm was not run.
         run (bool): Whether the algorithm was run. Default: False
     """
@@ -175,7 +192,7 @@ class Engine():
 
 
         Args:
-            event (Event or str): The current :class:`~.event.Event`. It can be the enum member values or a
+            event (Event | str): The current :class:`~.event.Event`. It can be the enum member values or a
                 string with the event value.
         Returns:
             traces (Traces): Ordered dictionary of trace for each algorithm.
@@ -324,6 +341,12 @@ class Engine():
                 cb.run_event(event, self.state, self.logger)
 
     def __del__(self):
+        global _did_atexit_run
+        if _did_atexit_run:
+            # Do not attempt to shutdown again, since close() already ran via __atexit__
+            # In this case, close() is no longer idempotent, since Python machenry (such as the ability to do
+            # conditional imports) has already been destroyed
+            return
         self.close()
 
     def close(self) -> None:

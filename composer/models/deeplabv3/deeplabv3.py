@@ -1,9 +1,10 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """DeepLabV3 model extending :class:`.ComposerClassifier`."""
 
 import textwrap
-from typing import Any, List
+from typing import Any, Sequence
 
 import torch
 import torch.nn.functional as F
@@ -39,7 +40,7 @@ def deeplabv3_builder(num_classes: int,
                       backbone_url: str = '',
                       sync_bn: bool = True,
                       use_plus: bool = True,
-                      initializers: List[Initializer] = []):
+                      initializers: Sequence[Initializer] = ()):
     """Helper function to build a torchvision DeepLabV3 model with a 3x3 convolution layer and dropout removed.
 
     Args:
@@ -51,7 +52,7 @@ def deeplabv3_builder(num_classes: int,
             Default: ``''``.
         sync_bn (bool, optional): If ``True``, replace all BatchNorm layers with SyncBatchNorm layers. Default: ``True``.
         use_plus (bool, optional): If ``True``, use DeepLabv3+ head instead of DeepLabv3. Default: ``True``.
-        initializers (List[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``[]``.
+        initializers (Sequence[Initializer], optional): Initializers for the model. ``[]`` for no initialization. Default: ``()``.
 
     Returns:
         deeplabv3: A DeepLabV3 :class:`torch.nn.Module`.
@@ -167,7 +168,7 @@ class ComposerDeepLabV3(ComposerModel):
                  backbone_url: str = '',
                  sync_bn: bool = True,
                  use_plus: bool = True,
-                 initializers: List[Initializer] = []):
+                 initializers: Sequence[Initializer] = ()):
 
         super().__init__()
         self.num_classes = num_classes

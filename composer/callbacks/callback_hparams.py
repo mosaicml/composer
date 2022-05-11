@@ -1,19 +1,23 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Hyperparameters for callbacks."""
 from __future__ import annotations
 
 import abc
 import textwrap
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import asdict, dataclass
+from typing import Optional, Union
 
+import torch
 import yahp as hp
 
 from composer.callbacks.checkpoint_saver import CheckpointSaver
+from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.grad_monitor import GradMonitor
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
+from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.core.callback import Callback
 from composer.core.time import Time
@@ -48,7 +52,7 @@ class GradMonitorHparams(CallbackHparams):
     """:class:`~.GradMonitor` hyperparamters.
 
     Args:
-        log_layer_grad_norms (bool, optional): 
+        log_layer_grad_norms (bool, optional):
             See :class:`~.GradMonitor` for documentation.
     """
 
@@ -120,9 +124,109 @@ class SpeedMonitorHparams(CallbackHparams):
 
 
 @dataclass
+class EarlyStopperHparams(CallbackHparams):
+    """:class:`~.EarlyStopper` hyperparameters.
+
+    Args:
+        monitor (str): The name of the metric to monitor.
+        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If 
+            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
+            monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
+            should be set to 'train' or 'eval' respectively.
+        comp (str, optional): A string dictating which comparison operator to use to measure
+            change in the monitored metric. Set ``comp`` to "less" to use the function :func:`torch.less`,
+            and "greater" to use the function :func:`torch.greater`. The comparison operator will be called
+            ``comp(current_value, prev_best)``. For example, for metrics where the optimal value is low
+            (error, loss, perplexity), use a less than operator.
+        min_delta (float, optional): An optional float that requires a new value to exceed the best value by at
+            least that amount. Defaults to 0.
+        patience (int | str, optional): The interval of time the monitored metric can not improve without stopping
+            training. Defaults to 1 epoch. If patience is an integer, it is interpreted as the number of epochs.
+    """
+    monitor: str = hp.required("The name of the metric to monitor.")
+    dataloader_label: str = hp.required("Label of the dataloader/evaluator associated with the metric.")
+    comp: Optional[str] = hp.optional("Which comparison operator to use to track change in the metric.", default=None)
+    min_delta: float = hp.optional("New metric value must exceed the best value by min_delta to continue training.",
+                                   default=0.0)
+    patience: Union[int, str] = hp.optional("Interval the trainer can wait without stopping training.", default=1)
+
+    def initialize_object(self) -> EarlyStopper:
+        """Initialize the EarlyStopper callback.
+
+        Returns:
+            EarlyStopper: An instance of :class:`~.EarlyStopper`.
+        """
+        comp_function = None
+        if self.comp in ("greater", "gt"):
+            comp_function = torch.greater
+        elif self.comp in ("less", "lt"):
+            comp_function = torch.less
+        return EarlyStopper(monitor=self.monitor,
+                            dataloader_label=self.dataloader_label,
+                            comp=comp_function,
+                            min_delta=self.min_delta,
+                            patience=self.patience)
+
+
+@dataclass
+class MLPerfCallbackHparams(CallbackHparams):
+    """:class:`~.MLPerfCallback` hyperparameters.
+
+    Args:
+        root_folder (str): The root submission folder
+        index (int): The repetition index of this run. The filename created will be
+            ``result_[index].txt``.
+        benchmark (str, optional): Benchmark name. Currently only ``resnet`` supported.
+        target (float, optional): The target metric before the mllogger marks the stop
+            of the timing run. Default: ``0.759`` (resnet benchmark).
+        division (str, optional): Division of submission. Currently only ``open`` division supported.
+        metric_name (str, optional): name of the metric to compare against the target. Default: ``Accuracy``.
+        metric_label (str, optional): label name. The metric will be accessed via ``state.current_metrics[metric_label][metric_name]``.
+        submitter (str, optional): Submitting organization. Default: MosaicML.
+        system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
+            not provided, system name will default to ``[world_size]x[device_name]_composer``,
+            e.g. ``8xNVIDIA_A100_80GB_composer``.
+        status (str, optional): Submission status. One of (onprem, cloud, or preview).
+            Default: ``"onprem"``.
+        cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
+            will call ``subprocess(cache_clear_cmd)``. Default is disabled (None)
+
+    """
+
+    root_folder: str = hp.required("The root submission folder.")
+    index: int = hp.required("The repetition index of this run.")
+    benchmark: str = hp.optional("Benchmark name. Default: resnet", default="resnet")
+    target: float = hp.optional("The target metric before mllogger marks run_stop. Default: 0.759 (resnet)",
+                                default=0.759)
+    division: Optional[str] = hp.optional(
+        "Division of submission. Currently only open division"
+        "is supported. Default: open", default="open")
+    metric_name: str = hp.optional('name of the metric to compare against the target. Default: Accuracy',
+                                   default='Accuracy')
+    metric_label: str = hp.optional(
+        'label name. The metric will be accessed via state.current_metrics[metric_label][metric_name]. Default: eval',
+        default='eval')
+    submitter: str = hp.optional("Submitting organization. Default: MosaicML", default='MosaicML')
+    system_name: Optional[str] = hp.optional("Name of the system, defaults to [world_size]x[device_name]", default=None)
+    status: str = hp.optional("Submission status. Default: onprem", default="onprem")
+    cache_clear_cmd: Optional[str] = hp.optional(
+        "Command to invoke during the cache clear. This callback will call subprocess(cache_clear_cmd). Default: Disabled.",
+        default=None,
+    )
+
+    def initialize_object(self) -> MLPerfCallback:
+        """Initialize the MLPerf Callback.
+
+        Returns:
+            MLPerfCallback: An instance of :class:`~.MLPerfCallback`
+        """
+        return MLPerfCallback(**asdict(self))
+
+
+@dataclass
 class CheckpointSaverHparams(CallbackHparams):
     """:class:`~.CheckpointSaver` hyperparameters.
-    
+
     Args:
         save_folder (str, optional): See :class:`~.CheckpointSaver`.
         filename (str, optional): See :class:`~.CheckpointSaver`.
