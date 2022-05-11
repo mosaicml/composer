@@ -1346,6 +1346,11 @@ class Trainer:
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
+                    total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                        num_samples=self.state.batch_num_samples,
+                        num_tokens=self.state.batch_num_tokens,
+                    )
+
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.data_batch({
                         "trainer/global_step": int(self.state.timestamp.batch),
@@ -1365,11 +1370,6 @@ class Trainer:
                         dist.all_reduce(total_loss, reduce_operation="SUM")
                         full_loss = total_loss.cpu().item()
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
-
-                    total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
-                        num_samples=self.state.batch_num_samples,
-                        num_tokens=self.state.batch_num_tokens,
-                    )
 
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
