@@ -30,10 +30,12 @@ def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable] 
             depending on what the batch is composed of.
     
     Raises:
-        ValueError if key is unset and set_fn is unset.
+        ValueError if key is unset and set_fn is unset or if both are set.
     """
     if key is None and get_fn is None:
         raise ValueError("key or get_fn must be specified and neither were!")
+    if key is not None and get_fn is not None:
+        raise ValueError("key and get_fn were both set. Only one can be set!")
     if get_fn is not None:
         return get_fn(batch)
     if isinstance(key, Sequence) and not isinstance(key, str):
