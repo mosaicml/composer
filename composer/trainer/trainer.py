@@ -907,7 +907,6 @@ class Trainer:
         # Load Checkpoint
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
-        latest_checkpoint_exists = False
         if autoresume:
             if save_folder is None:
                 raise ValueError("save_folder must be specified when autoresume is enabled.")
@@ -938,24 +937,18 @@ class Trainer:
                     except (NotImplementedError, GetFileNotFoundException):
                         # Ignore errors caused by no checkpoint saved with logger
                         pass
-            latest_checkpoint_exists = os.path.exists(latest_checkpoint_path)
             # Require all ranks to have local checkpoint if we wish to restore from it
             latest_checkpoint_exists = self._device.tensor_to_device(
-                torch.tensor([latest_checkpoint_exists], dtype=torch.uint8))
+                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
             dist.all_reduce(latest_checkpoint_exists, reduce_operation="MIN")
-            # If latest checkpoint is saved locally, load it
+            # If latest checkpoint is saved locally, change load_path to it
             if int(latest_checkpoint_exists.item()) == 1:
-                self._rng_state = load_checkpoint(state=self.state,
-                                                  path=latest_checkpoint_path,
-                                                  object_store=None,
-                                                  load_weights_only=False,
-                                                  strict_model_weights=load_strict,
-                                                  chunk_size=load_chunk_size,
-                                                  progress_bar=load_progress_bar)
-                log.info(f"Setting seed to {self.state.seed}")
-                reproducibility.seed_all(self.state.seed)
-        # Load from load_path if autoresume is False or no existing checkpoints were found
-        if load_path is not None and not latest_checkpoint_exists:
+                load_path = latest_checkpoint_path
+                # Disable object_store and load_weights_only since we're autoresuming locally
+                load_object_store = None
+                load_weights_only = False
+        # Actually load the checkpoitn from potentially updated arguments
+        if load_path is not None:
             self._rng_state = load_checkpoint(state=self.state,
                                               path=load_path,
                                               object_store=load_object_store,
