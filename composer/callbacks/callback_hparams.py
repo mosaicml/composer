@@ -9,7 +9,6 @@ import textwrap
 from dataclasses import asdict, dataclass
 from typing import Optional, Union
 
-import torch
 import yahp as hp
 
 from composer.callbacks.checkpoint_saver import CheckpointSaver
@@ -19,6 +18,7 @@ from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.speed_monitor import SpeedMonitor
+from composer.callbacks.threshold_stopper import ThresholdStopper
 from composer.core.callback import Callback
 from composer.core.time import Time
 from composer.utils import import_object
@@ -157,16 +157,53 @@ class EarlyStopperHparams(CallbackHparams):
         Returns:
             EarlyStopper: An instance of :class:`~.EarlyStopper`.
         """
-        comp_function = None
-        if self.comp in ("greater", "gt"):
-            comp_function = torch.greater
-        elif self.comp in ("less", "lt"):
-            comp_function = torch.less
         return EarlyStopper(monitor=self.monitor,
                             dataloader_label=self.dataloader_label,
-                            comp=comp_function,
+                            comp=self.comp,
                             min_delta=self.min_delta,
                             patience=self.patience)
+
+
+@dataclass
+class ThresholdStopperHparams(CallbackHparams):
+    """:class:`~.ThresholdStopper` hyperparameters.
+
+    Args:
+        monitor (str): The name of the metric to monitor.
+        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If 
+            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
+            monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
+            should be set to 'train' or 'eval' respectively.
+        threshold (float): The threshold that dictates when to halt training. Whether training stops if the metric
+            exceeds or falls below the threshold depends on the comparison operator.
+        comp (str, optional): A string dictating which comparison operator to use to measure
+            change in the monitored metric. Set ``comp`` to "less" to use the function :func:`torch.less`,
+            and "greater" to use the function :func:`torch.greater`. The comparison operator will be called
+            ``comp(current_value, prev_best)``. For example, for metrics where the optimal value is low
+            (error, loss, perplexity), use the less than operator.
+        stop_on_batch (bool, optional): A bool that indicates whether to stop training in the middle of an epoch if
+            the training metrics satisfy the threshold comparison. Defaults to False.
+    """
+    monitor: str = hp.required("The name of the metric to monitor.")
+    dataloader_label: str = hp.required("Label of the dataloader/evaluator associated with the metric.")
+    threshold: float = hp.required("The threshold value to compare the metric to.")
+    comp: Optional[str] = hp.optional("Which comparison operator to use to track change in the metric.", default=None)
+    stop_on_batch: bool = hp.optional("Whether to stop training in the middle of an epoch if using training metrics.",
+                                      default=False)
+
+    def initialize_object(self) -> ThresholdStopper:
+        """Initialize the ThresholdStopper callback.
+
+        Returns:
+            ThresholdStopper: An instance of :class:`~.ThresholdStopper`.
+        """
+        return ThresholdStopper(
+            monitor=self.monitor,
+            dataloader_label=self.dataloader_label,
+            threshold=self.threshold,
+            comp=self.comp,
+            stop_on_batch=self.stop_on_batch,
+        )
 
 
 @dataclass
