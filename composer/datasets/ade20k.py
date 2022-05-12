@@ -412,10 +412,10 @@ class StreamingADE20k(StreamingDataset):
         return data.decode('utf-8')
 
     def decode_image(self, data: bytes) -> Image.Image:
-        return Image.open(BytesIO(data)).convert('RGB')
+        return Image.open(BytesIO(data))
 
     def decode_annotation(self, data: bytes) -> Image.Image:
-        return Image.open(BytesIO(data)).convert('RGB')
+        return Image.open(BytesIO(data))
 
     def __init__(self,
                  remote: str,
