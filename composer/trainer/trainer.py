@@ -38,8 +38,9 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
+from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store import ObjectStore
 
@@ -545,8 +546,8 @@ class Trainer:
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             artifact stores.
         autoresume (bool, optional): Whether or not to enable autoresume, which allows jobs to be killed and restarted
-            to continue training. This parameter requires ``save_folder`` to be specified and ``save_overwrite`` to be 
-            ``False``. (default: ``False``)
+            to continue training. This parameter requires ``save_folder`` and ``run_name`` to be specified and 
+            ``save_overwrite`` to be ``False``. (default: ``False``)
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)
 
@@ -917,22 +918,33 @@ class Trainer:
             if save_latest_filename is None:
                 raise ValueError(
                     "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
-            latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
+            if run_name is None:
+                raise ValueError("run_name must be specified so autoresume knows which run to load from.")
+            latest_filename_formatted = format_name_with_dist(save_latest_filename, run_name)
+            latest_checkpoint_path = os.path.join(save_folder, latest_filename_formatted)
             # If latest checkpoint is not saved locally, try to fetch from loggers
             if not os.path.exists(latest_checkpoint_path) and save_latest_artifact_name is not None:
+                # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
+                os.makedirs(save_folder, exist_ok=True)
                 for logger in loggers:
                     try:
                         # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                        logger.get_file_artifact(artifact_name=save_latest_artifact_name,
+                        logger.get_file_artifact(artifact_name=format_name_with_dist(
+                            save_latest_artifact_name, run_name),
                                                  destination=latest_checkpoint_path,
                                                  chunk_size=load_chunk_size,
                                                  progress_bar=load_progress_bar)
                         break
-                    except (NotImplementedError, FileNotFoundError):
+                    except (NotImplementedError, GetFileNotFoundException):
                         # Ignore errors caused by no checkpoint saved with logger
                         pass
+            latest_checkpoint_exists = os.path.exists(latest_checkpoint_path)
+            # Require all ranks to have local checkpoint if we wish to restore from it
+            latest_checkpoint_exists = self._device.tensor_to_device(
+                torch.tensor([latest_checkpoint_exists], dtype=torch.uint8))
+            dist.all_reduce(latest_checkpoint_exists, reduce_operation="MIN")
             # If latest checkpoint is saved locally, load it
-            if os.path.exists(latest_checkpoint_path):
+            if int(latest_checkpoint_exists.item()) == 1:
                 self._rng_state = load_checkpoint(state=self.state,
                                                   path=latest_checkpoint_path,
                                                   object_store=None,
@@ -942,7 +954,6 @@ class Trainer:
                                                   progress_bar=load_progress_bar)
                 log.info(f"Setting seed to {self.state.seed}")
                 reproducibility.seed_all(self.state.seed)
-                latest_checkpoint_exists = True
         # Load from load_path if autoresume is False or no existing checkpoints were found
         if load_path is not None and not latest_checkpoint_exists:
             self._rng_state = load_checkpoint(state=self.state,

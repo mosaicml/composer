@@ -9,6 +9,7 @@ import logging
 import os
 import pathlib
 import textwrap
+from pathlib import Path
 from typing import Callable, List, Optional, Tuple, Union
 
 from composer.core import Event, State
@@ -392,7 +393,7 @@ class CheckpointSaver(Callback):
                     os.remove(symlink_name)
                 except FileNotFoundError:
                     pass
-                os.symlink(checkpoint_filepath, symlink_name)
+                os.symlink(Path(checkpoint_filepath).name, symlink_name)
                 if self.artifact_name is not None and self.latest_artifact_name is not None:
                     symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, logger.run_name,
                                                                            state.timestamp).lstrip("/")

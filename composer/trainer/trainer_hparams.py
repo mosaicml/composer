@@ -456,8 +456,8 @@ class TrainerHparams(hp.Hparams):
     # Graceful Resumption
     autoresume: Optional[bool] = hp.optional(
         doc=(("Whether or not to enable autoresume, which allows jobs to be killed and restarted "
-              "to continue training. This parameter requires ``save_folder`` to be specified and "
-              "``save_overwrite`` to be ``False``. ")),
+              "to continue training. This parameter requires ``save_folder`` and ``run_name`` to "
+              "be specified and ``save_overwrite`` to be ``False``. ")),
         default=False)
 
     # DeepSpeed
@@ -556,6 +556,8 @@ class TrainerHparams(hp.Hparams):
             if self.save_latest_filename is None:
                 raise ValueError(
                     "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
+            if self.run_name is None:
+                raise ValueError("run_name must be specified so autoresume knows which run to load from.")
 
     def initialize_object(self) -> Trainer:
         self.validate()
