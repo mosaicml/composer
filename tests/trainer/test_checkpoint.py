@@ -252,6 +252,7 @@ def test_autoresume(
         return
     checkpoint_a_folder = "first"
     checkpoint_b_folder = "second"
+    middle_checkpoint = "ep1.pt"
     final_checkpoint = "ep2.pt"
     latest_checkpoint = composer_trainer_hparams.save_latest_filename.format(rank=dist.get_global_rank())
     composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, device_hparams,
@@ -293,6 +294,8 @@ def test_autoresume(
     # re-create the trainer from the YAML
     second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
     second_trainer_hparams.autoresume = True
+    # This should be ignored with autoresume
+    second_trainer_hparams.load_path = middle_checkpoint
 
     # pass in the two trainers, verify that the weights are the same
     assert_weights_equivalent(original_trainer_hparams=composer_trainer_hparams,
