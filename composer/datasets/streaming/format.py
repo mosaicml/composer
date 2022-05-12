@@ -119,7 +119,6 @@ class StreamingDatasetIndex(object):
 
     def __init__(self, samples_per_shard: NDArray[np.int64], bytes_per_shard: NDArray[np.int64],
                  bytes_per_sample: NDArray[np.int64], fields: List[str]) -> None:
-
         self.samples_per_shard = samples_per_shard
         self.bytes_per_shard = bytes_per_shard
         self.bytes_per_sample = bytes_per_sample
@@ -161,14 +160,15 @@ class StreamingDatasetIndex(object):
         Returns:
             cls: The loaded object.
         """
-
-        dtype = np.int64
-        total_samples, total_bytes, num_shards, num_fields = read_array(fp, 4, dtype)
+        magic, version = read_array(fp, 2, np.uint32)
+        assert magic == 0xDA7AD06E
+        assert version == 1
+        total_bytes, total_samples, num_shards, num_fields = read_array(fp, 4, np.int64)
         del total_bytes
-        samples_per_shard = read_array(fp, num_shards, dtype)
-        bytes_per_shard = read_array(fp, num_shards, dtype)
-        bytes_per_sample = read_array(fp, total_samples, dtype)
-        bytes_per_field = read_array(fp, num_fields, dtype)
+        samples_per_shard = read_array(fp, num_shards, np.int64)
+        bytes_per_shard = read_array(fp, num_shards, np.int64)
+        bytes_per_sample = read_array(fp, total_samples, np.uint32).astype(np.int64)
+        bytes_per_field = read_array(fp, num_fields, np.int64)
         fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
         return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
 
@@ -178,12 +178,18 @@ class StreamingDatasetIndex(object):
         Returns:
             bytes: The serialized form.
         """
-        header = np.array([self.total_samples, self.total_bytes, self.num_shards, self.num_fields], np.int64)
-        bytes_per_field = np.array(list(map(len, self.fields)), np.int64)
-        arrays = header, self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, bytes_per_field
-        arrays = np.concatenate(arrays, dtype=np.int64).tobytes()
-        fields = b''.join(map(lambda s: s.encode('utf-8'), self.fields))
-        return arrays + fields
+        magic = 0xDA7AD06E
+        version = 1
+        header = np.array([magic, version], np.uint32)
+        totals = np.array([self.total_bytes, self.total_samples, self.num_shards, self.num_fields], np.int64)
+        bytes_per_field = np.array([len(field.encode('utf-8')) for field in self.fields], np.int64)
+        assert (0 <= self.bytes_per_sample).all()
+        assert (self.bytes_per_sample < (1 << 32)).all()
+        bytes_per_sample = self.bytes_per_sample.astype(np.uint32)
+        arrays = header, totals, self.samples_per_shard, self.bytes_per_shard, bytes_per_sample, bytes_per_field
+        array_bytes = b''.join([arr.tobytes() for arr in arrays])
+        field_bytes = b''.join([field.encode('utf-8') for field in self.fields])
+        return array_bytes + field_bytes
 
     def dump(self, fp: BufferedWriter) -> None:
         """Dump a StreamingDatasetIndex to the file.
