@@ -144,7 +144,9 @@ class State(Serializable):
             >>> trainer.fit()
             >>> trainer.state.current_metrics
             {'train': {'Accuracy': tensor(...)}, 'eval1': {'Accuracy': tensor(...)}, 'eval2': {'Accuracy': tensor(...)}}
-
+        eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
+            before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
+            ``0``.
         grad_accum (int): The number of gradient accumulation steps per batch.
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
@@ -157,6 +159,9 @@ class State(Serializable):
 
         outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward
             pass.
+        predict_timestamp (Timestamp): The timestamp for the current prediction dataloader. This timestamp is reset
+            before the dataloader is used. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
+            ``0``.
         profiler (Profiler): The profiler (if profiling is enabled), or ``None`` if not profiling.
         rank_zero_seed (int): The seed of the rank zero process.
         scaler (torch.cuda.amp.GradScaler): The gradient scaler if using mixed-precision training, or
@@ -251,6 +256,8 @@ class State(Serializable):
         self._evaluators = list(ensure_tuple(evaluators))
 
         self.timestamp = Timestamp()
+        self.eval_timestamp = Timestamp()
+        self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
 
         if optimizers is None:
