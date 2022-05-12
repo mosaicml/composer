@@ -64,7 +64,8 @@ def mixup_batch(input: torch.Tensor,
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
             X_mixed, y_perm, mixing = mixup_batch(
-                X, y,
+                X,
+                y,
                 alpha=0.2
             )
     """
