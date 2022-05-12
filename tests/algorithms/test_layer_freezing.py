@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from copy import deepcopy
 from unittest.mock import Mock
@@ -6,13 +7,13 @@ from unittest.mock import Mock
 import torch
 
 from composer.algorithms import LayerFreezing, LayerFreezingHparams
-from composer.core import Event, Precision, State
+from composer.core import Event, Precision, State, Timestamp
 from composer.loggers import Logger
 from tests.common import SimpleConvModel
 
 
 def _generate_state(epoch: int, max_epochs: int):
-    """Generates a state and fast forwards the timer by epochs."""
+    """Generates a state and fast forwards the timestamp by epochs."""
     model = SimpleConvModel()
 
     state = State(model=model,
@@ -25,8 +26,7 @@ def _generate_state(epoch: int, max_epochs: int):
                   max_duration=f'{max_epochs}ep')
 
     # fast forward by epochs
-    for _ in range(epoch):
-        state.timer.on_epoch_complete()
+    state.timestamp = Timestamp(epoch=epoch)
 
     return state
 

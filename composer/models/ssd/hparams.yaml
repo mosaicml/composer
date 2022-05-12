@@ -34,7 +34,7 @@ schedulers:
 train_batch_size: 1024
 eval_batch_size: 1024
 seed: 0
-validate_every_n_epochs: 10
+eval_interval: 10ep
 grad_accum: 1
 device:
   gpu: {}

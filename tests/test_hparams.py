@@ -1,10 +1,12 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 
 import pytest
 
 import composer
+from composer.core.precision import Precision
 from composer.trainer import TrainerHparams
 from composer.trainer.devices import CPUDeviceHparams
 from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
@@ -61,8 +63,10 @@ class TestHparamsCreate:
         hparams.dataloader.persistent_workers = False
         hparams.dataloader.pin_memory = False
         hparams.dataloader.prefetch_factor = 2
+        hparams.precision = Precision.FP32
 
-        configure_dataset_hparams_for_synthetic(hparams.train_dataset, model_hparams=hparams.model)
+        if hparams.train_dataset is not None:
+            configure_dataset_hparams_for_synthetic(hparams.train_dataset, model_hparams=hparams.model)
         configure_model_hparams_for_synthetic(hparams.model)
         if hparams.val_dataset is not None:
             configure_dataset_hparams_for_synthetic(hparams.val_dataset)

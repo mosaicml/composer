@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import site
@@ -106,6 +107,7 @@ extra_deps["dev"] = [
     "sphinxemoji==0.2.0",
     "furo==2022.3.4",
     "sphinx-copybutton==0.5.0",
+    "tabulate==0.8.9",  # for auto-generating tables
     "testbook==0.4.2",
     "myst-parser==0.16.1",
     "sphinx_panels==0.6.0",
@@ -161,13 +163,23 @@ extra_deps["streaming"] = [
     "boto3>=1.21.45,<2",
 ]
 
+extra_deps["onnx"] = [
+    "onnx>=1.11.0,<2",
+    "onnxruntime>=1.11.0,<2",
+]
+
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ["py.typed"]
 composer_data_files += package_files("composer", "yamls", ".yaml")
 composer_data_files += package_files("composer", "algorithms", ".json")
 
-setup(name="mosaicml",
+package_name = os.environ.get('COMPOSER_PACKAGE_NAME', "mosaicml")
+
+if package_name != "mosaicml":
+    print(f"`Building composer as `{package_name}`)", file=sys.stderr)
+
+setup(name=package_name,
       version="0.6.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
