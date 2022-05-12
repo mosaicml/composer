@@ -25,7 +25,7 @@ algo_kwargs = {
 
 @pytest.fixture
 def input():
-    return torch.Tensor(4, 3, 224, 224)
+    return torch.rand(4, 3, 112, 112)
 
 
 # <--- torchscript export --->
@@ -39,7 +39,7 @@ def input():
     pytest.param(apply_stochastic_depth, marks=pytest.mark.xfail),
     pytest.param(apply_channels_last)
 ])
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(10)
 def test_surgery_torchscript_train(surgery_method, input):
     """Tests torchscript model in train mode."""
     model = resnet50()
@@ -61,7 +61,7 @@ def test_surgery_torchscript_train(surgery_method, input):
     pytest.param(apply_stochastic_depth),
     pytest.param(apply_channels_last)
 ])
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(10)
 def test_surgery_torchscript_eval(surgery_method, input):
     """Tests torchscript model in eval mode."""
     model = resnet50()
@@ -86,7 +86,7 @@ def test_surgery_torchscript_eval(surgery_method, input):
     pytest.param(apply_stochastic_depth),
     pytest.param(apply_channels_last)
 ])
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(10)
 def test_surgery_torchfx_eval(surgery_method, input):
     """Tests torch.fx model in eval mode."""
     model = resnet50()
@@ -105,13 +105,13 @@ def test_surgery_torchfx_eval(surgery_method, input):
 
 @pytest.mark.parametrize("surgery_method", [
     pytest.param(apply_blurpool),
-    pytest.param(apply_factorization, marks=pytest.mark.xfail),
+    pytest.param(apply_factorization),
     pytest.param(apply_ghost_batchnorm),
     pytest.param(apply_squeeze_excite),
     pytest.param(apply_stochastic_depth),
     pytest.param(apply_channels_last)
 ])
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(10)
 def test_surgery_onnx(surgery_method, input, tmpdir):
     """Tests onnx export and runtime"""
     pytest.importorskip("onnx")
@@ -138,7 +138,16 @@ def test_surgery_onnx(surgery_method, input, tmpdir):
     onnx.checker.check_model(onnx_model)
 
     # run inference
+    import numpy as np
     ort_session = ort.InferenceSession(onnx_path)
-    outputs = ort_session.run(None, {'input': input})
+    outputs = ort_session.run(
+        None,
+        {'input': input.numpy().astype(np.float32)},
+    )
 
-    torch.testing.assert_allclose(outputs, model(input))  # type: ignore (third-party)
+    torch.testing.assert_allclose(
+        outputs[0],
+        model(input),
+        rtol=1e-4,  # lower tolerance for ONNX
+        atol=1e-3,  # lower tolerance for ONNX
+    )  # type: ignore (third-party)
