@@ -113,12 +113,12 @@ class StreamingDatasetIndex(object):
     Args:
         samples_per_shard (NDArray[np.int64]): Number of samples of each shard.
         bytes_per_shard (NDArray[np.int64]): Size in bytes of each shard.
-        bytes_per_sample (NDArray[np.int64]): Size in bytes of each sample across all shards.
+        bytes_per_sample (NDArray[np.uint32]): Size in bytes of each sample across all shards.
         fields (List[str]): The names of the samples' fields in order.
     """
 
     def __init__(self, samples_per_shard: NDArray[np.int64], bytes_per_shard: NDArray[np.int64],
-                 bytes_per_sample: NDArray[np.int64], fields: List[str]) -> None:
+                 bytes_per_sample: NDArray[np.uint32], fields: List[str]) -> None:
         self.samples_per_shard = samples_per_shard
         self.bytes_per_shard = bytes_per_shard
         self.bytes_per_sample = bytes_per_sample
@@ -167,7 +167,7 @@ class StreamingDatasetIndex(object):
         del total_bytes
         samples_per_shard = read_array(fp, num_shards, np.int64)
         bytes_per_shard = read_array(fp, num_shards, np.int64)
-        bytes_per_sample = read_array(fp, total_samples, np.uint32).astype(np.int64)
+        bytes_per_sample = read_array(fp, total_samples, np.uint32)
         bytes_per_field = read_array(fp, num_fields, np.int64)
         fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
         return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
@@ -183,10 +183,7 @@ class StreamingDatasetIndex(object):
         header = np.array([magic, version], np.uint32)
         totals = np.array([self.total_bytes, self.total_samples, self.num_shards, self.num_fields], np.int64)
         bytes_per_field = np.array([len(field.encode('utf-8')) for field in self.fields], np.int64)
-        assert (0 <= self.bytes_per_sample).all()
-        assert (self.bytes_per_sample < (1 << 32)).all()
-        bytes_per_sample = self.bytes_per_sample.astype(np.uint32)
-        arrays = header, totals, self.samples_per_shard, self.bytes_per_shard, bytes_per_sample, bytes_per_field
+        arrays = header, totals, self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, bytes_per_field
         array_bytes = b''.join([arr.tobytes() for arr in arrays])
         field_bytes = b''.join([field.encode('utf-8') for field in self.fields])
         return array_bytes + field_bytes
@@ -218,7 +215,7 @@ class StreamingDatasetIndex(object):
         sample_shard_begins = np.array(sample_shard_begins, np.int64)
         sample_shards = np.array(sample_shards, np.int64)
 
-        sample_ends = self.bytes_per_sample.cumsum()
+        sample_ends = self.bytes_per_sample.astype(np.int64).cumsum()
         sample_begins = sample_ends - self.bytes_per_sample
         sample_shard_offsets = sample_begins - sample_shard_begins
         return sample_shards, sample_shard_offsets
