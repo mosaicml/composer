@@ -224,8 +224,3 @@ def _batch_get_tuple(batch: Any, key: Union[int, str]) -> Any:
         value = batch[key]
 
     return value
-
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
