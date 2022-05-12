@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Generic dataset class for self-supervised training of autoregressive and masked language models."""
 
@@ -110,12 +111,13 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             tokenizer = generate_synthetic_tokenizer(tokenizer_family=self.tokenizer_name, dataset=lm_datasets)
 
             columns_to_remove = ["idx"] + column_names
-            lm_datasets = lm_datasets.map(lambda inp: tokenizer(
-                text=inp[column_names[0]], padding="max_length", max_length=self.max_seq_length, truncation=True),
-                                          batched=True,
-                                          num_proc=max(1, dataloader_hparams.num_workers),
-                                          remove_columns=columns_to_remove,
-                                          keep_in_memory=True)
+            lm_datasets = lm_datasets.map(
+                lambda inp: tokenizer(
+                    text=inp[column_names[0]], padding="max_length", max_length=self.max_seq_length, truncation=True),
+                batched=True,
+                num_proc=None if dataloader_hparams.num_workers == 0 else dataloader_hparams.num_workers,
+                remove_columns=columns_to_remove,
+                keep_in_memory=True)
 
             # override sizing to able use of synthetic datasets
             self.num_tokens = 0

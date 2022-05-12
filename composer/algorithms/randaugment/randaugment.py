@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core RandAugment code."""
 
@@ -51,6 +52,7 @@ def randaugment_image(img: ImgT,
 
     Args:
         img (:class:`PIL.Image.Image` or :class:`torch.Tensor`): Image or batch of images to be RandAugmented.
+
         severity (int, optional): See :class:`.RandAugment`.
         depth (int, optional): See :class:`.RandAugment`.
         augmentation_set (str, optional): See :class:`.RandAugment`.

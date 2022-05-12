@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Common settings across both the training and eval datasets.
 
@@ -64,7 +65,7 @@ class DataLoaderHparams(hp.Hparams):
             If ``num_workers = 0``, then the ``pin_memory`` must be ``False``."""),
                                    default=True)
     timeout: float = hp.optional(
-        "Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.", default=0)
+        "Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.", default=0.0)
 
     def initialize_object(
         self,
@@ -81,7 +82,7 @@ class DataLoaderHparams(hp.Hparams):
         Args:
             dataset (Dataset): The dataset.
             batch_size (int): The per-device batch size.
-            sampler (torch.utils.data.Sampler[int] or None): The sampler to use for the dataloader.
+            sampler (torch.utils.data.Sampler[int] | None): The sampler to use for the dataloader.
             drop_last (bool): Whether to drop the last batch if the number of
                 samples is not evenly divisible by the batch size.
             collate_fn (callable, optional): Custom collate function. Default: ``None``.
