@@ -24,7 +24,7 @@ def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable[[
             or attribute store (object with data members, namedtuple).
         key (Any): A key to index into the batch. Key is optional if get_fn is supplied.
         get_fn (Callable): A user-specified function to do the extracting. 
-        get_fn is optional if key is supplied.
+            get_fn is optional if key is supplied.
 
     Returns:
         The part of the batch specified by the key or the get_fn. This could be any type 
