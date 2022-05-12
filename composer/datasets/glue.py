@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """GLUE (General Language Understanding Evaluation) dataset (Wang et al, 2019).
 
@@ -56,8 +57,6 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
         split (str): Whether to use ``'train'``, ``'validation'``, or ``'test'`` split.
         max_seq_length (int, optional): Optionally, the ability to set a custom sequence
             length for the training dataset. Default: ``256``.
-        num_workers (int, optional): Number of CPU workers to use to preprocess the text.
-            Default: ``64``.
         max_network_retries (int, optional): Number of times to retry HTTP requests if
             they fail. Default: ``10``.
 
@@ -71,8 +70,6 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
     split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
-    num_workers: int = hp.optional(default=8,
-                                   doc="Optionally, the number of CPU workers to use to preprocess the text.")
     max_network_retries: int = hp.optional(default=10,
                                            doc="Optionally, the number of times to retry HTTP requests if they fail.")
 
@@ -115,7 +112,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
             dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
 
-        log.info(f"Starting tokenization step by preprocessing over {self.num_workers} threads!")
+        log.info(f"Starting tokenization step by preprocessing over {dataloader_hparams.num_workers} threads!")
         text_column_names = _task_to_keys[self.task]
 
         def tokenize_function(inp):
@@ -137,7 +134,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
         dataset = dataset.map(
             tokenize_function,
             batched=True,
-            num_proc=self.num_workers,
+            num_proc=None if dataloader_hparams.num_workers == 0 else dataloader_hparams.num_workers,
             batch_size=1000,
             remove_columns=columns_to_remove,
             new_fingerprint=f"{self.task}-tokenization-{self.split}",
