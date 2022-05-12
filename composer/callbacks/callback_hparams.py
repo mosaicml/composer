@@ -54,6 +54,7 @@ class GradMonitorHparams(CallbackHparams):
     Args:
         log_layer_grad_norms (bool, optional):
             See :class:`~.GradMonitor` for documentation.
+            Default: ``False``.
     """
 
     log_layer_grad_norms: bool = hp.optional(
@@ -176,20 +177,21 @@ class MLPerfCallbackHparams(CallbackHparams):
         root_folder (str): The root submission folder
         index (int): The repetition index of this run. The filename created will be
             ``result_[index].txt``.
-        benchmark (str, optional): Benchmark name. Currently only ``resnet`` supported.
+        benchmark (str, optional): Benchmark name. Currently only ``resnet`` supported. Default: ``resnet``.
         target (float, optional): The target metric before the mllogger marks the stop
             of the timing run. Default: ``0.759`` (resnet benchmark).
-        division (str, optional): Division of submission. Currently only ``open`` division supported.
-        metric_name (str, optional): name of the metric to compare against the target. Default: ``Accuracy``.
+        division (str, optional): Division of submission. Currently only ``open`` division supported. Default: ``"open"``.
+        metric_name (str, optional): name of the metric to compare against the target. Default: ``"Accuracy"``.
         metric_label (str, optional): label name. The metric will be accessed via ``state.current_metrics[metric_label][metric_name]``.
-        submitter (str, optional): Submitting organization. Default: MosaicML.
+            Default: ``"eval"``.
+        submitter (str, optional): Submitting organization. Default: ``"MosaicML"``.
         system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
-            not provided, system name will default to ``[world_size]x[device_name]_composer``,
-            e.g. ``8xNVIDIA_A100_80GB_composer``.
+            ``None``, system name will default to ``[world_size]x[device_name]_composer``,
+            e.g. ``8xNVIDIA_A100_80GB_composer``. Default: ``None``.
         status (str, optional): Submission status. One of (onprem, cloud, or preview).
             Default: ``"onprem"``.
         cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
-            will call ``subprocess(cache_clear_cmd)``. Default is disabled (None)
+            will call ``subprocess(cache_clear_cmd)``. Default is disabled (``None``).
 
     """
 
@@ -232,19 +234,19 @@ class CheckpointSaverHparams(CallbackHparams):
         filename (str, optional): See :class:`~.CheckpointSaver`.
         artifact_name (str, optional): See :class:`~.CheckpointSaver`.
         latest_filename (str, optional): See :class:`~.CheckpointSaver`.
-        overwrite (str, optional): See :class:`~.CheckpointSaver`.
+        overwrite (bool, optional): See :class:`~.CheckpointSaver`.
+            Default: ``False``.
         weights_only (bool, optional): See :class:`~.CheckpointSaver`.
-        num_checkpoints_to_keep (int, optional): See :class:`~.CheckpointSaver`.
-
+            Deafult: ``False``.
         save_interval (str, optional): Either a :doc:`time-string </trainer/time>` or a path to a function.
-
             If a :doc:`time-string </trainer/time>`, checkpoints will be saved according to this interval.
 
             If a path to a function, it should be of the format ``'path.to.function:function_name'``. The function
             should take (:class:`~.State`, :class:`~.Event`) and return a
             boolean indicating whether a checkpoint should be saved given the current state and event. The event will
-            be either :attr:`~composer.core.event.Event.BATCH_CHECKPOINT` or
-            :attr:`~composer.core.event.Event.EPOCH_CHECKPOINT`.
+            be either :attr:`.Event.BATCH_CHECKPOINT` or :attr:`.Event.EPOCH_CHECKPOINT`. Default: ``"1ep"``.
+        num_checkpoints_to_keep (int, optional): See :class:`~.CheckpointSaver`.
+            Default: ``-1``.
     """
     save_folder: str = hp.optional(doc="Folder where checkpoints will be saved.", default="{run_name}/checkpoints")
     filename: str = hp.optional("Checkpoint name format string.", default="ep{epoch}-ba{batch}-rank{rank}")
@@ -253,7 +255,7 @@ class CheckpointSaverHparams(CallbackHparams):
     latest_filename: Optional[str] = hp.optional("Latest checkpoint symlink format string.",
                                                  default="latest-rank{rank}")
     overwrite: bool = hp.optional("Whether to override existing checkpoints.", default=False)
-    weights_only: bool = hp.optional("Whether to save only checkpoint weights", default=False)
+    weights_only: bool = hp.optional("Whether to save only checkpoint weights.", default=False)
     save_interval: str = hp.optional(textwrap.dedent("""\
         Checkpoint interval or path to a `(State, Event) -> bool` function
         returning whether a checkpoint should be saved."""),
