@@ -9,6 +9,7 @@ import contextlib
 import datetime
 import itertools
 import logging
+import os
 import pathlib
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
@@ -543,6 +544,9 @@ class Trainer:
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             artifact stores.
+        autoresume (bool, optional): Whether or not to enable autoresume, which allows jobs to be killed and restarted
+            to continue training. This parameter requires ``save_folder`` to be specified and ``save_overwrite`` to be 
+            ``False``. (default: ``False``)
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)
 
@@ -665,6 +669,9 @@ class Trainer:
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
+
+        # Graceful Resumption
+        autoresume: Optional[bool] = False,
 
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
@@ -898,7 +905,46 @@ class Trainer:
 
         # Load Checkpoint
         self._rng_state = None
-        if load_path is not None:
+        # If autoresume is enabled, first check for existing checkpoints to load
+        latest_checkpoint_exists = False
+        if autoresume:
+            if save_folder is None:
+                raise ValueError("save_folder must be specified when autoresume is enabled.")
+            if save_overwrite:
+                raise ValueError(
+                    "save_overwrite must be False when autoresume is enabled as autoresume always loads the latest existing checkpoint in save_folder."
+                )
+            if save_latest_filename is None:
+                raise ValueError(
+                    "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
+            latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
+            # If latest checkpoint is not saved locally, try to fetch from loggers
+            if not os.path.exists(latest_checkpoint_path) and save_latest_artifact_name is not None:
+                for logger in loggers:
+                    try:
+                        # Fetch from logger. If it succeeds, stop trying the rest of the loggers
+                        logger.get_file_artifact(artifact_name=save_latest_artifact_name,
+                                                 destination=latest_checkpoint_path,
+                                                 chunk_size=load_chunk_size,
+                                                 progress_bar=load_progress_bar)
+                        break
+                    except (NotImplementedError, FileNotFoundError):
+                        # Ignore errors caused by no checkpoint saved with logger
+                        pass
+            # If latest checkpoint is saved locally, load it
+            if os.path.exists(latest_checkpoint_path):
+                self._rng_state = load_checkpoint(state=self.state,
+                                                  path=latest_checkpoint_path,
+                                                  object_store=None,
+                                                  load_weights_only=False,
+                                                  strict_model_weights=load_strict,
+                                                  chunk_size=load_chunk_size,
+                                                  progress_bar=load_progress_bar)
+                log.info(f"Setting seed to {self.state.seed}")
+                reproducibility.seed_all(self.state.seed)
+                latest_checkpoint_exists = True
+        # Load from load_path if autoresume is False or no existing checkpoints were found
+        if load_path is not None and not latest_checkpoint_exists:
             self._rng_state = load_checkpoint(state=self.state,
                                               path=load_path,
                                               object_store=load_object_store,
