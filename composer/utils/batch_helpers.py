@@ -49,7 +49,6 @@ def _batch_get(batch: Any, key: Any) -> Any:
     if isinstance(batch, tuple):
         return _batch_get_tuple(batch, key)
 
-    exceptions = []
     try:
         return batch[key]
 
@@ -57,7 +56,6 @@ def _batch_get(batch: Any, key: Any) -> Any:
     # which is TypeError("... object is not subscriptable").
     except TypeError as e:
         if 'object is not subscriptable' in str(e):
-            exceptions.append(e)
             pass
         else:
             raise e
@@ -66,11 +64,9 @@ def _batch_get(batch: Any, key: Any) -> Any:
         return getattr(batch, key)
 
     # If both getattr and __getitem__ result in exceptions then raise both of them.
-    except (AttributeError, TypeError) as e:
-        exceptions.append(e)
-        exceptions.append(
-            RuntimeError(f"Unable extract key {key} from batch {batch}. Please specify a custom get_fn, if necessary."))
-        raise Exception(exceptions)
+    except (AttributeError, TypeError):
+        raise RuntimeError(
+            f"Unable extract key {key} from batch {batch}. Please specify a custom get_fn, if necessary.")
 
 
 def _batch_get_multiple(batch: Any, key: Any):
@@ -142,7 +138,6 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
     if isinstance(batch, tuple):
         return _batch_set_tuple(batch, key, value)
 
-    exceptions = []
     try:
         # Check if one can do a __getitem__ before doing a __setitem__ because dicts can
         # do __setitem__ for elements not in the dict and we do not want that.
@@ -155,7 +150,6 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
     # which is TypeError("... object does not support item assignment") and TypeError('.. object is not subscriptable')
     except TypeError as e:
         if 'object does not support item assignment' in str(e) or 'object is not subscriptable' in str(e):
-            exceptions.append(e)
             pass
         else:  # Other type errors should be raised.
             raise e
@@ -169,12 +163,8 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
 
     # If both (setattr or getattr) and __setitem__ raise exceptions then raise both of them.
     except (AttributeError, TypeError) as e:
-        exceptions.append(e)
-        exceptions.append(
-            RuntimeError(
-                f"Unable to set key {key} to value {value} on batch {batch}. Please specify a custom set_fn, if necessary."
-            ))
-        raise Exception(exceptions)
+        raise RuntimeError(
+            f"Unable to set key {key} to value {value} on batch {batch}. Please specify a custom set_fn, if necessary.")
     else:
         return batch
 
