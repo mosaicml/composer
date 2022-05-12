@@ -68,6 +68,8 @@ def _batch_get(batch: Any, key: Any) -> Any:
     # If both getattr and __getitem__ result in exceptions then raise both of them.
     except (AttributeError, TypeError) as e:
         exceptions.append(e)
+        exceptions.append(
+            RuntimeError(f"Unable extract key {key} from batch {batch}. Please specify a custom get_fn, if necessary."))
         raise Exception(exceptions)
 
 
@@ -168,6 +170,10 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
     # If both (setattr or getattr) and __setitem__ raise exceptions then raise both of them.
     except (AttributeError, TypeError) as e:
         exceptions.append(e)
+        exceptions.append(
+            RuntimeError(
+                f"Unable to set key {key} to value {value} on batch {batch}. Please specify a custom set_fn, if necessary."
+            ))
         raise Exception(exceptions)
     else:
         return batch
