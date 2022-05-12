@@ -9,6 +9,7 @@ __all__ = ['batch_get', 'batch_set']
 def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable[[Any], Any]] = None) -> Any:
     """Indexes into the batch given the key.
 
+    >>> from composer.utils.batch_helpers import batch_get
     >>> batch_get([1,2,3], 1)
     2
     >>> batch_get({'a':1, 'b':7}, 'b')
@@ -91,16 +92,17 @@ def batch_set(batch: Any,
     """Indexes into the batch given the key and sets the element at that index to value.
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
-    
-    >>> batch_set([1,2,3], 1, 8)
+
+    >>> from composer.utils.batch_helpers import batch_set
+    >>> batch_set([1,2,3], key=1, value=8)
     [1, 8, 3]
-    >>> batch_set({'a':1, 'b':7}, 'b', 11)
+    >>> batch_set({'a':1, 'b':7}, key='b', value=11)
     {'a': 1, 'b': 11}
-    >>> def setter(batch):
-    ...     batch[1]['d'] = 20
+    >>> def setter(batch, value):
+    ...     batch[1]['d'] = value
     ...     return batch
     ...
-    >>> batch_set([{'a':1, 'b':7},{'d':3}], set_fn=setter)
+    >>> batch_set([{'a':1, 'b':7},{'d':3}], value=20, set_fn=setter)
     [{'a': 1, 'b': 7}, {'d': 20}]
 
     Args:
@@ -222,3 +224,8 @@ def _batch_get_tuple(batch: Any, key: Union[int, str]) -> Any:
         value = batch[key]
 
     return value
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
