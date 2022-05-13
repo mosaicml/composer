@@ -9,7 +9,6 @@ import logging
 import os
 import pathlib
 import textwrap
-from pathlib import Path
 from typing import Callable, List, Optional, Tuple, Union
 
 from composer.core import Event, State
