@@ -682,7 +682,7 @@ class Trainer:
         save_num_checkpoints_to_keep: int = -1,
 
         # Graceful Resumption
-        autoresume: Optional[bool] = False,
+        autoresume: bool = False,
 
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
