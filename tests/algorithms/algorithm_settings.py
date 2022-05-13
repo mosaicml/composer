@@ -53,7 +53,13 @@ _settings = {
         }
     },
     'cutout': simple_vision_settings,
-    'ema': simple_vision_settings,
+    'ema': {
+        'model': common.SimpleConvModel,
+        'dataset': common.RandomImageDataset,
+        'kwargs': {
+            'half_life': '100ba',
+        },
+    },
     'factorize': None,
     'ghost_batchnorm': {
         'model': (ComposerResNet, {
@@ -90,7 +96,7 @@ _settings = {
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
             'drop_warmup': "0.0dur",
-            'use_same_gpu_seed': False
+            'use_same_gpu_seed': False,
         }
     },
     'swa': {
@@ -130,6 +136,6 @@ def get_settings(name: str):
 
     # create algorithm
     kwargs = setting.get('kwargs', {})
-    hparams = algorithm_registry.get_algorithm_registry()[name]
-    result['algorithm'] = hparams(**kwargs).initialize_object()
+    alg_class = algorithm_registry[name]
+    result['algorithm'] = alg_class(**kwargs)
     return result

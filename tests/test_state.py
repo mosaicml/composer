@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 from torch.functional import Tensor
 
-from composer.algorithms import ChannelsLastHparams
+from composer.algorithms import ChannelsLast
 from composer.core import DataSpec, Precision, State
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataLoaderHparams
@@ -29,7 +29,7 @@ def get_dummy_state():
                   precision=Precision.AMP,
                   max_duration=f"{random.randint(0, 100)}ep",
                   optimizers=optimizers,
-                  algorithms=[ChannelsLastHparams().initialize_object()])
+                  algorithms=[ChannelsLast()])
     state.schedulers = torch.optim.lr_scheduler.StepLR(optimizers, step_size=3)
     state.loss = random_tensor()
     state.batch = (random_tensor(), random_tensor())

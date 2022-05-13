@@ -942,7 +942,7 @@ class TestTrainerAssets:
 
 class TestTrainerAlgorithms:
 
-    @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
+    @pytest.mark.parametrize("name", algorithm_registry)
     @pytest.mark.timeout(5)
     @device('gpu')
     def test_algorithm_trains(self, name: str, rank_zero_seed: int, device: str):

@@ -18,10 +18,11 @@ import yahp as hp
 from torchmetrics import Metric, MetricCollection
 
 import composer
-from composer.algorithms import AlgorithmHparams, get_algorithm_registry
+from composer.algorithms import algorithm_registry
 from composer.callbacks import (CallbackHparams, EarlyStopperHparams, GradMonitorHparams, LRMonitorHparams,
                                 MemoryMonitorHparams, MLPerfCallbackHparams, SpeedMonitorHparams)
 from composer.core import DataSpec, Evaluator, Event, Precision, State, Time
+from composer.core.algorithm import Algorithm
 from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
@@ -97,8 +98,6 @@ model_registry = {
 }
 
 dataset_registry = get_dataset_registry()
-
-algorithms_registry = get_algorithm_registry()
 
 callback_registry = {
     "speed_monitor": SpeedMonitorHparams,
@@ -300,7 +299,7 @@ class TrainerHparams(hp.Hparams):
     """
 
     hparams_registry = {  # type: ignore
-        "algorithms": algorithms_registry,
+        "algorithms": algorithm_registry,
         "optimizer": optimizer_registry,
         "schedulers": scheduler_registry,
         "loggers": logger_registry,
@@ -313,7 +312,7 @@ class TrainerHparams(hp.Hparams):
         "evaluators": evaluator_registry,
     }
 
-    model: ModelHparams = hp.required(doc="model")
+    model: ModelHparams = hp.auto(Trainer, "model")
 
     # Shared data
     datadir: Optional[str] = hp.optional(
@@ -334,16 +333,13 @@ class TrainerHparams(hp.Hparams):
         doc="If specified, finish every epoch early after training on this many batches.",
         default=-1,
     )
-    compute_training_metrics: bool = hp.optional(doc="Log validation metrics on training data", default=False)
+    compute_training_metrics: bool = hp.auto(Trainer, "compute_training_metrics")
 
     # Stopping Conditions
-    max_duration: Optional[Union[str, int]] = hp.optional(
-        doc="Time string for the maximum training duration (e.g., 90ep)",
-        default=None,
-    )
+    max_duration: Optional[Union[str, int]] = hp.auto(Trainer, "max_duration")
 
     # Algorithms
-    algorithms: List[AlgorithmHparams] = hp.optional(doc="Algorithms", default_factory=list)
+    algorithms: Optional[List[Algorithm]] = hp.auto(Trainer, "algorithms")
 
     # Optimizer and Scheduler
     optimizer: Optional[OptimizerHparams] = hp.optional(doc="Optimizer to use", default=None)
@@ -570,7 +566,7 @@ class TrainerHparams(hp.Hparams):
         # Loggers, Callbacks, and Algorithms
         loggers = [x.initialize_object() for x in self.loggers]
         callbacks = [x.initialize_object() for x in self.callbacks]
-        algorithms = [x.initialize_object() for x in self.algorithms]
+        algorithms = self.algorithms
 
         # Train dataloader
         train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,

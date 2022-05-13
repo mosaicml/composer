@@ -6,7 +6,6 @@ from typing import Callable
 import pytest
 import torch
 
-from composer.algorithms import SelectiveBackpropHparams
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.selective_backprop.selective_backprop import select_using_loss, should_selective_backprop
 from composer.core import Event
@@ -156,18 +155,6 @@ def state(minimal_state: State, conv_model: ComposerClassifier, loss_fun_tuple: 
     )
 
     return minimal_state
-
-
-def test_sb_hparams():
-    hparams = SelectiveBackpropHparams(
-        start=0.5,
-        end=0.8,
-        keep=0.5,
-        scale_factor=0.5,
-        interrupt=2,
-    )
-    algorithm = hparams.initialize_object()
-    assert isinstance(algorithm, SelectiveBackprop)
 
 
 # tests of the functional API

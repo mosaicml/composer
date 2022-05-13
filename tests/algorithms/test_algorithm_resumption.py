@@ -10,11 +10,9 @@ import torch
 from torch.utils.data import DataLoader
 
 from composer import Trainer
-from composer.algorithms import get_algorithm_registry
+from composer.algorithms import algorithm_registry
 from tests.algorithms.algorithm_settings import get_settings
 from tests.common import deep_compare, device
-
-ALGORITHMS = get_algorithm_registry().keys()
 
 
 @pytest.mark.timeout(180)
@@ -27,7 +25,7 @@ ALGORITHMS = get_algorithm_registry().keys()
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
-@pytest.mark.parametrize("algorithm", ALGORITHMS)
+@pytest.mark.parametrize("algorithm", algorithm_registry.keys())
 def test_algorithm_resumption(
     algorithm: str,
     device,
