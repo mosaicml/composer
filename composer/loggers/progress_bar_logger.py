@@ -162,7 +162,7 @@ class ProgressBarLogger(LoggerDestination):
         assert state.dataloader_len is not None, "dataloader_len should be set when using tqdm"
 
         split = 'train' if self.is_train else 'val'
-        desc = f'{int(state.timestamp.epoch):5d} {split:5s}'
+        desc = f'Epoch {int(state.timestamp.epoch):5d} {split:5s}'
         position = 0 if self.is_train else 1
         self.pbars[self.is_train] = _ProgressBarLoggerInstance(
             file=self.stream,
