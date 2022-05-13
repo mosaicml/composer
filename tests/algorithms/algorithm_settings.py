@@ -1,5 +1,6 @@
-"""This file provides the canonical settings (dataset, model, algorithms, arguments) for each algorithm to be tested.
-This can be used throughout the codebase for functional tests, serialization tests, etc.
+"""This file provides the canonical settings (dataset, model, algorithms, arguments)
+for each algorithm to be tested. This can be used throughout the codebase for
+functional tests, serialization tests, etc.
 
 Each algorithm is keyed based on its name in the algorithm registry.
 """
@@ -107,7 +108,8 @@ _settings = {
 
 
 def get_settings(name: str):
-    """For a given algorithm name, creates the canonical setting (algorithm, model, dataset) for testing.
+    """For a given algorithm name, creates the canonical setting
+    (algorithm, model, dataset) for testing.
 
     Returns ``None`` if no settings provided.
     """
@@ -132,4 +134,6 @@ def get_settings(name: str):
     kwargs = setting.get('kwargs', {})
     hparams = algorithm_registry.get_algorithm_registry()[name]
     result['algorithm'] = hparams(**kwargs).initialize_object()
+    result['algorithm_kwargs'] = kwargs
+
     return result

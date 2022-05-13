@@ -9,8 +9,15 @@ import torch
 import torch.fx
 from torchvision.models import resnet50
 
-from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
-                                 apply_squeeze_excite, apply_stochastic_depth)
+from tests.algorithms import get_settings
+from composer.functional import (
+    apply_blurpool,
+    apply_channels_last,
+    apply_factorization,
+    apply_ghost_batchnorm,
+    apply_squeeze_excite,
+    apply_stochastic_depth,
+)
 
 algo_kwargs = {
     apply_stochastic_depth: {
@@ -31,19 +38,22 @@ def input():
 # <--- torchscript export --->
 
 
-@pytest.mark.parametrize("surgery_method", [
-    pytest.param(apply_blurpool),
-    pytest.param(apply_factorization, marks=pytest.mark.xfail),
-    pytest.param(apply_ghost_batchnorm, marks=pytest.mark.xfail),
-    pytest.param(apply_squeeze_excite),
-    pytest.param(apply_stochastic_depth, marks=pytest.mark.xfail),
-    pytest.param(apply_channels_last)
+@pytest.mark.parametrize("name,surgery_method", [
+    pytest.param("blurpool", apply_blurpool),
+    pytest.param("factorization", apply_factorization, marks=pytest.mark.xfail),
+    pytest.param("ghost_batchnorm", apply_ghost_batchnorm, marks=pytest.mark.xfail),
+    pytest.param("squeeze_excite", apply_squeeze_excite),
+    pytest.param("stochastic_depth", apply_stochastic_depth, marks=pytest.mark.xfail),
+    pytest.param("channels_last", apply_channels_last)
 ])
 @pytest.mark.timeout(10)
-def test_surgery_torchscript_train(surgery_method, input):
+def test_surgery_torchscript_train(name, surgery_method, input):
     """Tests torchscript model in train mode."""
-    model = resnet50()
-    kwargs = algo_kwargs.get(surgery_method, {})
+
+    settings = get_settings(name)
+    assert settings is not None
+    model = settings["model"]
+    kwargs = settings["algorithm_kwargs"]
 
     surgery_method(model, **kwargs)
 
