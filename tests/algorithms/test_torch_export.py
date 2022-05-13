@@ -115,7 +115,7 @@ def test_surgery_torchfx_eval(name, surgery_method, input):
     pytest.param("blurpool", apply_blurpool),
     pytest.param("factorize", apply_factorization),
     pytest.param("ghost_batchnorm", apply_ghost_batchnorm),
-    pytest.param("squeeze_excite", apply_squeeze_excite, marks=pytest.mark.daily),
+    pytest.param("squeeze_excite", apply_squeeze_excite),
     pytest.param("stochastic_depth", apply_stochastic_depth),
     pytest.param("channels_last", apply_channels_last)
 ])
