@@ -7,7 +7,6 @@ import os
 import pytest
 import torch
 import torch.fx
-from torchvision.models import resnet50
 
 from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
                                  apply_squeeze_excite, apply_stochastic_depth)
@@ -135,7 +134,7 @@ def test_surgery_onnx(name, surgery_method, input, tmpdir):
     onnx_path = os.path.join(tmpdir, "model.onnx")
     torch.onnx.export(
         model,
-        input,
+        (input,),
         onnx_path,
         input_names=["input"],
         output_names=["output"],
@@ -146,11 +145,10 @@ def test_surgery_onnx(name, surgery_method, input, tmpdir):
     onnx.checker.check_model(onnx_model)
 
     # run inference
-    import numpy as np
     ort_session = ort.InferenceSession(onnx_path)
     outputs = ort_session.run(
         None,
-        {'input': input.numpy().astype(np.float32)},
+        {'input': input[0].numpy()},
     )
 
     torch.testing.assert_allclose(
