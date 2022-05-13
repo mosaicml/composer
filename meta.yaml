@@ -79,8 +79,8 @@ test:
   commands:
     # deepspeed is not available on conda, and timm has a conda version conflict
     - pip install 'deepspeed>=0.5.5' 'timm>=0.5.4'
-    - make test DURATION=all EXTRA_ARGS="-v -m 'not notebooks and not gpu and not vision and not daily'"
-    - make test-dist DURATION=all WORLD_SIZE=2 EXTRA_ARGS="-v -m 'not notebooks and not gpu and not vision and not daily'"
+    - make test DURATION=all EXTRA_ARGS="-v -m 'not notebooks and not gpu and not vision and not daily and not remote'"
+    - make test-dist DURATION=all WORLD_SIZE=2 EXTRA_ARGS="-v -m 'not notebooks and not gpu and not vision and not daily and not remote'"
 
 about:
   home: https://www.mosaicml.com

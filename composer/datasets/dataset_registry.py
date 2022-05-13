@@ -3,27 +3,30 @@
 
 """Mapping between dataset names and corresponding HParams classes."""
 
-from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams
+from composer.datasets.ade20k import ADE20kDatasetHparams, ADE20kWebDatasetHparams, StreamingADE20kHparams
 from composer.datasets.brats import BratsDatasetHparams
 from composer.datasets.c4 import C4DatasetHparams
 from composer.datasets.cifar import (CIFAR10DatasetHparams, CIFAR10WebDatasetHparams, CIFAR20WebDatasetHparams,
                                      CIFAR100WebDatasetHparams)
-from composer.datasets.coco import COCODatasetHparams
+from composer.datasets.coco import COCODatasetHparams, StreamingCOCOHparams
 from composer.datasets.glue import GLUEHparams
-from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams,
+from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDatasetHparams, StreamingImageNet1kHparams,
                                         TinyImagenet200WebDatasetHparams)
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams
 
 registry = {
     "ade20k": ADE20kDatasetHparams,
+    "streaming_ade20k": StreamingADE20kHparams,
     "brats": BratsDatasetHparams,
     "imagenet": ImagenetDatasetHparams,
+    "streaming_imagenet1k": StreamingImageNet1kHparams,
     "cifar10": CIFAR10DatasetHparams,
     "mnist": MNISTDatasetHparams,
     "lm": LMDatasetHparams,
     "glue": GLUEHparams,
     "coco": COCODatasetHparams,
+    "streaming_coco": StreamingCOCOHparams,
     "c4": C4DatasetHparams,
     'wds_mnist': MNISTWebDatasetHparams,
     'wds_cifar10': CIFAR10WebDatasetHparams,
