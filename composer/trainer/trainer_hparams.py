@@ -548,19 +548,6 @@ class TrainerHparams(hp.Hparams):
                                                                                 self.grad_accum < 1):
             raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
 
-        if self.autoresume:
-            if self.save_folder is None:
-                raise ValueError("save_folder must be specified when autoresume is enabled.")
-            if self.save_overwrite:
-                raise ValueError(
-                    "save_overwrite must be False when autoresume is enabled as autoresume always loads the latest existing checkpoint in save_folder."
-                )
-            if self.save_latest_filename is None:
-                raise ValueError(
-                    "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
-            if self.run_name is None:
-                raise ValueError("run_name must be specified so autoresume knows which run to load from.")
-
     def initialize_object(self) -> Trainer:
         self.validate()
 
