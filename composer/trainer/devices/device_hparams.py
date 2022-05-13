@@ -42,6 +42,7 @@ class CPUDeviceHparams(DeviceHparams):
     def initialize_object(self) -> DeviceCPU:
         return DeviceCPU()
 
+
 @dataclass
 class TPUDeviceHparams(DeviceHparams):
     """Used to construct a :class:`.DeviceTPU`"""

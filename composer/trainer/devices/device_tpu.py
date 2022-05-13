@@ -9,10 +9,10 @@ from contextlib import contextmanager
 from typing import Generator, TypeVar, Union
 
 import torch
+import torch_xla
 
 from composer.core.precision import Precision
 from composer.trainer.devices.device import Device, T_nnModule
-import torch_xla
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +31,10 @@ class DeviceTPU(Device):
         import torch_xla.core.xla_model as xm
 
         self._device = xm.xla_device()
-        
+
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         import torch_xla.distributed.xla_multiprocessing as xmp
-        
+
         wrapped_model = xmp.MpModelWrapper(module)
         return wrapped_model.to(self._device)
 
