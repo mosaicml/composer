@@ -456,11 +456,10 @@ class TrainerHparams(hp.Hparams):
     )
 
     # Graceful Resumption
-    autoresume: bool = hp.optional(
-        doc=(("Whether or not to enable autoresume, which allows for stopping and resuming "
-              "training. This parameter requires ``save_folder`` and ``run_name`` to "
-              "be specified and ``save_overwrite`` to be ``False``. ")),
-        default=False)
+    autoresume: bool = hp.optional(doc=(("Whether or not to enable autoresume, which allows for stopping and resuming "
+                                         "training. This parameter requires ``save_folder`` and ``run_name`` to "
+                                         "be specified and ``save_overwrite`` to be ``False``. ")),
+                                   default=False)
 
     # DeepSpeed
     deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)

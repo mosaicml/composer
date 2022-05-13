@@ -375,8 +375,9 @@ class CheckpointSaver(Callback):
                                      overwrite=self.overwrite)
 
             if self.latest_filename is not None:
+                formatted_folder_path = format_name_with_dist(self.folder, logger.run_name)
                 symlink_name = os.path.join(
-                    format_name_with_dist(self.folder, logger.run_name),
+                    formatted_folder_path,
                     format_name_with_dist_and_time(
                         self.latest_filename,
                         logger.run_name,
@@ -393,7 +394,8 @@ class CheckpointSaver(Callback):
                     os.remove(symlink_name)
                 except FileNotFoundError:
                     pass
-                os.symlink(Path(checkpoint_filepath).name, symlink_name)
+                relative_checkpoint_path = os.path.relpath(checkpoint_filepath, formatted_folder_path)
+                os.symlink(relative_checkpoint_path, symlink_name)
                 if self.artifact_name is not None and self.latest_artifact_name is not None:
                     symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, logger.run_name,
                                                                            state.timestamp).lstrip("/")
