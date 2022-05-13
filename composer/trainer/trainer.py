@@ -491,6 +491,8 @@ class Trainer:
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
+        load_ignore_model_keys (List[str], optional): List of model keys to ignore when loading. For example, this can
+            be used to replace a model head in a fine-tuning run by ignoring the previous head. (default: ``None``)
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. (default: ``None``)
 
@@ -669,6 +671,7 @@ class Trainer:
         load_strict: bool = False,
         load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
+        load_ignore_model_keys: Optional[List[str]] = None,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
@@ -943,7 +946,8 @@ class Trainer:
                                               load_weights_only=load_weights_only,
                                               strict_model_weights=load_strict,
                                               chunk_size=load_chunk_size,
-                                              progress_bar=load_progress_bar)
+                                              progress_bar=load_progress_bar,
+                                              ignore_model_keys=load_ignore_model_keys)
             log.info(f"Setting seed to {self.state.seed}")
             reproducibility.seed_all(self.state.seed)
 

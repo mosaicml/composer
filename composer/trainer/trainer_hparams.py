@@ -268,6 +268,7 @@ class TrainerHparams(hp.Hparams):
         load_strict_model_weights (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
         load_progress_bar (bool, optional): See :class:`.Trainer`.
+        load_ignore_model_keys (List[str], optional): See :class:`.Trainer`.
 
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -416,6 +417,10 @@ class TrainerHparams(hp.Hparams):
               "This parameter has no effect if `load_path` is not specified.")),
         default=False,
     )
+    load_ignore_model_keys: List[str] = hp.optional(
+        doc=(("List of model keys to ignore when loading. For example, this can "
+              "be used to replace a model head in a fine-tuning run by ignoring the previous head.")),
+        default=None)
 
     load_chunk_size: int = hp.optional(
         doc=(("Chunk size (in bytes) to use when downloading checkpoints. "
@@ -654,6 +659,7 @@ class TrainerHparams(hp.Hparams):
             load_strict=self.load_strict_model_weights,
             load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
+            load_ignore_model_keys=self.load_ignore_model_keys,
 
             # Checkpoint Saving
             save_folder=self.save_folder,

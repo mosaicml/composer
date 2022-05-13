@@ -74,6 +74,7 @@ def load_checkpoint(
     strict_model_weights: bool = False,
     chunk_size: int = 1_048_576,
     progress_bar: bool = True,
+    ignore_model_keys: Optional[List[str]] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -125,6 +126,8 @@ def load_checkpoint(
             Ignored if the checkpoint is a local file path. (default: ``1_048_576`` bytes (1 MB))
         progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``True``)
+        ignore_model_keys (List[str], optional): List of model keys to ignore when loading. For example, this can be used
+            to replace a model head in a fine-tuning run by ignoring the previous head. (default: ``None``)
 
     Returns:
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
@@ -149,6 +152,7 @@ def load_checkpoint(
                 extracted_checkpoint_folder,
                 load_weights_only=load_weights_only,
                 strict_model_weights=strict_model_weights,
+                ignore_model_keys=ignore_model_keys,
             )
         finally:
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
@@ -263,11 +267,17 @@ def _restore_checkpoint(
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     strict_model_weights: bool,
+    ignore_model_keys: Optional[List[str]] = None,
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = torch.load(composer_states_filepath, map_location='cpu')
     log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
+
+    # Remove keys for non-DeepSpeed. We'll handle deepspeed in a custom callback fn
+    if ignore_model_keys and not state.is_model_deepspeed:
+        for k in ignore_model_keys:
+            del state_dict['state']['model'][k]
 
     if state.is_model_deepspeed:
         if extracted_checkpoint_folder is None:
@@ -277,12 +287,32 @@ def _restore_checkpoint(
         if global_rank > 0 and not extracted_rank_n:
             raise RuntimeError(f"Deepspeed checkpoint missing for rank {global_rank}")
 
-        load_path, _ = state.deepspeed_model.load_checkpoint(
-            extracted_checkpoint_folder,
-            tag=_DEEPSPEED_TAG,
-            load_module_only=load_weights_only,
-            load_module_strict=strict_model_weights,
-        )
+        # Setup custom load function to ignore certain keys
+        custom_load_fn = None
+        if ignore_model_keys:
+
+            def load_fn(src, dst):
+                """Custom load function passed to DeepSpeed. Removes keys and then follows the same codepath 
+                as DeepSpeed, which is ``self.module.load_state_dict(state_dict, strict=strict)``. This 
+                function is called as ``custom_load_fn(src=state_dict, dst=self.module)``. 
+
+                Args:
+                    src: state_dict from DeepSpeed, which is checkpoint['module']
+                    dst: self.module from DeepSpeed
+                """
+                for k in ignore_model_keys:
+                    del src[k]
+                # strict_model_weights must be hardcoded into the function since DeepSpeed doesn't pass it
+                # as an argument into the callback function
+                dst.load_state_dict(src, strict=strict_model_weights)
+
+            custom_load_fn = load_fn
+
+        load_path, _ = state.deepspeed_model.load_checkpoint(extracted_checkpoint_folder,
+                                                             tag=_DEEPSPEED_TAG,
+                                                             load_module_only=load_weights_only,
+                                                             load_module_strict=strict_model_weights,
+                                                             custom_load_fn=custom_load_fn)
         if load_path is None:
             raise RuntimeError(f"Failed to load DeepSpeed checkpoint")
     elif load_weights_only:
