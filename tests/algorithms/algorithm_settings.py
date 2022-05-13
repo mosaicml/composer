@@ -55,7 +55,7 @@ _settings = {
     },
     'cutout': simple_vision_settings,
     'ema': simple_vision_settings,
-    'factorize': None,
+    'factorize': simple_resnet_settings,
     'ghost_batchnorm': {
         'model': (ComposerResNet, {
             'model_name': 'resnet18',
@@ -90,7 +90,6 @@ _settings = {
             'target_layer_name': 'ResNetBottleneck',
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
-            'drop_warmup': "0.0dur",
             'use_same_gpu_seed': False
         }
     },
