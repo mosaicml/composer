@@ -5,8 +5,16 @@ import copy
 import pickle
 from typing import Iterable
 
+import pytest
+import torch
+
 from composer.trainer import Trainer
-from tests.common.models import SimpleModel
+from tests.common.models import SimpleConvModel, SimpleModel
+
+
+@pytest.mark.parametrize('model', [SimpleConvModel, SimpleModel])
+def test_composermodel_torchscriptable(model):
+    torch.jit.script(model())
 
 
 def test_model_access_to_logger(dummy_train_dataloader: Iterable):
