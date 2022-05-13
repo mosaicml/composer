@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """DeepLabV3 for image segmentation."""
 from composer.models.deeplabv3.deeplabv3 import ComposerDeepLabV3 as ComposerDeepLabV3

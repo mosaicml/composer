@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ def apply_factorization(model: torch.nn.Module,
             this many input and output channels, it will be ignored. Modules with
             few channels are unlikely to be accelerated by factorization due
             to poor hardware utilization. Default: ``512``.
-        latent_channels (int or float, optional): number of latent channels to use in factorized
+        latent_channels (int | float, optional): number of latent channels to use in factorized
             convolutions. Can be specified as either an integer > 1 or as
             float within [0, 1). In the latter case, the value is
             interpreted as a fraction of ``min(in_channels, out_channels)``
@@ -56,7 +56,7 @@ def apply_factorization(model: torch.nn.Module,
             this many input and output features, it will be ignored. Modules with
             few features are unlikely to be accelerated by factorization due
             to poor hardware utilization. Default: ``512``.
-        latent_features (int or float, optional): size of the latent space for factorized linear modules.
+        latent_features (int | float, optional): size of the latent space for factorized linear modules.
             Can be specified as either an integer > 1 or as a float within [0, 0.5).
             In the latter case, the value is interpreted as a fraction of
             ``min(in_features, out_features)`` for each :class:`~torch.nn.Linear`

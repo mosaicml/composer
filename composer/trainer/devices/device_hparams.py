@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """The :class:`~yahp.hparams.Hparams` used to construct devices."""
 
@@ -43,7 +43,7 @@ class CPUDeviceHparams(DeviceHparams):
 
 @dataclass
 class TPUDeviceHparams(DeviceHparams):
-    """Used to construct a :class:`.DeviceCPU`"""
+    """Used to construct a :class:`.DeviceTPU`"""
 
     def initialize_object(self) -> DeviceTPU:
         return DeviceTPU()

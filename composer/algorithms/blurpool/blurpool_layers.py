@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 # type: ignore
 from typing import Optional
@@ -34,7 +34,7 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
 
     Args:
         input (:class:`torch.Tensor`): a 4d tensor of shape NCHW
-        stride (int or tuple, optional): stride(s) along H and W axes. If a single value is passed, this
+        stride (int | tuple, optional): stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
         filter (:class:`torch.Tensor`, optional): a 2d or 4d tensor to be cross-correlated with the input tensor
             at each spatial position, within each channel. If 4d, the structure
@@ -99,15 +99,15 @@ def blurmax_pool2d(input: torch.Tensor,
 
     Args:
         input (:class:`torch.Tensor`): a 4d tensor of shape NCHW
-        kernel_size (int or tuple, optional): size(s) of the spatial neighborhoods over which to pool.
+        kernel_size (int | tuple, optional): size(s) of the spatial neighborhoods over which to pool.
             This is mostly commonly 2x2. If only a scalar ``s`` is provided, the
             neighborhood is of size ``(s, s)``. Default: ``(2, 2)``.
-        stride (int or tuple, optional): stride(s) along H and W axes. If a single value is passed, this
+        stride (int | tuple, optional): stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions. Default: 2.
-        padding (int or tuple, optional): implicit zero-padding to use. For the default 3x3 low-pass
+        padding (int | tuple, optional): implicit zero-padding to use. For the default 3x3 low-pass
             filter, ``padding=1`` (the default) returns output of the same size
             as the input. Default: 0.
-        dilation (int or tuple, optional): amount by which to "stretch" the pooling region for a given
+        dilation (int | tuple, optional): amount by which to "stretch" the pooling region for a given
             total size. See :class:`~torch.nn.MaxPool2d`
             for our favorite explanation of how this works. Default: 1.
         ceil_mode (bool): when True, will use ceil instead of floor to compute the output shape. Default: ``False``.

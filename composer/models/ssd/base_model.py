@@ -1,3 +1,5 @@
+# Copyright 2022 MosaicML. All Rights Reserved.
+
 """SSD 300 resnet backbones in PyTorch adapted from MLCommons.
 
 Based on MLCommons Reference Implementation `here`_

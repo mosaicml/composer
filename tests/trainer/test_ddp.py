@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 import collections.abc
 import os
@@ -102,7 +102,7 @@ class CheckBatch0(Callback):
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event in (Event.BEFORE_FORWARD, Event.EVAL_BEFORE_FORWARD):
             filepath = get_batch_file_path(
-                epoch=int(state.timer.epoch),
+                epoch=int(state.timestamp.epoch),
                 is_train=state.model.training,
                 tmpdir=self.tmpdir,
             )

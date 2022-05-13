@@ -35,23 +35,15 @@ class DeviceTPU(Device):
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         import torch_xla.distributed.xla_multiprocessing as xmp
         
-        WRAPPED_MODEL = xmp.MpModelWrapper(module)
-        return WRAPPED_MODEL.to(self._device)
+        wrapped_model = xmp.MpModelWrapper(module)
+        return wrapped_model.to(self._device)
 
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
         return tensor.to(self._device)
-
-    @contextmanager
-    def precision_context(self, precision: Union[str, Precision]) -> Generator[None, None, None]:
-        precision = Precision(precision)
-        if precision == Precision.FP32:
-            yield
-        else:
-            raise ValueError(f"Precision {precision} not supported for a tpu")
 
     def state_dict(self) -> StateDict:
         return {}
 
     def load_state_dict(self, state: StateDict) -> None:
         if len(state) != 0:
-            raise ValueError("CPU device has no state.")
+            raise ValueError("TPU device has no state.")

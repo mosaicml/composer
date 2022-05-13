@@ -1,4 +1,4 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML. All Rights Reserved.
 
 """C4 (Colossal Cleaned CommonCrawl) dataset.
 
@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader, IterableDataset, get_worker_info
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
@@ -83,9 +84,8 @@ class C4DatasetHparams(DatasetHparams):
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         try:
             import transformers
-        except ImportError:
-            raise ImportError('HuggingFace transformers not installed. '
-                              'Please install with `pip install composer[nlp]`')
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         if dataloader_hparams.num_workers > 1:
             log.warning("C4 Dataset not compatible with num_workers > 1. Overwriting value to num_workers=1")
@@ -149,9 +149,8 @@ class C4Dataset(IterableDataset):
         try:
             import datasets
             import transformers
-        except ImportError:
-            raise ImportError('HuggingFace transformers and datasets are not installed. '
-                              'Please install with `pip install composer[nlp]`')
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="datasets transformers") from e
 
         self.split = split
         self.num_samples = num_samples
@@ -267,9 +266,8 @@ class C4Dataset(IterableDataset):
         try:
             from datasets.iterable_dataset import _BaseExamplesIterable
             from datasets.iterable_dataset import iterable_dataset as hf_iterable_dataset
-        except ImportError:
-            raise ImportError('HuggingFace datasets are not installed. '
-                              'Please install with `pip install composer[nlp]`')
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="datasets") from e
 
         class RepeatExamplesIterable(_BaseExamplesIterable):
 
