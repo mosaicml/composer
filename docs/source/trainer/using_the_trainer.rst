@@ -351,7 +351,7 @@ DeepSpeed docs `here <https://www.deepspeed.ai/docs/config-json/>`__.
             "fp16": {"enabled": True},
     })
 
-Providing an empty dictionary to deepspeed is also valid. The deepspeed
+Providing an empty dictionary to DeepSpeed is also valid. The DeepSpeed
 defaults will be used and other fields (such as precision) will be inferred
 from the trainer.
 
