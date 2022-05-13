@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Download handling for :class:`StreamingDataset`.
 """
@@ -40,7 +41,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     """
     try:
         import boto3  # type: ignore (third-party)
-        from botocore import Config  # type: ignore (third-party)
+        from botocore.config import Config  # type: ignore (third-party)
     except ImportError as e:
         raise ImportError(
             textwrap.dedent("""\

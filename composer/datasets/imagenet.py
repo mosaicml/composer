@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """ImageNet classfication dataset.
 
@@ -10,7 +11,7 @@ Dataset <http://image-net.org/>`_ for more details. Also includes streaming data
 import os
 import textwrap
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -23,6 +24,7 @@ from composer.core import DataSpec
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import ffcv_monkey_patches, write_ffcv_dataset
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
+from composer.datasets.streaming import StreamingImageClassDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.utils import NormalizationFn, pil_image_collate
 from composer.utils import dist
@@ -31,7 +33,10 @@ from composer.utils import dist
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
-__all__ = ["ImagenetDatasetHparams", "Imagenet1kWebDatasetHparams", "TinyImagenet200WebDatasetHparams"]
+__all__ = [
+    "ImagenetDatasetHparams", "Imagenet1kWebDatasetHparams", "TinyImagenet200WebDatasetHparams", "StreamingImageNet1k",
+    "StreamingImageNet1kHparams"
+]
 
 
 @dataclass
@@ -191,6 +196,105 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                         device_transforms=device_transform_fn)
 
 
+class StreamingImageNet1k(StreamingImageClassDataset):
+    """
+    Implementation of the ImageNet1k dataset using StreamingDataset.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+        split (str): The dataset split to use, either 'train' or 'val'.
+        shuffle (bool): Whether to shuffle the samples in this dataset.
+        resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
+        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
+    """
+
+    def __init__(self,
+                 remote: str,
+                 local: str,
+                 split: str,
+                 shuffle: bool,
+                 resize_size: int = -1,
+                 crop_size: int = 224,
+                 batch_size: Optional[int] = None):
+
+        # Validation
+        if split not in ['train', 'val']:
+            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
+        if crop_size <= 0:
+            raise ValueError(f"crop_size must be positive.")
+
+        # Define custom transforms
+        if split == "train":
+            # include fixed-size resize before RandomResizedCrop in training only
+            # if requested (by specifying a size > 0)
+            train_transforms: List[torch.nn.Module] = []
+            if resize_size > 0:
+                train_transforms.append(transforms.Resize(resize_size))
+            # always include RandomResizedCrop and RandomHorizontalFlip
+            train_transforms += [
+                transforms.RandomResizedCrop(crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+                transforms.RandomHorizontalFlip(),
+            ]
+            transform = transforms.Compose(train_transforms)
+        else:
+            val_transforms: List[torch.nn.Module] = []
+            if resize_size > 0:
+                val_transforms.append(transforms.Resize(resize_size))
+            val_transforms += [transforms.CenterCrop(crop_size)]
+            transform = transforms.Compose(val_transforms)
+
+        # Build StreamingDataset
+        super().__init__(remote=os.path.join(remote, split),
+                         local=os.path.join(local, split),
+                         shuffle=shuffle,
+                         transform=transform,
+                         batch_size=batch_size)
+
+
+@dataclass
+class StreamingImageNet1kHparams(DatasetHparams):
+    """DatasetHparams for creating an instance of StreamingImageNet1k.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+            Default: ``'s3://mosaicml-internal-dataset-imagenet1k/mds/```
+        local (str): Local filesystem directory where dataset is cached during operation.
+            Default: ``'/tmp/mds-cache/mds-imagenet1k/```
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
+        resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
+        crop size (int): The crop size to use. Default: ``224``.
+    """
+
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-imagenet1k/')
+    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
+    resize_size: int = hp.optional("Resize size. Set to -1 to not resize", default=-1)
+    crop_size: int = hp.optional("Crop size", default=224)
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
+        dataset = StreamingImageNet1k(remote=self.remote,
+                                      local=self.local,
+                                      split=self.split,
+                                      shuffle=self.shuffle,
+                                      resize_size=self.resize_size,
+                                      crop_size=self.crop_size,
+                                      batch_size=batch_size)
+        collate_fn = pil_image_collate
+        device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN, std=IMAGENET_CHANNEL_STD)
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=None,
+            drop_last=self.drop_last,
+            collate_fn=collate_fn,
+        ),
+                        device_transforms=device_transform_fn)
+
+
 @dataclass
 class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     """Defines an instance of the TinyImagenet-200 WebDataset for image classification.
@@ -219,7 +323,7 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0.485, 0.456, 0.406))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0.229, 0.224, 0.225))
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         from composer.datasets.webdataset_utils import load_webdataset
 
         if self.is_train:
@@ -240,10 +344,14 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
         dataset = load_webdataset(self.remote, self.name, split, self.webdataset_cache_dir,
                                   self.webdataset_cache_verbose, self.shuffle, self.shuffle_buffer, preprocess,
                                   dist.get_world_size(), dataloader_hparams.num_workers, batch_size, self.drop_last)
-        return dataloader_hparams.initialize_object(dataset,
-                                                    batch_size=batch_size,
-                                                    sampler=None,
-                                                    drop_last=self.drop_last)
+        return DataSpec(dataloader=dataloader_hparams.initialize_object(
+            dataset=dataset,
+            batch_size=batch_size,
+            sampler=None,
+            drop_last=self.drop_last,
+            collate_fn=None,
+        ),
+                        device_transforms=None)
 
 
 @dataclass

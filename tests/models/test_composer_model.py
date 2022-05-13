@@ -1,11 +1,20 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import copy
 import pickle
 from typing import Iterable
 
+import pytest
+import torch
+
 from composer.trainer import Trainer
-from tests.common.models import SimpleModel
+from tests.common.models import SimpleConvModel, SimpleModel
+
+
+@pytest.mark.parametrize('model', [SimpleConvModel, SimpleModel])
+def test_composermodel_torchscriptable(model):
+    torch.jit.script(model())
 
 
 def test_model_access_to_logger(dummy_train_dataloader: Iterable):

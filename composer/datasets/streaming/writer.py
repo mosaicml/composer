@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """:class:`StreamingDatasetWriter` is used to convert a list of samples into binary `.mds` files that can be read as a :class:`StreamingDataset`.
 """

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Train models!"""
 
@@ -544,7 +545,7 @@ class Trainer:
             artifact stores.
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)
-            
+
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
         device (Device | str, optional): The device to use for training, which can be ``'cpu'`` or ``'gpu'``.
@@ -805,6 +806,7 @@ class Trainer:
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
+            self.state.train_dataloader = self.state.dataloader
         self.train_metrics = _get_training_metrics(model) if compute_training_metrics else None
 
         # Max Duration
@@ -1164,7 +1166,7 @@ class Trainer:
             assert trainer.state.timestamp.epoch == "1ep"
 
             # Reset the time to 0, then train for 1 epoch
-            trainer.fit(reset_time=True)  
+            trainer.fit(reset_time=True)
             assert trainer.state.timestamp.epoch == "1ep"
 
             # Train for another epoch (2 epochs total)
@@ -1223,7 +1225,7 @@ class Trainer:
             grad_clip_norm (float, optional): See :class:`.Trainer`.
 
                 .. note::
-                
+
                     If using DeepSpeed, it is not possible to change the ``grad_clip_norm``. Instead, it must
                     be specified when constructing the Trainer.
         """
@@ -1231,6 +1233,7 @@ class Trainer:
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
+            self.state.train_dataloader = self.state.dataloader
         if self._train_data_spec is None:
             _raise_missing_argument_exception("train_dataloader")
         if train_subset_num_batches is not None:
@@ -1396,6 +1399,12 @@ class Trainer:
             for _ in dataloader:
                 break
 
+    def _accumulate_samples_and_tokens_across_ranks(self, num_samples: int, num_tokens: int) -> Tuple[int, int]:
+        """Accumulate the number of samples and tokens across ranks. Returns a (num_samples, num_tokens) tuple."""
+        tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
+        dist.all_reduce(tensor, reduce_operation="SUM")
+        return int(tensor[0].cpu().item()), int(tensor[1].cpu().item())
+
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
         assert self.state.dataloader is not None, "dataloader is set in __init__() or fit()"
@@ -1468,12 +1477,10 @@ class Trainer:
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    num_samples_in_batch = self._device.tensor_to_device(
-                        torch.tensor([self.state.batch_num_samples], dtype=torch.int))
-                    num_tokens_in_batch = self._device.tensor_to_device(
-                        torch.tensor([self.state.batch_num_tokens], dtype=torch.int))
-                    dist.all_reduce(num_samples_in_batch, reduce_operation="SUM")
-                    dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
+                    total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                        num_samples=self.state.batch_num_samples,
+                        num_tokens=self.state.batch_num_tokens,
+                    )
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.data_batch({
@@ -1496,8 +1503,8 @@ class Trainer:
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
                     self.state.timestamp = self.state.timestamp.to_next_batch(
-                        samples=int(num_samples_in_batch.item()),
-                        tokens=int(num_tokens_in_batch.item()),
+                        samples=total_num_samples,
+                        tokens=total_num_tokens,
                     )
 
                     if self._scheduler_step_frequency == TimeUnit.BATCH:
@@ -1796,6 +1803,9 @@ class Trainer:
         self.state.set_dataloader(data_spec.dataloader, "predict", subset_num_batches)
         assert self.state.dataloader is not None, "Already set the dataloader"
 
+        # Reset the predict timestamp
+        self.state.predict_timestamp = Timestamp()
+
         with torch.no_grad():
 
             self.engine.run_event(Event.PREDICT_START)
@@ -1821,6 +1831,16 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
                 self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
+
+                total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                    num_samples=self.state.batch_num_samples,
+                    num_tokens=self.state.batch_num_tokens,
+                )
+
+                self.state.predict_timestamp = self.state.predict_timestamp.to_next_batch(
+                    samples=total_num_samples,
+                    tokens=total_num_tokens,
+                )
 
                 self.engine.run_event(Event.PREDICT_BATCH_END)
 
@@ -1876,6 +1896,9 @@ class Trainer:
             dataloader = DataSpec(dataloader)
         data_spec = dataloader
 
+        # Reset the eval timestamp
+        self.state.eval_timestamp = Timestamp()
+
         self.state.model.eval()
         with torch.no_grad():
             self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
@@ -1914,6 +1937,16 @@ class Trainer:
 
                 metrics.update(self.state.outputs, targets)
                 self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
+
+                total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                    num_samples=self.state.batch_num_samples,
+                    num_tokens=self.state.batch_num_tokens,
+                )
+
+                self.state.eval_timestamp = self.state.eval_timestamp.to_next_batch(
+                    samples=total_num_samples,
+                    tokens=total_num_tokens,
+                )
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 

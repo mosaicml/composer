@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The :class:`StreamingDataset` class, used for building streaming iterable datasets.
 """
@@ -41,7 +42,7 @@ class StreamingDataset(IterableDataset):
         shuffle (bool): Whether to shuffle the samples.  Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
         decoders (Dict[str, Callable[bytes, Any]]]): For each sample field you wish to read, you must provide a decoder to convert the raw bytes to an object.
         timeout (float): How long to wait for shard to download before raising an exception. Default: 20 sec.
-        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader.
+        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
                                     Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
                                     E.g. if the DataLoader is reading over (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
                                     but `batch_size` is not hinted to the StreamingDataset ahead of time
@@ -374,7 +375,7 @@ class StreamingImageClassDataset(StreamingDataset):
         Returns:
             Image: PIL image encoded by the bytes.
         """
-        return Image.open(BytesIO(data))
+        return Image.open(BytesIO(data)).convert('RGB')
 
     def decode_class(self, data: bytes) -> np.int64:
         """Decode the sample class.

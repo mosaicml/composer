@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import site
@@ -160,6 +161,11 @@ extra_deps["mlperf"] = [
 
 extra_deps["streaming"] = [
     "boto3>=1.21.45,<2",
+]
+
+extra_deps["onnx"] = [
+    "onnx>=1.11.0,<2",
+    "onnxruntime>=1.11.0,<2",
 ]
 
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)

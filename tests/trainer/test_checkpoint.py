@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import pathlib
@@ -19,7 +20,7 @@ from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
-from composer.core.time import Time, TimeUnit
+from composer.core.time import Time, TimeUnit, ensure_time
 from composer.datasets import DatasetHparams, SyntheticHparamsMixin
 from composer.loggers import ObjectStoreLoggerHparams
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
@@ -138,6 +139,25 @@ def assert_checkpoints_equivalent(
     assert_state_equivalent(state_a, state_b)
 
 
+def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams,
+                                   checkpoint_folder: str):
+    composer_trainer_hparams.device = device_hparams
+    composer_trainer_hparams.grad_accum = 2
+    composer_trainer_hparams.loggers = []
+    composer_trainer_hparams.train_batch_size = 8
+    composer_trainer_hparams.eval_batch_size = 16
+    composer_trainer_hparams.max_duration = "2ep"
+    composer_trainer_hparams.precision = Precision.FP32
+    composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
+    composer_trainer_hparams.train_subset_num_batches = 5
+    composer_trainer_hparams.save_folder = checkpoint_folder
+    composer_trainer_hparams.save_filename = "ep{epoch}.pt"
+    composer_trainer_hparams.save_interval = "1ep"
+    composer_trainer_hparams.seed = None
+    composer_trainer_hparams.eval_interval = "1ba"
+    return composer_trainer_hparams
+
+
 @pytest.fixture(autouse=True)
 def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
     monkeypatch.setitem(callback_registry, "dummy", DummyStatefulCallbackHparams)
@@ -164,26 +184,10 @@ def test_load_weights(
     if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
-    composer_trainer_hparams.device = device_hparams
-    composer_trainer_hparams.train_dataset.use_synthetic = True
-    composer_trainer_hparams.train_dataset.shuffle = False
-    composer_trainer_hparams.val_dataset.use_synthetic = True
-    composer_trainer_hparams.val_dataset.shuffle = False
-    composer_trainer_hparams.grad_accum = 2
-    composer_trainer_hparams.loggers = []
-    composer_trainer_hparams.train_batch_size = 8
-    composer_trainer_hparams.eval_batch_size = 16
-    composer_trainer_hparams.max_duration = "2ep"
-    composer_trainer_hparams.precision = Precision.FP32
-    composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
-    composer_trainer_hparams.train_subset_num_batches = 5
     checkpoint_a_folder = "first"
-    composer_trainer_hparams.save_folder = checkpoint_a_folder
-    composer_trainer_hparams.save_filename = "ep{epoch}.pt"
-    composer_trainer_hparams.save_interval = "1ep"
-    composer_trainer_hparams.seed = None
-    composer_trainer_hparams.eval_interval = "1ba"
     final_checkpoint = "ep2.pt"
+    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, device_hparams,
+                                                              checkpoint_a_folder)
     _test_checkpoint_trainer(composer_trainer_hparams)
 
     # re-create the trainer from the YAML
@@ -241,29 +245,13 @@ def test_save_overwrite(
     if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
-    composer_trainer_hparams.device = device_hparams
-    composer_trainer_hparams.train_dataset.use_synthetic = True
-    composer_trainer_hparams.train_dataset.shuffle = False
-    composer_trainer_hparams.val_dataset.use_synthetic = True
-    composer_trainer_hparams.val_dataset.shuffle = False
-    composer_trainer_hparams.grad_accum = 2
-    composer_trainer_hparams.loggers = []
-    composer_trainer_hparams.train_batch_size = 8
-    composer_trainer_hparams.eval_batch_size = 16
-    composer_trainer_hparams.max_duration = "2ep"
-    composer_trainer_hparams.precision = Precision.FP32
-    composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
-    composer_trainer_hparams.train_subset_num_batches = 5
-    composer_trainer_hparams.device = device_hparams
+
     checkpoint_a_folder = "first"
-    composer_trainer_hparams.save_folder = checkpoint_a_folder
-    composer_trainer_hparams.save_filename = "ep{epoch}.pt"
-    composer_trainer_hparams.save_interval = "1ep"
-    composer_trainer_hparams.save_overwrite = save_overwrite
-    composer_trainer_hparams.seed = None
-    composer_trainer_hparams.eval_interval = "1ba"
     middle_checkpoint = "ep1.pt"
     final_checkpoint = "ep2.pt"
+    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, device_hparams,
+                                                              checkpoint_a_folder)
+    composer_trainer_hparams.save_overwrite = save_overwrite
     _test_checkpoint_trainer(composer_trainer_hparams)
 
     # re-create the trainers from the YAMLs and move filepaths to rank zero process
@@ -294,8 +282,13 @@ def test_save_overwrite(
     trainer.fit(duration="1ba")
 
 
+@pytest.mark.parametrize("device_hparams", [
+    pytest.param(CPUDeviceHparams(), id="cpu"),
+    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
+])
 @pytest.mark.timeout(90)
 def test_checkpoint_with_object_store_logger(
+    device_hparams: DeviceHparams,
     composer_trainer_hparams: TrainerHparams,
     tmpdir: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -305,6 +298,11 @@ def test_checkpoint_with_object_store_logger(
 
     Load model from object store and ensure it's the same.
     """
+    checkpoint_a_folder = "first"
+    final_checkpoint = "ep2.pt"
+    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, device_hparams,
+                                                              checkpoint_a_folder)
+
     # Train model and log to object store
     remote_dir = str(tmpdir / "object_store")
     os.makedirs(remote_dir, exist_ok=True)
@@ -322,17 +320,10 @@ def test_checkpoint_with_object_store_logger(
         use_procs=use_procs,
     )
     composer_trainer_hparams.loggers = [object_store_logger_hparams]
-    composer_trainer_hparams.max_duration = "2ep"
-    checkpoint_a_folder = "first"
-    composer_trainer_hparams.save_folder = checkpoint_a_folder
-    composer_trainer_hparams.save_filename = "ep{epoch}.pt"
-    composer_trainer_hparams.save_interval = "1ep"
-    composer_trainer_hparams.seed = None
     run_name = "electric-zebra"
     composer_trainer_hparams.run_name = run_name
-    artifact_name = f"{run_name}/checkpoints/ep2-ba6-rank" + "{rank}"
+    artifact_name = f"{run_name}/checkpoints/ep2-ba10-rank" + "{rank}"
 
-    final_checkpoint = "ep2.pt"
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
 
@@ -553,7 +544,8 @@ def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
 
     trainer = trainer_hparams.initialize_object()
     trainer.fit()
-    _validate_events_called_expected_number_of_times(trainer, Time.from_timestring(trainer_hparams.eval_interval))
+    _validate_events_called_expected_number_of_times(trainer, ensure_time(trainer_hparams.eval_interval,
+                                                                          TimeUnit.EPOCH))
     return trainer
 
 
