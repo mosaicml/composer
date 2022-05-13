@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Utilities to track training progress in terms of epochs, batches, samples, and tokens.
 
@@ -347,6 +348,8 @@ class Time(Generic[TValue]):
         unit = TimeUnit(match[1])
         value = float(value)  # always parsing first as float b/c it could be scientific notation
         if unit != TimeUnit.DURATION:
+            if int(value) != value:
+                raise TypeError(f"value {value} is not an integer. Units {unit} require integer values.")
             value = int(value)
         return cls(value, unit)
 
@@ -681,11 +684,11 @@ class Timestamp(Serializable):
 
 def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str]) -> Time:
     """Ensure ``maybe_time`` is an instance of :class:`.Time`
-    
+
     Args:
         maybe_time (Time | str): A time string, integer, or instance of :class:`.Time`.
         int_unit (TimeUnit | str): The unit to use if ``maybe_time`` is an integer
-    
+
     Returns:
         Time: An instance of :class:`.Time`.
     """

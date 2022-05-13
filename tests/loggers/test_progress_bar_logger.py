@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from unittest.mock import MagicMock
 
@@ -47,5 +48,5 @@ def test_progress_bar_logger(composer_trainer_hparams: TrainerHparams, monkeypat
         assert mock_tqdm.update.call_count == int(trainer.state.dataloader_len)
         mock_tqdm.close.assert_called_once()
     for mock_tqdm in is_train_to_mock_tqdms[False]:
-        assert mock_tqdm.update.call_count == trainer.evaluators[0].subset_num_batches
+        assert mock_tqdm.update.call_count == trainer.state.evaluators[0].subset_num_batches
         mock_tqdm.close.assert_called_once()

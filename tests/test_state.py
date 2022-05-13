@@ -1,14 +1,18 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import pathlib
 import random
+from unittest.mock import Mock
 
+import pytest
 import torch
 import torch.nn.functional as F
 from torch.functional import Tensor
 
 from composer.algorithms import ChannelsLastHparams
 from composer.core import DataSpec, Precision, State
+from composer.core import state as state_module
 from composer.core.types import Batch
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.hparams import DatasetHparams
@@ -92,3 +96,60 @@ def test_state_serialize(
 
     # both states should have equivalent state, model parameters, loss, and outputs
     assert_state_equivalent(state1, state2)
+
+
+def test_state_batch_get_item(monkeypatch):
+    state = get_dummy_state()
+    state.batch = [1, 2]
+    mock_batch_get = Mock()
+    mock_batch_get.return_value = 7
+    monkeypatch.setattr(state_module, 'batch_get', mock_batch_get)
+    assert state.batch_get_item(2) == 7
+    mock_batch_get.assert_called_once_with(state.batch, 2, None)
+
+
+def test_state_batch_set_item(monkeypatch):
+    state = get_dummy_state()
+    state.batch = [1, 2]
+    mock_batch_set = Mock()
+    mock_batch_set.return_value = [7, 10]
+    monkeypatch.setattr(state_module, 'batch_set', mock_batch_set)
+    state.batch_set_item(key=1, value=154)
+    mock_batch_set.assert_called_once_with([1, 2], key=1, value=154, set_fn=None)
+
+
+def test_state_batch_get_item_callable(monkeypatch):
+    state = get_dummy_state()
+    state.batch = [1, 2]
+    mock_batch_get = Mock()
+    monkeypatch.setattr(state_module, 'batch_get', mock_batch_get)
+    getter = lambda x: x**2
+    state.batch_get_item(get_fn=getter)
+    mock_batch_get.assert_called_once_with(state.batch, None, getter)
+
+
+def test_state_batch_set_item_callable(monkeypatch):
+    state = get_dummy_state()
+    state.batch = [1, 2]
+    mock_batch_set = Mock()
+    monkeypatch.setattr(state_module, 'batch_set', mock_batch_set)
+
+    def setter(x, v):
+        x[0] = v
+        return x
+
+    state.batch_set_item(value=3, set_fn=setter)
+    mock_batch_set.assert_called_once_with([1, 2], key=None, value=3, set_fn=setter)
+
+
+def test_batch_set_item_errors(monkeypatch):
+    state = get_dummy_state()
+    state.batch = [1, 2]
+    mock_setter = Mock()
+    # key and set_fn unset.
+    with pytest.raises(ValueError):
+        state.batch_set_item(value=2)
+
+    # key and set_fn set.
+    with pytest.raises(ValueError):
+        state.batch_set_item(key=1, value=2, set_fn=mock_setter)

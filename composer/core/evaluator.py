@@ -1,20 +1,21 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """A wrapper for a dataloader to include metrics that apply to a specific dataset."""
 
 from __future__ import annotations
 
 import copy
-from typing import Callable, Iterable, Optional, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Union
 
 from torchmetrics import Metric, MetricCollection
 
-from composer.core.data_spec import DataSpec
+from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 
-__all__ = ["Evaluator", "evaluate_periodically"]
+__all__ = ["Evaluator", "evaluate_periodically", "ensure_evaluator"]
 
 
 def evaluate_periodically(eval_interval: Union[str, Time, int]):
@@ -72,8 +73,8 @@ class Evaluator:
 
     Args:
         label (str): Name of the Evaluator
-        dataloader (Union[DataSpec, Iterable]): Iterable that yields batches or a :class:`.DataSpec` for evaluation
-            data.
+        dataloader (DataSpec | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec` for evaluation,
+            or a Dict of :class:`.DataSpec` kwargs.
         metrics (Metric | MetricCollection): :class:`torchmetrics.Metric` to log. ``metrics`` will be deep-copied to
             ensure that each evaluator updates only its ``metrics``.
         subset_num_batches (int, optional): The maximum number of batches to use for each evaluation. Defaults to
@@ -92,25 +93,24 @@ class Evaluator:
 
             Set to ``0`` to disable evaluation.
 
-            If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool 
+            If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool
             representing whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`
             or :attr:`.Event.EPOCH_END`.
     """
+
+    _eval_interval: Optional[Callable[[State, Event], bool]]
 
     def __init__(
         self,
         *,
         label: str,
-        dataloader: Union[DataSpec, Iterable],
+        dataloader: Union[DataSpec, Iterable, Dict[str, Any]],
         metrics: Union[Metric, MetricCollection],
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,
     ):
         self.label = label
-        if isinstance(dataloader, DataSpec):
-            self.dataloader = dataloader
-        else:
-            self.dataloader = DataSpec(dataloader)
+        self.dataloader = ensure_data_spec(dataloader)
 
         # Forcing metrics to be a MetricCollection simplifies logging results
         metrics = copy.deepcopy(metrics)
@@ -120,10 +120,39 @@ class Evaluator:
             self.metrics = metrics
 
         self.subset_num_batches = subset_num_batches
+        self.eval_interval = eval_interval
 
+    @property
+    def eval_interval(self):
+        return self._eval_interval
+
+    @eval_interval.setter
+    def eval_interval(self, eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]]):
         if eval_interval is None:
-            self.should_eval = None
+            self._eval_interval = None
         elif not callable(eval_interval):
-            self.should_eval = evaluate_periodically(eval_interval)
+            self._eval_interval = evaluate_periodically(eval_interval)
         else:
-            self.should_eval = eval_interval
+            self._eval_interval = eval_interval
+
+
+def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, Any]],
+                     default_metrics: Union[Metric, MetricCollection]):
+    """Ensure that ``evaluator`` is an :class:`.Evaluator`.
+
+    Args:
+        evaluator (Evaluator | DataSpec | Iterable | Dict[str, Any]): A dataloader,
+            :class:`.DataSpec` instance, dictionary of :class:`.DataSpec` kwargs, or existing evaluator.
+        default_metrics (Union[Metric, MetricCollection]): The metrics for the ``evaluator``, if a datalaoder was specified.
+
+    Returns:
+        Evaluator: An evaluator.
+    """
+    if isinstance(evaluator, Evaluator):
+        return evaluator
+    else:
+        return Evaluator(
+            label="eval",
+            dataloader=evaluator,
+            metrics=default_metrics,
+        )

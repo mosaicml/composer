@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 from typing import Callable, List
@@ -8,7 +9,9 @@ import pytest
 import composer.callbacks
 import composer.loggers
 import composer.profiler
+from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.mlperf import MLPerfCallback
+from composer.callbacks.threshold_stopper import ThresholdStopper
 from composer.core import Event
 from composer.core.callback import Callback
 from composer.core.engine import Engine
@@ -60,6 +63,9 @@ def _get_callback_factories() -> List[Callable[..., Callback]]:
         x for x in vars(composer.profiler).values() if isinstance(x, type) and issubclass(x, Callback))
     callback_factories.remove(ObjectStoreLogger)
     callback_factories.remove(MLPerfCallback)
+    # Early + threshold stopper removed because they have required params and are tested separately
+    callback_factories.remove(ThresholdStopper)
+    callback_factories.remove(EarlyStopper)
     callback_factories.append(lambda: ObjectStoreLogger(
         use_procs=False,
         num_concurrent_uploads=1,
@@ -82,7 +88,9 @@ class TestCallbacks:
     def test_multiple_fit_start_and_end(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
         dummy_state.callbacks.append(callback_factory())
-        dummy_state.profiler = Profiler(dummy_state, lambda _: ProfilerAction.SKIP, [])
+        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
+        dummy_state.profiler.bind_to_state(dummy_state)
+
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
@@ -97,7 +105,8 @@ class TestCallbacks:
     def test_idempotent_close(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
         dummy_state.callbacks.append(callback_factory())
-        dummy_state.profiler = Profiler(dummy_state, lambda _: ProfilerAction.SKIP, [])
+        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
+        dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
@@ -109,7 +118,8 @@ class TestCallbacks:
     def test_multiple_init_and_close(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
         dummy_state.callbacks.append(callback_factory())
-        dummy_state.profiler = Profiler(dummy_state, lambda _: ProfilerAction.SKIP, [])
+        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
+        dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)

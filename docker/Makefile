@@ -8,7 +8,7 @@ LINUX_DISTRO ?= ubuntu2004
 PYTHON_VERSION ?='3.9'
 
 # Pytorch version to install. Composer requires pytorch>=1.9
-PYTORCH_VERSION ?= '1.10.0'
+PYTORCH_VERSION ?= '1.11.0'
 
 # Torchvision version to install.
 # See https://github.com/pytorch/vision#installation

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Single Shot Object Detection model with pretrained ResNet34 backbone extending :class:`.ComposerModel`."""
 
