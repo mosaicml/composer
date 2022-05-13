@@ -456,7 +456,7 @@ class TrainerHparams(hp.Hparams):
     )
 
     # Graceful Resumption
-    autoresume: Optional[bool] = hp.optional(
+    autoresume: bool = hp.optional(
         doc=(("Whether or not to enable autoresume, which allows for stopping and resuming "
               "training. This parameter requires ``save_folder`` and ``run_name`` to "
               "be specified and ``save_overwrite`` to be ``False``. ")),
