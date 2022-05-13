@@ -20,9 +20,9 @@ from torchmetrics import Metric, MetricCollection
 import composer
 from composer.algorithms import algorithm_registry
 from composer.callbacks import (CallbackHparams, EarlyStopperHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, MLPerfCallbackHparams, SpeedMonitorHparams)
-from composer.core import DataSpec, Evaluator, Event, Precision, State, Time
-from composer.core.algorithm import Algorithm
+                                MemoryMonitorHparams, MLPerfCallbackHparams, SpeedMonitorHparams,
+                                ThresholdStopperHparams)
+from composer.core import Algorithm, DataSpec, Evaluator, Event, Precision, State, Time
 from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
@@ -106,6 +106,7 @@ callback_registry = {
     "memory_monitor": MemoryMonitorHparams,
     "mlperf": MLPerfCallbackHparams,
     "early_stopper": EarlyStopperHparams,
+    "threshold_stopper": ThresholdStopperHparams,
 }
 
 device_registry = {
