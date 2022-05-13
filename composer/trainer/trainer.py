@@ -556,7 +556,7 @@ class Trainer:
 
             For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original weights and
             an object store logger would be added. In the original run, ``load_path`` would be used to get the starting
-            checkpoint. For any future restarts, such as due to the spot instance being killed, the latest checkpoint from
+            checkpoint. For any future restarts, such as due to the spot instance being killed, the loggers would be queried for the latest checkpoint
             the object store logger would be downloaded and used to resume training.
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)
