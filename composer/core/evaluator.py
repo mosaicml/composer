@@ -18,12 +18,14 @@ from composer.core.time import Time, TimeUnit
 __all__ = ["Evaluator", "evaluate_periodically", "ensure_evaluator"]
 
 
-def evaluate_periodically(eval_interval: Union[str, Time, int]):
+def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end: bool = True):
     """Helper function to generate an evaluation interval callable.
 
     Args:
         eval_interval (str | Time | int): A :class:`.Time` instance or time string, or integer in epochs,
             representing how often to evaluate. Set to ``0`` to disable evaluation.
+        eval_at_fit_end (bool): Whether to evaluate at the end of training, regardless of `eval_interval`. 
+            Default: True
     Returns:
         (State, Event) -> bool: A callable for the ``eval_interval`` argument of an :class:`.Evaluator`.
     """
@@ -39,6 +41,9 @@ def evaluate_periodically(eval_interval: Union[str, Time, int]):
         if int(eval_interval) <= 0:
             return False
 
+        # if requested, evaluate at the end of training, as long as the length of training is specified.
+        if eval_at_fit_end and state.max_duration is not None and state.get_elapsed_duration() == 1.0:
+            return True
         if eval_interval.unit == TimeUnit.EPOCH:
             return int(state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END
         if eval_interval.unit == TimeUnit.BATCH:
