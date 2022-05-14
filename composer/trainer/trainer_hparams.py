@@ -417,11 +417,6 @@ class TrainerHparams(hp.Hparams):
               "This parameter has no effect if `load_path` is not specified.")),
         default=False,
     )
-    load_ignore_model_keys: List[str] = hp.optional(
-        doc=(("List of model keys to ignore when loading. For example, this can "
-              "be used to replace a model head in a fine-tuning run by ignoring the previous head.")),
-        default=None)
-
     load_chunk_size: int = hp.optional(
         doc=(("Chunk size (in bytes) to use when downloading checkpoints. "
               "This parameter has no effect if `load_path` is not specified or it is a local file path.")),
@@ -431,6 +426,11 @@ class TrainerHparams(hp.Hparams):
         doc=(("Whether to show a progress bar when downloading checkpoints. "
               "This parameter has no effect if `load_path` is not specified or it is a local file path.")),
         default=True,
+    )
+    load_ignore_model_keys: Optional[List[str]] = hp.optional(
+        doc=(("List of model keys to ignore when loading. For example, this can "
+              "be used to replace a model head in a fine-tuning run by ignoring the previous head.")),
+        default=None
     )
 
     # Save Checkpoint
