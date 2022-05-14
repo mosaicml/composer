@@ -17,6 +17,7 @@ Please refer to the `GLUE`_ benchmark for more details.
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import cast
 
