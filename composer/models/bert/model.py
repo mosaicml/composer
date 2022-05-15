@@ -101,7 +101,6 @@ class BERTModel(ComposerTransformer):
             tuple (Tensor, Tensor): with the output from the forward pass and the correct labels.
                 This is fed into directly into the output of :meth:`.ComposerModel.metrics`.
         """
-        print("Running validation...")
         assert self.training is False, "For validation, model must be in eval mode"
 
         # temporary hack until eval on multiple datasets is finished
