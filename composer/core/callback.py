@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 __all__ = ["Callback"]
 
+
 class Callback(Serializable, abc.ABC):
     """Base class for callbacks.
 
