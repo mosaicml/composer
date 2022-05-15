@@ -50,10 +50,7 @@ dataloader:
   prefetch_factor: 2
 grad_accum: 1
 precision: amp
-eval_interval: 1000ba
+eval_interval: 1ba
 callbacks:
   - lr_monitor: {}
-load_path: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt
-load_weights_only: true
-load_strict_model_weights: false
-load_chunk_size: 8192
+train_subset_num_batches: 5

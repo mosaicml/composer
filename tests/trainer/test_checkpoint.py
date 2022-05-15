@@ -656,7 +656,8 @@ def _validate_events_called_expected_number_of_times(trainer: Trainer, eval_inte
 
     # assume eval_at_fit_end = True, and if the total training length isn't evenly divisible
     # by the trainer eval_interval, add an extra evaluation invocation for the eval at training end
-    print("Total epochs, eval_interval:", num_epochs, eval_interval)
+    print("Total epochs, eval_interval, timeunit:", num_epochs, eval_interval, eval_interval.unit, num_total_steps)
+    print((num_total_steps % int(eval_interval)) != 0, eval_interval.unit)
     if ((num_total_steps % int(eval_interval)) != 0 and eval_interval.unit == TimeUnit.BATCH) or \
         ((num_epochs % int(eval_interval)) != 0 and eval_interval.unit == TimeUnit.EPOCH):
         print("Incrementing eval interval!")

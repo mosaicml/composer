@@ -24,7 +24,7 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
     Args:
         eval_interval (str | Time | int): A :class:`.Time` instance or time string, or integer in epochs,
             representing how often to evaluate. Set to ``0`` to disable evaluation.
-        eval_at_fit_end (bool): Whether to evaluate at the end of training, regardless of `eval_interval`. 
+        eval_at_fit_end (bool): Whether to evaluate at the end of training, regardless of `eval_interval`.
             Default: True
     Returns:
         (State, Event) -> bool: A callable for the ``eval_interval`` argument of an :class:`.Evaluator`.
@@ -42,11 +42,24 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
             return False
 
         # if requested, evaluate at the end of training, as long as the length of training is specified.
-        if eval_at_fit_end and state.max_duration is not None and state.get_elapsed_duration() == 1.0:
-            return True
+        # if eval_at_fit_end and state.max_duration is not None and state.get_elapsed_duration() == 1.0:
+        if eval_at_fit_end and state.max_duration is not None: 
+            # handle for when max_duration is specified in either batches or epochs
+            # handle for when eval_interval is batches
+            # handle for when eval_interval is epochs
+            # print("Evaluating at fit end! Values:", state.timestamp)
+            if eval_interval.unit == TimeUnit.EPOCH:
+                print("Epoch values:", state.timestamp)
+                return int(state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END
+            if eval_interval.unit == TimeUnit.BATCH:
+                print("Batch values:", state.timestamp)
+                return int(state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END
+           # return True
         if eval_interval.unit == TimeUnit.EPOCH:
+            print("Epoch values:", state.timestamp)
             return int(state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END
         if eval_interval.unit == TimeUnit.BATCH:
+            print("Batch values:", state.timestamp)
             return int(state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END
 
         return False

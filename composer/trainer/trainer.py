@@ -1728,6 +1728,7 @@ class Trainer:
             else:
                 for loss in ensure_tuple(self.state.loss):
                     loss.backward(create_graph=self._backwards_create_graph)
+                print("Performing gradient updates...")
 
             self.engine.run_event(Event.AFTER_BACKWARD)
 
