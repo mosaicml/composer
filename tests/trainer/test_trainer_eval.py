@@ -140,7 +140,7 @@ def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
     composer_trainer_hparams.evaluators = [
         EvaluatorHparams(
             label="eval1",
-            eval_interval='3ep',  # should NEVER run, since we train just 2 epochs
+            eval_interval='3ep',  # will run, since eval_at_fit_end = True
             subset_num_batches=1,
             eval_dataset=RandomClassificationDatasetHparams(),
         ),
@@ -164,7 +164,7 @@ def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
 
     # Validate that `eval_interval` and `subset_num_batches` was set correctly for the evaluator that actually
     # ran
-    assert "eval1" not in trainer.state.current_metrics
+    assert "eval1" in trainer.state.current_metrics
     assert "eval2" in trainer.state.current_metrics
     event_counter_callback = None
     for callback in trainer.state.callbacks:
@@ -172,9 +172,10 @@ def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
             event_counter_callback = callback
             break
     assert event_counter_callback is not None
-    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == 1
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == 2
+    # increment by one for the extra call to `Event.EVAL_BATCH_START` during the evaluation at FIT end.
     assert event_counter_callback.event_to_num_calls[
-        Event.EVAL_BATCH_START] == composer_trainer_hparams.eval_subset_num_batches
+        Event.EVAL_BATCH_START] == composer_trainer_hparams.eval_subset_num_batches + 1
 
 
 def test_eval_params_evaluator():
