@@ -42,24 +42,25 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
             return False
 
         # if requested, evaluate at the end of training, as long as the length of training is specified.
-        # if eval_at_fit_end and state.max_duration is not None and state.get_elapsed_duration() == 1.0:
-        if eval_at_fit_end and state.max_duration is not None: 
-            # handle for when max_duration is specified in either batches or epochs
-            # handle for when eval_interval is batches
-            # handle for when eval_interval is epochs
-            # print("Evaluating at fit end! Values:", state.timestamp)
-            if eval_interval.unit == TimeUnit.EPOCH:
-                print("Epoch values:", state.timestamp)
-                return int(state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END
-            if eval_interval.unit == TimeUnit.BATCH:
-                print("Batch values:", state.timestamp)
-                return int(state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END
-           # return True
+        if eval_at_fit_end and state.max_duration is not None:
+            # check if we are at the end of training
+            # handle different eval_intervals in order to not duplicate validation steps
+            if eval_interval.unit == TimeUnit.EPOCH and event == Event.EPOCH_END:
+                if state.max_duration.unit == TimeUnit.EPOCH and state.max_duration.value == int(state.timestamp.epoch):
+                    return True
+                if state.max_duration.unit == TimeUnit.BATCH and state.max_duration.value == int(state.timestamp.batch):
+                    return True
+            if eval_interval.unit == TimeUnit.BATCH and event == Event.BATCH_END:
+                if state.max_duration.unit == TimeUnit.EPOCH:
+                    num_epochs = state.max_duration.value
+                    num_total_steps = num_epochs * int(state.dataloader_len)
+                elif state.max_duration.unit == TimeUnit.BATCH:
+                    num_total_steps = state.max_duration.value
+                if num_total_steps == int(state.timestamp.batch):
+                    return True
         if eval_interval.unit == TimeUnit.EPOCH:
-            print("Epoch values:", state.timestamp)
             return int(state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END
         if eval_interval.unit == TimeUnit.BATCH:
-            print("Batch values:", state.timestamp)
             return int(state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END
 
         return False
