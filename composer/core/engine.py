@@ -66,14 +66,15 @@ import contextlib
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import ContextManager, Dict, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, ContextManager, Dict, Optional, Sequence, Union, cast
 
 from composer.core.algorithm import Algorithm
-from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
-from composer.loggers import Logger, LogLevel
-from composer.profiler import ProfilerAction
+
+if TYPE_CHECKING:
+    from composer.callbacks.callback import Callback
+    from composer.loggers.logger import Logger
 
 log = logging.getLogger(__name__)
 
@@ -197,6 +198,7 @@ class Engine():
         Returns:
             traces (Traces): Ordered dictionary of trace for each algorithm.
         """
+        from composer.profiler import ProfilerAction
         duration_marker = None
         event = Event(event)
 
@@ -242,6 +244,7 @@ class Engine():
         self,
         event: Event,
     ) -> Traces:
+        from composer.loggers.logger import LogLevel
         algorithms_to_run = [algo for algo in self.state.algorithms if algo.match(event, self.state)]
 
         # future collision resolution

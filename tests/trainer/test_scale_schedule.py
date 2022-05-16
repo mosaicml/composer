@@ -9,7 +9,8 @@ import torch
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import ExponentialLR
 
-from composer.core import Callback, State, TimeUnit
+from composer.callbacks import Callback
+from composer.core import State, TimeUnit
 from composer.core.types import PyTorchScheduler
 from composer.loggers.logger import Logger
 from composer.optim import MultiStepSchedulerHparams, SGDHparams

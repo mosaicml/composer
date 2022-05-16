@@ -13,7 +13,7 @@ from typing import Optional, OrderedDict
 import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
-from composer.core.callback import Callback
+from composer.callbacks.callback import Callback
 from composer.core.state import State
 from composer.loggers import Logger
 from composer.loggers.logger import LogLevel

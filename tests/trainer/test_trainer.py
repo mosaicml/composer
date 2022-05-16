@@ -17,7 +17,7 @@ from torchmetrics import Accuracy
 from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing, algorithm_registry
 from composer.callbacks import LRMonitor
-from composer.core.callback import Callback
+from composer.callbacks.callback import Callback
 from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision

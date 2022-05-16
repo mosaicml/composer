@@ -13,11 +13,8 @@ from typing import Any, Dict, List, Optional
 import pytest
 import torch
 import torch.distributed
-from _pytest.monkeypatch import MonkeyPatch
 
-from composer.callbacks.callback_hparams import CallbackHparams
-from composer.callbacks.checkpoint_saver import CheckpointSaver
-from composer.core.callback import Callback
+from composer.callbacks import Callback, CheckpointSaver, callback_registry
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit, ensure_time
@@ -26,11 +23,11 @@ from composer.loggers import ObjectStoreLoggerHparams
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
-from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
+from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, is_tar
 from composer.utils.object_store import ObjectStoreHparams
-from tests.common import (EventCounterCallback, EventCounterCallbackHparams, assert_state_equivalent,
-                          configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic, deep_compare)
+from tests.common import (EventCounterCallback, assert_state_equivalent, configure_dataset_hparams_for_synthetic,
+                          configure_model_hparams_for_synthetic, deep_compare)
 
 
 class DummyStatefulCallback(Callback):
@@ -48,10 +45,7 @@ class DummyStatefulCallback(Callback):
         self.random_value = state["random_value"]
 
 
-class DummyStatefulCallbackHparams(CallbackHparams):
-
-    def initialize_object(self) -> DummyStatefulCallback:
-        return DummyStatefulCallback()
+callback_registry["dummy"] = DummyStatefulCallback
 
 
 def assert_weights_equivalent(original_trainer_hparams: TrainerHparams,
@@ -149,7 +143,7 @@ def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, dev
     composer_trainer_hparams.eval_batch_size = 16
     composer_trainer_hparams.max_duration = "2ep"
     composer_trainer_hparams.precision = Precision.FP32
-    composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
+    composer_trainer_hparams.callbacks = [DummyStatefulCallback(), EventCounterCallback()]
     composer_trainer_hparams.train_subset_num_batches = 5
     composer_trainer_hparams.save_folder = checkpoint_folder
     composer_trainer_hparams.save_filename = "ep{epoch}.pt"
@@ -157,12 +151,6 @@ def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, dev
     composer_trainer_hparams.seed = None
     composer_trainer_hparams.eval_interval = "1ba"
     return composer_trainer_hparams
-
-
-@pytest.fixture(autouse=True)
-def inject_stateful_callback_hparams(monkeypatch: MonkeyPatch):
-    monkeypatch.setitem(callback_registry, "dummy", DummyStatefulCallbackHparams)
-    monkeypatch.setitem(callback_registry, "event_counter", EventCounterCallbackHparams)
 
 
 @pytest.mark.timeout(90)
@@ -540,7 +528,7 @@ def test_checkpoint(
     num_epochs = 2
     composer_trainer_hparams.max_duration = f"{num_epochs}ep"
     composer_trainer_hparams.precision = Precision.FP32
-    composer_trainer_hparams.callbacks = [DummyStatefulCallbackHparams(), EventCounterCallbackHparams()]
+    composer_trainer_hparams.callbacks = [DummyStatefulCallback()]
     composer_trainer_hparams.train_subset_num_batches = 5
     composer_trainer_hparams.eval_subset_num_batches = 5
     composer_trainer_hparams.device = device_hparams
@@ -623,9 +611,6 @@ def test_checkpoint(
 
 
 def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
-    callback_registry["dummy"] = DummyStatefulCallbackHparams
-    callback_registry["event_counter"] = EventCounterCallbackHparams
-
     trainer = trainer_hparams.initialize_object()
     trainer.fit()
     _validate_events_called_expected_number_of_times(trainer, ensure_time(trainer_hparams.eval_interval,

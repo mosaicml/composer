@@ -9,11 +9,11 @@ import pytest
 import composer.callbacks
 import composer.loggers
 import composer.profiler
+from composer.callbacks.callback import Callback
 from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.threshold_stopper import ThresholdStopper
 from composer.core import Event
-from composer.core.callback import Callback
 from composer.core.engine import Engine
 from composer.core.state import State
 from composer.loggers import Logger, ObjectStoreLogger

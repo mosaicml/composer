@@ -6,7 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from composer.core import Callback, State
+from composer.callbacks import Callback
+from composer.core import State
 from composer.loggers import Logger
 from composer.trainer import Trainer
 from tests.common import SimpleModel

@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
-from composer.callbacks import CallbackHparams
-from composer.core import Callback, Event, State
+from composer.callbacks import Callback, callback_registry
+from composer.core import Event, State
 from composer.loggers import Logger
 
 
@@ -24,7 +24,4 @@ class EventCounterCallback(Callback):
         self.event_to_num_calls.update(state["events"])
 
 
-class EventCounterCallbackHparams(CallbackHparams):
-
-    def initialize_object(self) -> EventCounterCallback:
-        return EventCounterCallback()
+callback_registry["event_counter"] = EventCounterCallback

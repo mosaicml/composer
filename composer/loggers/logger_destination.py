@@ -9,7 +9,7 @@ import pathlib
 from abc import ABC
 from typing import Any, Dict
 
-from composer.core.callback import Callback
+from composer.callbacks.callback import Callback
 from composer.core.state import State
 from composer.loggers.logger import LogLevel
 

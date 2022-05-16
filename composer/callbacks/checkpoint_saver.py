@@ -11,11 +11,10 @@ import pathlib
 import textwrap
 from typing import Callable, List, Optional, Tuple, Union
 
+from composer.callbacks.callback import Callback
 from composer.core import Event, State
-from composer.core.callback import Callback
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.loggers import Logger
-from composer.loggers.logger import LogLevel
+from composer.loggers.logger import Logger, LogLevel
 from composer.utils import checkpoint, dist
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          ensure_folder_has_no_conflicting_files, format_name_with_dist,

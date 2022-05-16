@@ -19,9 +19,7 @@ from torchmetrics import Metric, MetricCollection
 
 import composer
 from composer.algorithms import AlgorithmHparams, get_algorithm_registry
-from composer.callbacks import (CallbackHparams, EarlyStopperHparams, GradMonitorHparams, LRMonitorHparams,
-                                MemoryMonitorHparams, MLPerfCallbackHparams, SpeedMonitorHparams,
-                                ThresholdStopperHparams)
+from composer.callbacks import Callback, callback_registry
 from composer.core import DataSpec, Evaluator, Event, Precision, State, Time
 from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
@@ -100,16 +98,6 @@ model_registry = {
 dataset_registry = get_dataset_registry()
 
 algorithms_registry = get_algorithm_registry()
-
-callback_registry = {
-    "speed_monitor": SpeedMonitorHparams,
-    "lr_monitor": LRMonitorHparams,
-    "grad_monitor": GradMonitorHparams,
-    "memory_monitor": MemoryMonitorHparams,
-    "mlperf": MLPerfCallbackHparams,
-    "early_stopper": EarlyStopperHparams,
-    "threshold_stopper": ThresholdStopperHparams,
-}
 
 device_registry = {
     "gpu": GPUDeviceHparams,
@@ -374,7 +362,7 @@ class TrainerHparams(hp.Hparams):
     )
 
     # Callbacks
-    callbacks: List[CallbackHparams] = hp.optional(doc="Callback hparams", default_factory=list)
+    callbacks: List[Callback] = hp.optional(doc="Callback hparams", default_factory=list)
 
     # Logging
     loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
@@ -578,7 +566,6 @@ class TrainerHparams(hp.Hparams):
 
         # Loggers, Callbacks, and Algorithms
         loggers = [x.initialize_object() for x in self.loggers]
-        callbacks = [x.initialize_object() for x in self.callbacks]
         algorithms = [x.initialize_object() for x in self.algorithms]
 
         # Train dataloader
@@ -637,7 +624,7 @@ class TrainerHparams(hp.Hparams):
             eval_subset_num_batches=self.eval_subset_num_batches,
 
             # Callbacks
-            callbacks=callbacks,
+            callbacks=self.callbacks,
 
             # Logging
             loggers=loggers,

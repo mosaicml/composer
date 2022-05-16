@@ -5,9 +5,9 @@ from torch import tensor
 from torch.utils.data import DataLoader
 
 from composer import Trainer
+from composer.callbacks.callback import Callback
 from composer.callbacks.early_stopper import EarlyStopper
 from composer.core import State
-from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
 from composer.loggers import Logger
 from composer.trainer.devices.device import Device

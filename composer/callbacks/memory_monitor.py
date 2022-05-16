@@ -7,9 +7,9 @@ from typing import Dict, Union
 
 import torch.cuda
 
+from composer.callbacks.callback import Callback
 from composer.core import State
-from composer.core.callback import Callback
-from composer.loggers import Logger
+from composer.loggers.logger import Logger
 
 log = logging.getLogger(__name__)
 
@@ -76,12 +76,11 @@ class MemoryMonitor(Callback):
         Memory usage monitoring is only supported for the GPU devices.
     """
 
-    def __init__(self):
-        super().__init__()
-        log.info(
-            "Memory monitor just profiles the current GPU assuming that the memory footprint across GPUs is balanced.")
-        if torch.cuda.device_count() == 0:
-            log.warning("Memory monitor only works on GPU devices.")
+    def init(self, state: State, logger: Logger) -> None:
+        model_device = next(state.model.parameters()).device
+
+        if model_device.type != 'cuda':
+            raise RuntimeError("The memory monitor only works on CUDA devices, but the model is on CPU.")
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}
@@ -108,9 +107,7 @@ _MEMORY_STATS = {
 
 
 def _get_memory_report() -> Dict[str, Union[int, float]]:
-    if not torch.cuda.is_available():
-        log.debug("Cuda is not available. The memory report will be empty.")
-        return {}
+    assert torch.cuda.is_available(), "the memory report requires cuda"
     memory_stats = torch.cuda.memory_stats()
 
     if len(memory_stats) == 0:
