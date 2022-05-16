@@ -23,6 +23,7 @@ Classifier model with the Composer Trainer.
 
 Install Composer, if it is not yet already installed.
 
+<!--pytest-codeblocks:skip-->
 ```bash
 pip install mosaicml
 ```
