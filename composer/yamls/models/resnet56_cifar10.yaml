@@ -2,14 +2,14 @@ train_dataset:
   cifar10:
     datadir: /datasets/CIFAR10
     is_train: true
-    download: false
+    download: true
     shuffle: true
     drop_last: true
 val_dataset:
   cifar10:
     datadir: /datasets/CIFAR10
     is_train: false
-    download: false
+    download: true
     shuffle: false
     drop_last: false
 optimizer:

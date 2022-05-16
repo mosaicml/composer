@@ -37,7 +37,7 @@ from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _par
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
-from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.devices import Device, DeviceCPU, DeviceGPU, DeviceTPU
 from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import GetFileNotFoundException
@@ -170,7 +170,7 @@ def _get_device(device: Optional[Union[str, Device]]):
         elif device.lower() == 'tpu':
             device = DeviceTPU()
         else:
-            raise ValueError(f'device ({device}) must be one of (cpu, gpu).')
+            raise ValueError(f'device ({device}) must be one of (cpu, gpu, tpu).')
     return device
 
 
@@ -718,8 +718,8 @@ class Trainer:
         if deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
-            if self._device is not "tpu":
-                dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+            #if self._device is not "tpu":
+            dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
@@ -994,19 +994,6 @@ class Trainer:
             return []
         return self._checkpoint_saver.saved_checkpoints
 
-<<<<<<< HEAD
-    def fit(self):
-        """Train and evaluate the model on the provided data."""
-        # Print any exception, so it can be caputred by any callbacks or loggers (e.g. WandB, FileLogger)
-
-        if self._device == "tpu":
-            import torch_xla.distributed.xla_multiprocessing as xmp            
-            def _mp_fn(index):
-                self._train_loop()
-            xmp.spawn(_mp_fn, args=(), nprocs=8,start_method='fork')
-        else:
-            self._train_loop()            
-=======
     def _check_for_autoresume(self, autoresume: bool, save_folder: Optional[str], save_overwrite: bool,
                               save_latest_filename: str, run_name: Optional[str], save_latest_artifact_name: str,
                               loggers: List[LoggerDestination], load_chunk_size: int, load_progress_bar: bool):
@@ -1300,8 +1287,14 @@ class Trainer:
             _validate_precision(precision, self._device, self.deepspeed_enabled)
             self.state.precision = precision
 
-        self._train_loop()
->>>>>>> adba8b954fcc879bf94faa5ffaa4c9f9fabc5af3
+        if True:#self._device == DeviceTPU():
+            import torch_xla.distributed.xla_multiprocessing as xmp
+            def _mp_fn(index):
+                self._train_loop()
+            xmp.spawn(_mp_fn, args=(), nprocs=8,start_method='fork')
+        else:
+            print('HEREEEEEEEE', self._device)
+            self._train_loop()
 
     def close(self):
         """Shutdown the trainer.
@@ -1586,7 +1579,7 @@ class Trainer:
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
                             if self._device == "tpu":
-                                total_loss = xm.optimizer_step(optimizer, optimizer_args={"closure": lambda_closure, **kwargs: self._train_microbatches(microbatches, **kwargs).item()})
+                                total_loss = xm.optimizer_step(optimizer, optimizer_args={"closure": lambda_closure, **kwargs})#: self._train_microbatches(microbatches, **kwargs).item()})
                             else:
                                 total_loss = optimizer.step(
                                     closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())

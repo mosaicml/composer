@@ -558,12 +558,19 @@ class TrainerHparams(hp.Hparams):
         # Device
         device_hparams = self.device
         if device_hparams is None:
+            if torch.cuda.is_available():
+                device_hparams = GPUDeviceHparams()
+            elif self.device == 'cpu':
+                    device_hparams = CPUDeviceHparams()
+            else:
+                device_hparams = TPUDeviceHparams()
+                
             device_hparams = GPUDeviceHparams() if torch.cuda.is_available() else CPUDeviceHparams()
         device = device_hparams.initialize_object()
 
         # Distributed
         # Initialized here so it is available within dataloaders
-        if dist.get_world_size() > 1 and device is not "tpu":
+        if dist.get_world_size() > 1:# and device is not "tpu":
             dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
 
         # Reproducibility
