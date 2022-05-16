@@ -1296,7 +1296,7 @@ class Trainer:
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
                             if self._device == "tpu":
-                                total_loss = xm.optimizer_step(optimizer)
+                                total_loss = xm.optimizer_step(optimizer, optimizer_args={"closure": lambda_closure, **kwargs: self._train_microbatches(microbatches, **kwargs).item()})
                             else:
                                 total_loss = optimizer.step(
                                     closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
