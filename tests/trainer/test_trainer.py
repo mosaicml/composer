@@ -24,7 +24,6 @@ from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit
 from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.loggers import FileLogger, WandBLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
@@ -911,6 +910,8 @@ class TestTrainerAssets:
         trainer = Trainer(**config)
         trainer.fit()
 
+    @pytest.mark.filterwarnings(
+        r"ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning")
     def test_loggers(self, config, logger):
         config['loggers'] = [logger]
         trainer = Trainer(**config)
@@ -927,9 +928,9 @@ class TestTrainerAssets:
         trainer = Trainer(**config)
         self._test_multiple_fits(trainer)
 
+    @pytest.mark.filterwarnings("ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning"
+                               )
     def test_loggers_multiple_calls(self, config, logger):
-        if isinstance(logger, (FileLogger, WandBLogger)):
-            pytest.xfail("Cannot close/load multiple times yet.")
         config['loggers'] = [logger]
         trainer = Trainer(**config)
         self._test_multiple_fits(trainer)

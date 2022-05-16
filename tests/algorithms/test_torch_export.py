@@ -123,8 +123,8 @@ def test_surgery_torchfx_eval(name, surgery_method, input):
 def test_surgery_onnx(name, surgery_method, input, tmpdir):
     """Tests onnx export and runtime"""
     pytest.importorskip("onnx")
-    import onnx
-    import onnxruntime as ort
+    import onnx  # type: ignore
+    import onnxruntime as ort  # type: ignore
 
     model, kwargs = get_model_and_algo_kwargs(name)
 
