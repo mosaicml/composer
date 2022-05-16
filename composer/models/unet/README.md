@@ -8,9 +8,9 @@ Unet is an architecture used for image segmentation.
 ## Example
 
 ```python
-  from composer.models import UNet
+from composer.models import UNet
 
-  model = UNet()
+model = UNet()
 ```
 
 ## Architecture
