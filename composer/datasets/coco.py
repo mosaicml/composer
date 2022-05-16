@@ -258,14 +258,14 @@ class StreamingCOCOHparams(DatasetHparams):
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-coco/mds/```
+            Default: ``'s3://mosaicml-internal-dataset-coco/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-coco/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-coco/mds/')
+                              default='s3://mosaicml-internal-dataset-coco/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-coco/')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')

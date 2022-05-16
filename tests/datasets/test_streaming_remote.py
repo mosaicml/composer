@@ -16,7 +16,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
                 batch_size: Optional[int]) -> Tuple[int, StreamingDataset]:
     dataset_map = {
         "ade20k": {
-            "remote": "s3://mosaicml-internal-dataset-ade20k/mds/",
+            "remote": "s3://mosaicml-internal-dataset-ade20k/mds1/",
             "num_samples": {
                 "train": 20206,
                 "val": 2000,
@@ -24,7 +24,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
             "class": StreamingADE20k,
         },
         "imagenet1k": {
-            "remote": "s3://mosaicml-internal-dataset-imagenet1k/mds/",
+            "remote": "s3://mosaicml-internal-dataset-imagenet1k/mds1/",
             "num_samples": {
                 "train": 1281167,
                 "val": 50000,
@@ -32,7 +32,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
             "class": StreamingImageNet1k
         },
         "coco": {
-            "remote": "s3://mosaicml-internal-dataset-coco/mds/",
+            "remote": "s3://mosaicml-internal-dataset-coco/mds1/",
             "num_samples": {
                 "train": 117266,
                 "val": 4952,
