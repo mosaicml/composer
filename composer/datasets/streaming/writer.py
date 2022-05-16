@@ -103,9 +103,6 @@ class StreamingDatasetWriter(object):
         samples_per_shard = np.array(self.samples_per_shard, np.int64)
         bytes_per_shard = np.array(self.bytes_per_shard, np.int64)
         bytes_per_sample = np.array(self.bytes_per_sample, np.int64)
-        assert (0 <= bytes_per_sample).all()
-        assert (bytes_per_sample < (1 << 32)).all()
-        bytes_per_sample = bytes_per_sample.astype(np.uint32)
         index = StreamingDatasetIndex(samples_per_shard, bytes_per_shard, bytes_per_sample, self.fields)
         with open(filename, 'xb') as out:
             index.dump(out)

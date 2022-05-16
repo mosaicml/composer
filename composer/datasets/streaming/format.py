@@ -113,12 +113,12 @@ class StreamingDatasetIndex(object):
     Args:
         samples_per_shard (NDArray[np.int64]): Number of samples of each shard.
         bytes_per_shard (NDArray[np.int64]): Size in bytes of each shard.
-        bytes_per_sample (NDArray[np.uint32]): Size in bytes of each sample across all shards.
+        bytes_per_sample (NDArray[np.int64]): Size in bytes of each sample across all shards.
         fields (List[str]): The names of the samples' fields in order.
     """
 
     def __init__(self, samples_per_shard: NDArray[np.int64], bytes_per_shard: NDArray[np.int64],
-                 bytes_per_sample: NDArray[np.uint32], fields: List[str]) -> None:
+                 bytes_per_sample: NDArray[np.int64], fields: List[str]) -> None:
         self.samples_per_shard = samples_per_shard
         self.bytes_per_shard = bytes_per_shard
         self.bytes_per_sample = bytes_per_sample
@@ -160,15 +160,30 @@ class StreamingDatasetIndex(object):
         Returns:
             cls: The loaded object.
         """
-        magic, version = read_array(fp, 2, np.uint32)
+        magic, version, num_shards = read_array(fp, 3, np.uint32)
         assert magic == 0xDA7AD06E
         assert version == 1
-        total_bytes, total_samples, num_shards, num_fields = read_array(fp, 4, np.int64)
+        total_samples, total_bytes = read_array(fp, 2, np.int64)
         del total_bytes
         samples_per_shard = read_array(fp, num_shards, np.int64)
         bytes_per_shard = read_array(fp, num_shards, np.int64)
-        bytes_per_sample = read_array(fp, total_samples, np.uint32)
-        bytes_per_field = read_array(fp, num_fields, np.int64)
+        bps_format, = read_array(fp, 1, np.int32)
+        if not bps_format:
+            sample_bytes, = read_array(fp, 1, np.int64)
+            bytes_per_sample = np.full(total_samples, sample_bytes)
+        elif bps_format == 1:
+            bytes_per_sample = read_array(fp, total_samples, np.int8)
+        elif bps_format == 2:
+            bytes_per_sample = read_array(fp, total_samples, np.int16)
+        elif bps_format == 4:
+            bytes_per_sample = read_array(fp, total_samples, np.int32)
+        elif bps_format == 8:
+            bytes_per_sample = read_array(fp, total_samples, np.int64)
+        else:
+            assert False
+        bytes_per_sample = bytes_per_sample.astype(np.int64)
+        num_fields, = read_array(fp, 1, np.int32)
+        bytes_per_field = read_array(fp, num_fields, np.int32)
         fields = [fp.read(size).decode('utf-8') for size in bytes_per_field]
         return cls(samples_per_shard, bytes_per_shard, bytes_per_sample, fields)
 
@@ -180,10 +195,33 @@ class StreamingDatasetIndex(object):
         """
         magic = 0xDA7AD06E
         version = 1
-        header = np.array([magic, version], np.uint32)
-        totals = np.array([self.total_bytes, self.total_samples, self.num_shards, self.num_fields], np.int64)
-        bytes_per_field = np.array([len(field.encode('utf-8')) for field in self.fields], np.int64)
-        arrays = header, totals, self.samples_per_shard, self.bytes_per_shard, self.bytes_per_sample, bytes_per_field
+        header = np.array([magic, version, self.num_shards], np.uint32)
+        totals = np.array([self.total_samples, self.total_bytes], np.int64)
+        if not len(self.bytes_per_sample):
+            bps_format = 1
+            bps = self.bytes_per_sample.astype(np.int8)
+        elif len(set(self.bytes_per_sample)) == 1:
+            bps_format = 0
+            bps = np.int64(self.bytes_per_sample[0])
+        else:
+            max_bps = self.bytes_per_sample.max()
+            if max_bps < 256:
+                bps_format = 1
+                bps = self.bytes_per_sample.astype(np.int8)
+            elif max_bps < (1 << 16):
+                bps_format = 2
+                bps = self.bytes_per_sample.astype(np.int16)
+            elif max_bps < (1 << 32):
+                bps_format = 4
+                bps = self.bytes_per_sample.astype(np.int32)
+            else:
+                bps_format = 8
+                bps = self.bytes_per_sample
+        bps_format = np.int32(bps_format)
+        num_fields = np.int32(len(self.fields))
+        bytes_per_field = np.array([len(field.encode('utf-8')) for field in self.fields], np.int32)
+        arrays = (header, totals, self.samples_per_shard, self.bytes_per_shard, bps_format, bps, num_fields,
+                  bytes_per_field)
         array_bytes = b''.join([arr.tobytes() for arr in arrays])
         field_bytes = b''.join([field.encode('utf-8') for field in self.fields])
         return array_bytes + field_bytes
