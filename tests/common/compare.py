@@ -49,10 +49,6 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         assert type(item1) == type(item2)
         assert item1 == item2, f"{path} differs: {item1} != {item2}"
         return
-    if callable(item1):
-        assert callable(item2)
-        assert item1.__name__ == item2.__name__, f"{path} differs: {item1} != {item2}"
-        return
 
     raise NotImplementedError(f"Unsupported item type: {type(item1)}")
 

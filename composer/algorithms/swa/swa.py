@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 __all__ = ['SWA']
 
 
-def assert_valid_duration(time: Time):
+def _assert_valid_duration(time: Time):
     if time.unit == TimeUnit.DURATION and (time < 0 or time > 1):
         raise ValueError(f'time in duration units must be [0, 1], got {time}')
 
@@ -165,8 +165,8 @@ class SWA(Algorithm):
                         "will not be updated. This will negatively impact accuracy. "
                         "See the documentation for the `swa_end` parameter for details.")
 
-        assert_valid_duration(self.swa_start)
-        assert_valid_duration(self.swa_end)
+        _assert_valid_duration(self.swa_start)
+        _assert_valid_duration(self.swa_end)
 
     def _get_time(self, state: State):
         """helper function to retrieve either the epoch or the duration depending on the units"""
@@ -257,11 +257,19 @@ class SWA(Algorithm):
             log.info('Set model to the averaged model')
 
     def state_dict(self) -> Dict[str, Any]:
+
+        # we pop the anneal_func from the SWALR state
+        # since it is set in the SWALR __init__
+        swa_scheduler_state = None
+        if self.swa_scheduler:
+            swa_scheduler_state = self.swa_scheduler.state_dict()
+            swa_scheduler_state.pop('anneal_func')
+
         state_dict = {
             'swa_model': self.swa_model.state_dict() if self.swa_model else None,
             'swa_completed': self.swa_completed,
             'swa_started': self.swa_started,
-            'swa_scheduler': self.swa_scheduler.state_dict() if self.swa_scheduler else None,
+            'swa_scheduler': swa_scheduler_state,
             'step_counter': self.step_counter,
         }
         return state_dict
