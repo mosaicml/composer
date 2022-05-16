@@ -7,8 +7,6 @@
 classification training loop with :func:`.soft_cross_entropy` loss and accuracy logging.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any, Optional, Tuple, Union
 
@@ -85,7 +83,7 @@ class ComposerClassifier(ComposerModel):
     def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
         return self.train_acc if train else MetricCollection([self.val_acc, self.val_loss])
 
-    def forward(self, batch: Any) -> Tensor:
+    def forward(self, batch: Tuple[Tensor, Tensor]) -> Tensor:
         inputs, _ = batch
         outputs = self.module(inputs)
         return outputs
