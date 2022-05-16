@@ -8,8 +8,8 @@ from typing import List
 import pytest
 
 import composer
-import composer.algorithms as algorithms
 import composer.trainer as trainer
+from composer.algorithms.algorithm_hparams import algorithm_registry, load_multiple
 from composer.core.precision import Precision
 from composer.trainer.devices import CPUDeviceHparams
 from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
@@ -20,7 +20,7 @@ model_names = [os.path.basename(os.path.splitext(mn)[0]) for mn in model_names]
 
 
 def get_model_algs(model_name: str) -> List[str]:
-    algs = algorithms.list_algorithms()
+    algs = list(algorithm_registry.keys())
     algs.remove("no_op_model")
 
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet", "timm", "vit", "deeplabv3"))
@@ -73,7 +73,7 @@ def test_load(model_name: str):
 
     trainer_hparams = trainer.load(model_name)
     trainer_hparams.precision = Precision.FP32
-    trainer_hparams.algorithms = algorithms.load_multiple(*get_model_algs(model_name))
+    trainer_hparams.algorithms = load_multiple(*get_model_algs(model_name))
 
     assert trainer_hparams.train_dataset is not None
     configure_dataset_hparams_for_synthetic(trainer_hparams.train_dataset, model_hparams=trainer_hparams.model)

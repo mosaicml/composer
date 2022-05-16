@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
-from composer.callbacks import Callback, callback_registry
+from composer.callbacks import Callback
+from composer.callbacks.callback_hparams import callback_registry
 from composer.core import Event, State
 from composer.loggers import Logger
 

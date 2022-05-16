@@ -15,7 +15,8 @@ from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 
 from composer import Trainer
-from composer.algorithms import CutOut, LabelSmoothing, algorithm_registry
+from composer.algorithms import CutOut, LabelSmoothing
+from composer.algorithms.algorithm_hparams import algorithm_registry
 from composer.callbacks import LRMonitor
 from composer.callbacks.callback import Callback
 from composer.core.evaluator import Evaluator
@@ -854,15 +855,13 @@ class TestTrainerAssets:
 
     @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
     def callback(self, request):
-        name, hparams = request.param
+        name, callback = request.param
 
         if name == 'mlperf':
             pytest.skip('mlperf callback tested separately.')
 
         if name == 'early_stopper' or name == 'threshold_stopper':
             pytest.skip('early_stopper and threshold_stopper callback tested separately.')
-
-        callback = hparams().initialize_object()
 
         return callback
 
@@ -942,7 +941,7 @@ class TestTrainerAssets:
 
 class TestTrainerAlgorithms:
 
-    @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
+    @pytest.mark.parametrize("name", algorithm_registry)
     @pytest.mark.timeout(5)
     @device('gpu')
     def test_algorithm_trains(self, name: str, rank_zero_seed: int, device: str):

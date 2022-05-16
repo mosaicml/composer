@@ -33,7 +33,7 @@ def get_model_and_algo_kwargs(name: str):
     settings = get_settings(name)
     assert settings is not None
 
-    return settings["model"], settings["algorithm_kwargs"]
+    return settings["model"]
 
 
 # <--- torchscript export --->
@@ -51,9 +51,9 @@ def get_model_and_algo_kwargs(name: str):
 def test_surgery_torchscript_train(name, surgery_method, input):
     """Tests torchscript model in train mode."""
 
-    model, kwargs = get_model_and_algo_kwargs(name)
+    model = get_model_and_algo_kwargs(name)
 
-    surgery_method(model, **kwargs)
+    surgery_method(model)
 
     scripted_func = torch.jit.script(model)
     scripted_func.train()  # type: ignore (third-party)
@@ -73,9 +73,9 @@ def test_surgery_torchscript_train(name, surgery_method, input):
 def test_surgery_torchscript_eval(name, surgery_method, input):
     """Tests torchscript model in eval mode."""
 
-    model, kwargs = get_model_and_algo_kwargs(name)
+    model = get_model_and_algo_kwargs(name)
 
-    surgery_method(model, **kwargs)
+    surgery_method(model)
 
     scripted_func = torch.jit.script(model)
     scripted_func.eval()  # type: ignore (third-party)
@@ -98,9 +98,9 @@ def test_surgery_torchscript_eval(name, surgery_method, input):
 def test_surgery_torchfx_eval(name, surgery_method, input):
     """Tests torch.fx model in eval mode."""
 
-    model, kwargs = get_model_and_algo_kwargs(name)
+    model = get_model_and_algo_kwargs(name)
 
-    surgery_method(model, **kwargs)
+    surgery_method(model)
 
     model.eval()
 

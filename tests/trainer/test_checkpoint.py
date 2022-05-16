@@ -14,7 +14,8 @@ import pytest
 import torch
 import torch.distributed
 
-from composer.callbacks import Callback, CheckpointSaver, callback_registry
+from composer.callbacks import Callback, CheckpointSaver
+from composer.callbacks.callback_hparams import callback_registry
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit, ensure_time

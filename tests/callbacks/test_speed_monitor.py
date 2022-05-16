@@ -26,17 +26,9 @@ def test_speed_monitor():
     )
     trainer.fit()
 
-    throughput_epoch_calls = 0
-    wall_clock_train_calls = 0
-    throughput_step_calls = 0
-    for timestamp, log_level, metrics in in_memory_logger.data:
-        del timestamp, log_level  # unused
-        if "throughput/step" in metrics:
-            throughput_step_calls += 1
-        if "throughput/epoch" in metrics:
-            throughput_epoch_calls += 1
-        if 'wall_clock_train' in metrics:
-            wall_clock_train_calls += 1
+    throughput_epoch_calls = len(in_memory_logger.data['throughput/epoch'])
+    wall_clock_train_calls = len(in_memory_logger.data['wall_clock_train'])
+    throughput_step_calls = len(in_memory_logger.data['throughput/step'])
 
     assert isinstance(trainer.state.dataloader, collections.abc.Sized)
     assert trainer.state.dataloader_label is not None

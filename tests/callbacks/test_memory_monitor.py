@@ -10,12 +10,6 @@ from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
-def test_memory_monitor_errors_without_cuda():
-    with pytest.raises(RuntimeError, match="The memory monitor only works on CUDA devices"):
-        # constructing the MemoryMonitor should fail
-        MemoryMonitor()
-
-
 @pytest.mark.gpu
 def test_memory_monitor_errors_on_cpu_models():
     # Error if the user sets device=cpu even when cuda is available

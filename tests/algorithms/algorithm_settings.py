@@ -5,7 +5,7 @@ functional tests, serialization tests, etc.
 Each algorithm is keyed based on its name in the algorithm registry.
 """
 
-from composer.algorithms import algorithm_registry
+from composer.algorithms.algorithm_hparams import algorithm_registry
 from composer.models import ComposerResNet
 from tests import common
 
@@ -54,8 +54,14 @@ _settings = {
         }
     },
     'cutout': simple_vision_settings,
-    'ema': simple_vision_settings,
     'factorize': simple_resnet_settings,
+    'ema': {
+        'model': common.SimpleConvModel,
+        'dataset': common.RandomImageDataset,
+        'kwargs': {
+            'half_life': '100ba',
+        },
+    },
     'ghost_batchnorm': {
         'model': (ComposerResNet, {
             'model_name': 'resnet18',
@@ -90,7 +96,8 @@ _settings = {
             'target_layer_name': 'ResNetBottleneck',
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
-            'use_same_gpu_seed': False
+            'drop_warmup': "0.0dur",
+            'use_same_gpu_seed': False,
         }
     },
     'swa': {
@@ -131,8 +138,6 @@ def get_settings(name: str):
 
     # create algorithm
     kwargs = setting.get('kwargs', {})
-    hparams = algorithm_registry.get_algorithm_registry()[name]
-    result['algorithm'] = hparams(**kwargs).initialize_object()
-    result['algorithm_kwargs'] = kwargs
-
+    alg_class = algorithm_registry[name]
+    result['algorithm'] = alg_class(**kwargs)
     return result

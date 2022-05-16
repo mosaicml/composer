@@ -5,12 +5,14 @@ import os
 from typing import Callable, List
 
 import pytest
+import torch
 
 import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer.callbacks.callback import Callback
 from composer.callbacks.early_stopper import EarlyStopper
+from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.threshold_stopper import ThresholdStopper
 from composer.core import Event
@@ -87,6 +89,9 @@ class TestCallbacks:
 
     def test_multiple_fit_start_and_end(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
+        if not torch.cuda.is_available():
+            if isinstance(callback_factory, MemoryMonitor):
+                pytest.skip("The memory monitor is only suppported on GPU")
         dummy_state.callbacks.append(callback_factory())
         dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
         dummy_state.profiler.bind_to_state(dummy_state)
@@ -104,6 +109,9 @@ class TestCallbacks:
 
     def test_idempotent_close(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
+        if not torch.cuda.is_available():
+            if isinstance(callback_factory, MemoryMonitor):
+                pytest.skip("The memory monitor is only suppported on GPU")
         dummy_state.callbacks.append(callback_factory())
         dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
         dummy_state.profiler.bind_to_state(dummy_state)
@@ -117,6 +125,9 @@ class TestCallbacks:
 
     def test_multiple_init_and_close(self, callback_factory: Callable[[], Callback], dummy_state: State):
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
+        if not torch.cuda.is_available():
+            if isinstance(callback_factory, MemoryMonitor):
+                pytest.skip("The memory monitor is only suppported on GPU")
         dummy_state.callbacks.append(callback_factory())
         dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
         dummy_state.profiler.bind_to_state(dummy_state)
