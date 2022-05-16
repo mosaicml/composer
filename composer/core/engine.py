@@ -194,7 +194,7 @@ class Engine():
             event (:class:`.Event` | str): The current :class:`.Event`. It can be the enum member values or a
                 string with the event value.
         Returns:
-            traces (Dict[str, :class:`.Trace`]): Ordered dictionary of trace for each algorithm.
+            traces (:data:`.Traces`): Ordered dictionary of trace for each algorithm.
         """
         duration_marker = None
         event = Event(event)
