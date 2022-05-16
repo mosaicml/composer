@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Module for devices on which models run.
 
@@ -8,10 +9,10 @@ Used by :class:`~composer.trainer.trainer.Trainer` in order to train on differen
 from composer.trainer.devices.device import Device as Device
 from composer.trainer.devices.device_cpu import DeviceCPU as DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU as DeviceGPU
-from composer.trainer.devices.device_gpu import DeviceGPU as DeviceTPU
 from composer.trainer.devices.device_hparams import CPUDeviceHparams as CPUDeviceHparams
 from composer.trainer.devices.device_hparams import DeviceHparams as DeviceHparams
 from composer.trainer.devices.device_hparams import GPUDeviceHparams as GPUDeviceHparams
 from composer.trainer.devices.device_hparams import TPUDeviceHparams as TPUDeviceHparams
+from composer.trainer.devices.device_tpu import DeviceTPU as DeviceTPU
 
 __all__ = ["Device", "DeviceCPU", "DeviceGPU", "DeviceTPU"]

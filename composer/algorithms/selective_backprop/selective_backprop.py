@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core SelectiveBackprop class and functions."""
 
@@ -229,7 +230,7 @@ class SelectiveBackprop(Algorithm):
 
         is_chosen = should_selective_backprop(
             current_duration=float(elapsed_duration),
-            batch_idx=state.timer.batch_in_epoch.value,
+            batch_idx=int(state.timestamp.batch_in_epoch),
             start=self.start,
             end=self.end,
             interrupt=self.interrupt,

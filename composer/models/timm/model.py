@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """A wrapper around `timm.create_model() <https://rwightman.github.io/pytorch-image-models/#load-a-pretrained-model>`_
 used to create :class:`.ComposerClassifier`."""
@@ -51,7 +52,9 @@ class Timm(ComposerClassifier):
         try:
             import timm
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="timm", conda_package="timm>=0.5.4") from e
+            raise MissingConditionalImportError(extra_deps_group="timm",
+                                                conda_package="timm>=0.5.4",
+                                                conda_channel=None) from e
 
         model = timm.create_model(
             model_name=model_name,

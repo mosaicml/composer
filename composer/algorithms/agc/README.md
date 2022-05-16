@@ -76,10 +76,10 @@ of ResNets that removes Batch Norm and includes [Weight Standardization](https:/
 among other modifications.
 
 Brock et al. recommend using a `clipping threshold` of 0.01 for batch sizes between 1024 to 4096.
-For smaller batch sizes, where AGC's effects are less pronounced, they recommend a larger (less strict) `clipping factor` with performance
-slightly increasing up to a `clipping factor` value of 0.08. They also recommend removing AGC from the last linear layer of the network.
+For smaller batch sizes, AGC's effects are less pronounced they recommend a larger (less strict) `clipping factor` with performance
+slightly increasing up to 0.08. They also recommend removing AGC from the last linear layer of the network.
 
-Thakur recommends large `clipping threshold` for small batch sizes (at least 0.16 for batch sizes 128 and 256) and smaller `clipping threshold` for large batch sizes.
+Thakur recommends large `clipping threshold` for small batch sizes (at least 0.16 for batch sizes 128 and 256) and smaller `clipping threshold` for large batch sizes .
 They also found that AGC seems to work especially well for the NF-ResNet architecture. Specifically they found that for `clipping threshold` of 0.01 and batch size of 1024, AGC does not improve the the performance of a vanilla ResNet with Batch Norm removed.
 
 <!-- ## Technical Details 

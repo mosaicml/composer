@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core AugMix classes and functions."""
 
@@ -56,7 +57,7 @@ def augmix_image(img: ImgT,
             )
 
     Args:
-        img (PIL.Image.Image or torch.Tensor): Image or batch of images to be AugMix'd.
+        img (PIL.Image.Image | torch.Tensor): Image or batch of images to be AugMix'd.
         severity (int, optional): See :class:`.AugMix`.
         depth (int, optional): See :class:`.AugMix`.
         width (int, optional): See :class:`.AugMix`.

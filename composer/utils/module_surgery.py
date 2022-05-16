@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Modify model architectures.
 
@@ -391,7 +392,6 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
     for old_param, new_param in itertools.zip_longest(old_params, new_params):
         if old_params is None or new_params is None:
             raise RuntimeError("old_params and new_params have different lengths.")
-
         '''
         if not old_param in param_to_idxs_map:
             #import pdb; pdb.set_trace()
@@ -400,4 +400,3 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
         group_idx, param_idx = param_to_idxs_map[old_param]
         opt.param_groups[group_idx]["params"][param_idx] = new_param
         '''
-

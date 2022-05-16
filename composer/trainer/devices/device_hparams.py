@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The :class:`~yahp.hparams.Hparams` used to construct devices."""
 
@@ -40,6 +41,7 @@ class CPUDeviceHparams(DeviceHparams):
 
     def initialize_object(self) -> DeviceCPU:
         return DeviceCPU()
+
 
 @dataclass
 class TPUDeviceHparams(DeviceHparams):

@@ -31,9 +31,16 @@ model:
       - kaiming_normal
       - bn_uniform
     num_classes: 1000
+<<<<<<< HEAD
+max_duration: 10ep
+eval_interval: 11ep
+train_batch_size: 128
+eval_batch_size: 64
+=======
 max_duration: 90ep
 train_batch_size: 2048
 eval_batch_size: 2048
+>>>>>>> f0e2a4d7302ea8313e6a65cd2e0026c7ec0e1903
 seed: 17
 device:
   gpu: {}
@@ -44,4 +51,8 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
+<<<<<<< HEAD
+precision: fp32
+=======
 precision: amp
+>>>>>>> f0e2a4d7302ea8313e6a65cd2e0026c7ec0e1903
