@@ -14,7 +14,7 @@ ALiBi (Attention with Linear Biases) dispenses with position embeddings for toke
 
 ### Functional Interface
 
-
+<!--pytest-codeblocks:importorskip(transformers)-->
 ```python
 # Run the ALiBi algorithm directly on the model using the Composer functional API 
 

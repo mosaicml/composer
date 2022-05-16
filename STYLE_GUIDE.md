@@ -204,6 +204,8 @@ All imports in composer should be absolute -- that is, they do not begin with a 
         and set ``conda_channel`` to ``None``. For example, with DeepSpeed:
 
         ```python
+        from composer.utils import MissingConditionalImportError
+
         try:
             import deepspeed
         except ImportError as e:
