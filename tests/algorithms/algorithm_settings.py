@@ -1,5 +1,6 @@
-"""This file provides the canonical settings (dataset, model, algorithms, arguments) for each algorithm to be tested.
-This can be used throughout the codebase for functional tests, serialization tests, etc.
+"""This file provides the canonical settings (dataset, model, algorithms, arguments)
+for each algorithm to be tested. This can be used throughout the codebase for
+functional tests, serialization tests, etc.
 
 Each algorithm is keyed based on its name in the algorithm registry.
 """
@@ -54,7 +55,7 @@ _settings = {
     },
     'cutout': simple_vision_settings,
     'ema': simple_vision_settings,
-    'factorize': None,
+    'factorize': simple_resnet_settings,
     'ghost_batchnorm': {
         'model': (ComposerResNet, {
             'model_name': 'resnet18',
@@ -89,7 +90,6 @@ _settings = {
             'target_layer_name': 'ResNetBottleneck',
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
-            'drop_warmup': "0.0dur",
             'use_same_gpu_seed': False
         }
     },
@@ -107,7 +107,8 @@ _settings = {
 
 
 def get_settings(name: str):
-    """For a given algorithm name, creates the canonical setting (algorithm, model, dataset) for testing.
+    """For a given algorithm name, creates the canonical setting
+    (algorithm, model, dataset) for testing.
 
     Returns ``None`` if no settings provided.
     """
@@ -132,4 +133,6 @@ def get_settings(name: str):
     kwargs = setting.get('kwargs', {})
     hparams = algorithm_registry.get_algorithm_registry()[name]
     result['algorithm'] = hparams(**kwargs).initialize_object()
+    result['algorithm_kwargs'] = kwargs
+
     return result

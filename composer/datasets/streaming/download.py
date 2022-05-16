@@ -41,7 +41,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     """
     try:
         import boto3  # type: ignore (third-party)
-        from botocore import Config  # type: ignore (third-party)
+        from botocore.config import Config  # type: ignore (third-party)
     except ImportError as e:
         raise ImportError(
             textwrap.dedent("""\

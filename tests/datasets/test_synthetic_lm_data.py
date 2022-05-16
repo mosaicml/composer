@@ -20,7 +20,11 @@ def generate_parameter_configs(keys, num_replicas=1):
 
     config_combinations = []
     for combo in product(*[config_options[i] for i in keys]):
-        config_combinations.append([dict(zip(keys, combo)) for _ in range(num_replicas)])
+        config = dict(zip(keys, combo))
+        if "tokenizer_family" in keys:
+            config['drop_last'] = False
+            config['use_masked_lm'] = config['tokenizer_family'] == 'bert'
+        config_combinations.append([config for _ in range(num_replicas)])
     return config_combinations
 
 
@@ -86,7 +90,8 @@ def test_tokenizer_specific_properties(tokenizer, tokenized_dataset, config):
     x = tokenized_dataset['input_ids'][0]
     max_length = config['chars_per_sample'] * 2
     assert len(x) == max_length
-
+    assert config['use_masked_lm'] == (config['tokenizer_family'] == 'bert')
+    assert ~config['drop_last']
     # add some tokenizer-specific tests
     if config['tokenizer_family'] == "bert":
         assert x[0] == tokenizer.cls_token_id

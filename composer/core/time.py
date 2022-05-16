@@ -348,6 +348,8 @@ class Time(Generic[TValue]):
         unit = TimeUnit(match[1])
         value = float(value)  # always parsing first as float b/c it could be scientific notation
         if unit != TimeUnit.DURATION:
+            if int(value) != value:
+                raise TypeError(f"value {value} is not an integer. Units {unit} require integer values.")
             value = int(value)
         return cls(value, unit)
 
