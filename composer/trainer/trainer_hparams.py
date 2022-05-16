@@ -280,6 +280,7 @@ class TrainerHparams(hp.Hparams):
         save_interval (str, optional): See
             :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
         save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
+        autoresume (bool, optional): See :class:`.Trainer`.
 
         deepspeed (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
             config for training  (see :class:`.Trainer` for more details). If ``None`` (the default), DeepSpeed will not
@@ -454,6 +455,12 @@ class TrainerHparams(hp.Hparams):
         default=-1,
     )
 
+    # Graceful Resumption
+    autoresume: bool = hp.optional(doc=(("Whether or not to enable autoresume, which allows for stopping and resuming "
+                                         "training. This parameter requires ``save_folder`` and ``run_name`` to "
+                                         "be specified and ``save_overwrite`` to be ``False``. ")),
+                                   default=False)
+
     # DeepSpeed
     deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
@@ -538,7 +545,7 @@ class TrainerHparams(hp.Hparams):
 
         if (isinstance(self.grad_accum, str) and self.grad_accum != "auto") or (isinstance(self.grad_accum, int) and
                                                                                 self.grad_accum < 1):
-            raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1')
+            raise ValueError('grad_accum must be "auto" or an int greater than or equal to 1.')
 
     def initialize_object(self) -> Trainer:
         self.validate()
@@ -657,6 +664,9 @@ class TrainerHparams(hp.Hparams):
             save_interval=self.save_interval,
             save_weights_only=self.save_weights_only,
             save_num_checkpoints_to_keep=self.save_num_checkpoints_to_keep,
+
+            # Graceful Resumption
+            autoresume=self.autoresume,
 
             # DeepSpeed
             deepspeed_config=self.deepspeed,
