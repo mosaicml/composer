@@ -185,6 +185,8 @@ All imports in composer should be absolute -- that is, they do not begin with a 
     1.  It must also be specified in the `run_constrained` and the `test.requires` section.
     1.  The import must be conditionally imported in the code. For example:
 
+        <!--pytest-codeblocks:importorskip(monai)-->
+        <!--pytest-codeblocks:importorskip(scikit-learn)-->
         ```python
         from composer.utils import MissingConditionalImportError
 
@@ -203,6 +205,7 @@ All imports in composer should be absolute -- that is, they do not begin with a 
         If the corresponding package is not published on Anaconda, then set the ``conda_package`` to the pip package name,
         and set ``conda_channel`` to ``None``. For example, with DeepSpeed:
 
+        <!--pytest-codeblocks:importorskip(deepspeed)-->
         ```python
         from composer.utils import MissingConditionalImportError
 
