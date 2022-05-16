@@ -846,7 +846,7 @@ class Trainer:
         else:
             self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
 
-        if len(ensure_tuple(schedulers)) == 0:
+        if len(ensure_tuple(self.state.schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Evaluators
@@ -1243,7 +1243,7 @@ class Trainer:
             if step_schedulers_every_batch is not None:
                 raise ValueError("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
 
-        if len(ensure_tuple(schedulers)) == 0:
+        if len(ensure_tuple(self.state.schedulers)) == 0:
             warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Evaluators
