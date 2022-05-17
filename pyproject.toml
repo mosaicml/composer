@@ -89,7 +89,7 @@ filterwarnings = [
     'ignore:.*is deprecated and will be removed in Pillow 10.*:DeprecationWarning',
     # Ignore malformed yaml warnings coming from yahp
     'ignore:MalformedYAMLWarning:UserWarning',
-    '''ignore:Exception ignored in <function _MultiProcessingDataLoaderIter.__del__:pytest.PytestUnraisableExceptionWarning''',
+    '''ignore:Exception ignored in. <function _MultiProcessingDataLoaderIter.__del__:pytest.PytestUnraisableExceptionWarning''',
 ]
 timeout_func_only = true  # exclude fixtures from the timeout
 
