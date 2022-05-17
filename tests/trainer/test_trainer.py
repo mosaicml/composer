@@ -964,17 +964,16 @@ class TestFFCVDataloaders:
     val_file = None
     tmp_path = None
 
-    def setup_method(self, tmp_path_factory):
+    def setup_method(self, tmp_path_factory: pytest.TempPathFactory):
         dataset_train = RandomImageDataset(size=16, is_PIL=True)
-        output_train_file = str(tmp_path_factory.mktemp("ffcv").join("train.ffcv"))
+        self.tmp_path = tmp_path_factory.mktemp("ffcv")
+        output_train_file = str(self.tmp_path / "train.ffcv")
         write_ffcv_dataset(dataset_train, write_path=output_train_file, num_workers=1, write_mode='proportion')
         dataset_val = RandomImageDataset(size=16, is_PIL=True)
-        tmp_dir = tmp_path_factory.mktemp("ffcv")
-        output_val_file = str(tmp_dir.join("val.ffcv"))
+        output_val_file = str(self.tmp_path / "val.ffcv")
         write_ffcv_dataset(dataset_val, write_path=output_val_file, num_workers=1, write_mode='proportion')
         self.train_file = output_train_file
         self.val_file = output_val_file
-        self.tmp_path = str(tmp_dir)
 
     def _get_dataloader(self, is_train):
         assert self.tmp_path is not None
@@ -983,7 +982,7 @@ class TestFFCVDataloaders:
         dl_hparams = DataLoaderHparams(num_workers=0)
         ds_hparams = ImagenetDatasetHparams(is_train=is_train,
                                             use_ffcv=True,
-                                            ffcv_dir=self.tmp_path,
+                                            ffcv_dir=str(self.tmp_path),
                                             ffcv_dest=self.train_file if is_train else self.val_file)
         return ds_hparams.initialize_object(batch_size=4, dataloader_hparams=dl_hparams)
 
