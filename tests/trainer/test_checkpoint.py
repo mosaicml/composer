@@ -88,9 +88,9 @@ def assert_checkpoints_equivalent(
     checkpoint_file_b: str,
 ) -> None:
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        a_checkpoint_dir = os.path.join(tmpdir, 'a')
-        b_checkpoint_dir = os.path.join(tmpdir, 'b')
+    with tempfile.TemporaryDirectory() as tmp_path:
+        a_checkpoint_dir = os.path.join(tmp_path, 'a')
+        b_checkpoint_dir = os.path.join(tmp_path, 'b')
 
         checkpoint_a = _load_checkpoint(a_checkpoint_dir, checkpoint_file_a)
         checkpoint_b = _load_checkpoint(b_checkpoint_dir, checkpoint_file_b)
@@ -197,7 +197,7 @@ def test_autoresume(
     composer_trainer_hparams: TrainerHparams,
     use_object_store: bool,
     delete_local_checkpoint: bool,
-    tmpdir: pathlib.Path,
+    tmp_path: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
     use_procs: bool = False,
 ):
@@ -222,7 +222,7 @@ def test_autoresume(
     composer_trainer_hparams.run_name = "big-chungus"
     # Add object store logger
     if use_object_store:
-        remote_dir = str(tmpdir / "object_store")
+        remote_dir = str(tmp_path / "object_store")
         os.makedirs(remote_dir, exist_ok=True)
         monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
         provider = "local"
@@ -332,7 +332,7 @@ def test_save_overwrite(
 @pytest.mark.timeout(90)
 def test_checkpoint_with_object_store_logger(
     composer_trainer_hparams: TrainerHparams,
-    tmpdir: pathlib.Path,
+    tmp_path: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Train model while logging to object store.
@@ -348,7 +348,7 @@ def test_checkpoint_with_object_store_logger(
     )
 
     # Train model and log to object store
-    remote_dir = str(tmpdir / "object_store")
+    remote_dir = str(tmp_path / "object_store")
     os.makedirs(remote_dir, exist_ok=True)
     monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
     provider = "local"
@@ -362,7 +362,7 @@ def test_checkpoint_with_object_store_logger(
         object_store_hparams=object_store_hparams,
         num_concurrent_uploads=1,
         use_procs=False,
-        upload_staging_folder=str(tmpdir / "staging_folder"),
+        upload_staging_folder=str(tmp_path / "staging_folder"),
     )
     composer_trainer_hparams.loggers = [object_store_logger_hparams]
     run_name = "electric-zebra"
@@ -448,7 +448,7 @@ def test_checkpoint(
     final_checkpoint: str,
     seed: Optional[int],
     model_name: Optional[str],
-    tmpdir: pathlib.Path,
+    tmp_path: pathlib.Path,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
@@ -516,7 +516,7 @@ def test_checkpoint(
                         zero stage {zero_stage}"""))
         composer_trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
 
-    checkpoint_a_folder = str(tmpdir / "first")
+    checkpoint_a_folder = str(tmp_path / "first")
     composer_trainer_hparams.save_folder = checkpoint_a_folder
     composer_trainer_hparams.save_interval = save_interval
     composer_trainer_hparams.seed = seed

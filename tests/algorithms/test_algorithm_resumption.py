@@ -3,9 +3,9 @@
 
 import copy
 import os
+import pathlib
 from typing import Any, Callable, Dict, Optional
 
-import py
 import pytest
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -36,14 +36,14 @@ def test_algorithm_resumption(
     save_filename: str,
     resume_file: str,
     final_checkpoint: str,
-    tmpdir: py.path.local,
+    tmp_path: pathlib.Path,
     alg_cls: Callable[..., Algorithm],
     alg_kwargs: Dict[str, Any],
     model: ComposerModel,
     dataset: Dataset,
 ):
-    folder1 = os.path.join(tmpdir, 'folder1')
-    folder2 = os.path.join(tmpdir, 'folder2')
+    folder1 = os.path.join(tmp_path, 'folder1')
+    folder2 = os.path.join(tmp_path, 'folder2')
 
     copied_model = copy.deepcopy(model)  # copy the model so the params will start from the same point
 

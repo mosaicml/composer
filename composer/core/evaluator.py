@@ -98,8 +98,6 @@ class Evaluator:
             or :attr:`.Event.EPOCH_END`.
     """
 
-    _eval_interval: Optional[Callable[[State, Event], bool]]
-
     def __init__(
         self,
         *,
@@ -120,6 +118,7 @@ class Evaluator:
             self.metrics = metrics
 
         self.subset_num_batches = subset_num_batches
+        self._eval_interval = None
         self.eval_interval = eval_interval
 
     @property

@@ -14,32 +14,30 @@ from composer.utils.object_store import ObjectStoreHparams
 
 
 @pytest.mark.xfail(reason="Occassionally hits the timeout. Should refactor to use a local webserver.")
-def test_get_file_uri(tmpdir: pathlib.Path):
+def test_get_file_uri(tmp_path: pathlib.Path):
     get_file(
         path="https://www.mosaicml.com",
         object_store=None,
-        destination=str(tmpdir / "example"),
+        destination=str(tmp_path / "example"),
         chunk_size=1024 * 1024,
-        progress_bar=False,
     )
-    with open(str(tmpdir / "example"), "r") as f:
+    with open(str(tmp_path / "example"), "r") as f:
         assert f.readline().startswith("<!")
 
 
 @pytest.mark.xfail(reason="Occassionally hits the timeout. Should refactor to use a local webserver.")
-def test_get_file_uri_not_found(tmpdir: pathlib.Path):
+def test_get_file_uri_not_found(tmp_path: pathlib.Path):
     with pytest.raises(GetFileNotFoundException):
         get_file(
             path="https://www.mosaicml.com/notfounasdfjilasdfjlkasdljkasjdklfljkasdjfk",
             object_store=None,
-            destination=str(tmpdir / "example"),
+            destination=str(tmp_path / "example"),
             chunk_size=1024 * 1024,
-            progress_bar=False,
         )
 
 
-def test_get_file_object_store(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    remote_dir = tmpdir / "remote_dir"
+def test_get_file_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+    remote_dir = tmp_path / "remote_dir"
     os.makedirs(remote_dir)
     monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
     provider = ObjectStoreHparams(
@@ -49,17 +47,18 @@ def test_get_file_object_store(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyP
     ).initialize_object()
     with open(str(remote_dir / "checkpoint.txt"), 'wb') as f:
         f.write(b"checkpoint1")
-    get_file(path="checkpoint.txt",
-             object_store=provider,
-             destination=str(tmpdir / "example"),
-             chunk_size=1024 * 1024,
-             progress_bar=False)
-    with open(str(tmpdir / "example"), "rb") as f:
+    get_file(
+        path="checkpoint.txt",
+        object_store=provider,
+        destination=str(tmp_path / "example"),
+        chunk_size=1024 * 1024,
+    )
+    with open(str(tmp_path / "example"), "rb") as f:
         assert f.read() == b"checkpoint1"
 
 
-def test_get_file_object_store_with_symlink(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    remote_dir = tmpdir / "remote_dir"
+def test_get_file_object_store_with_symlink(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+    remote_dir = tmp_path / "remote_dir"
     os.makedirs(remote_dir)
     monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
     provider = ObjectStoreHparams(
@@ -74,25 +73,27 @@ def test_get_file_object_store_with_symlink(tmpdir: pathlib.Path, monkeypatch: p
     with open(str(remote_dir / "latest.symlink"), "w") as f:
         f.write("checkpoint.txt")
     # Fetch object, should automatically follow symlink
-    get_file(path="latest.symlink",
-             object_store=provider,
-             destination=str(tmpdir / "example"),
-             chunk_size=1024 * 1024,
-             progress_bar=False)
-    with open(str(tmpdir / "example"), "rb") as f:
+    get_file(
+        path="latest.symlink",
+        object_store=provider,
+        destination=str(tmp_path / "example"),
+        chunk_size=1024 * 1024,
+    )
+    with open(str(tmp_path / "example"), "rb") as f:
         assert f.read() == b"checkpoint1"
     # Fetch object without specifying .symlink, should automatically follow
-    get_file(path="latest",
-             object_store=provider,
-             destination=str(tmpdir / "example"),
-             chunk_size=1024 * 1024,
-             progress_bar=False)
-    with open(str(tmpdir / "example"), "rb") as f:
+    get_file(
+        path="latest",
+        object_store=provider,
+        destination=str(tmp_path / "example"),
+        chunk_size=1024 * 1024,
+    )
+    with open(str(tmp_path / "example"), "rb") as f:
         assert f.read() == b"checkpoint1"
 
 
-def test_get_file_object_store_not_found(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    remote_dir = tmpdir / "remote_dir"
+def test_get_file_object_store_not_found(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+    remote_dir = tmp_path / "remote_dir"
     os.makedirs(remote_dir)
     monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
     provider = ObjectStoreHparams(
@@ -101,26 +102,26 @@ def test_get_file_object_store_not_found(tmpdir: pathlib.Path, monkeypatch: pyte
         container=".",
     ).initialize_object()
     with pytest.raises(GetFileNotFoundException):
-        get_file(path="checkpoint.txt",
-                 object_store=provider,
-                 destination=str(tmpdir / "example"),
-                 chunk_size=1024 * 1024,
-                 progress_bar=False)
+        get_file(
+            path="checkpoint.txt",
+            object_store=provider,
+            destination=str(tmp_path / "example"),
+            chunk_size=1024 * 1024,
+        )
 
 
-def test_get_file_local_path(tmpdir: pathlib.Path):
-    tmpfile_name = os.path.join(tmpdir, "file.txt")
+def test_get_file_local_path(tmp_path: pathlib.Path):
+    tmpfile_name = os.path.join(tmp_path, "file.txt")
     with open(tmpfile_name, "x") as f:
         f.write("hi!")
 
     get_file(
         path=tmpfile_name,
         object_store=None,
-        destination=str(tmpdir / "example"),
+        destination=str(tmp_path / "example"),
         chunk_size=1024 * 1024,
-        progress_bar=False,
     )
-    with open(str(tmpdir / "example"), "r") as f:
+    with open(str(tmp_path / "example"), "r") as f:
         assert f.read() == "hi!"
 
 
@@ -131,7 +132,6 @@ def test_get_file_local_path_not_found():
             object_store=None,
             destination="destination",
             chunk_size=1024 * 1024,
-            progress_bar=False,
         )
 
 
@@ -183,8 +183,8 @@ def test_format_name_with_dist_and_time():
     assert format_name_with_dist_and_time(format_str, "awesome_run", timestamp=timestamp, extra=42) == expected_str
 
 
-def test_ensure_folder_is_empty(tmpdir: pathlib.Path):
-    ensure_folder_is_empty(tmpdir)
+def test_ensure_folder_is_empty(tmp_path: pathlib.Path):
+    ensure_folder_is_empty(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -237,7 +237,7 @@ def test_ensure_folder_is_empty(tmpdir: pathlib.Path):
     ],
 )
 def test_ensure_folder_has_no_conflicting_files(
-    tmpdir: pathlib.Path,
+    tmp_path: pathlib.Path,
     filename: str,
     new_file: str,
     success: bool,
@@ -250,10 +250,10 @@ def test_ensure_folder_has_no_conflicting_files(
                           token=Time(31, TimeUnit.TOKEN),
                           token_in_epoch=Time(7, TimeUnit.TOKEN))
 
-    with open(os.path.join(tmpdir, new_file), 'w') as f:
+    with open(os.path.join(tmp_path, new_file), 'w') as f:
         f.write("hello")
     if success:
-        ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+        ensure_folder_has_no_conflicting_files(tmp_path, filename, timestamp)
     else:
         with pytest.raises(FileExistsError):
-            ensure_folder_has_no_conflicting_files(tmpdir, filename, timestamp)
+            ensure_folder_has_no_conflicting_files(tmp_path, filename, timestamp)

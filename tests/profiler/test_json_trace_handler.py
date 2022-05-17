@@ -19,12 +19,12 @@ from tests.common import RandomClassificationDataset, SimpleModel
 @pytest.mark.timeout(30)
 @pytest.mark.filterwarnings(
     r"ignore:The profiler is enabled\. Using the profiler adds additional overhead when training\.:UserWarning")
-def test_json_trace_profiler_handler(tmpdir: pathlib.Path):
+def test_json_trace_profiler_handler(tmp_path: pathlib.Path):
     # Construct the trainer
     profiler = Profiler(
         schedule=cyclic_schedule(wait=0, warmup=0, active=1000, repeat=0),
         trace_handlers=JSONTraceHandler(
-            folder=str(tmpdir),
+            folder=str(tmp_path),
             merged_trace_filename='trace.json',
         ),
         sys_prof_cpu=False,
@@ -47,7 +47,7 @@ def test_json_trace_profiler_handler(tmpdir: pathlib.Path):
     trainer.fit()
 
     # Validate that the trace file contains expected events
-    profiler_file = os.path.join(tmpdir, 'trace.json')
+    profiler_file = os.path.join(tmp_path, 'trace.json')
     with open(profiler_file, "r") as f:
         trace_json = json.load(f)
         has_epoch_start_event = False

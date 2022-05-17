@@ -281,5 +281,5 @@ def _make_crop_pair(X: torch.Tensor, y: torch.Tensor,
 
 def _make_resize(scale_factor: float) -> T_ResizeTransform:
     """Makes a nearest-neighbor interpolation transform at the specified scale factor."""
-    resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest')
+    resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest', recompute_scale_factor=False)
     return resize_transform
