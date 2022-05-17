@@ -1,11 +1,14 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helpers for working with files."""
+
+from __future__ import annotations
 
 import os
 import pathlib
 import re
-from typing import Iterator, Optional, Union
+from typing import TYPE_CHECKING, Iterator, Optional, Union
 
 import requests
 import tqdm
@@ -14,6 +17,9 @@ from composer.core.time import Time, Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
 from composer.utils.object_store import ObjectStore
+
+if TYPE_CHECKING:
+    from composer.loggers import LoggerDestination
 
 __all__ = [
     'GetFileNotFoundException',
@@ -186,48 +192,48 @@ Args:
 """
 
 FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """
-+------------------------+-------------------------------------------------------+
-| Variable               | Description                                           |
-+========================+=======================================================+
-| ``{run_name}``         | The name of the training run. See                     |
-|                        | :attr:`~composer.loggers.logger.Logger.run_name`.     |
-+------------------------+-------------------------------------------------------+
-| ``{rank}``             | The global rank, as returned by                       |
-|                        | :func:`~composer.utils.dist.get_global_rank`.         |
-+------------------------+-------------------------------------------------------+
-| ``{local_rank}``       | The local rank of the process, as returned by         |
-|                        | :func:`~composer.utils.dist.get_local_rank`.          |
-+------------------------+-------------------------------------------------------+
-| ``{world_size}``       | The world size, as returned by                        |
-|                        | :func:`~composer.utils.dist.get_world_size`.          |
-+------------------------+-------------------------------------------------------+
-| ``{local_world_size}`` | The local world size, as returned by                  |
-|                        | :func:`~composer.utils.dist.get_local_world_size`.    |
-+------------------------+-------------------------------------------------------+
-| ``{node_rank}``        | The node rank, as returned by                         |
-|                        | :func:`~composer.utils.dist.get_node_rank`.           |
-+------------------------+-------------------------------------------------------+
-| ``{epoch}``            | The total epoch count, as returned by                 |
-|                        | :meth:`~composer.core.time.Timer.epoch`.              |
-+------------------------+-------------------------------------------------------+
-| ``{batch}``            | The total batch count, as returned by                 |
-|                        | :meth:`~composer.core.time.Timer.batch`.              |
-+------------------------+-------------------------------------------------------+
-| ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by  |
-|                        | :meth:`~composer.core.time.Timer.batch_in_epoch`.     |
-+------------------------+-------------------------------------------------------+
-| ``{sample}``           | The total sample count, as returned by                |
-|                        | :meth:`~composer.core.time.Timer.sample`.             |
-+------------------------+-------------------------------------------------------+
-| ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by |
-|                        | :meth:`~composer.core.time.Timer.sample_in_epoch`.    |
-+------------------------+-------------------------------------------------------+
-| ``{token}``            | The total token count, as returned by                 |
-|                        | :meth:`~composer.core.time.Timer.token`.              |
-+------------------------+-------------------------------------------------------+
-| ``{token_in_epoch}``   | The token count in the current epoch, as returned by  |
-|                        | :meth:`~composer.core.time.Timer.token_in_epoch`.     |
-+------------------------+-------------------------------------------------------+
++------------------------+--------------------------------------------------------+
+| Variable               | Description                                            |
++========================+========================================================+
+| ``{run_name}``         | The name of the training run. See                      |
+|                        | :attr:`~composer.loggers.logger.Logger.run_name`.      |
++------------------------+--------------------------------------------------------+
+| ``{rank}``             | The global rank, as returned by                        |
+|                        | :func:`~composer.utils.dist.get_global_rank`.          |
++------------------------+--------------------------------------------------------+
+| ``{local_rank}``       | The local rank of the process, as returned by          |
+|                        | :func:`~composer.utils.dist.get_local_rank`.           |
++------------------------+--------------------------------------------------------+
+| ``{world_size}``       | The world size, as returned by                         |
+|                        | :func:`~composer.utils.dist.get_world_size`.           |
++------------------------+--------------------------------------------------------+
+| ``{local_world_size}`` | The local world size, as returned by                   |
+|                        | :func:`~composer.utils.dist.get_local_world_size`.     |
++------------------------+--------------------------------------------------------+
+| ``{node_rank}``        | The node rank, as returned by                          |
+|                        | :func:`~composer.utils.dist.get_node_rank`.            |
++------------------------+--------------------------------------------------------+
+| ``{epoch}``            | The total epoch count, as returned by                  |
+|                        | :meth:`~composer.core.time.Timestamp.epoch`.           |
++------------------------+--------------------------------------------------------+
+| ``{batch}``            | The total batch count, as returned by                  |
+|                        | :meth:`~composer.core.time.Timestamp.batch`.           |
++------------------------+--------------------------------------------------------+
+| ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by   |
+|                        | :meth:`~composer.core.time.Timestamp.batch_in_epoch`.  |
++------------------------+--------------------------------------------------------+
+| ``{sample}``           | The total sample count, as returned by                 |
+|                        | :meth:`~composer.core.time.Timestamp.sample`.          |
++------------------------+--------------------------------------------------------+
+| ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by  |
+|                        | :meth:`~composer.core.time.Timestamp.sample_in_epoch`. |
++------------------------+--------------------------------------------------------+
+| ``{token}``            | The total token count, as returned by                  |
+|                        | :meth:`~composer.core.time.Timestamp.token`.           |
++------------------------+--------------------------------------------------------+
+| ``{token_in_epoch}``   | The token count in the current epoch, as returned by   |
+|                        | :meth:`~composer.core.time.Timestamp.token_in_epoch`.  |
++------------------------+--------------------------------------------------------+
 """
 
 
@@ -265,7 +271,7 @@ For example, assume that the current epoch is ``0``, batch is ``0``, and rank is
 >>> format_name_with_dist_and_time(
 ...     format_str,
 ...     run_name='awesome_training_run',
-...     timestamp=state.timer.get_timestamp(),
+...     timestamp=state.timestamp,
 ...     extension='json',
 ... )
 'awesome_training_run/ep0-ba0-rank0.json'
@@ -281,7 +287,7 @@ Args:
 def get_file(
     path: str,
     destination: str,
-    object_store: Optional[ObjectStore] = None,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     chunk_size: int = 2**20,
     progress_bar: bool = True,
 ):
@@ -320,21 +326,29 @@ def get_file(
         GetFileNotFoundException: If the ``path`` does not exist, a ``GetFileNotFoundException`` exception will
             be raised.
     """
-
     if object_store is not None:
-        try:
-            total_size_in_bytes = object_store.get_object_size(path)
-        except Exception as e:
-            if "ObjectDoesNotExistError" in str(e):
-                raise GetFileNotFoundException(f"Object name {path} not found in object store {object_store}") from e
-            raise
-        _write_to_file_with_pbar(
-            destination=destination,
-            total_size=total_size_in_bytes,
-            iterator=object_store.download_object_as_stream(path, chunk_size=chunk_size),
-            progress_bar=progress_bar,
-            description=f"Downloading {path}",
-        )
+        if isinstance(object_store, ObjectStore):
+            # Type ObjectStore
+            try:
+                total_size_in_bytes = object_store.get_object_size(path)
+            except Exception as e:
+                if "ObjectDoesNotExistError" in str(e):
+                    raise GetFileNotFoundException(
+                        f"Object name {path} not found in object store {object_store}") from e
+                raise
+            _write_to_file_with_pbar(
+                destination=destination,
+                total_size=total_size_in_bytes,
+                iterator=object_store.download_object_as_stream(path, chunk_size=chunk_size),
+                progress_bar=progress_bar,
+                description=f"Downloading {path}",
+            )
+        else:
+            # Type LoggerDestination
+            object_store.get_file_artifact(artifact_name=path,
+                                           destination=destination,
+                                           chunk_size=chunk_size,
+                                           progress_bar=progress_bar)
         return
 
     if path.lower().startswith("http://") or path.lower().startswith("https://"):

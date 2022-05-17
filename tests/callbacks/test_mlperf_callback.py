@@ -51,7 +51,7 @@ class TestMLPerfCallbackEvents:
 
         state = Mock()
         state.current_metrics = current_metrics
-        state.timer.epoch.value = 1
+        state.timestamp.epoch.value = 1
 
         return state
 
@@ -93,7 +93,7 @@ class TestWithMLPerfChecker:
     def test_mlperf_callback_passes(self, tmpdir, monkeypatch, world_size, device):
 
         def mock_accuracy(self, state: State):
-            if state.timer.epoch >= 2:
+            if state.timestamp.epoch >= 2:
                 return 0.99
             else:
                 return 0.01
