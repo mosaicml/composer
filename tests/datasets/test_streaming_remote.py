@@ -16,7 +16,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
                 batch_size: Optional[int]) -> Tuple[int, StreamingDataset]:
     dataset_map = {
         "ade20k": {
-            "remote": "s3://mosaicml-internal-dataset-ade20k/mds/",
+            "remote": "s3://mosaicml-internal-dataset-ade20k/mds/1/",
             "num_samples": {
                 "train": 20206,
                 "val": 2000,
@@ -24,7 +24,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
             "class": StreamingADE20k,
         },
         "imagenet1k": {
-            "remote": "s3://mosaicml-internal-dataset-imagenet1k/mds/",
+            "remote": "s3://mosaicml-internal-dataset-imagenet1k/mds/1/",
             "num_samples": {
                 "train": 1281167,
                 "val": 50000,
@@ -32,7 +32,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
             "class": StreamingImageNet1k
         },
         "coco": {
-            "remote": "s3://mosaicml-internal-dataset-coco/mds/",
+            "remote": "s3://mosaicml-internal-dataset-coco/mds/1/",
             "num_samples": {
                 "train": 117266,
                 "val": 4952,
@@ -55,7 +55,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
 @pytest.mark.parametrize("name", [
     "ade20k",
     "imagenet1k",
-    pytest.param("coco", marks=pytest.mark.skip(reason="StreamingCOCO dataset needs to be debugged.")),
+    "coco",
 ])
 @pytest.mark.parametrize("split", ["val"])
 def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -> None:
@@ -92,7 +92,7 @@ def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -
 @pytest.mark.parametrize("name", [
     "ade20k",
     "imagenet1k",
-    pytest.param("coco", marks=pytest.mark.skip(reason="StreamingCOCO dataset needs to be debugged.")),
+    "coco",
 ])
 @pytest.mark.parametrize("split", ["val"])
 def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str) -> None:
@@ -133,8 +133,8 @@ def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str
     for epoch in range(3):
         rcvd_samples = 0
         epoch_start = time.time()
-        for _, (images, _) in enumerate(loader):
-            n_samples = images.shape[0]
+        for _, batch in enumerate(loader):
+            n_samples = batch[0].shape[0]
             rcvd_samples += n_samples
         epoch_end = time.time()
         epoch_dur = epoch_end - epoch_start

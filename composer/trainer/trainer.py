@@ -846,9 +846,6 @@ class Trainer:
         else:
             self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
 
-        if len(ensure_tuple(schedulers)) == 0:
-            warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
-
         # Evaluators
         if eval_dataloader is None:
             evaluators: List[Evaluator] = []
@@ -1243,9 +1240,6 @@ class Trainer:
             if step_schedulers_every_batch is not None:
                 raise ValueError("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
 
-        if len(ensure_tuple(schedulers)) == 0:
-            warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
-
         # Evaluators
         if eval_dataloader is not None:
             evaluators = [
@@ -1535,6 +1529,7 @@ class Trainer:
                         )
 
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
+        self.engine.run_event(Event.FIT_END)
 
     def _handle_cuda_oom(self):
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
