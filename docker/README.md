@@ -27,12 +27,14 @@ MM Segmentation, and FFCV dependencies.
 
 Pre-built images can be pulled from [MosaicML's DockerHub Repository](https://hub.docker.com/r/mosaicml/pytorch):
 
+<!--pytest-codeblocks:skip-->
 ```bash
 docker pull mosaicml/pytorch
 ```
 
 ## Building Images locally
 
+<!--pytest-codeblocks:skip-->
 ```bash
 # Build the default image
 make
