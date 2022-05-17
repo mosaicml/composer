@@ -252,7 +252,8 @@ class MLPerfCallback(Callback):
                 constants.EVAL_SAMPLES: len(state.evaluators[0].dataloader.dataloader.dataset)
             })
 
-        self.mllogger.event(key=constants.INIT_STOP)
+        if rank_zero():
+            self.mllogger.event(key=constants.INIT_STOP)
 
         dist.barrier()
 
