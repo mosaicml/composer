@@ -964,7 +964,8 @@ class TestFFCVDataloaders:
     val_file = None
     tmp_path = None
 
-    def setup_method(self, tmp_path_factory: pytest.TempPathFactory):
+    @pytest.fixture(autouse=True)
+    def create_dataset(self, tmp_path_factory: pytest.TempPathFactory):
         dataset_train = RandomImageDataset(size=16, is_PIL=True)
         self.tmp_path = tmp_path_factory.mktemp("ffcv")
         output_train_file = str(self.tmp_path / "train.ffcv")
