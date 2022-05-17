@@ -103,7 +103,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/selective_backprop.md
    method_cards/seq_length_warmup.md
    method_cards/squeeze_excite.md
-   method_cards/stochastic_depth.md
    method_cards/stochastic_depth_samplewise.md
    method_cards/swa.md
 
