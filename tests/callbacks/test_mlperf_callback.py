@@ -37,9 +37,9 @@ class MockMLLogger:
 class TestMLPerfCallbackEvents:
 
     @pytest.fixture
-    def mlperf_callback(self, monkeypatch, tmpdir) -> MLPerfCallback:
+    def mlperf_callback(self, monkeypatch, tmp_path) -> MLPerfCallback:
         """Returns a callback with the MockMLLogger patched."""
-        callback = MLPerfCallback(tmpdir, 0)
+        callback = MLPerfCallback(tmp_path, 0)
         monkeypatch.setattr(callback, 'mllogger', MockMLLogger())
         return callback
 
@@ -87,7 +87,7 @@ class TestWithMLPerfChecker:
     """Ensures that the logs created by the MLPerfCallback pass the official package checker."""
 
     @pytest.mark.timeout(15)
-    def test_mlperf_callback_passes(self, tmpdir, monkeypatch):
+    def test_mlperf_callback_passes(self, tmp_path, monkeypatch):
 
         def mock_accuracy(self, state: State):
             if state.timestamp.epoch >= 2:
@@ -97,22 +97,22 @@ class TestWithMLPerfChecker:
 
         monkeypatch.setattr(MLPerfCallback, '_get_accuracy', mock_accuracy)
 
-        self.generate_submission(tmpdir)
+        self.generate_submission(tmp_path)
 
         if rank_zero():
-            self.run_mlperf_checker(tmpdir, monkeypatch)
+            self.run_mlperf_checker(tmp_path, monkeypatch)
 
     @pytest.mark.timeout(15)
-    def test_mlperf_callback_fails(self, tmpdir, monkeypatch):
+    def test_mlperf_callback_fails(self, tmp_path, monkeypatch):
 
         def mock_accuracy(self, state: State):
             return 0.01
 
         monkeypatch.setattr(MLPerfCallback, '_get_accuracy', mock_accuracy)
 
-        self.generate_submission(tmpdir)
+        self.generate_submission(tmp_path)
         with pytest.raises(ValueError, match='MLPerf checker failed'):
-            self.run_mlperf_checker(tmpdir, monkeypatch)
+            self.run_mlperf_checker(tmp_path, monkeypatch)
 
     def generate_submission(self, directory):
         """Generates submission files by training the benchark n=5 times."""

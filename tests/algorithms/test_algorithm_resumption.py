@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import pathlib
 from typing import Optional
 
-import py
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -36,7 +36,7 @@ def test_algorithm_resumption(
     save_filename: str,
     resume_file: str,
     final_checkpoint: str,
-    tmpdir: py.path.local,
+    tmp_path: pathlib.Path,
 ):
     if algorithm in ('no_op_model', 'scale_schedule'):
         pytest.skip('stub algorithms')
@@ -52,8 +52,8 @@ def test_algorithm_resumption(
     if setting is None:
         pytest.xfail('No setting provided in algorithm_settings.')
 
-    folder1 = os.path.join(tmpdir, 'folder1')
-    folder2 = os.path.join(tmpdir, 'folder2')
+    folder1 = os.path.join(tmp_path, 'folder1')
+    folder2 = os.path.join(tmp_path, 'folder2')
 
     config = {
         'algorithms': setting['algorithm'],

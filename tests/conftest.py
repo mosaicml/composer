@@ -154,8 +154,8 @@ def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def chdir_to_tmpdir(tmpdir: pathlib.Path):
-    os.chdir(tmpdir)
+def chdir_to_tmp_path(tmp_path: pathlib.Path):
+    os.chdir(tmp_path)
 
 
 @pytest.fixture(autouse=True, scope='session')
