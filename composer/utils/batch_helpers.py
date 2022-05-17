@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 from operator import attrgetter, itemgetter
 from typing import Any, Callable, Optional, Sequence, Union
 
@@ -87,13 +88,13 @@ def batch_set(batch: Any,
         raise ValueError("key or set_fn must be specified and neither were!")
     if key is not None and set_fn is not None:
         raise ValueError("key and set_fn were both set. Only one can be set!")
-
+    batch_copy = copy.deepcopy(batch)
     if set_fn:
-        return set_fn(batch, value)
+        return set_fn(batch_copy, value)
     if isinstance(key, Sequence) and not isinstance(key, str):
-        return _batch_set_multiple(batch, key, value)
+        return _batch_set_multiple(batch_copy, key, value)
     else:
-        return _batch_set(batch, key, value)
+        return _batch_set(batch_copy, key, value)
 
 
 def _batch_set(batch: Any, key: Any, value: Any) -> Any:

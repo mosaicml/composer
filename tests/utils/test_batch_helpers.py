@@ -177,7 +177,7 @@ def test_sequence_of_strs_key_attr_store(example_attr_store):
 def test_batch_get_seq_with_slice_key(example_dequeless_sequence):
     key = slice(1, 6, 2)
     expected = (4, 6, 8)
-    assert batch_get(example_dequeless_sequence, key) == expected
+    assert tuple(batch_get(example_dequeless_sequence, key)) == expected
 
 
 # Test whether sequences can be indexed by a slice object.
