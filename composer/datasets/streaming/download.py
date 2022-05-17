@@ -19,7 +19,7 @@ def wait_for_download(local: str, timeout: float = 60) -> None:
 
     Args:
         local (str): Path to file.
-        timeout (float): How long to wait before raising an exception. Default: 20 sec.
+        timeout (float): How long to wait before raising an exception. Default: 60 sec.
     """
     start_time = time()
     while True:
@@ -101,7 +101,7 @@ def safe_download(remote: str, local: str, timeout: float = 60) -> None:
     Args:
         remote (str): Remote path (S3 or local filesystem).
         local (str): Local path (local filesystem).
-        timeout (float): How long to wait for shard to download before raising an exception. Default: 20 sec.
+        timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
     """
     # If we already have the file cached locally, we are done.
     if os.path.exists(local):
