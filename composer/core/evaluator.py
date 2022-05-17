@@ -37,31 +37,26 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
     if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
         raise ValueError("The `eval_interval` must have units of EPOCH or BATCH, or be a function.")
 
+    last_batch_seen = None
+
     def should_eval(state: State, event: Event):
         if int(eval_interval) <= 0:
             return False
+        nonlocal last_batch_seen  # required to use the last_batch_seen from the outer function scope
 
         # if requested, evaluate at the end of training, as long as the length of training is specified.
-        if eval_at_fit_end and state.max_duration is not None:
-            # check if we are at the end of training
-            # handle different eval_intervals in order to not duplicate validation steps
-            if eval_interval.unit == TimeUnit.EPOCH and event == Event.EPOCH_END:
-                if state.max_duration.unit == TimeUnit.EPOCH and state.max_duration.value == int(state.timestamp.epoch):
-                    return True
-                if state.max_duration.unit == TimeUnit.BATCH and state.max_duration.value == int(state.timestamp.batch):
-                    return True
-            if eval_interval.unit == TimeUnit.BATCH and event == Event.BATCH_END:
-                if state.max_duration.unit == TimeUnit.EPOCH:
-                    num_epochs = state.max_duration.value
-                    num_total_steps = num_epochs * int(state.dataloader_len)
-                elif state.max_duration.unit == TimeUnit.BATCH:
-                    num_total_steps = state.max_duration.value
-                if num_total_steps == int(state.timestamp.batch):
-                    return True
-        if eval_interval.unit == TimeUnit.EPOCH:
-            return int(state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END
-        if eval_interval.unit == TimeUnit.BATCH:
-            return int(state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END
+        if eval_at_fit_end and event == Event.FIT_END and state.timestamp.batch != last_batch_seen:
+            return True
+
+        if eval_interval.unit == TimeUnit.EPOCH and int(
+                state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END:
+            last_batch_seen = state.timestamp.batch
+            return True
+
+        if eval_interval.unit == TimeUnit.BATCH and int(
+                state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END:
+            last_batch_seen = state.timestamp.batch
+            return True
 
         return False
 
@@ -115,6 +110,13 @@ class Evaluator:
             If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool
             representing whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`
             or :attr:`.Event.EPOCH_END`.
+
+            When specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't
+            evenly divide the training duration.
+
+        eval_at_fit_end (bool, optional):
+            Whether to run the evaluator(s) at ``Event.FIT_END`` if ``eval_interval`` doesn't evenly divide
+            the training duration. Default: True.
     """
 
     _eval_interval: Optional[Callable[[State, Event], bool]]
@@ -127,6 +129,7 @@ class Evaluator:
         metrics: Union[Metric, MetricCollection],
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,
+        eval_at_fit_end: bool = True,
     ):
         self.label = label
         self.dataloader = ensure_data_spec(dataloader)
@@ -139,6 +142,7 @@ class Evaluator:
             self.metrics = metrics
 
         self.subset_num_batches = subset_num_batches
+        self.eval_at_fit_end = eval_at_fit_end
         self.eval_interval = eval_interval
 
     @property
@@ -150,7 +154,7 @@ class Evaluator:
         if eval_interval is None:
             self._eval_interval = None
         elif not callable(eval_interval):
-            self._eval_interval = evaluate_periodically(eval_interval)
+            self._eval_interval = evaluate_periodically(eval_interval, eval_at_fit_end=self.eval_at_fit_end)
         else:
             self._eval_interval = eval_interval
 
