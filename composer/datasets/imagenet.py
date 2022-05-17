@@ -259,7 +259,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-imagenet1k/mds/```
+            Default: ``'s3://mosaicml-internal-dataset-imagenet1k/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-imagenet1k/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
@@ -268,7 +268,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/')
+                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-imagenet1k/')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')

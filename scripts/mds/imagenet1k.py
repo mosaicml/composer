@@ -14,7 +14,7 @@ def parse_args() -> Namespace:
     args = ArgumentParser()
     args.add_argument('--in_root', type=str, required=True)
     args.add_argument('--out_root', type=str, required=True)
-    args.add_argument('--shard_size_limit', type=int, default=1 << 27)
+    args.add_argument('--shard_size_limit', type=int, default=1 << 25)
     args.add_argument('--tqdm', type=int, default=1)
     return args.parse_args()
 

@@ -1526,6 +1526,7 @@ class Trainer:
                         )
 
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
+        self.engine.run_event(Event.FIT_END)
 
     def _handle_cuda_oom(self):
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
