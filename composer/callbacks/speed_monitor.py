@@ -59,7 +59,7 @@ class SpeedMonitor(Callback):
     +-----------------------+-------------------------------------------------------------+
     |``wall_clock/val``     | Total elapsed validation time                               |
     +-----------------------+-------------------------------------------------------------+
-    |``wall_clock/total``   | Total elapsed time                                          |
+    |``wall_clock/total``   | Total elapsed time (wall_clock/train + wall_clock/val)      |
     +-----------------------+-------------------------------------------------------------+
 
     Args:
