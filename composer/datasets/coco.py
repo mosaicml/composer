@@ -246,10 +246,15 @@ class StreamingCOCO(StreamingDataset):
 
     def __getitem__(self, idx: int) -> Any:
         x = super().__getitem__(idx)
-        args = x['img'], x['img_id'], (x['htot'], x['wtot']), x['bbox_sizes'], x['bbox_labels']
+        img = x['img']
+        img_id = x['img_id']
+        htot = x['htot']
+        wtot = x['wtot']
+        bbox_sizes = x['bbox_sizes']
+        bbox_labels = x['bbox_labels']
         if self.transform:
-            args = self.transform(*args)
-        return args
+            img, (htot, wtot), bbox_sizes, bbox_labels = self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
+        return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
 
 
 @dataclass
