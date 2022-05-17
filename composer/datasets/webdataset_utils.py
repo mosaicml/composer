@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 try:
     from webdataset import ShardWriter, WebDataset  # type: ignore
-    from wurlitzer import pipes
+    from wurlitzer import pipes  # type: ignore
     webdataset_installed = True
 except ImportError:
     webdataset_installed = False

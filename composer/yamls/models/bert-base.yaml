@@ -48,7 +48,7 @@ optimizer:
 schedulers:
   - linear_decay_with_warmup:
       t_warmup: 0.06dur
-max_duration: 7ep # Baseline is 256M samples, 7 epochs is ~280M samples
+max_duration: 256_000_000
 train_batch_size: 4000
 eval_batch_size: 2000
 seed: 19

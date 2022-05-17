@@ -387,6 +387,7 @@ def test_checkpoint_with_object_store_logger(
         object_store_hparams=object_store_hparams,
         num_concurrent_uploads=1,
         use_procs=use_procs,
+        upload_staging_folder=str(tmpdir / "staging_folder"),
     )
     composer_trainer_hparams.loggers = [object_store_logger_hparams]
     run_name = "electric-zebra"

@@ -83,14 +83,8 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         }
     },
     CutOut: simple_vision_settings,
+    EMA: simple_vision_settings,
     Factorize: simple_resnet_settings,
-    EMA: {
-        'model': common.SimpleConvModel,
-        'dataset': common.RandomImageDataset,
-        'kwargs': {
-            'half_life': '100ba',
-        },
-    },
     GhostBatchNorm: {
         'model': (ComposerResNet, {
             'model_name': 'resnet18',

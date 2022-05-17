@@ -7,6 +7,7 @@ from tests.common.datasets import (RandomClassificationDataset, RandomClassifica
 from tests.common.events import EventCounterCallback
 from tests.common.hparams import assert_is_constructable_from_yaml, assert_registry_contains_entry
 from tests.common.markers import device, world_size
+from tests.common.metrics import MetricSetterCallback
 from tests.common.models import (SimpleConvModel, SimpleConvModelHparams, SimpleModel, SimpleModelHparams,
                                  configure_model_hparams_for_synthetic)
 from tests.common.state import assert_state_equivalent
@@ -35,4 +36,5 @@ __all__ = [
     "get_all_subclasses_in_module",
     "assert_is_constructable_from_yaml",
     "assert_registry_contains_entry",
+    "MetricSetterCallback",
 ]
