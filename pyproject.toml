@@ -86,9 +86,10 @@ filterwarnings = [
     # allow training metrics
     'ignore:Computing model evaluation metrics during training doubles the number of forward passes:UserWarning',
     'ignore:No optimizer was specified.:UserWarning',  # OK to not specify an optimizer in the tests
-    # Ignore deprecation warnings in torchvision. TODO: remove this ignore for torchvision 0.13 -- it appears to be
-    # fixed in main -- see https://github.com/pytorch/vision/blob/main/torchvision/transforms/functional_pil.py
-    'ignore:.*is deprecated and will be removed in Pillow 10.*:DeprecationWarning:torchvision.*',
+    # Ignore deprecation warnings in pillow. TODO: remove this ignore for when we upgrade pillow-simd +
+    # use torchvision 0.13  -- it appears to be fixed in main -- see
+    # https://github.com/pytorch/vision/blob/main/torchvision/transforms/functional_pil.py
+    'ignore:.*is deprecated and will be removed in Pillow 10.*:DeprecationWarning',
     # Ignore deprecation warnings in deepspeed. TODO: remove this when we upgrade to v0.6.1+ -- it has been fixed
     'ignore::DeprecationWarning:deepspeed.*:',
     # Ignore malformed yaml warnings coming from yahp
