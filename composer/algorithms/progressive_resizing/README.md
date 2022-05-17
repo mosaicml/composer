@@ -18,18 +18,18 @@ Progressive Resizing works by initially training on images that have been downsa
 TODO(CORY): FIX
 
 ```python
-def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
+# def training_loop(model, train_loader):
+#   opt = torch.optim.Adam(model.parameters())
+#   loss_fn = F.cross_entropy
+#   model.train()
   
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+#   for epoch in range(num_epochs):
+#       for X, y in train_loader:
+#           y_hat = model(X)
+#           loss = loss_fn(y_hat, y)
+#           loss.backward()
+#           opt.step()
+#           opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -37,16 +37,16 @@ def training_loop(model, train_loader):
 TODO(CORY): Verify and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
-from composer.trainer import Trainer
+# from composer.algorithms import XXX
+# from composer.trainer import Trainer
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[
-                  ])
+# trainer = Trainer(model=model,
+#                   train_dataloader=train_dataloader,
+#                   max_duration='1ep',
+#                   algorithms=[
+#                   ])
 
-trainer.fit()
+# trainer.fit()
 ```
 
 ### Implementation Details
