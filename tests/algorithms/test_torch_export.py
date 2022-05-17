@@ -154,8 +154,7 @@ def test_surgery_torchfx_eval(
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", alg_class_parameterization)
 @pytest.mark.filterwarnings(
-    r"ignore:Converting a tensor to a Python boolean might cause the trace to be incorrect:torch.jit._trace.TracerWarning"
-)
+    r"ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning")
 def test_surgery_onnx(
     input: Any,
     alg_cls: Type[Algorithm],

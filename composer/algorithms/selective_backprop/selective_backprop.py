@@ -131,7 +131,7 @@ def select_using_loss(input: torch.Tensor,
 
         # Maybe interpolate
         if scale_factor < 1:
-            X_scaled = F.interpolate(input, scale_factor=scale_factor, mode=interp_mode)
+            X_scaled = F.interpolate(input, scale_factor=scale_factor, mode=interp_mode, align_corners=False)
         else:
             X_scaled = input
 
