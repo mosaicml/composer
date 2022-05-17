@@ -89,6 +89,50 @@ def test_trainer_eval_timestamp():
     assert trainer.state.eval_timestamp.batch == trainer.state.eval_timestamp.batch_in_epoch
 
 
+@pytest.mark.parametrize("eval_at_fit_end", [
+    True,
+    False,
+])
+def test_eval_at_fit_end(eval_at_fit_end: bool):
+    """Test the `eval_subset_num_batches` and `eval_interval` works when specified on init."""
+
+    # Construct the trainer
+    train_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    event_counter_callback = EventCounterCallback()
+    eval_interval = "2ep"
+    evaluator = Evaluator(
+        label="eval",
+        dataloader=DataLoader(dataset=RandomClassificationDataset()),
+        metrics=torchmetrics.Accuracy(),
+        eval_interval=eval_interval,
+        eval_at_fit_end=eval_at_fit_end,
+    )
+
+    trainer = Trainer(
+        model=SimpleModel(),
+        train_dataloader=train_dataloader,
+        eval_dataloader=evaluator,
+        eval_subset_num_batches=1,
+        max_duration='3ep',
+        callbacks=[event_counter_callback],
+    )
+
+    # Train (should evaluate once)
+    trainer.fit()
+
+    expected_eval_start_calls = 1
+    expected_eval_batch_start_calls = 1
+
+    # depending on eval_at_fit_end, ensure the appropriate amount of calls are invoked
+    if eval_at_fit_end:
+        # we should have one extra call from eval_at_fit_end
+        assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_eval_start_calls + 1
+        assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_eval_batch_start_calls + 1
+    else:
+        assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_eval_start_calls
+        assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_eval_batch_start_calls
+
+
 @pytest.mark.parametrize("eval_dataloader", [
     DataLoader(dataset=RandomClassificationDataset()),
     Evaluator(
