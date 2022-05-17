@@ -45,8 +45,11 @@ def test_algorithm_resumption(
         # see: https://github.com/mosaicml/composer/issues/362
         pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
-    if algorithm in ('layer_freezing', 'sam', 'squeeze_excite', 'stochastic_depth'):
+    if algorithm in ('layer_freezing'):
         pytest.xfail('Known issues')
+
+    if algorithm in ('sam', 'squeeze_excite', 'stochastic_depth', 'factorize'):
+        pytest.xfail('Incompatible with optimizers that store state, e.g. Adam.')
 
     setting = get_settings(algorithm)
     if setting is None:
