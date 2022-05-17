@@ -30,9 +30,10 @@ def test_grad_monitor(log_layers: bool):
 
     # Count the logged steps
     grad_norm_calls = len(in_memory_logger.data["grad_l2_norm/step"])
-    layer_norm_calls = len(tuple(x for x in in_memory_logger.data if "layer_grad_l2_norm" in x))
+    layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if "layer_grad_l2_norm" in k]
 
     # expected to log gradient norm once per step (total batch)
     assert grad_norm_calls == num_train_steps
     if log_layers:
-        assert layer_norm_calls == num_train_steps
+        for num_calls in layer_norm_calls:
+            assert num_calls == num_train_steps

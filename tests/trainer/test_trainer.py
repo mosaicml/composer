@@ -857,11 +857,8 @@ class TestTrainerAssets:
     def callback(self, request):
         name, callback_cls = request.param
 
-        if name == 'mlperf':
-            pytest.skip('mlperf callback tested separately.')
-
-        if name == 'early_stopper' or name == 'threshold_stopper':
-            pytest.skip('early_stopper and threshold_stopper callback tested separately.')
+        if name in ('mlperf', 'memory_monitor', 'early_stopper', 'threshold_stopper'):
+            pytest.skip(f'{name} callback tested separately.')
 
         return callback_cls()
 
