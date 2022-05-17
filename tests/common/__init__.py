@@ -3,7 +3,6 @@ from tests.common.datasets import (RandomClassificationDataset, RandomClassifica
                                    configure_dataset_hparams_for_synthetic)
 from tests.common.events import EventCounterCallback, EventCounterCallbackHparams
 from tests.common.markers import device, world_size
-from tests.common.metrics import MetricSetterCallback
 from tests.common.models import (SimpleConvModel, SimpleConvModelHparams, SimpleModel, SimpleModelHparams,
                                  configure_model_hparams_for_synthetic)
 from tests.common.state import assert_state_equivalent
@@ -24,5 +23,4 @@ __all__ = [
     "device",
     "world_size",
     "configure_model_hparams_for_synthetic",
-    "MetricSetterCallback",
 ]

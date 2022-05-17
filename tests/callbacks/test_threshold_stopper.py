@@ -8,7 +8,8 @@ from composer.callbacks import ThresholdStopper
 from composer.core.time import TimeUnit
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
-from tests.common import MetricSetterCallback, RandomClassificationDataset, SimpleModel, device
+from tests.common import RandomClassificationDataset, SimpleModel, device
+from tests.metrics import MetricSetterCallback
 
 
 @device('cpu', 'gpu')

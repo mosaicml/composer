@@ -27,6 +27,7 @@ ALGORITHMS = get_algorithm_registry().keys()
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
+@pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")  # Needed for SWA
 @pytest.mark.parametrize("algorithm", ALGORITHMS)
 def test_algorithm_resumption(
     algorithm: str,
