@@ -134,7 +134,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
         'kwargs': {
-            'swa_start': "1ep",
+            'swa_start': "0.2dur",
             'swa_end': "0.97dur",
             'update_interval': '1ep',
             'schedule_swa_lr': True,
@@ -169,6 +169,17 @@ def get_algorithm_parametrization():
         if alg_cls in (CutMix, MixUp, LabelSmoothing):
             # see: https://github.com/mosaicml/composer/issues/362
             pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
+
+        if alg_cls == SWA:
+            # TODO(matthew): Fix
+            marks.append(
+                pytest.mark.filterwarnings(
+                    r'ignore:Detected call of `lr_scheduler.step\(\)` before `optimizer.step\(\)`:UserWarning'))
+
+        if alg_cls == MixUp:
+            # TODO(Landen): Fix
+            marks.append(
+                pytest.mark.filterwarnings(r"ignore:Some targets have less than 1 total probability:UserWarning"))
 
         result = [alg_cls]
         if settings is None:

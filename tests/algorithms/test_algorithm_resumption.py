@@ -4,13 +4,17 @@
 import copy
 import os
 import pathlib
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict
 
 import pytest
 import torch
 from torch.utils.data import DataLoader, Dataset
 
 from composer import Trainer
+from composer.algorithms.factorize.factorize import Factorize
+from composer.algorithms.layer_freezing.layer_freezing import LayerFreezing
+from composer.algorithms.sam.sam import SAM
+from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite
 from composer.core.algorithm import Algorithm
 from composer.models.base import ComposerModel
 from tests.algorithms.algorithm_settings import get_algorithm_parametrization
@@ -18,20 +22,17 @@ from tests.common import deep_compare, device
 
 
 @pytest.mark.timeout(180)
-@device('gpu')
+@device('cpu')
 @pytest.mark.parametrize(
-    "seed,save_interval,save_filename,resume_file,final_checkpoint",
+    "save_interval,save_filename,resume_file,final_checkpoint",
     [
-        [None, "1ep", "ep{epoch}-rank{rank}", "ep2-rank{rank}", "latest-rank{rank}"
-        ],  # test randomized seed saving and symlinking
-        [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
+        ["1ep", "ep{epoch}-rank{rank}", "ep2-rank{rank}", "latest-rank{rank}"],  # symlinking
+        ["1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
 @pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization())
 def test_algorithm_resumption(
-    algorithm: str,
     device,
-    seed: Optional[int],
     save_interval: int,
     save_filename: str,
     resume_file: str,
@@ -47,8 +48,18 @@ def test_algorithm_resumption(
 
     copied_model = copy.deepcopy(model)  # copy the model so the params will start from the same point
 
+    if alg_cls is LayerFreezing:
+        pytest.xfail('Known issues')
+
+    if alg_cls in (SAM, SqueezeExcite, Factorize):
+        pytest.xfail('Incompatible with optimizers that store state, e.g. Adam.')
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
+    algorithm = alg_cls(**alg_kwargs)
+
     config = {
-        'algorithms': alg_cls(**alg_kwargs),
+        'algorithms': algorithm,
         'model': model,
         'train_dataloader': DataLoader(dataset=dataset, batch_size=4),
         'max_duration': '5ep',
@@ -57,6 +68,8 @@ def test_algorithm_resumption(
         'save_folder': folder1,
         'save_interval': save_interval,
         'train_subset_num_batches': 2,
+        'optimizers': optimizer,
+        'schedulers': scheduler
     }
 
     # train model once, saving checkpoints every epoch
@@ -66,12 +79,17 @@ def test_algorithm_resumption(
     # create second trainer, load an intermediate checkpoint
     # and continue training
 
+    optimizer = torch.optim.Adam(copied_model.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
+
     config.update({
         'model': copied_model,
         'save_folder': folder2,
         'load_path': os.path.join(folder1, resume_file),
         'load_weights_only': False,
         'load_strict': False,
+        'optimizers': optimizer,
+        'schedulers': scheduler,
     })
     trainer2 = Trainer(**config)
     trainer2.fit()
