@@ -8,7 +8,7 @@ from typing import Any, Callable, Optional, Sequence, Union
 __all__ = ['batch_get', 'batch_set']
 
 
-def batch_get(batch: Any, key: Union[Any, Callable]):
+def batch_get(batch: Any, key: Union[Any, Callable[[Any], Any]]):
     """Indexes into the batch given the key.
 
     >>> from composer.utils.batch_helpers import batch_get
@@ -27,7 +27,7 @@ def batch_get(batch: Any, key: Union[Any, Callable]):
         key (Any or Callable): A key to index into the batch or a user-specified function to do the extracting. 
 
     Returns:
-        The part of the batch specified by the key or the get_fn. This could be any type 
+        The part of the batch specified by the key. This could be any type 
             depending on what the batch is composed of.
     """
     if not isinstance(key, Callable):
@@ -45,11 +45,7 @@ def batch_get(batch: Any, key: Union[Any, Callable]):
         return key(batch)
 
 
-def batch_set(batch: Any,
-              *,
-              key: Optional[Any] = None,
-              value: Any,
-              set_fn: Optional[Callable[[Any, Any], Any]] = None) -> Any:
+def batch_set(batch: Any, key: Union[Any, Callable[[Any, Any], Any]], value: Any) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
@@ -71,26 +67,16 @@ def batch_set(batch: Any,
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (Any): A key to index into the batch.
+        key (Any or Callable): A key to index into the batch or a user-specified function to do the setting. 
         value (Any): The value that batch[key] or batch.key gets set to.
-        set_fn (Callable): A user-specified function to do the setting. set_fn is optional if key and 
-            value are supplied. set_fn must return the updated batch.
 
     Returns:
         batch (Any): updated batch with value set at key.
 
-    Raises:
-        ValueError if:
-            * key and set_fn are both unset
-            * key and set_fn are both set
     """
-    if key is None and set_fn is None:
-        raise ValueError("key or set_fn must be specified and neither were!")
-    if key is not None and set_fn is not None:
-        raise ValueError("key and set_fn were both set. Only one can be set!")
     batch_copy = copy.deepcopy(batch)
-    if set_fn:
-        return set_fn(batch_copy, value)
+    if isinstance(key, Callable):
+        return key(batch_copy, value)
     if isinstance(key, Sequence) and not isinstance(key, str):
         return _batch_set_multiple(batch_copy, key, value)
     else:

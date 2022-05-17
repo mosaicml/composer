@@ -361,18 +361,8 @@ def test_batch_set_2D_array_list_of_slices(example_2D_array):
 
 
 def test_batch_set_callable(example_complicated_object, example_set_callable, example_get_callable):
-    new_batch = batch_set(example_complicated_object, value=11, set_fn=example_set_callable)
+    new_batch = batch_set(example_complicated_object, key=example_set_callable, value=11)
     assert batch_get(new_batch, example_get_callable) == 11
-
-
-def test_batch_set_errors(example_complicated_object, example_set_callable):
-    # key and set_fn unset.
-    with pytest.raises(ValueError):
-        batch_set(example_complicated_object, value=11)
-
-    # key and set_fn set.
-    with pytest.raises(ValueError):
-        batch_set(example_complicated_object, key=1, value=11, set_fn=example_set_callable)
 
 
 def test_set_with_mismatched_key_values(example_list):

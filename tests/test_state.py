@@ -105,7 +105,7 @@ def test_state_batch_get_item(monkeypatch):
     mock_batch_get.return_value = 7
     monkeypatch.setattr(state_module, 'batch_get', mock_batch_get)
     assert state.batch_get_item(2) == 7
-    mock_batch_get.assert_called_once_with(state.batch, 2, None)
+    mock_batch_get.assert_called_once_with(state.batch, 2)
 
 
 def test_state_batch_set_item(monkeypatch):
@@ -115,7 +115,7 @@ def test_state_batch_set_item(monkeypatch):
     mock_batch_set.return_value = [7, 10]
     monkeypatch.setattr(state_module, 'batch_set', mock_batch_set)
     state.batch_set_item(key=1, value=154)
-    mock_batch_set.assert_called_once_with([1, 2], key=1, value=154, set_fn=None)
+    mock_batch_set.assert_called_once_with([1, 2], key=1, value=154)
 
 
 def test_state_batch_get_item_callable(monkeypatch):
@@ -124,8 +124,8 @@ def test_state_batch_get_item_callable(monkeypatch):
     mock_batch_get = Mock()
     monkeypatch.setattr(state_module, 'batch_get', mock_batch_get)
     getter = lambda x: x**2
-    state.batch_get_item(get_fn=getter)
-    mock_batch_get.assert_called_once_with(state.batch, None, getter)
+    state.batch_get_item(key=getter)
+    mock_batch_get.assert_called_once_with(state.batch, getter)
 
 
 def test_state_batch_set_item_callable(monkeypatch):
@@ -138,18 +138,5 @@ def test_state_batch_set_item_callable(monkeypatch):
         x[0] = v
         return x
 
-    state.batch_set_item(value=3, set_fn=setter)
-    mock_batch_set.assert_called_once_with([1, 2], key=None, value=3, set_fn=setter)
-
-
-def test_batch_set_item_errors(monkeypatch):
-    state = get_dummy_state()
-    state.batch = [1, 2]
-    mock_setter = Mock()
-    # key and set_fn unset.
-    with pytest.raises(ValueError):
-        state.batch_set_item(value=2)
-
-    # key and set_fn set.
-    with pytest.raises(ValueError):
-        state.batch_set_item(key=1, value=2, set_fn=mock_setter)
+    state.batch_set_item(key=setter, value=3)
+    mock_batch_set.assert_called_once_with([1, 2], key=setter, value=3)
