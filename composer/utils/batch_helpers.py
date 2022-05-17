@@ -8,7 +8,8 @@ from typing import Any, Callable, Optional, Sequence, Union
 __all__ = ['batch_get', 'batch_set']
 
 
-def batch_get(batch: Any, key: Union[Any, Callable[[Any], Any]]):
+def batch_get(batch: Any, key: Union[Any, Callable,
+                                  Sequence[Callable[[], Any]]]):
     """Indexes into the batch given the key.
 
     >>> from composer.utils.batch_helpers import batch_get
@@ -16,7 +17,9 @@ def batch_get(batch: Any, key: Union[Any, Callable[[Any], Any]]):
     2
     >>> batch_get({'a':1, 'b':7}, 'b')
     7
-    >>> batch_get([{'a':1, 'b':7},{'c':5}], get_fn=lambda x: x[1]['c'])
+    >>> batch_get([{'a':1, 'b':7},{'c':5}], lambda x: x[1]['c'])
+    5
+    >>> batch_get([{'a':1, 'b':7},{'c':5}], (lambda x: x[1]['c'],lambda x: x[0]['b']))
     5
 
     Args:
@@ -24,28 +27,39 @@ def batch_get(batch: Any, key: Union[Any, Callable[[Any], Any]]):
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (Any or Callable): A key to index into the batch or a user-specified function to do the extracting. 
+        key (Any, Callable, or Pair of Callables): A key to index into the batch or a 
+                user-specified function to do the extracting. A pair of callables is also
+                supported for cases where a get and set function pair are both passed 
+                (like in Algorithms).
 
     Returns:
         The part of the batch specified by the key. This could be any type 
             depending on what the batch is composed of.
     """
-    if not isinstance(key, Callable):
-        try:
-            return itemgetter(key)(batch)
-        except (IndexError, TypeError) as e:
-            try:
-                return itemgetter(*key)(batch)
-            except TypeError:
-                try:
-                    return attrgetter(key)(batch)
-                except:
-                    return attrgetter(*key)(batch)
-    else:
+    # Case 1: key is a tuple of (getter, setter).
+    if _is_key_get_and_set_fn_pair(key):
+        get_fn, set_fn = key
+        return get_fn(batch)
+
+    # Case 2: key is a getter Callable.
+    if isinstance(key, Callable):
         return key(batch)
 
+    # Case 3: key some sort of index or key to use to directly extract from the batch.
+    try:
+        return itemgetter(key)(batch)
+    except (IndexError, TypeError) as e:
+        try:
+            return itemgetter(*key)(batch)
+        except TypeError:
+            try:
+                return attrgetter(key)(batch)
+            except:
+                return attrgetter(*key)(batch)
 
-def batch_set(batch: Any, key: Union[Any, Callable[[Any, Any], Any]], value: Any) -> Any:
+
+def batch_set(batch: Any, key: Union[Any, Callable,
+                                     Sequence[Callable[[], Any]]], value: Any) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
@@ -161,12 +175,11 @@ def _batch_set_tuple(batch: Any, key: Union[int, str], value: Any) -> Any:
     return batch
 
 
-def _batch_get_tuple(batch: Any, key: Union[int, str]) -> Any:
-    """"Gets keys in tuples and NamedTuples."""
-    is_named_tuple = hasattr(batch, '_fields')
-    if is_named_tuple and isinstance(key, str):  # NamedTuple w/ named key
-        value = getattr(batch, key)
-    else:  # Normal tuple or namedtuple with int key.
-        value = batch[key]
-
-    return value
+def _is_key_get_and_set_fn_pair(key):
+    if isinstance(key, Sequence) and not isinstance(key, str):
+        if all([isinstance(key_element, Callable) for key_element in key]):
+            if len(key) == 2:
+                return True
+            else:
+                raise ValueError(f"If key is a sequence of Callables, it should be of length 2' not {len(key)}")
+    return False

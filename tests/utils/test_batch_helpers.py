@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import torch
 
-from composer.utils.batch_helpers import batch_get, batch_set
+from composer.utils.batch_helpers import batch_get, batch_set, _is_key_get_and_set_fn_pair
 
 my_list = [3, 4, 5, 6, 7, 8, 9, 10]
 
@@ -197,6 +197,36 @@ def test_batch_get_callable(example_complicated_object, example_get_callable):
     assert batch_get(example_complicated_object, example_get_callable) == 5
 
 
+def test_batch_get_pair_of_callables(example_complicated_object, example_get_callable, example_set_callable):
+    assert batch_get(example_complicated_object, 
+                    (example_get_callable, example_set_callable)) == 5
+
+    assert batch_get(example_complicated_object, 
+                    [example_get_callable, example_set_callable]) == 5
+
+
+def test_batch_get_with_setter_errors_out(example_complicated_object, example_set_callable):
+    with pytest.raises(TypeError):
+        batch_get(example_complicated_object, 
+                    (example_set_callable, example_set_callable))
+
+    with pytest.raises(TypeError):
+        batch_get(example_complicated_object, 
+                    example_set_callable)
+
+
+def test_batch_get_not_pair_of_callables(example_complicated_object, example_get_callable):
+    # >2 callables
+    with pytest.raises(ValueError):
+        batch_get(example_complicated_object, 
+                    (example_get_callable, example_get_callable, example_get_callable))
+
+    # Singleton of callable
+    with pytest.raises(ValueError):
+        batch_get(example_complicated_object, 
+                    (example_get_callable,))
+
+
 # Test whether arrays and tensors can be indexed by a sequence of slice objects.
 @pytest.mark.parametrize('batch,key,expected', [(torch.tensor(my_list), [slice(1, 4), slice(5, 7)], [
     torch.tensor([4, 5, 6]), torch.tensor([8, 9])
@@ -373,7 +403,7 @@ def test_set_with_mismatched_key_values(example_list):
 
 
 # It's almost impossible to stop Counter and defaultdict from adding
-# new items, so we don't incliude them here.
+# new items, so we don't include them here.
 @pytest.mark.parametrize('batch', [
     dict(zip(keys, my_list)),
     MyClass(**dict(zip(keys, my_list))),
@@ -384,3 +414,5 @@ def test_set_with_mismatched_key_values(example_list):
 def test_batch_set_with_new_key_fails(batch):
     with pytest.raises(Exception):
         batch_set(batch, key='key_that_is_certainly_not_present', value=5)
+
+

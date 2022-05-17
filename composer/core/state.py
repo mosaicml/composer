@@ -343,11 +343,15 @@ class State(Serializable):
     def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
-    def batch_get_item(self, key: Union[Any, Callable[[Any], Any]]) -> Any:
+    def batch_get_item(self, key: Union[Any, Callable, Sequence[Callable[[], Any]]]) -> Any:
         """Gets element from batch either specified by key or user-specified function.
 
         Args:
-            key (Any or Callable): A key to index into the batch or a user-specified function to do the extracting. 
+            key (Any, Callable, or Pair of Callables): A key to index into the batch or a 
+                user-specified function to do the extracting. A pair of callables is also
+                supported for cases where a get and set function pair are both passed 
+                (like in Algorithms).
+
 
         Returns:
             The part of the batch specified by the key. This could be any type 
@@ -356,7 +360,8 @@ class State(Serializable):
         return batch_get(self.batch, key)
 
     def batch_set_item(self,
-                       key: Union[Any, Callable[[Any, Any], Any]],
+                       key: Union[Any, Callable,
+                                  Sequence[Callable[[], Any]]],
                        value: Any):
         """Sets the element specified by the key of the set_fn to the specified value. 
 
@@ -364,9 +369,12 @@ class State(Serializable):
         must be created to modify them.
 
         Args:
-            key (Any or Callable): A key to index into the batch or a user-specified function to do the setting. 
+            key (Any or Callable): A key to index into the batch or a user-specified 
+                function to do the setting. A pair of callables is also supported for 
+                cases where a get and set function pair are both passed (like in 
+                Algorithms).
             value (Any): The value that batch[key] or batch.key gets set to or that the 
-                set_fn uses to set a part of the batch to.
+                user-defined set function sets a part of the batch to.
 
         Returns:
             batch (Any): The updated batch with value set at key.
