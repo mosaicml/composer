@@ -5,6 +5,8 @@ functional tests, serialization tests, etc.
 Each algorithm is keyed based on its name in the algorithm registry.
 """
 
+from typing import Any, Dict, Optional, Type
+
 import pytest
 
 import composer
@@ -60,7 +62,7 @@ simple_resnet_settings = {
     'kwargs': {},
 }
 
-_settings = {
+_settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     AGC: simple_vision_settings,
     Alibi: None,  # NLP settings needed
     AugMix: None,  # requires PIL dataset to test
@@ -105,7 +107,7 @@ _settings = {
     LayerFreezing: simple_vision_settings,
     MixUp: simple_vision_settings,
     ProgressiveResizing: simple_vision_settings,
-    RandAugment: None,  # requires PIL dataset to test
+    RandAugment: None,
     NoOpModel: None,
     SAM: simple_vision_settings,
     SelectiveBackprop: simple_vision_settings,
@@ -139,6 +141,16 @@ _settings = {
         }
     },
 }
+
+
+def get_alg_kwargs(alg_cls: Type[Algorithm]):
+    """Return the kwargs for an algorithm, or None if no settings exist."""
+    if alg_cls not in _settings:
+        raise ValueError(f"Algorithm {alg_cls.__name__} not in the settings dictionary.")
+    settings = _settings[alg_cls]
+    if settings is None:
+        return None
+    return settings['kwargs']
 
 
 def get_algorithm_parametrization():

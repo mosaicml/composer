@@ -1,10 +1,12 @@
 from typing import Type
 
 import pytest
+import yaml
 
 import composer.algorithms
 from composer.algorithms.algorithm_hparams import algorithm_registry
 from composer.core import Algorithm
+from tests.algorithms.algorithm_settings import get_alg_kwargs
 from tests.common import assert_is_constructable_from_yaml, assert_registry_contains_entry, get_all_subclasses_in_module
 
 
@@ -15,4 +17,9 @@ def test_all_algs_in_registry(alg_cls: Type[Algorithm]):
 
 @pytest.mark.parametrize("alg_cls", get_all_subclasses_in_module(composer.algorithms, Algorithm))
 def test_algs_are_constructable(alg_cls: Type[Algorithm]):
-    assert_is_constructable_from_yaml(alg_cls, {}, expected=alg_cls)
+    kwargs = get_alg_kwargs(alg_cls)
+    if kwargs is None:
+        pytest.xfail(f"Missing settings for algorithm {alg_cls.__name__}")
+    # ensure that the dictionary is actually yaml, and nothing fancy
+    kwargs = yaml.safe_load(yaml.safe_dump(kwargs))
+    assert_is_constructable_from_yaml(alg_cls, kwargs, expected=alg_cls)

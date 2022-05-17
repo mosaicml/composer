@@ -6,7 +6,7 @@ import contextlib
 import copy
 import os
 import pathlib
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import pytest
 import torch
@@ -947,10 +947,9 @@ class TestTrainerAlgorithms:
     @pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization())
     def test_algorithm_trains(
         self,
-        name: str,
         rank_zero_seed: int,
         device: str,
-        alg_cls: Type[Algorithm],
+        alg_cls: Callable[..., Algorithm],
         alg_kwargs: Dict[str, Any],
         model: ComposerModel,
         dataset: Dataset,
@@ -962,6 +961,7 @@ class TestTrainerAlgorithms:
             loggers=[],
             seed=rank_zero_seed,
             device=device,
+            algorithms=alg_cls(**alg_kwargs),
         )
         trainer.fit()
 
