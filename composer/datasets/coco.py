@@ -246,10 +246,15 @@ class StreamingCOCO(StreamingDataset):
 
     def __getitem__(self, idx: int) -> Any:
         x = super().__getitem__(idx)
-        args = x['img'], x['img_id'], (x['htot'], x['wtot']), x['bbox_sizes'], x['bbox_labels']
+        img = x['img']
+        img_id = x['img_id']
+        htot = x['htot']
+        wtot = x['wtot']
+        bbox_sizes = x['bbox_sizes']
+        bbox_labels = x['bbox_labels']
         if self.transform:
-            args = self.transform(*args)
-        return args
+            img, (htot, wtot), bbox_sizes, bbox_labels = self.transform(img, (htot, wtot), bbox_sizes, bbox_labels)
+        return img, img_id, (htot, wtot), bbox_sizes, bbox_labels
 
 
 @dataclass
@@ -258,14 +263,14 @@ class StreamingCOCOHparams(DatasetHparams):
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-coco/mds/```
+            Default: ``'s3://mosaicml-internal-dataset-coco/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-coco/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-coco/mds/')
+                              default='s3://mosaicml-internal-dataset-coco/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-coco/')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
