@@ -112,6 +112,7 @@ class MLPerfCallback(Callback):
             Default: ``"onprem"``.
         cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
             will call ``os.system(cache_clear_cmd)``. Default is disabled (None)
+        host_processors_per_node (int, optional): Total number of host processors per node.  Default: ``None``.
     """
 
     def __init__(
@@ -127,6 +128,7 @@ class MLPerfCallback(Callback):
         system_name: Optional[str] = None,
         status: str = "onprem",
         cache_clear_cmd: Optional[List[str]] = None,
+        host_processors_per_node: Optional[int] = None,
     ) -> None:
 
         require_mlperf_logging()
@@ -151,7 +153,7 @@ class MLPerfCallback(Callback):
         self.metric_label = metric_label
         self._file_handler = None
 
-        self.system_desc = get_system_description(submitter, division, status, system_name)
+        self.system_desc = get_system_description(submitter, division, status, system_name, host_processors_per_node)
         if system_name is None:
             system_name = self.system_desc['system_name']
         self.system_name = system_name
@@ -317,6 +319,7 @@ def get_system_description(
     division: str,
     status: str,
     system_name: Optional[str] = None,
+    host_processors_per_node: Optional[int] = None,
 ) -> Dict[str, str]:
     """Generates a valid system description.
 
@@ -341,7 +344,7 @@ def get_system_description(
         "division": division,
         "status": status,
         "number_of_nodes": dist.get_world_size() / dist.get_local_world_size(),
-        "host_processors_per_node": "",
+        "host_processors_per_node": str(host_processors_per_node) if host_processors_per_node else "",
         "host_processor_model_name": str(cpu_info.get('brand_raw', "CPU")),
         "host_processor_core_count": str(psutil.cpu_count(logical=False)),
         "host_processor_vcpu_count": "",
