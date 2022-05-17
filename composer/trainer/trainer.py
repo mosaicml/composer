@@ -739,7 +739,8 @@ class Trainer:
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
             # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
-            warnings.warn(f"No optimizer was specified. Defaulting to DecoupledSGDW(lr=0.1)")
+            warnings.warn(("No optimizer was specified. Defaulting to "
+                           f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
 
         num_optimizers = len(ensure_tuple(optimizers))
         if num_optimizers != 1:
