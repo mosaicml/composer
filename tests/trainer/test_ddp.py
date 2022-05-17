@@ -15,7 +15,7 @@ import yahp as hp
 
 import composer.core.types as types
 from composer import Callback, Event
-from composer.core import Precision, State
+from composer.core import State
 from composer.core.data_spec import DataSpec
 from composer.datasets import DataLoaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
 from composer.datasets.hparams import DatasetHparams
@@ -179,12 +179,10 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     val_dataloader = val_dataset_hparams.initialize_object(eval_dataloader_batch_size, dataloader_hparams)
     max_epochs = 2
     trainer = Trainer(model=model,
-                      loggers=[],
                       train_dataloader=train_dataloader,
                       eval_dataloader=val_dataloader,
                       device=device_hparams.initialize_object(),
                       max_duration=f"{max_epochs}ep",
-                      precision=Precision.FP32,
                       eval_interval="1ep",
                       eval_subset_num_batches=eval_subset_num_batches,
                       train_subset_num_batches=train_subset_num_batches,

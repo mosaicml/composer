@@ -137,10 +137,6 @@ class TestWithMLPerfChecker:
                     shuffle=False,
                 ),
                 max_duration="3ep",
-                deterministic_mode=True,
-                progress_bar=False,
-                log_to_console=False,
-                loggers=[],
                 callbacks=[mlperf_callback],
                 seed=np.random.randint(low=2048),
             )

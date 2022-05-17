@@ -20,7 +20,6 @@ def test_get_file_uri(tmpdir: pathlib.Path):
         object_store=None,
         destination=str(tmpdir / "example"),
         chunk_size=1024 * 1024,
-        progress_bar=False,
     )
     with open(str(tmpdir / "example"), "r") as f:
         assert f.readline().startswith("<!")
@@ -34,7 +33,6 @@ def test_get_file_uri_not_found(tmpdir: pathlib.Path):
             object_store=None,
             destination=str(tmpdir / "example"),
             chunk_size=1024 * 1024,
-            progress_bar=False,
         )
 
 
@@ -49,11 +47,12 @@ def test_get_file_object_store(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyP
     ).initialize_object()
     with open(str(remote_dir / "checkpoint.txt"), 'wb') as f:
         f.write(b"checkpoint1")
-    get_file(path="checkpoint.txt",
-             object_store=provider,
-             destination=str(tmpdir / "example"),
-             chunk_size=1024 * 1024,
-             progress_bar=False)
+    get_file(
+        path="checkpoint.txt",
+        object_store=provider,
+        destination=str(tmpdir / "example"),
+        chunk_size=1024 * 1024,
+    )
     with open(str(tmpdir / "example"), "rb") as f:
         assert f.read() == b"checkpoint1"
 
@@ -74,19 +73,21 @@ def test_get_file_object_store_with_symlink(tmpdir: pathlib.Path, monkeypatch: p
     with open(str(remote_dir / "latest.symlink"), "w") as f:
         f.write("checkpoint.txt")
     # Fetch object, should automatically follow symlink
-    get_file(path="latest.symlink",
-             object_store=provider,
-             destination=str(tmpdir / "example"),
-             chunk_size=1024 * 1024,
-             progress_bar=False)
+    get_file(
+        path="latest.symlink",
+        object_store=provider,
+        destination=str(tmpdir / "example"),
+        chunk_size=1024 * 1024,
+    )
     with open(str(tmpdir / "example"), "rb") as f:
         assert f.read() == b"checkpoint1"
     # Fetch object without specifying .symlink, should automatically follow
-    get_file(path="latest",
-             object_store=provider,
-             destination=str(tmpdir / "example"),
-             chunk_size=1024 * 1024,
-             progress_bar=False)
+    get_file(
+        path="latest",
+        object_store=provider,
+        destination=str(tmpdir / "example"),
+        chunk_size=1024 * 1024,
+    )
     with open(str(tmpdir / "example"), "rb") as f:
         assert f.read() == b"checkpoint1"
 
@@ -101,11 +102,12 @@ def test_get_file_object_store_not_found(tmpdir: pathlib.Path, monkeypatch: pyte
         container=".",
     ).initialize_object()
     with pytest.raises(GetFileNotFoundException):
-        get_file(path="checkpoint.txt",
-                 object_store=provider,
-                 destination=str(tmpdir / "example"),
-                 chunk_size=1024 * 1024,
-                 progress_bar=False)
+        get_file(
+            path="checkpoint.txt",
+            object_store=provider,
+            destination=str(tmpdir / "example"),
+            chunk_size=1024 * 1024,
+        )
 
 
 def test_get_file_local_path(tmpdir: pathlib.Path):
@@ -118,7 +120,6 @@ def test_get_file_local_path(tmpdir: pathlib.Path):
         object_store=None,
         destination=str(tmpdir / "example"),
         chunk_size=1024 * 1024,
-        progress_bar=False,
     )
     with open(str(tmpdir / "example"), "r") as f:
         assert f.read() == "hi!"
@@ -131,7 +132,6 @@ def test_get_file_local_path_not_found():
             object_store=None,
             destination="destination",
             chunk_size=1024 * 1024,
-            progress_bar=False,
         )
 
 

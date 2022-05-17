@@ -58,8 +58,6 @@ class TestTrainerInit():
             model=model,
             loggers=[InMemoryLogger()],
             callbacks=[LRMonitor()],
-            progress_bar=False,
-            log_to_console=False,
         )
         assert isinstance(trainer.state.callbacks[0], InMemoryLogger)
         assert isinstance(trainer.state.callbacks[2], LRMonitor)
@@ -295,8 +293,6 @@ class TestTrainerInitOrFit:
             callbacks=[init_event_counter_callback],
             eval_subset_num_batches=eval_subset_num_batches,
             eval_interval=eval_interval,
-            progress_bar=False,
-            log_to_console=False,
         )
         init_trainer.fit()
 
@@ -307,8 +303,6 @@ class TestTrainerInitOrFit:
             max_duration=max_duration,
             train_dataloader=train_dataloader,
             callbacks=[fit_event_counter_callback],
-            progress_bar=False,
-            log_to_console=False,
         )
         fit_trainer.fit(
             eval_dataloader=eval_dataloader,
@@ -946,7 +940,7 @@ class TestTrainerAlgorithms:
     @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
     @pytest.mark.timeout(5)
     @device('gpu')
-    def test_algorithm_trains(self, name: str, rank_zero_seed: int, device: str):
+    def test_algorithm_trains(self, name: str, device: str):
         if name in ('no_op_model', 'scale_schedule'):
             pytest.skip('stub algorithms')
 
@@ -962,8 +956,6 @@ class TestTrainerAlgorithms:
             model=setting['model'],
             train_dataloader=DataLoader(dataset=setting['dataset'], batch_size=4),
             max_duration='2ep',
-            loggers=[],
-            seed=rank_zero_seed,
             device=device,
         )
         trainer.fit()
