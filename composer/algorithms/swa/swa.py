@@ -38,6 +38,11 @@ class SWA(Algorithm):
     memory required doubles, however, since stored activations and the
     optimizer state are not doubled.
 
+    .. note::
+
+       The AveragedModel is currently stored on the CPU device, which may
+       cause slow training if the model weights are large.
+
     Uses PyTorch's `torch.optim.swa_util
     <https://pytorch.org/docs/stable/optim.html#stochastic-weight-averaging>`_ under the
     hood.
