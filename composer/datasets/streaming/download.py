@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 __all__ = ["safe_download"]
 
 
-def wait_for_download(local: str, timeout: float = 20) -> None:
+def wait_for_download(local: str, timeout: float = 60) -> None:
     """Block until another worker's shard download completes.
 
     Args:
@@ -92,7 +92,7 @@ def download(remote: str, local: str, timeout: float) -> None:
         raise TimeoutError(f'Waited too long (more than {timeout:.3f} sec) for download')
 
 
-def safe_download(remote: str, local: str, timeout: float = 20) -> None:
+def safe_download(remote: str, local: str, timeout: float = 60) -> None:
     """Safely downloads a file from remote to local.
        Handles multiple threads attempting to download the same shard.
        Gracefully deletes stale tmp files from crashed runs.

@@ -86,7 +86,7 @@ class StreamingDataset(IterableDataset):
                  local: str,
                  shuffle: bool,
                  decoders: Dict[str, Callable[[bytes], Any]],
-                 timeout: float = 20,
+                 timeout: float = 60,
                  batch_size: Optional[int] = None) -> None:
 
         self.remote = remote
@@ -393,7 +393,7 @@ class StreamingImageClassDataset(StreamingDataset):
                  local: str,
                  shuffle: bool,
                  transform: Optional[Callable] = None,
-                 timeout: float = 20,
+                 timeout: float = 60,
                  batch_size: Optional[int] = None) -> None:
         decoders = {
             'x': self.decode_image,
