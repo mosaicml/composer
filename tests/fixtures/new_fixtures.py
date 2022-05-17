@@ -63,6 +63,6 @@ def configure_dist(request: pytest.FixtureRequest):
 # writing too many checkpoints.
 @pytest.fixture(scope='class')
 def self_destructing_tmp(tmp_path_factory: pytest.TempPathFactory):
-    my_tmpdir = tmp_path_factory.mktemp("checkpoints")
-    yield my_tmpdir
-    shutil.rmtree(str(my_tmpdir))
+    my_tmp_path = tmp_path_factory.mktemp("checkpoints")
+    yield my_tmp_path
+    shutil.rmtree(str(my_tmp_path))
