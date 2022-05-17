@@ -185,9 +185,11 @@ class CutMix(Algorithm):
             If ``False``, defaults to the sampling used in the original
             paper implementation. Default: ``False``.
         input_key (Any, Callable, Sequence[Callable]): A key that indexes to the input 
-            from the batch. Can also be a pair of get and set functions.
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair.
         target_key (Any, Callable, Sequence[Callable]): A key that indexes to the target 
-            from the batch. Can also be a pair of get and set functions.
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair.
 
     Example:
         .. testcode::

@@ -18,7 +18,7 @@ def batch_get(batch: Any, key: Union[Any, Callable, Sequence[Callable[[], Any]]]
     7
     >>> batch_get([{'a':1, 'b':7},{'c':5}], lambda x: x[1]['c'])
     5
-    >>> batch_get([{'a':1, 'b':7},{'c':5}], (lambda x: x[1]['c'],lambda x: x[0]['b']))
+    >>> batch_get([{'a':1, 'b':7},{'c':5}], (lambda x: x[1]['c'], lambda x: 10))
     5
 
     Args:
@@ -29,7 +29,7 @@ def batch_get(batch: Any, key: Union[Any, Callable, Sequence[Callable[[], Any]]]
         key (Any, Callable, or Pair of Callables): A key to index into the batch or a 
                 user-specified function to do the extracting. A pair of callables is also
                 supported for cases where a get and set function pair are both passed 
-                (like in Algorithms).
+                (like in Algorithms). The getter is assumed to be the first of the pair.
 
     Returns:
         The part of the batch specified by the key. This could be any type 
@@ -71,15 +71,21 @@ def batch_set(batch: Any, key: Union[Any, Callable, Sequence[Callable[[], Any]]]
     ...     batch[1]['d'] = value
     ...     return batch
     ...
-    >>> batch_set([{'a':1, 'b':7},{'d':3}], value=20, set_fn=setter)
+    >>> batch_set([{'a':1, 'b':7},{'d':3}], key=setter, value=20)
     [{'a': 1, 'b': 7}, {'d': 20}]
+    >>> batch_set([{'a':1, 'b':7},{'d':3}], key=(lambda x: x[0]['b'], setter), value=20)
+    [{'a': 1, 'b': 7}, {'d': 20}]
+
 
     Args:
         batch (Any): An object that contains the input and label of the items in the batch.
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (Any or Callable): A key to index into the batch or a user-specified function to do the setting. 
+        key (Any or Callable): A key to index into the batch or a user-specified function 
+            to do the setting. A pair of callables is also supported for cases where a get
+            and set function pair are both passed (like in Algorithms). The setter is
+            assumed to be the second of the pair.
         value (Any): The value that batch[key] or batch.key gets set to.
 
     Returns:
