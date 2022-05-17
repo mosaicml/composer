@@ -1,17 +1,10 @@
 from __future__ import annotations
 
-import types
 import typing
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Type
+from typing import TYPE_CHECKING, Callable, Type
 
 import pytest
 
-import composer.algorithms
-import composer.callbacks
-from composer.algorithms.algorithm_hparams import algorithm_registry
-from composer.callbacks import Callback
-from composer.callbacks.callback_hparams import callback_registry
-from composer.core import Algorithm
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.trainer import EvalHparams, ExperimentHparams, FitHparams, Trainer, TrainerHparams
 from composer.trainer.trainer_hparams import EvalKwargs, FitKwargs
@@ -58,32 +51,3 @@ def test_experiment_hparams_initialize():
 
     for eval_kwargs in evals:
         trainer.eval(**eval_kwargs)
-
-
-@pytest.mark.parametrize(
-    "module,registry,cls,ignore_list",
-    [
-        [composer.callbacks, callback_registry, Callback, []],
-        [composer.algorithms, algorithm_registry, Algorithm, []],
-        # TODO(ravi) -- add in other classes as they are de-yahpified
-    ])
-def test_registry_contains_all_entries(module: types.ModuleType, registry: Dict[str, Callable], cls: Type,
-                                       ignore_list: List[Callable]):
-    # for each module, extract the items from `__all__` that of type `cls`
-    # then, assert that the registry contains an entry for each of type `cls`
-    # skip any entries in `ignore_list` since they may be auto-initialized hparams
-    subclasses = [x for x in vars(module).values() if isinstance(x, type) and issubclass(x, cls)]
-    registry_entries = set(registry.values())
-    registry_entries.union(ignore_list)
-    for subclass in subclasses:
-        assert subclass in registry_entries, f"Class {type(cls).__name__} is missing from the registry."
-
-
-@pytest.mark.parametrize("registry,defaults", [
-    [callback_registry, {}],
-    [algorithm_registry, {}],
-])
-def test_registry_initializes(registry: Dict[str, Callable], defaults: Dict[str, Dict[str, Any]]):
-    for name, constructor in registry.items():
-        constructor_defaults = defaults.get(name, {})
-        constructor(**constructor_defaults)

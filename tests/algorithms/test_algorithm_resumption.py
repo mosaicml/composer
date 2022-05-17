@@ -1,17 +1,19 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import os
-from typing import Optional
+from typing import Any, Callable, Dict, Optional
 
 import py
 import pytest
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from composer import Trainer
-from composer.algorithms.algorithm_hparams import algorithm_registry
-from tests.algorithms.algorithm_settings import get_settings
+from composer.core.algorithm import Algorithm
+from composer.models.base import ComposerModel
+from tests.algorithms.algorithm_settings import get_algorithm_parametrization
 from tests.common import deep_compare, device
 
 
@@ -25,7 +27,7 @@ from tests.common import deep_compare, device
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
-@pytest.mark.parametrize("algorithm", algorithm_registry.keys())
+@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization())
 def test_algorithm_resumption(
     algorithm: str,
     device,
@@ -35,28 +37,20 @@ def test_algorithm_resumption(
     resume_file: str,
     final_checkpoint: str,
     tmpdir: py.path.local,
+    alg_cls: Callable[..., Algorithm],
+    alg_kwargs: Dict[str, Any],
+    model: ComposerModel,
+    dataset: Dataset,
 ):
-    if algorithm in ('no_op_model', 'scale_schedule'):
-        pytest.skip('stub algorithms')
-
-    if algorithm in ('cutmix, mixup, label_smoothing'):
-        # see: https://github.com/mosaicml/composer/issues/362
-        pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
-
-    if algorithm in ('layer_freezing', 'swa'):
-        pytest.xfail('Known issues')
-
-    setting = get_settings(algorithm)
-    if setting is None:
-        pytest.xfail('No setting provided in algorithm_settings.')
-
     folder1 = os.path.join(tmpdir, 'folder1')
     folder2 = os.path.join(tmpdir, 'folder2')
 
+    copied_model = copy.deepcopy(model)  # copy the model so the params will start from the same point
+
     config = {
-        'algorithms': setting['algorithm'],
-        'model': setting['model'],
-        'train_dataloader': DataLoader(dataset=setting['dataset'], batch_size=4),
+        'algorithms': alg_cls(**alg_kwargs),
+        'model': model,
+        'train_dataloader': DataLoader(dataset=dataset, batch_size=4),
         'max_duration': '5ep',
         'device': device,
         'save_filename': save_filename,
@@ -71,11 +65,9 @@ def test_algorithm_resumption(
 
     # create second trainer, load an intermediate checkpoint
     # and continue training
-    setting = get_settings(algorithm)
-    assert setting is not None
 
     config.update({
-        'model': setting['model'],
+        'model': copied_model,
         'save_folder': folder2,
         'load_path': os.path.join(folder1, resume_file),
         'load_weights_only': False,

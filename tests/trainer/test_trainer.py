@@ -6,7 +6,7 @@ import contextlib
 import copy
 import os
 import pathlib
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import pytest
 import torch
@@ -16,13 +16,14 @@ from torchmetrics import Accuracy
 
 from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing
-from composer.algorithms.algorithm_hparams import algorithm_registry
 from composer.callbacks import LRMonitor
 from composer.callbacks.callback import Callback
+from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit
+from composer.core.types import Dataset
 from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.loggers import FileLogger, WandBLogger
@@ -33,7 +34,7 @@ from composer.trainer.devices import Device
 from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import dist
 from composer.utils.object_store import ObjectStoreHparams
-from tests.algorithms.algorithm_settings import get_settings
+from tests.algorithms.algorithm_settings import get_algorithm_parametrization
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 from tests.common.events import EventCounterCallback
@@ -855,7 +856,7 @@ class TestTrainerAssets:
 
     @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
     def callback(self, request):
-        name, callback = request.param
+        name, callback_cls = request.param
 
         if name == 'mlperf':
             pytest.skip('mlperf callback tested separately.')
@@ -863,7 +864,7 @@ class TestTrainerAssets:
         if name == 'early_stopper' or name == 'threshold_stopper':
             pytest.skip('early_stopper and threshold_stopper callback tested separately.')
 
-        return callback
+        return callback_cls()
 
     @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
     def logger(self, request, tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
@@ -941,24 +942,22 @@ class TestTrainerAssets:
 
 class TestTrainerAlgorithms:
 
-    @pytest.mark.parametrize("name", algorithm_registry)
     @pytest.mark.timeout(5)
     @device('gpu')
-    def test_algorithm_trains(self, name: str, rank_zero_seed: int, device: str):
-        if name in ('no_op_model', 'scale_schedule'):
-            pytest.skip('stub algorithms')
-
-        if name in ('cutmix, mixup, label_smoothing'):
-            # see: https://github.com/mosaicml/composer/issues/362
-            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
-
-        setting = get_settings(name)
-        if setting is None:
-            pytest.xfail('No setting provided in algorithm_settings.')
-
+    @pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization())
+    def test_algorithm_trains(
+        self,
+        name: str,
+        rank_zero_seed: int,
+        device: str,
+        alg_cls: Type[Algorithm],
+        alg_kwargs: Dict[str, Any],
+        model: ComposerModel,
+        dataset: Dataset,
+    ):
         trainer = Trainer(
-            model=setting['model'],
-            train_dataloader=DataLoader(dataset=setting['dataset'], batch_size=4),
+            model=model,
+            train_dataloader=DataLoader(dataset=dataset, batch_size=4),
             max_duration='2ep',
             loggers=[],
             seed=rank_zero_seed,

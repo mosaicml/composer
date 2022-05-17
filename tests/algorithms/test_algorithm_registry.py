@@ -1,24 +1,24 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Any, Callable, Dict
+
 import pytest
 from torch.utils.data import Dataset
 
-from composer.algorithms.algorithm_hparams import algorithm_registry
 from composer.core.algorithm import Algorithm
 from composer.models.base import ComposerModel
-from tests.algorithms.algorithm_settings import get_settings
+from tests.algorithms.algorithm_settings import get_algorithm_parametrization
 
 
-@pytest.mark.parametrize("name", algorithm_registry)
-def test_algorithm_settings(name):
-    if name in ('alibi', 'seq_length_warmup', 'factorize', 'no_op_model', 'scale_schedule'):
-        pytest.skip()
-
-    setting = get_settings(name)
-    if setting is None:
-        pytest.skip()
-
-    assert isinstance(setting['algorithm'], Algorithm)
-    assert isinstance(setting['model'], ComposerModel)
-    assert isinstance(setting['dataset'], Dataset)
+@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization())
+def test_get_algorithm_parametrization(
+    alg_cls: Callable[..., Algorithm],
+    alg_kwargs: Dict[str, Any],
+    model: ComposerModel,
+    dataset: Dataset,
+):
+    alg_instance = alg_cls(**alg_kwargs)
+    assert isinstance(alg_instance, Algorithm)
+    assert isinstance(model, ComposerModel)
+    assert isinstance(dataset, Dataset)
