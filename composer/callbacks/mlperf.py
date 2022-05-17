@@ -23,8 +23,8 @@ from composer.utils import dist
 try:
     import cpuinfo
     import psutil
-    from mlperf_logging import mllog  # type: ignore (no pypi for ci)
-    from mlperf_logging.mllog import constants  # type: ignore (no pypi for ci)
+    from mlperf_logging import mllog
+    from mlperf_logging.mllog import constants
 
     mlperf_available = True
 except ImportError:

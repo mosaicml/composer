@@ -990,7 +990,7 @@ class TestFFCVDataloaders:
     @pytest.fixture
     def config(self):
         try:
-            import ffcv  # type: ignore
+            import ffcv
         except ImportError as e:
             raise ImportError(("Composer was installed without ffcv support. "
                                "To use ffcv with Composer, please install ffcv in your environment.")) from e

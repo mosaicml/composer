@@ -110,7 +110,7 @@ class CheckBatch0(Callback):
             if os.path.exists(filepath):
                 return
             last_input, last_target = state.batch
-            torch.save(  # type: ignore
+            torch.save(
                 {
                     "last_input": last_input,
                     "last_target": last_target,
@@ -227,7 +227,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     for epoch in range(max_epochs):
         for is_train in (True, False):
             real_epoch = epoch if is_train else epoch + 1  # validation is 1 ahead of training
-            data: Dict[str, types.Tensor] = torch.load(  # type: ignore
+            data: Dict[str, torch.Tensor] = torch.load(
                 get_batch_file_path(
                     epoch=real_epoch,
                     is_train=is_train,
