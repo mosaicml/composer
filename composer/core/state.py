@@ -359,10 +359,7 @@ class State(Serializable):
         """
         return batch_get(self.batch, key)
 
-    def batch_set_item(self,
-                       key: Union[Any, Callable,
-                                  Sequence[Callable[[], Any]]],
-                       value: Any):
+    def batch_set_item(self, key: Union[Any, Callable, Sequence[Callable[[], Any]]], value: Any):
         """Sets the element specified by the key of the set_fn to the specified value. 
 
         This is not an in-place operation, as for tuple-typed batches, a new batch object 

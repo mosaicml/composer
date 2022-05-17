@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import torch
 
-from composer.utils.batch_helpers import batch_get, batch_set, _is_key_get_and_set_fn_pair
+from composer.utils.batch_helpers import batch_get, batch_set
 
 my_list = [3, 4, 5, 6, 7, 8, 9, 10]
 
@@ -198,33 +198,27 @@ def test_batch_get_callable(example_complicated_object, example_get_callable):
 
 
 def test_batch_get_pair_of_callables(example_complicated_object, example_get_callable, example_set_callable):
-    assert batch_get(example_complicated_object, 
-                    (example_get_callable, example_set_callable)) == 5
+    assert batch_get(example_complicated_object, (example_get_callable, example_set_callable)) == 5
 
-    assert batch_get(example_complicated_object, 
-                    [example_get_callable, example_set_callable]) == 5
+    assert batch_get(example_complicated_object, [example_get_callable, example_set_callable]) == 5
 
 
 def test_batch_get_with_setter_errors_out(example_complicated_object, example_set_callable):
     with pytest.raises(TypeError):
-        batch_get(example_complicated_object, 
-                    (example_set_callable, example_set_callable))
+        batch_get(example_complicated_object, (example_set_callable, example_set_callable))
 
     with pytest.raises(TypeError):
-        batch_get(example_complicated_object, 
-                    example_set_callable)
+        batch_get(example_complicated_object, example_set_callable)
 
 
 def test_batch_get_not_pair_of_callables(example_complicated_object, example_get_callable):
     # >2 callables
     with pytest.raises(ValueError):
-        batch_get(example_complicated_object, 
-                    (example_get_callable, example_get_callable, example_get_callable))
+        batch_get(example_complicated_object, (example_get_callable, example_get_callable, example_get_callable))
 
     # Singleton of callable
     with pytest.raises(ValueError):
-        batch_get(example_complicated_object, 
-                    (example_get_callable,))
+        batch_get(example_complicated_object, (example_get_callable,))
 
 
 # Test whether arrays and tensors can be indexed by a sequence of slice objects.
@@ -402,14 +396,10 @@ def test_batch_set_pair_of_callables(example_complicated_object, example_get_cal
 
 def test_batch_set_with_getter_errors_out(example_complicated_object, example_get_callable):
     with pytest.raises(TypeError):
-        batch_set(example_complicated_object,
-                  key=(example_get_callable, example_get_callable),
-                  value=11)
+        batch_set(example_complicated_object, key=(example_get_callable, example_get_callable), value=11)
 
     with pytest.raises(TypeError):
-        batch_set(example_complicated_object, 
-                  example_get_callable,
-                  value=11)
+        batch_set(example_complicated_object, example_get_callable, value=11)
 
 
 def test_batch_set_not_pair_of_callables(example_complicated_object, example_set_callable):
@@ -419,12 +409,9 @@ def test_batch_set_not_pair_of_callables(example_complicated_object, example_set
                   key=(example_set_callable, example_set_callable, example_set_callable),
                   value=11)
 
-
     # Singleton of callable
     with pytest.raises(ValueError):
-        batch_set(example_complicated_object, 
-                  (example_set_callable,),
-                  value=11)
+        batch_set(example_complicated_object, (example_set_callable,), value=11)
 
 
 def test_set_with_mismatched_key_values(example_list):
@@ -446,5 +433,3 @@ def test_set_with_mismatched_key_values(example_list):
 def test_batch_set_with_new_key_fails(batch):
     with pytest.raises(Exception):
         batch_set(batch, key='key_that_is_certainly_not_present', value=5)
-
-

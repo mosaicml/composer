@@ -134,7 +134,7 @@ def test_state_batch_set_item_callable(monkeypatch):
     state = get_dummy_state()
     state.batch = [1, 2]
     mock_batch_set = Mock()
-    mock_batch_set.return_value = [4,5]
+    mock_batch_set.return_value = [4, 5]
     monkeypatch.setattr(state_module, 'batch_set', mock_batch_set)
 
     def setter(x, v):

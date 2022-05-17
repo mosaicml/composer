@@ -8,8 +8,7 @@ from typing import Any, Callable, Optional, Sequence, Union
 __all__ = ['batch_get', 'batch_set']
 
 
-def batch_get(batch: Any, key: Union[Any, Callable,
-                                  Sequence[Callable[[], Any]]]):
+def batch_get(batch: Any, key: Union[Any, Callable, Sequence[Callable[[], Any]]]):
     """Indexes into the batch given the key.
 
     >>> from composer.utils.batch_helpers import batch_get
@@ -58,8 +57,7 @@ def batch_get(batch: Any, key: Union[Any, Callable,
                 return attrgetter(*key)(batch)
 
 
-def batch_set(batch: Any, key: Union[Any, Callable,
-                                     Sequence[Callable[[], Any]]], value: Any) -> Any:
+def batch_set(batch: Any, key: Union[Any, Callable, Sequence[Callable[[], Any]]], value: Any) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
@@ -94,7 +92,7 @@ def batch_set(batch: Any, key: Union[Any, Callable,
         get_fn, set_fn = key
         return set_fn(batch_copy, value)
 
-    # Case 2: key is a callable.  
+    # Case 2: key is a callable.
     if isinstance(key, Callable):
         return key(batch_copy, value)
 
