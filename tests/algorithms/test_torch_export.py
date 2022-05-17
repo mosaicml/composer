@@ -121,8 +121,7 @@ def test_surgery_torchfx_eval(name, surgery_method, input):
 ])
 @pytest.mark.timeout(10)
 @pytest.mark.filterwarnings(
-    r"ignore:Converting a tensor to a Python boolean might cause the trace to be incorrect:torch.jit._trace.TracerWarning"
-)
+    r"ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning")
 def test_surgery_onnx(name, surgery_method, input, tmp_path):
     """Tests onnx export and runtime"""
     pytest.importorskip("onnx")
