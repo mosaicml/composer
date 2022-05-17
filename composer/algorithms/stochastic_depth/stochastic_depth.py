@@ -34,8 +34,8 @@ _STOCHASTIC_LAYER_MAPPING = {
 
 def apply_stochastic_depth(model: torch.nn.Module,
                            target_layer_name: str,
-                           stochastic_method: str = 'block',
-                           drop_rate: float = 0.2,
+                           stochastic_method: str = 'sample',
+                           drop_rate: float = 0.05,
                            drop_distribution: str = 'linear',
                            use_same_gpu_seed: bool = True,
                            optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
@@ -160,8 +160,8 @@ class StochasticDepth(Algorithm):
 
     def __init__(self,
                  target_layer_name: str,
-                 stochastic_method: str = 'block',
-                 drop_rate: float = 0.2,
+                 stochastic_method: str = 'sample',
+                 drop_rate: float = 0.05,
                  drop_distribution: str = 'linear',
                  drop_warmup: Union[float, Time, str] = 0.0,
                  use_same_gpu_seed: bool = True):
@@ -249,6 +249,9 @@ def _validate_stochastic_hparams(target_layer_name: str,
                                  drop_distribution: str,
                                  drop_warmup: str = "0dur"):
     """Helper function to validate the Stochastic Depth hyperparameter values."""
+
+    if stochastic_method == 'block':
+        raise ValueError("Block-wise Stochastic Depth is under development, use 'sample' instead for regularization.")
 
     if stochastic_method and (stochastic_method not in _STOCHASTIC_LAYER_MAPPING):
         raise ValueError(f"stochastic_method {stochastic_method} is not supported."
