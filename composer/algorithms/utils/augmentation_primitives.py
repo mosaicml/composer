@@ -29,6 +29,9 @@ from typing import Callable
 
 import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
+# Typeshed is missing definitions:
+# https://github.com/python/typeshed/blob/7ca8303672fe3300f06c49c3e98e3bf39eef7d99/stubs/Pillow/PIL/Image.pyi
+from PIL.Image import Resampling, Transform  # type: ignore
 
 AugmentationFn = Callable[[Image.Image, float], Image.Image]
 
@@ -147,7 +150,7 @@ def rotate(pil_img: Image.Image, level: float):
     degrees = _int_parameter(_sample_level(level), 30)
     if np.random.uniform() > 0.5:
         degrees = -degrees
-    return pil_img.rotate(degrees, resample=Image.BILINEAR)
+    return pil_img.rotate(degrees, resample=Resampling.BILINEAR)
 
 
 def solarize(pil_img: Image.Image, level: float):
@@ -173,7 +176,7 @@ def shear_x(pil_img: Image.Image, level: float):
     level = _float_parameter(_sample_level(level), 0.3)
     if np.random.uniform() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Image.AFFINE, (1, level, 0, 0, 1, 0), resample=Image.BILINEAR)
+    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, level, 0, 0, 1, 0), resample=Resampling.BILINEAR)
 
 
 def shear_y(pil_img: Image.Image, level: float):
@@ -186,7 +189,7 @@ def shear_y(pil_img: Image.Image, level: float):
     level = _float_parameter(_sample_level(level), 0.3)
     if np.random.uniform() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Image.AFFINE, (1, 0, 0, level, 1, 0), resample=Image.BILINEAR)
+    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, 0, level, 1, 0), resample=Resampling.BILINEAR)
 
 
 def translate_x(pil_img: Image.Image, level: float):
@@ -199,7 +202,7 @@ def translate_x(pil_img: Image.Image, level: float):
     level = _int_parameter(_sample_level(level), pil_img.size[0] / 3)
     if np.random.random() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Image.AFFINE, (1, 0, level, 0, 1, 0), resample=Image.BILINEAR)
+    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, level, 0, 1, 0), resample=Resampling.BILINEAR)
 
 
 def translate_y(pil_img: Image.Image, level: float):
@@ -212,7 +215,7 @@ def translate_y(pil_img: Image.Image, level: float):
     level = _int_parameter(_sample_level(level), pil_img.size[1] / 3)
     if np.random.random() > 0.5:
         level = -level
-    return pil_img.transform(pil_img.size, Image.AFFINE, (1, 0, 0, 0, 1, level), resample=Image.BILINEAR)
+    return pil_img.transform(pil_img.size, Transform.AFFINE, (1, 0, 0, 0, 1, level), resample=Resampling.BILINEAR)
 
 
 # The following augmentations overlap with corruptions in the ImageNet-C/CIFAR10-C test
