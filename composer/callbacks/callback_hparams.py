@@ -7,7 +7,7 @@ from __future__ import annotations
 import abc
 import textwrap
 from dataclasses import asdict, dataclass
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import yahp as hp
 
@@ -227,7 +227,7 @@ class MLPerfCallbackHparams(CallbackHparams):
             e.g. ``8xNVIDIA_A100_80GB_composer``. Default: ``None``.
         status (str, optional): Submission status. One of (onprem, cloud, or preview).
             Default: ``"onprem"``.
-        cache_clear_cmd (List[str], optional): Command to invoke during the cache clear. This callback
+        cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
             will call ``subprocess(cache_clear_cmd)``. Default is disabled (``None``)
         host_processors_per_node (int, optional): Total number of host processors per node.  Default: ``None``.
 
@@ -249,7 +249,7 @@ class MLPerfCallbackHparams(CallbackHparams):
     submitter: str = hp.optional("Submitting organization. Default: MosaicML", default='MosaicML')
     system_name: Optional[str] = hp.optional("Name of the system, defaults to [world_size]x[device_name]", default=None)
     status: str = hp.optional("Submission status. Default: onprem", default="onprem")
-    cache_clear_cmd: Optional[List[str]] = hp.optional(
+    cache_clear_cmd: Optional[str] = hp.optional(
         "Command to invoke during the cache clear. This callback will call subprocess(cache_clear_cmd). Default: Disabled.",
         default=None,
     )

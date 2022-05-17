@@ -8,7 +8,7 @@ import platform
 import subprocess
 import sys
 import warnings
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, Optional
 
 import torch
 from torch.utils.data import DataLoader
@@ -130,7 +130,7 @@ class MLPerfCallback(Callback):
         submitter: str = "MosaicML",
         system_name: Optional[str] = None,
         status: str = "onprem",
-        cache_clear_cmd: Optional[List[str]] = None,
+        cache_clear_cmd: Optional[str] = None,
         host_processors_per_node: Optional[int] = None,
     ) -> None:
 
@@ -190,7 +190,7 @@ class MLPerfCallback(Callback):
         self.mllogger.logger.addHandler(self._file_handler)
 
         if self.cache_clear_cmd is not None:
-            subprocess.run(self.cache_clear_cmd, check=True, text=True)
+            subprocess.run(self.cache_clear_cmd.split(), check=True, text=True)
             self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
         else:
             warnings.warn("cache_clear_cmd was not provided. For a valid submission, please provide the command.")
