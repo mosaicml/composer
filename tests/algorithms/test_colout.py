@@ -10,7 +10,7 @@ import torch
 from PIL import Image
 from torch.utils.data import DataLoader
 
-from composer.algorithms import ColOut, ColOutHparams
+from composer.algorithms import ColOut
 from composer.algorithms.colout.colout import ColOutTransform, colout_batch
 from composer.core import Event, State
 from composer.loggers import Logger
@@ -299,12 +299,6 @@ class TestColOutAlgorithm:
         assert isinstance(new_image, Image.Image)
 
         verify_shape_image(original_image, new_image, p_row, p_col)
-
-
-def test_colout_hparams():
-    hparams = ColOutHparams()
-    algorithm = hparams.initialize_object()
-    assert isinstance(algorithm, ColOut)
 
 
 @pytest.mark.parametrize("p_row,p_col", [(1.5, 0.15), (0.15, 1.5)])

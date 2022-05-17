@@ -14,11 +14,9 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 
-from composer import Trainer
-from composer.algorithms import CutOut, LabelSmoothing, algorithm_registry
+from composer import Callback, Evaluator, Trainer
+from composer.algorithms import CutOut, LabelSmoothing
 from composer.callbacks import LRMonitor
-from composer.core.callback import Callback
-from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit
@@ -31,7 +29,6 @@ from composer.trainer.devices import Device
 from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import dist
 from composer.utils.object_store import ObjectStoreHparams
-from tests.algorithms.algorithm_settings import get_settings
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 from tests.common.events import EventCounterCallback
@@ -925,35 +922,6 @@ class TestTrainerAssets:
         trainer.fit()
         trainer.state.max_duration *= 2
         trainer.fit()
-
-
-class TestTrainerAlgorithms:
-
-    @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
-    @pytest.mark.timeout(5)
-    @device('gpu')
-    def test_algorithm_trains(self, name: str, device: str):
-        if name in ('no_op_model', 'scale_schedule'):
-            pytest.skip('stub algorithms')
-
-        if name in ('cutmix, mixup, label_smoothing'):
-            # see: https://github.com/mosaicml/composer/issues/362
-            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
-
-        setting = get_settings(name)
-        if setting is None:
-            pytest.xfail('No setting provided in algorithm_settings.')
-
-        trainer = Trainer(
-            model=setting['model'],
-            train_dataloader=DataLoader(dataset=setting['dataset'], batch_size=4),
-            max_duration='2ep',
-            device=device,
-        )
-        trainer.fit()
-
-        # fit again for another epoch
-        trainer.fit(duration='1ep')
 
 
 @pytest.mark.vision
