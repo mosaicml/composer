@@ -37,7 +37,7 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
     if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
         raise ValueError("The `eval_interval` must have units of EPOCH or BATCH, or be a function.")
 
-    last_batch_seen = None
+    last_batch_seen = -1
 
     def should_eval(state: State, event: Event):
         if int(eval_interval) <= 0:
