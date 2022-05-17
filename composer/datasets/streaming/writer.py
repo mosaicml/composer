@@ -100,11 +100,10 @@ class StreamingDatasetWriter(object):
         if self.new_samples:
             raise RuntimeError("Attempted to write index file while samples are still being processed.")
         filename = os.path.join(self.dirname, get_index_basename())
-        ndarray_samples_per_shard = np.asarray(self.samples_per_shard, np.int64)
-        ndarray_bytes_per_shard = np.asarray(self.bytes_per_shard, np.int64)
-        ndarray_bytes_per_sample = np.asarray(self.bytes_per_sample, np.int64)
-        index = StreamingDatasetIndex(ndarray_samples_per_shard, ndarray_bytes_per_shard, ndarray_bytes_per_sample,
-                                      self.fields)
+        samples_per_shard = np.array(self.samples_per_shard, np.int64)
+        bytes_per_shard = np.array(self.bytes_per_shard, np.int64)
+        bytes_per_sample = np.array(self.bytes_per_sample, np.int64)
+        index = StreamingDatasetIndex(samples_per_shard, bytes_per_shard, bytes_per_sample, self.fields)
         with open(filename, 'xb') as out:
             index.dump(out)
 
