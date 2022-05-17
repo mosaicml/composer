@@ -1,12 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+from operator import attrgetter, itemgetter
 from typing import Any, Callable, Optional, Sequence, Union
 
 __all__ = ['batch_get', 'batch_set']
 
 
-def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable[[Any], Any]] = None) -> Any:
+def batch_get(batch: Any, key: Union[Any, Callable]):
     """Indexes into the batch given the key.
 
     >>> from composer.utils.batch_helpers import batch_get
@@ -22,64 +23,25 @@ def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable[[
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (Any): A key to index into the batch. Key is optional if get_fn is supplied.
-        get_fn (Callable): A user-specified function to do the extracting. 
-            get_fn is optional if key is supplied.
+        key (Any or Callable): A key to index into the batch or a user-specified function to do the extracting. 
 
     Returns:
         The part of the batch specified by the key or the get_fn. This could be any type 
             depending on what the batch is composed of.
-    
-    Raises:
-        ValueError if key is unset and get_fn is unset or if both are set.
     """
-    if key is None and get_fn is None:
-        raise ValueError("key or get_fn must be specified and neither were!")
-    if key is not None and get_fn is not None:
-        raise ValueError("key and get_fn were both set. Only one can be set!")
-    if get_fn is not None:
-        return get_fn(batch)
-    if isinstance(key, Sequence) and not isinstance(key, str):
-        return _batch_get_multiple(batch, key)
+    if not isinstance(key, Callable):
+        try:
+            return itemgetter(key)(batch)
+        except (IndexError, TypeError) as e:
+            try:
+                return itemgetter(*key)(batch)
+            except TypeError:
+                try:
+                    return attrgetter(key)(batch)
+                except:
+                    return attrgetter(*key)(batch)
     else:
-        return _batch_get(batch, key)
-
-
-def _batch_get(batch: Any, key: Any) -> Any:
-    if isinstance(batch, tuple):
-        return _batch_get_tuple(batch, key)
-
-    try:
-        return batch[key]
-
-    # The only acceptable TypeError is for an object that doesn't have a __getitem__,
-    # which is TypeError("... object is not subscriptable").
-    except TypeError as e:
-        if 'object is not subscriptable' in str(e):
-            pass
-        else:
-            raise e
-
-    try:
-        return getattr(batch, key)
-
-    # If both getattr and __getitem__ result in exceptions then raise both of them.
-    except (AttributeError, TypeError):
-        raise RuntimeError(
-            f"Unable extract key {key} from batch {batch}. Please specify a custom get_fn, if necessary.")
-
-
-def _batch_get_multiple(batch: Any, key: Any):
-    # Numpy arrays and Torch tensors can take tuples and lists as keys.
-    try:
-        return batch[key]
-    # Indexing a list with a sequence results in TypeError
-    # Indexing an array/tensor with a sequence that is longer than the rank of the array
-    # results in an IndexError.
-    # Indexing a dict with a tuple results in a key error.
-    except (IndexError, TypeError, KeyError):
-        pass
-    return [_batch_get(batch, k) for k in key]
+        return key(batch)
 
 
 def batch_set(batch: Any,
@@ -125,6 +87,7 @@ def batch_set(batch: Any,
         raise ValueError("key or set_fn must be specified and neither were!")
     if key is not None and set_fn is not None:
         raise ValueError("key and set_fn were both set. Only one can be set!")
+
     if set_fn:
         return set_fn(batch, value)
     if isinstance(key, Sequence) and not isinstance(key, str):
