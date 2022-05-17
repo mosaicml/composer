@@ -26,15 +26,21 @@ def test_speed_monitor(composer_trainer_hparams: TrainerHparams):
 
     throughput_epoch_calls = 0
     wall_clock_train_calls = 0
+    wall_clock_val_calls = 0
+    wall_clock_total_calls = 0
     throughput_step_calls = 0
     for call_ in log_destination.log_data.mock_calls:
         metrics = call_[1][2]
-        if "throughput/step" in metrics:
+        if "samples/step" in metrics:
             throughput_step_calls += 1
-        if "throughput/epoch" in metrics:
+        if "samples/epoch" in metrics:
             throughput_epoch_calls += 1
-        if 'wall_clock_train' in metrics:
+        if 'wall_clock/train' in metrics:
             wall_clock_train_calls += 1
+        if 'wall_clock/val' in metrics:
+            wall_clock_val_calls += 1
+        if 'wall_clock/total' in metrics:
+            wall_clock_total_calls += 1
 
     assert isinstance(trainer.state.dataloader, collections.abc.Sized)
     assert trainer.state.dataloader_label is not None
@@ -42,4 +48,6 @@ def test_speed_monitor(composer_trainer_hparams: TrainerHparams):
     expected_step_calls = (trainer.state.dataloader_len - speed_monitor_hparams.window_size) * max_epochs
     assert throughput_step_calls == expected_step_calls
     assert throughput_epoch_calls == max_epochs
+    assert wall_clock_total_calls == max_epochs
     assert wall_clock_train_calls == max_epochs
+    assert wall_clock_val_calls == max_epochs

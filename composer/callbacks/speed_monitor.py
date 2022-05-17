@@ -20,8 +20,8 @@ class SpeedMonitor(Callback):
 
     The training throughput in terms of number of samples per second is logged on the
     :attr:`~composer.core.event.Event.BATCH_END` event if we have reached the ``window_size`` threshold.  Per epoch
-    average throughput and wall clock train time is also logged on the :attr:`~composer.core.event.Event.EPOCH_END`
-    event.
+    average throughput and wall clock train, validation, and total time is also logged on the
+    :attr:`~composer.core.event.Event.EPOCH_END` event.
 
     Example
 
@@ -55,7 +55,11 @@ class SpeedMonitor(Callback):
     |                       | Number of samples processed per second (averaged over       |
     | ``throughput/epoch``  | an entire epoch)                                            |
     +-----------------------+-------------------------------------------------------------+
-    |``wall_clock_train``   | Total elapsed training time                                 |
+    |``wall_clock/train``   | Total elapsed training time                                 |
+    +-----------------------+-------------------------------------------------------------+
+    |``wall_clock/val``     | Total elapsed validation time                               |
+    +-----------------------+-------------------------------------------------------------+
+    |``wall_clock/total``   | Total elapsed time                                          |
     +-----------------------+-------------------------------------------------------------+
 
     Args:
@@ -177,6 +181,6 @@ class SpeedMonitor(Callback):
             "wall_clock/total": self.wall_clock_total,
         })
         logger.data_epoch({
-            "throughput/epoch/train": self.train_examples_per_epoch / epoch_time_in_train,
+            "samples/epoch": self.train_examples_per_epoch / epoch_time_in_train,
         })
         self.epoch_time_in_validation = 0.0
