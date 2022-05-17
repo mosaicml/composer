@@ -126,12 +126,15 @@ def test_state_batch_get_item_callable(monkeypatch):
     getter = lambda x: x**2
     state.batch_get_item(key=getter)
     mock_batch_get.assert_called_once_with(state.batch, getter)
+    state.batch_get_item(key=(getter, getter))
+    mock_batch_get.assert_called_with(state.batch, (getter, getter))
 
 
 def test_state_batch_set_item_callable(monkeypatch):
     state = get_dummy_state()
     state.batch = [1, 2]
     mock_batch_set = Mock()
+    mock_batch_set.return_value = [4,5]
     monkeypatch.setattr(state_module, 'batch_set', mock_batch_set)
 
     def setter(x, v):
@@ -140,3 +143,5 @@ def test_state_batch_set_item_callable(monkeypatch):
 
     state.batch_set_item(key=setter, value=3)
     mock_batch_set.assert_called_once_with([1, 2], key=setter, value=3)
+    state.batch_set_item(key=(setter, setter), value=4)
+    mock_batch_set.assert_called_with([4, 5], key=(setter, setter), value=4)

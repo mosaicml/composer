@@ -395,6 +395,38 @@ def test_batch_set_callable(example_complicated_object, example_set_callable, ex
     assert batch_get(new_batch, example_get_callable) == 11
 
 
+def test_batch_set_pair_of_callables(example_complicated_object, example_get_callable, example_set_callable):
+    new_batch = batch_set(example_complicated_object, key=(example_get_callable, example_set_callable), value=11)
+    assert batch_get(new_batch, example_get_callable) == 11
+
+
+def test_batch_set_with_getter_errors_out(example_complicated_object, example_get_callable):
+    with pytest.raises(TypeError):
+        batch_set(example_complicated_object,
+                  key=(example_get_callable, example_get_callable),
+                  value=11)
+
+    with pytest.raises(TypeError):
+        batch_set(example_complicated_object, 
+                  example_get_callable,
+                  value=11)
+
+
+def test_batch_set_not_pair_of_callables(example_complicated_object, example_set_callable):
+    # >2 callables
+    with pytest.raises(ValueError):
+        batch_set(example_complicated_object,
+                  key=(example_set_callable, example_set_callable, example_set_callable),
+                  value=11)
+
+
+    # Singleton of callable
+    with pytest.raises(ValueError):
+        batch_set(example_complicated_object, 
+                  (example_set_callable,),
+                  value=11)
+
+
 def test_set_with_mismatched_key_values(example_list):
     with pytest.raises(ValueError):
         batch_set(example_list, key=[1, 3, 5], value=[1, 2])

@@ -89,10 +89,20 @@ def batch_set(batch: Any, key: Union[Any, Callable,
 
     """
     batch_copy = copy.deepcopy(batch)
+    # Case 1: key is a tuple of (getter, setter) callables.
+    if _is_key_get_and_set_fn_pair(key):
+        get_fn, set_fn = key
+        return set_fn(batch_copy, value)
+
+    # Case 2: key is a callable.  
     if isinstance(key, Callable):
         return key(batch_copy, value)
+
+    # Case 4: key is sequence of sub-keys.
     if isinstance(key, Sequence) and not isinstance(key, str):
         return _batch_set_multiple(batch_copy, key, value)
+
+    # Case 5: key is single object, like string or int.
     else:
         return _batch_set(batch_copy, key, value)
 
