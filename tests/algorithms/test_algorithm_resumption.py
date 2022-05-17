@@ -15,14 +15,21 @@ from composer.algorithms.factorize.factorize import Factorize
 from composer.algorithms.layer_freezing.layer_freezing import LayerFreezing
 from composer.algorithms.sam.sam import SAM
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite
+from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepth
 from composer.core.algorithm import Algorithm
 from composer.models.base import ComposerModel
 from tests.algorithms.algorithm_settings import get_algorithm_parametrization
 from tests.common import deep_compare, device
 
 
+@pytest.fixture
+def model(request):
+    # Copy the model, so other parameterization start with a fresh model
+    return copy.deepcopy(request.param)
+
+
 @pytest.mark.timeout(180)
-@device('cpu')
+@device('gpu')
 @pytest.mark.parametrize(
     "save_interval,save_filename,resume_file,final_checkpoint",
     [
@@ -30,7 +37,7 @@ from tests.common import deep_compare, device
         ["1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
-@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization())
+@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization(), indirect=['model'])
 def test_algorithm_resumption(
     device,
     save_interval: int,
@@ -51,29 +58,30 @@ def test_algorithm_resumption(
     if alg_cls is LayerFreezing:
         pytest.xfail('Known issues')
 
-    if alg_cls in (SAM, SqueezeExcite, Factorize):
+    if alg_cls in (SAM, SqueezeExcite, StochasticDepth, Factorize):
         pytest.xfail('Incompatible with optimizers that store state, e.g. Adam.')
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
-    algorithm = alg_cls(**alg_kwargs)
 
-    config = {
-        'algorithms': algorithm,
-        'model': model,
+    shared_config = {
         'train_dataloader': DataLoader(dataset=dataset, batch_size=4),
         'max_duration': '5ep',
         'device': device,
         'save_filename': save_filename,
-        'save_folder': folder1,
         'save_interval': save_interval,
         'train_subset_num_batches': 2,
-        'optimizers': optimizer,
-        'schedulers': scheduler
     }
 
     # train model once, saving checkpoints every epoch
-    trainer1 = Trainer(**config)
+    trainer1 = Trainer(
+        model=model,
+        optimizers=optimizer,
+        schedulers=scheduler,
+        save_folder=folder1,
+        algorithms=alg_cls(**alg_kwargs),
+        **shared_config,
+    )
     trainer1.fit()
 
     # create second trainer, load an intermediate checkpoint
@@ -82,16 +90,17 @@ def test_algorithm_resumption(
     optimizer = torch.optim.Adam(copied_model.parameters(), lr=0.01)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
 
-    config.update({
-        'model': copied_model,
-        'save_folder': folder2,
-        'load_path': os.path.join(folder1, resume_file),
-        'load_weights_only': False,
-        'load_strict': False,
-        'optimizers': optimizer,
-        'schedulers': scheduler,
-    })
-    trainer2 = Trainer(**config)
+    trainer2 = Trainer(
+        model=copied_model,
+        load_path=os.path.join(folder1, resume_file),
+        load_weights_only=False,
+        load_strict=False,
+        optimizers=optimizer,
+        schedulers=scheduler,
+        save_folder=folder2,
+        algorithms=alg_cls(**alg_kwargs),
+        **shared_config,
+    )
     trainer2.fit()
 
     # check that the checkpoints are equal
