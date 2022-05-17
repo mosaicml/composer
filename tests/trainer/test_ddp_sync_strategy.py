@@ -46,7 +46,7 @@ class MinimalConditionalModel(nn.Module):
     pytest.param('forced_sync', ([-1, None, None], [-1, -1, None], [-1.5, -1.5, None]), id='forced_sync'),
 ])
 @pytest.mark.world_size(2)
-def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]],
+def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[List[Optional[float]]],
                            dummy_train_dataloader: Iterable, rank_zero_seed: int):
     original_model = MinimalConditionalModel()
     # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
@@ -77,10 +77,10 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
 
             if dist.get_global_rank() == 0:
                 grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
-                for expected, actual in zip(expected_grads[microbatch_idx], grads):  # type: ignore
+                for expected, actual in zip(expected_grads[microbatch_idx], grads):
                     assert expected == actual
 
     if dist.get_global_rank() == 0:
         grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
-        for expected, actual in zip(expected_grads[-1], grads):  # type: ignore
+        for expected, actual in zip(expected_grads[-1], grads):
             assert expected == actual

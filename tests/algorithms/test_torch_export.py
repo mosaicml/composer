@@ -166,8 +166,8 @@ def test_surgery_onnx(
     """Tests onnx export and runtime"""
     del dataset  # unused
     pytest.importorskip("onnx")
-    import onnx  # type: ignore
-    import onnxruntime as ort  # type: ignore
+    import onnx
+    import onnxruntime as ort
 
     surgery_method = get_surgery_method(alg_cls)
 
@@ -201,4 +201,4 @@ def test_surgery_onnx(
         model(input),
         rtol=1e-4,  # lower tolerance for ONNX
         atol=1e-3,  # lower tolerance for ONNX
-    )  # type: ignore (third-party)
+    )

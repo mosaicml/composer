@@ -112,6 +112,7 @@ extra_deps["dev"] = [
     "myst-parser==0.16.1",
     "sphinx_panels==0.6.0",
     "sphinxcontrib-images==0.9.4",
+    "pytest_codeblocks==0.15.0",
 ]
 
 extra_deps["deepspeed"] = [

@@ -14,6 +14,7 @@ accelerator:
 When using the {class}`~.Trainer`, the number format can be selected by specifying the `precision` argument during
 initialization. In the example below, we are training on a `gpu` device using [Automatic Mixed Precision](amp) (`amp`):
 
+<!--pytest-codeblocks:skip-->
 ```python
 from composer import Trainer
 
