@@ -87,6 +87,8 @@ filterwarnings = [
     # Ignore deprecation warnings in torchvision. TODO: remove this ignore for torchvision 0.13 -- it appears to be
     # fixed in main -- see https://github.com/pytorch/vision/blob/main/torchvision/transforms/functional_pil.py
     'ignore:.*is deprecated and will be removed in Pillow 10.*:DeprecationWarning',
+    # Ignore malformed yaml warnings coming from yahp
+    'ignore:MalformedYAMLWarning:UserWarning',
     '''ignore:Exception ignored in <function _MultiProcessingDataLoaderIter.__del__:pytest.PytestUnraisableExceptionWarning''',
 ]
 timeout_func_only = true  # exclude fixtures from the timeout
