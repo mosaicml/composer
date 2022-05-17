@@ -192,9 +192,11 @@ def test_batch_get_seq_key_for_1D_tensors_and_arrays(batch, key, expected):
 
 
 # Test whether arrays and tensors can be indexed by a sequence of slice objects.
-@pytest.mark.parametrize('batch,key,expected', [(torch.tensor(my_list), [slice(1, 4), slice(5, 7)], [
-    torch.tensor([4, 5, 6]), torch.tensor([8, 9])
-]), (np.asarray(my_list), [slice(1, 4), slice(5, 7)], [np.asarray([4, 5, 6]), np.asarray([8, 9])])])
+@pytest.mark.parametrize('batch,key,expected', [
+    (torch.tensor(my_list),
+     (slice(1, 4), slice(5, 7)), [torch.tensor([4, 5, 6]), torch.tensor([8, 9])]),
+    (np.asarray(my_list), (slice(1, 4), slice(5, 7)), [np.asarray([4, 5, 6]), np.asarray([8, 9])]),
+])
 def test_batch_get_seq_of_slices_key_for_1D_tensors_and_arrays(batch, key, expected):
     for actual, expectation in zip(batch_get(batch, key), expected):
         assert all(actual == expectation)
@@ -207,7 +209,7 @@ def test_batch_get_seq_of_slices_key_for_1D_tensors_and_arrays(batch, key, expec
                                        (slice(1, 6, 2), torch.tensor([-1, -3, -5]))])
 def test_batch_set_1D_tensor(example_tensor, key, value):
     new_batch = batch_set(example_tensor, key=key, value=value)
-    assert torch.equal(torch.tensor(batch_get(new_batch, key)), value)
+    assert torch.equal(batch_get(new_batch, key), value)
 
 
 # Test whether arrays can be set using batch_set.
@@ -231,7 +233,7 @@ def test_batch_set_1D_tensor_list_of_slices_key(example_tensor):
 
 # Test whether arrays can be set using batch_set with a list of slices.
 def test_batch_set_1D_array_list_of_slices_key(example_array):
-    key = [slice(0, 3, 1), slice(4, 7, 1)]
+    key = (slice(0, 3, 1), slice(4, 7, 1))
     value = [np.asarray([10, 11, 12]), np.asarray([13, 14, 15])]
     new_batch = batch_set(example_array, key=key, value=value)
     for actual, expectation in zip(batch_get(new_batch, key), value):
@@ -252,7 +254,7 @@ def test_batch_get_2D_array_tensor_2D_key(example_2D_array_tensor, key, expected
     assert actual.tolist() == expected
 
 
-@pytest.mark.parametrize('key,expected', [([slice(2, 4), slice(1, 3)], [[7, 8], [10, 11]])])
+@pytest.mark.parametrize('key,expected', [((slice(2, 4), slice(1, 3)), [[7, 8], [10, 11]])])
 def test_batch_get_2D_array_tensor_2D_slice_key(example_2D_array_tensor, key, expected):
     actual = batch_get(example_2D_array_tensor, key)
     assert actual.tolist() == expected
@@ -288,7 +290,7 @@ def test_batch_set_2D_array_2D_seq_key(example_2D_array, key, value):
 
 
 def test_batch_set_2D_array_list_of_slices(example_2D_array):
-    key = [slice(2, 4), slice(1, 3)]
+    key = (slice(2, 4), slice(1, 3))
     value = np.asarray([[7, 14], [10, 20]])
     new_batch = batch_set(example_2D_array, key=key, value=value)
     assert np.all(np.equal(batch_get(new_batch, key), value))

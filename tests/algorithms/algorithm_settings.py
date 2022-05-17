@@ -1,5 +1,6 @@
-"""This file provides the canonical settings (dataset, model, algorithms, arguments) for each algorithm to be tested.
-This can be used throughout the codebase for functional tests, serialization tests, etc.
+"""This file provides the canonical settings (dataset, model, algorithms, arguments)
+for each algorithm to be tested. This can be used throughout the codebase for
+functional tests, serialization tests, etc.
 
 Each algorithm is keyed based on its name in the algorithm registry.
 """
@@ -53,14 +54,8 @@ _settings = {
         }
     },
     'cutout': simple_vision_settings,
-    'ema': {
-        'model': common.SimpleConvModel,
-        'dataset': common.RandomImageDataset,
-        'kwargs': {
-            'half_life': '100ba',
-        },
-    },
-    'factorize': None,
+    'ema': simple_vision_settings,
+    'factorize': simple_resnet_settings,
     'ghost_batchnorm': {
         'model': (ComposerResNet, {
             'model_name': 'resnet18',
@@ -113,7 +108,8 @@ _settings = {
 
 
 def get_settings(name: str):
-    """For a given algorithm name, creates the canonical setting (algorithm, model, dataset) for testing.
+    """For a given algorithm name, creates the canonical setting
+    (algorithm, model, dataset) for testing.
 
     Returns ``None`` if no settings provided.
     """

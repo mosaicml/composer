@@ -114,10 +114,9 @@ class BlurPool(Algorithm):
         self.blur_first = blur_first
         self.min_channels = min_channels
 
-        if self.replace_maxpools is False and \
-             self.replace_convs is False:
-            log.warning('Both replace_maxpool and replace_convs set to false '
-                        'BlurPool will not be modifying the model.')
+        if self.replace_maxpools is False and self.replace_convs is False:
+            raise ValueError(
+                'Both replace_maxpool and replace_convs are set to False. BlurPool will not be modifying the model.')
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on :attr:`~composer.core.event.Event.INIT`.

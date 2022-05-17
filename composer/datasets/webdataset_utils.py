@@ -15,11 +15,11 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Un
 from tqdm import tqdm
 
 if TYPE_CHECKING:
-    from webdataset import WebDataset
+    from webdataset import WebDataset  # type: ignore
 
 try:
-    from webdataset import ShardWriter, WebDataset
-    from wurlitzer import pipes
+    from webdataset import ShardWriter, WebDataset  # type: ignore
+    from wurlitzer import pipes  # type: ignore
     webdataset_installed = True
 except ImportError:
     webdataset_installed = False
