@@ -184,8 +184,10 @@ class CutMix(Algorithm):
             box such that each pixel has an equal probability of being mixed.
             If ``False``, defaults to the sampling used in the original
             paper implementation. Default: ``False``.
-        input_key (Any, optional): A key that indexes to the input from the batch.
-        target_key (Any, optional): A key that indexes to the target from the batch.
+        input_key (Any, Callable, Sequence[Callable]): A key that indexes to the input 
+            from the batch. Can also be a pair of get and set functions.
+        target_key (Any, Callable, Sequence[Callable]): A key that indexes to the target 
+            from the batch. Can also be a pair of get and set functions.
 
     Example:
         .. testcode::
@@ -206,8 +208,8 @@ class CutMix(Algorithm):
                  num_classes: int,
                  alpha: float = 1.,
                  uniform_sampling: bool = False,
-                 input_key: Any = 0,
-                 target_key: Any = 1):
+                 input_key: Union[Any, Callable, Sequence[Callable[[], Any]]] = 0,
+                 target_key: Union[Any, Callable, Sequence[Callable[[], Any]]] = 1):
         self.num_classes = num_classes
         self.alpha = alpha
         self._uniform_sampling = uniform_sampling
