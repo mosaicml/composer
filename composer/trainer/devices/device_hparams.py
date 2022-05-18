@@ -13,6 +13,7 @@ import yahp as hp
 from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
+from composer.trainer.devices.device_mps import DeviceMPS
 
 __all__ = ["DeviceHparams", "CPUDeviceHparams", "GPUDeviceHparams"]
 
@@ -40,3 +41,11 @@ class CPUDeviceHparams(DeviceHparams):
 
     def initialize_object(self) -> DeviceCPU:
         return DeviceCPU()
+
+
+@dataclass
+class MPSDeviceHparams(DeviceHparams):
+    """Used to construct a :class:`.DeviceCPU`"""
+
+    def initialize_object(self) -> DeviceMPS:
+        return DeviceMPS()

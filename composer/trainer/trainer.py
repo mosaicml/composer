@@ -38,6 +38,7 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
+from composer.trainer.devices.device_mps import DeviceMPS
 from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import GetFileNotFoundException
@@ -167,8 +168,10 @@ def _get_device(device: Optional[Union[str, Device]]):
             device = DeviceCPU()
         elif device.lower() == 'gpu':
             device = DeviceGPU()
+        elif device.lower() in ['mps', 'apple', 'm1']:
+            device = DeviceMPS()
         else:
-            raise ValueError(f'device ({device}) must be one of (cpu, gpu).')
+            raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps).')
     return device
 
 

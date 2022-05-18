@@ -43,6 +43,7 @@ from composer.optim import (AdamHparams, AdamWHparams, ComposerScheduler, Consta
 from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
+from composer.trainer.devices.device_hparams import MPSDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
 from composer.utils.object_store import ObjectStoreHparams
@@ -114,6 +115,7 @@ callback_registry = {
 device_registry = {
     "gpu": GPUDeviceHparams,
     "cpu": CPUDeviceHparams,
+    "mps": MPSDeviceHparams,
 }
 
 evaluator_registry = {"evaluator": EvaluatorHparams}
