@@ -1475,7 +1475,7 @@ class Trainer:
                         )
 
                     self.engine.run_event(Event.BATCH_END)
-                    self._run_evaluators(Event.BATCH_END)
+                    self._run_evaluators(Event.BATCH_END, log_level=LogLevel.BATCH)
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
 
                     if self.state.timestamp >= self.state.max_duration:
@@ -1507,12 +1507,12 @@ class Trainer:
                         scheduler.step()
 
                 self.engine.run_event(Event.EPOCH_END)
-                self._run_evaluators(Event.EPOCH_END)
+                self._run_evaluators(Event.EPOCH_END, log_level=LogLevel.EPOCH)
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
         self.engine.run_event(Event.FIT_END)
-        self._run_evaluators(Event.FIT_END)
+        self._run_evaluators(Event.FIT_END, log_level=LogLevel.FIT)
 
-    def _run_evaluators(self, event: Event):
+    def _run_evaluators(self, event: Event, log_level: LogLevel):
         """Runs evaluators periodically during training."""
 
         for evaluator in self.state.evaluators:
@@ -1524,7 +1524,7 @@ class Trainer:
                     dataloader_label=evaluator.label,
                     subset_num_batches=evaluator.subset_num_batches,
                     metrics=evaluator.metrics,
-                    log_level=LogLevel.EPOCH,
+                    log_level=log_level,
                 )
 
     def _handle_cuda_oom(self):

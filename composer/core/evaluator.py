@@ -113,10 +113,6 @@ class Evaluator:
 
             When specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't
             evenly divide the training duration.
-
-        eval_at_fit_end (bool, optional):
-            Whether to run the evaluator(s) at ``Event.FIT_END`` if ``eval_interval`` doesn't evenly divide
-            the training duration. Default: True.
     """
 
     _eval_interval: Optional[Callable[[State, Event], bool]]
@@ -129,7 +125,6 @@ class Evaluator:
         metrics: Union[Metric, MetricCollection],
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,
-        eval_at_fit_end: bool = True,
     ):
         self.label = label
         self.dataloader = ensure_data_spec(dataloader)
@@ -142,7 +137,6 @@ class Evaluator:
             self.metrics = metrics
 
         self.subset_num_batches = subset_num_batches
-        self.eval_at_fit_end = eval_at_fit_end
         self.eval_interval = eval_interval
 
     @property
@@ -154,7 +148,7 @@ class Evaluator:
         if eval_interval is None:
             self._eval_interval = None
         elif not callable(eval_interval):
-            self._eval_interval = evaluate_periodically(eval_interval, eval_at_fit_end=self.eval_at_fit_end)
+            self._eval_interval = evaluate_periodically(eval_interval)
         else:
             self._eval_interval = eval_interval
 

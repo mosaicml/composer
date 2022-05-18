@@ -5,7 +5,7 @@ import torchmetrics
 from torch.utils.data import DataLoader
 
 from composer.core import Event
-from composer.core.evaluator import Evaluator
+from composer.core.evaluator import Evaluator, evaluate_periodically
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.datasets.evaluator import EvaluatorHparams
@@ -104,9 +104,9 @@ def test_eval_at_fit_end(eval_at_fit_end: bool):
         label="eval",
         dataloader=DataLoader(dataset=RandomClassificationDataset()),
         metrics=torchmetrics.Accuracy(),
-        eval_interval=eval_interval,
-        eval_at_fit_end=eval_at_fit_end,
     )
+
+    evaluator.eval_interval = evaluate_periodically(eval_interval=eval_interval, eval_at_fit_end=eval_at_fit_end)
 
     trainer = Trainer(
         model=SimpleModel(),
