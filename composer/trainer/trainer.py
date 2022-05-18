@@ -372,7 +372,7 @@ class Trainer:
             an ``eval_interval`` or if a dataloader is passed in directly. This parameter has no effect if
             ``eval_dataloader`` is not specified.
 
-            When specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't
+            When specifying time string or integer for the ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't
             evenly divide the training duration.
 
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
