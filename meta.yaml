@@ -66,6 +66,7 @@ test:
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
+    - cpuonly >=2.0,<3
   files:
     - "**/composer/**"
     - "**/tests/**"
