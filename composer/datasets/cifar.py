@@ -195,8 +195,8 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
     height: int = hp.optional('Image height', default=32)
     width: int = hp.optional('Image width', default=32)
     n_classes: int = hp.optional('Number of output classes', default=0)
-    channel_means: List[float] = hp.optional('Mean per image channel', default=(0, 0, 0))
-    channel_stds: List[float] = hp.optional('Std per image channel', default=(0, 0, 0))
+    channel_means: List[float] = hp.optional('Mean per image channel', default_factory=lambda: [0, 0, 0])
+    channel_stds: List[float] = hp.optional('Std per image channel', default_factory=lambda: [0, 0, 0])
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         from composer.datasets.webdataset_utils import load_webdataset
@@ -246,8 +246,8 @@ class CIFAR10WebDatasetHparams(CIFARWebDatasetHparams):
     n_train_samples: int = hp.optional('Number of samples in training split', default=50_000)
     n_val_samples: int = hp.optional('Number of samples in validation split', default=10_000)
     n_classes: int = hp.optional('Number of output classes', default=10)
-    channel_means: List[float] = hp.optional('Mean per image channel', default=(0.4914, 0.4822, 0.4465))
-    channel_stds: List[float] = hp.optional('Std per image channel', default=(0.247, 0.243, 0.261))
+    channel_means: List[float] = hp.optional('Mean per image channel', default_factory=lambda: [0.4914, 0.4822, 0.4465])
+    channel_stds: List[float] = hp.optional('Std per image channel', default_factory=lambda: [0.247, 0.243, 0.261])
 
 
 @dataclass
@@ -270,8 +270,8 @@ class CIFAR20WebDatasetHparams(CIFARWebDatasetHparams):
     n_train_samples: int = hp.optional('Number of samples in training split', default=50_000)
     n_val_samples: int = hp.optional('Number of samples in validation split', default=10_000)
     n_classes: int = hp.optional('Number of output classes', default=20)
-    channel_means: List[float] = hp.optional('Mean per image channel', default=(0.5071, 0.4867, 0.4408))
-    channel_stds: List[float] = hp.optional('Std per image channel', default=(0.2675, 0.2565, 0.2761))
+    channel_means: List[float] = hp.optional('Mean per image channel', default_factory=lambda: [0.5071, 0.4867, 0.4408])
+    channel_stds: List[float] = hp.optional('Std per image channel', default_factory=lambda: [0.2675, 0.2565, 0.2761])
 
 
 @dataclass
@@ -294,5 +294,5 @@ class CIFAR100WebDatasetHparams(CIFARWebDatasetHparams):
     n_train_samples: int = hp.optional('Number of samples in training split', default=50_000)
     n_val_samples: int = hp.optional('Number of samples in validation split', default=10_000)
     n_classes: int = hp.optional('Number of output classes', default=100)
-    channel_means: List[float] = hp.optional('Mean per image channel', default=(0.5071, 0.4867, 0.4408))
-    channel_stds: List[float] = hp.optional('Std per image channel', default=(0.2675, 0.2565, 0.2761))
+    channel_means: List[float] = hp.optional('Mean per image channel', default_factory=lambda: [0.5071, 0.4867, 0.4408])
+    channel_stds: List[float] = hp.optional('Std per image channel', default_factory=lambda: [0.2675, 0.2565, 0.2761])

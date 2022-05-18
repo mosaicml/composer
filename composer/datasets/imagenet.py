@@ -319,8 +319,8 @@ class TinyImagenet200WebDatasetHparams(WebDatasetHparams):
     height: int = hp.optional('Image height', default=64)
     width: int = hp.optional('Image width', default=64)
     n_classes: int = hp.optional('Number of output classes', default=200)
-    channel_means: List[float] = hp.optional('Mean per image channel', default=(0.485, 0.456, 0.406))
-    channel_stds: List[float] = hp.optional('Std per image channel', default=(0.229, 0.224, 0.225))
+    channel_means: List[float] = hp.optional('Mean per image channel', default_factory=lambda: [0.485, 0.456, 0.406])
+    channel_stds: List[float] = hp.optional('Std per image channel', default_factory=lambda: [0.229, 0.224, 0.225])
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataSpec:
         from composer.datasets.webdataset_utils import load_webdataset
