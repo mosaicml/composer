@@ -53,6 +53,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop
@@ -60,24 +62,23 @@ def training_loop(model, train_loader):
 from composer.algorithms import Factorize
 from composer.trainer import Trainer
 
-def train_model(model, train_dataloader):
-    factorize = Factorize(
-        factorize_convs=True,
-        factorize_linears=True,
-        min_channels=256,
-        latent_channels=0.25,
-        min_features=256,
-        latent_features=128
-    )
+factorize = Factorize(
+    factorize_convs=True,
+    factorize_linears=True,
+    min_channels=256,
+    latent_channels=0.25,
+    min_features=256,
+    latent_features=128
+)
 
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration='10ep',
-        algorithms=[factorize]
-    )
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration='10ep',
+    algorithms=[factorize]
+)
 
-    trainer.fit()
+trainer.fit()
 ```
 
 ## Suggested Hyperparameters

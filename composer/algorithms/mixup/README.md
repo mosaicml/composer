@@ -65,6 +65,8 @@ def training_loop(model, train_loader):
 
 Here we run `mixup` using index labels and interpolate the loss (a trick when using cross entropy)
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 from composer.algorithms import MixUp
 from composer.trainer import Trainer
@@ -86,6 +88,8 @@ trainer.fit()
 
 Here we run `mixup` using dense/one-hot labels and interpolate the labels (general case).
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 from composer.algorithms import MixUp
 from composer.trainer import Trainer

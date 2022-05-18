@@ -45,8 +45,11 @@ def test_algorithm_resumption(
         # see: https://github.com/mosaicml/composer/issues/362
         pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
-    if algorithm in ('layer_freezing', 'swa'):
+    if algorithm in ('layer_freezing'):
         pytest.xfail('Known issues')
+
+    if algorithm in ('sam', 'squeeze_excite', 'stochastic_depth', 'factorize'):
+        pytest.xfail('Incompatible with optimizers that store state, e.g. Adam.')
 
     setting = get_settings(algorithm)
     if setting is None:
@@ -55,9 +58,13 @@ def test_algorithm_resumption(
     folder1 = os.path.join(tmpdir, 'folder1')
     folder2 = os.path.join(tmpdir, 'folder2')
 
+    model = setting['model']
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
+
     config = {
         'algorithms': setting['algorithm'],
-        'model': setting['model'],
+        'model': model,
         'train_dataloader': DataLoader(dataset=setting['dataset'], batch_size=4),
         'max_duration': '5ep',
         'device': device,
@@ -65,6 +72,8 @@ def test_algorithm_resumption(
         'save_folder': folder1,
         'save_interval': save_interval,
         'train_subset_num_batches': 2,
+        'optimizers': optimizer,
+        'schedulers': scheduler
     }
 
     # train model once, saving checkpoints every epoch
@@ -76,12 +85,18 @@ def test_algorithm_resumption(
     setting = get_settings(algorithm)
     assert setting is not None
 
+    model = setting['model']
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
+
     config.update({
-        'model': setting['model'],
+        'model': model,
         'save_folder': folder2,
         'load_path': os.path.join(folder1, resume_file),
         'load_weights_only': False,
         'load_strict': False,
+        'optimizers': optimizer,
+        'schedulers': scheduler,
     })
     trainer2 = Trainer(**config)
     trainer2.fit()

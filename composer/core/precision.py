@@ -66,7 +66,7 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
     elif precision == Precision.BF16:
         if version.parse(torch.__version__) < version.parse("1.10"):
             raise ValueError(f"BF16 precision requires torch > 1.10, got version {torch.__version__}")
-        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+        with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):  # type: ignore (torch < 1.10 guard)
             yield
     else:
         raise ValueError(f"Unsupported precision: {precision}")
