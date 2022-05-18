@@ -17,9 +17,8 @@ def parse_args() -> Namespace:
     args = ArgumentParser()
     args.add_argument('--in_root', type=str, required=True)
     args.add_argument('--out_root', type=str, required=True)
-    args.add_argument('--shard_size_limit', type=int, default=1 << 26)
+    args.add_argument('--shard_size_limit', type=int, default=1 << 25)
     args.add_argument('--tqdm', type=int, default=1)
-    args.add_argument('--splits', type=str, default='train,val')
     return args.parse_args()
 
 
@@ -59,8 +58,10 @@ def main(args: Namespace) -> None:
         args (Namespace): Commandline arguments.
     """
     fields = ['img', 'img_id', 'htot', 'wtot', 'bbox_sizes', 'bbox_labels']
-    splits = args.splits.split(',')
-    for split in splits:
+    for (split, expected_num_samples, shuffle) in [
+        ("train", 117266, True),
+        ("val", 4952, False),
+    ]:
         split_dir = os.path.join(args.out_root, split)
 
         img_folder = os.path.join(args.in_root, f'{split}2017')

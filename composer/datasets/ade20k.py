@@ -501,7 +501,7 @@ class StreamingADE20kHparams(DatasetHparams):
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-ade20k/md/```
+            Default: ``'s3://mosaicml-internal-dataset-ade20k/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-ade20k/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
@@ -514,7 +514,7 @@ class StreamingADE20kHparams(DatasetHparams):
     """
 
     remote: str = hp.optional("Remote directory (S3 or local filesystem) where dataset is stored",
-                              default="s3://mosaicml-internal-dataset-ade20k/mds/")
+                              default="s3://mosaicml-internal-dataset-ade20k/mds/1/")
     local: str = hp.optional("Local filesystem directory where dataset is cached during operation",
                              default="/tmp/mds-cache/mds-ade20k/")
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')

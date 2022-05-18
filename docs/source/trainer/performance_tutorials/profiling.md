@@ -23,6 +23,7 @@ Classifier model with the Composer Trainer.
 
 Install Composer, if it is not yet already installed.
 
+<!--pytest-codeblocks:skip-->
 ```bash
 pip install mosaicml
 ```
@@ -162,11 +163,13 @@ Lastly, we run the training loop by invoking {meth}`.Trainer.fit`.
 
 Finally, we can run the application as follows on a single GPU:
 
+<!--pytest-codeblocks:skip-->
 ```bash
 python examples/profiler_demo.py
 ```
 
 Or, we can profile on multiple GPUs:
+<!--pytest-codeblocks:skip-->
 ```bash
 composer -n N_GPUS examples/profiler_demo.py  # set N_GPUS to the number of GPUs
 ```
@@ -175,6 +178,7 @@ composer -n N_GPUS examples/profiler_demo.py  # set N_GPUS to the number of GPUs
 
 Once the training loop is complete, you should see the following traces
 
+<!--pytest-codeblocks:skip-->
 ```bash
 > ls composer_profiler/
 ... ep0-ba5-rank0.json  ep1-ba21-rank0.json  merged_trace.json
@@ -220,6 +224,7 @@ The Torch Profiler traces found in the `torch_profiler` area can also be viewed 
 
 To view the Torch Profiler traces in TensorBoard, run:
 
+<!--pytest-codeblocks:skip-->
 ```bash
 pip install tensorbaord torch_tb_profiler
 tensorboard --logdir torch_profiler

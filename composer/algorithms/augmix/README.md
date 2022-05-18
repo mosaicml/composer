@@ -43,11 +43,12 @@ def augmix_image(image: Union[PillowImage, torch.Tensor]):
 
 ### Torchvision Transform
 
+<!--pytest-codeblocks:skip-->
 ```python
 # Create a callable for AugmentAndMix which can be composed with other image augmentations
 
 import torchvision.transforms as transforms
-import torchvision.datasets.VisionDataset as VisionDataset
+from torchvision.datasets.vision import VisionDataset
 
 from composer.algorithms.augmix import AugmentAndMixTransform 
 
@@ -62,6 +63,8 @@ dataset = VisionDataset(data_path, transform=composed)
 
 ### Composer Trainer
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -83,6 +86,8 @@ trainer = Trainer(
     algorithms=[augmix_algorithm],
     optimizers=[optimizer]
 )
+
+trainer.fit()
 ```
 
 ### Implementation Details
