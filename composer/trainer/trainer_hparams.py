@@ -570,7 +570,7 @@ class TrainerHparams(hp.Hparams):
 
         # Distributed
         # Initialized here so it is available within dataloaders
-        if dist.get_world_size() > 1:# and device is not "tpu":
+        if False:#dist.get_world_size() > 1:# and device is not "tpu":
             dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
 
         # Reproducibility

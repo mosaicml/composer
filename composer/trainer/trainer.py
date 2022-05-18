@@ -719,7 +719,8 @@ class Trainer:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
             # distributed is always required with multi-rank training
             #if self._device is not "tpu":
-            dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
+            if False:
+                dist.initialize_dist(self._device.dist_backend, datetime.timedelta(seconds=dist_timeout))
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, self._device)
@@ -821,6 +822,8 @@ class Trainer:
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
 
         # Train Dataloader
+        import torch_xla.distributed.parallel_loader as pl
+        
         self._train_data_spec = None if train_dataloader is None else ensure_data_spec(train_dataloader)
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
@@ -900,7 +903,7 @@ class Trainer:
             # Since the DeepSpeed ZeRO optimizer does not inherit torch.optim.Optimizer, the schedulers must be
             # compiled and bound BEFORE DeepSpeed initialization. However, this is OK, as the the DeepSpeed Zero
             # optimizer uses the same underlying parameter groups as the original optimizer. See
-            # * https://github.com/microsoft/DeepSpeed/blob/fee73135980e78f8be7e1a3ff556751623ef6aaa/deepspeed/runtime/zero/stage_1_and_2.py#L1911-L1917
+            # * Https://github.com/microsoft/DeepSpeed/blob/fee73135980e78f8be7e1a3ff556751623ef6aaa/deepspeed/runtime/zero/stage_1_and_2.py#L1911-L1917
             # * https://github.com/microsoft/DeepSpeed/blob/ef17c89570ceae5b26a5f886e9d8cd0941afc0ac/deepspeed/runtime/zero/stage3.py#L2532-L2538
             # In addition, the deepspeed engine is responsible for serializing the model and optimizer state,
             # so these attributes should not be serialized with the composer state.
@@ -1191,6 +1194,13 @@ class Trainer:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
             self.state.train_dataloader = self.state.dataloader
+
+
+            ########### TPU
+            import torch_xla.distributed.parallel_loader as pl
+            #device = xm.xla_device()
+            self.state.train_dataloader = pl.MpDeviceLoader(self.state.train_dataloader, self._device)
+            
         if self._train_data_spec is None:
             _raise_missing_argument_exception("train_dataloader")
         if train_subset_num_batches is not None:
@@ -1291,7 +1301,7 @@ class Trainer:
             import torch_xla.distributed.xla_multiprocessing as xmp
             def _mp_fn(index):
                 self._train_loop()
-            xmp.spawn(_mp_fn, args=(), nprocs=8,start_method='fork')
+            xmp.spawn(_mp_fn, args=(), nprocs=8)#,start_method='fork')
         else:
             print('HEREEEEEEEE', self._device)
             self._train_loop()

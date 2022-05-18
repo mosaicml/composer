@@ -35,7 +35,8 @@ class DeviceTPU(Device):
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
         import torch_xla.distributed.xla_multiprocessing as xmp
 
-        wrapped_model = xmp.MpModelWrapper(module)
+        return module.to(self._device)
+        #wrapped_model = xmp.MpModelWrapper(module)
         return wrapped_model.to(self._device)
 
     def tensor_to_device(self, tensor: torch.Tensor) -> torch.Tensor:
