@@ -41,6 +41,7 @@ class StreamingDataset(IterableDataset):
         local (str): Download shards to this local directory for for caching.
         shuffle (bool): Whether to shuffle the samples.  Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
         decoders (Dict[str, Callable[bytes, Any]]]): For each sample field you wish to read, you must provide a decoder to convert the raw bytes to an object.
+        tries (int): Number of download attempts before giving up. Default: 3.
         timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
         batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
                                     Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
@@ -86,6 +87,7 @@ class StreamingDataset(IterableDataset):
                  local: str,
                  shuffle: bool,
                  decoders: Dict[str, Callable[[bytes], Any]],
+                 tries: int = 3,
                  timeout: float = 60,
                  batch_size: Optional[int] = None) -> None:
 
@@ -93,6 +95,7 @@ class StreamingDataset(IterableDataset):
         self.local = local
         self.shuffle = shuffle
         self.decoders = decoders
+        self.tries = tries
         self.timeout = timeout
         self.batch_size = batch_size
 
@@ -122,7 +125,7 @@ class StreamingDataset(IterableDataset):
         """
         remote = os.path.join(self.remote, basename)
         local = os.path.join(self.local, basename)
-        safe_download(remote, local, timeout=self.timeout)
+        safe_download(remote, local, tries=self.tries, timeout=self.timeout)
         return local
 
     def _load_shards(self, shards: List[int], part_min_id: int, part_max_id: int) -> None:
@@ -361,6 +364,7 @@ class StreamingImageClassDataset(StreamingDataset):
         local (str): Download shards to this local filesystem directory for reuse.
         shuffle (bool): Whether to shuffle the samples. Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
         transform (Optional[Callable]): Optional input data transform for data augmentation, etc.
+        tries (int): Number of download attempts before giving up. Default: 3.
         timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
         batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
                                     Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
@@ -393,6 +397,7 @@ class StreamingImageClassDataset(StreamingDataset):
                  local: str,
                  shuffle: bool,
                  transform: Optional[Callable] = None,
+                 tries: int = 3,
                  timeout: float = 60,
                  batch_size: Optional[int] = None) -> None:
         decoders = {
@@ -403,6 +408,7 @@ class StreamingImageClassDataset(StreamingDataset):
                          local=local,
                          shuffle=shuffle,
                          decoders=decoders,
+                         tries=tries,
                          timeout=timeout,
                          batch_size=batch_size)
         self.transform = transform or transforms.ToTensor()

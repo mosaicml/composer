@@ -68,7 +68,7 @@ def download(remote: str, local: str, timeout: float) -> None:
         download_from_local(remote, local)
 
 
-def safe_download(remote: str, local: str, timeout: float) -> None:
+def safe_download(remote: str, local: str, tries: int = 3, timeout: float = 60) -> None:
     """Safely downloads a file from remote to local.
        Handles multiple threads attempting to download the same shard.
        Gracefully deletes stale tmp files from crashed runs.
@@ -76,13 +76,14 @@ def safe_download(remote: str, local: str, timeout: float) -> None:
     Args:
         remote (str): Remote path (S3 or local filesystem).
         local (str): Local path (local filesystem).
-        timeout (float): How long to wait for shard to download before raising an exception.
+        tries (int, default 3): Number of download attempts before giving up.
+        timeout (float, default 60): How long to wait for shard to download before raising an exception.
     """
     if os.path.exists(local):
         return
 
     ok = False
-    for _ in range(3):
+    for _ in range(tries):
         try:
             download(remote, local, timeout)
             ok = True
