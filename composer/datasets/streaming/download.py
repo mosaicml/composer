@@ -7,9 +7,28 @@
 import os
 import shutil
 import textwrap
+from time import sleep, time
 from urllib.parse import urlparse
 
 __all__ = ["safe_download"]
+
+
+def wait_for_download(local: str, timeout: float = 60) -> None:
+    """Block until another worker's shard download completes.
+
+    Args:
+        local (str): Path to file.
+        timeout (float): How long to wait before raising an exception. Default: 60 sec.
+    """
+    start_time = time()
+    i = 0
+    while True:
+        if os.path.exists(local):
+            return
+        elapsed = time() - start_time
+        assert elapsed < timeout, f'Waited too long (more than {timeout:.3f} sec) for download'
+        sleep(0.1)
+        i += 1
 
 
 def download_from_s3(remote: str, local: str, timeout: float) -> None:
@@ -35,18 +54,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
 
     config = Config(read_timeout=timeout)
     s3 = boto3.client('s3', config=config)
-    local_tmp = local + '.tmp'
-    try:
-        s3.download_file(obj.netloc, obj.path[1:], local_tmp)
-    except FileNotFoundError:
-        if os.path.exists(local_tmp):
-            os.remove(local_tmp)
-        return
-    if os.path.exists(local_tmp):
-        if not os.path.exists(local):
-            os.rename(local_tmp, local)
-        else:
-            os.remove(local_tmp)
+    s3.download_file(obj.netloc, obj.path[1:], local)
 
 
 def download_from_local(remote: str, local: str) -> None:
@@ -87,15 +95,36 @@ def safe_download(remote: str, local: str, max_retries: int = 2, timeout: float 
         max_retries (int, default 2): Number of download attempts before giving up.
         timeout (float, default 60): How long to wait for shard to download before raising an exception.
     """
+    # If we already have the file cached locally, we are done.
     if os.path.exists(local):
         return
 
+    # No local file, so check to see if someone else is currently downloading
+    # the shard. If they are, wait for that download to complete.
+    local_tmp = local + '.tmp'
+    if os.path.exists(local_tmp):
+        wait_for_download(local, timeout)
+        return
+
+    # No temp download file when we checked, so attept to take it ourself. If
+    # that fails, someone beat us to it.
+    local_dir = os.path.dirname(local)
+    os.makedirs(local_dir, exist_ok=True)
+    try:
+        with open(local_tmp, 'xb') as out:
+            out.write(b'')
+    except FileExistsError:
+        wait_for_download(local, timeout)
+        return
+
+    # We took the temp download file. Perform the download, then rename.
     ok = False
     for _ in range(1 + max_retries):
         try:
-            download(remote, local, timeout)
+            download(remote, local_tmp, timeout)
             ok = True
             break
-        except:  # Retry for all causes of failure.
+        except TimeoutError:
             pass
     assert ok
+    os.rename(local_tmp, local)
