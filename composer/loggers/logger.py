@@ -8,7 +8,6 @@ from __future__ import annotations
 import collections.abc
 import operator
 import pathlib
-import textwrap
 import time
 from enum import IntEnum
 from functools import reduce
@@ -154,27 +153,6 @@ class Logger:
                 overwrite=overwrite,
             )
 
-    file_artifact.__doc__ = f"""Log ``file_path`` as an artifact named ``artifact_name``.
-
-        Args:
-            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
-                :class:`LogLevel`.
-            artifact_name (str): A format string for the name of the artifact.
-                
-                The following format variables are available:
-
-                {textwrap.indent(FORMAT_NAME_WITH_DIST_TABLE, prefix='            ')}
-
-            file_path (str | pathlib.Path): A format string for the file path.
-                
-                The following format variables are available:
-
-                {textwrap.indent(FORMAT_NAME_WITH_DIST_TABLE, prefix='            ')}
-            
-            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
-                (default: ``False``)
-        """
-
     def symlink_artifact(
         self,
         log_level: Union[str, int, LogLevel],
@@ -194,27 +172,6 @@ class Logger:
                 overwrite=overwrite,
             )
 
-    symlink_artifact.__doc__ = f"""Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
-
-        Args:
-            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
-                :class:`LogLevel`.
-            existing_artifact_name (str): A format string for the name of symlinked artifact.
-                
-                The following format variables are available:
-
-                {textwrap.indent(FORMAT_NAME_WITH_DIST_TABLE, prefix='            ')}
-
-            symlink_artifact_name (str): A format string for the symlink name of artifact.
-                
-                The following format variables are available:
-
-                {textwrap.indent(FORMAT_NAME_WITH_DIST_TABLE, prefix='            ')}
-
-            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
-                (default: ``False``)
-        """
-
     def data_fit(self, data: Dict[str, Any]) -> None:
         """Helper function for ``self.data(LogLevel.FIT, data)``"""
         self.data(LogLevel.FIT, data)
@@ -226,6 +183,43 @@ class Logger:
     def data_batch(self, data: Dict[str, Any]) -> None:
         """Helper function for ``self.data(LogLevel.BATCH, data)``"""
         self.data(LogLevel.BATCH, data)
+
+
+# Monkey patch Logger.file_artifact method docstring
+Logger.file_artifact.__doc__ = f"""
+Log ``file_path`` as an artifact named ``artifact_name``.
+
+Both ``file_path`` and ``artifact_name`` can be specified as format strings.
+The following format variables are available:
+
+{FORMAT_NAME_WITH_DIST_TABLE}
+
+Args:
+    log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
+        :class:`LogLevel`.
+    artifact_name (str): A format string for the name of the artifact.
+    file_path (str | pathlib.Path): A format string for the file path.
+    overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
+        (default: ``False``)
+"""
+
+# Monkey patch Logger.symlink_artifact method docstring
+Logger.symlink_artifact.__doc__ = f"""
+Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
+
+Both ``existing_artifact_name`` and ``symlink_artifact_name`` can be specified as format strings.
+The following format variables are available:
+
+{FORMAT_NAME_WITH_DIST_TABLE}
+
+Args:
+    log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
+        :class:`LogLevel`.
+    existing_artifact_name (str): A format string for the name of symlinked artifact.
+    symlink_artifact_name (str): A format string for the symlink name of artifact.
+    overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
+        (default: ``False``)
+    """
 
 
 def format_log_data_value(data: Any) -> str:
