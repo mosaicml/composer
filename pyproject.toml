@@ -96,6 +96,10 @@ filterwarnings = [
     'ignore:MalformedYAMLWarning:UserWarning',
     # Ignore a bug in the pytorch dataloader
     '''ignore:Exception ignored in. <function _MultiProcessingDataLoaderIter.__del__:pytest.PytestUnraisableExceptionWarning''',
+    # Ignore torchvision complaining about no c libraries (happens in the conda build)
+    'ignore:Failed to load image Python extension:UserWarning',
+    # Ignore a deprecation warning in the conda build
+    'ignore:distutils Version classes are deprecated:DeprecationWarning',
 ]
 timeout_func_only = true  # exclude fixtures from the timeout
 
