@@ -81,7 +81,7 @@ _default_settings: Dict[Callable, _CallbackConfig] = {
         _CallbackConfig(
             kwargs={},
             marks=[
-                pytest.mark.filterwarnings(r'ignore:unclosed file:pytest.PytestUnraisableExceptionWarning'),
+                pytest.mark.filterwarnings(r'ignore:unclosed file:ResourceWarning'),
                 pytest.mark.skipif(not _WANDB_INSTALLED, reason="Wandb is optional"),
             ],
         ),
