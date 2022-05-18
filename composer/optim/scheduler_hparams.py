@@ -3,14 +3,19 @@
 
 """Hyperparameters for schedulers."""
 
-from composer.optim.scheduler import (ConstantScheduler, CosineAnnealingScheduler, CosineAnnealingWarmRestartsScheduler,
-                                      CosineAnnealingWithWarmupScheduler, ExponentialScheduler, LinearScheduler,
-                                      LinearWithWarmupScheduler, MultiStepScheduler, MultiStepWithWarmupScheduler,
-                                      PolynomialScheduler, StepScheduler)
+from typing import Dict, Type, Union
+
+import yahp as hp
+
+from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, CosineAnnealingScheduler,
+                                      CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
+                                      ExponentialScheduler, LinearScheduler, LinearWithWarmupScheduler,
+                                      MultiStepScheduler, MultiStepWithWarmupScheduler, PolynomialScheduler,
+                                      StepScheduler)
 
 __all__ = ["scheduler_registry"]
 
-scheduler_registry = {
+scheduler_registry: Dict[str, Union[Type[ComposerScheduler], Type[hp.AutoInitializedHparams]]] = {
     "step": StepScheduler,
     "multistep": MultiStepScheduler,
     "exponential": ExponentialScheduler,

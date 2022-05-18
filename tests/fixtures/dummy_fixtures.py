@@ -14,9 +14,7 @@ from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.models import ModelHparams
 from composer.optim import ExponentialScheduler
 from composer.optim.optimizer_hparams import AdamHparams
-from composer.trainer import TrainerHparams
-from composer.trainer.devices import CPUDeviceHparams
-from composer.trainer.trainer_hparams import dataset_registry, model_registry
+from composer.trainer.trainer_hparams import TrainerHparams, dataset_registry, model_registry
 from tests.common import RandomClassificationDatasetHparams, SimpleModel, SimpleModelHparams
 
 
@@ -149,7 +147,7 @@ def composer_trainer_hparams(
 ) -> TrainerHparams:
     return TrainerHparams(
         algorithms=[],
-        optimizer=AdamHparams(),
+        optimizers=AdamHparams(),
         schedulers=[ExponentialScheduler(gamma=0.9)],
         max_duration="2ep",
         precision=Precision.FP32,
@@ -163,7 +161,6 @@ def composer_trainer_hparams(
             pin_memory=False,
             timeout=0.0,
         ),
-        device=CPUDeviceHparams(),
         model=dummy_model_hparams,
         val_dataset=dummy_val_dataset_hparams,
         train_dataset=dummy_train_dataset_hparams,

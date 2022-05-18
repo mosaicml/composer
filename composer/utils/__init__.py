@@ -9,7 +9,7 @@ from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files,
                                          format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
 from composer.utils.iter_helpers import ensure_tuple, iterate_with_pbar, map_collection
-from composer.utils.object_store import ObjectStore, ObjectStoreHparams
+from composer.utils.object_store import ObjectStore
 from composer.utils.string_enum import StringEnum
 
 __all__ = [
@@ -18,7 +18,6 @@ __all__ = [
     'map_collection',
     'get_file',
     'ObjectStore',
-    'ObjectStoreHparams',
     "MissingConditionalImportError",
     "import_object",
     'StringEnum',

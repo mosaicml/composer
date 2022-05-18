@@ -12,7 +12,7 @@ val_dataset:
     is_train: false
     shuffle: false
     drop_last: false
-optimizer:
+optimizers:
   decoupled_sgdw:
     lr: 2.048
     momentum: 0.875
@@ -33,8 +33,6 @@ max_duration: 90ep
 train_batch_size: 2048
 eval_batch_size: 2048
 seed: 17
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
@@ -42,4 +40,3 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
-precision: amp

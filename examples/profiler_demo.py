@@ -49,7 +49,7 @@ trainer = Trainer(model=model,
                   precision="amp" if torch.cuda.is_available() else "fp32",
                   train_subset_num_batches=16,
                   profiler=Profiler(
-                      trace_handlers=JSONTraceHandler(folder=composer_trace_dir, overwrite=True),
+                      trace_handlers=[JSONTraceHandler(folder=composer_trace_dir, overwrite=True)],
                       schedule=cyclic_schedule(
                           wait=0,
                           warmup=1,

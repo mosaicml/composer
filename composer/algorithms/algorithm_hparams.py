@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import List, Optional, Type
+from typing import Dict, List, Optional, Type, Union
 
 import yahp as hp
 
@@ -32,7 +32,7 @@ from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.swa import SWA
 from composer.core.algorithm import Algorithm
 
-algorithm_registry = {
+algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.AutoInitializedHparams]]] = {
     'blurpool': BlurPool,
     'channels_last': ChannelsLast,
     'seq_length_warmup': SeqLengthWarmup,
@@ -59,7 +59,8 @@ algorithm_registry = {
 }
 
 
-def load(algorithm_cls: Type[Algorithm], alg_params: Optional[str]) -> Algorithm:
+def load(algorithm_cls: Union[Type[Algorithm], Type[hp.AutoInitializedHparams]],
+         alg_params: Optional[str]) -> Algorithm:
     inverted_registry = {v: k for (k, v) in algorithm_registry.items()}
     alg_name = inverted_registry[algorithm_cls]
     alg_folder = os.path.join(os.path.dirname(composer.__file__), "yamls", "algorithms")
@@ -67,7 +68,9 @@ def load(algorithm_cls: Type[Algorithm], alg_params: Optional[str]) -> Algorithm
         hparams_file = os.path.join(alg_folder, f"{alg_name}.yaml")
     else:
         hparams_file = os.path.join(alg_folder, alg_name, f"{alg_params}.yaml")
-    return hp.create(algorithm_cls, f=hparams_file, cli_args=False)
+    alg = hp.create(algorithm_cls, f=hparams_file, cli_args=False)
+    assert isinstance(alg, Algorithm)
+    return alg
 
 
 def load_multiple(cls, *algorithms: str) -> List[Algorithm]:

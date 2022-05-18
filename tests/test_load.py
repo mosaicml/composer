@@ -8,10 +8,11 @@ from typing import List
 import pytest
 
 import composer
-import composer.trainer as trainer
+from composer import Trainer
 from composer.algorithms.algorithm_hparams import algorithm_registry, load_multiple
 from composer.core.precision import Precision
-from composer.trainer.devices import CPUDeviceHparams
+from composer.trainer.devices.device_cpu import DeviceCPU
+from composer.trainer.trainer_hparams import TrainerHparams
 from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
 
 modeldir_path = os.path.join(os.path.dirname(composer.__file__), 'yamls', 'models')
@@ -83,7 +84,7 @@ def test_load(model_name: str):
         pytest.importorskip("mmcv")
         pytest.skip(f"Model {model_name} requires GPU")
 
-    trainer_hparams = trainer.load(model_name)
+    trainer_hparams = TrainerHparams.load(model_name)
     trainer_hparams.precision = Precision.FP32
     trainer_hparams.algorithms = load_multiple(*get_model_algs(model_name))
 
@@ -109,7 +110,7 @@ def test_load(model_name: str):
 
     configure_model_hparams_for_synthetic(trainer_hparams.model)
 
-    trainer_hparams.device = CPUDeviceHparams()
+    trainer_hparams.device = DeviceCPU()
     my_trainer = trainer_hparams.initialize_object()
 
-    assert isinstance(my_trainer, trainer.Trainer)
+    assert isinstance(my_trainer, Trainer)

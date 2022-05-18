@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from composer.utils.object_store import ObjectStoreHparams
+from composer.utils.object_store_hparams import ObjectStoreHparams
 
 
 def test_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):

@@ -2,164 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Utility for uploading to and downloading from cloud object stores."""
-import dataclasses
 import os
 import sys
 import tempfile
-import textwrap
 import uuid
 from typing import Any, Dict, Iterator, Optional, Union
 
-import yahp as hp
 from libcloud.storage.providers import get_driver
 from libcloud.storage.types import ObjectDoesNotExistError
 
-__all__ = ["ObjectStoreHparams", "ObjectStore"]
-
-
-@dataclasses.dataclass
-class ObjectStoreHparams(hp.Hparams):
-    """:class:`~composer.utils.object_store.ObjectStore` hyperparameters.
-
-    .. rubric:: Example
-
-    Here's an example on how to connect to an Amazon S3 bucket. This example assumes:
-
-    * The container is named named ``MY_CONTAINER``.
-    * The AWS Access Key ID is stored in an environment variable named ``AWS_ACCESS_KEY_ID``.
-    * The Secret Access Key is in an environmental variable named ``AWS_SECRET_ACCESS_KEY``.
-
-    .. testsetup:: composer.utils.object_store.ObjectStoreHparams.__init__.s3
-
-        import os
-
-        os.environ["AWS_ACCESS_KEY_ID"] = "key"
-        os.environ["AWS_SECRET_ACCESS_KEY"] = "secret"
-
-    .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.s3
-
-        >>> from composer.utils import ObjectStoreHparams
-        >>> provider_hparams = ObjectStoreHparams(
-        ...     provider="s3",
-        ...     container="MY_CONTAINER",
-        ...     key_environ="AWS_ACCESS_KEY_ID",
-        ...     secret_environ="AWS_SECRET_ACCESS_KEY",
-        ... )
-        >>> provider = provider_hparams.initialize_object()
-        >>> provider
-        <composer.utils.object_store.ObjectStore object at ...>
-
-    Args:
-        provider (str): Cloud provider to use.
-
-            See :class:`ObjectStore` for documentation.
-        container (str): The name of the container (i.e. bucket) to use.
-        key_environ (str, optional): The name of an environment variable containing the API key or username
-            to use to connect to the provider. If no key is required, then set this field to ``None``.
-            (default: ``None``)
-
-            For security reasons, composer requires that the key be specified via an environment variable.
-            For example, if your key is an environment variable called ``OBJECT_STORE_KEY`` that is set to ``MY_KEY``,
-            then you should set this parameter equal to ``OBJECT_STORE_KEY``. Composer will read the key like this:
-
-            .. testsetup::  composer.utils.object_store.ObjectStoreHparams.__init__.key
-
-                import os
-                import functools
-                from composer.utils import ObjectStoreHparams
-
-                os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
-                ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")
-
-            .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.key
-
-                >>> import os
-                >>> params = ObjectStoreHparams(key_environ="OBJECT_STORE_KEY")
-                >>> key = os.environ[params.key_environ]
-                >>> key
-                'MY_KEY'
-
-        secret_environ (str, optional): The name of an environment variable containing the API secret  or password
-            to use for the provider. If no secret is required, then set this field to ``None``. (default: ``None``)
-
-            For security reasons, composer requires that the secret be specified via an environment variable.
-            For example, if your secret is an environment variable called ``OBJECT_STORE_SECRET`` that is set to ``MY_SECRET``,
-            then you should set this parameter equal to ``OBJECT_STORE_SECRET``. Composer will read the secret like this:
-
-            .. testsetup:: composer.utils.object_store.ObjectStoreHparams.__init__.secret
-
-                import os
-                import functools
-                from composer.utils import ObjectStoreHparams
-
-                original_secret = os.environ.get("OBJECT_STORE_SECRET")
-                os.environ["OBJECT_STORE_SECRET"] = "MY_SECRET"
-                ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")
-
-
-            .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.secret
-
-                >>> import os
-                >>> params = ObjectStoreHparams(secret_environ="OBJECT_STORE_SECRET")
-                >>> secret = os.environ[params.secret_environ]
-                >>> secret
-                'MY_SECRET'
-
-        region (str, optional): Cloud region to use for the cloud provider.
-            Most providers do not require the region to be specified. (default: ``None``)
-        host (str, optional): Override the hostname for the cloud provider. (default: ``None``)
-        port (int, optional): Override the port for the cloud provider. (default: ``None``)
-        extra_init_kwargs (Dict[str, Any], optional): Extra keyword arguments to pass into the constructor
-            for the specified provider. (default: ``None``, which is equivalent to an empty dictionary)
-
-            .. seealso:: :class:`libcloud.storage.base.StorageDriver`
-
-    """
-
-    provider: str = hp.required("Cloud provider to use.")
-    container: str = hp.required("The name of the container (i.e. bucket) to use.")
-    key_environ: Optional[str] = hp.optional(textwrap.dedent("""\
-        The name of an environment variable containing
-        an API key or username to use to connect to the provider."""),
-                                             default=None)
-    secret_environ: Optional[str] = hp.optional(textwrap.dedent("""\
-        The name of an environment variable containing
-        an API secret or password to use to connect to the provider."""),
-                                                default=None)
-    region: Optional[str] = hp.optional("Cloud region to use", default=None)
-    host: Optional[str] = hp.optional("Override hostname for connections", default=None)
-    port: Optional[int] = hp.optional("Override port for connections", default=None)
-    extra_init_kwargs: Dict[str, Any] = hp.optional(
-        "Extra keyword arguments to pass into the constructor for the specified provider.", default_factory=dict)
-
-    def get_provider_kwargs(self) -> Dict[str, Any]:
-        """Returns the ``provider_kwargs`` argument, which is used to construct a :class:`.ObjectStore`.
-
-        Returns:
-            Dict[str, Any]: The ``provider_kwargs`` for use in constructing an :class:`.ObjectStore`.
-        """
-        init_kwargs = {}
-        for key in ("host", "port", "region"):
-            kwarg = getattr(self, key)
-            if getattr(self, key) is not None:
-                init_kwargs[key] = kwarg
-        init_kwargs["key"] = None if self.key_environ is None else os.environ[self.key_environ]
-        init_kwargs["secret"] = None if self.secret_environ is None else os.environ[self.secret_environ]
-        init_kwargs.update(self.extra_init_kwargs)
-        return init_kwargs
-
-    def initialize_object(self):
-        """Returns an instance of :class:`.ObjectStore`.
-
-        Returns:
-            ObjectStore: The object_store.
-        """
-
-        return ObjectStore(
-            provider=self.provider,
-            container=self.container,
-            provider_kwargs=self.get_provider_kwargs(),
-        )
+__all__ = ["ObjectStore"]
 
 
 class ObjectStore:

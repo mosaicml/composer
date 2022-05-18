@@ -24,13 +24,14 @@ from composer.datasets import DatasetHparams, SyntheticHparamsMixin
 from composer.loggers import ObjectStoreLogger
 from composer.optim import CosineAnnealingScheduler
 from composer.optim.optimizer_hparams import AdamWHparams
-from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
+from composer.trainer.devices import Device, DeviceGPU
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import ObjectStoreHparams, dist, is_tar
+from composer.utils import dist, is_tar
 from composer.utils.iter_helpers import ensure_tuple
+from composer.utils.object_store_hparams import ObjectStoreHparams
 from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
-                          configure_model_hparams_for_synthetic, deep_compare)
+                          configure_model_hparams_for_synthetic, deep_compare, device)
 
 
 class DummyStatefulCallback(Callback):
@@ -111,9 +112,7 @@ def assert_checkpoints_equivalent(
             # TODO manually compare the model and optimizer states
 
 
-def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, device_hparams: DeviceHparams,
-                                   checkpoint_folder: str):
-    composer_trainer_hparams.device = device_hparams
+def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, checkpoint_folder: str):
     composer_trainer_hparams.grad_accum = 2
     composer_trainer_hparams.loggers = []
     composer_trainer_hparams.train_batch_size = 8
@@ -131,12 +130,9 @@ def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, dev
 
 
 @pytest.mark.timeout(90)
-@pytest.mark.parametrize("device_hparams", [
-    pytest.param(CPUDeviceHparams(), id="cpu"),
-    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
-])
+@device('cpu', 'gpu')
 def test_load_weights(
-    device_hparams: DeviceHparams,
+    device: str,
     composer_trainer_hparams: TrainerHparams,
 ):
     """strategy:
@@ -152,8 +148,7 @@ def test_load_weights(
         return
     checkpoint_a_folder = "first"
     final_checkpoint = "ep2.pt"
-    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, device_hparams,
-                                                              checkpoint_a_folder)
+    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, checkpoint_a_folder)
 
     second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
     _test_checkpoint_trainer(composer_trainer_hparams)
@@ -167,7 +162,7 @@ def test_load_weights(
     second_trainer_hparams.load_weights_only = True
     second_trainer_hparams.load_strict_model_weights = True
     # setup a new optimizer
-    second_trainer_hparams.optimizer = AdamWHparams()
+    second_trainer_hparams.optimizers = AdamWHparams()
 
     # setup a new LR scheduler
     assert isinstance(second_trainer_hparams.max_duration, str)
@@ -186,21 +181,17 @@ def test_load_weights(
 
 
 @pytest.mark.timeout(90)
-@pytest.mark.parametrize("device_hparams", [
-    pytest.param(CPUDeviceHparams(), id="cpu"),
-    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
-])
+@device('cpu', 'gpu')
 @pytest.mark.parametrize(
     "use_object_store,delete_local_checkpoint",
     [pytest.param(False, False), pytest.param(True, False),
      pytest.param(True, True)])
 def test_autoresume(
-    device_hparams: DeviceHparams,
+    device: str,
     composer_trainer_hparams: TrainerHparams,
     use_object_store: bool,
     delete_local_checkpoint: bool,
     tmp_path: pathlib.Path,
-    monkeypatch: pytest.MonkeyPatch,
     use_procs: bool = False,
 ):
     """strategy:
@@ -208,6 +199,7 @@ def test_autoresume(
     - create a new trainer with autoresume=True.
     - assert that the model weights are the original model even though load_path is not set.
     """
+    del device  # unused. Set automatically
     if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
@@ -219,8 +211,7 @@ def test_autoresume(
     middle_checkpoint = "ep1.pt"
     final_checkpoint = "ep2.pt"
     latest_checkpoint = composer_trainer_hparams.save_latest_filename.format(rank=dist.get_global_rank())
-    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, device_hparams,
-                                                              checkpoint_a_folder)
+    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, checkpoint_a_folder)
     composer_trainer_hparams.run_name = "big-chungus"
     second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
     # Add object store logger
@@ -270,16 +261,13 @@ def test_autoresume(
 
 
 @pytest.mark.timeout(90)
-@pytest.mark.parametrize("device_hparams", [
-    pytest.param(CPUDeviceHparams(), id="cpu"),
-    pytest.param(GPUDeviceHparams(), id="gpu", marks=pytest.mark.gpu),
-])
+@device('cpu', 'gpu')
 @pytest.mark.parametrize("save_overwrite", [
     True,
     False,
 ])
 def test_save_overwrite(
-    device_hparams: DeviceHparams,
+    device: Device,
     composer_trainer_hparams: TrainerHparams,
     save_overwrite: bool,
 ):
@@ -298,8 +286,7 @@ def test_save_overwrite(
     checkpoint_a_folder = "first"
     middle_checkpoint = "ep1.pt"
     final_checkpoint = "ep2.pt"
-    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, device_hparams,
-                                                              checkpoint_a_folder)
+    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, checkpoint_a_folder)
     composer_trainer_hparams.save_overwrite = save_overwrite
     middle_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
     final_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
@@ -345,7 +332,6 @@ def test_checkpoint_with_object_store_logger(
     final_checkpoint = "ep2.pt"
     composer_trainer_hparams = get_two_epoch_composer_hparams(
         composer_trainer_hparams,
-        CPUDeviceHparams(),
         checkpoint_a_folder,
     )
 
@@ -422,11 +408,11 @@ def test_checkpoint_with_object_store_logger(
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
 @pytest.mark.parametrize("device_hparams,deepspeed_enabled,zero_stage", [
-    pytest.param(CPUDeviceHparams(), False, None, id="cpu-ddp"),
-    pytest.param(GPUDeviceHparams(), False, None, id="gpu-ddp", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, 0, id="deepspeed-zero0", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, 1, id="deepspeed-zero1", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
+    pytest.param('cpu', False, None, id="cpu-ddp"),
+    pytest.param('gpu', False, None, id="gpu-ddp", marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 0, id="deepspeed-zero0", marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 1, id="deepspeed-zero1", marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 2, id="deepspeed-zero2", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize(
     "seed,save_interval,save_filename,resume_file,final_checkpoint",
@@ -447,7 +433,7 @@ def test_checkpoint_with_object_store_logger(
     pytest.param("gpt2_52m", marks=pytest.mark.daily),
 ])
 def test_checkpoint(
-    device_hparams: DeviceHparams,
+    device_hparams: Device,
     world_size: int,
     deepspeed_enabled: bool,
     zero_stage: Optional[int],
@@ -467,7 +453,7 @@ def test_checkpoint(
     """
     del world_size  # unused. Read via env variable
 
-    if not isinstance(device_hparams, GPUDeviceHparams) and deepspeed_enabled:
+    if not isinstance(device_hparams, DeviceGPU) and deepspeed_enabled:
         pytest.skip("DeepSpeed tests must be ran on GPU")
 
     if deepspeed_enabled:
@@ -477,13 +463,13 @@ def test_checkpoint(
             final_checkpoint += ".tar"
 
     if model_name is not None:
-        if not isinstance(device_hparams, GPUDeviceHparams):
+        if not isinstance(device_hparams, DeviceGPU):
             pytest.skip("Real models require a GPU -- otherwise they take too long")
         model_hparams = TrainerHparams.load(model_name)
         composer_trainer_hparams.train_dataset = model_hparams.train_dataset
         composer_trainer_hparams.val_dataset = model_hparams.val_dataset
         composer_trainer_hparams.model = model_hparams.model
-        composer_trainer_hparams.optimizer = model_hparams.optimizer
+        composer_trainer_hparams.optimizers = model_hparams.optimizers
         composer_trainer_hparams.schedulers = model_hparams.schedulers
 
     if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
@@ -524,7 +510,7 @@ def test_checkpoint(
                         Skipping test since deterministic mode is required for
                         non-trivial models, but deterministic mode isn't compatible with deepspeed
                         zero stage {zero_stage}"""))
-        composer_trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
+        composer_trainer_hparams.deepspeed_config = {"zero_optimization": {"stage": zero_stage}}
 
     checkpoint_a_folder = str(tmp_path / "first")
     composer_trainer_hparams.save_folder = checkpoint_a_folder

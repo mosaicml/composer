@@ -19,7 +19,7 @@ import warnings
 from typing import Type
 
 from composer.loggers.logger import LogLevel
-from composer.trainer import TrainerHparams
+from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 
 

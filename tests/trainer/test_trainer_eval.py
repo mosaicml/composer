@@ -9,7 +9,8 @@ from composer.core.evaluator import Evaluator
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.trainer import Trainer, TrainerHparams
+from composer.trainer import Trainer
+from composer.trainer.trainer_hparams import TrainerHparams
 from tests.common import EventCounterCallback, RandomClassificationDataset, SimpleModel
 from tests.common.datasets import RandomClassificationDatasetHparams
 

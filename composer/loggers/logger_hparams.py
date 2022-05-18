@@ -10,16 +10,18 @@ Attributes:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional, Type, Union
 
 import yahp as hp
 
 from composer.loggers.file_logger import FileLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.utils import ObjectStoreHparams, import_object
+from composer.utils import import_object
+from composer.utils.object_store_hparams import ObjectStoreHparams
 
 __all__ = [
     "ObjectStoreLoggerHparams",
@@ -71,7 +73,7 @@ class ObjectStoreLoggerHparams(hp.AutoInitializedHparams):
         )
 
 
-logger_registry = {
+logger_registry: Dict[str, Union[Type[LoggerDestination], Type[hp.AutoInitializedHparams]]] = {
     "file": FileLogger,
     "wandb": WandBLogger,
     "progress_bar": ProgressBarLogger,

@@ -11,7 +11,7 @@ from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger, LogLevel
 from composer.loggers.logger_hparams import ObjectStoreLoggerHparams
-from composer.utils.object_store import ObjectStoreHparams
+from composer.utils.object_store_hparams import ObjectStoreHparams
 
 
 def my_filter_func(state: State, log_level: LogLevel, artifact_name: str):

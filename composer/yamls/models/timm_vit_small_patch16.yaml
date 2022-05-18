@@ -14,7 +14,7 @@ val_dataset:
     datadir: /datasets/ImageNet
     shuffle: false
     drop_last: false
-optimizer:
+optimizers:
   adamw:
     lr: 3e-3
     betas:
@@ -34,8 +34,6 @@ max_duration: 300ep
 train_batch_size: 4096
 eval_batch_size: 512
 seed: 1337
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
@@ -44,4 +42,3 @@ dataloader:
   num_workers: 8
 grad_accum: 8
 grad_clip_norm: 1.0
-precision: amp

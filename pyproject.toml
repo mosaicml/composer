@@ -95,7 +95,7 @@ filterwarnings = [
     # Ignore malformed yaml warnings coming from yahp
     'ignore:MalformedYAMLWarning:UserWarning',
     # Ingore validate is deprecated warnings. TODO Need to manually remove on hparams.validate functionality
-    'ignore:validate\(\) is deprecated:DeprecationWarning',
+    'ignore:.*Instead, perform any validation directly in initialize_object\(\):DeprecationWarning',
     # Ignore a bug in the pytorch dataloader
     '''ignore:Exception ignored in. <function _MultiProcessingDataLoaderIter.__del__:pytest.PytestUnraisableExceptionWarning''',
 ]
