@@ -125,7 +125,7 @@ class TestWithMLPerfChecker:
             mlperf_callback = MLPerfCallback(
                 root_folder=directory,
                 index=run,
-                cache_clear_cmd=['sleep', '0.1'],
+                cache_clear_cmd='sleep 0.1',
             )
 
             trainer = Trainer(

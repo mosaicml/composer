@@ -253,7 +253,8 @@ class MLPerfCallbackHparams(CallbackHparams):
         "Command to invoke during the cache clear. This callback will call subprocess(cache_clear_cmd). Default: Disabled.",
         default=None,
     )
-    host_processors_per_node: Optional[int] = hp.optional("Total number of host processors per node.  Default: ``None``.", default=None)
+    host_processors_per_node: Optional[int] = hp.optional(
+        "Total number of host processors per node.  Default: ``None``.", default=None)
 
     def initialize_object(self) -> MLPerfCallback:
         """Initialize the MLPerf Callback.
