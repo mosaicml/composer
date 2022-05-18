@@ -17,6 +17,7 @@ from tests.common import RandomClassificationDataset, SimpleModel
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
+@pytest.mark.timeout(10)
 def test_progress_bar_logger(monkeypatch: MonkeyPatch, world_size: int):
     is_train_to_mock_tqdms = {
         True: [],
