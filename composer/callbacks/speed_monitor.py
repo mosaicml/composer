@@ -49,8 +49,11 @@ class SpeedMonitor(Callback):
     | Key                   | Logged data                                                 |
     +=======================+=============================================================+
     |                       | Rolling average (over ``window_size`` most recent           |
-    | ``throughput/step``   | batches) of the number of samples processed per second      |
+    | ``samples/step``      | batches) of the number of samples processed per second      |
     |                       |                                                             |
+    +-----------------------+-------------------------------------------------------------+
+    |                       | Number of samples processed per second (averaged over       |
+    | ``samples/epoch``     | an entire epoch)                                            |
     +-----------------------+-------------------------------------------------------------+
     |``wall_clock/train``   | Total elapsed training time                                 |
     +-----------------------+-------------------------------------------------------------+
