@@ -35,10 +35,18 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
 
     config = Config(read_timeout=timeout)
     s3 = boto3.client('s3', config=config)
+    local_tmp = local + '.tmp'
     try:
-        s3.download_file(obj.netloc, obj.path[1:], local)
+        s3.download_file(obj.netloc, obj.path[1:], local_tmp)
     except FileNotFoundError:
-        pass
+        if os.path.exists(local_tmp):
+            os.remove(local_tmp)
+        return
+    if os.path.exists(local_tmp):
+        if not os.path.exists(local):
+            os.rename(local_tmp, local)
+        else:
+            os.remove(local_tmp)
 
 
 def download_from_local(remote: str, local: str) -> None:
