@@ -258,9 +258,11 @@ def test_autoresume(
     second_trainer_hparams.load_path = middle_checkpoint
 
     # pass in the two trainers, verify that the weights are the same
-    assert_checkpoints_equivalent(
-        os.path.join(checkpoint_a_folder, latest_checkpoint),
-        os.path.join(checkpoint_b_folder, latest_checkpoint),
+    assert_weights_equivalent(
+        original_trainer_hparams=composer_trainer_hparams,
+        new_trainer_hparams=second_trainer_hparams,
+        overwrite_load_path=False,
+        save_overwrite=False,
     )
 
 
