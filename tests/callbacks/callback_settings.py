@@ -122,6 +122,20 @@ def _to_pytest_param(impl: Callable):
 
 
 def get_callback_parametrization():
+    """Returns a list of :class:`pytest.mark.param` objects for all :class:`.Callback`.
+    The callbacks are correctly annotated with ``skipif`` marks for optional dependencies
+    and ``filterwarning`` marks for any warnings that might be emitted and are safe to ignore
+
+    This function is meant to be used like this::
+
+        import pytest
+        from tests.callbacks.callback_settings import get_callback_parametrization
+
+        @pytest.mark.parametrize("cb_cls,cb_kwargs",get_callback_parametrization())
+        def test_something(cb_cls: Callable[..., Callback], cb_kwargs: Dict[str, Any]):
+            cb = cb_cls(**cb_kwargs)
+            assert isinstance(cb, Callback)
+    """
     implementations = [
         *get_all_subclasses_in_module(composer.callbacks, Callback),
         *get_all_subclasses_in_module(composer.loggers, LoggerDestination),
@@ -132,6 +146,22 @@ def get_callback_parametrization():
 
 
 def get_callback_registry_parameterization():
+    """Returns a list of :class:`pytest.mark.param` objects for all ``callback_registry``
+    and ``logger_registry``entries.
+
+    The callbacks are correctly annotated with ``skipif`` marks for optional dependencies
+    and ``filterwarning`` marks for any warnings that might be emitted and are safe to ignore
+
+    This function is meant to be used like this::
+
+        import pytest
+        from tests.common import assert_is_constructable_from_yaml
+        from tests.callbacks.callback_settings import get_callback_registry_parameterization
+
+        @pytest.mark.parametrize("constructor,yaml_dict",get_callback_registry_parameterization())
+        def test_something(constructor: Callable, yaml_dict: Dict[str, Any]):
+            assert_is_constructable_from_yaml(constructor, yaml_dict=yaml_dict)
+    """
     implementations = [
         *callback_registry.values(),
         *logger_registry.values(),

@@ -21,7 +21,7 @@ def assert_is_constructable_from_yaml(
     yaml_dict = yaml.safe_load(yaml.safe_dump(yaml_dict))
     instance = hp.create(constructor, yaml_dict, cli_args=False)
     if expected is not None:
-        if isinstance(expected, type):
+        if isinstance(expected, (type, tuple)):
             assert isinstance(instance, expected)
         else:
             assert instance == expected

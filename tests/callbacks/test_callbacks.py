@@ -71,7 +71,6 @@ class TestCallbacks:
             pytest.skip(
                 f"Callback {cb_cls.__name__} does not have a registry entry as it should not be constructed directly")
         joint_registry = {**callback_registry, **logger_registry}
-        print(joint_registry)
         assert_registry_contains_entry(cb_cls, registry=joint_registry)
 
     def test_multiple_fit_start_and_end(self, cb_cls: Callable[..., Callback], cb_kwargs: Dict[str, Any],
