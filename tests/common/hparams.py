@@ -24,7 +24,7 @@ def assert_is_constructable_from_yaml(
     # TODO(ravi) change the following line to using the `hp.create` syntax
     instance = constructor.create(data=yaml_dict, cli_args=False)
     if expected is not None:
-        if isinstance(expected, type):
+        if isinstance(expected, (type, tuple)):
             assert isinstance(instance, expected)
         else:
             assert instance == expected

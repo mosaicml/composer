@@ -18,10 +18,10 @@ __all__ = ["SpeedMonitor"]
 class SpeedMonitor(Callback):
     """Logs the training throughput.
 
-    The training throughput in terms of number of samples per second is logged on the
-    :attr:`~composer.core.event.Event.BATCH_END` event if we have reached the ``window_size`` threshold.  Per epoch
-    average throughput and wall clock train, validation, and total time is also logged on the
-    :attr:`~composer.core.event.Event.EPOCH_END` event.
+    The training throughput in terms of number of samples per second is logged on
+    the :attr:`~composer.core.event.Event.BATCH_END` event if we have reached the ``window_size`` threshold. Per epoch
+    average throughput and wall clock train, validation, and total time is also logged on
+    the :attr:`~composer.core.event.Event.EPOCH_END` event.
 
     Example
 
@@ -49,11 +49,11 @@ class SpeedMonitor(Callback):
     | Key                   | Logged data                                                 |
     +=======================+=============================================================+
     |                       | Rolling average (over ``window_size`` most recent           |
-    | ``throughput/step``   | batches) of the number of samples processed per second      |
+    | ``samples/step``      | batches) of the number of samples processed per second      |
     |                       |                                                             |
     +-----------------------+-------------------------------------------------------------+
     |                       | Number of samples processed per second (averaged over       |
-    | ``throughput/epoch``  | an entire epoch)                                            |
+    | ``samples/epoch``     | an entire epoch)                                            |
     +-----------------------+-------------------------------------------------------------+
     |``wall_clock/train``   | Total elapsed training time                                 |
     +-----------------------+-------------------------------------------------------------+
@@ -63,8 +63,8 @@ class SpeedMonitor(Callback):
     +-----------------------+-------------------------------------------------------------+
 
     Args:
-        window_size (int, optional):
-            Number of batches to use for a rolling average of throughput. Default to 100.
+        window_size (int, optional): Number of batches to use for a rolling average of throughput.
+            Default to 100.
     """
 
     def __init__(self, window_size: int = 100):
