@@ -106,13 +106,39 @@ def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, t
     remote, local = remote_local
     write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
-    shutil.copy(os.path.join(remote, "index.mds"), os.path.join(local, "index.mds.tmp"))
-    shutil.copy(os.path.join(remote, "000003.mds"), os.path.join(local, "000003.mds.tmp"))
+    shutil.copy(os.path.join(remote, "index.mds"), os.path.join(local, "index.mds"))
+    shutil.copy(os.path.join(remote, "000003.mds"), os.path.join(local, "000003.mds"))
     time.sleep(created_ago)
     dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders, timeout=timeout)
 
     # Iterate over dataset and make sure there are no TimeoutErrors
     for _ in dataset:
+        pass
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.parametrize("num_workers", [10])
+def test_shutil_race(remote_local: Tuple[str, str], num_workers: int):
+    num_samples = 31
+    shard_size_limit = 1 << 8
+    samples, decoders = get_fake_samples_decoders(num_samples)
+    remote, local = remote_local
+    write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
+    assert len(os.listdir(remote)) == 5, "Expected 5 files == 4 shards + 1 index"
+    batch_size = 1
+
+    # Build StreamingDataset
+    dataset = StreamingDataset(remote=remote, local=local, shuffle=True, decoders=decoders, batch_size=batch_size)
+
+    # Build DataLoader
+    dataloader = DataLoader(dataset=dataset,
+                            batch_size=batch_size,
+                            num_workers=num_workers,
+                            drop_last=True,
+                            persistent_workers=False)
+
+    # Iterate over dataset and make sure there are no errors
+    for _ in dataloader:
         pass
 
 
