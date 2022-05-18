@@ -7,27 +7,9 @@
 import os
 import shutil
 import textwrap
-from time import sleep, time
 from urllib.parse import urlparse
 
 __all__ = ["safe_download"]
-
-
-def wait_for_download(local: str, timeout: float = 60) -> None:
-    """Block until another worker's shard download completes.
-
-    Args:
-        local (str): Path to file.
-        timeout (float): How long to wait before raising an exception. Default: 60 sec.
-    """
-    start_time = time()
-    while True:
-        if os.path.exists(local):
-            return
-        elapsed = time() - start_time
-        if elapsed > timeout:
-            raise TimeoutError(f'Waited too long (more than {timeout:.3f} sec) for download')
-        sleep(0.1)
 
 
 def download_from_s3(remote: str, local: str) -> None:
@@ -96,7 +78,7 @@ def safe_download(remote: str, local: str) -> None:
         return
 
     ok = False
-    for i in range(3):
+    for _ in range(3):
         try:
             download(remote, local)
             ok = True
