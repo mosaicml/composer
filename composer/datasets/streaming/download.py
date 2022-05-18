@@ -87,6 +87,6 @@ def safe_download(remote: str, local: str, timeout: float) -> None:
             download(remote, local, timeout)
             ok = True
             break
-        except:
+        except:  # Retry for all causes of failure.
             pass
     assert ok
