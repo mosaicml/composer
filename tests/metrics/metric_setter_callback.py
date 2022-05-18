@@ -2,8 +2,7 @@ from typing import Optional, Sequence
 
 import torch
 
-from composer.callbacks import Callback
-from composer.core import State, TimeUnit
+from composer.core import Callback, State, TimeUnit
 from composer.loggers import Logger
 from composer.trainer.devices.device import Device
 

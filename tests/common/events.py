@@ -1,7 +1,6 @@
 from typing import Any, Dict
 
-from composer.callbacks import Callback
-from composer.core import Event, State
+from composer.core import Callback, Event, State
 from composer.loggers import Logger
 
 

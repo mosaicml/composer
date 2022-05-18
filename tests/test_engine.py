@@ -12,9 +12,9 @@ import pytest
 
 import composer
 from composer.algorithms import SelectiveBackprop
-from composer.callbacks.callback import Callback
 from composer.core import Engine, Event
 from composer.core.algorithm import Algorithm
+from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers import Logger
 

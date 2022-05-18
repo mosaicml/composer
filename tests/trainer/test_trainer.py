@@ -13,11 +13,9 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 
-from composer import Trainer
+from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
 from composer.callbacks import LRMonitor
-from composer.callbacks.callback import Callback
-from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit

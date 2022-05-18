@@ -6,9 +6,9 @@ from typing import Any, Callable, Dict
 import pytest
 from torch.utils.data import DataLoader
 
-from composer.callbacks.callback import Callback
 from composer.callbacks.callback_hparams import callback_registry
 from composer.core import Event
+from composer.core.callback import Callback
 from composer.core.engine import Engine
 from composer.core.state import State
 from composer.loggers import Logger

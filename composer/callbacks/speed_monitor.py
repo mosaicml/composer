@@ -8,9 +8,9 @@ import time
 from collections import deque
 from typing import Any, Deque, Dict, Optional
 
-from composer.callbacks.callback import Callback
 from composer.core import State
-from composer.loggers.logger import Logger
+from composer.core.callback import Callback
+from composer.loggers import Logger
 
 __all__ = ["SpeedMonitor"]
 

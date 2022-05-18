@@ -14,9 +14,10 @@ import torch
 from torch.utils.data import DataLoader
 
 import composer
-from composer.callbacks.callback import Callback
 from composer.core import State
-from composer.loggers.logger import Logger, LogLevel
+from composer.core.callback import Callback
+from composer.loggers import Logger
+from composer.loggers.logger import LogLevel
 from composer.utils import dist
 
 try:

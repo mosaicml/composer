@@ -19,9 +19,8 @@ from torchmetrics import Metric, MetricCollection
 
 import composer
 from composer.algorithms.algorithm_hparams import algorithm_registry
-from composer.callbacks import Callback
 from composer.callbacks.callback_hparams import callback_registry
-from composer.core import Algorithm, DataSpec, Evaluator, Event, Precision, State, Time
+from composer.core import Algorithm, Callback, DataSpec, Evaluator, Event, Precision, State, Time
 from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry

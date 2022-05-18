@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Dict, cast
 
 import psutil
 
-from composer.callbacks.callback import Callback
+from composer.core.callback import Callback
 
 if TYPE_CHECKING:
     from composer.core.state import State

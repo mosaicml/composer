@@ -9,7 +9,7 @@ import abc
 import pathlib
 from typing import Dict, List, Tuple, Union
 
-from composer.callbacks.callback import Callback
+from composer.core.callback import Callback
 from composer.core.time import Timestamp
 
 __all__ = ["TraceHandler"]

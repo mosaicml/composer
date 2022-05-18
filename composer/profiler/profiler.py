@@ -9,7 +9,7 @@ import logging
 import pathlib
 from typing import Callable, Dict, List, Sequence, Tuple, Union
 
-from composer.callbacks.callback import Callback
+from composer.core.callback import Callback
 from composer.core.state import State
 from composer.profiler.marker import Marker
 from composer.profiler.profiler_action import ProfilerAction

@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Monitor learning rate during training."""
-from composer.callbacks import Callback
-from composer.core import State
-from composer.loggers.logger import Logger
+from composer.core import Callback, State
+from composer.loggers import Logger
 
 __all__ = ["LRMonitor"]
 

@@ -11,8 +11,8 @@ from composer import optim as optim
 from composer import profiler as profiler
 from composer import trainer as trainer
 from composer import utils as utils
-from composer.callbacks import Callback as Callback
 from composer.core import Algorithm as Algorithm
+from composer.core import Callback as Callback
 from composer.core import DataSpec as DataSpec
 from composer.core import Engine as Engine
 from composer.core import Evaluator as Evaluator
