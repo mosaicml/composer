@@ -5,8 +5,7 @@ import collections.abc
 import contextlib
 import copy
 import os
-import pathlib
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 import pytest
 import torch
@@ -18,22 +17,17 @@ from composer import Trainer
 from composer.algorithms import CutOut, LabelSmoothing
 from composer.callbacks import LRMonitor
 from composer.callbacks.callback import Callback
-from composer.core.algorithm import Algorithm
 from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit
-from composer.core.types import Dataset
 from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
-from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import dist
-from composer.utils.object_store import ObjectStoreHparams
-from tests.algorithms.algorithm_settings import get_algorithm_parametrization
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 from tests.common.events import EventCounterCallback
@@ -803,153 +797,6 @@ class TestTrainerEvents():
             trainer.fit()
 
 
-@pytest.mark.timeout(15)
-class TestTrainerAssets:
-    """The below is a catch-all test that runs the Trainer with each algorithm, callback, and loggers. Success is
-    defined as a successful training run.
-
-    This should eventually be replaced by functional
-    tests for each object, in situ of our trainer.
-
-    We use the hparams_registry associated with our
-    config management to retrieve the objects to test.
-    """
-
-    @pytest.fixture(params=[1, 2], ids=['ga-1', 'ga-2'])
-    def config(self, rank_zero_seed: int, request):
-        grad_accum = request.param
-
-        return {
-            'model': SimpleConvModel(),
-            'train_dataloader': DataLoader(
-                dataset=RandomImageDataset(size=16),
-                batch_size=4,
-            ),
-            'eval_dataloader': DataLoader(
-                dataset=RandomImageDataset(size=16),
-                batch_size=4,
-            ),
-            'max_duration': '2ep',
-            'loggers': [],  # no progress bar
-            'seed': rank_zero_seed,
-            'grad_accum': grad_accum,
-        }
-
-    # Note: Not all algorithms, callbacks, and loggers are compatible
-    #       with the above configuration. The fixtures below filter and
-    #       create the objects to test.
-
-    @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
-    def callback(self, request):
-        name, callback_cls = request.param
-
-        if name in ('mlperf', 'memory_monitor', 'early_stopper', 'threshold_stopper'):
-            pytest.skip(f'{name} callback tested separately.')
-
-        return callback_cls()
-
-    @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
-    def logger(self, request, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-
-        name, hparams = request.param
-
-        remote_dir = str(tmp_path / "remote_dir")
-        os.makedirs(remote_dir)
-        local_dir = str(tmp_path / "local_dir")
-        os.makedirs(local_dir)
-        monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
-        provider_hparams = ObjectStoreHparams(
-            provider='local',
-            key_environ="OBJECT_STORE_KEY",
-            container=".",
-        )
-
-        required_args = {}
-        if name == 'wandb':
-            pytest.importorskip('wandb', reason='Required wandb')
-        if name == 'object_store':
-            required_args['object_store_hparams'] = provider_hparams
-            required_args['use_procs'] = False
-
-        if name == 'object_store_logger':
-            monkeypatch.setenv("KEY_ENVIRON", str(tmp_path))
-
-            logger = hparams(
-                provider='local',
-                container='.',
-                key_environ="KEY_ENVIRON",
-            ).initialize_object()
-        else:
-            logger = hparams(**required_args).initialize_object()
-
-        return logger
-
-    """
-    Tests that training completes.
-    """
-
-    def test_callbacks(self, config, callback):
-        config['callbacks'] = [callback]
-        trainer = Trainer(**config)
-        trainer.fit()
-
-    @pytest.mark.filterwarnings(
-        r"ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning")
-    def test_loggers(self, config, logger):
-        config['loggers'] = [logger]
-        trainer = Trainer(**config)
-        trainer.fit()
-
-    """
-    Tests that training with multiple fits complete.
-    Note: future functional tests should test for
-    idempotency (e.g functionally)
-    """
-
-    def test_callbacks_multiple_calls(self, config, callback):
-        config['callbacks'] = [callback]
-        trainer = Trainer(**config)
-        self._test_multiple_fits(trainer)
-
-    @pytest.mark.filterwarnings("ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning"
-                               )
-    def test_loggers_multiple_calls(self, config, logger):
-        config['loggers'] = [logger]
-        trainer = Trainer(**config)
-        self._test_multiple_fits(trainer)
-
-    def _test_multiple_fits(self, trainer):
-        trainer.fit()
-        trainer.state.max_duration *= 2
-        trainer.fit()
-
-
-class TestTrainerAlgorithms:
-
-    @pytest.mark.timeout(5)
-    @device('gpu')
-    @pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization())
-    def test_algorithm_trains(
-        self,
-        device: str,
-        alg_cls: Callable[..., Algorithm],
-        alg_kwargs: Dict[str, Any],
-        model: ComposerModel,
-        dataset: Dataset,
-    ):
-        trainer = Trainer(
-            model=model,
-            train_dataloader=DataLoader(dataset=dataset, batch_size=4),
-            max_duration='2ep',
-            device=device,
-            algorithms=alg_cls(**alg_kwargs),
-        )
-        trainer.fit()
-
-        # fit again for another epoch
-        trainer.fit(duration='1ep')
-
-
 @pytest.mark.vision
 @pytest.mark.timeout(30)
 class TestFFCVDataloaders:
@@ -958,7 +805,8 @@ class TestFFCVDataloaders:
     val_file = None
     tmp_path = None
 
-    def setup_method(self, tmp_path_factory: pytest.TempPathFactory):
+    @pytest.fixture(autouse=True)
+    def create_dataset(self, tmp_path_factory: pytest.TempPathFactory):
         dataset_train = RandomImageDataset(size=16, is_PIL=True)
         self.tmp_path = tmp_path_factory.mktemp("ffcv")
         output_train_file = str(self.tmp_path / "train.ffcv")
@@ -983,7 +831,7 @@ class TestFFCVDataloaders:
     @pytest.fixture
     def config(self):
         try:
-            import ffcv  # type: ignore
+            import ffcv
         except ImportError as e:
             raise ImportError(("Composer was installed without ffcv support. "
                                "To use ffcv with Composer, please install ffcv in your environment.")) from e

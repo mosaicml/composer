@@ -21,7 +21,7 @@ from composer.core.types import Dataset
 from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
                                  apply_squeeze_excite, apply_stochastic_depth)
 from composer.models.base import ComposerModel
-from tests.algorithms import get_algorithm_parametrization
+from tests.algorithms.algorithm_settings import get_algorithm_parametrization
 
 algo_kwargs = {
     apply_stochastic_depth: {
@@ -154,8 +154,7 @@ def test_surgery_torchfx_eval(
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", alg_class_parameterization)
 @pytest.mark.filterwarnings(
-    r"ignore:Converting a tensor to a Python boolean might cause the trace to be incorrect:torch.jit._trace.TracerWarning"
-)
+    r"ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning")
 def test_surgery_onnx(
     input: Any,
     alg_cls: Type[Algorithm],
@@ -167,8 +166,8 @@ def test_surgery_onnx(
     """Tests onnx export and runtime"""
     del dataset  # unused
     pytest.importorskip("onnx")
-    import onnx  # type: ignore
-    import onnxruntime as ort  # type: ignore
+    import onnx
+    import onnxruntime as ort
 
     surgery_method = get_surgery_method(alg_cls)
 
@@ -202,4 +201,4 @@ def test_surgery_onnx(
         model(input),
         rtol=1e-4,  # lower tolerance for ONNX
         atol=1e-3,  # lower tolerance for ONNX
-    )  # type: ignore (third-party)
+    )

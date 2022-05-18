@@ -26,8 +26,8 @@ from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.loggers import LoggerDestinationHparams, logger_registry
-from composer.loggers.logger import LogLevel
+from composer.loggers import LoggerDestination, LogLevel
+from composer.loggers.logger_hparams import logger_registry
 from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
                              GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
                              SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
@@ -361,7 +361,7 @@ class TrainerHparams(hp.Hparams):
     callbacks: List[Callback] = hp.optional(doc="Callback hparams", default_factory=list)
 
     # Logging
-    loggers: List[LoggerDestinationHparams] = hp.optional(doc="loggers to use", default_factory=list)
+    loggers: Optional[List[LoggerDestination]] = hp.auto(Trainer, "loggers")
     run_name: Optional[str] = hp.optional("Experiment name", default=None)
     progress_bar: bool = hp.optional("Whether to show a progress bar.", default=True)
     log_to_console: Optional[bool] = hp.optional("Whether to print log statements to the console.", default=None)
@@ -385,7 +385,7 @@ class TrainerHparams(hp.Hparams):
               "connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, "
               "leave blank. This parameter has no effect if `load_path` is not specified.")),
         default=None)
-    load_logger_destination: Optional[LoggerDestinationHparams] = hp.optional(
+    load_logger_destination: Optional[LoggerDestination] = hp.optional(
         ("Alternative argument to `load_object_store` to support loading from a logger destination. This parameter "
          "has no effect if `load_path` is not specified or `load_object_store` is specified, which will be "
          "used instead of this."),
@@ -560,9 +560,6 @@ class TrainerHparams(hp.Hparams):
         # The model
         model = self.model.initialize_object()
 
-        # Loggers
-        loggers = [x.initialize_object() for x in self.loggers]
-
         # Train dataloader
         train_dataloader = _initialize_dataloader(self.train_dataset, self.train_dataloader_label,
                                                   self.train_batch_size, self.train_subset_num_batches, self.dataloader)
@@ -589,7 +586,7 @@ class TrainerHparams(hp.Hparams):
         elif self.load_object_store is not None:
             load_object_store = self.load_object_store.initialize_object()
         elif self.load_logger_destination is not None:
-            load_object_store = self.load_logger_destination.initialize_object()
+            load_object_store = self.load_logger_destination
 
         trainer = Trainer(
             # Model
@@ -622,7 +619,7 @@ class TrainerHparams(hp.Hparams):
             callbacks=self.callbacks,
 
             # Logging
-            loggers=loggers,
+            loggers=self.loggers,
             run_name=self.run_name,
             progress_bar=self.progress_bar,
             log_to_console=self.log_to_console,

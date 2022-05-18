@@ -38,6 +38,7 @@ def randaugment_image(image: Union[PillowImage, torch.Tensor]):
 
 ### Torchvision Transform
 
+<!--pytest-codeblocks:skip-->
 ```python
 # Create a callable for RandAugment which can be composed with other image augmentations
 
@@ -55,6 +56,8 @@ dataset = VisionDataset(data_path, transform=composed)
 
 ### Composer Trainer
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -74,6 +77,8 @@ trainer = Trainer(
     algorithms=[randaugment_algorithm],
     optimizers=[optimizer]
 )
+
+trainer.fit()
 ```
 
 ### Implementation Details

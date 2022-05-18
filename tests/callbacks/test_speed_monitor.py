@@ -27,7 +27,9 @@ def test_speed_monitor():
     trainer.fit()
 
     throughput_epoch_calls = len(in_memory_logger.data['throughput/epoch'])
-    wall_clock_train_calls = len(in_memory_logger.data['wall_clock_train'])
+    wall_clock_train_calls = len(in_memory_logger.data['wall_clock/train'])
+    wall_clock_val_calls = len(in_memory_logger.data['wall_clock/val'])
+    wall_clock_total_calls = len(in_memory_logger.data['wall_clock/total'])
     throughput_step_calls = len(in_memory_logger.data['throughput/step'])
 
     assert isinstance(trainer.state.dataloader, collections.abc.Sized)
@@ -36,5 +38,8 @@ def test_speed_monitor():
     expected_step_calls = (trainer.state.dataloader_len - speed_monitor.window_size) * int(
         trainer.state.timestamp.epoch)
     assert throughput_step_calls == expected_step_calls
-    assert throughput_epoch_calls == int(trainer.state.timestamp.epoch)
-    assert wall_clock_train_calls == int(trainer.state.timestamp.epoch)
+    max_epochs = int(trainer.state.timestamp.epoch)
+    assert throughput_epoch_calls == max_epochs
+    assert wall_clock_total_calls == max_epochs
+    assert wall_clock_train_calls == max_epochs
+    assert wall_clock_val_calls == max_epochs

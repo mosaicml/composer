@@ -7,7 +7,6 @@ from tests.common.datasets import (RandomClassificationDataset, RandomClassifica
 from tests.common.events import EventCounterCallback
 from tests.common.hparams import assert_is_constructable_from_yaml, assert_registry_contains_entry
 from tests.common.markers import device, world_size
-from tests.common.metrics import MetricSetterCallback
 from tests.common.models import (SimpleConvModel, SimpleConvModelHparams, SimpleModel, SimpleModelHparams,
                                  configure_model_hparams_for_synthetic)
 from tests.common.state import assert_state_equivalent
@@ -15,7 +14,7 @@ from tests.common.state import assert_state_equivalent
 
 def get_all_subclasses_in_module(module: types.ModuleType, cls: Type) -> List[Type]:
     """Get all implementations of a class in a __module__ by scanning the re-exports from __init__.py"""
-    return [x for x in vars(module).values() if isinstance(x, type) and issubclass(x, cls)]
+    return [x for x in vars(module).values() if isinstance(x, type) and issubclass(x, cls) and x is not cls]
 
 
 __all__ = [
@@ -36,5 +35,4 @@ __all__ = [
     "get_all_subclasses_in_module",
     "assert_is_constructable_from_yaml",
     "assert_registry_contains_entry",
-    "MetricSetterCallback",
 ]

@@ -20,13 +20,12 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit, ensure_time
 from composer.datasets import DatasetHparams, SyntheticHparamsMixin
-from composer.loggers import ObjectStoreLoggerHparams
+from composer.loggers import ObjectStoreLogger
 from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
-from composer.utils import dist, is_tar
-from composer.utils.object_store import ObjectStoreHparams
+from composer.utils import ObjectStoreHparams, dist, is_tar
 from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
                           configure_model_hparams_for_synthetic, deep_compare)
 
@@ -224,20 +223,17 @@ def test_autoresume(
     if use_object_store:
         remote_dir = str(tmp_path / "object_store")
         os.makedirs(remote_dir, exist_ok=True)
-        monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
-        provider = "local"
-        container = "."
-        object_store_hparams = ObjectStoreHparams(
-            provider=provider,
-            container=container,
-            key_environ="OBJECT_STORE_KEY",
-        )
-        object_store_logger_hparams = ObjectStoreLoggerHparams(
-            object_store_hparams=object_store_hparams,
+        object_store_logger = ObjectStoreLogger(
+            provider="local",
+            container='.',
             num_concurrent_uploads=1,
             use_procs=use_procs,
+            provider_kwargs={
+                'key': remote_dir,
+            },
+            upload_staging_folder=str(tmp_path / "staging_folder"),
         )
-        composer_trainer_hparams.loggers = [object_store_logger_hparams]
+        composer_trainer_hparams.loggers = [object_store_logger]
 
     second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
     _test_checkpoint_trainer(composer_trainer_hparams)
@@ -350,21 +346,25 @@ def test_checkpoint_with_object_store_logger(
     # Train model and log to object store
     remote_dir = str(tmp_path / "object_store")
     os.makedirs(remote_dir, exist_ok=True)
-    monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
     provider = "local"
-    container = "."
+    container = '.'
+    monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
     object_store_hparams = ObjectStoreHparams(
         provider=provider,
         container=container,
         key_environ="OBJECT_STORE_KEY",
     )
-    object_store_logger_hparams = ObjectStoreLoggerHparams(
-        object_store_hparams=object_store_hparams,
+    object_store_logger = ObjectStoreLogger(
+        provider=provider,
+        container=container,
+        provider_kwargs={
+            'key': remote_dir,
+        },
         num_concurrent_uploads=1,
         use_procs=False,
         upload_staging_folder=str(tmp_path / "staging_folder"),
     )
-    composer_trainer_hparams.loggers = [object_store_logger_hparams]
+    composer_trainer_hparams.loggers = [object_store_logger]
     run_name = "electric-zebra"
     composer_trainer_hparams.run_name = run_name
     artifact_name = f"{run_name}/checkpoints/ep2-ba10-rank" + "{rank}"
@@ -395,7 +395,7 @@ def test_checkpoint_with_object_store_logger(
     dist.broadcast_object_list(checkpoint_a_file_path)
 
     second_trainer_hparams_logger.load_path = artifact_name
-    second_trainer_hparams_logger.load_logger_destination = object_store_logger_hparams
+    second_trainer_hparams_logger.load_logger_destination = object_store_logger
     second_trainer_hparams_logger.load_weights_only = True
     second_trainer_hparams_logger.load_strict_model_weights = True
 

@@ -4,34 +4,42 @@
 import copy
 import os
 import pathlib
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict
 
 import pytest
 import torch
 from torch.utils.data import DataLoader, Dataset
 
 from composer import Trainer
+from composer.algorithms.factorize.factorize import Factorize
+from composer.algorithms.layer_freezing.layer_freezing import LayerFreezing
+from composer.algorithms.sam.sam import SAM
+from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite
+from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepth
 from composer.core.algorithm import Algorithm
 from composer.models.base import ComposerModel
 from tests.algorithms.algorithm_settings import get_algorithm_parametrization
 from tests.common import deep_compare, device
 
 
+@pytest.fixture
+def model(request):
+    # Copy the model, so other parameterization start with a fresh model
+    return copy.deepcopy(request.param)
+
+
 @pytest.mark.timeout(180)
 @device('gpu')
 @pytest.mark.parametrize(
-    "seed,save_interval,save_filename,resume_file,final_checkpoint",
+    "save_interval,save_filename,resume_file,final_checkpoint",
     [
-        [None, "1ep", "ep{epoch}-rank{rank}", "ep2-rank{rank}", "latest-rank{rank}"
-        ],  # test randomized seed saving and symlinking
-        [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
+        ["1ep", "ep{epoch}-rank{rank}", "ep2-rank{rank}", "latest-rank{rank}"],  # symlinking
+        ["1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
-@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization())
+@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization(), indirect=['model'])
 def test_algorithm_resumption(
-    algorithm: str,
     device,
-    seed: Optional[int],
     save_interval: int,
     save_filename: str,
     resume_file: str,
@@ -47,33 +55,52 @@ def test_algorithm_resumption(
 
     copied_model = copy.deepcopy(model)  # copy the model so the params will start from the same point
 
-    config = {
-        'algorithms': alg_cls(**alg_kwargs),
-        'model': model,
+    if alg_cls is LayerFreezing:
+        pytest.xfail('Known issues')
+
+    if alg_cls in (SAM, SqueezeExcite, StochasticDepth, Factorize):
+        pytest.xfail('Incompatible with optimizers that store state, e.g. Adam.')
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
+
+    shared_config = {
         'train_dataloader': DataLoader(dataset=dataset, batch_size=4),
         'max_duration': '5ep',
         'device': device,
         'save_filename': save_filename,
-        'save_folder': folder1,
         'save_interval': save_interval,
         'train_subset_num_batches': 2,
     }
 
     # train model once, saving checkpoints every epoch
-    trainer1 = Trainer(**config)
+    trainer1 = Trainer(
+        model=model,
+        optimizers=optimizer,
+        schedulers=scheduler,
+        save_folder=folder1,
+        algorithms=alg_cls(**alg_kwargs),
+        **shared_config,
+    )
     trainer1.fit()
 
     # create second trainer, load an intermediate checkpoint
     # and continue training
 
-    config.update({
-        'model': copied_model,
-        'save_folder': folder2,
-        'load_path': os.path.join(folder1, resume_file),
-        'load_weights_only': False,
-        'load_strict': False,
-    })
-    trainer2 = Trainer(**config)
+    optimizer = torch.optim.Adam(copied_model.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
+
+    trainer2 = Trainer(
+        model=copied_model,
+        load_path=os.path.join(folder1, resume_file),
+        load_weights_only=False,
+        load_strict=False,
+        optimizers=optimizer,
+        schedulers=scheduler,
+        save_folder=folder2,
+        algorithms=alg_cls(**alg_kwargs),
+        **shared_config,
+    )
     trainer2.fit()
 
     # check that the checkpoints are equal
