@@ -219,23 +219,24 @@ def test_autoresume(
     composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, device_hparams,
                                                               checkpoint_a_folder)
     composer_trainer_hparams.run_name = "big-chungus"
+    second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
     # Add object store logger
     if use_object_store:
         remote_dir = str(tmp_path / "object_store")
         os.makedirs(remote_dir, exist_ok=True)
-        object_store_logger = ObjectStoreLogger(
-            provider="local",
-            container='.',
-            num_concurrent_uploads=1,
-            use_procs=use_procs,
-            provider_kwargs={
-                'key': remote_dir,
-            },
-            upload_staging_folder=str(tmp_path / "staging_folder"),
-        )
-        composer_trainer_hparams.loggers = [object_store_logger]
+        for hparams in [composer_trainer_hparams, second_trainer_hparams]:
+            object_store_logger = ObjectStoreLogger(
+                provider="local",
+                container='.',
+                num_concurrent_uploads=1,
+                use_procs=use_procs,
+                provider_kwargs={
+                    'key': remote_dir,
+                },
+                upload_staging_folder=str(tmp_path / "staging_folder"),
+            )
+            hparams.loggers = [object_store_logger]
 
-    second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
     _test_checkpoint_trainer(composer_trainer_hparams)
 
     # Create checkpoint in seperate folder to load. Optionally delete original checkpoint by moving it.
@@ -257,10 +258,10 @@ def test_autoresume(
     second_trainer_hparams.load_path = middle_checkpoint
 
     # pass in the two trainers, verify that the weights are the same
-    assert_weights_equivalent(original_trainer_hparams=composer_trainer_hparams,
-                              new_trainer_hparams=second_trainer_hparams,
-                              overwrite_load_path=False,
-                              save_overwrite=False)
+    assert_checkpoints_equivalent(
+        os.path.join(checkpoint_a_folder, latest_checkpoint),
+        os.path.join(checkpoint_b_folder, latest_checkpoint),
+    )
 
 
 @pytest.mark.timeout(90)
@@ -354,23 +355,26 @@ def test_checkpoint_with_object_store_logger(
         container=container,
         key_environ="OBJECT_STORE_KEY",
     )
-    object_store_logger = ObjectStoreLogger(
-        provider=provider,
-        container=container,
-        provider_kwargs={
-            'key': remote_dir,
-        },
-        num_concurrent_uploads=1,
-        use_procs=False,
-        upload_staging_folder=str(tmp_path / "staging_folder"),
-    )
-    composer_trainer_hparams.loggers = [object_store_logger]
     run_name = "electric-zebra"
     composer_trainer_hparams.run_name = run_name
-    artifact_name = f"{run_name}/checkpoints/ep2-ba10-rank" + "{rank}"
-
     second_trainer_hparams_object_store = copy.deepcopy(composer_trainer_hparams)
     second_trainer_hparams_logger = copy.deepcopy(composer_trainer_hparams)
+    for hparams in [composer_trainer_hparams, second_trainer_hparams_logger]:
+        object_store_logger = ObjectStoreLogger(
+            provider=provider,
+            container=container,
+            provider_kwargs={
+                'key': remote_dir,
+            },
+            num_concurrent_uploads=1,
+            use_procs=False,
+            upload_staging_folder=str(tmp_path / "staging_folder"),
+        )
+        hparams.loggers = [object_store_logger]
+        if hparams is second_trainer_hparams_logger:
+            hparams.load_logger_destination = object_store_logger
+
+    artifact_name = f"{run_name}/checkpoints/ep2-ba10-rank" + "{rank}"
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
 
@@ -383,6 +387,7 @@ def test_checkpoint_with_object_store_logger(
     second_trainer_hparams_object_store.load_object_store = object_store_hparams
     second_trainer_hparams_object_store.load_weights_only = True
     second_trainer_hparams_object_store.load_strict_model_weights = True
+    composer_trainer_hparams.loggers = []
 
     assert_weights_equivalent(
         original_trainer_hparams=composer_trainer_hparams,
@@ -395,9 +400,9 @@ def test_checkpoint_with_object_store_logger(
     dist.broadcast_object_list(checkpoint_a_file_path)
 
     second_trainer_hparams_logger.load_path = artifact_name
-    second_trainer_hparams_logger.load_logger_destination = object_store_logger
     second_trainer_hparams_logger.load_weights_only = True
     second_trainer_hparams_logger.load_strict_model_weights = True
+    composer_trainer_hparams.loggers = []
 
     assert_weights_equivalent(
         original_trainer_hparams=composer_trainer_hparams,

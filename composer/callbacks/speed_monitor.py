@@ -52,9 +52,6 @@ class SpeedMonitor(Callback):
     | ``throughput/step``   | batches) of the number of samples processed per second      |
     |                       |                                                             |
     +-----------------------+-------------------------------------------------------------+
-    |                       | Number of samples processed per second (averaged over       |
-    | ``throughput/epoch``  | an entire epoch)                                            |
-    +-----------------------+-------------------------------------------------------------+
     |``wall_clock/train``   | Total elapsed training time                                 |
     +-----------------------+-------------------------------------------------------------+
     |``wall_clock/val``     | Total elapsed validation time                               |
