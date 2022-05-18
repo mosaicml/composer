@@ -31,13 +31,9 @@ from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV
                              GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
                              SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.models.base import ComposerModel
-from composer.optim import (AdamHparams, AdamWHparams, ComposerScheduler, ConstantSchedulerHparams,
-                            CosineAnnealingSchedulerHparams, CosineAnnealingWarmRestartsSchedulerHparams,
-                            CosineAnnealingWithWarmupSchedulerHparams, DecoupledAdamWHparams, DecoupledSGDWHparams,
-                            ExponentialSchedulerHparams, LinearSchedulerHparams, LinearWithWarmupSchedulerHparams,
-                            MultiStepSchedulerHparams, MultiStepWithWarmupSchedulerHparams, OptimizerHparams,
-                            PolynomialSchedulerHparams, RAdamHparams, RMSpropHparams, SchedulerHparams, SGDHparams,
-                            StepSchedulerHparams)
+from composer.optim import ComposerScheduler
+from composer.optim.optimizer_hparams import OptimizerHparams, optimizer_registry
+from composer.optim.scheduler_hparams import scheduler_registry
 from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
@@ -55,30 +51,6 @@ else:
 __all__ = ["TrainerHparams", "FitHparams", "EvalHparams", "ExperimentHparams"]
 
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
-
-optimizer_registry = {
-    "adam": AdamHparams,
-    "adamw": AdamWHparams,
-    "decoupled_adamw": DecoupledAdamWHparams,
-    "radam": RAdamHparams,
-    "sgd": SGDHparams,
-    "decoupled_sgdw": DecoupledSGDWHparams,
-    "rmsprop": RMSpropHparams,
-}
-
-scheduler_registry = {
-    "step": StepSchedulerHparams,
-    "multistep": MultiStepSchedulerHparams,
-    "exponential": ExponentialSchedulerHparams,
-    "linear_decay": LinearSchedulerHparams,
-    "cosine_decay": CosineAnnealingSchedulerHparams,
-    "cosine_warmrestart": CosineAnnealingWarmRestartsSchedulerHparams,
-    "constant": ConstantSchedulerHparams,
-    "polynomial": PolynomialSchedulerHparams,
-    "multistep_with_warmup": MultiStepWithWarmupSchedulerHparams,
-    "linear_decay_with_warmup": LinearWithWarmupSchedulerHparams,
-    "cosine_decay_with_warmup": CosineAnnealingWithWarmupSchedulerHparams,
-}
 
 model_registry = {
     "unet": UnetHparams,
@@ -333,7 +305,7 @@ class TrainerHparams(hp.Hparams):
 
     # Optimizer and Scheduler
     optimizer: Optional[OptimizerHparams] = hp.optional(doc="Optimizer to use", default=None)
-    schedulers: List[SchedulerHparams] = hp.optional(doc="Schedulers", default_factory=list)
+    schedulers: Optional[List[ComposerScheduler]] = hp.auto(Trainer, "schedulers")
     scale_schedule_ratio: float = hp.optional(
         doc="Ratio by which to scale the training duration and learning rate schedules.",
         default=1.0,
@@ -575,7 +547,6 @@ class TrainerHparams(hp.Hparams):
 
         # Optimizers and Schedulers
         optimizer = self.optimizer.initialize_object(model.parameters()) if self.optimizer is not None else None
-        schedulers = [scheduler.initialize_object() for scheduler in self.schedulers]
 
         load_object_store = None
         if self.load_object_store is not None and self.load_logger_destination is not None:
@@ -605,7 +576,7 @@ class TrainerHparams(hp.Hparams):
 
             # Optimizers and Schedulers
             optimizers=optimizer,
-            schedulers=schedulers,
+            schedulers=self.schedulers,
             scale_schedule_ratio=self.scale_schedule_ratio,
             step_schedulers_every_batch=self.step_schedulers_every_batch,
 
@@ -763,7 +734,7 @@ class FitHparams(hp.Hparams):
     duration: Optional[Union[int, str]] = hp.optional("Duration", default=None)
 
     # Schedulers
-    schedulers: Optional[List[SchedulerHparams]] = hp.optional(doc="Schedulers", default=None)
+    schedulers: Optional[ComposerScheduler] = hp.optional(doc="Schedulers", default=None)
     scale_schedule_ratio: float = hp.optional(
         doc="Ratio by which to scale the training duration and learning rate schedules.",
         default=1.0,
@@ -830,10 +801,6 @@ class FitHparams(hp.Hparams):
             eval_subset_num_batches=self.eval_subset_num_batches,
             dataloader_hparams=dataloader_hparams,
         )
-        # Schedulers
-        schedulers = None
-        if self.schedulers is not None:
-            schedulers = [scheduler.initialize_object() for scheduler in self.schedulers]
 
         return {
             "train_dataloader": train_dataloader,
@@ -842,7 +809,7 @@ class FitHparams(hp.Hparams):
             "compute_training_metrics": self.compute_training_metrics,
             "reset_time": self.reset_time,
             "duration": self.duration,
-            "schedulers": schedulers,
+            "schedulers": self.schedulers,
             "scale_schedule_ratio": self.scale_schedule_ratio,
             "step_schedulers_every_batch": self.step_schedulers_every_batch,
             "eval_dataloader": eval_dataloader,

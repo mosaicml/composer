@@ -12,7 +12,8 @@ from torch.optim.lr_scheduler import ExponentialLR
 from composer.core import Callback, State, TimeUnit
 from composer.core.types import PyTorchScheduler
 from composer.loggers.logger import Logger
-from composer.optim import MultiStepSchedulerHparams, SGDHparams
+from composer.optim import MultiStepScheduler
+from composer.optim.optimizer_hparams import SGDHparams
 from composer.trainer import TrainerHparams
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from tests.common.models import SimpleModel
@@ -108,7 +109,7 @@ class TestScaleScheduleTrainer():
 
         composer_trainer_hparams.optimizer = SGDHparams(lr=1.0)
         composer_trainer_hparams.max_duration = '10ep'
-        composer_trainer_hparams.schedulers = [MultiStepSchedulerHparams(milestones=['30ba', '50ba'], gamma=0.1)]
+        composer_trainer_hparams.schedulers = [MultiStepScheduler(milestones=['30ba', '50ba'], gamma=0.1)]
 
         composer_trainer_hparams.scale_schedule_ratio = ssr
         trainer = composer_trainer_hparams.initialize_object()

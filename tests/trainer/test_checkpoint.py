@@ -22,11 +22,13 @@ from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit, ensure_time
 from composer.datasets import DatasetHparams, SyntheticHparamsMixin
 from composer.loggers import ObjectStoreLogger
-from composer.optim import AdamWHparams, CosineAnnealingSchedulerHparams
+from composer.optim import CosineAnnealingScheduler
+from composer.optim.optimizer_hparams import AdamWHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import ObjectStoreHparams, dist, is_tar
+from composer.utils.iter_helpers import ensure_tuple
 from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
                           configure_model_hparams_for_synthetic, deep_compare)
 
@@ -169,12 +171,12 @@ def test_load_weights(
 
     # setup a new LR scheduler
     assert isinstance(second_trainer_hparams.max_duration, str)
-    second_trainer_hparams.schedulers = [CosineAnnealingSchedulerHparams(t_max=second_trainer_hparams.max_duration)]
+    second_trainer_hparams.schedulers = [CosineAnnealingScheduler(t_max=second_trainer_hparams.max_duration)]
 
     # ensure our new choice of scheduler is different than the original scheduler
     for idx in range(len(second_trainer_hparams.schedulers)):
-        if idx < len(composer_trainer_hparams.schedulers):
-            assert second_trainer_hparams.schedulers[idx] != composer_trainer_hparams.schedulers[idx]
+        if idx < len(ensure_tuple(composer_trainer_hparams.schedulers)):
+            assert second_trainer_hparams.schedulers[idx] != ensure_tuple(composer_trainer_hparams.schedulers)[idx]
 
     # pass in the two trainers, verify that the weights are the same
     assert_weights_equivalent(

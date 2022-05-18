@@ -37,4 +37,5 @@ def test_optimizer_initialization(optimizer_name, dummy_parameters):
 
     # create the optimizer object using the hparams
     optimizer = optimizer_hparams.initialize_object(param_group=dummy_parameters)
-    assert isinstance(optimizer, optimizer_hparams.optimizer_object)
+    assert optimizer_hparams.optimizer_cls is not None
+    assert isinstance(optimizer, optimizer_hparams.optimizer_cls)

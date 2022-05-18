@@ -3,9 +3,9 @@
 
 """Hyperparameters for optimizers."""
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import asdict, dataclass
-from typing import Dict, Iterable, List, Type, Union
+from typing import Dict, Iterable, List, Optional, Type, Union
 
 import torch
 import torch_optimizer
@@ -17,8 +17,14 @@ from composer.optim import DecoupledAdamW, DecoupledSGDW
 # Optimizer parameters and defaults match those in torch.optim
 
 __all__ = [
-    "OptimizerHparams", "AdamHparams", "RAdamHparams", "AdamWHparams", "DecoupledAdamWHparams", "SGDHparams",
-    "DecoupledSGDWHparams", "RMSpropHparams"
+    "OptimizerHparams",
+    "AdamHparams",
+    "RAdamHparams",
+    "AdamWHparams",
+    "DecoupledAdamWHparams",
+    "SGDHparams",
+    "DecoupledSGDWHparams",
+    "RMSpropHparams",
 ]
 
 
@@ -30,22 +36,21 @@ class OptimizerHparams(hp.Hparams, ABC):
     the CLI) are initialized in the training loop.
     """
 
-    @property
-    @abstractmethod
-    def optimizer_object(cls) -> Type[Optimizer]:
-        pass
+    optimizer_cls = None  # type: Optional[Type[Optimizer]]
 
-    def initialize_object(self, param_group: Union[Iterable[torch.Tensor], Iterable[Dict[str,
-                                                                                         torch.Tensor]]]) -> Optimizer:
+    def initialize_object(
+        self,
+        param_group: Union[Iterable[torch.Tensor], Iterable[Dict[str, torch.Tensor]]],
+    ) -> Optimizer:
         """Initializes the optimizer.
 
         Args:
             param_group (Iterable[torch.Tensor] | Iterable[Dict[str, torch.Tensor]]):
                 Parameters for this optimizer to optimize.
         """
-
-        assert issubclass(self.optimizer_object, torch.optim.Optimizer)
-        return self.optimizer_object(param_group, **asdict(self))
+        if self.optimizer_cls is None:
+            raise ValueError(f"{type(self).__name__}.optimizer_cls must be defined")
+        return self.optimizer_cls(param_group, **asdict(self))
 
 
 @dataclass
@@ -61,16 +66,14 @@ class AdamHparams(OptimizerHparams):
         weight_decay (float, optional): See :class:`~torch.optim.Adam`.
         amsgrad (bool, optional): See :class:`~torch.optim.Adam`.
     """
-    lr: float = hp.optional(default=0.001, doc="learning rate")
-    betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
-                                     doc="coefficients used for computing running averages of gradient and its square.")
-    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
-    weight_decay: float = hp.optional(default=0.0, doc="weight decay (L2 penalty)")
-    amsgrad: bool = hp.optional(default=False, doc="use AMSGrad variant")
 
-    @property
-    def optimizer_object(cls) -> Type[torch.optim.Adam]:
-        return torch.optim.Adam
+    optimizer_cls = torch.optim.Adam
+
+    lr: float = hp.auto(torch.optim.Adam, "lr")
+    betas: List[float] = hp.auto(torch.optim.Adam, "betas")
+    eps: float = hp.auto(torch.optim.Adam, "eps")
+    weight_decay: float = hp.auto(torch.optim.Adam, "weight_decay")
+    amsgrad: bool = hp.auto(torch.optim.Adam, "amsgrad")
 
 
 @dataclass
@@ -85,15 +88,13 @@ class RAdamHparams(OptimizerHparams):
         eps (float, optional): See :class:`~torch.optim.RAdam`.
         weight_decay (float, optional): See :class:`~torch.optim.RAdam`.
     """
-    lr: float = hp.optional(default=0.001, doc="learning rate")
-    betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
-                                     doc="coefficients used for computing running averages of gradient and its square.")
-    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
-    weight_decay: float = hp.optional(default=0.0, doc="weight decay (L2 penalty)")
 
-    @property
-    def optimizer_object(cls) -> Type[torch_optimizer.RAdam]:
-        return torch_optimizer.RAdam
+    optimizer_cls = torch_optimizer.RAdam
+
+    lr: float = hp.auto(torch.optim.RAdam, "lr")
+    betas: List[float] = hp.auto(torch.optim.RAdam, "betas")
+    eps: float = hp.auto(torch.optim.RAdam, "eps")
+    weight_decay: float = hp.auto(torch.optim.RAdam, "weight_decay")
 
 
 @dataclass
@@ -109,16 +110,14 @@ class AdamWHparams(OptimizerHparams):
         weight_decay (float, optional): See :class:`~torch.optim.AdamW`.
         amsgrad (bool, optional): See :class:`~torch.optim.AdamW`.
     """
-    lr: float = hp.optional(default=0.001, doc="learning rate")
-    betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
-                                     doc="coefficients used for computing running averages of gradient and its square.")
-    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
-    weight_decay: float = hp.optional(default=1e-2, doc="weight decay (L2 penalty)")
-    amsgrad: bool = hp.optional(default=False, doc="use AMSGrad variant")
 
-    @property
-    def optimizer_object(cls) -> Type[torch.optim.AdamW]:
-        return torch.optim.AdamW
+    optimizer_cls = torch.optim.AdamW
+
+    lr: float = hp.auto(torch.optim.AdamW, "lr")
+    betas: List[float] = hp.auto(torch.optim.AdamW, "betas")
+    eps: float = hp.auto(torch.optim.AdamW, "eps")
+    weight_decay: float = hp.auto(torch.optim.AdamW, "weight_decay")
+    amsgrad: bool = hp.auto(torch.optim.AdamW, "amsgrad")
 
 
 @dataclass
@@ -134,16 +133,14 @@ class DecoupledAdamWHparams(OptimizerHparams):
         weight_decay (float, optional): See :class:`~.DecoupledAdamW`.
         amsgrad (bool, optional): See :class:`~.DecoupledAdamW`.
     """
-    lr: float = hp.optional(default=0.001, doc="learning rate")
-    betas: List[float] = hp.optional(default_factory=lambda: [0.9, 0.999],
-                                     doc="coefficients used for computing running averages of gradient and its square.")
-    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
-    weight_decay: float = hp.optional(default=1e-2, doc="weight decay (L2 penalty)")
-    amsgrad: bool = hp.optional(default=False, doc="use AMSGrad variant")
 
-    @property
-    def optimizer_object(cls) -> Type[DecoupledAdamW]:
-        return DecoupledAdamW
+    optimizer_cls = DecoupledAdamW
+
+    lr: float = hp.auto(DecoupledAdamW, "lr")
+    betas: List[float] = hp.auto(DecoupledAdamW, "betas")
+    eps: float = hp.auto(DecoupledAdamW, "eps")
+    weight_decay: float = hp.auto(DecoupledAdamW, "weight_decay")
+    amsgrad: bool = hp.auto(DecoupledAdamW, "amsgrad")
 
 
 @dataclass
@@ -159,15 +156,14 @@ class SGDHparams(OptimizerHparams):
         dampening (float, optional): See :class:`~torch.optim.SGD`.
         nesterov (bool, optional): See :class:`~torch.optim.SGD`.
     """
-    lr: float = hp.required(doc="learning rate")
-    momentum: float = hp.optional(default=0.0, doc="momentum factor")
-    weight_decay: float = hp.optional(default=0.0, doc="weight decay (L2 penalty)")
-    dampening: float = hp.optional(default=0.0, doc="dampening for momentum")
-    nesterov: bool = hp.optional(default=False, doc="Nesterov momentum")
 
-    @property
-    def optimizer_object(cls) -> Type[torch.optim.SGD]:
-        return torch.optim.SGD
+    optimizer_cls = torch.optim.SGD
+
+    lr: float = hp.auto(torch.optim.SGD, "lr")
+    momentum: float = hp.auto(torch.optim.SGD, "momentum")
+    weight_decay: float = hp.auto(torch.optim.SGD, "weight_decay")
+    dampening: float = hp.auto(torch.optim.SGD, "dampening")
+    nesterov: bool = hp.auto(torch.optim.SGD, "nesterov")
 
 
 @dataclass
@@ -183,15 +179,14 @@ class DecoupledSGDWHparams(OptimizerHparams):
         dampening (float, optional): See :class:`~.DecoupledSGDW`.
         nesterov (bool, optional): See :class:`~.DecoupledSGDW`.
     """
-    lr: float = hp.required(doc="learning rate")
-    momentum: float = hp.optional(default=0.0, doc="momentum factor")
-    weight_decay: float = hp.optional(default=0.0, doc="weight decay (L2 penalty)")
-    dampening: float = hp.optional(default=0.0, doc="dampening for momentum")
-    nesterov: bool = hp.optional(default=False, doc="Nesterov momentum")
 
-    @property
-    def optimizer_object(cls) -> Type[DecoupledSGDW]:
-        return DecoupledSGDW
+    optimizer_cls = DecoupledSGDW
+
+    lr: float = hp.auto(DecoupledSGDW, "lr")
+    momentum: float = hp.auto(DecoupledSGDW, "momentum")
+    weight_decay: float = hp.auto(DecoupledSGDW, "weight_decay")
+    dampening: float = hp.auto(DecoupledSGDW, "dampening")
+    nesterov: bool = hp.auto(DecoupledSGDW, "nesterov")
 
 
 @dataclass
@@ -208,16 +203,23 @@ class RMSpropHparams(OptimizerHparams):
         weight_decay (float, optional): See :class:`~torch.optim.RMSprop`.
         centered (bool, optional): See :class:`~torch.optim.RMSprop`.
     """
-    lr: float = hp.required(doc="learning rate")
-    alpha: float = hp.optional(default=0.99, doc="smoothing constant")
-    eps: float = hp.optional(default=1e-8, doc="term for numerical stability")
-    momentum: float = hp.optional(default=0.0, doc="momentum factor")
-    weight_decay: float = hp.optional(default=0.0, doc="weight decay (L2 penalty)")
-    centered: bool = hp.optional(
-        default=False,
-        doc="normalize gradient by an estimation of variance",
-    )
 
-    @property
-    def optimizer_object(cls) -> Type[torch.optim.RMSprop]:
-        return torch.optim.RMSprop
+    optimizer_cls = torch.optim.RMSprop
+
+    lr: float = hp.auto(torch.optim.RMSprop, "lr")
+    alpha: float = hp.auto(torch.optim.RMSprop, "alpha")
+    eps: float = hp.auto(torch.optim.RMSprop, "eps")
+    momentum: float = hp.auto(torch.optim.RMSprop, "momentum")
+    weight_decay: float = hp.auto(torch.optim.RMSprop, "weight_decay")
+    centered: float = hp.auto(torch.optim.RMSprop, "centered")
+
+
+optimizer_registry = {
+    "adam": AdamHparams,
+    "adamw": AdamWHparams,
+    "decoupled_adamw": DecoupledAdamWHparams,
+    "radam": RAdamHparams,
+    "sgd": SGDHparams,
+    "decoupled_sgdw": DecoupledSGDWHparams,
+    "rmsprop": RMSpropHparams,
+}

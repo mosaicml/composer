@@ -45,7 +45,6 @@ class ObjectStoreLoggerHparams(hp.AutoInitializedHparams):
 
             Setting this parameter to ``None`` (the default) will log all artifacts.
         object_name (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
-        config_artifact_name (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         num_concurrent_uploads (int, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         upload_staging_folder (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         use_procs (bool, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
@@ -53,14 +52,10 @@ class ObjectStoreLoggerHparams(hp.AutoInitializedHparams):
     object_store_hparams: ObjectStoreHparams = hp.required("Object store provider hparams.")
     should_log_artifact: Optional[str] = hp.optional(
         "Path to a filter function which returns whether an artifact should be logged.", default=None)
-    object_name: str = hp.optional("A format string for object names", default="{artifact_name}")
-    config_artifact_name: Optional[str] = hp.optional(
-        "Format string to describe how to store the training configuration.", default="{run_name}/config.yaml")
-    num_concurrent_uploads: int = hp.optional("Maximum number of concurrent uploads.", default=4)
-    use_procs: bool = hp.optional("Whether to perform file uploads in background processes (as opposed to threads).",
-                                  default=True)
-    upload_staging_folder: Optional[str] = hp.optional(
-        "Staging folder for uploads. If not specified, will use a temporary directory.", default=None)
+    object_name: str = hp.auto(ObjectStoreLogger, "object_name")
+    num_concurrent_uploads: int = hp.auto(ObjectStoreLogger, "num_concurrent_uploads")
+    use_procs: bool = hp.auto(ObjectStoreLogger, "use_procs")
+    upload_staging_folder: Optional[str] = hp.auto(ObjectStoreLogger, "upload_staging_folder")
 
     def initialize_object(self) -> ObjectStoreLogger:
         return ObjectStoreLogger(
