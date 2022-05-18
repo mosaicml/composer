@@ -71,7 +71,7 @@ def _get_callback_factories():
     callback_factories.append(
         pytest.param(
             WandBLogger,
-            marks=pytest.mark.filterwarnings(r'ignore:unclosed file:pytest.PytestUnraisableExceptionWarning',),
+            marks=pytest.mark.filterwarnings(r'ignore:unclosed file:ResourceWarning',),
         ))
     callback_factories.append(lambda: ObjectStoreLogger(
         use_procs=False,
