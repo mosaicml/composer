@@ -99,7 +99,7 @@ You can use Composer's speedup methods in two ways:
 
 Integrate our speed-up methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/en/stable/method_cards/blurpool.html) and SqueezeExcite:
 
-
+<!-- begin_example_1 --->
 ```python
 import composer.functional as cf
 from torchvision import models
@@ -112,6 +112,7 @@ my_model = cf.apply_squeeze_excite(my_model)
 
 # your own training code starts here
 ```
+<!-- end_example_1 --->
 
 For more examples, see the [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) and [Functional API guide](https://docs.mosaicml.com/en/latest/functional_api.html).
 
@@ -119,6 +120,7 @@ For more examples, see the [Composer Functional API Colab notebook](https://cola
 
 For the best experience and the most efficient possible training, we recommend using Composer's built-in trainer, which automatically takes care of the low-level details of using speedup methods and provides useful abstractions that facilitate rapid experimentation.
 
+<!-- begin_example_2 --->
 ```python
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
@@ -147,6 +149,7 @@ trainer = Trainer(
 )
 trainer.fit()
 ```
+<!-- end_example_2 -->
 
 Composer's built-in [trainer](https://docs.mosaicml.com/en/stable/trainer/using_the_trainer.html) makes it easy to **add multiple speedup methods in a single line of code!**
 Trying out new methods or combinations of methods is as easy as changing a single list.

@@ -79,3 +79,27 @@ def test_docker_build_matrix():
 
     with open(docker_folder / "pytorch" / "build_matrix.yaml", "r") as f:
         assert existing_build_matrix == f.read()
+
+
+@pytest.mark.parametrize("example", [1, 2])
+def test_release_tests_reflect_readme(example: int):
+    """Test that example_1.py and example_2.py in release_tests reflect the README.md"""
+    with open(pathlib.Path(os.path.dirname(__file__)) / '..' / 'README.md', 'r') as f:
+        readme_lines = f.readlines()
+    example_code_lines = []
+    started = False
+    for l in readme_lines:
+        if f'begin_example_{example}' in l:
+            started = True
+            continue
+        if started:
+            example_code_lines.append(l)
+        if f'end_example_{example}' in l:
+            break
+
+    # chop of the first and last lines -- they're ```python and ``` to start and end the code blocks
+    # Chopping off 2 lines at the end, cause one of them is an extra newline
+    example_code_lines = example_code_lines[1:-2]
+    example_file = pathlib.Path(os.path.dirname(__file__)) / 'release_tests' / f'example_{example}.py'
+    with open(example_file, 'r') as f:
+        assert f.readlines() == example_code_lines
