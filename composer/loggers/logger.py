@@ -140,7 +140,21 @@ class Logger:
         *,
         overwrite: bool = False,
     ):
-        __doc__ = f"""Log ``file_path`` as an artifact named ``artifact_name``.
+        """Log ``file_path`` as an artifact named ``artifact_name``."""
+
+        log_level = LogLevel(log_level)
+        file_path = format_name_with_dist(format_str=str(file_path), run_name=self.run_name)
+        file_path = pathlib.Path(file_path)
+        for destination in self.destinations:
+            destination.log_file_artifact(
+                state=self._state,
+                log_level=log_level,
+                artifact_name=format_name_with_dist(format_str=artifact_name, run_name=self.run_name),
+                file_path=file_path,
+                overwrite=overwrite,
+            )
+
+    file_artifact.__doc__ = f"""Log ``file_path`` as an artifact named ``artifact_name``.
 
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
@@ -160,17 +174,6 @@ class Logger:
             overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
                 (default: ``False``)
         """
-        log_level = LogLevel(log_level)
-        file_path = format_name_with_dist(format_str=str(file_path), run_name=self.run_name)
-        file_path = pathlib.Path(file_path)
-        for destination in self.destinations:
-            destination.log_file_artifact(
-                state=self._state,
-                log_level=log_level,
-                artifact_name=format_name_with_dist(format_str=artifact_name, run_name=self.run_name),
-                file_path=file_path,
-                overwrite=overwrite,
-            )
 
     def symlink_artifact(
         self,
@@ -179,7 +182,19 @@ class Logger:
         symlink_artifact_name: str,
         overwrite: bool = False,
     ):
-        __doc__ = f"""Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
+        """Symlink ``existing_artifact_name`` as ``symlink_artifact_name``."""
+
+        log_level = LogLevel(log_level)
+        for destination in self.destinations:
+            destination.log_symlink_artifact(
+                state=self._state,
+                log_level=log_level,
+                existing_artifact_name=format_name_with_dist(format_str=existing_artifact_name, run_name=self.run_name),
+                symlink_artifact_name=format_name_with_dist(format_str=symlink_artifact_name, run_name=self.run_name),
+                overwrite=overwrite,
+            )
+
+    symlink_artifact.__doc__ = f"""Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
 
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
@@ -199,15 +214,6 @@ class Logger:
             overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
                 (default: ``False``)
         """
-        log_level = LogLevel(log_level)
-        for destination in self.destinations:
-            destination.log_symlink_artifact(
-                state=self._state,
-                log_level=log_level,
-                existing_artifact_name=format_name_with_dist(format_str=existing_artifact_name, run_name=self.run_name),
-                symlink_artifact_name=format_name_with_dist(format_str=symlink_artifact_name, run_name=self.run_name),
-                overwrite=overwrite,
-            )
 
     def data_fit(self, data: Dict[str, Any]) -> None:
         """Helper function for ``self.data(LogLevel.FIT, data)``"""
