@@ -342,10 +342,8 @@ class Engine():
 
     def __del__(self):
         global _did_atexit_run
-        if _did_atexit_run:
-            # Do not attempt to shutdown again, since close() already ran via __atexit__
-            # In this case, close() is no longer idempotent, since Python machenry (such as the ability to do
-            # conditional imports) has already been destroyed
+        if _did_atexit_run or self._is_closed:
+            # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
             return
         self.close()
 

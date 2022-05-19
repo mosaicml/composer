@@ -144,9 +144,14 @@ def test_engine_is_dead_after_close(dummy_state: State, dummy_logger: Logger):
 class IsClosedCallback(Callback):
 
     def __init__(self) -> None:
+        self.is_closed = True
+
+    def init(self, state: State, logger: Logger) -> None:
+        assert self.is_closed
         self.is_closed = False
 
     def close(self, state: State, logger: Logger) -> None:
+        assert not self.is_closed
         self.is_closed = True
 
 
@@ -165,6 +170,40 @@ def test_engine_closes_on_del(dummy_state: State, dummy_logger: Logger):
 
     # Assert it is closed
     assert is_closed_callback.is_closed
+
+
+class DummyTrainer:
+    """Helper to simulate what the trainer does w.r.t. events"""
+
+    def __init__(self, state: State, logger: Logger) -> None:
+        self.engine = Engine(state, logger)
+        for cb in self.engine.state.callbacks:
+            cb.run_event(Event.INIT, self.engine.state, self.engine.logger)
+
+    def close(self):
+        self.engine.close()
+
+
+def test_engine_triggers_close_only_once(dummy_state: State, dummy_logger: Logger):
+    # Create the trainer and run an event
+    is_closed_callback = IsClosedCallback()
+    dummy_state.callbacks.append(is_closed_callback)
+
+    # Create the trainer
+    trainer = DummyTrainer(dummy_state, dummy_logger)
+
+    # Close the trainer
+    trainer.close()
+
+    # Assert it is closed
+    assert is_closed_callback.is_closed
+
+    # Create a new trainer with the same callback. Should implicitly trigger __del__ AFTER
+    # AFTER DummyTrainer was constructed
+    trainer = DummyTrainer(dummy_state, dummy_logger)
+
+    # Assert it is open
+    assert not is_closed_callback.is_closed
 
 
 def check_output(proc: subprocess.CompletedProcess):
