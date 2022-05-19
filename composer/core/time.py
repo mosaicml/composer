@@ -635,8 +635,8 @@ class Timestamp(Serializable):
             ...     sample_in_epoch=timestamp.sample_in_epoch + samples,
             ...     token = timestamp.token + tokens,
             ...     token_in_epoch=timestamp.token_in_epoch + tokens,
-            ...     total_wct=self.total_wct + duration,
-            ...     epoch_wct=self.epoch_wct + duration,
+            ...     total_wct=timestamp.total_wct + duration,
+            ...     epoch_wct=timestamp.epoch_wct + duration,
             ...     batch_wct=duration,
             ... )
             Timestamp(...)
