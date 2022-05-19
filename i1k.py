@@ -82,9 +82,6 @@ MODEL_SPECIFIC_DEFAULTS = {
 
 # Set any args that were not explicitly given by the user.
 default_value_dict = MODEL_SPECIFIC_DEFAULTS.get('resnet50', DEFAULT_KWARGS)
-#for arg, value in default_value_dict.items():
-#  if getattr(FLAGS, arg) is None:
- #   setattr(FLAGS, arg, value)
 
 
 def get_model_property(key):

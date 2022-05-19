@@ -355,19 +355,6 @@ class Trainer:
         else:
             self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
 
-        # Evaluators
-        if eval_dataloader is None:
-            evaluators: List[Evaluator] = []
-        else:
-            evaluators = [
-                ensure_evaluator(evaluator, model.metrics(train=False)) for evaluator in ensure_tuple(eval_dataloader)
-            ]
-            _set_evaluator_interval_and_subset_num_batches(
-                evaluators=evaluators,
-                eval_interval=eval_interval,
-                subset_num_batches=eval_subset_num_batches,
-            )
-        self.state.evaluators = evaluators
 
         # Grad Clip Norm
         self._grad_clip_norm = grad_clip_norm
@@ -514,6 +501,9 @@ class Trainer:
             #_validate_precision(precision, self._device, self.deepspeed_enabled)
             self.state.precision = precision
 
+
+        self._train_loop()
+        '''
         if True:#self._device == DeviceTPU():
             import torch_xla.distributed.xla_multiprocessing as xmp
             def _mp_fn(index):
@@ -521,7 +511,8 @@ class Trainer:
             xmp.spawn(_mp_fn, args=(), nprocs=8, start_method='fork')
         else:
             print('HEREEEEEEEE', self._device)
-            self._train_loop()
+        '''
+            
 
     def close(self):
         """Shutdown the trainer.
