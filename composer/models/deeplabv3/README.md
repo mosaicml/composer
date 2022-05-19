@@ -6,7 +6,7 @@
 ## Example
 
 ```python
-from composer.models. import ComposerDeepLabV3
+from composer.models import ComposerDeepLabV3
 
 model = ComposerDeepLabV3(num_classes=150,
                           backbone_arch="resnet101",
