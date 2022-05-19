@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 # [imports-start]
 import torch
@@ -8,6 +9,7 @@ from torchvision import datasets, transforms
 from composer import Trainer
 from composer.models import MNIST_Classifier
 from composer.profiler import JSONTraceHandler, cyclic_schedule
+from composer.profiler.profiler import Profiler
 
 # [imports-end]
 
@@ -38,26 +40,25 @@ model = MNIST_Classifier(num_classes=10)
 composer_trace_dir = "composer_profiler"
 torch_trace_dir = "torch_profiler"
 
-trainer = Trainer(
-    model=model,
-    train_dataloader=train_dataloader,
-    eval_dataloader=train_dataloader,
-    max_duration=2,
-    device="gpu" if torch.cuda.is_available() else "cpu",
-    validate_every_n_batches=-1,
-    validate_every_n_epochs=-1,
-    precision="amp" if torch.cuda.is_available() else "fp32",
-    train_subset_num_batches=16,
-    prof_trace_handlers=JSONTraceHandler(folder=composer_trace_dir, overwrite=True),
-    prof_schedule=cyclic_schedule(
-        wait=0,
-        warmup=1,
-        active=4,
-        repeat=1,
-    ),
-    torch_prof_folder=torch_trace_dir,
-    torch_prof_overwrite=True,
-)
+trainer = Trainer(model=model,
+                  train_dataloader=train_dataloader,
+                  eval_dataloader=train_dataloader,
+                  max_duration=2,
+                  device="gpu" if torch.cuda.is_available() else "cpu",
+                  eval_interval=0,
+                  precision="amp" if torch.cuda.is_available() else "fp32",
+                  train_subset_num_batches=16,
+                  profiler=Profiler(
+                      trace_handlers=JSONTraceHandler(folder=composer_trace_dir, overwrite=True),
+                      schedule=cyclic_schedule(
+                          wait=0,
+                          warmup=1,
+                          active=4,
+                          repeat=1,
+                      ),
+                      torch_prof_folder=torch_trace_dir,
+                      torch_prof_overwrite=True,
+                  ))
 # [trainer-end]
 
 # [fit-start]

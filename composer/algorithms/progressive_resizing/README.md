@@ -18,18 +18,18 @@ Progressive Resizing works by initially training on images that have been downsa
 TODO(CORY): FIX
 
 ```python
-def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
+# def training_loop(model, train_loader):
+#   opt = torch.optim.Adam(model.parameters())
+#   loss_fn = F.cross_entropy
+#   model.train()
   
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+#   for epoch in range(num_epochs):
+#       for X, y in train_loader:
+#           y_hat = model(X)
+#           loss = loss_fn(y_hat, y)
+#           loss.backward()
+#           opt.step()
+#           opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -37,16 +37,16 @@ def training_loop(model, train_loader):
 TODO(CORY): Verify and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
-from composer.trainer import Trainer
+# from composer.algorithms import XXX
+# from composer.trainer import Trainer
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[
-                  ])
+# trainer = Trainer(model=model,
+#                   train_dataloader=train_dataloader,
+#                   max_duration='1ep',
+#                   algorithms=[
+#                   ])
 
-trainer.fit()
+# trainer.fit()
 ```
 
 ### Implementation Details
@@ -55,8 +55,8 @@ TODO(Cory): A brief description of how this works under the hood.-->
 
 ## Suggested Hyperparameters
 
-We found `initial_scale = 0.5` (starting training on images where each side length has been reduced by 50%) and `finetune_fraction = 0.2` (reserving the final 20% of training for full-sized images) to work well for ResNet-50 on ImageNet.
-These are the hyperparameters we used for our runs in the [MosaicML Explorer](https://app.mosaicml.com/explorer/imagenet).
+We found `initial_scale = 0.5` (starting training on images where each side length has been reduced by 50%), `finetune_fraction = 0.2` (reserving the final 20% of training for full-sized images),
+`delay_fraction = 0.5` (reserving the first 50% of training for initial\_scale-sized images) and `size_increment = 4` (pegging image size to the nearest multiple of 4) to work well for ResNet-50 on ImageNet.
 
 ## Technical Details
 

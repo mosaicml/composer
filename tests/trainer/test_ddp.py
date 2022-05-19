@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import collections.abc
 import os
@@ -23,7 +24,7 @@ from composer.models.model_hparams import ModelHparams
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
-from tests.fixtures.models import SimpleBatchPairModel
+from tests.common import SimpleModel
 
 
 def get_file_path(*, is_train: bool, tmpdir: pathlib.Path) -> str:
@@ -69,7 +70,7 @@ class TrackedDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     data_shape: Optional[List[int]] = hp.optional("data_shape", default=None)
     tmpdir: Optional[str] = hp.optional("tmpdir", default=None)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> types.DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         assert self.num_classes is not None
         assert self.data_shape is not None
         assert self.tmpdir is not None
@@ -102,13 +103,13 @@ class CheckBatch0(Callback):
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if event in (Event.BEFORE_FORWARD, Event.EVAL_BEFORE_FORWARD):
             filepath = get_batch_file_path(
-                epoch=int(state.timer.epoch),
+                epoch=int(state.timestamp.epoch),
                 is_train=state.model.training,
                 tmpdir=self.tmpdir,
             )
             if os.path.exists(filepath):
                 return
-            last_input, last_target = state.batch_pair
+            last_input, last_target = state.batch
             torch.save(  # type: ignore
                 {
                     "last_input": last_input,
@@ -144,7 +145,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
 
     dummy_model_hparams.num_classes = 100
     model = dummy_model_hparams.initialize_object()
-    assert isinstance(model, SimpleBatchPairModel)
+    assert isinstance(model, SimpleModel)
 
     dataloader_hparams = DataLoaderHparams(
         num_workers=0,
@@ -160,7 +161,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     train_dataset_hparams = TrackedDatasetHparams(
         synthetic_num_unique_samples=train_batch_size * train_subset_num_batches,
         is_train=True,
-        data_shape=[model.num_channels, 5, 5],
+        data_shape=[model.num_features, 5, 5],
         num_classes=model.num_classes,
         tmpdir=str(tmpdir),
     )
@@ -170,7 +171,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     val_dataset_hparams = TrackedDatasetHparams(
         synthetic_num_unique_samples=eval_batch_size * eval_subset_num_batches,
         is_train=False,
-        data_shape=[model.num_channels, 5, 5],
+        data_shape=[model.num_features, 5, 5],
         num_classes=model.num_classes,
         tmpdir=str(tmpdir),
     )
@@ -184,15 +185,13 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
                       device=device_hparams.initialize_object(),
                       max_duration=f"{max_epochs}ep",
                       precision=Precision.FP32,
-                      validate_every_n_batches=0,
-                      validate_every_n_epochs=1,
+                      eval_interval="1ep",
                       eval_subset_num_batches=eval_subset_num_batches,
                       train_subset_num_batches=train_subset_num_batches,
-                      deepspeed_config={} if deepspeed else False,
+                      deepspeed_config={} if deepspeed else None,
                       callbacks=[CheckBatch0(tmpdir)])
-    assert isinstance(trainer.state.train_dataloader.dataset, collections.abc.Sized)
 
-    for evaluator in trainer.evaluators:
+    for evaluator in trainer.state.evaluators:
         assert isinstance(evaluator.dataloader, DataSpec)
         assert isinstance(evaluator.dataloader.dataloader, collections.abc.Sized)
     trainer.fit()
@@ -200,12 +199,12 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     expected_train_num_loads = max_epochs * train_batch_size * train_subset_num_batches
     #expected_val_num_loads = max_epochs * hparams.eval_batch_size * hparams.eval_subset_num_batches
     expected_val_num_loads = 0
-    for evaluator in trainer.evaluators:
+    for evaluator in trainer.state.evaluators:
         expected_val_num_loads += max_epochs * eval_batch_size * eval_subset_num_batches
 
     # adding hparams.eval_batch_size to account for the extra spin of the evaluator dataloaders
     # that is called to create a deterministic ordering for the sampler
-    for evaluator in trainer.evaluators:
+    for evaluator in trainer.state.evaluators:
         expected_val_num_loads += eval_batch_size
 
     actual_train_num_loads = 0

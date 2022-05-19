@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import math
 
@@ -11,7 +12,6 @@ from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccu
 
 @pytest.mark.parametrize("ignore_index", [-100])
 @pytest.mark.parametrize("num_classes", [2, 3, 4, 5])
-@pytest.mark.xfail(reason="Test is flaky. See https://github.com/mosaicml/composer/issues/767.")
 def test_masked_accuracy(ignore_index, num_classes):
     """Sanity check to make sure that masked accuracy has reasonable performance.
 

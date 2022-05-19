@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from typing import Callable
 
@@ -144,13 +145,15 @@ def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:
 def state(minimal_state: State, conv_model: ComposerClassifier, loss_fun_tuple: Callable, epoch: int,
           batch: int) -> State:
     """State with required values set for Selective Backprop."""
-
+    assert minimal_state.dataloader_len is not None
     conv_model.loss = loss_fun_tuple
     minimal_state.model = conv_model
 
-    minimal_state.timer.epoch._value = epoch
-    minimal_state.timer.batch._value = epoch * minimal_state.steps_per_epoch + batch
-    minimal_state.timer.batch_in_epoch._value = batch
+    minimal_state.timestamp = minimal_state.timestamp.copy(
+        epoch=epoch,
+        batch=epoch * int(minimal_state.dataloader_len) + batch,
+        batch_in_epoch=batch,
+    )
 
     return minimal_state
 

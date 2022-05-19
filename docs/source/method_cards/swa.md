@@ -59,3 +59,4 @@ There are studies in progress to see the effect of SWA on other image tasks and 
 .. autoclass:: composer.algorithms.swa.SWA
     :members: match, apply
     :noindex:
+```

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core ColOut classes and functions."""
 
@@ -10,6 +11,7 @@ import weakref
 from typing import Tuple, TypeVar, Union
 
 import torch
+import torch.utils.data
 from PIL.Image import Image as PillowImage
 from torch import Tensor
 from torchvision.datasets import VisionDataset
@@ -214,11 +216,17 @@ class ColOut(Algorithm):
         if self.batch:
             return event == Event.AFTER_DATALOADER
         else:
-            return event == Event.FIT_START and state.train_dataloader.dataset not in self._transformed_datasets
+            if event != Event.FIT_START:
+                return False
+            assert state.dataloader is not None, "dataloader should be defined on fit start"
+            if not isinstance(state.dataloader, torch.utils.data.DataLoader):
+                raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
+            return state.dataloader.dataset not in self._transformed_datasets
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""
-        dataset = state.train_dataloader.dataset
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "dataloader type checked on match()"
+        dataset = state.dataloader.dataset
 
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
 
@@ -232,7 +240,7 @@ class ColOut(Algorithm):
 
     def _apply_batch(self, state: State) -> None:
         """Transform a batch of images using the ColOut augmentation."""
-        inputs, target = state.batch_pair
+        inputs, target = state.batch
         assert isinstance(inputs, Tensor) and isinstance(target, Tensor), \
             "Inputs and target must be of type torch.Tensor for batch-wise ColOut"
 

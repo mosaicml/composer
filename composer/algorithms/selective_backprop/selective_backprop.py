@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core SelectiveBackprop class and functions."""
 
@@ -12,6 +13,7 @@ import torch
 from torch.nn import functional as F
 
 from composer.core import Algorithm, Event, State
+from composer.core.precision import get_precision_context
 from composer.loggers import Logger
 from composer.models import ComposerModel
 
@@ -181,7 +183,7 @@ class SelectiveBackprop(Algorithm):
          keep (float, optional): fraction of minibatch to select and keep for gradient computation
              Default: ``0.5``.
          scale_factor (float, optional): scale for downsampling input for selection forward pass
-             Default: ``0.5``.
+             Default: ``1.``.
          interrupt (int, optional): interrupt SB with a vanilla minibatch step every
              ``interrupt`` batches. Default: ``2``.
 
@@ -204,7 +206,7 @@ class SelectiveBackprop(Algorithm):
                  start: float = 0.5,
                  end: float = 0.9,
                  keep: float = 0.5,
-                 scale_factor: float = 0.5,
+                 scale_factor: float = 1.,
                  interrupt: int = 2):
         self.start = start
         self.end = end
@@ -223,9 +225,12 @@ class SelectiveBackprop(Algorithm):
         if not is_keep:
             return False
 
+        elapsed_duration = state.get_elapsed_duration()
+        assert elapsed_duration is not None, "elapsed duration should be set on Event.AFTER_DATALOADER"
+
         is_chosen = should_selective_backprop(
-            current_duration=float(state.get_elapsed_duration()),
-            batch_idx=state.timer.batch_in_epoch.value,
+            current_duration=float(elapsed_duration),
+            batch_idx=int(state.timestamp.batch_in_epoch),
             start=self.start,
             end=self.end,
             interrupt=self.interrupt,
@@ -239,7 +244,7 @@ class SelectiveBackprop(Algorithm):
                     raise RuntimeError("Model must be of type ComposerModel")
                 self._loss_fn = state.model.loss
             return
-        input, target = state.batch_pair
+        input, target = state.batch
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 
@@ -250,6 +255,6 @@ class SelectiveBackprop(Algorithm):
             assert self._loss_fn is not None, "loss_fn should be set on Event.INIT"
             return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
 
-        with state.precision_context:
+        with get_precision_context(state.precision):
             new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
         state.batch = (new_input, new_target)

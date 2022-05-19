@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Events represent specific points in the training loop where an :class:`~.core.Algorithm` and :class:`~.core.Callback`
 can run."""
@@ -157,6 +158,13 @@ class Event(StringEnum):
     EVAL_BATCH_END = "eval_batch_end"
     EVAL_END = "eval_end"
 
+    PREDICT_START = "predict_start"
+    PREDICT_BATCH_START = "predict_batch_start"
+    PREDICT_BEFORE_FORWARD = "predict_before_forward"
+    PREDICT_AFTER_FORWARD = "predict_after_forward"
+    PREDICT_BATCH_END = "predict_batch_end"
+    PREDICT_END = "predict_end"
+
     @property
     def is_before_event(self) -> bool:
         """Whether the event is a 'before_*' event (e.g., :attr:`~Event.BEFORE_LOSS`) and has a corresponding 'after_*'
@@ -192,27 +200,10 @@ class Event(StringEnum):
         return name
 
 
-_BEFORE_EVENTS = (
-    Event.FIT_START,
-    Event.EPOCH_START,
-    Event.BATCH_START,
-    Event.BEFORE_TRAIN_BATCH,
-    Event.BEFORE_FORWARD,
-    Event.BEFORE_LOSS,
-    Event.BEFORE_BACKWARD,
-    Event.EVAL_START,
-    Event.EVAL_BATCH_START,
-    Event.EVAL_BEFORE_FORWARD,
-)
-_AFTER_EVENTS = (
-    Event.EPOCH_END,
-    Event.BATCH_END,
-    Event.AFTER_TRAIN_BATCH,
-    Event.AFTER_FORWARD,
-    Event.AFTER_LOSS,
-    Event.AFTER_BACKWARD,
-    Event.EVAL_END,
-    Event.EVAL_BATCH_END,
-    Event.EVAL_AFTER_FORWARD,
-    Event.FIT_END,
-)
+_BEFORE_EVENTS = (Event.FIT_START, Event.EPOCH_START, Event.BATCH_START, Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD,
+                  Event.BEFORE_LOSS, Event.BEFORE_BACKWARD, Event.EVAL_START, Event.EVAL_BATCH_START,
+                  Event.EVAL_BEFORE_FORWARD, Event.PREDICT_START, Event.PREDICT_BATCH_START,
+                  Event.PREDICT_BEFORE_FORWARD)
+_AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD, Event.AFTER_LOSS,
+                 Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD, Event.FIT_END,
+                 Event.PREDICT_END, Event.PREDICT_BATCH_END, Event.PREDICT_AFTER_FORWARD)

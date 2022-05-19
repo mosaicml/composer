@@ -8,7 +8,7 @@ LINUX_DISTRO ?= ubuntu2004
 PYTHON_VERSION ?='3.9'
 
 # Pytorch version to install. Composer requires pytorch>=1.9
-PYTORCH_VERSION ?= '1.10.0'
+PYTORCH_VERSION ?= '1.11.0'
 
 # Torchvision version to install.
 # See https://github.com/pytorch/vision#installation
@@ -29,7 +29,7 @@ PYTORCH_TAG ?= mosaicml/pytorch
 
 # Extra dependencies to install for composer.
 # Composer is installed like:
-# pip install composer[$COMPOSER_EXTRA_DEPS]
+# pip install "composer[$COMPOSER_EXTRA_DEPS]"
 COMPOSER_EXTRA_DEPS ?= base
 
 # Resulting docker tag for the composer dockerimage
@@ -38,7 +38,11 @@ COMPOSER_TAG ?= mosaicml/composer:$(COMPOSER_EXTRA_DEPS)
 # target stage to build
 TARGET ?= pytorch_stage
 
+MMCV_VERSION ?= '1.4.4'
 MMCV_TORCH_VERSION ?= 'torch1.10.0'
+
+MOFED_VERSION ?= ''
+MOFED_OS_VERSION ?= ''
 
 .PHONY: build pytorch composer
 
@@ -52,6 +56,7 @@ pytorch:
 		--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
 		--build-arg PYTORCH_VERSION=$(PYTORCH_VERSION) \
 		--build-arg TORCHVISION_VERSION=$(TORCHVISION_VERSION) \
+		--build-arg MMCV_VERSION=$(MMCV_VERSION) \
 		--build-arg MMCV_TORCH_VERSION=$(MMCV_TORCH_VERSION) \
 		--build-arg MOFED_VERSION=${MOFED_VERSION} \
 		--build-arg LINUX_DISTRO=${LINUX_DISTRO} \

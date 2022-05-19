@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """NoOpModel algorithm and class."""
 
@@ -13,7 +14,6 @@ from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification.accuracy import Accuracy
 
 from composer.core import Algorithm, Event, State
-from composer.core.types import as_batch_pair
 from composer.loggers import Logger
 from composer.models.base import ComposerModel
 from composer.utils import module_surgery
@@ -43,13 +43,13 @@ class NoOpModelClass(ComposerModel):
             pass
 
     def loss(self, outputs: torch.Tensor, batch: Batch):
-        x, y = as_batch_pair(batch)
+        x, y = batch
         assert isinstance(y, torch.Tensor)
         del x  # unused
         return F.mse_loss(outputs, y.to(torch.float32))
 
     def forward(self, batch: Batch):
-        x, y = as_batch_pair(batch)
+        x, y = batch
         del x  # unused
         assert isinstance(y, torch.Tensor)
         return y * self.weights
@@ -58,7 +58,7 @@ class NoOpModelClass(ComposerModel):
         return Accuracy()
 
     def validate(self, batch: Batch) -> Tuple[Any, Any]:
-        x, y = as_batch_pair(batch)
+        x, y = batch
         del x  # unused
         return y, y
 

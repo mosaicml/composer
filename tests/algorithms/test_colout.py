@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import functools
 from typing import Tuple
@@ -291,8 +292,8 @@ class TestColOutAlgorithm:
         original_image, _ = dataset[0]
         assert isinstance(original_image, Image.Image)
 
-        minimal_state.train_dataloader = dataloader
-        colout_algorithm.apply(Event.INIT, minimal_state, empty_logger)
+        minimal_state.set_dataloader(dataloader, "train")
+        colout_algorithm.apply(Event.FIT_START, minimal_state, empty_logger)
 
         new_image, _ = dataset[0]
         assert isinstance(new_image, Image.Image)

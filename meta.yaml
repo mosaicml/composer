@@ -2,7 +2,7 @@
 
 package:
   name: mosaicml
-  version: "0.6.1"
+  version: "0.7.0"
 
 source:
   git_url: ./
@@ -44,6 +44,7 @@ requirements:
     - transformers >=4.11,<5
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
+    - boto3 >=1.21.45,<2
 
 test:
   requires:
@@ -64,6 +65,7 @@ test:
     - transformers >=4.11,<5
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
+    - boto3 >=1.21.45,<2
   files:
     - "**/composer/**"
     - "**/tests/**"
@@ -75,9 +77,10 @@ test:
     - composer
     - tests
   commands:
-    - pip install deepspeed>=0.5.5 timm>=0.5.4 # deepspeed is not available on conda, and timm has a conda version conflict
-    - make test DURATION=all EXTRA_ARGS="-m 'not notebooks and not gpu and not vision and not daily'"
-    - make test-dist DURATION=all WORLD_SIZE=2 EXTRA_ARGS="-m 'not notebooks and not gpu and not vision and not daily'"
+    # deepspeed is not available on conda, and timm has a conda version conflict
+    - pip install 'deepspeed>=0.5.5' 'timm>=0.5.4'
+    - make test DURATION=all EXTRA_ARGS="-v -m 'not notebooks and not gpu and not vision and not daily and not remote'"
+    - make test-dist DURATION=all WORLD_SIZE=2 EXTRA_ARGS="-v -m 'not notebooks and not gpu and not vision and not daily and not remote'"
 
 about:
   home: https://www.mosaicml.com

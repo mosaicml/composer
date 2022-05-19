@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Utilities for working with training checkpoints."""
 
@@ -12,7 +13,7 @@ import shutil
 import tarfile
 import tempfile
 import textwrap
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import torch
 
@@ -23,6 +24,7 @@ from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.core.state import State
+    from composer.loggers import LoggerDestination
     from composer.loggers.logger import Logger
 
 log = logging.getLogger(__name__)
@@ -67,7 +69,7 @@ def _get_write_mode(name: str) -> str:
 def load_checkpoint(
     path: str,
     state: State,
-    object_store: Optional[ObjectStore] = None,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
     chunk_size: int = 1_048_576,
@@ -110,9 +112,9 @@ def load_checkpoint(
             correct state.
 
         state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
-        object_store (ObjectStore, optional): If the ``path`` is in an object store
+        object_store (Union[ObjectStore, LoggerDestination], optional): If the ``path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
-            :class:`~.ObjectStore` which will be used
+            :class:`~.ObjectStore` or :class:`~.LoggerDestination` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
             (default: ``None``)
         load_weights_only (bool, optional): Whether or not to only restore the model weights from the checkpoint without
@@ -169,7 +171,7 @@ def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
 def _download_checkpoint(
     path: str,
     node_checkpoint_folder: str,
-    object_store: Optional[ObjectStore],
+    object_store: Optional[Union[ObjectStore, LoggerDestination]],
     chunk_size: int,
     progress_bar: bool,
 ) -> Tuple[str, Optional[str], bool]:
@@ -303,7 +305,7 @@ def save_checkpoint(state: State,
     if weights_only and not state.is_model_deepspeed:
         state_dict['state'] = {"model": state_dict['state']['model']}
 
-    checkpoint_filepath = format_name_with_dist_and_time(filename, logger.run_name, state.timer.get_timestamp())
+    checkpoint_filepath = format_name_with_dist_and_time(filename, logger.run_name, state.timestamp)
     if state.is_model_deepspeed and not is_tar(checkpoint_filepath):
         # Deepspeed requires tarballs; appending `.tar`
         checkpoint_filepath += ".tar"

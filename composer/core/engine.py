@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Engine is a coordinator for running algorithms and resolving ordering conflicts among them for composition.
 
@@ -84,6 +85,25 @@ __all__ = ["Trace", "Engine", "Traces"]
 Traces = Dict[str, "Trace"]
 
 _ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
+_EVENTS_WHERE_DATALOADER_IS_SET = [e for e in Event if e != Event.INIT]
+_EVENTS_WHERE_MAX_DURATION_IS_SET = [
+    Event.FIT_START,
+    Event.EPOCH_START,
+    Event.BATCH_START,
+    Event.AFTER_DATALOADER,
+    Event.BEFORE_TRAIN_BATCH,
+    Event.BEFORE_FORWARD,
+    Event.AFTER_FORWARD,
+    Event.BEFORE_LOSS,
+    Event.AFTER_LOSS,
+    Event.BEFORE_BACKWARD,
+    Event.AFTER_BACKWARD,
+    Event.AFTER_TRAIN_BATCH,
+    Event.BATCH_END,
+    Event.BATCH_CHECKPOINT,
+    Event.EPOCH_END,
+    Event.EPOCH_CHECKPOINT,
+]
 
 # Track whether atexit triggered _close(), which indicates whether the python process is shutting down
 # If so, do not run close() again via __del__(), as Python machinery (e.g. the ability to do conditional
@@ -107,8 +127,8 @@ class Trace():
     """Record of an algorithm's execution.
 
     Attributes:
-        exit_code (int or None): Optional return value from an algorithm. Default: None.
-        order (int or None): Order in which the algorithm was executed
+        exit_code (int | None): Optional return value from an algorithm. Default: None.
+        order (int | None): Order in which the algorithm was executed
                              in the list of algorithms. None means algorithm was not run.
         run (bool): Whether the algorithm was run. Default: False
     """
@@ -172,7 +192,7 @@ class Engine():
 
 
         Args:
-            event (Event or str): The current :class:`~.event.Event`. It can be the enum member values or a
+            event (Event | str): The current :class:`~.event.Event`. It can be the enum member values or a
                 string with the event value.
         Returns:
             traces (Traces): Ordered dictionary of trace for each algorithm.
@@ -196,6 +216,12 @@ class Engine():
 
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
+
+        if event in _EVENTS_WHERE_DATALOADER_IS_SET:
+            assert self.state.dataloader is not None, f"The trainer should have set state.dataloader for event {event}."
+
+        if event in _EVENTS_WHERE_MAX_DURATION_IS_SET:
+            assert self.state.max_duration is not None, f"The trainer should have set state.max_duration for event {event}."
 
         if event == Event.INIT:
             # For the INIT event, run the callbacks first to initialize the loggers

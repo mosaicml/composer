@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import subprocess
@@ -26,6 +27,11 @@ def always_match_algorithms():
             'apply.return_value': n,  # return encodes order
         }) for n in range(5)
     ]
+
+
+@pytest.fixture()
+def dummy_logger(dummy_state: State):
+    return Logger(dummy_state)
 
 
 @pytest.fixture
@@ -178,7 +184,7 @@ def check_output(proc: subprocess.CompletedProcess):
     raise RuntimeError(error_msg)
 
 
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize("exception", [True, False])
 def test_engine_closes_on_atexit(exception: bool):
     # Running this test via a subprocess, as atexit() must trigger

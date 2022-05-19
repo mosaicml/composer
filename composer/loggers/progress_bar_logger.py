@@ -1,10 +1,10 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Logs metrics to the console and show a progress bar."""
 
 from __future__ import annotations
 
-import collections.abc
 import sys
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Dict, List, Optional, TextIO, Union
@@ -18,7 +18,7 @@ from composer.utils import dist
 
 __all__ = ["ProgressBarLogger"]
 
-_IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['accuracy/val']}
+_IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['metrics/eval/Accuracy']}
 
 
 @dataclass
@@ -37,9 +37,9 @@ class _ProgressBarLoggerInstance:
         self.state = state
         self.pbar = tqdm.auto.tqdm(
             total=state.total,
-            desc=state.description,
             position=state.position,
-            bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}",
+            # Putting state.description in bar_format to avoid floating colons.
+            bar_format=f'{state.description} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
             file=file,
             dynamic_ncols=True,
         )
@@ -141,7 +141,7 @@ class ProgressBarLogger(LoggerDestination):
         if not self.should_log(state, log_level):
             return
         data_str = format_log_data_value(data)
-        log_str = f'[{log_level.name}][batch={int(state.timer.batch)}]: {data_str}'
+        log_str = f'[{log_level.name}][batch={int(state.timestamp.batch)}]: {data_str}'
 
         if self.is_train in self.pbars:
             # use tqdm.write to avoid interleaving with a progress bar
@@ -155,23 +155,15 @@ class ProgressBarLogger(LoggerDestination):
         if dist.get_local_rank() != 0 or not self.show_pbar:
             return
         assert self.is_train is not None, "self.is_train should be set by the callback"
-        if self.is_train:
-            total_steps = state.steps_per_epoch
-        else:
-            total_steps = 0
-            for evaluator in state.evaluators:
-                dataloader_spec = evaluator.dataloader
-                assert isinstance(dataloader_spec.dataloader, collections.abc.Sized)
-                total_steps += len(dataloader_spec.dataloader)
+        assert state.dataloader_len is not None, "dataloader_len should be set when using tqdm"
 
-        desc = f'Epoch {int(state.timer.epoch)}'
+        split = 'train' if self.is_train else 'val'
+        desc = f'Epoch {int(state.timestamp.epoch):5d} {split:5s}'
         position = 0 if self.is_train else 1
-        if not self.is_train:
-            desc += f", Batch {int(state.timer.batch)} (val)"
         self.pbars[self.is_train] = _ProgressBarLoggerInstance(
             file=self.stream,
             state=_ProgressBarLoggerInstanceState(
-                total=total_steps,
+                total=int(state.dataloader_len),
                 position=position,
                 n=0,
                 keys_to_log=_IS_TRAIN_TO_KEYS_TO_LOG[self.is_train],

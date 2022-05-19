@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core Progressive Resizing classes and functions."""
 
@@ -151,8 +152,8 @@ class ProgressiveResizing(Algorithm):
         finetune_fraction (float, optional): Fraction of training to reserve for finetuning on the
             full-sized inputs. Must be a value in between 0 and 1. Default: ``0.2``.
         delay_fraction (float, optional): Fraction of training before resizing ramp begins.
-            Must be a value in between 0 and 1. Default: ``0.0``.
-        size_increment (int, optional): Align sizes to a multiple of this number. Default: ``1``.
+            Must be a value in between 0 and 1. Default: ``0.5``.
+        size_increment (int, optional): Align sizes to a multiple of this number. Default: ``4``.
         resize_targets (bool, optional): If True, resize targets also. Default: ``False``.
     """
 
@@ -160,8 +161,8 @@ class ProgressiveResizing(Algorithm):
                  mode: str = 'resize',
                  initial_scale: float = .5,
                  finetune_fraction: float = .2,
-                 delay_fraction: float = .0,
-                 size_increment: int = 1,
+                 delay_fraction: float = .5,
+                 size_increment: int = 4,
                  resize_targets: bool = False):
 
         if mode not in _VALID_MODES:
@@ -203,7 +204,7 @@ class ProgressiveResizing(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        input, target = state.batch_pair
+        input, target = state.batch
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 

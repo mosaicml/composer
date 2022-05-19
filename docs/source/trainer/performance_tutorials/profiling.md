@@ -23,6 +23,7 @@ Classifier model with the Composer Trainer.
 
 Install Composer, if it is not yet already installed.
 
+<!--pytest-codeblocks:skip-->
 ```bash
 pip install mosaicml
 ```
@@ -38,8 +39,8 @@ pip install mosaicml
 ## Import required modules
 
 In this example we will use {class}`torch.utils.data.DataLoader` with the {class}`~torchvision.datasets.MNIST` dataset
-from {mod}`torchvision`. From `composer`, we will import the {class}`~.MNIST_Classifier` model and the
-{class}`~.Trainer` object.
+from {mod}`torchvision`. From `composer`, we will import the {class}`~.Profiler`, the {class}`~.MNIST_Classifier`
+model and the {class}`~.Trainer` object.
 
 ```{literalinclude} ../../../../examples/profiler_demo.py
 :language: python
@@ -59,13 +60,14 @@ Next we instantiate the dataset, dataloader, and model.
 
 ## Instantiate the Trainer and configure profiling
 
-To enable profiling, specify the `prof_trace_handlers` and `prof_schedule` arguments when constructing the
-{class}`~.Trainer`. All other profiling arguments are optional.
+To enable profiling, construct a {class}`.Profiler`, and pass that to the Trainer.
+
+The `trace_handlers` and `schedule` are the only required arguments; all others are optional.
 
 Here, we configure following profiling options:
 
-- Set the `prof_trace_handlers` to store Composer Profiler traces in the `'composer_profiler'` folder
-- Set the profiling window via `prof_schedule`
+- Set the `trace_handlers` to store Composer Profiler traces in the `'composer_profiler'` folder
+- Set the profiling window via `schedule`
 - Set the `torch_prof_folder` to store Torch Profiler traces in the `'torch_profiler'` folder
 - Limit the duration of the training run to keep the size of the `profiler_trace_file` manageable
 
@@ -77,7 +79,7 @@ Here, we configure following profiling options:
 
 ### Specifying the Profile Schedule
 
-When setting up profiling, it is important to specify the _profiling schedule_ via the ``prof_schedule`` argument.
+When setting up profiling, it is important to specify the _profiling schedule_ via the ``schedule`` argument.
 
 This schedule determines the profiler's recording behavior. The schedule is a function that takes the training
 {class}`.State` and returns a {class}`.ProfilerAction`. 
@@ -147,7 +149,7 @@ within a reasonable amount of time and limit the size of the trace file.
 Since `prof_warmup=1`, `prof_active=4`, `prof_repeat=1`, and `prof_repeat=1`, we will record profiling data for 10
 batches each epoch, starting with batch 0 (no offset since `prof_skip_first=0` and `prof_wait=0`).
 Additionally, since we are only concerned with profiling during training, we disable validation by setting
-`validate_every_n_batches=-1` and `validate_every_n_epochs=-1`.
+`eval_interval="0ep"`.
 
 ## Run training with profiling
 
@@ -161,11 +163,13 @@ Lastly, we run the training loop by invoking {meth}`.Trainer.fit`.
 
 Finally, we can run the application as follows on a single GPU:
 
+<!--pytest-codeblocks:skip-->
 ```bash
 python examples/profiler_demo.py
 ```
 
 Or, we can profile on multiple GPUs:
+<!--pytest-codeblocks:skip-->
 ```bash
 composer -n N_GPUS examples/profiler_demo.py  # set N_GPUS to the number of GPUs
 ```
@@ -174,6 +178,7 @@ composer -n N_GPUS examples/profiler_demo.py  # set N_GPUS to the number of GPUs
 
 Once the training loop is complete, you should see the following traces
 
+<!--pytest-codeblocks:skip-->
 ```bash
 > ls composer_profiler/
 ... ep0-ba5-rank0.json  ep1-ba21-rank0.json  merged_trace.json
@@ -219,6 +224,7 @@ The Torch Profiler traces found in the `torch_profiler` area can also be viewed 
 
 To view the Torch Profiler traces in TensorBoard, run:
 
+<!--pytest-codeblocks:skip-->
 ```bash
 pip install tensorbaord torch_tb_profiler
 tensorboard --logdir torch_profiler

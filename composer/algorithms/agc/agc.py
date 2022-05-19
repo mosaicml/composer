@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core adaptive gradient clipping classes and functions."""
 
@@ -26,8 +27,9 @@ def apply_agc(
     Example:
          .. testcode::
 
-            from composer.algorithms.agc import apply_agc
-            apply_agc(model=model)
+            import composer.functional as cf
+            
+            cf.apply_agc(model=model)
 
 
     Args:

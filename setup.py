@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import site
@@ -106,6 +107,7 @@ extra_deps["dev"] = [
     "sphinxemoji==0.2.0",
     "furo==2022.3.4",
     "sphinx-copybutton==0.5.0",
+    "tabulate==0.8.9",  # for auto-generating tables
     "testbook==0.4.2",
     "myst-parser==0.16.1",
     "sphinx_panels==0.6.0",
@@ -113,6 +115,7 @@ extra_deps["dev"] = [
     # need webdataset to run pyright. Including here to pass pyright.
     # TODO Remove once https://github.com/mosaicml/composer/issues/771 is fixed.
     "webdataset==0.1.103",
+    "pytest_codeblocks==0.15.0"
 ]
 
 extra_deps["deepspeed"] = [
@@ -157,18 +160,28 @@ extra_deps["mlperf"] = [
     "py-cpuinfo>=8.0.0,<9",
 ]
 
+extra_deps["streaming"] = [
+    "boto3>=1.21.45,<2",
+]
+
+extra_deps["onnx"] = [
+    "onnx>=1.11.0,<2",
+    "onnxruntime>=1.11.0,<2",
+]
+
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ["py.typed"]
 composer_data_files += package_files("composer", "yamls", ".yaml")
 composer_data_files += package_files("composer", "algorithms", ".json")
 
-composer_data_files = ['py.typed']
-composer_data_files += package_files('composer', 'yamls', ".yaml")
-composer_data_files += package_files('composer', 'algorithms', ".json")
+package_name = os.environ.get('COMPOSER_PACKAGE_NAME', "mosaicml")
 
-setup(name="mosaicml",
-      version="0.6.1",
+if package_name != "mosaicml":
+    print(f"`Building composer as `{package_name}`)", file=sys.stderr)
+
+setup(name=package_name,
+      version="0.7.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="Composer provides well-engineered implementations of efficient training methods to give "

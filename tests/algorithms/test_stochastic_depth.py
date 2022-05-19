@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from typing import List, Optional, Sequence
 from unittest.mock import Mock
@@ -227,13 +228,15 @@ class TestStochasticDepthDropRate:
     def test_drop_rate_warmup(self, algorithm: StochasticDepth, step: int, state: State):
         old_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=old_drop_rates)
-        state.timer._batch._value = step
+        state.timestamp._batch._value = step
         algorithm.apply(Event.BATCH_START, state, logger=Mock())
         new_drop_rates = []
         self.get_drop_rate_list(state.model, drop_rates=new_drop_rates)
 
+        assert state.max_duration is not None
         assert state.max_duration.unit == TimeUnit.EPOCH
-        drop_warmup_iters = int(state.steps_per_epoch * int(state.max_duration.value) * algorithm.drop_warmup)
+        assert state.dataloader_len is not None
+        drop_warmup_iters = int(int(state.dataloader_len) * int(state.max_duration.value) * algorithm.drop_warmup)
         assert torch.all(torch.tensor(new_drop_rates) == ((step / drop_warmup_iters) * torch.tensor(old_drop_rates)))
 
 

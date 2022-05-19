@@ -19,20 +19,20 @@ TODO(ABHI): Fix and comments here describing what happens below.
 
 
 ```python
-import composer.functional as cf
+# import composer.functional as cf
 
-def training_loop(model, train_loader):
-    opt = torch.optim.Adam(model.parameters())
-    loss_fn = F.cross_entropy
-    model.train()
+# def training_loop(model, train_loader):
+#     opt = torch.optim.Adam(model.parameters())
+#     loss_fn = F.cross_entropy
+#     model.train()
 
-    for epoch in range(num_epochs):
-        for X, y in train_loader:
-            y_hat = model(X)
-            loss = loss_fn(y_hat, smoothed_targets)
-            loss.backward()
-            opt.step()
-            opt.zero_grad()
+#     for epoch in range(num_epochs):
+#         for X, y in train_loader:
+#             y_hat = model(X)
+#             loss = loss_fn(y_hat, smoothed_targets)
+#             loss.backward()
+#             opt.step()
+#             opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -40,15 +40,15 @@ def training_loop(model, train_loader):
 TODO(Abhi): Fix and add comments here describing what happens below.
 
 ```python
-from composer.algorithms import LabelSmoothing
-from composer.trainer import Trainer
+# from composer.algorithms import LabelSmoothing
+# from composer.trainer import Trainer
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[])
+# trainer = Trainer(model=model,
+#                   train_dataloader=train_dataloader,
+#                   max_duration='1ep',
+#                   algorithms=[])
 
-trainer.fit()
+# trainer.fit()
 ```
 
 ### Implementation Details
@@ -66,11 +66,9 @@ We found a value of 0.5 to represent a good tradeoff that greatly improves speed
 We recommend setting `interrupt=2`, which performs a standard training batch after every two batches of Selective Backprop.
 We found that including some unmodified batches is worth the tradeoff in speed, although a value of 0 is also worth considering.
 
-We recommend setting `scale_factor=0.5`, which downsamples the height and width image examples by 50% on the first forward pass (the one that selects which examples to train on). This mitigates the cost of that additional forward pass.
+By default, we set `scale_factor=1.`, which allows for data- and network-agnostic use of `selective_backprop`. When `scale_factor` is less than `1`, the data is presumed to be an image, and the height and width each image is downsampled by the `scale_factor`. Downsampling on the first forward pass, the one that selects which examples to train on, mitigates the cost of that additional forward pass.
 
-> ❗ The Network Must Be Able to Handle Lower Resolution Images to Use `scale_factor`
-> 
-> Using the `scale_factor` hyperparameter requires a network and data preparation pipeline capable of handling lower resolution images. If your pipeline and network are not capable of doing so, set this hyperparameter to 1.0.
+>  Tuning the `scale_factor` hyperparameter requires a network and data preparation pipeline capable of handling lower resolution images. For image data that *can* be downsampled, we recommend setting `scale_factor=0.5`.
 
 ## Technical Details
 
