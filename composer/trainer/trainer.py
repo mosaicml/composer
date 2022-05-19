@@ -371,6 +371,10 @@ class Trainer:
             This ``eval_interval`` will apply to any :class:`.Evaluator` in ``eval_dataloader`` that does not specify
             an ``eval_interval`` or if a dataloader is passed in directly. This parameter has no effect if
             ``eval_dataloader`` is not specified.
+
+            When specifying time string or integer for the ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't
+            evenly divide the training duration.
+
         eval_subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
             which means to iterate over the entire dataloader.
 
@@ -1471,19 +1475,7 @@ class Trainer:
                         )
 
                     self.engine.run_event(Event.BATCH_END)
-
-                    for evaluator in self.state.evaluators:
-                        assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
-                        assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
-                        if evaluator.eval_interval(self.state, Event.BATCH_END):
-                            self.eval(
-                                dataloader=evaluator.dataloader,
-                                dataloader_label=evaluator.label,
-                                subset_num_batches=evaluator.subset_num_batches,
-                                metrics=evaluator.metrics,
-                                log_level=LogLevel.BATCH,
-                            )
-
+                    self._run_evaluators(Event.BATCH_END, log_level=LogLevel.BATCH)
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
 
                     if self.state.timestamp >= self.state.max_duration:
@@ -1515,21 +1507,25 @@ class Trainer:
                         scheduler.step()
 
                 self.engine.run_event(Event.EPOCH_END)
-
-                for evaluator in self.state.evaluators:
-                    assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
-                    assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
-                    if evaluator.eval_interval(self.state, Event.EPOCH_END):
-                        self.eval(
-                            dataloader=evaluator.dataloader,
-                            dataloader_label=evaluator.label,
-                            subset_num_batches=evaluator.subset_num_batches,
-                            metrics=evaluator.metrics,
-                            log_level=LogLevel.EPOCH,
-                        )
-
+                self._run_evaluators(Event.EPOCH_END, log_level=LogLevel.EPOCH)
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
         self.engine.run_event(Event.FIT_END)
+        self._run_evaluators(Event.FIT_END, log_level=LogLevel.FIT)
+
+    def _run_evaluators(self, event: Event, log_level: LogLevel):
+        """Runs evaluators periodically during training."""
+
+        for evaluator in self.state.evaluators:
+            assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
+            assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
+            if evaluator.eval_interval(self.state, event):
+                self.eval(
+                    dataloader=evaluator.dataloader,
+                    dataloader_label=evaluator.label,
+                    subset_num_batches=evaluator.subset_num_batches,
+                    metrics=evaluator.metrics,
+                    log_level=log_level,
+                )
 
     def _handle_cuda_oom(self):
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
