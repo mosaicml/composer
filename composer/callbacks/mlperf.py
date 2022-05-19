@@ -36,8 +36,12 @@ DIVISIONS = ("open",)
 STATUS = ("onprem", "cloud", "preview")
 
 
-def rank_zero() -> bool:
+def _global_rank_zero() -> bool:
     return dist.get_global_rank() == 0
+
+
+def _local_rank_zero() -> bool:
+    return dist.get_local_rank() == 0
 
 
 def require_mlperf_logging():
@@ -175,7 +179,7 @@ class MLPerfCallback(Callback):
 
         # setup here requies access to rank, which is only available after
         # the trainer is initialized
-        if dist.get_local_rank() == 0:
+        if _local_rank_zero():
             self._create_submission_folders(self.root_folder, self.system_name, self.benchmark)
             with open(self.systems_path, 'w') as f:
                 json.dump(self.system_desc, f, indent=4)
@@ -183,21 +187,23 @@ class MLPerfCallback(Callback):
             if os.path.exists(self.filename):
                 raise FileExistsError(f'{self.filename} already exists.')
 
-        dist.barrier()
-
         self._file_handler = logging.FileHandler(self.filename)
         self._file_handler.setLevel(logging.INFO)
         self.mllogger.logger.addHandler(self._file_handler)
 
         if self.cache_clear_cmd is not None:
-            subprocess.run(self.cache_clear_cmd.split(), check=True, text=True)
-            self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
+            if _local_rank_zero():
+                subprocess.run(self.cache_clear_cmd.split(), check=True, text=True)
+                self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
         else:
             warnings.warn("cache_clear_cmd was not provided. For a valid submission, please provide the command.")
 
-        self.mllogger.start(key=mllog.constants.INIT_START)
+        dist.barrier()
 
-        if rank_zero():
+        if _local_rank_zero():
+            self.mllogger.start(key=mllog.constants.INIT_START)
+
+        if _global_rank_zero():
             self._log_dict({
                 constants.SUBMISSION_BENCHMARK: self.benchmark,
                 constants.SUBMISSION_DIVISION: self.division,
@@ -250,7 +256,7 @@ class MLPerfCallback(Callback):
         raise TypeError(f"torch dataloader or ffcv dataloader required (and ffcv installed)")
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        if rank_zero():
+        if _global_rank_zero():
             if len(state.evaluators) > 1:
                 raise ValueError("Only one evaluator is supported for the MLPerfCallback.")
 
@@ -271,16 +277,16 @@ class MLPerfCallback(Callback):
                 constants.EVAL_SAMPLES: eval_num_samples,
             })
 
-        if rank_zero():
+        if _local_rank_zero():
             self.mllogger.event(key=constants.INIT_STOP)
 
         dist.barrier()
 
-        if rank_zero():
+        if _global_rank_zero():
             self.mllogger.event(key=constants.RUN_START)
 
     def epoch_start(self, state: State, logger: Logger) -> None:
-        if rank_zero():
+        if _global_rank_zero():
             self.mllogger.event(key=constants.EPOCH_START, metadata={'epoch_num': state.timestamp.epoch.value})
             self.mllogger.event(key=constants.BLOCK_START,
                                 metadata={
@@ -289,16 +295,16 @@ class MLPerfCallback(Callback):
                                 })
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        if rank_zero():
+        if _global_rank_zero():
             self.mllogger.event(key=constants.EPOCH_STOP, metadata={'epoch_num': state.timestamp.epoch.value})
             logger.file_artifact(LogLevel.FIT, artifact_name=self.upload_name, file_path=self.filename)
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        if rank_zero():
+        if _global_rank_zero():
             self.mllogger.event(key=constants.EVAL_START, metadata={'epoch_num': state.timestamp.epoch.value})
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        if rank_zero():
+        if _global_rank_zero():
             accuracy = self._get_accuracy(state)
 
             self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': state.timestamp.epoch.value})
