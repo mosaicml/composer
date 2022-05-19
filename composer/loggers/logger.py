@@ -17,7 +17,7 @@ import coolname
 import torch
 
 from composer.utils import dist, ensure_tuple
-from composer.utils.file_helpers import FORMAT_NAME_WITH_DIST_TABLE, format_name_with_dist
+from composer.utils.file_helpers import format_name_with_dist
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -139,7 +139,19 @@ class Logger:
         *,
         overwrite: bool = False,
     ):
-        """Log ``file_path`` as an artifact named ``artifact_name``."""
+        """Log ``file_path`` as an artifact named ``artifact_name``.
+
+        Both ``file_path`` and ``artifact_name`` can be specified as format strings.
+        See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
+
+        Args:
+            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
+                :class:`LogLevel`.
+            artifact_name (str): A format string for the name of the artifact.
+            file_path (str | pathlib.Path): A format string for the file path.
+            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
+                (default: ``False``)
+        """
 
         log_level = LogLevel(log_level)
         file_path = format_name_with_dist(format_str=str(file_path), run_name=self.run_name)
@@ -160,7 +172,19 @@ class Logger:
         symlink_artifact_name: str,
         overwrite: bool = False,
     ):
-        """Symlink ``existing_artifact_name`` as ``symlink_artifact_name``."""
+        """Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
+
+        Both ``existing_artifact_name`` and ``symlink_artifact_name`` can be specified as format strings.
+        See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
+
+        Args:
+            log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
+                :class:`LogLevel`.
+            existing_artifact_name (str): A format string for the name of symlinked artifact.
+            symlink_artifact_name (str): A format string for the symlink name of artifact.
+            overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
+                (default: ``False``)
+        """
 
         log_level = LogLevel(log_level)
         for destination in self.destinations:
@@ -183,43 +207,6 @@ class Logger:
     def data_batch(self, data: Dict[str, Any]) -> None:
         """Helper function for ``self.data(LogLevel.BATCH, data)``"""
         self.data(LogLevel.BATCH, data)
-
-
-# Monkey patch Logger.file_artifact method docstring
-Logger.file_artifact.__doc__ = f"""
-Log ``file_path`` as an artifact named ``artifact_name``.
-
-Both ``file_path`` and ``artifact_name`` can be specified as format strings.
-The following format variables are available:
-
-{FORMAT_NAME_WITH_DIST_TABLE}
-
-Args:
-    log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
-        :class:`LogLevel`.
-    artifact_name (str): A format string for the name of the artifact.
-    file_path (str | pathlib.Path): A format string for the file path.
-    overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
-        (default: ``False``)
-"""
-
-# Monkey patch Logger.symlink_artifact method docstring
-Logger.symlink_artifact.__doc__ = f"""
-Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
-
-Both ``existing_artifact_name`` and ``symlink_artifact_name`` can be specified as format strings.
-The following format variables are available:
-
-{FORMAT_NAME_WITH_DIST_TABLE}
-
-Args:
-    log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
-        :class:`LogLevel`.
-    existing_artifact_name (str): A format string for the name of symlinked artifact.
-    symlink_artifact_name (str): A format string for the symlink name of artifact.
-    overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
-        (default: ``False``)
-    """
 
 
 def format_log_data_value(data: Any) -> str:
