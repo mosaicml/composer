@@ -222,14 +222,22 @@ def test_dataloader_single_device(remote_local: Tuple[str, str], batch_size: int
 @pytest.mark.world_size(2)
 @pytest.mark.parametrize("batch_size", [4])
 @pytest.mark.parametrize("drop_last", [False, True])
+@pytest.mark.parametrize("multinode", [False, True])
 @pytest.mark.parametrize("num_samples", [30, 31])
 @pytest.mark.parametrize("num_workers", [1, 3])
 @pytest.mark.parametrize("shuffle", [False, True])
-def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, num_samples: int,
+def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, multinode: bool, num_samples: int,
                                  num_workers: int, shuffle: bool):
 
     global_device = dist.get_global_rank()
     global_num_devices = dist.get_world_size()
+
+    if multinode:
+        # Force different nodes
+        os.environ["LOCAL_RANK"] = str(0)
+        os.environ["NODE_RANK"] = str(global_device)
+        os.environ["LOCAL_WORLD_SIZE"] = str(1)
+
     assert batch_size % global_num_devices == 0
     device_batch_size = batch_size // global_num_devices
 
