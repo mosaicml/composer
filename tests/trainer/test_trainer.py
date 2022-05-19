@@ -4,8 +4,10 @@
 import collections.abc
 import contextlib
 import copy
+import datetime
 import os
 import pathlib
+import time
 from typing import Dict, List, Optional, Union
 
 import pytest
@@ -21,11 +23,13 @@ from composer.core.callback import Callback
 from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
-from composer.core.time import Time, TimeUnit
+from composer.core.state import State
+from composer.core.time import Time, Timestamp, TimeUnit
 from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.loggers import FileLogger, WandBLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.loggers.logger import Logger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
@@ -37,6 +41,17 @@ from tests.common import (RandomClassificationDataset, RandomImageDataset, Simpl
                           world_size)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
+
+
+class SleepyCallback(Callback):
+
+    def __init__(self, sleep_duration: datetime.timedelta, event: Event) -> None:
+        self.sleep_duration = sleep_duration
+        self.event = event
+
+    def run_event(self, event: Event, state: State, logger: Logger) -> None:
+        if event == self.event:
+            time.sleep(self.sleep_duration.total_seconds())
 
 
 class TestTrainerInit():
@@ -507,15 +522,74 @@ class TestTrainerInitOrFit:
 
         assert trainer.state.timestamp.get(max_duration.unit) == 2 * max_duration
 
+    def _assert_wct_consistency(self, timestamp: Timestamp):
+        """Validate that the wct is the same across all ranks"""
+        my_timestamp_tensor = torch.tensor([
+            timestamp.total_duration.total_seconds(),
+            timestamp.epoch_duration.total_seconds(),
+            timestamp.batch_duration.total_seconds(),
+        ],
+                                           dtype=torch.float64)
+        rank_zero_timestamp_tensor = torch.tensor([
+            timestamp.total_duration.total_seconds(),
+            timestamp.epoch_duration.total_seconds(),
+            timestamp.batch_duration.total_seconds(),
+        ],
+                                                  dtype=torch.float64)
+        dist.broadcast(rank_zero_timestamp_tensor, src=0)
+        assert torch.all(my_timestamp_tensor == rank_zero_timestamp_tensor)
+
+    @pytest.mark.timeout(10)
+    @pytest.mark.parametrize("eval_interval", ["1ba", "1ep"])
+    def test_eval_is_excluding_from_wct_tracking(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        eval_interval: str,
+    ):
+        # Construct the trainer with a callback that sleeps during evaluation
+        sleep_duration = datetime.timedelta(seconds=0.5)
+        sleepy_callback = SleepyCallback(
+            sleep_duration=sleep_duration,
+            event=Event.EVAL_AFTER_FORWARD,
+        )
+        event_counter_callback = EventCounterCallback()
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            train_subset_num_batches=2,  # make training fast
+            eval_dataloader=DataLoader(dataset=RandomClassificationDataset(), batch_size=2),
+            callbacks=[sleepy_callback, event_counter_callback],
+            eval_interval=eval_interval,
+            max_duration="2ep",
+            eval_subset_num_batches=1,
+        )
+
+        # Train
+        trainer.fit()
+
+        # Validate that eval was called
+        expected_num_evals = 4 if eval_interval == "1ba" else 2
+        assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_num_evals
+
+        # Validate the timestamps.
+        # Training duration should be less than the sleeping
+        assert trainer.state.timestamp.total_duration < sleep_duration * expected_num_evals
+        # The last evaluation duration should be at least as much as the sleeping
+        assert trainer.state.eval_timestamp.total_duration > sleep_duration
+
     @pytest.mark.parametrize("unit", [TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.SAMPLE])
+    @pytest.mark.parametrize("world_size", [1, pytest.param(2, marks=pytest.mark.world_size(2))])
     def test_training_duration_unit(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         unit: TimeUnit,
+        world_size: int,
     ):
         """Test that the time is correctly set, and events fire correctly, with multiple calls to fit,
         regardless of the time unit"""
+        del world_size  # unused
 
         # Construct the trainer
         event_counter_callback = EventCounterCallback()
@@ -554,6 +628,8 @@ class TestTrainerInitOrFit:
         else:
             raise ValueError(f"Unsupported unit: {unit}")
 
+        current_epoch_time = datetime.timedelta(seconds=0)
+
         # Train for one epoch, incrementally in steps of size `duration`
         for i in range(num_steps_per_epoch):
             # Train for `duration`
@@ -570,6 +646,8 @@ class TestTrainerInitOrFit:
             assert trainer.state.timestamp.sample == num_batches_trained * batch_size
             assert trainer.state.timestamp.token == 0  # tokens not tracked
             assert trainer.state.timestamp.token_in_epoch == 0  # tokens not tracked
+            self._assert_wct_consistency(trainer.state.timestamp)
+            assert trainer.state.timestamp.total_duration > current_epoch_time
 
             # Validate the event counter callback
             assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 1
@@ -584,6 +662,12 @@ class TestTrainerInitOrFit:
                 assert trainer.state.timestamp.sample_in_epoch == num_batches_trained * batch_size
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 0
+                assert trainer.state.timestamp.epoch_duration > current_epoch_time
+                assert trainer.state.timestamp.epoch_duration == trainer.state.timestamp.total_duration
+                if i > 0:
+                    assert trainer.state.timestamp.epoch_duration > trainer.state.timestamp.batch_duration
+                else:
+                    assert trainer.state.timestamp.epoch_duration == trainer.state.timestamp.batch_duration
             else:
                 # Finished the epoch
                 assert trainer.state.timestamp.epoch == 1
@@ -591,6 +675,10 @@ class TestTrainerInitOrFit:
                 assert trainer.state.timestamp.sample_in_epoch == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 1
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 1
+                assert trainer.state.timestamp.epoch_duration == datetime.timedelta(seconds=0)
+                assert trainer.state.timestamp.batch_duration == datetime.timedelta(seconds=0)
+
+            current_epoch_time = trainer.state.timestamp.total_duration
 
         # Train for a second epoch
         # Validate that batch_in_epoch / sample_in_epoch are reset properly
@@ -609,6 +697,9 @@ class TestTrainerInitOrFit:
             assert trainer.state.timestamp.sample == num_samples_per_epoch + num_batches_trained * batch_size
             assert trainer.state.timestamp.token == 0  # tokens not tracked
             assert trainer.state.timestamp.token_in_epoch == 0  # tokens not tracked
+            self._assert_wct_consistency(trainer.state.timestamp)
+            assert trainer.state.timestamp.total_duration > trainer.state.timestamp.batch_duration
+            assert trainer.state.timestamp.total_duration > trainer.state.timestamp.epoch_duration
 
             # Validate the event counter callback
             assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 2
