@@ -281,6 +281,8 @@ class StreamingDatasetIndex(object):
 
         global_device = world.global_device
         global_num_devices = world.global_num_devices
+        node_worker = world.node_worker
+        node_num_workers = world.node_num_workers
         device_worker = world.device_worker
         device_num_workers = world.device_num_workers
 
@@ -330,12 +332,14 @@ class StreamingDatasetIndex(object):
 
         min_shard = self.sample_shards[worker_min_id]
         max_shard = self.sample_shards[worker_max_id]
-        shards_to_download = list(range(min_shard, max_shard + 1))
+        shards = list(range(min_shard, max_shard + 1))
 
         # Ensure that each shard only gets downloaded by 1 worker, so there are no race conditions.
-        # To do this, we skip downloading the first shard (likely overlapped with prev worker) unless:
-        # - you are the first worker on your node (no files shared across nodes so you have download it again!)
-        # - you are downloading the first sample of the shard (no overlap with prev worker)
-        if not ((world.node_worker == 0) or (worker_min_id > 0 and self.sample_shards[worker_min_id - 1] != min_shard)):
-            shards_to_download = shards_to_download[1:]
-        return shards_to_download, worker_min_id, worker_max_id
+        # To do this, we skip downloading the last shard (likely overlapped with next worker) unless:
+        # - you are the last worker on your node (no files shared across nodes so you have download it again!)
+        # - you are downloading the last sample of the shard (no overlap with next worker)
+        if ((node_worker + 1 == node_num_workers) or (worker_max_id < self.total_samples and self.sample_shards[worker_max_id + 1] != max_shard)):
+            shards_to_download = shards
+        else:
+            shards_to_download = shards[:-1]
+        return shards, shards_to_download, worker_min_id, worker_max_id

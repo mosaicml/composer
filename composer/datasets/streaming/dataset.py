@@ -130,6 +130,18 @@ class StreamingDataset(IterableDataset):
         safe_download(remote, local, timeout=self.timeout)
         return local
 
+    def _local_exists(self, basename: str) -> bool:
+        """Check if a shard exists in local cache.
+
+        Args:
+            basename (str): Basename of shard to look for.
+
+        Returns:
+            bool: Whether the shard exists locally.
+        """
+        local = os.path.join(self.local, basename)
+        return os.path.exists(local)
+
     def _load_shards(self, shards: List[int], part_min_id: int, part_max_id: int) -> None:
         """Load the given list of locally cached shards into the dataset.
 
@@ -185,7 +197,7 @@ class StreamingDataset(IterableDataset):
         with self._lock:
             self._are_all_shards_downloaded = True
 
-    def _download_thread(self, shards: List[int], part_min_id: int, part_max_id: int) -> None:
+    def _download_thread(self, shards: List[int], shards_to_download: List[int], part_min_id: int, part_max_id: int) -> None:
         """Background thread to download and assimilate missing shards.
 
         Args:
@@ -193,14 +205,21 @@ class StreamingDataset(IterableDataset):
             part_min_id (int): Minimum sample ID of this partition.
             part_max_id (int): Maximum sample ID of this partition.
         """
-        shards = list(shards)
         if self.shuffle:
             np.random.shuffle(shards)
-        for shard in shards:
-            basename = get_shard_basename(shard)
-            self._download_if_missing(basename)
-            shards = [shard]
-            self._load_shards(shards, part_min_id, part_max_id)
+
+        while len(shards) > 0:
+            for shard in shards:
+                basename = get_shard_basename(shard)
+                if shard in shards_to_download:
+                    self._download_if_missing(basename)
+                    self._load_shards([shard], part_min_id, part_max_id)
+                    shards.remove(shard)
+                elif self._local_exists(basename):
+                    self._load_shards([shard], part_min_id, part_max_id)
+                    shards.remove(shard)
+            sleep(0.25)
+
         self._done_loading()
 
     def _load(self) -> None:
@@ -208,12 +227,12 @@ class StreamingDataset(IterableDataset):
         # We find out num workers, and therefore num partitions, when __iter__ is called.
         # From the partition, derive our shard overlap range and exact sample range.
         world = get_world()
-        part_shards_to_download, part_min_id, part_max_id = self.index.get_partition(world, self.batch_size)
+        part_shards, part_shards_to_download, part_min_id, part_max_id = self.index.get_partition(world, self.batch_size)
 
         # Start downloading our part's shards in a background thread, if any are missing.
         if not self._are_all_shards_downloaded:
             thread = Thread(target=self._download_thread,
-                            args=(part_shards_to_download, part_min_id, part_max_id),
+                            args=(part_shards, part_shards_to_download, part_min_id, part_max_id),
                             daemon=True)
             thread.start()
 
