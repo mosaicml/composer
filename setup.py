@@ -181,7 +181,7 @@ if package_name != "mosaicml":
     print(f"`Building composer as `{package_name}`)", file=sys.stderr)
 
 setup(name=package_name,
-      version="0.6.0",
+      version="0.7.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="Composer provides well-engineered implementations of efficient training methods to give "
