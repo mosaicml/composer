@@ -113,7 +113,7 @@ precision: amp
 
 Improvements:
 
-- New PyTorch pretrained weights [5]
+- New PyTorch pretrained weights
 - Cosine decay
 - Decoupled Weight Decay
 - Increase batch size to 32
