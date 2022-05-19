@@ -20,7 +20,8 @@ model = ComposerDeepLabV3(num_classes=150,
 
 Based on [Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1802.02611)
 
-![deeplabv3plus.png](https://storage.googleapis.com/docs.mosaicml.com/images/models/deeplabv3_v2.png)
+<div align=center>
+<img src="https://storage.googleapis.com/docs.mosaicml.com/images/models/deeplabv3_v2.png" alt="deeplabv3plus" width="256">
 
 
 - **Backbone network**: converts the input image into a feature map.
