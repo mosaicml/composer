@@ -234,6 +234,15 @@ FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """
 | ``{token_in_epoch}``   | The token count in the current epoch, as returned by   |
 |                        | :meth:`~composer.core.time.Timestamp.token_in_epoch`.  |
 +------------------------+--------------------------------------------------------+
+| ``{total_duration}``   | The total training duration in seconds, as returned by |
+|                        | :meth:`~composer.core.time.Timestamp.total_duration`.  |
++------------------------+--------------------------------------------------------+
+| ``{epoch_duration}``   | The epoch duration in seconds, as returned by          |
+|                        | :meth:`~composer.core.time.Timestamp.epoch_duration`.  |
++------------------------+--------------------------------------------------------+
+| ``{batch_duration}``   | The batch duration in seconds, as returned by          |
+|                        | :meth:`~composer.core.time.Timestamp.batch_duration`.  |
++------------------------+--------------------------------------------------------+
 """
 
 
@@ -252,6 +261,9 @@ def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Ti
         sample_in_epoch=int(timestamp.sample_in_epoch),
         token=int(timestamp.token),
         token_in_epoch=int(timestamp.token_in_epoch),
+        total_duration=timestamp.total_duration.total_seconds(),
+        epoch_duration=timestamp.epoch_duration.total_seconds(),
+        batch_duration=timestamp.batch_duration.total_seconds(),
         **extra_format_kwargs,
     )
     return formatted_str
