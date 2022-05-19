@@ -111,7 +111,7 @@ class Logger:
             run_name = str(int(time.time())) + "-" + coolname.generate_slug(2)
             run_name_list = [run_name]
             # ensure all ranks have the same experiment name
-            dist.broadcast_object_list(run_name_list)
+            #dist.broadcast_object_list(run_name_list)
             run_name = run_name_list[0]
         assert run_name is not None, "run name is set above if not specified."
         self.run_name = run_name
