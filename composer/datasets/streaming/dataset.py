@@ -103,7 +103,7 @@ class StreamingDataset(IterableDataset):
         index_basename = get_index_basename()
         index_local = os.path.join(self.local, index_basename)
         if dist.get_local_rank() == 0:
-            index_filename = self._download_if_missing(index_basename)
+            self._download_if_missing(index_basename)
         dist.barrier()
 
         with open(index_local, 'rb') as fp:
@@ -197,7 +197,8 @@ class StreamingDataset(IterableDataset):
         with self._lock:
             self._are_all_shards_downloaded = True
 
-    def _download_thread(self, shards: List[int], shards_to_download: List[int], part_min_id: int, part_max_id: int) -> None:
+    def _download_thread(self, shards: List[int], shards_to_download: List[int], part_min_id: int,
+                         part_max_id: int) -> None:
         """Background thread to download and assimilate missing shards.
 
         Args:
@@ -208,18 +209,28 @@ class StreamingDataset(IterableDataset):
         if self.shuffle:
             np.random.shuffle(shards)
 
-        while len(shards) > 0:
+        completed_shards = set()
+        while completed_shards != set(shards):
             for shard in shards:
-                basename = get_shard_basename(shard)
-                if shard in shards_to_download:
-                    self._download_if_missing(basename)
-                    self._load_shards([shard], part_min_id, part_max_id)
-                    shards.remove(shard)
-                elif self._local_exists(basename):
-                    self._load_shards([shard], part_min_id, part_max_id)
-                    shards.remove(shard)
+                if shard not in completed_shards:
+                    basename = get_shard_basename(shard)
+                    if shard in shards_to_download:
+                        # If this worker is in charge of downloading the shard, download it.
+                        self._download_if_missing(basename)
+                        self._load_shards([shard], part_min_id, part_max_id)
+                        completed_shards.add(shard)
+                    else:
+                        if not self.shuffle:
+                            # If not shuffling, force wait until shard gets downloaded
+                            # This forces deterministic sample order.
+                            while not self._local_exists(basename):
+                                sleep(0.25)
+                        # Check if shard is available yet.
+                        # If it is, load the shard. If not, we'll check again on the next loop.
+                        if self._local_exists(basename):
+                            self._load_shards([shard], part_min_id, part_max_id)
+                            completed_shards.add(shard)
             sleep(0.25)
-
         self._done_loading()
 
     def _load(self) -> None:
@@ -227,7 +238,8 @@ class StreamingDataset(IterableDataset):
         # We find out num workers, and therefore num partitions, when __iter__ is called.
         # From the partition, derive our shard overlap range and exact sample range.
         world = get_world()
-        part_shards, part_shards_to_download, part_min_id, part_max_id = self.index.get_partition(world, self.batch_size)
+        part_shards, part_shards_to_download, part_min_id, part_max_id = self.index.get_partition(
+            world, self.batch_size)
 
         # Start downloading our part's shards in a background thread, if any are missing.
         if not self._are_all_shards_downloaded:
