@@ -1,7 +1,7 @@
 # DeepLabv3+
 [\[Example\]](#example) &middot; [\[Architecture\]](#architecture) &middot; [\[Training Hyperparameters\]](#training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
 
-[DeepLabv3+](https://arxiv.org/abs/1802.02611) is an architecture designed for semantic segmenation i.e. per-pixel classification. DeepLabv3+ takes in a feature map from a backbone architecture (e.g. ResNet-101), then outputs per-pixel classifications for each pixel in the input image. Our implementation is a simple wrapper around [torchvision’s ResNet](https://pytorch.org/vision/stable/models.html#id10) for the backbone and [mmsegmentation’s DeepLabv3+](https://github.com/open-mmlab/mmsegmentation/tree/master/configs/deeplabv3plus) for the head.
+[DeepLabv3+](https://arxiv.org/abs/1802.02611) is an architecture designed for semantic segmenation i.e. per-pixel classification. DeepLabv3+ takes in a feature map from a backbone architecture (e.g. ResNet-101), then outputs classifications for each pixel in the input image. Our implementation is a simple wrapper around [torchvision’s ResNet](https://pytorch.org/vision/stable/models.html#id10) for the backbone and [mmsegmentation’s DeepLabv3+](https://github.com/open-mmlab/mmsegmentation/tree/master/configs/deeplabv3plus) for the head.
 
 ## Example
 
@@ -30,13 +30,13 @@ Based on [Encoder-Decoder with Atrous Separable Convolution for Semantic Image S
     * The 3x3 convolutions in stage 3 and 4 have dilation sizes of 2 and 4, respectively, to compensate for the decreased receptive field.
     * The average pooling and classification layer are ignored.
 - **Spatial Pyramid Pooling**: extracts multi-resolution features from the backbone feature map.
-    * Process backbone feature map with four parallel convolution layers with dilations {1, 12, 24, 36} and kernel sizes {1x1, 3x3, 3x3, 3x3}.
-    * In parallel to the above, global average pool the backbone feature map, then bilinearly upsample to be the same spatial dimension as the feature map.
-    * Concatenate the outputs from 1 and 2, then processed with 1x1 convolution.
-    * Convolutions are implemented as depth-wise convolutions to reduce memory and computation cost.
+    * The backbone feature map is processed with four parallel convolution layers with dilations {1, 12, 24, 36} and kernel sizes {1x1, 3x3, 3x3, 3x3}.
+    * In parallel to the convolutions, global average pool the backbone feature map, then bilinearly upsample to be the same spatial dimension as the feature map.
+    * Concatenate the outputs from the convolutions and global average pool, then process with a 1x1 convolution.
+    * The 3x3 convolutions are implemented as depth-wise convolutions to reduce memory and computation cost.
 - **Decoder**: converts the output of spatial pyramid pooling (SPP) to class predictions of the same spatial dimension as the input image.
-    * SPP output is bilinearly upsampled to be the same spatial dimension as the output from the first stage in the ResNet model.
-    * A 1x1 convolution is applied to the first stage activations, thenthis is concatenated with the upsampled SPP output.
+    * SPP output is bilinearly upsampled to be the same spatial dimension as the output from the first stage in the backbone network.
+    * A 1x1 convolution is applied to the first stage activations, then this is concatenated with the upsampled SPP output.
     * The concatenation is processed by a 3x3 convolution with dropout followed by a classification layer.
     * The predictions are bilinearly upsampled to be the same resolution as the input image.
 
