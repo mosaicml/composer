@@ -5,6 +5,7 @@
 
 ## Example
 
+<!--pytest-codeblocks:skip-->
 ```python
 from composer.models import ComposerDeepLabV3
 
