@@ -621,10 +621,12 @@ class Timestamp(Serializable):
         .. testsetup::
 
             from composer.core.time import Timestamp
+            import datetime
+
             timestamp = Timestamp()
             samples = 1
             tokens = 2
-            duration = None
+            duration = datetime.timedelta(seconds=0)
 
         .. doctest::
 
