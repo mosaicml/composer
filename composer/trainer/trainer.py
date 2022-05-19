@@ -1349,14 +1349,27 @@ class Trainer:
             for _ in dataloader:
                 break
 
-    def _accumulate_samples_and_tokens_across_ranks(self, num_samples: int, num_tokens: int) -> Tuple[int, int]:
+    def _accumulate_time_across_ranks(
+        self,
+        num_samples: int,
+        num_tokens: int,
+        batch_time: datetime.timedelta,
+    ) -> Tuple[int, int, datetime.timedelta]:
         """Accumulate the number of samples and tokens across ranks.
 
-        Returns a (num_samples, num_tokens) tuple.
+        Returns a (num_samples, num_tokens, batch_time) tuple.
         """
-        tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
-        dist.all_reduce(tensor, reduce_operation="SUM")
-        return int(tensor[0].cpu().item()), int(tensor[1].cpu().item())
+        # Samples and tokens should be summed
+        # Batch time should be the value from rank 0
+        sample_token_tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
+        dist.all_reduce(sample_token_tensor, reduce_operation="SUM")
+
+        batch_time_tensor = self._device.tensor_to_device(
+            torch.tensor([batch_time.total_seconds()], dtype=torch.float64))
+        dist.broadcast(batch_time_tensor, src=0)
+        batch_time = datetime.timedelta(seconds=batch_time_tensor[0].cpu().item())
+
+        return int(sample_token_tensor[0].cpu().item()), int(sample_token_tensor[1].cpu().item()), batch_time
 
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
@@ -1386,6 +1399,8 @@ class Trainer:
 
         # Flag if the epoch finished early, so it can be tracked whether to run the epoch end events
         finished_epoch_early = False
+
+        last_wct = datetime.datetime.now()
 
         while self.state.timestamp < self.state.max_duration:
             try:
@@ -1431,12 +1446,10 @@ class Trainer:
 
                     self.state.model.train()
 
-                    self.engine.run_event(Event.AFTER_DATALOADER)
+                    rank_num_samples = self.state.batch_num_samples
+                    rank_num_tokens = self.state.batch_num_tokens
 
-                    total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
-                        num_samples=self.state.batch_num_samples,
-                        num_tokens=self.state.batch_num_tokens,
-                    )
+                    self.engine.run_event(Event.AFTER_DATALOADER)
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.data_batch({
@@ -1458,9 +1471,27 @@ class Trainer:
                         full_loss = total_loss.cpu().item()
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
+                    # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
+                    # next batch's wall clock time. The time accumulation must be done here so schedulers
+                    # have the latest timing information
+
+                    now = datetime.datetime.now()
+
+                    batch_time = now - last_wct
+
+                    total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
+                        rank_num_samples,
+                        rank_num_tokens,
+                        batch_time,
+                    )
+
+                    # `now` is actually in the past, but want to include the time it takes to perform this reduction
+                    last_wct = now
+
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
                         tokens=total_num_tokens,
+                        duration=batch_time,
                     )
 
                     if self._scheduler_step_frequency == TimeUnit.BATCH:
@@ -1475,7 +1506,13 @@ class Trainer:
                         )
 
                     self.engine.run_event(Event.BATCH_END)
+
+                    # Pause the timing during evaluation
+                    # Evaluation time is tracked separately in state.eval_timestamp
+                    duration = datetime.datetime.now() - last_wct
                     self._run_evaluators(Event.BATCH_END, log_level=LogLevel.BATCH)
+                    last_wct = datetime.datetime.now() - duration
+
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
 
                     if self.state.timestamp >= self.state.max_duration:
@@ -1507,7 +1544,13 @@ class Trainer:
                         scheduler.step()
 
                 self.engine.run_event(Event.EPOCH_END)
+
+                # Pause the timing during evaluation
+                # Evaluation time is tracked separately in state.eval_timestamp
+                duration = datetime.datetime.now() - last_wct
                 self._run_evaluators(Event.EPOCH_END, log_level=LogLevel.EPOCH)
+                last_wct = datetime.datetime.now() - duration
+
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
         self.engine.run_event(Event.FIT_END)
         self._run_evaluators(Event.FIT_END, log_level=LogLevel.FIT)
@@ -1755,6 +1798,8 @@ class Trainer:
         # Reset the predict timestamp
         self.state.predict_timestamp = Timestamp()
 
+        last_wct = datetime.datetime.now()
+
         with torch.no_grad():
 
             self.engine.run_event(Event.PREDICT_START)
@@ -1781,15 +1826,20 @@ class Trainer:
                 self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
-                total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                now = datetime.datetime.now()
+                batch_time = now - last_wct
+
+                total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
                     num_samples=self.state.batch_num_samples,
                     num_tokens=self.state.batch_num_tokens,
+                    batch_time=batch_time,
                 )
 
-                self.state.predict_timestamp = self.state.predict_timestamp.to_next_batch(
-                    samples=total_num_samples,
-                    tokens=total_num_tokens,
-                )
+                last_wct = now
+
+                self.state.predict_timestamp = self.state.predict_timestamp.to_next_batch(samples=total_num_samples,
+                                                                                          tokens=total_num_tokens,
+                                                                                          duration=batch_time)
 
                 self.engine.run_event(Event.PREDICT_BATCH_END)
 
@@ -1848,6 +1898,8 @@ class Trainer:
         # Reset the eval timestamp
         self.state.eval_timestamp = Timestamp()
 
+        last_wct = datetime.datetime.now()
+
         self.state.model.eval()
         with torch.no_grad():
             self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
@@ -1887,15 +1939,22 @@ class Trainer:
                 metrics.update(self.state.outputs, targets)
                 self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
 
-                total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                now = datetime.datetime.now()
+                batch_time = now - last_wct
+
+                total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
                     num_samples=self.state.batch_num_samples,
                     num_tokens=self.state.batch_num_tokens,
+                    batch_time=batch_time,
                 )
 
                 self.state.eval_timestamp = self.state.eval_timestamp.to_next_batch(
                     samples=total_num_samples,
                     tokens=total_num_tokens,
+                    duration=batch_time,
                 )
+
+                last_wct = now
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 
