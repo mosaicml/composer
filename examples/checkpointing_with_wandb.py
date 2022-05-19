@@ -57,14 +57,14 @@ trainer.fit()
 # Remove the temporary folder to ensure that the checkpoint is downloaded from the cloud
 shutil.rmtree("/tmp/checkpoints", ignore_errors=True)
 
-# Close the existing trainer to cause W & B to mark the run as "finished"
+# Close the existing trainer to trigger W & B to mark the run as "finished", and be ready for the next training run
 trainer.close()
 
 # Construct a new trainer that loads from the previous checkpoint
 print("\nStarting the second training run\n")
 trainer = Trainer(
     model=model,
-    max_duration="1ep",
+    max_duration="2ep",  # Train to 2 epochs in total
     optimizers=optimizer,
 
     # Train Data Configuration
@@ -91,4 +91,4 @@ trainer = Trainer(
 print(f"\nResuming training at epoch {trainer.state.timestamp.epoch}\n")
 
 # Train for another epoch!
-trainer.fit(duration="1ep")
+trainer.fit()
