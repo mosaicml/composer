@@ -14,7 +14,7 @@ from composer.models.base import ComposerModel
 from composer.optim.scheduler import (ComposerScheduler, CosineAnnealingScheduler, CosineAnnealingWarmRestartsScheduler,
                                       CosineAnnealingWithWarmupScheduler, ExponentialScheduler, LinearScheduler,
                                       LinearWithWarmupScheduler, MultiStepScheduler, MultiStepWithWarmupScheduler,
-                                      PolynomialScheduler, StepScheduler)
+                                      PolynomialScheduler, PolynomialWithWarmupScheduler, StepScheduler)
 from composer.trainer.trainer import Trainer
 
 MAX_DURATION = '1000ep'
@@ -84,6 +84,10 @@ def dummy_schedulers_state(dummy_model: torch.nn.Module, rank_zero_seed: int):
                  ['0ba', '450000ba', '900000ba', '933333ba', '950000ba', '1000000ba'], [0.0, 0.5, 1.0, 0.75, 0.5, 0.0]),
     pytest.param(CosineAnnealingWithWarmupScheduler(t_warmup='0.9dur', alpha_f=0.5), 0.01,
                  ['0ba', '4500ba', '9000ba', '9333ba', '9500ba', '10000ba'], [0.0, 0.5, 1.0, 0.875, 0.75, 0.5]),
+    pytest.param(PolynomialWithWarmupScheduler(t_warmup='0.9dur'), 1.0,
+                 ['0ba', '450000ba', '900000ba', '913397ba', '929289ba', '1000000ba'], [0.0, 0.5, 1.0, 0.75, 0.5, 0.0]),
+    pytest.param(PolynomialWithWarmupScheduler(t_warmup='0.9dur', alpha_f=0.5), 0.01,
+                 ['0ba', '4500ba', '9000ba', '9134ba', '9293ba', '10000ba'], [0.0, 0.5, 1.0, 0.875, 0.75, 0.5]),
 ])
 def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: List[str], expected_lrs: List[float],
                         dummy_schedulers_state: State):
