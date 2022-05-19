@@ -20,4 +20,3 @@ composer -n 1 $RELEASE_TEST_FOLDER/print_world_size.py
 
 cd $CWD
 rm -rf $TMPDIR
-
