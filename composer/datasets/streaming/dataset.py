@@ -100,8 +100,13 @@ class StreamingDataset(IterableDataset):
         # network or cached locally.
         # Precomputes the shard and offset in bytes of each sample (for direct
         # access).
-        index_filename = self._download_if_missing(get_index_basename())
-        with open(index_filename, 'rb') as fp:
+        index_basename = get_index_basename()
+        index_local = os.path.join(self.local, index_basename)
+        if dist.get_local_rank() == 0:
+            index_filename = self._download_if_missing(index_basename)
+        dist.barrier()
+
+        with open(index_local, 'rb') as fp:
             self.index = StreamingDatasetIndex.load(fp)
 
         # Fields, protected by the lock, relating to loading shards in the background.
@@ -203,11 +208,13 @@ class StreamingDataset(IterableDataset):
         # We find out num workers, and therefore num partitions, when __iter__ is called.
         # From the partition, derive our shard overlap range and exact sample range.
         world = get_world()
-        part_shards, part_min_id, part_max_id = self.index.get_partition(world, self.batch_size)
+        part_shards_to_download, part_min_id, part_max_id = self.index.get_partition(world, self.batch_size)
 
         # Start downloading our part's shards in a background thread, if any are missing.
         if not self._are_all_shards_downloaded:
-            thread = Thread(target=self._download_thread, args=(part_shards, part_min_id, part_max_id), daemon=True)
+            thread = Thread(target=self._download_thread,
+                            args=(part_shards_to_download, part_min_id, part_max_id),
+                            daemon=True)
             thread.start()
 
     def __len__(self) -> int:
