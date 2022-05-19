@@ -26,7 +26,7 @@ Based on [Encoder-Decoder with Atrous Separable Convolution for Semantic Image S
 
 
 - **Backbone network**: converts the input image into a feature map.
-    * Usually ResNet-101 with the strided convolutions removed in stage 3 and 4.
+    * Usually ResNet-101 with the strided convolutions converted to dilations convolutions in stage 3 and 4.
     * The 3x3 convolutions in stage 3 and 4 have dilation sizes of 2 and 4, respectively, to compensate for the decreased receptive field.
     * The average pooling and classification layer are ignored.
 - **Spatial Pyramid Pooling**: extracts multi-resolution features from the backbone feature map.
