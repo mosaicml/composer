@@ -24,7 +24,7 @@ from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
-from composer.core.time import Time, Timestamp, TimeUnit
+from composer.core.time import Time, TimeUnit
 from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.loggers import FileLogger, WandBLogger
@@ -522,23 +522,6 @@ class TestTrainerInitOrFit:
 
         assert trainer.state.timestamp.get(max_duration.unit) == 2 * max_duration
 
-    def _assert_wct_consistency(self, timestamp: Timestamp):
-        """Validate that the wct is the same across all ranks"""
-        my_timestamp_tensor = torch.tensor([
-            timestamp.total_wct.total_seconds(),
-            timestamp.epoch_wct.total_seconds(),
-            timestamp.batch_wct.total_seconds(),
-        ],
-                                           dtype=torch.float64)
-        rank_zero_timestamp_tensor = torch.tensor([
-            timestamp.total_wct.total_seconds(),
-            timestamp.epoch_wct.total_seconds(),
-            timestamp.batch_wct.total_seconds(),
-        ],
-                                                  dtype=torch.float64)
-        dist.broadcast(rank_zero_timestamp_tensor, src=0)
-        assert torch.all(my_timestamp_tensor == rank_zero_timestamp_tensor)
-
     @pytest.mark.timeout(10)
     @pytest.mark.parametrize("eval_interval", ["1ba", "1ep"])
     def test_eval_is_excluded_from_wct_tracking(
@@ -578,18 +561,52 @@ class TestTrainerInitOrFit:
         # The last evaluation duration should be at least as much as the sleeping
         assert trainer.state.eval_timestamp.total_wct > sleep_duration
 
+    @pytest.mark.world_size(2)
+    def test_wct_consistency_across_ranks(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+    ):
+        """Test that the wct is the same across multiple ranks"""
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            max_duration="1ba",
+        )
+
+        trainer.fit()
+
+        # First check that the timestamp is non-zero
+        timestamp = trainer.state.timestamp
+        assert timestamp.total_wct.total_seconds() > 0
+        assert timestamp.epoch_wct.total_seconds() > 0
+        assert timestamp.batch_wct.total_seconds() > 0
+
+        # Validate it is the same across ranks
+        my_timestamp_tensor = torch.tensor([
+            timestamp.total_wct.total_seconds(),
+            timestamp.epoch_wct.total_seconds(),
+            timestamp.batch_wct.total_seconds(),
+        ],
+                                           dtype=torch.float64)
+        rank_zero_timestamp_tensor = torch.tensor([
+            timestamp.total_wct.total_seconds(),
+            timestamp.epoch_wct.total_seconds(),
+            timestamp.batch_wct.total_seconds(),
+        ],
+                                                  dtype=torch.float64)
+        dist.broadcast(rank_zero_timestamp_tensor, src=0)
+        assert torch.all(my_timestamp_tensor == rank_zero_timestamp_tensor)
+
     @pytest.mark.parametrize("unit", [TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.SAMPLE])
-    @pytest.mark.parametrize("world_size", [1, pytest.param(2, marks=pytest.mark.world_size(2))])
     def test_training_duration_unit(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         unit: TimeUnit,
-        world_size: int,
     ):
         """Test that the time is correctly set, and events fire correctly, with multiple calls to fit,
         regardless of the time unit"""
-        del world_size  # unused
 
         # Construct the trainer
         event_counter_callback = EventCounterCallback()
@@ -646,7 +663,6 @@ class TestTrainerInitOrFit:
             assert trainer.state.timestamp.sample == num_batches_trained * batch_size
             assert trainer.state.timestamp.token == 0  # tokens not tracked
             assert trainer.state.timestamp.token_in_epoch == 0  # tokens not tracked
-            self._assert_wct_consistency(trainer.state.timestamp)
             assert trainer.state.timestamp.total_wct > current_epoch_time
 
             # Validate the event counter callback
@@ -697,7 +713,6 @@ class TestTrainerInitOrFit:
             assert trainer.state.timestamp.sample == num_samples_per_epoch + num_batches_trained * batch_size
             assert trainer.state.timestamp.token == 0  # tokens not tracked
             assert trainer.state.timestamp.token_in_epoch == 0  # tokens not tracked
-            self._assert_wct_consistency(trainer.state.timestamp)
             assert trainer.state.timestamp.total_wct > trainer.state.timestamp.batch_wct
             assert trainer.state.timestamp.total_wct > trainer.state.timestamp.epoch_wct
 
