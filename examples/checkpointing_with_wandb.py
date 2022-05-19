@@ -90,5 +90,5 @@ trainer = Trainer(
 # Verify that we loaded the checkpoint. This should print 1ep, since we already trained for 1 epoch.
 print(f"\nResuming training at epoch {trainer.state.timestamp.epoch}\n")
 
-# Train for another epochs!
+# Train for another epoch!
 trainer.fit(duration="1ep")
