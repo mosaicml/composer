@@ -99,17 +99,22 @@ def safe_download(remote: str, local: str, max_retries: int = 2, timeout: float 
     if os.path.exists(local):
         return
 
-    # No local file, so check to see if someone else is currently downloading
-    # the shard. If they are, wait for that download to complete.
-    local_tmp = local + '.tmp'
-    if os.path.exists(local_tmp):
-        wait_for_download(local, timeout)
-        return
-
-    # No temp download file when we checked, so attept to take it ourself. If
-    # that fails, someone beat us to it.
+    # Make dir if not exists.
     local_dir = os.path.dirname(local)
     os.makedirs(local_dir, exist_ok=True)
+
+    # Check for temp file, indicating someone else is/was downloading.
+    local_tmp = local + '.tmp'
+    if os.path.exists(local_tmp):
+        if time() < os.stat(local_tmp).st_ctime + timeout:
+            # If recent, someone is downloading. Wait for them.
+            wait_for_download(local, timeout)
+            return
+        else:
+            # If old, clean it up.
+            os.remove(local_tmp)
+
+    # No temp download file when we checked, so attept to take it ourself. If that fails, someone beat us to it.
     try:
         with open(local_tmp, 'xb') as out:
             out.write(b'')
@@ -121,10 +126,13 @@ def safe_download(remote: str, local: str, max_retries: int = 2, timeout: float 
     ok = False
     for _ in range(1 + max_retries):
         try:
-            download(remote, local_tmp, timeout)
+            download(remote, local, timeout)
+            ok = True
+            break
+        except FileNotFoundError:
             ok = True
             break
         except TimeoutError:
             pass
     assert ok
-    os.rename(local_tmp, local)
+    os.remove(local_tmp)
