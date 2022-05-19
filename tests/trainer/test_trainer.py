@@ -541,7 +541,7 @@ class TestTrainerInitOrFit:
 
     @pytest.mark.timeout(10)
     @pytest.mark.parametrize("eval_interval", ["1ba", "1ep"])
-    def test_eval_is_excluding_from_wct_tracking(
+    def test_eval_is_excluded_from_wct_tracking(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
