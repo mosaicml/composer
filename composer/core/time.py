@@ -519,17 +519,17 @@ class Timestamp(Serializable):
 
     @property
     def total_wct(self) -> datetime.timedelta:
-        """The duration from the beginning of training."""
+        """The wall-clock duration (in seconds) from the beginning of training."""
         return self._total_wct
 
     @property
     def epoch_wct(self) -> datetime.timedelta:
-        """The duration for the current epoch."""
+        """The wall-clock duration (in seconds) for the current epoch."""
         return self._epoch_wct
 
     @property
     def batch_wct(self) -> datetime.timedelta:
-        """The duration for the last batch."""
+        """The wall-clock duration (in seconds) for the last batch."""
         return self._batch_wct
 
     def get(self, unit: Union[str, TimeUnit]) -> Time[int]:
