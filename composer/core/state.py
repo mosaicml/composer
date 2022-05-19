@@ -343,7 +343,7 @@ class State(Serializable):
     def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
-    def batch_get_item(self, key: Union[Any, Callable, Sequence[Callable[[], Any]]]) -> Any:
+    def batch_get_item(self, key: Union[str, int, Callable, Any]) -> Any:
         """Gets element from batch either specified by key or user-specified function.
 
         See batch_get in `utils/batch_helpers.py` for examples.
@@ -361,7 +361,7 @@ class State(Serializable):
         """
         return batch_get(self.batch, key)
 
-    def batch_set_item(self, key: Union[Any, Callable, Sequence[Callable[[], Any]]], value: Any):
+    def batch_set_item(self, key: Union[str, int, Callable, Any], value: Any):
         """Sets the element specified by the key of the set_fn to the specified value. 
 
         This is not an in-place operation, as for tuple-typed batches, a new batch object 

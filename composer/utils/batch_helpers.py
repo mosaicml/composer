@@ -8,7 +8,7 @@ from typing import Any, Callable, Optional, Sequence, Union
 __all__ = ['batch_get', 'batch_set']
 
 
-def batch_get(batch: Any, key: Union[Any, Callable, Sequence[Callable[[], Any]]]):
+def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
     """Indexes into the batch given the key.
 
     >>> from composer.utils.batch_helpers import batch_get
@@ -26,7 +26,7 @@ def batch_get(batch: Any, key: Union[Any, Callable, Sequence[Callable[[], Any]]]
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (Any, Callable, or Pair of Callables): A key to index into the batch or a 
+        key (str, int, or Callable): A key to index into the batch or a 
                 user-specified function to do the extracting. A pair of callables is also
                 supported for cases where a get and set function pair are both passed 
                 (like in Algorithms). The getter is assumed to be the first of the pair.
@@ -57,7 +57,7 @@ def batch_get(batch: Any, key: Union[Any, Callable, Sequence[Callable[[], Any]]]
                 return attrgetter(*key)(batch)
 
 
-def batch_set(batch: Any, key: Union[Any, Callable, Sequence[Callable[[], Any]]], value: Any) -> Any:
+def batch_set(batch: Any, key: Union[str, int, Callable, Any], value: Any) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
@@ -82,7 +82,7 @@ def batch_set(batch: Any, key: Union[Any, Callable, Sequence[Callable[[], Any]]]
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (Any or Callable): A key to index into the batch or a user-specified function 
+        key (str, int, or Callable): A key to index into the batch or a user-specified function 
             to do the setting. A pair of callables is also supported for cases where a get
             and set function pair are both passed (like in Algorithms). The setter is
             assumed to be the second of the pair.
