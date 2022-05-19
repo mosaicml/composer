@@ -177,8 +177,7 @@ class DummyTrainer:
 
     def __init__(self, state: State, logger: Logger) -> None:
         self.engine = Engine(state, logger)
-        for cb in self.engine.state.callbacks:
-            cb.run_event(Event.INIT, self.engine.state, self.engine.logger)
+        self.engine.run_event(Event.INIT)
 
     def close(self):
         self.engine.close()
@@ -204,6 +203,24 @@ def test_engine_triggers_close_only_once(dummy_state: State, dummy_logger: Logge
 
     # Assert it is open
     assert not is_closed_callback.is_closed
+
+
+def test_engine_errors_if_previous_trainer_was_not_closed(dummy_state: State, dummy_logger: Logger):
+    # Create the trainer and run an event
+    is_closed_callback = IsClosedCallback()
+    dummy_state.callbacks.append(is_closed_callback)
+
+    # Create the trainer
+    _ = DummyTrainer(dummy_state, dummy_logger)
+
+    # Assert the callback is open
+    assert not is_closed_callback.is_closed
+
+    # Create a new trainer with the same callback. Should raise an exception
+    # because trainer.close() was not called before
+    with pytest.raises(RuntimeError,
+                       match=r"Cannot create a new trainer with an open callback or logger from a previous trainer"):
+        DummyTrainer(dummy_state, dummy_logger)
 
 
 def check_output(proc: subprocess.CompletedProcess):
