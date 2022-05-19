@@ -184,9 +184,9 @@ def test_format_name_with_dist_and_time():
         sample_in_epoch=Time.from_timestring("2sp"),
         token=Time.from_timestring("3tok"),
         token_in_epoch=Time.from_timestring("3tok"),
-        total_wct=datetime.timedelta(hours=10),
-        epoch_wct=datetime.timedelta(minutes=50),
-        batch_wct=datetime.timedelta(seconds=5),
+        total_wct=datetime.timedelta(hours=10),  # formatted as seconds
+        epoch_wct=datetime.timedelta(minutes=50),  # formatted as seconds
+        batch_wct=datetime.timedelta(seconds=5),  # formatted as seconds
     )
     assert format_name_with_dist_and_time(format_str, "awesome_run", timestamp=timestamp, extra=42) == expected_str
 
