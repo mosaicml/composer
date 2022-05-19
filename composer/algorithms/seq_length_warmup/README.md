@@ -11,7 +11,7 @@ Sequence Length Warmup linearly increases the sequence length (number of tokens 
 |:--|
 |*The sequence length used to train a model over the course of training. It increases linearly over the first 30% of training before reaching its full value for the remainder of training.*|
 
-<!--## How to Use
+## How to Use
 
 ### Functional Interface
 
@@ -41,6 +41,7 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!--pytest-codeblocks:skip-->
 ```python
 from composer.trainer import Trainer
 from composer.algorithms import SeqLengthWarmup
@@ -55,7 +56,7 @@ trainer.fit()
 
 ### Implementation Details
 
-We implement this as a pre-processing step during the forward pass when training the model.-->
+We implement this as a pre-processing step during the forward pass when training the model.
 
 ## Suggested Hyperparameters
 
