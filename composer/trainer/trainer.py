@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Train models!"""
 
@@ -8,6 +9,7 @@ import contextlib
 import datetime
 import itertools
 import logging
+import os
 import pathlib
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
@@ -36,8 +38,9 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import dist, ensure_tuple, map_collection, module_surgery, reproducibility
+from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery, reproducibility
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
+from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store import ObjectStore
 
@@ -542,9 +545,22 @@ class Trainer:
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             artifact stores.
+        autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
+        training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter requires
+            ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``. (default: ``False``)
+
+            When enabled, the save_folder is checked for checkpoints of the format ``"{save_folder}/{save_latest_filename}"``,
+            which are loaded to continue training. If no local checkpoints are found, each logger is checked for potential
+            checkpoints named ``save_latest_artifact_name``. Finally, if no logged checkpoints are found, ``load_path`` is
+            used to load a checkpoint if specified. This should only occur at the start of a run using autoresume.
+
+            For example, to run a fine-tuning run on a spot instance, ``load_path`` would be set to the original weights and
+            an object store logger would be added. In the original run, ``load_path`` would be used to get the starting
+            checkpoint. For any future restarts, such as due to the spot instance being killed, the loggers would be queried for the latest checkpoint
+            the object store logger would be downloaded and used to resume training.
         deepspeed_config (Dict[str, Any], optional): Configuration for DeepSpeed, formatted as a JSON
             according to `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_. (default: ``None``)
-            
+
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
         device (Device | str, optional): The device to use for training, which can be ``'cpu'`` or ``'gpu'``.
@@ -664,6 +680,9 @@ class Trainer:
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = "1ep",
         save_weights_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
+
+        # Graceful Resumption
+        autoresume: bool = False,
 
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
@@ -803,6 +822,7 @@ class Trainer:
         if self._train_data_spec is not None:
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label,
                                       train_subset_num_batches)
+            self.state.train_dataloader = self.state.dataloader
         self.train_metrics = _get_training_metrics(model) if compute_training_metrics else None
 
         # Max Duration
@@ -825,9 +845,6 @@ class Trainer:
             self._scheduler_step_frequency = _get_default_scheduler_frequency(schedulers)
         else:
             self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
-
-        if len(ensure_tuple(schedulers)) == 0:
-            warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Evaluators
         if eval_dataloader is None:
@@ -896,6 +913,26 @@ class Trainer:
 
         # Load Checkpoint
         self._rng_state = None
+        # If autoresume is enabled, first check for existing checkpoints to load
+        latest_checkpoint_path = self._check_for_autoresume(autoresume=autoresume,
+                                                            save_folder=save_folder,
+                                                            save_overwrite=save_overwrite,
+                                                            save_latest_filename=save_latest_filename,
+                                                            run_name=run_name,
+                                                            save_latest_artifact_name=save_latest_artifact_name,
+                                                            loggers=loggers,
+                                                            load_chunk_size=load_chunk_size,
+                                                            load_progress_bar=load_progress_bar)
+        # Found latest checkpoint path, load that instead
+        if latest_checkpoint_path:
+            load_path = latest_checkpoint_path
+            # Disable object_store and load_weights_only since we're autoresuming locally
+            load_object_store = None
+            load_weights_only = False
+            log.info(
+                f"Found latest checkpoint at {latest_checkpoint_path}, loading instead of load_path {load_path} as autoresume enabled."
+            )
+        # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
             self._rng_state = load_checkpoint(state=self.state,
                                               path=load_path,
@@ -953,6 +990,51 @@ class Trainer:
         if self._checkpoint_saver is None:
             return []
         return self._checkpoint_saver.saved_checkpoints
+
+    def _check_for_autoresume(self, autoresume: bool, save_folder: Optional[str], save_overwrite: bool,
+                              save_latest_filename: str, run_name: Optional[str], save_latest_artifact_name: str,
+                              loggers: List[LoggerDestination], load_chunk_size: int, load_progress_bar: bool):
+        """If autoresume is enabled, check for latest checkpoint locally. If none is found, check loggers
+        for checkpoint. If any checkpoint is found, load that instead of load_path. If none are found,
+        use the user specified load_path.
+        """
+        if autoresume:
+            if save_folder is None:
+                raise ValueError("save_folder must be specified when autoresume is enabled.")
+            if save_overwrite:
+                raise ValueError(
+                    "save_overwrite must be False when autoresume is enabled as autoresume always loads the latest existing checkpoint in save_folder."
+                )
+            if save_latest_filename is None:
+                raise ValueError(
+                    "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
+            if run_name is None:
+                raise ValueError("run_name must be specified so autoresume knows which run to load from.")
+            latest_filename_formatted = format_name_with_dist(save_latest_filename, run_name)
+            latest_checkpoint_path = os.path.join(save_folder, latest_filename_formatted)
+            # If latest checkpoint is not saved locally, try to fetch from loggers
+            if not os.path.exists(latest_checkpoint_path) and save_latest_artifact_name is not None:
+                # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
+                os.makedirs(save_folder, exist_ok=True)
+                for logger in loggers:
+                    try:
+                        # Fetch from logger. If it succeeds, stop trying the rest of the loggers
+                        logger.get_file_artifact(artifact_name=format_name_with_dist(
+                            save_latest_artifact_name, run_name),
+                                                 destination=latest_checkpoint_path,
+                                                 chunk_size=load_chunk_size,
+                                                 progress_bar=load_progress_bar)
+                        break
+                    except (NotImplementedError, GetFileNotFoundException):
+                        # Ignore errors caused by no checkpoint saved with logger
+                        pass
+            # Require all ranks to have local checkpoint if we wish to restore from it
+            latest_checkpoint_exists = self._device.tensor_to_device(
+                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
+            dist.all_reduce(latest_checkpoint_exists, reduce_operation="MIN")
+            # If latest checkpoint is saved locally, change load_path to it
+            if int(latest_checkpoint_exists.item()) == 1:
+                return latest_checkpoint_path
 
     def fit(
         self,
@@ -1038,7 +1120,7 @@ class Trainer:
             assert trainer.state.timestamp.epoch == "1ep"
 
             # Reset the time to 0, then train for 1 epoch
-            trainer.fit(reset_time=True)  
+            trainer.fit(reset_time=True)
             assert trainer.state.timestamp.epoch == "1ep"
 
             # Train for another epoch (2 epochs total)
@@ -1097,7 +1179,7 @@ class Trainer:
             grad_clip_norm (float, optional): See :class:`.Trainer`.
 
                 .. note::
-                
+
                     If using DeepSpeed, it is not possible to change the ``grad_clip_norm``. Instead, it must
                     be specified when constructing the Trainer.
         """
@@ -1105,6 +1187,7 @@ class Trainer:
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
+            self.state.train_dataloader = self.state.dataloader
         if self._train_data_spec is None:
             _raise_missing_argument_exception("train_dataloader")
         if train_subset_num_batches is not None:
@@ -1156,9 +1239,6 @@ class Trainer:
 
             if step_schedulers_every_batch is not None:
                 raise ValueError("Specifying `step_schedulers_every_batch` without `schedulers` has no effect.")
-
-        if len(ensure_tuple(schedulers)) == 0:
-            warnings.warn(f"NoSchedulerWarning: No schedulers were specified. The learning rate will be constant.")
 
         # Evaluators
         if eval_dataloader is not None:
@@ -1265,6 +1345,15 @@ class Trainer:
             for _ in dataloader:
                 break
 
+    def _accumulate_samples_and_tokens_across_ranks(self, num_samples: int, num_tokens: int) -> Tuple[int, int]:
+        """Accumulate the number of samples and tokens across ranks.
+
+        Returns a (num_samples, num_tokens) tuple.
+        """
+        tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
+        dist.all_reduce(tensor, reduce_operation="SUM")
+        return int(tensor[0].cpu().item()), int(tensor[1].cpu().item())
+
     def _train_loop(self) -> None:
         """Run training for the specified number of epochs and log results."""
         # print training start
@@ -1340,12 +1429,10 @@ class Trainer:
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    num_samples_in_batch = self._device.tensor_to_device(
-                        torch.tensor([self.state.batch_num_samples], dtype=torch.int))
-                    num_tokens_in_batch = self._device.tensor_to_device(
-                        torch.tensor([self.state.batch_num_tokens], dtype=torch.int))
-                    dist.all_reduce(num_samples_in_batch, reduce_operation="SUM")
-                    dist.all_reduce(num_tokens_in_batch, reduce_operation="SUM")
+                    total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                        num_samples=self.state.batch_num_samples,
+                        num_tokens=self.state.batch_num_tokens,
+                    )
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.data_batch({
@@ -1368,8 +1455,8 @@ class Trainer:
                         self.logger.data_batch({'loss/train': full_loss / dist.get_world_size()})
 
                     self.state.timestamp = self.state.timestamp.to_next_batch(
-                        samples=int(num_samples_in_batch.item()),
-                        tokens=int(num_tokens_in_batch.item()),
+                        samples=total_num_samples,
+                        tokens=total_num_tokens,
                     )
 
                     if self._scheduler_step_frequency == TimeUnit.BATCH:
@@ -1442,6 +1529,7 @@ class Trainer:
                         )
 
                 self.engine.run_event(Event.EPOCH_CHECKPOINT)
+        self.engine.run_event(Event.FIT_END)
 
     def _handle_cuda_oom(self):
         """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
@@ -1668,6 +1756,9 @@ class Trainer:
         self.state.set_dataloader(data_spec.dataloader, "predict", subset_num_batches)
         assert self.state.dataloader is not None, "Already set the dataloader"
 
+        # Reset the predict timestamp
+        self.state.predict_timestamp = Timestamp()
+
         with torch.no_grad():
 
             self.engine.run_event(Event.PREDICT_START)
@@ -1693,6 +1784,16 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
                 self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
+
+                total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                    num_samples=self.state.batch_num_samples,
+                    num_tokens=self.state.batch_num_tokens,
+                )
+
+                self.state.predict_timestamp = self.state.predict_timestamp.to_next_batch(
+                    samples=total_num_samples,
+                    tokens=total_num_tokens,
+                )
 
                 self.engine.run_event(Event.PREDICT_BATCH_END)
 
@@ -1748,6 +1849,9 @@ class Trainer:
             dataloader = DataSpec(dataloader)
         data_spec = dataloader
 
+        # Reset the eval timestamp
+        self.state.eval_timestamp = Timestamp()
+
         self.state.model.eval()
         with torch.no_grad():
             self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
@@ -1786,6 +1890,16 @@ class Trainer:
 
                 metrics.update(self.state.outputs, targets)
                 self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics, log_level=log_level)
+
+                total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
+                    num_samples=self.state.batch_num_samples,
+                    num_tokens=self.state.batch_num_tokens,
+                )
+
+                self.state.eval_timestamp = self.state.eval_timestamp.to_next_batch(
+                    samples=total_num_samples,
+                    tokens=total_num_tokens,
+                )
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 

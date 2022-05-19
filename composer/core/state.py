@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The state of the trainer."""
 from __future__ import annotations
@@ -6,7 +7,7 @@ from __future__ import annotations
 import collections.abc
 import logging
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -16,7 +17,7 @@ from torch.optim import Optimizer
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.utils import dist, ensure_tuple
+from composer.utils import batch_get, batch_set, dist, ensure_tuple
 
 if TYPE_CHECKING:
     import deepspeed
@@ -143,7 +144,9 @@ class State(Serializable):
             >>> trainer.fit()
             >>> trainer.state.current_metrics
             {'train': {'Accuracy': tensor(...)}, 'eval1': {'Accuracy': tensor(...)}, 'eval2': {'Accuracy': tensor(...)}}
-
+        eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
+            before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
+            ``0``.
         grad_accum (int): The number of gradient accumulation steps per batch.
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
@@ -156,6 +159,9 @@ class State(Serializable):
 
         outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward
             pass.
+        predict_timestamp (Timestamp): The timestamp for the current prediction dataloader. This timestamp is reset
+            before the dataloader is used. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
+            ``0``.
         profiler (Profiler): The profiler (if profiling is enabled), or ``None`` if not profiling.
         rank_zero_seed (int): The seed of the rank zero process.
         scaler (torch.cuda.amp.GradScaler): The gradient scaler if using mixed-precision training, or
@@ -250,6 +256,8 @@ class State(Serializable):
         self._evaluators = list(ensure_tuple(evaluators))
 
         self.timestamp = Timestamp()
+        self.eval_timestamp = Timestamp()
+        self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
 
         if optimizers is None:
@@ -334,6 +342,58 @@ class State(Serializable):
     @schedulers.setter
     def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
+
+    def batch_get_item(self, key: Optional[Any] = None, get_fn: Optional[Callable[[Any], Any]] = None) -> Any:
+        """Gets element from batch either specified by key or user-specified function.
+
+        Args:
+            key (Any): A key to index into the batch. Key is optional if get_fn is supplied.
+            get_fn (Callable): A user-specified function to do the extracting. 
+                Note: get_fn is optional if key is supplied.
+
+        Returns:
+            The part of the batch specified by the key extracted by the get_fn. This could
+                be any type depending on what the batch is composed of.
+        
+        Raises:
+            ValueError if key is unset and get_fn is unset or if both are set.
+        """
+        if key is None and get_fn is None:
+            raise ValueError("key or get_fn must be specified and neither were!")
+        if key is not None and get_fn is not None:
+            raise ValueError("key and get_fn were both set. Only one can be set!")
+        return batch_get(self.batch, key, get_fn)
+
+    def batch_set_item(self,
+                       *,
+                       key: Optional[Any] = None,
+                       value: Any,
+                       set_fn: Optional[Callable[[Any, Any], Any]] = None):
+        """Sets the element specified by the key of the set_fn to the specified value. 
+
+        This is not an in-place operation, as for tuple-typed batches, a new batch object 
+        must be created to modify them.
+
+        Args:
+            key (Any): A key to index into the batch. Optional if set_fn is specified.
+            value (Any): The value that batch[key] or batch.key gets set to or that the 
+                set_fn uses to set a part of the batch to.
+            set_fn (Callable): A user-specified function to do the setting. set_fn is optional if key and 
+                value are supplied. The set_fn must return the updated batch.
+
+        Returns:
+            batch (Any): The updated batch with value set at key.
+
+        Raises:
+            ValueError if:
+                * key and set_fn are both unset
+                * key and set_fn are both set
+        """
+        if key is None and set_fn is None:
+            raise ValueError("key or set_fn must be specified and neither were!")
+        if key is not None and set_fn is not None:
+            raise ValueError("key and set_fn were both set. Only one can be set!")
+        self.batch = batch_set(self.batch, key=key, value=value, set_fn=set_fn)
 
     @property
     def callbacks(self):
@@ -449,7 +509,7 @@ class State(Serializable):
     @property
     def dataloader_label(self):
         """The dataloader label for the active dataloader.
-        
+
         By default, the training dataloader is called ``'train'``. The evaluator dataloader
         is called ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
         However, the dataloader label can be explicitely specified in :meth:`.Trainer.fit`

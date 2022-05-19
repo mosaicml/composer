@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Download handling for :class:`StreamingDataset`.
 """
@@ -13,12 +14,12 @@ from urllib.parse import urlparse
 __all__ = ["safe_download"]
 
 
-def wait_for_download(local: str, timeout: float = 20) -> None:
+def wait_for_download(local: str, timeout: float = 60) -> None:
     """Block until another worker's shard download completes.
 
     Args:
         local (str): Path to file.
-        timeout (float): How long to wait before raising an exception. Default: 20 sec.
+        timeout (float): How long to wait before raising an exception. Default: 60 sec.
     """
     start_time = time()
     while True:
@@ -40,7 +41,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     """
     try:
         import boto3  # type: ignore (third-party)
-        from botocore import Config  # type: ignore (third-party)
+        from botocore.config import Config  # type: ignore (third-party)
     except ImportError as e:
         raise ImportError(
             textwrap.dedent("""\
@@ -91,7 +92,7 @@ def download(remote: str, local: str, timeout: float) -> None:
         raise TimeoutError(f'Waited too long (more than {timeout:.3f} sec) for download')
 
 
-def safe_download(remote: str, local: str, timeout: float = 20) -> None:
+def safe_download(remote: str, local: str, timeout: float = 60) -> None:
     """Safely downloads a file from remote to local.
        Handles multiple threads attempting to download the same shard.
        Gracefully deletes stale tmp files from crashed runs.
@@ -100,7 +101,7 @@ def safe_download(remote: str, local: str, timeout: float = 20) -> None:
     Args:
         remote (str): Remote path (S3 or local filesystem).
         local (str): Local path (local filesystem).
-        timeout (float): How long to wait for shard to download before raising an exception. Default: 20 sec.
+        timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
     """
     # If we already have the file cached locally, we are done.
     if os.path.exists(local):

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from typing import Callable, Dict, Type
 
@@ -6,7 +7,8 @@ import pytest
 
 from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, C4DatasetHparams, CIFAR10DatasetHparams,
                                COCODatasetHparams, DataLoaderHparams, DatasetHparams, GLUEHparams,
-                               ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, SyntheticHparamsMixin,
+                               ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, StreamingADE20kHparams,
+                               StreamingCOCOHparams, StreamingImageNet1kHparams, SyntheticHparamsMixin,
                                WebDatasetHparams)
 from composer.trainer.trainer_hparams import dataset_registry
 
@@ -21,14 +23,18 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
         ),
     ADE20kDatasetHparams:
         lambda: ADE20kDatasetHparams(is_train=False),
+    StreamingADE20kHparams:
+        lambda: StreamingADE20kHparams(split="val"),
     BratsDatasetHparams:
         lambda: BratsDatasetHparams(is_train=False,),
     ImagenetDatasetHparams:
         lambda: ImagenetDatasetHparams(
             is_train=False,
+            resize_size=256,
             crop_size=224,
-            resize_size=-1,
         ),
+    StreamingImageNet1kHparams:
+        lambda: StreamingImageNet1kHparams(split="val", resize_size=256, crop_size=224),
     MNISTDatasetHparams:
         lambda: MNISTDatasetHparams(
             is_train=False,
@@ -54,6 +60,8 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
             drop_last=False,
             shuffle=False,
         ),
+    StreamingCOCOHparams:
+        lambda: StreamingCOCOHparams(split="val"),
     C4DatasetHparams:
         lambda: C4DatasetHparams(
             split="train",

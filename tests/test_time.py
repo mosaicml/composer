@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import pytest
 
@@ -96,3 +97,14 @@ def test_timestamp_to_next_batch_epoch():
 def test_timestamp_repr():
     timestamp = Timestamp()
     assert timestamp == eval(repr(timestamp))
+
+
+@pytest.mark.parametrize("time_string", ["1.5ep", "2.1ba", "3.2sp", "3.4tok"])
+def test_timestep_bad_strings(time_string: str):
+    with pytest.raises(TypeError):
+        Time.from_timestring(time_string)
+
+
+@pytest.mark.parametrize("time_string", ["0.5dur", "2.0ep", "3.000ba", "030.0sp"])
+def test_timestep_valid_strings(time_string: str):
+    Time.from_timestring(time_string)

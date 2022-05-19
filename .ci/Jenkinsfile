@@ -121,7 +121,7 @@ def getDockerBuildMatrix(String buildConfigYamlPath, String buildContext, String
 
         buildArgs.each { key, val ->
             if (key == 'TAGS') {
-                val.each { tag -> 
+                val.each { tag ->
                     tags << tag
                 }
                 return
@@ -191,7 +191,7 @@ void scheduleJob(jobs, String image, buildArgs) {
     // jobs: The list of jobs. Modified in-place.
     // buildArgs: The build args matrix
 
-    String markers = 'not notebooks and not daily'
+    String markers = 'not notebooks and not daily and not remote'
     Boolean isLintImage = false
     Boolean isVisionImage = false
     Boolean isGpu = false
@@ -339,7 +339,7 @@ stage('Build') {
                 kanikoCommand = "$kanikoCommand $destinations"
             }
 
-            jobs << [ "$buildArgs": { -> 
+            jobs << [ "$buildArgs": { ->
                 trackBuild(
                     job: jenkinsShellJobName,
                     parameters: [

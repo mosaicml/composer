@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
@@ -28,7 +29,7 @@ def apply_factorization(model: torch.nn.Module,
                         min_features: int = 512,
                         latent_features: Union[int, float] = 0.25,
                         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
-    """Replaces :class:`~torch.nn.Linear` and :class:`~torch.nn.Conv2d` modules and with
+    """Replaces :class:`~torch.nn.Linear` and :class:`~torch.nn.Conv2d` modules with
     :class:`~composer.algorithms.factorize.FactorizedLinear` and
     :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
 
@@ -37,7 +38,7 @@ def apply_factorization(model: torch.nn.Module,
     computation, at the cost of expressive power. See :class:`Factorize` for details.
 
     Args:
-        model (torch.nn.Module): the model to modify in-place
+        model (:class:`torch.nn.Module`): the model to modify in-place.
         factorize_convs (bool, optional): whether to try factorizing :class:`~torch.nn.Conv2d` modules.
             Default: ``True``.
         factorize_linears (bool, optional): whether to try factorizing :class:`~torch.nn.Linear` modules.
@@ -47,8 +48,8 @@ def apply_factorization(model: torch.nn.Module,
             few channels are unlikely to be accelerated by factorization due
             to poor hardware utilization. Default: ``512``.
         latent_channels (int | float, optional): number of latent channels to use in factorized
-            convolutions. Can be specified as either an integer > 1 or as
-            float within [0, 1). In the latter case, the value is
+            convolutions. Can be specified as either an integer > 1 or as a
+            float within ``[0, 1)``. In the latter case, the value is
             interpreted as a fraction of ``min(in_channels, out_channels)``
             for each :class:`~torch.nn.Conv2d` module, and is converted to
             the equivalent integer value, with a minimum of 1. Default: ``0.25``.
@@ -57,15 +58,15 @@ def apply_factorization(model: torch.nn.Module,
             few features are unlikely to be accelerated by factorization due
             to poor hardware utilization. Default: ``512``.
         latent_features (int | float, optional): size of the latent space for factorized linear modules.
-            Can be specified as either an integer > 1 or as a float within [0, 0.5).
+            Can be specified as either an integer > 1 or as a float within ``[0, 0.5)``.
             In the latter case, the value is interpreted as a fraction of
             ``min(in_features, out_features)`` for each :class:`~torch.nn.Linear`
             module, and is converted to the equivalent integer value, with a
             minimum of 1. Default: ``0.25``.
-        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
+        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
             constructed with ``model.parameters()`` must be specified here so
-            they will optimize the correct parameters.
+            that they will optimize the correct parameters.
 
             If the optimizer(s) are constructed *after* calling this function,
             then it is safe to omit this parameter. These optimizers will see
@@ -81,7 +82,6 @@ def apply_factorization(model: torch.nn.Module,
             from torchvision import models
             model = models.resnet50()
             cf.apply_factorization(model)
-
     """
     if factorize_convs:
         _factorize_conv2d_modules(model,
@@ -135,7 +135,7 @@ class Factorize(Algorithm):
             to poor hardware utilization. Default: ``256``.
         latent_channels (int, float): number of latent channels to use in factorized
             convolutions. Can be specified as either an integer > 1 or as
-            float within [0, 1). In the latter case, the value is
+            a float within ``[0, 1)``. In the latter case, the value is
             interpreted as a fraction of ``min(in_channels, out_channels)``
             for each :class:`~torch.nn.Conv2d` module, and is converted to
             the equivalent integer value, with a minimum of 1. Default: ``0.25``.
@@ -144,10 +144,10 @@ class Factorize(Algorithm):
             few features are unlikely to be accelerated by factorization due
             to poor hardware utilization. Default: ``256``.
         latent_features (int, float): size of the latent space for factorized linear modules.
-            Can be specified as either an integer > 1 or as a float within [0, 0.5).
+            Can be specified as either an integer > 1 or as a float within ``[0, 0.5)``.
             In the latter case, the value is interpreted as a fraction of
             ``min(in_features, out_features)`` for each :class:`~torch.nn.Linear`
-            module, and is converted to the equivalent integer value, with a
+            module and is converted to the equivalent integer value, with a
             minimum of 1. Default: ``128``.
     """
 
@@ -169,8 +169,8 @@ class Factorize(Algorithm):
         """Runs on :attr:`~composer.core.event.Event.INIT`.
 
         Args:
-            event (Event): The current event.
-            state (State): The current state.
+            event (:class:`Event`): The current event.
+            state (:class:`State`): The current state.
 
         Returns:
             bool: True if this algorithm should run
@@ -181,9 +181,9 @@ class Factorize(Algorithm):
         """Factorize convolutional and linear layers.
 
         Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
+            event (:class:`Event`): the current event
+            state (:class:`State`): the current trainer state
+            logger (:class:`Logger`): the training logger
         """
         assert state.model is not None, "Model must be part of state!"
 

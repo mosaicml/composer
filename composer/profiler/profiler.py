@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Composer Profiler."""
 
@@ -189,7 +190,7 @@ class Profiler:
 
         .. note::
 
-            :meth:`.Profiler.marker()` should be used to construct markers.  :class:`.Marker` **should not** be 
+            :meth:`.Profiler.marker()` should be used to construct markers.  :class:`.Marker` **should not** be
             instantiated directly by the user.
 
             For example:

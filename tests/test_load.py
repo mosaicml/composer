@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import glob
 import os
@@ -28,6 +29,7 @@ def get_model_algs(model_name: str) -> List[str]:
     if is_image_model:
         algs.remove("alibi")
         algs.remove("seq_length_warmup")
+        algs.remove("swa")
     if "alibi" in algs:
         pytest.importorskip("transformers")
         pytest.importorskip("datasets")
@@ -52,6 +54,7 @@ def get_model_algs(model_name: str) -> List[str]:
         algs.remove('sam')
         algs.remove('selective_backprop')
     if model_name in ("unet"):
+        algs.remove('stochastic_depth')
         algs.remove("mixup")
         algs.remove("cutmix")
     return algs

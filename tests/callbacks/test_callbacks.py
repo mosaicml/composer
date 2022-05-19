@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 from typing import Callable, List
@@ -8,7 +9,9 @@ import pytest
 import composer.callbacks
 import composer.loggers
 import composer.profiler
+from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.mlperf import MLPerfCallback
+from composer.callbacks.threshold_stopper import ThresholdStopper
 from composer.core import Event
 from composer.core.callback import Callback
 from composer.core.engine import Engine
@@ -60,6 +63,9 @@ def _get_callback_factories() -> List[Callable[..., Callback]]:
         x for x in vars(composer.profiler).values() if isinstance(x, type) and issubclass(x, Callback))
     callback_factories.remove(ObjectStoreLogger)
     callback_factories.remove(MLPerfCallback)
+    # Early + threshold stopper removed because they have required params and are tested separately
+    callback_factories.remove(ThresholdStopper)
+    callback_factories.remove(EarlyStopper)
     callback_factories.append(lambda: ObjectStoreLogger(
         use_procs=False,
         num_concurrent_uploads=1,
