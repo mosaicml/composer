@@ -369,9 +369,9 @@ class Timestamp(Serializable):
         batch_in_epoch (int | Time[int], optional): The batch in the epoch.
         sample_in_epoch (int | Time[int], optional): The sample in the epoch.
         token_in_epoch (int | Time[int], optional): The token in the epoch.
-        total_duration (datetime.timedelta, optional): The total duration.
-        epoch_duration (datetime.timedelta, optional): The duration of the last epoch.
-        batch_duration (datetime.timedelta, optional): The duration of the last batch.
+        total_duration (datetime.timedelta, optional): The total wall-clock duration.
+        epoch_duration (datetime.timedelta, optional): The wall-clock duration of the last epoch.
+        batch_duration (datetime.timedelta, optional): The wall-clock duration of the last batch.
     """
 
     def __init__(
