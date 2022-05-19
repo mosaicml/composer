@@ -234,14 +234,14 @@ FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """
 | ``{token_in_epoch}``       | The token count in the current epoch, as returned by       |
 |                            | :meth:`~composer.core.time.Timestamp.token_in_epoch`.      |
 +----------------------------+------------------------------------------------------------+
-| ``{total_wct_duration}``   | The total training duration in seconds, as returned by     |
-|                            | :meth:`~composer.core.time.Timestamp.total_wct_duration`.  |
+| ``{total_wct}``            | The total training duration in seconds, as returned by     |
+|                            | :meth:`~composer.core.time.Timestamp.total_wct`.           |
 +----------------------------+------------------------------------------------------------+
-| ``{epoch_wct_duration}``   | The epoch duration in seconds, as returned by              |
-|                            | :meth:`~composer.core.time.Timestamp.epoch_wct_duration`.  |
+| ``{epoch_wct}``            | The epoch duration in seconds, as returned by              |
+|                            | :meth:`~composer.core.time.Timestamp.epoch_wct`.           |
 +----------------------------+------------------------------------------------------------+
-| ``{batch_wct_duration}``   | The batch duration in seconds, as returned by              |
-|                            | :meth:`~composer.core.time.Timestamp.batch_wct_duration`.  |
+| ``{batch_wct}``            | The batch duration in seconds, as returned by              |
+|                            | :meth:`~composer.core.time.Timestamp.batch_wct`.           |
 +----------------------------+------------------------------------------------------------+
 """
 
@@ -261,9 +261,9 @@ def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Ti
         sample_in_epoch=int(timestamp.sample_in_epoch),
         token=int(timestamp.token),
         token_in_epoch=int(timestamp.token_in_epoch),
-        total_wct_duration=timestamp.total_wct_duration.total_seconds(),
-        epoch_wct_duration=timestamp.epoch_wct_duration.total_seconds(),
-        batch_wct_duration=timestamp.batch_wct_duration.total_seconds(),
+        total_wct=timestamp.total_wct.total_seconds(),
+        epoch_wct=timestamp.epoch_wct.total_seconds(),
+        batch_wct=timestamp.batch_wct.total_seconds(),
         **extra_format_kwargs,
     )
     return formatted_str

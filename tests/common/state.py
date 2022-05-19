@@ -5,9 +5,9 @@ from tests.common.compare import deep_compare
 
 
 def _del_wct_timestamp_fields(timestamp_state_dict: Dict[str, Any]):
-    del timestamp_state_dict['Timestamp']['total_wct_duration']
-    del timestamp_state_dict['Timestamp']['epoch_wct_duration']
-    del timestamp_state_dict['Timestamp']['batch_wct_duration']
+    del timestamp_state_dict['Timestamp']['total_wct']
+    del timestamp_state_dict['Timestamp']['epoch_wct']
+    del timestamp_state_dict['Timestamp']['batch_wct']
 
 
 def assert_state_equivalent(state1: State, state2: State):
