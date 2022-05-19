@@ -6,9 +6,10 @@
 Each callback inherits from the :class:`~composer.core.callback.Callback` base class. See detailed description and
 examples for writing your own callbacks at the :class:`~composer.core.callback.Callback` base class.
 """
-from composer.callbacks.callback_hparams import (CallbackHparams, CheckpointSaverHparams, EarlyStopperHparams,
+from composer.callbacks.callback_hparams import (BenchmarkerHparams, CallbackHparams, CheckpointSaverHparams, EarlyStopperHparams,
                                                  GradMonitorHparams, LRMonitorHparams, MemoryMonitorHparams,
                                                  MLPerfCallbackHparams, SpeedMonitorHparams, ThresholdStopperHparams)
+from composer.callbacks.benchmarker import Benchmarker
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.grad_monitor import GradMonitor
@@ -19,6 +20,7 @@ from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.callbacks.threshold_stopper import ThresholdStopper
 
 __all__ = [
+    "Benchmarker",
     "GradMonitor",
     "LRMonitor",
     "MemoryMonitor",

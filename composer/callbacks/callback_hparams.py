@@ -7,10 +7,11 @@ from __future__ import annotations
 import abc
 import textwrap
 from dataclasses import asdict, dataclass
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import yahp as hp
 
+from composer.callbacks.benchmarker import Benchmarker
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.grad_monitor import GradMonitor
@@ -24,6 +25,7 @@ from composer.core.time import Time
 from composer.utils import import_object
 
 __all__ = [
+    "Benchmarker",
     "CallbackHparams",
     "GradMonitorHparams",
     "MemoryMonitorHparams",
@@ -45,6 +47,38 @@ class CallbackHparams(hp.Hparams, abc.ABC):
             Callback: An instance of the callback.
         """
         pass
+
+
+@dataclass
+class BenchmarkerHparams(CallbackHparams):
+    """:class:`~composer.callbacks.benchmarker.Benchmarker` hyperparameters.
+    See :class:`~composer.callbacks.benchmarker.Benchmarker` for documentation.
+    """
+    min_steps: int = hp.optional(
+        doc="Minimum number of steps to use for measuring throughput.",
+        default=3,
+    )
+    epoch_list: List[int] = hp.optional(
+        doc="List of epochs at which to measure throughput.",
+        default_factory=lambda: [0, 2, 3],
+    )
+    step_list: List[int] = hp.optional(
+        doc="List of steps at which to measure throughput.",
+        default_factory=lambda: [0, 10, 20, 30, 40],
+    )
+    all_epochs: bool = hp.optional(
+        doc="If true, override epoch_list and profile at all epochs.",
+        default=False,
+    )
+
+    def initialize_object(self) -> Benchmarker:
+        from composer.callbacks.benchmarker import Benchmarker
+        return Benchmarker(
+            min_steps=self.min_steps,
+            epoch_list=self.epoch_list,
+            step_list=self.step_list,
+            all_epochs=self.all_epochs,
+        )
 
 
 @dataclass
