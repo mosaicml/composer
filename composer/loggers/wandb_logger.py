@@ -21,6 +21,8 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
 
+import numpy as np
+
 __all__ = ["WandBLogger"]
 
 
@@ -74,6 +76,13 @@ class WandBLogger(LoggerDestination):
         import wandb
         del log_level  # unused
         if self._enabled:
+            #todo: remove
+            print(">>>>>>>>>>>>DEBUG-checking wandb types-start")
+            print(type(state.timestamp.batch))
+            print(type(int(state.timestamp.batch)))
+            print(data)
+            print(np.array([type(d) for d in data]))
+            print(">>>>>>>>>>>>DEBUG-checking wandb types-end")
             wandb.log(data, step=int(state.timestamp.batch))
 
     def state_dict(self) -> Dict[str, Any]:
