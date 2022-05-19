@@ -369,9 +369,9 @@ class Timestamp(Serializable):
         batch_in_epoch (int | Time[int], optional): The batch in the epoch.
         sample_in_epoch (int | Time[int], optional): The sample in the epoch.
         token_in_epoch (int | Time[int], optional): The token in the epoch.
-        total_duration (datetime.timedelta, optional): The total wall-clock duration.
-        epoch_duration (datetime.timedelta, optional): The wall-clock duration of the last epoch.
-        batch_duration (datetime.timedelta, optional): The wall-clock duration of the last batch.
+        total_wct_duration (datetime.timedelta, optional): The total wall-clock duration.
+        epoch_wct_duration (datetime.timedelta, optional): The wall-clock duration of the last epoch.
+        batch_wct_duration (datetime.timedelta, optional): The wall-clock duration of the last batch.
     """
 
     def __init__(
@@ -383,9 +383,9 @@ class Timestamp(Serializable):
         batch_in_epoch: Union[int, Time[int]] = 0,
         sample_in_epoch: Union[int, Time[int]] = 0,
         token_in_epoch: Union[int, Time[int]] = 0,
-        total_duration: Optional[datetime.timedelta] = None,
-        epoch_duration: Optional[datetime.timedelta] = None,
-        batch_duration: Optional[datetime.timedelta] = None,
+        total_wct_duration: Optional[datetime.timedelta] = None,
+        epoch_wct_duration: Optional[datetime.timedelta] = None,
+        batch_wct_duration: Optional[datetime.timedelta] = None,
     ):
         epoch = ensure_time(epoch, TimeUnit.EPOCH)
         if epoch.unit != TimeUnit.EPOCH:
@@ -425,17 +425,17 @@ class Timestamp(Serializable):
                               f"not {TimeUnit.TOKEN}."))
         self._token_in_epoch = token_in_epoch
 
-        if total_duration is None:
-            total_duration = datetime.timedelta(seconds=0)
-        self._total_duration = total_duration
+        if total_wct_duration is None:
+            total_wct_duration = datetime.timedelta(seconds=0)
+        self._total_wct_duration = total_wct_duration
 
-        if epoch_duration is None:
-            epoch_duration = datetime.timedelta(seconds=0)
-        self._epoch_duration = epoch_duration
+        if epoch_wct_duration is None:
+            epoch_wct_duration = datetime.timedelta(seconds=0)
+        self._epoch_wct_duration = epoch_wct_duration
 
-        if batch_duration is None:
-            batch_duration = datetime.timedelta(seconds=0)
-        self._batch_duration = batch_duration
+        if batch_wct_duration is None:
+            batch_wct_duration = datetime.timedelta(seconds=0)
+        self._batch_wct_duration = batch_wct_duration
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -446,9 +446,9 @@ class Timestamp(Serializable):
             "batch_in_epoch": self.batch_in_epoch.value,
             "sample_in_epoch": self.sample_in_epoch.value,
             "token_in_epoch": self.token_in_epoch.value,
-            "total_duration": self.total_duration,
-            "epoch_duration": self.epoch_duration,
-            "batch_duration": self.batch_duration,
+            "total_wct_duration": self.total_wct_duration,
+            "epoch_wct_duration": self.epoch_wct_duration,
+            "batch_wct_duration": self.batch_wct_duration,
         }
 
     def get_state(self) -> Dict[str, Union[Time[int], datetime.timedelta]]:
@@ -460,9 +460,9 @@ class Timestamp(Serializable):
             "batch_in_epoch": self.batch_in_epoch,
             "sample_in_epoch": self.sample_in_epoch,
             "token_in_epoch": self.token_in_epoch,
-            "total_duration": self.total_duration,
-            "epoch_duration": self.epoch_duration,
-            "batch_duration": self.batch_duration,
+            "total_wct_duration": self.total_wct_duration,
+            "epoch_wct_duration": self.epoch_wct_duration,
+            "batch_wct_duration": self.batch_wct_duration,
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
@@ -475,12 +475,12 @@ class Timestamp(Serializable):
         self._token_in_epoch = Time(state["token_in_epoch"], TimeUnit.TOKEN)
         # Wall clock time tracking was added in composer v0.7.0
         # Using conditional checks as not to break old checkpoints
-        if "total_duration" in state:
-            self._total_duration = state["total_duration"]
-        if "epoch_duration" in state:
-            self._epoch_duration = state["epoch_duration"]
-        if "batch_duration" in state:
-            self._batch_duration = state["batch_duration"]
+        if "total_wct_duration" in state:
+            self._total_wct_duration = state["total_wct_duration"]
+        if "epoch_wct_duration" in state:
+            self._epoch_wct_duration = state["epoch_wct_duration"]
+        if "batch_wct_duration" in state:
+            self._batch_wct_duration = state["batch_wct_duration"]
 
     @property
     def epoch(self) -> Time[int]:
@@ -518,19 +518,19 @@ class Timestamp(Serializable):
         return self._token_in_epoch
 
     @property
-    def total_duration(self) -> datetime.timedelta:
+    def total_wct_duration(self) -> datetime.timedelta:
         """The duration from the beginning of training."""
-        return self._total_duration
+        return self._total_wct_duration
 
     @property
-    def epoch_duration(self) -> datetime.timedelta:
+    def epoch_wct_duration(self) -> datetime.timedelta:
         """The duration for the current epoch."""
-        return self._epoch_duration
+        return self._epoch_wct_duration
 
     @property
-    def batch_duration(self) -> datetime.timedelta:
+    def batch_wct_duration(self) -> datetime.timedelta:
         """The duration for the last batch."""
-        return self._batch_duration
+        return self._batch_wct_duration
 
     def get(self, unit: Union[str, TimeUnit]) -> Time[int]:
         """Returns the current time in the specified unit.
@@ -635,9 +635,9 @@ class Timestamp(Serializable):
             ...     sample_in_epoch=timestamp.sample_in_epoch + samples,
             ...     token = timestamp.token + tokens,
             ...     token_in_epoch=timestamp.token_in_epoch + tokens,
-            ...     total_duration=duration + self.total_duration,
-            ...     epoch_duration=duration + self.epoch_duration,
-            ...     batch_duration=duration,
+            ...     total_wct_duration=duration + self.total_wct_duration,
+            ...     epoch_wct_duration=duration + self.epoch_wct_duration,
+            ...     batch_wct_duration=duration,
             ... )
             Timestamp(...)
 
@@ -662,9 +662,9 @@ class Timestamp(Serializable):
             sample_in_epoch=self.sample_in_epoch + samples,
             token=self.token + tokens,
             token_in_epoch=self.token_in_epoch + tokens,
-            total_duration=self.total_duration + duration,
-            epoch_duration=self.epoch_duration + duration,
-            batch_duration=duration,
+            total_wct_duration=self.total_wct_duration + duration,
+            epoch_wct_duration=self.epoch_wct_duration + duration,
+            batch_wct_duration=duration,
         )
 
     def to_next_epoch(self):
@@ -686,8 +686,8 @@ class Timestamp(Serializable):
             ...     batch_in_epoch=0,
             ...     sample_in_epoch=0,
             ...     token_in_epoch=0,
-            ...     epoch_duration=datetime.timedelta(seconds=0),
-            ...     batch_duration=datetime.timedelta(seconds=0),
+            ...     epoch_wct_duration=datetime.timedelta(seconds=0),
+            ...     batch_wct_duration=datetime.timedelta(seconds=0),
             ... )
             Timestamp(...)
 
@@ -697,8 +697,8 @@ class Timestamp(Serializable):
             batch_in_epoch=0,
             sample_in_epoch=0,
             token_in_epoch=0,
-            epoch_duration=datetime.timedelta(seconds=0),
-            batch_duration=datetime.timedelta(seconds=0),
+            epoch_wct_duration=datetime.timedelta(seconds=0),
+            batch_wct_duration=datetime.timedelta(seconds=0),
         )
 
     def copy(
@@ -710,9 +710,9 @@ class Timestamp(Serializable):
         batch_in_epoch: Optional[Union[int, Time[int]]] = None,
         sample_in_epoch: Optional[Union[int, Time[int]]] = None,
         token_in_epoch: Optional[Union[int, Time[int]]] = None,
-        total_duration: Optional[datetime.timedelta] = None,
-        epoch_duration: Optional[datetime.timedelta] = None,
-        batch_duration: Optional[datetime.timedelta] = None,
+        total_wct_duration: Optional[datetime.timedelta] = None,
+        epoch_wct_duration: Optional[datetime.timedelta] = None,
+        batch_wct_duration: Optional[datetime.timedelta] = None,
     ) -> Timestamp:
         """Create a copy of the timestamp. Any specified values will override the existing values in the
         returned copy.
@@ -725,7 +725,7 @@ class Timestamp(Serializable):
             batch_in_epoch (int | Time[int], optional): The batch in the epoch.
             sample_in_epoch (int | Time[int], optional): The sample in the epoch.
             token_in_epoch (int | Time[int], optional): The token in the epoch.
-            total_duration (datetime.timedelta, optional): The elapsed duration from the beginning of training.
+            total_wct_duration (datetime.timedelta, optional): The elapsed duration from the beginning of training.
 
         Returns:
             Timestamp: A new timestamp instance, created from a copy, but with any specified values
@@ -739,9 +739,9 @@ class Timestamp(Serializable):
             batch_in_epoch=batch_in_epoch if batch_in_epoch is not None else self.batch_in_epoch,
             sample_in_epoch=sample_in_epoch if sample_in_epoch is not None else self.sample_in_epoch,
             token_in_epoch=token_in_epoch if token_in_epoch is not None else self.token_in_epoch,
-            total_duration=total_duration if total_duration is not None else self.total_duration,
-            epoch_duration=epoch_duration if epoch_duration is not None else self.epoch_duration,
-            batch_duration=batch_duration if batch_duration is not None else self.batch_duration,
+            total_wct_duration=total_wct_duration if total_wct_duration is not None else self.total_wct_duration,
+            epoch_wct_duration=epoch_wct_duration if epoch_wct_duration is not None else self.epoch_wct_duration,
+            batch_wct_duration=batch_wct_duration if batch_wct_duration is not None else self.batch_wct_duration,
         )
 
     def __repr__(self) -> str:
@@ -753,9 +753,9 @@ class Timestamp(Serializable):
                 f"batch_in_epoch={int(self.batch_in_epoch)}, "
                 f"sample_in_epoch={int(self.sample_in_epoch)}, "
                 f"token_in_epoch={int(self.token_in_epoch)}, "
-                f"total_duration={repr(self.total_duration)}, "
-                f"epoch_duration={repr(self.epoch_duration)}, "
-                f"batch_duration={repr(self.batch_duration)}"
+                f"total_wct_duration={repr(self.total_wct_duration)}, "
+                f"epoch_wct_duration={repr(self.epoch_wct_duration)}, "
+                f"batch_wct_duration={repr(self.batch_wct_duration)}"
                 ")")
 
 

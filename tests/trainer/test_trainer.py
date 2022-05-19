@@ -525,15 +525,15 @@ class TestTrainerInitOrFit:
     def _assert_wct_consistency(self, timestamp: Timestamp):
         """Validate that the wct is the same across all ranks"""
         my_timestamp_tensor = torch.tensor([
-            timestamp.total_duration.total_seconds(),
-            timestamp.epoch_duration.total_seconds(),
-            timestamp.batch_duration.total_seconds(),
+            timestamp.total_wct_duration.total_seconds(),
+            timestamp.epoch_wct_duration.total_seconds(),
+            timestamp.batch_wct_duration.total_seconds(),
         ],
                                            dtype=torch.float64)
         rank_zero_timestamp_tensor = torch.tensor([
-            timestamp.total_duration.total_seconds(),
-            timestamp.epoch_duration.total_seconds(),
-            timestamp.batch_duration.total_seconds(),
+            timestamp.total_wct_duration.total_seconds(),
+            timestamp.epoch_wct_duration.total_seconds(),
+            timestamp.batch_wct_duration.total_seconds(),
         ],
                                                   dtype=torch.float64)
         dist.broadcast(rank_zero_timestamp_tensor, src=0)
@@ -574,9 +574,9 @@ class TestTrainerInitOrFit:
 
         # Validate the timestamps.
         # Training duration should be less than the sleeping
-        assert trainer.state.timestamp.total_duration < sleep_duration * expected_num_evals
+        assert trainer.state.timestamp.total_wct_duration < sleep_duration * expected_num_evals
         # The last evaluation duration should be at least as much as the sleeping
-        assert trainer.state.eval_timestamp.total_duration > sleep_duration
+        assert trainer.state.eval_timestamp.total_wct_duration > sleep_duration
 
     @pytest.mark.parametrize("unit", [TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.SAMPLE])
     @pytest.mark.parametrize("world_size", [1, pytest.param(2, marks=pytest.mark.world_size(2))])
@@ -647,7 +647,7 @@ class TestTrainerInitOrFit:
             assert trainer.state.timestamp.token == 0  # tokens not tracked
             assert trainer.state.timestamp.token_in_epoch == 0  # tokens not tracked
             self._assert_wct_consistency(trainer.state.timestamp)
-            assert trainer.state.timestamp.total_duration > current_epoch_time
+            assert trainer.state.timestamp.total_wct_duration > current_epoch_time
 
             # Validate the event counter callback
             assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 1
@@ -662,12 +662,12 @@ class TestTrainerInitOrFit:
                 assert trainer.state.timestamp.sample_in_epoch == num_batches_trained * batch_size
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 0
-                assert trainer.state.timestamp.epoch_duration > current_epoch_time
-                assert trainer.state.timestamp.epoch_duration == trainer.state.timestamp.total_duration
+                assert trainer.state.timestamp.epoch_wct_duration > current_epoch_time
+                assert trainer.state.timestamp.epoch_wct_duration == trainer.state.timestamp.total_wct_duration
                 if i > 0:
-                    assert trainer.state.timestamp.epoch_duration > trainer.state.timestamp.batch_duration
+                    assert trainer.state.timestamp.epoch_wct_duration > trainer.state.timestamp.batch_wct_duration
                 else:
-                    assert trainer.state.timestamp.epoch_duration == trainer.state.timestamp.batch_duration
+                    assert trainer.state.timestamp.epoch_wct_duration == trainer.state.timestamp.batch_wct_duration
             else:
                 # Finished the epoch
                 assert trainer.state.timestamp.epoch == 1
@@ -675,10 +675,10 @@ class TestTrainerInitOrFit:
                 assert trainer.state.timestamp.sample_in_epoch == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 1
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 1
-                assert trainer.state.timestamp.epoch_duration == datetime.timedelta(seconds=0)
-                assert trainer.state.timestamp.batch_duration == datetime.timedelta(seconds=0)
+                assert trainer.state.timestamp.epoch_wct_duration == datetime.timedelta(seconds=0)
+                assert trainer.state.timestamp.batch_wct_duration == datetime.timedelta(seconds=0)
 
-            current_epoch_time = trainer.state.timestamp.total_duration
+            current_epoch_time = trainer.state.timestamp.total_wct_duration
 
         # Train for a second epoch
         # Validate that batch_in_epoch / sample_in_epoch are reset properly
@@ -698,8 +698,8 @@ class TestTrainerInitOrFit:
             assert trainer.state.timestamp.token == 0  # tokens not tracked
             assert trainer.state.timestamp.token_in_epoch == 0  # tokens not tracked
             self._assert_wct_consistency(trainer.state.timestamp)
-            assert trainer.state.timestamp.total_duration > trainer.state.timestamp.batch_duration
-            assert trainer.state.timestamp.total_duration > trainer.state.timestamp.epoch_duration
+            assert trainer.state.timestamp.total_wct_duration > trainer.state.timestamp.batch_wct_duration
+            assert trainer.state.timestamp.total_wct_duration > trainer.state.timestamp.epoch_wct_duration
 
             # Validate the event counter callback
             assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 2
