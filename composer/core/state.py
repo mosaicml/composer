@@ -349,7 +349,7 @@ class State(Serializable):
         See batch_get in `utils/batch_helpers.py` for examples.
 
         Args:
-            key (Any, Callable, or Pair of Callables): A key to index into the batch or a 
+            key (str, int, or Callable): A key to index into the batch or a 
                 user-specified function to do the extracting. A pair of callables is also
                 supported for cases where a get and set function pair are both passed 
                 (like in Algorithms). The getter is assumed to be the first of the pair.
@@ -370,7 +370,7 @@ class State(Serializable):
         See batch_set in `utils/batch_helpers.py` for examples.
         
         Args:
-            key (Any or Callable): A key to index into the batch or a user-specified 
+            key (str, int, or Callable): A key to index into the batch or a user-specified 
                 function to do the setting. A pair of callables is also supported for 
                 cases where a get and set function pair are both passed (like in 
                 Algorithms). The setter is assumed to be the second of the pair.
