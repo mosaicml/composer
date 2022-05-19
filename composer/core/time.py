@@ -451,7 +451,7 @@ class Timestamp(Serializable):
             "batch_duration": self.batch_duration,
         }
 
-    def get_state(self) -> Dict[str, Any]:
+    def get_state(self) -> Dict[str, Union[Time[int], datetime.timedelta]]:
         return {
             "epoch": self.epoch,
             "batch": self.batch,
