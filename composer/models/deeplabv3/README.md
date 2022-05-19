@@ -1,7 +1,7 @@
 # DeepLabv3+
 [\[Example\]](#example) &middot; [\[Architecture\]](#architecture) &middot; [\[Training Hyperparameters\]](#training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
 
-[DeepLabv3+](https://arxiv.org/abs/1802.02611) is an architecture designed for semantic segmenation i.e. per-pixel classification. DeepLabv3+ takes in the feature map from a backbone architecture (e.g. ResNet-101) and outputs per-pixel classifications for each pixel in the input image. Our implementation is a simple wrapper around [torchvision’s ResNet](https://pytorch.org/vision/stable/models.html#id10) for the backbone and [mmsegmentation’s DeepLabv3+](https://github.com/open-mmlab/mmsegmentation/tree/master/configs/deeplabv3plus) for the head.
+[DeepLabv3+](https://arxiv.org/abs/1802.02611) is an architecture designed for semantic segmenation i.e. per-pixel classification. DeepLabv3+ takes in a feature map from a backbone architecture (e.g. ResNet-101), then outputs per-pixel classifications for each pixel in the input image. Our implementation is a simple wrapper around [torchvision’s ResNet](https://pytorch.org/vision/stable/models.html#id10) for the backbone and [mmsegmentation’s DeepLabv3+](https://github.com/open-mmlab/mmsegmentation/tree/master/configs/deeplabv3plus) for the head.
 
 ## Example
 
@@ -11,15 +11,16 @@ from composer.models. import ComposerDeepLabV3
 model = ComposerDeepLabV3(num_classes=150,
                           backbone_arch="resnet101",
                           is_backbone_pretrained=True,
-                          backbone_url="https://download.pytorch.org/models/resnet101-cd907fc2.pth"
+                          backbone_url="https://download.pytorch.org/models/resnet101-cd907fc2.pth",
                           sync_bn=False
 )
 ```
 
 ## Architecture
 
-![deeplabv3plus.png](https://storage.googleapis.com/docs.mosaicml.com/images/models/deeplabv3plus.png)
 Based on [Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1802.02611)
+
+![deeplabv3plus.png](https://storage.googleapis.com/docs.mosaicml.com/images/models/deeplabv3plus.png)
 
 
 - **Backbone network**: converts the input image into a feature map.
@@ -39,7 +40,7 @@ Based on [Encoder-Decoder with Atrous Separable Convolution for Semantic Image S
 
 ## Training Hyperparameters
 
-We provide two sets of hyperparameters for DeepLabv3+ trained on the ADE20k dataset.
+We tested two sets of hyperparameters for DeepLabv3+ trained on the ADE20k dataset.
 
 ### Typical ADE20k Model Hyperparameters
 
@@ -116,8 +117,6 @@ Improvements:
 - Increase batch size to 32
 - Decrease weight decay to 2e-5
 
-## API Reference
-
 # Attribution
 
 [Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1802.02611) by Liang-Chieh Chen, Yukun Zhu, George Papandreou, Florian Schroff, Hartwig Adam
@@ -125,3 +124,10 @@ Improvements:
 [OpenMMLab Semantic Segmentation Toolbox and Benchmark](https://github.com/open-mmlab/mmsegmentation)
 
 [How to Train State-Of-The-Art Models Using TorchVision’s Latest Primitives](https://pytorch.org/blog/how-to-train-state-of-the-art-models-using-torchvision-latest-primitives/) by Vasilis Vryniotis
+
+## API Reference
+
+```{eval-rst}
+.. autoclass:: composer.models.deeplabv3.ComposerDeepLabV3
+    :noindex:
+```
