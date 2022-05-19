@@ -273,17 +273,23 @@ def test_batch_set_attr_store_str_key(example_attr_store, key='b', value=23):
     assert batch_get(new_batch, key) == value
 
 
-def test_batch_set_sequence_slice_key(example_dequeless_sequence, key=slice(1, 6, 2), value=[-1, -3, -5]):
+def test_batch_set_sequence_slice_key(example_dequeless_sequence):
+    key = slice(1, 6, 2)
+    value = [-1, -3, -5]
     new_batch = batch_set(example_dequeless_sequence, key=key, value=value)
     assert tuple(batch_get(new_batch, key)) == tuple(value)
 
 
-def test_batch_set_tensor_slice_key(example_tensor, key=slice(1, 6, 2), value=torch.tensor([-1, -3, -5])):
+def test_batch_set_tensor_slice_key(example_tensor):
+    key = slice(1, 6, 2)
+    value = torch.tensor([-1, -3, -5])
     new_batch = batch_set(example_tensor, key=key, value=value)
     assert torch.equal(batch_get(new_batch, key), value)
 
 
-def test_batch_set_array_slice_key(example_array, key=slice(1, 6, 2), value=np.asarray([-1, -3, -5])):
+def test_batch_set_array_slice_key(example_array):
+    key = slice(1, 6, 2)
+    value = np.asarray([-1, -3, -5])
     new_batch = batch_set(example_array, key=key, value=value)
     assert np.array_equal(batch_get(new_batch, key), value)
 

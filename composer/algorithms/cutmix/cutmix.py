@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Tuple, Union, Callable
+from typing import Any, Callable, Optional, Tuple, Union
 
 import numpy as np
 import torch

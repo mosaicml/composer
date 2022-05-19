@@ -5,7 +5,6 @@ import pathlib
 import random
 from unittest.mock import Mock
 
-import pytest
 import torch
 import torch.nn.functional as F
 from torch.functional import Tensor

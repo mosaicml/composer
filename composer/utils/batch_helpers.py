@@ -3,7 +3,7 @@
 
 import copy
 from operator import attrgetter, itemgetter
-from typing import Any, Callable, Optional, Sequence, Union
+from typing import Any, Callable, Sequence, Union
 
 __all__ = ['batch_get', 'batch_set']
 
@@ -37,7 +37,7 @@ def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
     """
     # Case 1: key is a tuple of (getter, setter).
     if _is_key_get_and_set_fn_pair(key):
-        get_fn, set_fn = key
+        get_fn, _ = key
         return get_fn(batch)
 
     # Case 2: key is a getter Callable.
@@ -47,7 +47,7 @@ def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
     # Case 3: key some sort of index or key to use to directly extract from the batch.
     try:
         return itemgetter(key)(batch)
-    except (IndexError, TypeError) as e:
+    except (IndexError, TypeError):
         try:
             return itemgetter(*key)(batch)
         except TypeError:
@@ -95,7 +95,7 @@ def batch_set(batch: Any, key: Union[str, int, Callable, Any], value: Any) -> An
     batch_copy = copy.deepcopy(batch)
     # Case 1: key is a tuple of (getter, setter) callables.
     if _is_key_get_and_set_fn_pair(key):
-        get_fn, set_fn = key
+        _, set_fn = key
         return set_fn(batch_copy, value)
 
     # Case 2: key is a callable.
