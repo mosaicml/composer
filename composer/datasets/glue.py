@@ -137,7 +137,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             num_proc=None if dataloader_hparams.num_workers == 0 else dataloader_hparams.num_workers,
             batch_size=1000,
             remove_columns=columns_to_remove,
-            new_fingerprint=f"{self.task}-tokenization-{self.split}",
+            new_fingerprint=f"{self.task}-{self.tokenizer_name}-tokenization-{self.split}",
             load_from_cache_file=True,
         )
 
