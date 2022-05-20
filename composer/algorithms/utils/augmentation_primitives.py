@@ -14,7 +14,7 @@ Attributes:
     AugmentationFn ((PIL.Image.Image, float) -> PIL.Image.Image): The type annotation for describing an
         augmentation function.
 
-        Each augmentation takes a :class:`~PIL.Image.Image` and an intensity level on the range ``[0; 10]``,
+        Each augmentation takes a :class:`PIL.Image.Image` and an intensity level in the range ``[0, 10]``,
         and returns an augmented image.
 
     augmentation_sets (Dict[str, List[AugmentationFn]]): The collection of all augmentations.
@@ -73,7 +73,7 @@ def _float_parameter(level: float, maxval: float):
     """Helper function to scale a value between ``0`` and ``maxval`` and return as a float.
 
     Args:
-      level (float): Level of the operation that will be between [0, 10].
+      level (float): Level of the operation that will be between ``[0, 10]``.
       maxval (float): Maximum value that the operation can have. This will be scaled to
           level/10.
     Returns:
@@ -130,8 +130,8 @@ def posterize(pil_img: Image.Image, level: float):
     .. seealso:: :func:`PIL.ImageOps.posterize`.
 
     Args:
-        pil_img (Image.Image): The image
-        level (float): The intensity, which should be on ``[0, 10]``
+        pil_img (Image.Image): The image.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _int_parameter(_sample_level(level), 4)
     return ImageOps.posterize(pil_img, 4 - level)
@@ -142,7 +142,7 @@ def rotate(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     degrees = _int_parameter(_sample_level(level), 30)
     if np.random.uniform() > 0.5:
@@ -157,7 +157,7 @@ def solarize(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _int_parameter(_sample_level(level), 256)
     return ImageOps.solarize(pil_img, 256 - level)
@@ -168,7 +168,7 @@ def shear_x(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _float_parameter(_sample_level(level), 0.3)
     if np.random.uniform() > 0.5:
@@ -181,7 +181,7 @@ def shear_y(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _float_parameter(_sample_level(level), 0.3)
     if np.random.uniform() > 0.5:
@@ -194,7 +194,7 @@ def translate_x(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _int_parameter(_sample_level(level), pil_img.size[0] / 3)
     if np.random.random() > 0.5:
@@ -207,7 +207,7 @@ def translate_y(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _int_parameter(_sample_level(level), pil_img.size[1] / 3)
     if np.random.random() > 0.5:
@@ -231,7 +231,7 @@ def color(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _symmetric_sample(level)
     return ImageEnhance.Color(pil_img).enhance(level)
@@ -244,7 +244,7 @@ def color_original(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _float_parameter(_sample_level(level), 1.8) + 0.1
     return ImageEnhance.Color(pil_img).enhance(level)
@@ -257,7 +257,7 @@ def contrast(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _symmetric_sample(level)
     return ImageEnhance.Contrast(pil_img).enhance(level)
@@ -270,7 +270,7 @@ def contrast_original(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _float_parameter(_sample_level(level), 1.8) + 0.1
     return ImageEnhance.Contrast(pil_img).enhance(level)
@@ -283,7 +283,7 @@ def brightness(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _symmetric_sample(level)
     # Reduce intensity of brightness increases
@@ -299,7 +299,7 @@ def brightness_original(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _float_parameter(_sample_level(level), 1.8) + 0.1
     return ImageEnhance.Brightness(pil_img).enhance(level)
@@ -312,7 +312,7 @@ def sharpness(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _symmetric_sample(level)
     return ImageEnhance.Sharpness(pil_img).enhance(level)
@@ -325,7 +325,7 @@ def sharpness_original(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (Image.Image): The image.
-        level (float): The intensity, which should be on ``[0, 10]``.
+        level (float): The intensity, which should be in ``[0, 10]``.
     """
     level = _float_parameter(_sample_level(level), 1.8) + 0.1
     return ImageEnhance.Sharpness(pil_img).enhance(level)
