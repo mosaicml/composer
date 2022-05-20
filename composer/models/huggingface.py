@@ -37,9 +37,13 @@ class HuggingFaceModel(ComposerModel):
         super().__init__()
         self.model = model
 
-        metric_collection = MetricCollection(metrics)
-        self.train_metrics = metric_collection.clone(prefix='train_')
-        self.valid_metrics = metric_collection.clone(prefix='val_')
+        self.train_metrics = None
+        self.valid_metrics = None
+
+        if metrics:
+            metric_collection = MetricCollection(metrics)
+            self.train_metrics = metric_collection.clone(prefix='train_')
+            self.valid_metrics = metric_collection.clone(prefix='val_')
 
     def forward(self, batch):
         output = self.model(**batch)
