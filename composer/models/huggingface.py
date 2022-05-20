@@ -18,7 +18,7 @@ class HuggingFaceModel(ComposerModel):
     Args:
         model ([`PreTrainedModel`] or `torch.nn.Module`):  You can  use your own models defined as
         `torch.nn.Module` as long as they work the same way as the 🤗 Transformers models.
-        metrics (list[Metric], optional): list of  torchmetrics to apply to the output of `validate`.
+        metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`.
 
     Example:
 
