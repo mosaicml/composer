@@ -3,7 +3,7 @@
 
 """Implements stochastic depth (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_) for ResNet blocks.
 
-See :class:`~composer.algorithms.StochasticDepth`, the sample-wise stochastic depth :doc:`method card
+See :class:`.StochasticDepth`, the sample-wise stochastic depth :doc:`method card
 </method_cards/stochastic_depth_samplewise>`, or the block-wise stochastic depth :doc:`method card
 </method_cards/stochastic_depth>` for details.
 """

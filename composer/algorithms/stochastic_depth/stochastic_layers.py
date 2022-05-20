@@ -37,8 +37,8 @@ def _sample_bernoulli(probability: torch.Tensor,
 
 
 class StochasticBottleneck(Bottleneck):
-    """Stochastic ResNet Bottleneck block. This block has a probability of skipping the transformation section of the
-    layer and scales the transformation section.
+    """Stochastic ResNet Bottleneck block. This block has a probability of skipping 
+    the transformation section of the layer and scales the transformation section.
 
     output by ``(1 - drop probability)`` during inference.
 

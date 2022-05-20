@@ -91,7 +91,10 @@ def apply_stochastic_depth(model: torch.nn.Module,
             import composer.functional as cf
             from torchvision import models
             model = models.resnet50()
-            cf.apply_stochastic_depth(model, target_layer_name='ResNetBottleneck')
+            cf.apply_stochastic_depth(
+                model,
+                target_layer_name='ResNetBottleneck'
+            )
     """
     _validate_stochastic_hparams(target_layer_name=target_layer_name,
                                  stochastic_method=stochastic_method,
@@ -132,7 +135,7 @@ class StochasticDepth(Algorithm):
 
     .. note::
 
-        Stochastic Depth only works on instances of `torchvision.models.resnet.ResNet` for now.
+        Stochastic Depth only works on instances of :class:`torchvision.models.resnet.ResNet` for now.
 
     Args:
         target_layer_name (str): Block to replace with a stochastic block
@@ -211,9 +214,9 @@ class StochasticDepth(Algorithm):
         """Applies StochasticDepth modification to the state's model.
 
         Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
+            event (Event): The current event.
+            state (State): The current trainer state.
+            logger (Logger): The training logger.
         """
         assert state.model is not None
         target_layer, stochastic_layer = _STOCHASTIC_LAYER_MAPPING[self.stochastic_method][self.target_layer_name]
