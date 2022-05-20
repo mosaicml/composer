@@ -52,6 +52,12 @@ def download_from_local(remote: str, local: str) -> None:
 
 
 def dispatch_download(remote, local, timeout: float):
+    """Use the correct download handler to download the file
+    Args:
+        remote (str): Remote path (local filesystem).
+        local (str): Local path (local filesystem).
+        timeout (float): How long to wait for file to download before raising an exception.
+    """
     if os.path.exists(local):
         return
 
@@ -65,14 +71,13 @@ def dispatch_download(remote, local, timeout: float):
 
 
 def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: int = 2, timeout: float = 60) -> None:
-    """Downloads a file from remote to local, or waits for it to be downloaded.
-       Does not do any thread safety checks, so that must be handled separately.
+    """Downloads a file from remote to local, or waits for it to be downloaded. Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
     Args:
         remote (str): Remote path (S3 or local filesystem).
         local (str): Local path (local filesystem).
-        wait (bool, default False): Whether to wait (up to ``timeout`` seconds) for the file to arrive.
+        wait (bool, default False): If ``true``, then do not actively download the file, but instead wait (up to ``timeout`` seconds) for the file to arrive.
         max_retries (int, default 2): Number of download attempts before giving up.
-        timeout (float, default 60): How long to wait for shard to download before raising an exception.
+        timeout (float, default 60): How long to wait for file to download before raising an exception.
     """
     ok = False
     error_msgs = []
