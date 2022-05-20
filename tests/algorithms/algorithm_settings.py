@@ -97,7 +97,7 @@ _settings = {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
         'kwargs': {
-            'swa_start': "1ep",
+            'swa_start': "0.2dur",
             'swa_end': "0.97dur",
             'update_interval': '1ep',
             'schedule_swa_lr': True,

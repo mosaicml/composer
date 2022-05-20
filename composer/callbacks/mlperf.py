@@ -8,7 +8,7 @@ import platform
 import subprocess
 import sys
 import warnings
-from typing import Any, Dict, List, Optional, Sized
+from typing import Any, Dict, Iterable, Optional
 
 import torch
 from torch.utils.data import DataLoader
@@ -36,8 +36,12 @@ DIVISIONS = ("open",)
 STATUS = ("onprem", "cloud", "preview")
 
 
-def rank_zero() -> bool:
+def _global_rank_zero() -> bool:
     return dist.get_global_rank() == 0
+
+
+def _local_rank_zero() -> bool:
+    return dist.get_local_rank() == 0
 
 
 def require_mlperf_logging():
@@ -115,6 +119,7 @@ class MLPerfCallback(Callback):
             Default: ``"onprem"``.
         cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
             will call ``os.system(cache_clear_cmd)``. Default is disabled (None)
+        host_processors_per_node (int, optional): Total number of host processors per node.  Default: ``None``.
     """
 
     def __init__(
@@ -129,7 +134,8 @@ class MLPerfCallback(Callback):
         submitter: str = "MosaicML",
         system_name: Optional[str] = None,
         status: str = "onprem",
-        cache_clear_cmd: Optional[List[str]] = None,
+        cache_clear_cmd: Optional[str] = None,
+        host_processors_per_node: Optional[int] = None,
     ) -> None:
 
         require_mlperf_logging()
@@ -154,7 +160,7 @@ class MLPerfCallback(Callback):
         self.metric_label = metric_label
         self._file_handler = None
 
-        self.system_desc = get_system_description(submitter, division, status, system_name)
+        self.system_desc = get_system_description(submitter, division, status, system_name, host_processors_per_node)
         if system_name is None:
             system_name = self.system_desc['system_name']
         self.system_name = system_name
@@ -173,7 +179,7 @@ class MLPerfCallback(Callback):
 
         # setup here requies access to rank, which is only available after
         # the trainer is initialized
-        if dist.get_local_rank() == 0:
+        if _local_rank_zero():
             self._create_submission_folders(self.root_folder, self.system_name, self.benchmark)
             with open(self.systems_path, 'w') as f:
                 json.dump(self.system_desc, f, indent=4)
@@ -188,14 +194,18 @@ class MLPerfCallback(Callback):
         self.mllogger.logger.addHandler(self._file_handler)
 
         if self.cache_clear_cmd is not None:
-            subprocess.run(self.cache_clear_cmd, check=True, text=True)
-            self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
+            if _local_rank_zero():
+                subprocess.run(self.cache_clear_cmd.split(), check=True, text=True)
+                self.mllogger.start(key=mllog.constants.CACHE_CLEAR)
         else:
             warnings.warn("cache_clear_cmd was not provided. For a valid submission, please provide the command.")
 
-        self.mllogger.start(key=mllog.constants.INIT_START)
+        dist.barrier()
 
-        if rank_zero():
+        if _local_rank_zero():
+            self.mllogger.start(key=mllog.constants.INIT_START)
+
+        if _global_rank_zero():
             self._log_dict({
                 constants.SUBMISSION_BENCHMARK: self.benchmark,
                 constants.SUBMISSION_DIVISION: self.division,
@@ -224,44 +234,61 @@ class MLPerfCallback(Callback):
         for key, value in data.items():
             self.mllogger.event(key=key, value=value)
 
-    def _get_accuracy(self, state: State):
+    def _get_accuracy(self, state: State) -> float:
         if self.metric_name not in state.current_metrics[self.metric_label]:
-            raise ValueError('Accuracy must be a validation metric.')
-        return state.current_metrics[self.metric_label][self.metric_name]
+            raise ValueError(f'{self.metric_name} must be a validation metric.')
+
+        metric = state.current_metrics[self.metric_label][self.metric_name]
+        return float(metric)
+
+    def _get_dataloader_stats(self, dataloader: Iterable):
+        """ returns tuple of (batch_size, num_samples)"""
+
+        if isinstance(dataloader, DataLoader):
+            return (dataloader.batch_size, len(dataloader.dataset))  # type: ignore
+        try:
+            # attempt to import ffcv and test if its an ffcv loader.
+            import ffcv  # type: ignore
+
+            if isinstance(dataloader, ffcv.loader.Loader):
+                return (dataloader.batch_size, len(dataloader) * dataloader.batch_size)  # type: ignore
+        except ImportError:
+            pass
+
+        raise TypeError(f"torch dataloader or ffcv dataloader required (and ffcv installed)")
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        if rank_zero():
-
-            if not isinstance(state.train_dataloader, DataLoader):
-                raise TypeError("train dataloader must be a torch dataloader")
-            if not isinstance(state.evaluators[0].dataloader.dataloader, DataLoader):
-                raise TypeError("eval dataset must be a torch dataloader.")
-            if state.train_dataloader.batch_size is None:
-                raise ValueError("Batch size is required to be set for dataloader.")
+        if _global_rank_zero():
             if len(state.evaluators) > 1:
                 raise ValueError("Only one evaluator is supported for the MLPerfCallback.")
-            if not isinstance(state.train_dataloader.dataset, Sized):
-                raise TypeError("Train dataset must have __len__ property")
-            if not isinstance(state.evaluators[0].dataloader.dataloader.dataset, Sized):
-                raise TypeError("The eval dataset must have __len__ property")
+
+            if state.train_dataloader is None:
+                raise ValueError('Train dataloader need to be provided')
+
+            batch_size, num_samples = self._get_dataloader_stats(state.train_dataloader)
+            _, eval_num_samples = self._get_dataloader_stats(state.evaluators[0].dataloader.dataloader)
+
+            if batch_size is None:
+                raise ValueError("Batch size is required to be set for dataloader.")
 
             self._log_dict({
                 constants.SEED: state.seed,
-                constants.GLOBAL_BATCH_SIZE: state.train_dataloader.batch_size * dist.get_world_size(),
+                constants.GLOBAL_BATCH_SIZE: batch_size * dist.get_world_size(),
                 constants.GRADIENT_ACCUMULATION_STEPS: state.grad_accum,
-                constants.TRAIN_SAMPLES: len(state.train_dataloader.dataset),
-                constants.EVAL_SAMPLES: len(state.evaluators[0].dataloader.dataloader.dataset)
+                constants.TRAIN_SAMPLES: num_samples,
+                constants.EVAL_SAMPLES: eval_num_samples,
             })
 
-        self.mllogger.event(key=constants.INIT_STOP)
+        if _local_rank_zero():
+            self.mllogger.event(key=constants.INIT_STOP)
 
         dist.barrier()
 
-        if rank_zero():
+        if _global_rank_zero():
             self.mllogger.event(key=constants.RUN_START)
 
     def epoch_start(self, state: State, logger: Logger) -> None:
-        if rank_zero():
+        if _global_rank_zero():
             self.mllogger.event(key=constants.EPOCH_START, metadata={'epoch_num': state.timestamp.epoch.value})
             self.mllogger.event(key=constants.BLOCK_START,
                                 metadata={
@@ -270,16 +297,16 @@ class MLPerfCallback(Callback):
                                 })
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        if rank_zero():
+        if _global_rank_zero():
             self.mllogger.event(key=constants.EPOCH_STOP, metadata={'epoch_num': state.timestamp.epoch.value})
             logger.file_artifact(LogLevel.FIT, artifact_name=self.upload_name, file_path=self.filename)
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        if rank_zero():
+        if _global_rank_zero():
             self.mllogger.event(key=constants.EVAL_START, metadata={'epoch_num': state.timestamp.epoch.value})
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        if rank_zero():
+        if _global_rank_zero():
             accuracy = self._get_accuracy(state)
 
             self.mllogger.event(key=constants.EVAL_STOP, metadata={'epoch_num': state.timestamp.epoch.value})
@@ -303,6 +330,7 @@ def get_system_description(
     division: str,
     status: str,
     system_name: Optional[str] = None,
+    host_processors_per_node: Optional[int] = None,
 ) -> Dict[str, str]:
     """Generates a valid system description.
 
@@ -327,7 +355,7 @@ def get_system_description(
         "division": division,
         "status": status,
         "number_of_nodes": dist.get_world_size() / dist.get_local_world_size(),
-        "host_processors_per_node": "",
+        "host_processors_per_node": str(host_processors_per_node) if host_processors_per_node else "",
         "host_processor_model_name": str(cpu_info.get('brand_raw', "CPU")),
         "host_processor_core_count": str(psutil.cpu_count(logical=False)),
         "host_processor_vcpu_count": "",
