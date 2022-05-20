@@ -146,7 +146,7 @@ class ProgressiveResizing(Algorithm):
     Args:
         mode (str, optional): Type of scaling to perform. Value must be one of ``'crop'`` or ``'resize'``.
             ``'crop'`` performs a random crop, whereas ``'resize'`` performs a bilinear
-            interpolation. Default: ``"resize"``.
+            interpolation. Default: ``'resize'``.
         initial_scale (float, optional): Initial scale factor used to shrink the inputs. Must be a
             value in between 0 and 1. Default: ``0.5``.
         finetune_fraction (float, optional): Fraction of training to reserve for finetuning on the
@@ -186,11 +186,11 @@ class ProgressiveResizing(Algorithm):
         self.resize_targets = resize_targets
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.AFTER_DATALOADER.
+        """Run on :attr:`~composer.core.event.Event.AFTER_DATALOADER`.
 
         Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
+            event (Event): The current event.
+            state (State): The current state.
         Returns:
             bool: True if this algorithm should run now
         """
@@ -257,8 +257,8 @@ def _make_crop(tensor: torch.Tensor, scale_factor: float) -> T_ResizeTransform:
 
 def _make_crop_pair(X: torch.Tensor, y: torch.Tensor,
                     scale_factor: float) -> Tuple[T_ResizeTransform, T_ResizeTransform]:
-    """Makes a pair of random crops for an input image X and target tensor y such that the same region is selected from
-    both."""
+    """Makes a pair of random crops for an input image X and 
+    target tensor y such that the same region is selected from both."""
     # New height and width for X
     HcX = int(scale_factor * X.shape[2])
     WcX = int(scale_factor * X.shape[3])
