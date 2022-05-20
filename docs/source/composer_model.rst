@@ -210,42 +210,19 @@ and make it compatible with our trainer.
     from torchmetrics import Accuracy
     from torchmetrics.collections import MetricCollection
 
-    from composer import ComposerModel
-    from composer.models.nlp_metrics import LanguageCrossEntropyLoss
+    from composer.models.huggingface import HuggingFaceModel
+    from composer.metrics.nlp import LanguageCrossEntropy
 
-    class ComposerBERT(ComposerModel):
-        def __init__(self, num_labels):
-            super().__init__()
-            # huggingface model
-            self.model = AutoModelForSequenceClassification.from_pretrained(
+    # huggingface model
+    model = AutoModelForSequenceClassification.from_pretrained(
                             'bert-base-uncased',
                             num_labels=num_labels
-                        )
+    
+    # list of torchmetrics
+    metrics = [LanguageCrossEntropy(vocab_size=tokenizer.vocab_size), Accuracy()]
 
-            # Metrics
-            self.train_loss = LanguageCrossEntropyLoss()
-            self.val_loss = LanguageCrossEntropyLoss()
-            self.train_acc = Accuracy()
-            self.val_acc = Accuracy()
-
-        def forward(self, batch):
-            outputs = self.model(**batch)
-            return outputs
-
-        def loss(self, outputs, batch):
-            return outputs['loss']  # huggingface models output a dictionary
-
-        def validate(self, batch):
-            labels = batch.pop('labels')
-            output = self.forward(batch)
-            output = output['logits']
-            return output, labels
-
-        def metrics(self, train: bool = False):
-            if train:
-                return MetricCollection([self.train_loss, self.train_acc])
-            return MetricCollection([self.val_loss, self.val_acc])
-
+    # composer model, ready to be passed to our trainer
+    composer_model = HuggingFaceModel(model, metrics=metrics)
 
 .. |forward| replace:: :meth:`~.ComposerModel.forward`
 .. |loss| replace:: :meth:`~.ComposerModel.loss`
