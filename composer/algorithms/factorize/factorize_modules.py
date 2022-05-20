@@ -46,8 +46,8 @@ def factorizing_could_speedup(module: torch.nn.Module, latent_size: Union[int, f
     and more per-op overhead.
 
     Args:
-        module (:class:`torch.nn.Module`): a :class:`~torch.nn.Conv2d`, :class:`~torch.nn.Linear`,
-            :class:`~FactorizedConv2d`, or :class:`~FactorizedLinear`.
+        module (torch.nn.Module): a :class:`torch.nn.Conv2d`, :class:`torch.nn.Linear`,
+            :class:`.FactorizedConv2d`, or :class:`.FactorizedLinear`.
         latent_size (int | float): number of channels (for convolution) or
             features (for linear) in the latent representation. Can be
             specified as either an integer > 1 or as float within ``[0, 1)``.
@@ -139,14 +139,14 @@ class _FactorizedModule(nn.Module, abc.ABC):
         latent rank.
 
         Args:
-            input (:class:`torch.Tensor`): Tensor that can be passed to the model's `forward()` method.
+            input (torch.Tensor): Tensor that can be passed to the model's `forward()` method.
             rank (int): dimensionality of the latent representation; this is the
                 size of the vector space when factorizing linear modules and
                 the number of channels for convolutional modules.
 
         Raises:
             ValueError:
-                If ``rank`` is larger than the current latent rank
+                If ``rank`` is larger than the current latent rank.
         """
         if rank > self.latent_size:
             raise ValueError(f"Requested rank {rank} exceeds current rank {self.latent_size}")
@@ -185,7 +185,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         many possible solutions for a given module before choosing one.
 
         Args:
-            input (:class:`torch.Tensor`): An input to the module used to optimize the solution's
+            input (torch.Tensor): An input to the module used to optimize the solution's
                 weights. The optimization seeks to preserve the module's
                 input-output mapping as much as possible, subject to the
                 specified rank constraint.
@@ -207,7 +207,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
         using the solution is worthwhile.
 
         Args:
-            solution (:class:`LowRankSolution`): an object encapsulating the new 
+            solution (LowRankSolution): an object encapsulating the new 
                 parameters to be used and their associated mean squared error on 
                 the input for which they were optimized. Can be obtained using
                 :meth:`~solution_for_rank`.
@@ -230,11 +230,11 @@ class FactorizedConv2d(_FactorizedModule):
     one always has a kernel size of :math:`1 \\times 1`. For large kernel sizes, the
     lower-dimensional space can be nearly as large as
     ``min(in_channels, out_channels)`` and still yield a reduction in
-    multiply-add operations. For kernels sizes of :math:`1 \\times 1`, the breakeven
-    point is a 2x reduction in channel count, similar to
-    :class:`~FactorizedLinear`.
+    multiply-add operations. For kernels sizes of :math:`1 \\times 1`, 
+    the break-even point is a 2x reduction in channel count, similar to
+    :class:`.FactorizedLinear`.
 
-    See :func:`~composer.factorize.factorize_conv2d` for more details.
+    See :func:`.factorize_conv2d` for more details.
 
     Args:
         in_channels (int): number of channels in the input image.
@@ -310,8 +310,8 @@ class FactorizedConv2d(_FactorizedModule):
 
     @property
     def latent_channels(self) -> int:
-        """The number of of output channels for the first convolution, which is also the number of input channels for
-        the second convolution."""
+        """The number of of output channels for the first convolution,
+        which is also the number of input channels for the second convolution."""
         return self.latent_size
 
     def solution_for_rank(self, input: torch.Tensor, rank: int) -> LowRankSolution:
@@ -380,7 +380,7 @@ class FactorizedLinear(_FactorizedModule):
     better, it may take a reduction of more than 2x to get a speedup
     in practice.
 
-    See :func:`~composer.factorize.factorize_matrix` for more details.
+    See :func:`.factorize_matrix` for more details.
 
     Args:
         in_features (int): size of each input sample
@@ -389,7 +389,7 @@ class FactorizedLinear(_FactorizedModule):
             Default: ``True``.
         latent_features (int | float, optional): size of the latent space.
             Can be specified as either an integer > 1 or as a float within
-            [0, 0.5). In the latter case, the value is interpreted as a fraction
+            ``[0, 0.5)``. In the latter case, the value is interpreted as a fraction
             of ``min(in_features, out_features)``, and is converted to the
             equivalent integer value, with a minimum of 1. Default: ``.25``.
 
@@ -462,11 +462,11 @@ class FactorizedLinear(_FactorizedModule):
         """Returns the largest latent feature count that reduces the number of multiply-adds.
 
         Args:
-            in_features (int): size of each input sample
-            out_features (int): size of each output sample
+            in_features (int): size of each input sample.
+            out_features (int): size of each output sample.
 
         Returns:
-            latent_features: the largest allowable number of latent features
+            latent_features: the largest allowable number of latent features.
         """
         return _max_rank_with_possible_speedup(in_features, out_features)
 
