@@ -27,9 +27,9 @@ class HuggingFaceModel(ComposerModel):
         super().__init__()
         self.model = model
 
-        metrics = MetricCollection(metrics)  # we want to default to hf loss here
-        self.train_metrics = metrics.clone(prefix='train_')
-        self.valid_metrics = metrics.clone(prefix='val_')
+        metric_collection = MetricCollection(metrics)  # we want to default to hf loss here
+        self.train_metrics = metric_collection.clone(prefix='train_')
+        self.valid_metrics = metric_collection.clone(prefix='val_')
 
     def forward(self, batch):
         output = self.model(**batch)
