@@ -36,10 +36,9 @@ def apply_alibi(
     optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
 ) -> None:
     """Removes position embeddings and replaces the attention function and attention mask
-    as per :class:`~composer.algorithms.alibi.alibi.Alibi`. Note that the
-    majority of the training speed-up from using ALiBi comes from being able to train on
-    shorter sequence lengths; this function does not scale the training sequence length as
-    :class:`~composer.algorithms.alibi.alibi.Alibi` does, so little speedup will be
+    as per :class:`.Alibi`. Note that the majority of the training speed-up from using ALiBi
+    comes from being able to train on shorter sequence lengths; this function does not scale 
+    the training sequence length as :class:`.Alibi` does, so little speedup will be
     observed from using it alone. See the :doc:`Method Card </method_cards/alibi>` for
     more details. This function should be called after the model is instantiated and
     before training begins.
@@ -68,23 +67,23 @@ def apply_alibi(
     Args:
         model (torch.nn.Module): Model to transform.
         heads_per_layer (int): Number of attention heads per layer.
-        max_sequence_length (int): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
-        position_embedding_attribute (str): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+        max_sequence_length (int): See :class:`.Alibi`.
+        position_embedding_attribute (str): See :class:`.Alibi`.
         attention_module (torch.nn.Module): Module/class that will have its
             self-attention function replaced. For example, in
             HuggingFace's GPT, the self-attention module is
-            :class:`transformers.models.gpt2.modeling_gpt2.GPT2Attention`.
-        attr_to_replace (str): See :class:`~composer.algorithms.alibi.alibi.Alibi`.
+            ``transformers.models.gpt2.modeling_gpt2.GPT2Attention``.
+        attr_to_replace (str): See :class:`.Alibi`.
         alibi_attention (Callable): Path to new self-attention function in which
             ALiBi is implemented. Used to replace
             ``{attention_module}.{attr_to_replace}``. Example:
-            ``composer.algorithms.alibi._gpt2_alibi._attn``.
+            ``"composer.algorithms.alibi._gpt2_alibi._attn"``.
         mask_replacement_function ([Callable[[torch.nn.Module, int], torch.nn.Module]], optional):
             Function to replace model's attention mask. This can be
             necessary for evaluating on sequence lengths longer than the model was
             initialized to accommodate. Takes positional arguments ``module`` and
             ``max_sequence_length``. For example,
-            ``composer.algorithms.alibi._gpt2_alibi.enlarge_mask``. Default: ``None``,
+            ``"composer.algorithms.alibi._gpt2_alibi.enlarge_mask"``. Default: ``None``,
             which means no modification of the model's default attention mask.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
