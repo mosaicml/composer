@@ -1,11 +1,11 @@
 import math
 import os
+import pathlib
 import shutil
 import time
 from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
-import py
 import pytest
 from torch.utils.data import DataLoader
 
@@ -14,10 +14,12 @@ from composer.utils import dist
 
 
 @pytest.fixture
-def remote_local(tmpdir: py.path.local) -> Tuple[str, str]:
-    remote = str(tmpdir.mkdir("remote"))
-    local = str(tmpdir.mkdir("local"))
-    return remote, local
+def remote_local(tmp_path: pathlib.Path) -> Tuple[str, str]:
+    remote = tmp_path / "remote"
+    local = tmp_path / "local"
+    remote.mkdir()
+    local.mkdir()
+    return str(remote), str(local)
 
 
 def get_fake_samples_decoders(num_samples: int) -> Tuple[List[Dict[str, bytes]], Dict[str, Callable[[bytes], Any]]]:

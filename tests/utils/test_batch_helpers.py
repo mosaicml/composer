@@ -322,7 +322,7 @@ def test_batch_set_array_list_key(example_array, key, value):
 @pytest.mark.parametrize('key,value', [([2, 5], torch.tensor([11, 13]))])
 def test_batch_set_tensor_list_key(example_tensor, key, value):
     new_batch = batch_set(example_tensor, key=key, value=value)
-    assert np.array_equal(batch_get(new_batch, key), value)
+    assert torch.equal(batch_get(new_batch, key), value)
 
 
 @pytest.mark.parametrize('key,value', [([slice(0, 3, 1), slice(4, 7, 1)], ([10, 11, 12], [13, 14, 15]))])
@@ -348,11 +348,31 @@ def test_batch_set_1D_tensor_list_of_slices_key(example_tensor):
 
 # Test whether arrays can be set using batch_set with a list of slices.
 def test_batch_set_1D_array_list_of_slices_key(example_array):
-    key = [slice(0, 3, 1), slice(4, 7, 1)]
+    key = (slice(0, 3, 1), slice(4, 7, 1))
     value = [np.asarray([10, 11, 12]), np.asarray([13, 14, 15])]
     new_batch = batch_set(example_array, key=key, value=value)
     for actual, expectation in zip(batch_get(new_batch, key), value):
         assert np.all(actual == expectation)
+
+
+@pytest.mark.parametrize('key,expected', [((1, 2), 5)])
+def test_batch_get_2D_array_tensor_2D_tuple_key(example_2D_array_tensor, key, expected):
+    actual = batch_get(example_2D_array_tensor, key)
+    assert int(actual) == expected
+
+
+@pytest.mark.parametrize('key,expected', [([1, 2], [[3, 4, 5], [6, 7, 8]]),
+                                          (np.asarray([1, 2]), [[3, 4, 5], [6, 7, 8]]),
+                                          (torch.tensor([1, 2]), [[3, 4, 5], [6, 7, 8]])])
+def test_batch_get_2D_array_tensor_2D_key(example_2D_array_tensor, key, expected):
+    actual = batch_get(example_2D_array_tensor, key)
+    assert actual.tolist() == expected
+
+
+@pytest.mark.parametrize('key,expected', [((slice(2, 4), slice(1, 3)), [[7, 8], [10, 11]])])
+def test_batch_get_2D_array_tensor_2D_slice_key(example_2D_array_tensor, key, expected):
+    actual = batch_get(example_2D_array_tensor, key)
+    assert actual.tolist() == expected
 
 
 @pytest.mark.parametrize('key,value', [((1, 2), 6)])
@@ -385,7 +405,7 @@ def test_batch_set_2D_array_2D_seq_key(example_2D_array, key, value):
 
 
 def test_batch_set_2D_array_list_of_slices(example_2D_array):
-    key = [slice(2, 4), slice(1, 3)]
+    key = (slice(2, 4), slice(1, 3))
     value = np.asarray([[7, 14], [10, 20]])
     new_batch = batch_set(example_2D_array, key=key, value=value)
     assert np.all(np.equal(batch_get(new_batch, key), value))

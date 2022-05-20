@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import pathlib
 from typing import Optional
 
-import py
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -27,6 +27,7 @@ ALGORITHMS = get_algorithm_registry().keys()
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
+@pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")  # Needed for SWA
 @pytest.mark.parametrize("algorithm", ALGORITHMS)
 def test_algorithm_resumption(
     algorithm: str,
@@ -36,7 +37,7 @@ def test_algorithm_resumption(
     save_filename: str,
     resume_file: str,
     final_checkpoint: str,
-    tmpdir: py.path.local,
+    tmp_path: pathlib.Path,
 ):
     if algorithm in ('no_op_model', 'scale_schedule'):
         pytest.skip('stub algorithms')
@@ -45,19 +46,26 @@ def test_algorithm_resumption(
         # see: https://github.com/mosaicml/composer/issues/362
         pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
-    if algorithm in ('layer_freezing', 'swa'):
+    if algorithm in ('layer_freezing'):
         pytest.xfail('Known issues')
+
+    if algorithm in ('sam', 'squeeze_excite', 'stochastic_depth', 'factorize'):
+        pytest.xfail('Incompatible with optimizers that store state, e.g. Adam.')
 
     setting = get_settings(algorithm)
     if setting is None:
         pytest.xfail('No setting provided in algorithm_settings.')
 
-    folder1 = os.path.join(tmpdir, 'folder1')
-    folder2 = os.path.join(tmpdir, 'folder2')
+    folder1 = os.path.join(tmp_path, 'folder1')
+    folder2 = os.path.join(tmp_path, 'folder2')
+
+    model = setting['model']
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
 
     config = {
         'algorithms': setting['algorithm'],
-        'model': setting['model'],
+        'model': model,
         'train_dataloader': DataLoader(dataset=setting['dataset'], batch_size=4),
         'max_duration': '5ep',
         'device': device,
@@ -65,6 +73,8 @@ def test_algorithm_resumption(
         'save_folder': folder1,
         'save_interval': save_interval,
         'train_subset_num_batches': 2,
+        'optimizers': optimizer,
+        'schedulers': scheduler
     }
 
     # train model once, saving checkpoints every epoch
@@ -76,12 +86,18 @@ def test_algorithm_resumption(
     setting = get_settings(algorithm)
     assert setting is not None
 
+    model = setting['model']
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
+
     config.update({
-        'model': setting['model'],
+        'model': model,
         'save_folder': folder2,
         'load_path': os.path.join(folder1, resume_file),
         'load_weights_only': False,
         'load_strict': False,
+        'optimizers': optimizer,
+        'schedulers': scheduler,
     })
     trainer2 = Trainer(**config)
     trainer2.fit()
@@ -109,6 +125,13 @@ def _assert_checkpoints_equal(file1, file2):
     deep_compare(checkpoint1['rng'], checkpoint2['rng'])
 
     # compare state
+    # remove the wall clock time fields since they will always differ
+    del checkpoint1['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint1['state']['timestamp']['Timestamp']['epoch_wct']
+    del checkpoint1['state']['timestamp']['Timestamp']['batch_wct']
+    del checkpoint2['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint2['state']['timestamp']['Timestamp']['epoch_wct']
+    del checkpoint2['state']['timestamp']['Timestamp']['batch_wct']
     deep_compare(checkpoint1['state'], checkpoint2['state'])
 
 

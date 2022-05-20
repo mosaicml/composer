@@ -38,6 +38,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -69,7 +71,7 @@ On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradient
 
 ## Suggested Hyperparameters
 
-We haven't done much experimentation with AGC. However, [the original authors, Brock et al.](https://arxiv.org/abs/2102.06171
+We haven't done much experimentation with AGC. However, [the original authors, Brock et al.](https://arxiv.org/abs/2102.06171)
 and [Ayush Thakur](https://wandb.ai/ayush-thakur/nfnet/reports/Exploring-Adaptive-Gradient-Clipping-and-NFNets--Vmlldzo1MDc0NTQ)
 have done some ablations have some recommendations. Note, both parties use AGC with NF-ResNets, which is a variation
 of ResNets that removes Batch Norm and includes [Weight Standardization](https://arxiv.org/abs/1903.10520) 

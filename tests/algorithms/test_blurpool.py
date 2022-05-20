@@ -5,7 +5,6 @@
 
 Primitives are tested in test_blurpool.py
 """
-import itertools
 from typing import List, Sequence, Union
 from unittest.mock import Mock
 
@@ -59,7 +58,15 @@ def state(minimal_state: State):
     return minimal_state
 
 
-@pytest.fixture(params=itertools.product([True, False], [True, False], [True, False]))
+@pytest.fixture(params=[
+    # replace_conv, replace_pool, blur_first
+    (True, True, True),
+    (True, True, False),
+    (True, False, True),
+    (True, False, False),
+    (False, True, True),
+    (False, True, False),
+])
 def blurpool_instance(request) -> BlurPool:
     replace_conv, replace_pool, blur_first = request.param
     return BlurPool(

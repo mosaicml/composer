@@ -14,14 +14,15 @@ ALiBi (Attention with Linear Biases) dispenses with position embeddings for toke
 
 ### Functional Interface
 
+<!--pytest-codeblocks:importorskip(transformers)-->
 ```python
 # Run the ALiBi algorithm directly on the model using the Composer functional API 
 
 import torch
 import composer.functional as cf
 
-from composer.algorithms.alibi.gpt2_alibi import _attn
-from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
+from composer.algorithms.alibi._gpt2_alibi import _attn
+from composer.algorithms.alibi._gpt2_alibi import enlarge_mask
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
 def training_loop(model, train_loader):
@@ -51,6 +52,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
