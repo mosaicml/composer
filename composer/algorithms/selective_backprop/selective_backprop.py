@@ -40,14 +40,14 @@ def should_selective_backprop(
 
     Args:
         current_duration (float): The elapsed training duration. Must be
-            within :math:`[0.0, 1.0)`.
-        batch_idx (int): The current batch within the epoch
+            within ``[0.0, 1.0)``.
+        batch_idx (int): The current batch within the epoch.
         start (float, optional): The duration at which selective backprop
             should be enabled. Default: ``0.5``.
         end (float, optional): The duration at which selective backprop
-            should be disabled Default: ``0.9``.
+            should be disabled. Default: ``0.9``.
         interrupt (int, optional): The number of batches between vanilla
-            minibatch gradient updates Default: ``2``.
+            minibatch gradient updates. Default: ``2``.
 
     Returns:
         bool: If selective backprop should be performed on this batch.
@@ -64,7 +64,7 @@ def select_using_loss(input: torch.Tensor,
                       loss_fun: Callable,
                       keep: float = 0.5,
                       scale_factor: float = 1) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Prunes minibatches as a subroutine of SelectiveBackprop. Computes the loss function on the provided training
+    """Prunes minibatches as a subroutine of :class:`.SelectiveBackprop`. Computes the loss function on the provided training
     examples and runs minibatches according to the difficulty. The fraction of the minibatch that is kept for gradient
     computation is specified by the argument ``0 <= keep <= 1``.
 
@@ -87,8 +87,8 @@ def select_using_loss(input: torch.Tensor,
         (torch.Tensor, torch.Tensor): The pruned batch of inputs and targets
 
     Raises:
-        ValueError: If ``scale_factor > 1``
-        TypeError: If ``loss_fun > 1`` has the wrong signature or is not callable
+        ValueError: If ``scale_factor > 1``.
+        TypeError: If ``loss_fun > 1`` has the wrong signature or is not callable.
 
     .. note::
 
@@ -106,7 +106,14 @@ def select_using_loss(input: torch.Tensor,
 
         from composer.algorithms.selective_backprop import select_using_loss
         with torch.cuda.amp.autocast(True):
-            X_new, y_new = select_using_loss(X_sb, y_sb, lin_model, loss_fun, keep=0.5, scale_factor=1)
+            X_new, y_new = select_using_loss(
+                X_sb,
+                y_sb,
+                lin_model,
+                loss_fun,
+                keep=0.5,
+                scale_factor=1
+            )
     """
     INTERPOLATE_MODES = {3: "linear", 4: "bilinear", 5: "trilinear"}
 
@@ -162,7 +169,7 @@ class SelectiveBackprop(Algorithm):
 
      Based on (`Jiang et al, 2019`_), Selective Backprop (SB) prunes minibatches
      according to the difficulty of the individual training examples, and only
-     computes weight gradients over the pruned subset, reducing iteration time and
+     computes weight gradients over the pruned subset, reducing iteration time, and
      speeding up training.
 
      The fraction of the minibatch that is kept for gradient computation is
@@ -180,13 +187,13 @@ class SelectiveBackprop(Algorithm):
      .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
 
      Args:
-         start (float, optional): SB interval start as fraction of training duration
+         start (float, optional): SB interval start as fraction of training duration.
              Default: ``0.5``.
-         end (float, optional): SB interval end as fraction of training duration
+         end (float, optional): SB interval end as fraction of training duration.
              Default: ``0.9``.
-         keep (float, optional): fraction of minibatch to select and keep for gradient computation
+         keep (float, optional): fraction of minibatch to select and keep for gradient computation.
              Default: ``0.5``.
-         scale_factor (float, optional): scale for downsampling input for selection forward pass
+         scale_factor (float, optional): scale for downsampling input for selection forward pass.
              Default: ``1.``.
          interrupt (int, optional): interrupt SB with a vanilla minibatch step every
              ``interrupt`` batches. Default: ``2``.
