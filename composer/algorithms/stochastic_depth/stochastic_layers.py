@@ -6,10 +6,10 @@ import torch
 from torchvision.models.resnet import Bottleneck
 
 
-def stochastic_bottleneck_forward(module: torch.nn.Module, x: torch.Tensor, probability: float) -> torch.Tensor:
+def stochastic_bottleneck_forward(x: torch.Tensor, module: torch.nn.Module, probability: torch.Tensor) -> torch.Tensor:
     identity = x
 
-    sample = module.training or bool(torch.bernoulli(probability))
+    sample = (not module.training) or bool(torch.bernoulli(probability))
 
     if sample:
         out = module.conv1(x)
@@ -33,7 +33,7 @@ def stochastic_bottleneck_forward(module: torch.nn.Module, x: torch.Tensor, prob
         out = module.relu(out)
     else:
         if module.downsample is not None:
-            out = module.relu(module.downsample)
+            out = module.relu(module.downsample(identity))
         else:
             out = identity
     return out
@@ -44,5 +44,6 @@ def make_resnet_bottleneck_stochastic(module: Bottleneck, module_index: int, mod
     if drop_distribution == 'linear':
         drop_rate = ((module_index + 1) / module_count) * drop_rate
 
-    module.forward = functools.partial(stochastic_bottleneck_forward, module=module, probability=drop_rate)
+    module.forward = functools.partial(stochastic_bottleneck_forward, module=module, probability=torch.tensor(drop_rate))
+    print(module.forward)
     return module
