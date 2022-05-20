@@ -127,18 +127,6 @@ class StreamingDataset(IterableDataset):
         download_or_wait(remote=remote, local=local, wait=wait, timeout=self.timeout)
         return local
 
-    def _local_exists(self, basename: str) -> bool:
-        """Check if a shard exists in local cache.
-
-        Args:
-            basename (str): Basename of shard to look for.
-
-        Returns:
-            bool: Whether the shard exists locally.
-        """
-        local = os.path.join(self.local, basename)
-        return os.path.exists(local)
-
     def _load_shards(self, shards: List[int], part_min_id: int, part_max_id: int) -> None:
         """Load the given list of locally cached shards into the dataset.
 
