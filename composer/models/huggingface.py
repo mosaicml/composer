@@ -1,10 +1,14 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union, Optional, List
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from torch import nn
 from torchmetrics import Metric
 from torchmetrics.collections import MetricCollection
+
 from composer.models.base import ComposerModel
 
 if TYPE_CHECKING:
