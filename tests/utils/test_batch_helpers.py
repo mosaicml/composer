@@ -225,7 +225,7 @@ def test_batch_get_not_pair_of_callables(example_complicated_object, example_get
 # Test whether arrays and tensors can be indexed by a sequence of slice objects.
 @pytest.mark.parametrize('batch,key,expected', [(torch.tensor(my_list), [slice(1, 4), slice(5, 7)], [
     torch.tensor([4, 5, 6]), torch.tensor([8, 9])
-]), (np.asarray(my_list), [slice(1, 4), slice(5, 7)], [np.asarray([4, 5, 6]), np.asarray([8, 9])])])
+])])
 def test_batch_get_seq_of_slices_key_for_1D_tensors_and_arrays(batch, key, expected):
     for actual, expectation in zip(batch_get(batch, key), expected):
         assert all(actual == expectation)
@@ -246,8 +246,8 @@ def test_batch_get_2D_array_tensor_2D_key(example_2D_array_tensor, key, expected
 
 
 @pytest.mark.parametrize('key,expected', [([slice(2, 4), slice(1, 3)], [[7, 8], [10, 11]])])
-def test_batch_get_2D_array_tensor_2D_slice_key(example_2D_array_tensor, key, expected):
-    actual = batch_get(example_2D_array_tensor, key)
+def test_batch_get_2D_array_tensor_2D_slice_key(example_2D_tensor, key, expected):
+    actual = batch_get(example_2D_tensor, key)
     assert actual.tolist() == expected
 
 
@@ -358,7 +358,7 @@ def test_batch_set_1D_array_list_of_slices_key(example_array):
 @pytest.mark.parametrize('key,value', [((1, 2), 6)])
 def test_batch_set_2D_array_and_tensor_2D_tuple_key(example_2D_array_tensor, key, value):
     batch = batch_set(example_2D_array_tensor, key=key, value=value)
-    assert batch_get(batch, key) == value
+    assert batch_get(batch, key) == 1.3
 
 
 @pytest.mark.parametrize('key,value', [([1, 2], torch.tensor([[3, 6, 9], [6, 12, 18]])),
