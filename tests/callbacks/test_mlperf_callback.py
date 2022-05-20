@@ -12,6 +12,7 @@ from composer import State, Trainer
 from composer.callbacks import MLPerfCallback
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common.markers import device, world_size
 
 
 def rank_zero() -> bool:
@@ -83,11 +84,13 @@ class TestMLPerfCallbackEvents:
         }
 
 
+@world_size(1, 2)
+@device('cpu', 'gpu')
 class TestWithMLPerfChecker:
     """Ensures that the logs created by the MLPerfCallback pass the official package checker."""
 
     @pytest.mark.timeout(15)
-    def test_mlperf_callback_passes(self, tmp_path, monkeypatch):
+    def test_mlperf_callback_passes(self, tmp_path, monkeypatch, world_size, device):
 
         def mock_accuracy(self, state: State):
             if state.timestamp.epoch >= 2:
@@ -97,24 +100,24 @@ class TestWithMLPerfChecker:
 
         monkeypatch.setattr(MLPerfCallback, '_get_accuracy', mock_accuracy)
 
-        self.generate_submission(tmp_path)
+        self.generate_submission(tmp_path, device)
 
         if rank_zero():
             self.run_mlperf_checker(tmp_path, monkeypatch)
 
     @pytest.mark.timeout(15)
-    def test_mlperf_callback_fails(self, tmp_path, monkeypatch):
+    def test_mlperf_callback_fails(self, tmp_path, monkeypatch, world_size, device):
 
         def mock_accuracy(self, state: State):
             return 0.01
 
         monkeypatch.setattr(MLPerfCallback, '_get_accuracy', mock_accuracy)
 
-        self.generate_submission(tmp_path)
+        self.generate_submission(tmp_path, device)
         with pytest.raises(ValueError, match='MLPerf checker failed'):
             self.run_mlperf_checker(tmp_path, monkeypatch)
 
-    def generate_submission(self, directory):
+    def generate_submission(self, directory, device):
         """Generates submission files by training the benchark n=5 times."""
 
         for run in range(5):
@@ -122,7 +125,7 @@ class TestWithMLPerfChecker:
             mlperf_callback = MLPerfCallback(
                 root_folder=directory,
                 index=run,
-                cache_clear_cmd=['sleep', '0.1'],
+                cache_clear_cmd='sleep 0.1',
             )
 
             trainer = Trainer(
@@ -137,6 +140,11 @@ class TestWithMLPerfChecker:
                     shuffle=False,
                 ),
                 max_duration="3ep",
+                deterministic_mode=True,
+                progress_bar=False,
+                log_to_console=False,
+                loggers=[],
+                device=device,
                 callbacks=[mlperf_callback],
                 seed=np.random.randint(low=2048),
             )

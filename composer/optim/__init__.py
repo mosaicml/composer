@@ -18,7 +18,7 @@ from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, Cosi
                                       CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
                                       ExponentialScheduler, LinearScheduler, LinearWithWarmupScheduler,
                                       MultiStepScheduler, MultiStepWithWarmupScheduler, PolynomialScheduler,
-                                      StepScheduler)
+                                      PolynomialWithWarmupScheduler, StepScheduler)
 
 __all__ = [
     'DecoupledAdamW',
@@ -34,5 +34,6 @@ __all__ = [
     'MultiStepScheduler',
     'MultiStepWithWarmupScheduler',
     'PolynomialScheduler',
+    'PolynomialWithWarmupScheduler',
     'StepScheduler',
 ]

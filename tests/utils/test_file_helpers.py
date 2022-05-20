@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import datetime
 import os
 import pathlib
 
@@ -167,10 +168,14 @@ def test_format_name_with_dist_and_time():
         "sample_in_epoch",
         "token",
         "token_in_epoch",
+        "total_wct",
+        "epoch_wct",
+        "batch_wct",
     ]
     format_str = ','.join(f"{x}={{{x}}}" for x in vars)
     expected_str = ("run_name=awesome_run,rank=0,node_rank=0,world_size=1,local_world_size=1,local_rank=0,extra=42,"
-                    "epoch=0,batch=1,batch_in_epoch=1,sample=2,sample_in_epoch=2,token=3,token_in_epoch=3")
+                    "epoch=0,batch=1,batch_in_epoch=1,sample=2,sample_in_epoch=2,token=3,token_in_epoch=3,"
+                    "total_wct=36000.0,epoch_wct=3000.0,batch_wct=5.0")
     timestamp = Timestamp(
         epoch=Time.from_timestring("0ep"),
         batch=Time.from_timestring("1ba"),
@@ -179,6 +184,9 @@ def test_format_name_with_dist_and_time():
         sample_in_epoch=Time.from_timestring("2sp"),
         token=Time.from_timestring("3tok"),
         token_in_epoch=Time.from_timestring("3tok"),
+        total_wct=datetime.timedelta(hours=10),  # formatted as seconds
+        epoch_wct=datetime.timedelta(minutes=50),  # formatted as seconds
+        batch_wct=datetime.timedelta(seconds=5),  # formatted as seconds
     )
     assert format_name_with_dist_and_time(format_str, "awesome_run", timestamp=timestamp, extra=42) == expected_str
 

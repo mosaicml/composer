@@ -11,7 +11,7 @@ from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, Cosi
                                       CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
                                       ExponentialScheduler, LinearScheduler, LinearWithWarmupScheduler,
                                       MultiStepScheduler, MultiStepWithWarmupScheduler, PolynomialScheduler,
-                                      StepScheduler)
+                                      PolynomialWithWarmupScheduler, StepScheduler)
 
 __all__ = ["scheduler_registry"]
 
@@ -24,6 +24,7 @@ scheduler_registry: Dict[str, Union[Type[ComposerScheduler], Type[hp.AutoInitial
     "cosine_warmrestart": CosineAnnealingWarmRestartsScheduler,
     "constant": ConstantScheduler,
     "polynomial": PolynomialScheduler,
+    "polynomial_with_warmup": PolynomialWithWarmupScheduler,
     "multistep_with_warmup": MultiStepWithWarmupScheduler,
     "linear_decay_with_warmup": LinearWithWarmupScheduler,
     "cosine_decay_with_warmup": CosineAnnealingWithWarmupScheduler,
