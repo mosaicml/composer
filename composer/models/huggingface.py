@@ -19,6 +19,16 @@ class HuggingFaceModel(ComposerModel):
         model ([`PreTrainedModel`] or `torch.nn.Module`):  You can  use your own models defined as
         `torch.nn.Module` as long as they work the same way as the 🤗 Transformers models.
         metrics (list[Metric], optional): list of  torchmetrics to apply to the output of `validate`.
+
+    Example:
+
+    .. testcode::
+
+        import transformers
+        from composer.models import HuggingFaceModel
+
+        hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)"
+        model = HuggingFaceModel(hf_model)
     """
 
     def __init__(self,
