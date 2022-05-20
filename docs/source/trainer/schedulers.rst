@@ -76,6 +76,7 @@ Below are the supported schedulers found at :mod:`composer.optim.scheduler`.
     CosineAnnealingWithWarmupScheduler
     CosineAnnealingWarmRestartsScheduler
     PolynomialScheduler
+    PolynomialWithWarmupScheduler
 
 .. note::
 
