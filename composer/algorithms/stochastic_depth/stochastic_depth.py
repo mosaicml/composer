@@ -27,7 +27,7 @@ _STOCHASTIC_LAYER_MAPPING = {
         'ResNetBottleneck': (Bottleneck, make_resnet_bottleneck_stochastic)
     },
     'sample': {
-        'ResNetBottleneck': (Bottleneck, SampleStochasticBottleneck)
+        'ResNetBottleneck': (Bottleneck, make_resnet_bottleneck_stochastic)
     }
 }
 
@@ -96,12 +96,14 @@ def apply_stochastic_depth(model: torch.nn.Module,
                                  drop_rate=drop_rate,
                                  drop_distribution=drop_distribution)
     transforms = {}
-    target_layer, stochastic_converter = _STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
+#    target_layer, stochastic_converter = _STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
+    target_layer = Bottleneck
     module_count = module_surgery.count_module_instances(model, target_layer)
-    stochastic_from_target_layer = functools.partial(stochastic_converter,
+    stochastic_from_target_layer = functools.partial(make_resnet_bottleneck_stochastic,
                                                      drop_rate=drop_rate,
                                                      drop_distribution=drop_distribution,
-                                                     module_count=module_count)
+                                                     module_count=module_count,
+                                                     stochastic_method=stochastic_method)
     transforms[target_layer] = stochastic_from_target_layer
     module_surgery.replace_module_classes(model, policies=transforms)
     return model
