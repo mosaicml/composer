@@ -76,7 +76,7 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
         remote (str): Remote path (S3 or local filesystem).
         local (str): Local path (local filesystem).
         wait (bool, default False): If ``true``, then do not actively download the file, but instead wait (up to ``timeout`` seconds) for the file to arrive.
-        max_retries (int, default 2): Number of download attempts before giving up.
+        max_retries (int, default 2): Number of download re-attempts before giving up.
         timeout (float, default 60): How long to wait for file to download before raising an exception.
     """
     ok = False
