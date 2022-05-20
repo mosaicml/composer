@@ -27,7 +27,8 @@ __all__ = ["NoOpModelClass", "NoOpModel"]
 
 
 class NoOpModelClass(ComposerModel):
-    """Dummy model used for testing. The NoOpModel algorithm uses this to replace a ComposerModel.
+    """Dummy model used for testing. The :class:`.NoOpModel` algorithm 
+    uses this to replace a :class:`~composer.models.base.ComposerModel`. 
 
     Args:
         original_model (ComposerModel): model to replace.
@@ -64,7 +65,8 @@ class NoOpModelClass(ComposerModel):
 
 
 class NoOpModel(Algorithm):
-    """Runs on :attr:`Event.INIT` and replaces the model with a dummy model of type NoOpModelClass."""
+    """Runs on :attr:`~composer.core.event.Event.INIT` and 
+    replaces the model with a dummy model of type NoOpModelClass."""
 
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
