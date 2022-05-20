@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import atexit
 import os
 import pathlib
 import re
@@ -65,7 +66,7 @@ class WandBLogger(LoggerDestination):
                                                 conda_channel="conda-forge") from e
 
         del wandb  # unused
-        if log_artifacts and rank_zero_only:
+        if log_artifacts and rank_zero_only and dist.get_world_size() > 1:
             warnings.warn(
                 ("When logging artifacts, `rank_zero_only` should be set to False. "
                  "Artifacts from other ranks will not be collected, leading to a loss of information required to "
@@ -93,6 +94,10 @@ class WandBLogger(LoggerDestination):
         self._rank_zero_only = rank_zero_only
         self._log_artifacts = log_artifacts
         self._init_kwargs = init_kwargs
+        self._is_in_atexit = False
+
+    def _set_is_in_atexit(self):
+        self._is_in_atexit = True
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
         import wandb
@@ -133,6 +138,7 @@ class WandBLogger(LoggerDestination):
             self._init_kwargs["group"] = group if group else name
         if self._enabled:
             wandb.init(**self._init_kwargs)
+            atexit.register(self._set_is_in_atexit)
 
     def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,
                           overwrite: bool):
@@ -185,7 +191,11 @@ class WandBLogger(LoggerDestination):
         import wandb
 
         # Cleaning up on post_close so all artifacts are uploaded
-        if not self._enabled or wandb.run is None:
+        if not self._enabled or wandb.run is None or self._is_in_atexit:
+            # Don't call wandb.finish if there is no run, or
+            # the script is in an atexit, since wandb also hooks into atexit
+            # and it will error if wandb.finish is called from the Composer atexit hook
+            # after it is called from the wandb atexit hook
             return
 
         exc_tpe, exc_info, tb = sys.exc_info()

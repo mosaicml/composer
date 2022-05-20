@@ -192,48 +192,57 @@ Args:
 """
 
 FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """
-+------------------------+--------------------------------------------------------+
-| Variable               | Description                                            |
-+========================+========================================================+
-| ``{run_name}``         | The name of the training run. See                      |
-|                        | :attr:`~composer.loggers.logger.Logger.run_name`.      |
-+------------------------+--------------------------------------------------------+
-| ``{rank}``             | The global rank, as returned by                        |
-|                        | :func:`~composer.utils.dist.get_global_rank`.          |
-+------------------------+--------------------------------------------------------+
-| ``{local_rank}``       | The local rank of the process, as returned by          |
-|                        | :func:`~composer.utils.dist.get_local_rank`.           |
-+------------------------+--------------------------------------------------------+
-| ``{world_size}``       | The world size, as returned by                         |
-|                        | :func:`~composer.utils.dist.get_world_size`.           |
-+------------------------+--------------------------------------------------------+
-| ``{local_world_size}`` | The local world size, as returned by                   |
-|                        | :func:`~composer.utils.dist.get_local_world_size`.     |
-+------------------------+--------------------------------------------------------+
-| ``{node_rank}``        | The node rank, as returned by                          |
-|                        | :func:`~composer.utils.dist.get_node_rank`.            |
-+------------------------+--------------------------------------------------------+
-| ``{epoch}``            | The total epoch count, as returned by                  |
-|                        | :meth:`~composer.core.time.Timestamp.epoch`.           |
-+------------------------+--------------------------------------------------------+
-| ``{batch}``            | The total batch count, as returned by                  |
-|                        | :meth:`~composer.core.time.Timestamp.batch`.           |
-+------------------------+--------------------------------------------------------+
-| ``{batch_in_epoch}``   | The batch count in the current epoch, as returned by   |
-|                        | :meth:`~composer.core.time.Timestamp.batch_in_epoch`.  |
-+------------------------+--------------------------------------------------------+
-| ``{sample}``           | The total sample count, as returned by                 |
-|                        | :meth:`~composer.core.time.Timestamp.sample`.          |
-+------------------------+--------------------------------------------------------+
-| ``{sample_in_epoch}``  | The sample count in the current epoch, as returned by  |
-|                        | :meth:`~composer.core.time.Timestamp.sample_in_epoch`. |
-+------------------------+--------------------------------------------------------+
-| ``{token}``            | The total token count, as returned by                  |
-|                        | :meth:`~composer.core.time.Timestamp.token`.           |
-+------------------------+--------------------------------------------------------+
-| ``{token_in_epoch}``   | The token count in the current epoch, as returned by   |
-|                        | :meth:`~composer.core.time.Timestamp.token_in_epoch`.  |
-+------------------------+--------------------------------------------------------+
++----------------------------+------------------------------------------------------------+
+| Variable                   | Description                                                |
++============================+============================================================+
+| ``{run_name}``             | The name of the training run. See                          |
+|                            | :attr:`~composer.loggers.logger.Logger.run_name`.          |
++----------------------------+------------------------------------------------------------+
+| ``{rank}``                 | The global rank, as returned by                            |
+|                            | :func:`~composer.utils.dist.get_global_rank`.              |
++----------------------------+------------------------------------------------------------+
+| ``{local_rank}``           | The local rank of the process, as returned by              |
+|                            | :func:`~composer.utils.dist.get_local_rank`.               |
++----------------------------+------------------------------------------------------------+
+| ``{world_size}``           | The world size, as returned by                             |
+|                            | :func:`~composer.utils.dist.get_world_size`.               |
++----------------------------+------------------------------------------------------------+
+| ``{local_world_size}``     | The local world size, as returned by                       |
+|                            | :func:`~composer.utils.dist.get_local_world_size`.         |
++----------------------------+------------------------------------------------------------+
+| ``{node_rank}``            | The node rank, as returned by                              |
+|                            | :func:`~composer.utils.dist.get_node_rank`.                |
++----------------------------+------------------------------------------------------------+
+| ``{epoch}``                | The total epoch count, as returned by                      |
+|                            | :meth:`~composer.core.time.Timestamp.epoch`.               |
++----------------------------+------------------------------------------------------------+
+| ``{batch}``                | The total batch count, as returned by                      |
+|                            | :meth:`~composer.core.time.Timestamp.batch`.               |
++----------------------------+------------------------------------------------------------+
+| ``{batch_in_epoch}``       | The batch count in the current epoch, as returned by       |
+|                            | :meth:`~composer.core.time.Timestamp.batch_in_epoch`.      |
++----------------------------+------------------------------------------------------------+
+| ``{sample}``               | The total sample count, as returned by                     |
+|                            | :meth:`~composer.core.time.Timestamp.sample`.              |
++----------------------------+------------------------------------------------------------+
+| ``{sample_in_epoch}``      | The sample count in the current epoch, as returned by      |
+|                            | :meth:`~composer.core.time.Timestamp.sample_in_epoch`.     |
++----------------------------+------------------------------------------------------------+
+| ``{token}``                | The total token count, as returned by                      |
+|                            | :meth:`~composer.core.time.Timestamp.token`.               |
++----------------------------+------------------------------------------------------------+
+| ``{token_in_epoch}``       | The token count in the current epoch, as returned by       |
+|                            | :meth:`~composer.core.time.Timestamp.token_in_epoch`.      |
++----------------------------+------------------------------------------------------------+
+| ``{total_wct}``            | The total training duration in seconds, as returned by     |
+|                            | :meth:`~composer.core.time.Timestamp.total_wct`.           |
++----------------------------+------------------------------------------------------------+
+| ``{epoch_wct}``            | The epoch duration in seconds, as returned by              |
+|                            | :meth:`~composer.core.time.Timestamp.epoch_wct`.           |
++----------------------------+------------------------------------------------------------+
+| ``{batch_wct}``            | The batch duration in seconds, as returned by              |
+|                            | :meth:`~composer.core.time.Timestamp.batch_wct`.           |
++----------------------------+------------------------------------------------------------+
 """
 
 
@@ -252,6 +261,9 @@ def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Ti
         sample_in_epoch=int(timestamp.sample_in_epoch),
         token=int(timestamp.token),
         token_in_epoch=int(timestamp.token_in_epoch),
+        total_wct=timestamp.total_wct.total_seconds(),
+        epoch_wct=timestamp.epoch_wct.total_seconds(),
+        batch_wct=timestamp.batch_wct.total_seconds(),
         **extra_format_kwargs,
     )
     return formatted_str

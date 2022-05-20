@@ -6,6 +6,15 @@
    :card: shadow
 
    ---
+   .. link-button:: agc.html
+      :text: AGC
+      :classes: card-title
+
+   :badge:`CV,badge-primary`
+   ++++++++++++++
+   Clips gradients based on the ratio of their norms with weights' norms.
+
+   ---
    .. link-button:: alibi.html
       :text: Alibi
       :classes: card-title
