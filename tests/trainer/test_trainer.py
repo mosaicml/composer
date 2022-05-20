@@ -8,7 +8,7 @@ import datetime
 import os
 import pathlib
 import time
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 import pytest
 import torch
@@ -27,7 +27,6 @@ from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.loggers import FileLogger, WandBLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
 from composer.models.base import ComposerModel
@@ -74,8 +73,6 @@ class TestTrainerInit():
             model=model,
             loggers=[InMemoryLogger()],
             callbacks=[LRMonitor()],
-            progress_bar=False,
-            log_to_console=False,
         )
         assert isinstance(trainer.state.callbacks[0], InMemoryLogger)
         assert isinstance(trainer.state.callbacks[2], LRMonitor)
@@ -311,8 +308,6 @@ class TestTrainerInitOrFit:
             callbacks=[init_event_counter_callback],
             eval_subset_num_batches=eval_subset_num_batches,
             eval_interval=eval_interval,
-            progress_bar=False,
-            log_to_console=False,
         )
         init_trainer.fit()
 
@@ -323,8 +318,6 @@ class TestTrainerInitOrFit:
             max_duration=max_duration,
             train_dataloader=train_dataloader,
             callbacks=[fit_event_counter_callback],
-            progress_bar=False,
-            log_to_console=False,
         )
         fit_trainer.fit(
             eval_dataloader=eval_dataloader,
@@ -744,9 +737,9 @@ class TestTrainerInitOrFit:
 @pytest.mark.timeout(15)  # higher timeout as each model is trained twice
 class TestTrainerEquivalence():
 
-    reference_model: torch.nn.Module
-    reference_folder: pathlib.Path
-    default_threshold: Dict[str, float]
+    default_threshold = {'atol': 0, 'rtol': 0}
+    reference_model = None
+    reference_folder = None
 
     def assert_models_equal(self, model_1, model_2, threshold=None):
         if threshold is None:
@@ -755,14 +748,6 @@ class TestTrainerEquivalence():
         assert model_1 is not model_2, "Same model should not be compared."
         for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
             torch.testing.assert_allclose(param1, param2, **threshold)
-
-    @pytest.fixture(autouse=True)
-    def set_default_threshold(self, device, precision, world_size):
-        """Sets the default threshold to 0.
-
-        Individual tests can override by passing thresholds directly to assert_models_equal.
-        """
-        self.default_threshold = {'atol': 0, 'rtol': 0}
 
     @pytest.fixture
     def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
@@ -787,11 +772,11 @@ class TestTrainerEquivalence():
         }
 
     @pytest.fixture(autouse=True)
-    def create_reference_model(self, config, tmpdir_factory, *args):
+    def create_reference_model(self, config, tmp_path_factory, *args):
         """Trains the reference model, and saves checkpoints."""
         config = copy.deepcopy(config)  # ensure the reference model is not passed to tests
 
-        save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
+        save_folder = tmp_path_factory.mktemp("{device}-{precision}".format(**config))
         config.update({'save_interval': '1ep', 'save_folder': str(save_folder), 'save_filename': 'ep{epoch}.pt'})
 
         trainer = Trainer(**config)
@@ -973,13 +958,13 @@ class TestTrainerAssets:
         return callback
 
     @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
-    def logger(self, request, tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+    def logger(self, request, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
 
         name, hparams = request.param
 
-        remote_dir = str(tmpdir / "remote_dir")
+        remote_dir = str(tmp_path / "remote_dir")
         os.makedirs(remote_dir)
-        local_dir = str(tmpdir / "local_dir")
+        local_dir = str(tmp_path / "local_dir")
         os.makedirs(local_dir)
         monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
         provider_hparams = ObjectStoreHparams(
@@ -996,7 +981,7 @@ class TestTrainerAssets:
             required_args['use_procs'] = False
 
         if name == 'object_store_logger':
-            monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
+            monkeypatch.setenv("KEY_ENVIRON", str(tmp_path))
 
             logger = hparams(
                 provider='local',
@@ -1017,6 +1002,8 @@ class TestTrainerAssets:
         trainer = Trainer(**config)
         trainer.fit()
 
+    @pytest.mark.filterwarnings(
+        r"ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning")
     def test_loggers(self, config, logger):
         config['loggers'] = [logger]
         trainer = Trainer(**config)
@@ -1033,9 +1020,9 @@ class TestTrainerAssets:
         trainer = Trainer(**config)
         self._test_multiple_fits(trainer)
 
+    @pytest.mark.filterwarnings("ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning"
+                               )
     def test_loggers_multiple_calls(self, config, logger):
-        if isinstance(logger, (FileLogger, WandBLogger)):
-            pytest.xfail("Cannot close/load multiple times yet.")
         config['loggers'] = [logger]
         trainer = Trainer(**config)
         self._test_multiple_fits(trainer)
@@ -1051,7 +1038,7 @@ class TestTrainerAlgorithms:
     @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
     @pytest.mark.timeout(5)
     @device('gpu')
-    def test_algorithm_trains(self, name: str, rank_zero_seed: int, device: str):
+    def test_algorithm_trains(self, name: str, device: str):
         if name in ('no_op_model', 'scale_schedule'):
             pytest.skip('stub algorithms')
 
@@ -1067,8 +1054,6 @@ class TestTrainerAlgorithms:
             model=setting['model'],
             train_dataloader=DataLoader(dataset=setting['dataset'], batch_size=4),
             max_duration='2ep',
-            loggers=[],
-            seed=rank_zero_seed,
             device=device,
         )
         trainer.fit()
@@ -1080,35 +1065,38 @@ class TestTrainerAlgorithms:
 @pytest.mark.vision
 @pytest.mark.timeout(30)
 class TestFFCVDataloaders:
-    train_file: str
-    val_file: str
-    tmpdir: str
+
+    train_file = None
+    val_file = None
+    tmp_path = None
 
     @pytest.fixture(autouse=True)
-    def create_dataset(self, tmpdir_factory):
+    def create_dataset(self, tmp_path_factory: pytest.TempPathFactory):
         dataset_train = RandomImageDataset(size=16, is_PIL=True)
-        output_train_file = str(tmpdir_factory.mktemp("ffcv").join("train.ffcv"))
+        self.tmp_path = tmp_path_factory.mktemp("ffcv")
+        output_train_file = str(self.tmp_path / "train.ffcv")
         write_ffcv_dataset(dataset_train, write_path=output_train_file, num_workers=1, write_mode='proportion')
         dataset_val = RandomImageDataset(size=16, is_PIL=True)
-        tmp_dir = tmpdir_factory.mktemp("ffcv")
-        output_val_file = str(tmp_dir.join("val.ffcv"))
+        output_val_file = str(self.tmp_path / "val.ffcv")
         write_ffcv_dataset(dataset_val, write_path=output_val_file, num_workers=1, write_mode='proportion')
         self.train_file = output_train_file
         self.val_file = output_val_file
-        self.tmpdir = str(tmp_dir)
 
     def _get_dataloader(self, is_train):
+        assert self.tmp_path is not None
+        assert self.train_file is not None
+        assert self.val_file is not None
         dl_hparams = DataLoaderHparams(num_workers=0)
         ds_hparams = ImagenetDatasetHparams(is_train=is_train,
                                             use_ffcv=True,
-                                            ffcv_dir=self.tmpdir,
+                                            ffcv_dir=str(self.tmp_path),
                                             ffcv_dest=self.train_file if is_train else self.val_file)
         return ds_hparams.initialize_object(batch_size=4, dataloader_hparams=dl_hparams)
 
     @pytest.fixture
     def config(self):
         try:
-            import ffcv  # type: ignore
+            import ffcv
         except ImportError as e:
             raise ImportError(("Composer was installed without ffcv support. "
                                "To use ffcv with Composer, please install ffcv in your environment.")) from e

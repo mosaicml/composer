@@ -120,7 +120,9 @@ def test_surgery_torchfx_eval(name, surgery_method, input):
     pytest.param("channels_last", apply_channels_last)
 ])
 @pytest.mark.timeout(10)
-def test_surgery_onnx(name, surgery_method, input, tmpdir):
+@pytest.mark.filterwarnings(
+    r"ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning")
+def test_surgery_onnx(name, surgery_method, input, tmp_path):
     """Tests onnx export and runtime"""
     pytest.importorskip("onnx")
     import onnx  # type: ignore
@@ -131,7 +133,7 @@ def test_surgery_onnx(name, surgery_method, input, tmpdir):
     surgery_method(model, **kwargs)
     model.eval()
 
-    onnx_path = os.path.join(tmpdir, "model.onnx")
+    onnx_path = os.path.join(tmp_path, "model.onnx")
     torch.onnx.export(
         model,
         (input,),
@@ -156,4 +158,4 @@ def test_surgery_onnx(name, surgery_method, input, tmpdir):
         model(input),
         rtol=1e-4,  # lower tolerance for ONNX
         atol=1e-3,  # lower tolerance for ONNX
-    )  # type: ignore (third-party)
+    )

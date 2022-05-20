@@ -77,7 +77,7 @@ class SystemProfiler(Callback):
         if self.profile_cpu:
             psutil.cpu_percent()  # spin it once to clear the default 0.0 value on the first call
 
-        while not self.finished_event.isSet():
+        while not self.finished_event.is_set():
             if self.profile_cpu:
                 cpu_percent = psutil.cpu_percent()
                 profiler.marker(name="cpu", categories=["cpu"]).counter({"cpu_percent": cpu_percent})

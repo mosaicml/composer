@@ -69,7 +69,7 @@ def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHpa
 
 
 def test_state_serialize(
-    tmpdir: pathlib.Path,
+    tmp_path: pathlib.Path,
     dummy_dataloader_hparams: DataLoaderHparams,
     dummy_train_dataset_hparams: DatasetHparams,
 ):
@@ -82,7 +82,7 @@ def test_state_serialize(
 
     # load from state1 to state2
     state_dict = state1.state_dict()
-    filepath = str(tmpdir / "state.pt")
+    filepath = str(tmp_path / "state.pt")
     torch.save(state_dict, filepath)
     state_dict_2 = torch.load(filepath, map_location="cpu")
     state2.load_state_dict(state_dict_2)
