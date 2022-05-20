@@ -21,7 +21,7 @@ __all__ = ['SAM', 'SAMOptimizer']
 
 class SAMOptimizer(torch.optim.Optimizer):
     """Wraps an optimizer with sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_).
-    See :class:`SAM` for details.
+    See :class:`.SAM` for details.
 
     Implementation based on https://github.com/davda54/sam
     """
@@ -96,8 +96,8 @@ class SAMOptimizer(torch.optim.Optimizer):
 
 
 class SAM(Algorithm):
-    """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
-    existing optimizer with a :class:`~composer.algorithms.sam.sam.SAMOptimizer`. SAM can improve model generalization
+    """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) 
+    by wrapping an existing optimizer with a :class:`.SAMOptimizer`. SAM can improve model generalization
     and provide robustness to label noise.
 
     Runs on :attr:`~composer.core.event.Event.INIT`.
