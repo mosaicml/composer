@@ -81,7 +81,7 @@ def cutmix_batch(input: Tensor,
         input_mixed (torch.Tensor): batch of inputs after cutmix has been
             applied.
         target_perm (torch.Tensor): The labels of the mixed-in examples
-        area (float): The fractional area of the mixed region.
+        area (float): The fractional area of the unmixed region.
         bounding_box (tuple): the ``(left, top, right, bottom)`` coordinates of
             the bounding box that defines the mixed region.
 
