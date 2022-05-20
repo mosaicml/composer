@@ -358,7 +358,7 @@ def test_batch_set_1D_array_list_of_slices_key(example_array):
 @pytest.mark.parametrize('key,value', [((1, 2), 6)])
 def test_batch_set_2D_array_and_tensor_2D_tuple_key(example_2D_array_tensor, key, value):
     batch = batch_set(example_2D_array_tensor, key=key, value=value)
-    assert batch_get(batch, key) == 1.3
+    assert batch_get(batch, key) == value
 
 
 @pytest.mark.parametrize('key,value', [([1, 2], torch.tensor([[3, 6, 9], [6, 12, 18]])),
