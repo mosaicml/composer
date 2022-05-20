@@ -34,11 +34,10 @@ def augmix_image(img: ImgT,
                  augmentation_set: List = augmentation_sets["all"]) -> ImgT:
     """Applies AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data
     augmentation to a single image or batch of images. See
-    :class:`.AugMix` and the
-    :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
-    single image (or batch) per call and is unlikely to be used in a training loop. Use
-    :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
-    part of a :class:`torchvision.datasets.VisionDataset`\\'s ``transform``.
+    :class:`.AugMix` and the :doc:`Method Card </method_cards/augmix>` for details. 
+    This function only acts on a single image (or batch) per call and is unlikely to 
+    be used in a training loop. Use :class:`.AugmentAndMixTransform` to use :class:`.AugMix`
+    as part of a :class:`torchvision.datasets.VisionDataset`\\'s ``transform``.
 
     Example:
         .. testcode::
@@ -102,7 +101,7 @@ def augmix_image(img: ImgT,
 
 
 class AugmentAndMixTransform(torch.nn.Module):
-    """Wrapper module for :func:`~composer.algorithms.augmix.augmix.augmix_image` that can
+    """Wrapper module for :func:`.augmix_image` that can
     be passed to :class:`torchvision.transforms.Compose`. See
     :class:`.AugMix` and the :doc:`Method Card
     </method_cards/augmix>` for details.
@@ -203,7 +202,7 @@ class AugMix(Algorithm):
         severity (int, optional): Severity of augmentations; ranges from 0
             (no augmentation) to 10 (most severe). Default: ``3``.
         depth (int, optional): Number of augmentations per sequence. -1 enables stochastic
-            depth sampled uniformly from [1, 3]. Default: ``-1``.
+            depth sampled uniformly from ``[1, 3]``. Default: ``-1``.
         width (int, optional): Number of augmentation sequences. Default: ``3``.
         alpha (float, optional): Pseudocount for Beta and Dirichlet distributions. Must be
             > 0.  Higher values yield mixing coefficients closer to uniform weighting. As
@@ -227,8 +226,8 @@ class AugMix(Algorithm):
                 :math:`intensity \\times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
                 to 1.9 (intensity 10). These augmentations have different effects
                 depending on whether they are < 0 or > 0 (or < 1 or > 1).
-                "all" uses implementations of "color", "contrast",
-                "sharpness", and "brightness" that account for diverging effects around 0
+                ``"all"`` uses implementations of ``"color"``, ``"contrast"``,
+                ``"sharpness"``, and ``"brightness"`` that account for diverging effects around 0
                 (or 1).
 
             Default: ``"all"``.
