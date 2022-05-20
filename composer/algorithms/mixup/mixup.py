@@ -65,7 +65,8 @@ def mixup_batch(input: torch.Tensor,
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
             X_mixed, y_perm, mixing = mixup_batch(
-                X, y, alpha=0.2)
+                X, y, alpha=0.2
+            )
     """
     if mixing is None:
         mixing = _gen_mixing_coef(alpha)
@@ -100,8 +101,8 @@ class MixUp(Algorithm):
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``0.2``.
         interpolate_loss (bool, optional): Interpolates the loss rather than the labels.
-            A useful trick when using a cross entropy loss. Will produce incorrect behavior if the loss is not a linear
-            function of the targets. Default: ``False``
+            A useful trick when using a cross entropy loss. Will produce incorrect behavior 
+            if the loss is not a linear function of the targets. Default: ``False``
 
     Example:
         .. testcode::
