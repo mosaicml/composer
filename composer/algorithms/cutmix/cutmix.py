@@ -57,8 +57,8 @@ def cutmix_batch(input: Tensor,
         or ``alpha``.
 
     Args:
-        input (:class:`torch.Tensor`): input tensor of shape ``(N, C, H, W)``
-        target (:class:`torch.Tensor`): target tensor of either shape ``N`` or
+        input (torch.Tensor): input tensor of shape ``(N, C, H, W)``.
+        target (torch.Tensor): target tensor of either shape ``N`` or
             ``(N, num_classes)``. In the former case, elements of ``target``
             must be integer class ids in the range ``0..num_classes``. In the
             latter case, rows of ``target`` may be arbitrary vectors of targets,
@@ -164,8 +164,8 @@ def cutmix_batch(input: Tensor,
 
 
 class CutMix(Algorithm):
-    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations of pairs of
-    examples and interpolated targets rather than individual examples and targets.
+    """`CutMix <https://arxiv.org/abs/1905.04899>`_ trains the network on non-overlapping combinations 
+    of pairs of examples and interpolated targets rather than individual examples and targets.
 
     This is done by taking a non-overlapping combination of a given batch X with a
     randomly permuted copy of X. The area is drawn from a ``Beta(alpha, alpha)``
@@ -209,11 +209,12 @@ class CutMix(Algorithm):
         self._bbox: Tuple[int, int, int, int] = (0, 0, 0, 0)
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on Event.INIT and Event.AFTER_DATALOADER.
+        """Runs on :class:`~composer.core.event.Event.INIT`
+        and :class:`~composer.core.event.Event.AFTER_DATALOADER`.
 
         Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
+            event (Event): The current event.
+            state (State): The current state.
         Returns:
             bool: True if this algorithm should run now.
         """
@@ -223,9 +224,9 @@ class CutMix(Algorithm):
         """Applies CutMix augmentation on State input.
 
         Args:
-            event (:class:`Event`): the current event
-            state (:class:`State`): the current trainer state
-            logger (:class:`Logger`): the training logger
+            event (Event): the current event
+            state (State): the current trainer state
+            logger (Logger): the training logger
         """
 
         input, target = state.batch
@@ -255,8 +256,8 @@ def _gen_indices(x: Tensor) -> Tensor:
     """Generates indices of a random permutation of elements of a batch.
 
     Args:
-        x (:class:`torch.Tensor): input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
-            are feature dimensions.
+        x (torch.Tensor): input tensor of shape ``(B, d1, d2, ..., dn)``,
+            B is batch size, d1-dn are feature dimensions.
 
     Returns:
         indices: A random permutation of the batch indices.
@@ -265,13 +266,13 @@ def _gen_indices(x: Tensor) -> Tensor:
 
 
 def _gen_cutmix_coef(alpha: float) -> float:
-    """Generates lambda from ``Beta(alpha, alpha)``
+    """Generates lambda from ``Beta(alpha, alpha)``.
 
     Args:
-        alpha (float): Parameter for the ``Beta(alpha, alpha)`` distribution
+        alpha (float): Parameter for the ``Beta(alpha, alpha)`` distribution.
 
     Returns:
-        cutmix_lambda: Lambda parameter for performing cutmix.
+        cutmix_lambda: Lambda parameter for performing CutMix.
     """
     # First check if alpha is positive.
     assert alpha >= 0
@@ -291,7 +292,7 @@ def _rand_bbox(W: int,
                cx: Optional[int] = None,
                cy: Optional[int] = None,
                uniform_sampling: bool = False) -> Tuple[int, int, int, int]:
-    """Randomly samples a bounding box with area determined by cutmix_lambda.
+    """Randomly samples a bounding box with area determined by ``cutmix_lambda``.
 
     Adapted from original implementation https://github.com/clovaai/CutMix-PyTorch
 
@@ -341,7 +342,7 @@ def _adjust_lambda(cutmix_lambda: float, x: Tensor, bbox: Tuple) -> float:
 
     Args:
         cutmix_lambda (float): Lambda param from cutmix, used to set the area of the box.
-        x (:class:`torch.Tensor`): input tensor of shape (B, d1, d2, ..., dn), B is batch size, d1-dn
+        x (torch.Tensor): input tensor of shape ``(B, d1, d2, ..., dn)``, B is batch size, d1-dn
             are feature dimensions.
         bbox (tuple): (x1, y1, x2, y2) coordinates of the boundind box, obeying x2 > x1, y2 > y1.
 
