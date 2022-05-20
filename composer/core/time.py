@@ -230,7 +230,7 @@ class Time(Generic[TValue]):
             other_parsed = Time.from_timestring(other)
             return other_parsed
 
-        raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
+        raise TypeError(f"Cannot convert type {type(other)} to {self.__class__.__name__}")
 
     def _cmp(self, other: Union[int, float, Time, str]) -> int:
         # When doing comparisions, and other is an integer (or float), we can safely infer

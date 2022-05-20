@@ -13,6 +13,8 @@ from composer.core.types import BreakEpochException
 from composer.loggers import Logger
 from composer.core.time import TimeUnit
 from composer.core.time import ensure_time
+from composer.core.time import Time
+
 log = logging.getLogger(__name__)
 
 
@@ -101,12 +103,12 @@ class Benchmarker(Callback):
         wct_per_step = 0
         assert 0 in epoch_wct_dict, "epoch_wct_dict must contain 0"
         #todo: remove
-        print(">>>>>>>>DEBUG START")
-        for key in epoch_wct_dict:
-            value = epoch_wct_dict[key]
-            print(key, "--", value)
-            print(type(key), "--", type(value))
-        print(">>>>>>>>DEBUG END")
+        # print(">>>>>>>>DEBUG START")
+        # for key in epoch_wct_dict:
+        #     value = epoch_wct_dict[key]
+        #     print(key, "--", value)
+        #     print(type(key), "--", type(value))
+        # print(">>>>>>>>DEBUG END")
         for step in range(int(steps_per_epoch)):
             if step in epoch_wct_dict:
                 wct_per_step = epoch_wct_dict[step]
@@ -135,11 +137,11 @@ class Benchmarker(Callback):
         else:
             next_epoch = self.original_max_duration
 
-        state.timestamp.epoch._value = next_epoch - 1
-        state.timestamp.batch._value = next_epoch * int(state.dataloader_len)
+        state.timestamp._epoch = Time(int(next_epoch - 1), TimeUnit.EPOCH) 
+        state.timestamp._batch = Time(int(next_epoch * int(state.dataloader_len)), TimeUnit.BATCH) 
         n_epochs = next_epoch - prev_epoch
 
-        self.wall_clock_train += self._compute_elapsed_wct(epoch_wct_dict, state.dataloader_len, n_epochs)
+        self.wall_clock_train += float(self._compute_elapsed_wct(epoch_wct_dict, state.dataloader_len, n_epochs))
         logger.data_epoch({'wall_clock_train': self.wall_clock_train})
 
     def batch_start(self, state: State, logger: Logger):
@@ -179,5 +181,8 @@ class Benchmarker(Callback):
                     # Comment: I avoided defining setters in Timestamp() as it can cause potential bugs for others. 
                     # Instead, I overwrite the private members (bad practice).
                     new_batch_value = int(state.timestamp.epoch) * int(state.dataloader_len) + self.step_list[self.step_ix]
-                    state.timestamp._batch = int(new_batch_value)
-                    state.timestamp._batch_in_epoch = int(self.step_list[self.step_ix])
+                    # state.timestamp.batch._value = int(new_batch_value)
+                    # state.timestamp.batch_in_epoch._value = int(self.ste÷p_list[self.step_ix])
+                    
+                    state.timestamp._batch = Time(new_batch_value, TimeUnit.BATCH)
+                    state.timestamp._batch_in_epoch = Time(int(self.step_list[self.step_ix]), TimeUnit.BATCH)
