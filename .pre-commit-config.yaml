@@ -68,3 +68,4 @@ repos:
           - --comment-style
           - "#"
         types: [python]
+exclude: .ci\/release_tests\/.*
