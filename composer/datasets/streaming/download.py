@@ -94,7 +94,7 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
             ok = True
             break
         except Exception as e:  # Retry for all causes of failure.
-            error_msgs.append(str(e))
+            error_msgs.append(e)
             continue
     if not ok:
-        raise RuntimeError(f"Failed to download {remote} -> {local}. Got error messages:\n{error_msgs}")
+        raise RuntimeError(f"Failed to download {remote} -> {local}. Got errors:\n{error_msgs}")
