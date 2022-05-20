@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import pathlib
 from typing import Optional
 
-import py
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -27,6 +27,7 @@ ALGORITHMS = get_algorithm_registry().keys()
         [42, "1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
     ],
 )
+@pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")  # Needed for SWA
 @pytest.mark.parametrize("algorithm", ALGORITHMS)
 def test_algorithm_resumption(
     algorithm: str,
@@ -36,7 +37,7 @@ def test_algorithm_resumption(
     save_filename: str,
     resume_file: str,
     final_checkpoint: str,
-    tmpdir: py.path.local,
+    tmp_path: pathlib.Path,
 ):
     if algorithm in ('no_op_model', 'scale_schedule'):
         pytest.skip('stub algorithms')
@@ -55,8 +56,8 @@ def test_algorithm_resumption(
     if setting is None:
         pytest.xfail('No setting provided in algorithm_settings.')
 
-    folder1 = os.path.join(tmpdir, 'folder1')
-    folder2 = os.path.join(tmpdir, 'folder2')
+    folder1 = os.path.join(tmp_path, 'folder1')
+    folder2 = os.path.join(tmp_path, 'folder2')
 
     model = setting['model']
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
@@ -124,6 +125,13 @@ def _assert_checkpoints_equal(file1, file2):
     deep_compare(checkpoint1['rng'], checkpoint2['rng'])
 
     # compare state
+    # remove the wall clock time fields since they will always differ
+    del checkpoint1['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint1['state']['timestamp']['Timestamp']['epoch_wct']
+    del checkpoint1['state']['timestamp']['Timestamp']['batch_wct']
+    del checkpoint2['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint2['state']['timestamp']['Timestamp']['epoch_wct']
+    del checkpoint2['state']['timestamp']['Timestamp']['batch_wct']
     deep_compare(checkpoint1['state'], checkpoint2['state'])
 
 

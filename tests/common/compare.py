@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import datetime
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
@@ -25,7 +26,7 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
     if item1 is None:
         assert item2 is None, f"{path} differs: {item1} != {item2}"
         return
-    if isinstance(item1, (str, float, int, bool)):
+    if isinstance(item1, (str, float, int, bool, Time, datetime.timedelta)):
         assert type(item1) == type(item2)
         assert item1 == item2, f"{path} differs: {item1} != {item2}"
         return
@@ -44,10 +45,6 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
     if isinstance(item1, (tuple, list)):
         assert isinstance(item2, type(item1)), f"{path} differs: {item1} != {item2}"
         _check_list_recursively(item1, item2, path, atol=atol, rtol=rtol)
-        return
-    if isinstance(item1, Time):
-        assert type(item1) == type(item2)
-        assert item1 == item2, f"{path} differs: {item1} != {item2}"
         return
 
     raise NotImplementedError(f"Unsupported item type: {type(item1)}")

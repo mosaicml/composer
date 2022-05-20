@@ -30,7 +30,11 @@ class SimpleSegmentationModel(torch.nn.Module):
         input_shape = x.shape[-2:]
         features = self.backbone(x)
         logits = self.classifier(tuple(features.values()))
-        logits = F.interpolate(logits, size=input_shape, mode="bilinear", align_corners=False)
+        logits = F.interpolate(logits,
+                               size=input_shape,
+                               mode="bilinear",
+                               align_corners=False,
+                               recompute_scale_factor=False)
         return logits
 
 
@@ -81,7 +85,7 @@ def deeplabv3_builder(num_classes: int,
     backbone = _utils.IntermediateLayerGetter(backbone, return_layers=return_layers)
 
     try:
-        from mmseg.models import ASPPHead, DepthwiseSeparableASPPHead  # type: ignore
+        from mmseg.models import ASPPHead, DepthwiseSeparableASPPHead
     except ImportError as e:
         raise ImportError(
             textwrap.dedent("""\

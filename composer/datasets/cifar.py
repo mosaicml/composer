@@ -69,9 +69,9 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
         elif self.use_ffcv:
             try:
-                import ffcv  # type: ignore
-                from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder  # type: ignore
-                from ffcv.pipeline.operation import Operation  # type: ignore
+                import ffcv
+                from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
+                from ffcv.pipeline.operation import Operation
             except ImportError:
                 raise ImportError(
                     textwrap.dedent("""\

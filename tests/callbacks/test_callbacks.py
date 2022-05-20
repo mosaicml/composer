@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Callable, List
+from typing import Any, Callable, List
 
 import pytest
 
@@ -16,7 +16,7 @@ from composer.core import Event
 from composer.core.callback import Callback
 from composer.core.engine import Engine
 from composer.core.state import State
-from composer.loggers import Logger, ObjectStoreLogger
+from composer.loggers import Logger, ObjectStoreLogger, WandBLogger
 from composer.profiler.profiler import Profiler
 from composer.profiler.profiler_action import ProfilerAction
 
@@ -53,8 +53,8 @@ def test_run_event_callbacks(event: Event, dummy_state: State):
     assert callback.event == event
 
 
-def _get_callback_factories() -> List[Callable[..., Callback]]:
-    callback_factories: List[Callable[..., Callback]] = [
+def _get_callback_factories():
+    callback_factories: List[Any] = [
         x for x in vars(composer.callbacks).values() if isinstance(x, type) and issubclass(x, Callback)
     ]
     callback_factories.extend(
@@ -66,6 +66,13 @@ def _get_callback_factories() -> List[Callable[..., Callback]]:
     # Early + threshold stopper removed because they have required params and are tested separately
     callback_factories.remove(ThresholdStopper)
     callback_factories.remove(EarlyStopper)
+    # manually add a marker to the wandb logger
+    callback_factories.remove(WandBLogger)
+    callback_factories.append(
+        pytest.param(
+            WandBLogger,
+            marks=pytest.mark.filterwarnings(r'ignore:unclosed file:ResourceWarning',),
+        ))
     callback_factories.append(lambda: ObjectStoreLogger(
         use_procs=False,
         num_concurrent_uploads=1,
