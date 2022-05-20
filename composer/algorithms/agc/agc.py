@@ -59,12 +59,12 @@ class AGC(Algorithm):
 
     From <https://arxiv.org/abs/2102.06171>.
     Computes the norm of the weights and the norm of their corresponding gradients, then
-    scales the gradients by (weight_norm / grad_norm) * clipping_threshold for gradients
-    whose norms are greater than weight_norm * clipping_threshold. Norms are taken across
+    scales the gradients by ``(weight_norm / grad_norm) * clipping_threshold`` for gradients
+    whose norms are greater than ``weight_norm * clipping_threshold``. Norms are taken across
     rows for weight matrices in MLPs, across entire filters/kernels for CNNs (channel and
     spatial dimensions), and across the whole vector for biases.
 
-    Runs on ``Event.AFTER_TRAIN_BATCH``.
+    Runs on :class:`.Event.AFTER_TRAIN_BATCH`.
 
     Example:
          .. testcode::
@@ -90,7 +90,7 @@ class AGC(Algorithm):
         self.clipping_threshold = clipping_threshold
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on ``Event.AFTER_TRAIN_BATCH``."""
+        """Run on :class:`.Event.AFTER_TRAIN_BATCH`."""
         return event == Event.AFTER_TRAIN_BATCH
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
@@ -102,8 +102,8 @@ class AGC(Algorithm):
 def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipping_threshold: float = 0.01):
     """Clips all gradients in model based on ratio of gradient norms to parameter norms.
 
-    Gradients whose norms exceed weight_norm * clipping_threshold are scaled down by
-    (weight_norm / grad_norm) * clipping_threshold.
+    Gradients whose norms exceed ``weight_norm * clipping_threshold`` are scaled down by
+    ``(weight_norm / grad_norm) * clipping_threshold``.
 
     Args:
         weights (torch.Tensor): Tensor of weights (parameters) from the model.
@@ -113,8 +113,8 @@ def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipp
 
     Return:
         clipped_grad_coeff (torch.Tensor): Coefficient of same shape as grad_norm equal to
-            (weight_norm / grad_norm) * clipping_threshold for gradients whose norms
-            that exceed weight_norm * clipping_threshold and one otherwise.
+            ``(weight_norm / grad_norm) * clipping_threshold`` for gradients whose norms
+            that exceed ``weight_norm * clipping_threshold`` and one otherwise.
     """
 
     # Compute and clamp grad and weight norms.
@@ -132,12 +132,12 @@ def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipp
 def _unitwise_norm(tensor: torch.Tensor):
     """Implements unitwise norm as described in Brock et al, 2021.
 
-    For 0D scalars of shape [], we trivially normalize with dim=0 which essentially returns the absolute value of the scalar.
-    For 1D *.bias weights of shape [out_features], we normalize across entire vector -> dim=0.
-    For 2D torch.nn.Linear weights of shape [out_features, in_features]: we normalize across in_features -> dim = 1
-    For 4D torch.nn.Conv2d weights [out_channels, in_channels, kernel_height, kernel_width]:
-        we normalize across [in_channels, kernel_height, kernel_width] -> dim = (1, 2, 3).
-    If a 3D parameter were somehow in your model, we would normalize buy the last two dimensions -> dim = (1,2).
+    For 0D scalars of shape ``[]``, we trivially normalize with ``dim=0`` which essentially returns the absolute value of the scalar.
+    For 1D *.bias weights of shape ``[out_features]``, we normalize across entire vector -> ``dim=0``.
+    For 2D torch.nn.Linear weights of shape ``[out_features, in_features]``: we normalize across in_features -> ``dim = 1``.
+    For 4D torch.nn.Conv2d weights ``[out_channels, in_channels, kernel_height, kernel_width]``:
+        we normalize across ``[in_channels, kernel_height, kernel_width] -> dim = (1, 2, 3)``.
+    If a 3D parameter were somehow in your model, we would normalize buy the last two dimensions -> ``dim = (1,2)``.
 
     Args:
         tensor (torch.Tensor): A parameter or gradient of the model.
