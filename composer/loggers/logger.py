@@ -17,6 +17,7 @@ import coolname
 import torch
 
 from composer.utils import dist, ensure_tuple
+from composer.utils.file_helpers import format_name_with_dist
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -140,21 +141,26 @@ class Logger:
     ):
         """Log ``file_path`` as an artifact named ``artifact_name``.
 
+        Both ``file_path`` and ``artifact_name`` can be specified as format strings.
+        See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
+
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
                 :class:`LogLevel`.
-            artifact_name (str): The name of the artifact.
-            file_path (str | pathlib.Path): The file path.
+            artifact_name (str): A format string for the name of the artifact.
+            file_path (str | pathlib.Path): A format string for the file path.
             overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
                 (default: ``False``)
         """
+
         log_level = LogLevel(log_level)
+        file_path = format_name_with_dist(format_str=str(file_path), run_name=self.run_name)
         file_path = pathlib.Path(file_path)
         for destination in self.destinations:
             destination.log_file_artifact(
                 state=self._state,
                 log_level=log_level,
-                artifact_name=artifact_name,
+                artifact_name=format_name_with_dist(format_str=artifact_name, run_name=self.run_name),
                 file_path=file_path,
                 overwrite=overwrite,
             )
@@ -168,21 +174,25 @@ class Logger:
     ):
         """Symlink ``existing_artifact_name`` as ``symlink_artifact_name``.
 
+        Both ``existing_artifact_name`` and ``symlink_artifact_name`` can be specified as format strings.
+        See :func:`~.composer.utils.file_helpers.format_name_with_dist` for more information.
+
         Args:
             log_level (str | int | LogLevel): The log level, which can be a name, value, or instance of
                 :class:`LogLevel`.
-            existing_artifact_name (str): The name of symlinked artifact.
-            symlink_artifact_name (str): The symlink name of artifact.
+            existing_artifact_name (str): A format string for the name of symlinked artifact.
+            symlink_artifact_name (str): A format string for the symlink name of artifact.
             overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
                 (default: ``False``)
         """
+
         log_level = LogLevel(log_level)
         for destination in self.destinations:
             destination.log_symlink_artifact(
                 state=self._state,
                 log_level=log_level,
-                existing_artifact_name=existing_artifact_name,
-                symlink_artifact_name=symlink_artifact_name,
+                existing_artifact_name=format_name_with_dist(format_str=existing_artifact_name, run_name=self.run_name),
+                symlink_artifact_name=format_name_with_dist(format_str=symlink_artifact_name, run_name=self.run_name),
                 overwrite=overwrite,
             )
 

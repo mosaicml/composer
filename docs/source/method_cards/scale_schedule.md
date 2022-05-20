@@ -60,6 +60,7 @@ Scale schedule supports all Composer Schedulers:
     CosineAnnealingWithWarmupScheduler
     CosineAnnealingWarmRestartsScheduler
     PolynomialScheduler
+    PolynomialWithWarmupScheduler
 ```
 
 ```{eval-rst}
