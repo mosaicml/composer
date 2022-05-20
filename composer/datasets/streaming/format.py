@@ -275,7 +275,7 @@ class StreamingDatasetIndex(object):
 
         Returns:
             shards (List[int]): The shards that this partition overlaps.
-            shards_to_download (List[int]): The shards that this worker should download (subset of `shards`).
+            shards_to_download (List[int]): The shards that this worker should download (subset of ``shards``).
             min_id (int): The lowest sample ID of this partition.
             max_id (int): The highest sample ID of this partition.
         """

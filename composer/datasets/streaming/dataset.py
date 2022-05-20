@@ -16,7 +16,7 @@ from PIL import Image
 from torch.utils.data import IterableDataset
 from torchvision import transforms
 
-from composer.datasets.streaming.download import safe_download
+from composer.datasets.streaming.download import download_or_wait
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
                                                 get_shard_basename)
 from composer.datasets.streaming.world import get_world
@@ -100,12 +100,9 @@ class StreamingDataset(IterableDataset):
         # network or cached locally.
         # Precomputes the shard and offset in bytes of each sample (for direct
         # access).
+        # Only local rank 0 on each node downloads the index. All other ranks wait.
         index_basename = get_index_basename()
-        index_local = os.path.join(self.local, index_basename)
-        if dist.get_local_rank() == 0:
-            self._download_if_missing(index_basename)
-        dist.barrier()
-
+        index_local = self._download(index_basename, wait=(dist.get_local_rank() != 0))
         with open(index_local, 'rb') as fp:
             self.index = StreamingDatasetIndex.load(fp)
 
@@ -116,7 +113,7 @@ class StreamingDataset(IterableDataset):
         self._downloaded_ids = []
         self._are_all_shards_downloaded = False
 
-    def _download_if_missing(self, basename: str) -> str:
+    def _download(self, basename: str, wait=False) -> str:
         """Safely download a shard from remote to local cache.
 
         Args:
@@ -127,7 +124,7 @@ class StreamingDataset(IterableDataset):
         """
         remote = os.path.join(self.remote, basename)
         local = os.path.join(self.local, basename)
-        safe_download(remote, local, timeout=self.timeout)
+        download_or_wait(remote=remote, local=local, wait=wait, timeout=self.timeout)
         return local
 
     def _local_exists(self, basename: str) -> bool:
@@ -207,30 +204,19 @@ class StreamingDataset(IterableDataset):
             part_max_id (int): Maximum sample ID of this partition.
         """
         if self.shuffle:
-            np.random.shuffle(shards)
+            # Always process first shard first because other workers may be waiting on it
+            first = shards[0:1]
+            rest = shards[1:]
+            np.random.shuffle(rest)
+            shards = first + rest
 
-        completed_shards = set()
-        while completed_shards != set(shards):
-            for shard in shards:
-                if shard not in completed_shards:
-                    basename = get_shard_basename(shard)
-                    if shard in shards_to_download:
-                        # If this worker is in charge of downloading the shard, download it.
-                        self._download_if_missing(basename)
-                        self._load_shards([shard], part_min_id, part_max_id)
-                        completed_shards.add(shard)
-                    else:
-                        if not self.shuffle:
-                            # If not shuffling, force wait until shard gets downloaded
-                            # This forces deterministic sample order.
-                            while not self._local_exists(basename):
-                                sleep(0.25)
-                        # Check if shard is available yet.
-                        # If it is, load the shard. If not, we'll check again on the next loop.
-                        if self._local_exists(basename):
-                            self._load_shards([shard], part_min_id, part_max_id)
-                            completed_shards.add(shard)
-            sleep(0.25)
+        for shard in shards:
+            # If this worker is in charge of downloading the shard, download it.
+            # Otherwise, wait until shard gets downloaded by another worker on this node
+            # This produces deterministic sample order.
+            basename = get_shard_basename(shard)
+            self._download(basename, wait=(shard not in shards_to_download))
+            self._load_shards([shard], part_min_id, part_max_id)
         self._done_loading()
 
     def _load(self) -> None:
