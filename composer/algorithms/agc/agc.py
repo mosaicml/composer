@@ -64,7 +64,7 @@ class AGC(Algorithm):
     rows for weight matrices in MLPs, across entire filters/kernels for CNNs (channel and
     spatial dimensions), and across the whole vector for biases.
 
-    Runs on :class:`.Event.AFTER_TRAIN_BATCH`.
+    Runs on :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH`.
 
     Example:
          .. testcode::
@@ -90,7 +90,7 @@ class AGC(Algorithm):
         self.clipping_threshold = clipping_threshold
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on :class:`.Event.AFTER_TRAIN_BATCH`."""
+        """Run on :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH`."""
         return event == Event.AFTER_TRAIN_BATCH
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
