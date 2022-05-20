@@ -194,10 +194,9 @@ class StreamingDataset(IterableDataset):
         """
         if self.shuffle:
             # Always process first shard first because other workers may be waiting on it
-            first = part_shards[0:1]
-            rest = part_shards[1:]
-            np.random.shuffle(rest)
-            part_shards = first + rest
+            part_shards_array = np.array(part_shards)
+            np.random.shuffle(part_shards_array[1:])
+            part_shards = part_shards_array.tolist()
 
         for shard in part_shards:
             # If this worker is in charge of downloading the shard, download it.
