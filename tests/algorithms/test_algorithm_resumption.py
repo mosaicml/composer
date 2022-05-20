@@ -94,7 +94,7 @@ def test_algorithm_resumption(
         model=copied_model,
         load_path=os.path.join(folder1, resume_file),
         load_weights_only=False,
-        load_strict=False,
+        load_strict_model_weights=False,
         optimizers=optimizer,
         schedulers=scheduler,
         save_folder=folder2,

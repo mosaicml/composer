@@ -32,7 +32,6 @@ class ResNetHparams(ModelHparams):
     model_name: str = hp.optional(
         f"ResNet architecture to instantiate, must be one of {ComposerResNet.valid_model_names}. (default: '')",
         default='')
-    num_classes: int = hp.optional("Number of classes for the classification taks. (default: ``None``)", default=None)
     pretrained: bool = hp.optional("If true, use ImageNet pretrained weights. (default: ``False``)", default=False)
     groups: int = hp.optional(
         "Number of filter groups for the 3x3 convolution layer in bottleneck block. (default: ``1``)", default=1)
@@ -50,6 +49,8 @@ class ResNetHparams(ModelHparams):
             raise ValueError("num_classes must be specified")
 
     def initialize_object(self):
+        if self.num_classes is None:
+            raise ValueError("num_classes must be specified")
         return ComposerResNet(model_name=self.model_name,
                               num_classes=self.num_classes,
                               pretrained=self.pretrained,

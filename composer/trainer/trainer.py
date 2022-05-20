@@ -489,7 +489,7 @@ class Trainer:
                 trainer.engine.close()
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
-        load_strict (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
+        load_strict_model_weights (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
             Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
@@ -670,7 +670,7 @@ class Trainer:
         load_path: Optional[str] = None,
         load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
-        load_strict: bool = False,
+        load_strict_model_weights: bool = False,
         load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
 
@@ -944,7 +944,7 @@ class Trainer:
                                               path=load_path,
                                               object_store=load_object_store,
                                               load_weights_only=load_weights_only,
-                                              strict_model_weights=load_strict,
+                                              strict_model_weights=load_strict_model_weights,
                                               chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
             log.info(f"Setting seed to {self.state.seed}")
