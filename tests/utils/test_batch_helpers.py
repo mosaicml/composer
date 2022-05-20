@@ -35,9 +35,10 @@ def example_sequence(request):
     return request.param
 
 
-@pytest.fixture(scope="module", params=[my_list, tuple(my_list)])
+@pytest.fixture(scope="module", params=[list, tuple])
 def example_dequeless_sequence(request):
-    return request.param
+    my_list = [3, 4, 5, 6, 7, 8, 9, 10]
+    return request.param(my_list)
 
 
 # All key value pair data structures that have a __getitem__ function thats takes str.
