@@ -223,9 +223,8 @@ def test_batch_get_not_pair_of_callables(example_complicated_object, example_get
 
 
 # Test whether arrays and tensors can be indexed by a sequence of slice objects.
-@pytest.mark.parametrize('batch,key,expected', [(torch.tensor(my_list), [slice(1, 4), slice(5, 7)], [
-    torch.tensor([4, 5, 6]), torch.tensor([8, 9])
-])])
+@pytest.mark.parametrize('batch,key,expected', [(torch.tensor(my_list), [slice(1, 4), slice(
+    5, 7)], [torch.tensor([4, 5, 6]), torch.tensor([8, 9])])])
 def test_batch_get_seq_of_slices_key_for_1D_tensors_and_arrays(batch, key, expected):
     for actual, expectation in zip(batch_get(batch, key), expected):
         assert all(actual == expectation)

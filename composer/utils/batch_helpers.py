@@ -35,7 +35,7 @@ def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
             depending on what the batch is composed of.
     """
     # Case 1: key is a tuple of (getter, setter).
-    if _is_key_get_and_set_fn_pair(key):
+    if (isinstance(key, Sequence) and not isinstance(key, str) and _is_key_get_and_set_fn_pair(key)):
         get_fn, _ = key
         return get_fn(batch)
 
@@ -92,7 +92,7 @@ def batch_set(batch: Any, key: Union[str, int, Callable, Any], value: Any) -> An
 
     """
     # Case 1: key is a tuple of (getter, setter) callables.
-    if _is_key_get_and_set_fn_pair(key):
+    if (isinstance(key, Sequence) and not isinstance(key, str) and _is_key_get_and_set_fn_pair(key)):
         _, set_fn = key
         return set_fn(batch, value)
 
@@ -188,10 +188,9 @@ def _batch_set_tuple(batch: Any, key: Union[int, str], value: Any) -> Any:
 
 
 def _is_key_get_and_set_fn_pair(key):
-    if isinstance(key, Sequence) and not isinstance(key, str):
-        if all([callable(key_element) for key_element in key]):
-            if len(key) == 2:
-                return True
-            else:
-                raise ValueError(f"If key is a sequence of Callables, it should be of length 2' not {len(key)}")
+    if all([callable(key_element) for key_element in key]):
+        if len(key) == 2:
+            return True
+        else:
+            raise ValueError(f"If key is a sequence of Callables, it should be of length 2' not {len(key)}")
     return False
