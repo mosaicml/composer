@@ -176,7 +176,8 @@ class Benchmarker(Callback):
                     self.step_ix = 0
                     raise BreakEpochException
                 else:
+                    # Comment: I avoided defining setters in Timestamp() as it can cause potential bugs for others. 
+                    # Instead, I overwrite the private members (bad practice).
                     new_batch_value = int(state.timestamp.epoch) * int(state.dataloader_len) + self.step_list[self.step_ix]
-                    state.timestamp.batch._value = int(new_batch_value)
-                    # state.timestamp.batch._value = ensure_time(int(new_batch_value), TimeUnit.BATCH)
-                    state.timestamp.batch_in_epoch._value = int(self.step_list[self.step_ix])
+                    state.timestamp._batch = int(new_batch_value)
+                    state.timestamp._batch_in_epoch = int(self.step_list[self.step_ix])
