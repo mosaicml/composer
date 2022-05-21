@@ -85,6 +85,7 @@ def soft_cross_entropy(input: Tensor,
                        reduction: str = 'mean'):
     r"""Drop-in replacement for :class:`~torch.nn.functional.cross_entropy` that can
      handle class indices or one-hot labels.
+
     Args:
         input (torch.Tensor) : :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
             in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`
