@@ -313,7 +313,6 @@ def add_module_summary_tables(
 
         for category, category_name in ((functions, "Functions"), (classes, "Classes"), (hparams, "Hparams"),
                                         (exceptions, "Exceptions")):
-            sphinx_path = None
             sphinx_lines = []
             for item_name, item in category:
                 sphinx_path = determine_sphinx_path(item, item.__module__)

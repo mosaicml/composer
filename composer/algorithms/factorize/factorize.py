@@ -99,8 +99,7 @@ class Factorize(Algorithm):
     """Decomposes linear operators into pairs of smaller linear operators.
 
     Specifically, this algorithm replaces :class:`~torch.nn.Conv2d` and
-    :class:`~torch.nn.Linear` modules with
-    :class:`.FactorizedConv2d` and
+    :class:`~torch.nn.Linear` modules with :class:`.FactorizedConv2d` and
     :class:`.FactorizedLinear` modules.
 
     The replacement is only performed if doing so would reduce the number of
