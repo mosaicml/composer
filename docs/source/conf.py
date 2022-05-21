@@ -242,6 +242,7 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
         maybe_path = _try_importing_from(try_module_name, item)
         if maybe_path is not None:
             return maybe_path
+
     return None
 
 
