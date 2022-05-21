@@ -92,18 +92,18 @@ We could add events to our training loop as follows:
         # <EPOCH_END>
 
 Now we need a way to tie events to algorithms, so that we know which algorithms to run and when to run them.
-This is the purpose of the :class:`~composer.core.Engine`. The :class:`~composer.core.Engine` is initialized with a
-list of algorithms to run and provides a :meth:`composer.core.Engine.run_event` method that the trainer can call to
-execute algorithms for the given event. The :class:`~composer.core.Engine` is also responsible for handling potential
+This is the purpose of the :class:`.Engine`. The :class:`.Engine` is initialized with a
+list of algorithms to run and provides a :meth:`.Engine.run_event` method that the trainer can call to
+execute algorithms for the given event. The :class:`.Engine` is also responsible for handling potential
 conflicts between multiple algorithms.
 
 One piece is missing. Algorithms are no longer running from within the body of the training loop, but they still need
-to be able to modify the training loop's state. For this, we introduce :class:`~composer.core.State` which stores all
-objects relevant to training that algorithms need access to. The :class:`~composer.core.Engine` is initialized with a
-reference to the :class:`~composer.core.State` and passes it to algorithms when it invokes them.
+to be able to modify the training loop's state. For this, we introduce :class:`.State` which stores all
+objects relevant to training that algorithms need access to. The :class:`.Engine` is initialized with a
+reference to the :class:`.State` and passes it to algorithms when it invokes them.
 
-Finally, to be compatible with the :class:`~composer.core.Engine`, algorithms need to implement two methods:
-:meth:`~composer.core.Algorithm.match` and :meth:`~composer.core.Algorithm.apply`. For MixUp, these methods can be very
+Finally, to be compatible with the :class:`.Engine`, algorithms need to implement two methods:
+:meth:`.Algorithm.match` and :meth:`.Algorithm.apply`. For MixUp, these methods can be very
 simple:
 
 .. code-block:: python
@@ -130,8 +130,6 @@ simple:
 Putting all the pieces together, our trainer looks something like this:
 
 .. code-block:: python
-
-    from composer import Time
 
     state = State(
         model=your_model,  # ComposerModel
@@ -170,8 +168,8 @@ Putting all the pieces together, our trainer looks something like this:
         engine.run_event("epoch_end")
 
 That's it! Mixup will automatically run on ``"after_dataloader"`` and ``"after_loss"``. And thanks to all of the events being present in the training loop, we can easily start using new algorithms as well!
-For more information on events, state, and engines, check out :class:`~composer.core.event.Event`,
-:class:`~composer.core.state.State`, and :class:`~composer.core.engine.Engine`.
+For more information on events, state, and engines, check out :class:`.Event`,
+:class:`.State`, and :class:`.Engine`.
 
 For advanced experimentation, we recommend using the Composer :doc:`Trainer<../trainer/using_the_trainer>`.
 The trainer not only takes care of all the state management and event callbacks from above,

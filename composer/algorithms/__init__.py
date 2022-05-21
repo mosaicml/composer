@@ -62,7 +62,7 @@ from composer.algorithms.mixup import MixUp
 from composer.algorithms.no_op_model import NoOpModel
 from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment, RandAugmentTransform
-from composer.algorithms.sam import SAM
+from composer.algorithms.sam import SAM, SAMOptimizer
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite, SqueezeExcite2d, SqueezeExciteConv2d
@@ -98,6 +98,7 @@ __all__ = [
     "RandAugment",
     "RandAugmentTransform",
     "SAM",
+    "SAMOptimizer",
     "SelectiveBackprop",
     "SeqLengthWarmup",
     "SqueezeExcite",
