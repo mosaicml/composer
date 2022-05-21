@@ -125,7 +125,7 @@ class SqueezeExcite(Algorithm):
     """Adds Squeeze-and-Excitation blocks (`Hu et al, 2019 <https://arxiv.org/abs/1709.01507>`_) after the
     :class:`~torch.nn.Conv2d` modules in a neural network.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`. See :class:`SqueezeExcite2d` for more information.
+    Runs on :attr:`.Event.INIT`. See :class:`.SqueezeExcite2d` for more information.
 
     Args:
         latent_channels (float, optional): Dimensionality of the hidden layer within the added
@@ -151,7 +151,7 @@ class SqueezeExcite(Algorithm):
         self.min_channels = min_channels
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on :attr:`~composer.core.event.Event.INIT`
+        """Runs on :attr:`.Event.INIT`
 
         Args:
             event (Event): The current event.

@@ -207,8 +207,8 @@ class _FactorizedModule(nn.Module, abc.ABC):
         using the solution is worthwhile.
 
         Args:
-            solution (:class:`LowRankSolution`): an object encapsulating the new 
-                parameters to be used and their associated mean squared error on 
+            solution (:class:`LowRankSolution`): an object encapsulating the new
+                parameters to be used and their associated mean squared error on
                 the input for which they were optimized. Can be obtained using
                 :meth:`~solution_for_rank`.
         """
@@ -234,7 +234,7 @@ class FactorizedConv2d(_FactorizedModule):
     point is a 2x reduction in channel count, similar to
     :class:`~FactorizedLinear`.
 
-    See :func:`~composer.factorize.factorize_conv2d` for more details.
+    See :func:`.factorize_conv2d` for more details.
 
     Args:
         in_channels (int): number of channels in the input image.
@@ -380,7 +380,7 @@ class FactorizedLinear(_FactorizedModule):
     better, it may take a reduction of more than 2x to get a speedup
     in practice.
 
-    See :func:`~composer.factorize.factorize_matrix` for more details.
+    See :func:`.factorize_matrix` for more details.
 
     Args:
         in_features (int): size of each input sample
@@ -436,7 +436,7 @@ class FactorizedLinear(_FactorizedModule):
 
     @property
     def latent_features(self) -> int:
-        """The dimensionality of the space into which the input is 
+        """The dimensionality of the space into which the input is
         projected by the first matrix in the factorization."""
         return self.latent_size
 

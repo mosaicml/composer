@@ -78,18 +78,14 @@ napoleon_custom_sections = [('Returns', 'params_style')]
 #
 html_theme = "furo"
 
-# # Make sure the target is unique
+# Make sure the target is unique
 autosectionlabel_prefix_document = True
-# autosummary_imported_members = False
 autosectionlabel_maxdepth = 5
-# autosummary_generate = True
 autosummary_generate = False
 
-# have sphinx respect __all__ defined in modules, rather than always showing
-# full path to definitions of classes and functions
+# have sphinx respect __all__ defined in modules
 autosummary_ignore_module_all = False
-# autosummary_generate = False # TODO resolve conflict
-autosummary_imported_members = True # TODO conflict with setting to false above?
+autosummary_imported_members = True
 
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -241,7 +237,7 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
     # return the shallowest way to import this item
     module_parts = module_name.split(".")
     try_modules = ['.'.join(module_parts[:prefix_len]) for prefix_len in range(1, len(module_parts))]
-    try_modules = ['composer.functional'] + try_modules  # functional gets priority
+    try_modules = ['composer.functional', 'composer.layers'] + try_modules
     for try_module_name in try_modules:
         maybe_path = _try_importing_from(try_module_name, item)
         if maybe_path is not None:

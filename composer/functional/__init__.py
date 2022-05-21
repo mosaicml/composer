@@ -18,13 +18,13 @@
 from composer.algorithms.agc import apply_agc
 from composer.algorithms.alibi.alibi import apply_alibi
 from composer.algorithms.augmix import augmix_image
-from composer.algorithms.blurpool import apply_blurpool
+from composer.algorithms.blurpool import apply_blurpool, blur_2d, blurmax_pool2d
 from composer.algorithms.channels_last import apply_channels_last
 from composer.algorithms.colout import colout_batch
 from composer.algorithms.cutmix import cutmix_batch
 from composer.algorithms.cutout import cutout_batch
 from composer.algorithms.ema import compute_ema
-from composer.algorithms.factorize import apply_factorization
+from composer.algorithms.factorize import apply_factorization, factorize_conv2d, factorize_matrix
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm
 from composer.algorithms.label_smoothing import smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers
@@ -42,12 +42,16 @@ __all__ = [
     "apply_alibi",
     "augmix_image",
     "apply_blurpool",
+    "blur_2d",
+    "blurmax_pool2d",
     "apply_channels_last",
     "colout_batch",
     "compute_ema",
     "cutmix_batch",
     "cutout_batch",
     "apply_factorization",
+    "factorize_conv2d",
+    "factorize_matrix",
     "apply_ghost_batchnorm",
     "smooth_labels",
     "freeze_layers",

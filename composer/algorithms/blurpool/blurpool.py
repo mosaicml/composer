@@ -86,7 +86,7 @@ class BlurPool(Algorithm):
     """`BlurPool <http://proceedings.mlr.press/v97/zhang19a.html>`_ adds anti-aliasing filters to convolutional layers
     to increase accuracy and invariance to small shifts in the input.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`.
+    Runs on :attr:`.Event.INIT`.
 
     Args:
         replace_convs (bool): replace strided :class:`torch.nn.Conv2d` modules with
@@ -120,7 +120,7 @@ class BlurPool(Algorithm):
                         'BlurPool will not be modifying the model.')
 
     def match(self, event: Event, state: State) -> bool:
-        """Runs on :attr:`~composer.core.event.Event.INIT`.
+        """Runs on :attr:`.Event.INIT`.
 
         Args:
             event (Event): The current event.

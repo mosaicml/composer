@@ -30,8 +30,7 @@ def apply_factorization(model: torch.nn.Module,
                         latent_features: Union[int, float] = 0.25,
                         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
     """Replaces :class:`~torch.nn.Linear` and :class:`~torch.nn.Conv2d` modules with
-    :class:`~composer.algorithms.factorize.FactorizedLinear` and
-    :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
+    :class:`.FactorizedLinear` and :class:`.FactorizedConv2d` modules.
 
     Factorized modules replace one full-rank operation with a sequence of two
     lower-rank operations. When the rank is low enough, this can save
@@ -101,8 +100,8 @@ class Factorize(Algorithm):
 
     Specifically, this algorithm replaces :class:`~torch.nn.Conv2d` and
     :class:`~torch.nn.Linear` modules with
-    :class:`~composer.algorithms.factorize.FactorizedConv2d` and
-    :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
+    :class:`.FactorizedConv2d` and
+    :class:`.FactorizedLinear` modules.
 
     The replacement is only performed if doing so would reduce the number of
     multiply-adds used to compute each module's output. For linear
@@ -114,15 +113,13 @@ class Factorize(Algorithm):
     factorization being worthwhile varies with kernel size. Larger kernels
     allow larger intermediate ranks.
 
-    See :func:`~composer.algorithms.factorize.factorize_matrix` and
-    :func:`~composer.algorithms.factorize.factorize_conv2d` for more
+    See :func:`.factorize_matrix` and :func:`.factorize_conv2d` for more
     information about the factorization process. See
-    :class:`~composer.algorithms.factorize.FactorizedConv2d` and
-    :class:`~composer.algorithms.factorize.FactorizedLinear`
+    :class:`.FactorizedConv2d` and :class:`.FactorizedLinear`
     for more information about the factorized modules used to replace the
     original modules.
 
-    Runs on :attr:`~composer.core.event.Event.INIT`.
+    Runs on :attr:`.Event.INIT`.
 
     Args:
         factorize_convs (bool): whether to try factorizing :class:`~torch.nn.Conv2d` modules.
@@ -219,7 +216,7 @@ def _factorize_conv2d_modules(model: torch.nn.Module,
                               latent_channels: Union[int, float] = 0.25,
                               optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None):
     """Replaces :class:`~torch.nn.Conv2d` modules in ``model`` with
-    :class:`~composer.algorithms.factorize.FactorizedConv2d` modules.
+    :class:`.FactorizedConv2d` modules.
 
     See :class:`Factorize` for details.
     """
@@ -243,7 +240,7 @@ def _factorize_linear_modules(model: torch.nn.Module,
                               latent_features: Union[int, float] = 0.25,
                               optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None):
     """Replaces :class:`~torch.nn.Linear` modules in ``model`` with
-    :class:`~composer.algorithms.factorize.FactorizedLinear` modules.
+    :class:`.FactorizedLinear` modules.
 
     See :class:`Factorize` for details.
     """
