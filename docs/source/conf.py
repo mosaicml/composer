@@ -154,6 +154,8 @@ intersphinx_mapping = {
     'libcloud': ('https://libcloud.readthedocs.io/en/stable/', None),
     'PIL': ('https://pillow.readthedocs.io/en/stable', None),
     'coolname': ('https://coolname.readthedocs.io/en/latest/', None),
+    'datasets': ('https://huggingface.co/docs/datasets/master/en/', None),
+    'transformers': ('https://huggingface.co/docs/transformers/master/en/', None),
 }
 
 nitpicky = False  # warn on broken links
