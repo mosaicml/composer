@@ -30,8 +30,8 @@ from composer.datasets.imagenet import (Imagenet1kWebDatasetHparams, ImagenetDat
                                         TinyImagenet200WebDatasetHparams)
 from composer.datasets.lm_datasets import LMDatasetHparams
 from composer.datasets.mnist import MNISTDatasetHparams, MNISTWebDatasetHparams
-from composer.datasets.synthetic import (MemoryFormat, SyntheticBatchPairDataset, SyntheticDataLabelType,
-                                         SyntheticDataType, SyntheticPILDataset)
+from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticDataType,
+                                         SyntheticPILDataset)
 
 __all__ = [
     "ADE20kDatasetHparams", "StreamingADE20kHparams", "ADE20kWebDatasetHparams", "BratsDatasetHparams",
@@ -39,6 +39,6 @@ __all__ = [
     "CIFAR100WebDatasetHparams", "COCODatasetHparams", "StreamingCOCOHparams", "DataLoaderHparams",
     "get_dataset_registry", "EvaluatorHparams", "GLUEHparams", "DatasetHparams", "SyntheticHparamsMixin",
     "WebDatasetHparams", "Imagenet1kWebDatasetHparams", "ImagenetDatasetHparams", "TinyImagenet200WebDatasetHparams",
-    "StreamingImageNet1kHparams", "LMDatasetHparams", "MNISTDatasetHparams", "MNISTWebDatasetHparams", "MemoryFormat",
+    "StreamingImageNet1kHparams", "LMDatasetHparams", "MNISTDatasetHparams", "MNISTWebDatasetHparams",
     "SyntheticBatchPairDataset", "SyntheticDataLabelType", "SyntheticDataType", "SyntheticPILDataset"
 ]
