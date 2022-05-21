@@ -1,5 +1,4 @@
-﻿
-composer.utils
+﻿composer.utils
 ==============
 
 .. automodule:: composer.utils

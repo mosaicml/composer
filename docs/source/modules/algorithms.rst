@@ -1,5 +1,4 @@
-﻿
-composer.algorithms
+﻿composer.algorithms
 ===================
 
 .. automodule:: composer.algorithms

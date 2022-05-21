@@ -1,6 +1,6 @@
 ﻿
 composer.loggers
-===================
+================
 
 .. automodule:: composer.loggers
    :members:
