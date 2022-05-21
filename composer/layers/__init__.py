@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from composer.algorithms.blurpool import BlurConv2d as BlurConv2d
 from composer.algorithms.blurpool import BlurMaxPool2d as BlurMaxPool2d
 from composer.algorithms.blurpool import BlurPool2d as BlurPool2d
