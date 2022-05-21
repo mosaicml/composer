@@ -1,5 +1,4 @@
-﻿
-composer.functional
+﻿composer.functional
 ===================
 
 .. automodule:: composer.functional

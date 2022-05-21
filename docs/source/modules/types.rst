@@ -1,7 +1,8 @@
-﻿composer.optim
+composer.types
 ==============
 
-.. automodule:: composer.optim
+.. automodule:: composer.types
    :members:
    :imported-members:
    :show-inheritance:
+

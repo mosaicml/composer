@@ -1,5 +1,4 @@
-﻿
-composer.loggers
+﻿composer.loggers
 ================
 
 .. automodule:: composer.loggers

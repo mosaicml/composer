@@ -3,4 +3,5 @@
 
 .. automodule:: composer.callbacks
    :members:
+   :imported-members:
    :show-inheritance:
