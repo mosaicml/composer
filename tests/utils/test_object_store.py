@@ -9,10 +9,10 @@ import pytest
 from composer.utils.object_store import ObjectStoreHparams
 
 
-def test_object_store(tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-    remote_dir = str(tmpdir / "remote_dir")
+def test_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+    remote_dir = str(tmp_path / "remote_dir")
     os.makedirs(remote_dir)
-    local_dir = str(tmpdir / "local_dir")
+    local_dir = str(tmp_path / "local_dir")
     os.makedirs(local_dir)
     monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
     provider_hparams = ObjectStoreHparams(

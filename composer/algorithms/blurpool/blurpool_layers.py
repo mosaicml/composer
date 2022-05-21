@@ -27,7 +27,7 @@ def _padding_for_filt_2d_same(filt: torch.Tensor):
         raise IndexError(f"Filter must have odd height; got {h}")
     if w % 2 == 0:
         raise IndexError(f"Filter must have odd width; got {w}")
-    return (h // 2, w // 2)
+    return int(torch.div(h, 2)), int(torch.div(w, 2))
 
 
 def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.Tensor] = None) -> torch.Tensor:

@@ -79,10 +79,9 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             device_transform_fn = None
         elif self.use_ffcv:
             try:
-                import ffcv  # type: ignore
-                from ffcv.fields.decoders import RandomResizedCropRGBImageDecoder  # type: ignore
-                from ffcv.fields.decoders import CenterCropRGBImageDecoder, IntDecoder  # type: ignore
-                from ffcv.pipeline.operation import Operation  # type: ignore
+                import ffcv
+                from ffcv.fields.decoders import CenterCropRGBImageDecoder, IntDecoder, RandomResizedCropRGBImageDecoder
+                from ffcv.pipeline.operation import Operation
             except ImportError:
                 raise ImportError(
                     textwrap.dedent("""\
