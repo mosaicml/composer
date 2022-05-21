@@ -230,7 +230,7 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
                 {item.__qualname__} is private, so it should not be re-exported.
                 To fix, please make it public by renaming to {public_name}"""))
 
-    def try_importing_from(try_module_name: str, item) -> Optional[str]:
+    def _try_importing_from(try_module_name: str, item) -> Optional[str]:
         module = importlib.import_module(try_module_name)
         for name, val in vars(module).items():
             if val is item:
@@ -243,9 +243,10 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
     try_modules = ['.'.join(module_parts[:prefix_len]) for prefix_len in range(1, len(module_parts))]
     try_modules = ['composer.functional'] + try_modules  # functional gets priority
     for try_module_name in try_modules:
-        maybe_path = try_importing_from(try_module_name, item)
+        maybe_path = _try_importing_from(try_module_name, item)
         if maybe_path is not None:
             return maybe_path
+    return None
 
 
 def add_module_summary_tables(
