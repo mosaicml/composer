@@ -6,7 +6,8 @@ from unittest.mock import Mock
 import pytest
 import torch
 
-from composer.algorithms import SqueezeExcite, SqueezeExciteConv2d, SqueezeExciteHparams
+from composer.algorithms import SqueezeExciteHparams
+from composer.algorithms.squeeze_excite import SqueezeExcite, SqueezeExciteConv2d
 from composer.core import Event, State
 from composer.functional import apply_squeeze_excite as apply_se
 from composer.loggers import Logger
