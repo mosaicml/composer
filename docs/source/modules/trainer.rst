@@ -10,3 +10,5 @@
    :exclude-members: Trainer
 
 .. autoclass:: composer.Trainer
+   :members:
+   :show-inheritance:

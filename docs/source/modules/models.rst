@@ -10,3 +10,5 @@
    :exclude-members: ComposerModel
 
 .. autoclass:: composer.ComposerModel
+   :members:
+   :show-inheritance:

@@ -16,14 +16,31 @@
 .. autoclass:: composer.core.Precision
 
 .. autoclass:: composer.Algorithm
+   :members:
+
 .. autoclass:: composer.Callback
+   :members:
+
 .. autoclass:: composer.DataSpec
+   :members:
+
 .. autoclass:: composer.Engine
+   :members:
+
 .. autoclass:: composer.Evaluator
+   :members:
+
 .. autoclass:: composer.Event
+   :members:
+
 .. autoclass:: composer.State
+   :members:
+
 .. autoclass:: composer.Time
+   :members:
+
 .. autoclass:: composer.TimeUnit
+   :members:
+
 .. autoclass:: composer.Timestamp
-
-
+   :members:
