@@ -235,53 +235,17 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
         for name, val in vars(module).items():
             if val is item:
                 # Found the item re-imported in parent module as `name`
-                # if 'functional' in try_module_name:
-                print("returning:", f"{try_module_name}.{name}")
                 return f"{try_module_name}.{name}"
         return None
 
-    # try:
     # return the shallowest way to import this item
     module_parts = module_name.split(".")
-    # if module_parts[1] == 'functional':
-    print("item type, item name, module_name: ", type(item), item.__name__, module_name)
-
     try_modules = ['.'.join(module_parts[:prefix_len]) for prefix_len in range(1, len(module_parts))]
     try_modules = ['composer.functional'] + try_modules  # functional gets priority
     for try_module_name in try_modules:
         maybe_path = try_importing_from(try_module_name, item)
         if maybe_path is not None:
             return maybe_path
-
-    # for prefix_len in range(1, len(module_parts)):
-    #     try_module_name = '.'.join(module_parts[:prefix_len])
-    #     maybe_path = try_importing_from(try_module_name, item)
-    #     if maybe_path is not None:
-    #         return maybe_path
-    # # also check functional api
-    # maybe_path = try_importing_from('composer.functional', item)
-    # if maybe_path is not None:
-    #     return maybe_path
-
-    # except Exception as e:
-    #     print(e)
-    # import sys; sys.exit()
-    # # Find and import the most nested public module of the path
-    # module_parts = module_name.split(".")
-    # public_module_parts = filter(lambda x: not x.startswith("_"), module_parts)
-    # public_module_name = ".".join(public_module_parts)
-    # public_module = importlib.import_module(public_module_name)
-    # # See if item is imported in `public_module`
-    # for name, val in vars(public_module).items():
-    #     if val is item:
-    #         # Found the item re-imported in `public_module` as `name`
-    #         return f"{public_module_name}.{name}"
-    # # `item` was not found in `public_module`. Recursively search the parent module
-    # parent_module_name = ".".join(public_module_name.split(".")[:-1])
-    # if parent_module_name == "":
-    #     log.warning(f"{item.__name__} in {module_name} is not re-imported by any public parent or grandparent module.")
-    #     return None
-    # return determine_sphinx_path(item, parent_module_name)
 
 
 def add_module_summary_tables(
@@ -369,18 +333,6 @@ def add_module_summary_tables(
                 lines.append("      :nosignatures:")
                 lines.append("")
                 lines.extend(sphinx_lines)
-
-
-
-
-            # TODO rm
-            if category_name == 'Functions' and sphinx_path is not None:
-                print("-------------")
-                print("sphinx path:", sphinx_path)
-                print("sphinx lines:\n", '\n'.join(sphinx_lines))
-
-
-
 
         if len(attributes) > 0:
             # Documenting attributes as a list instead of a summary table because
