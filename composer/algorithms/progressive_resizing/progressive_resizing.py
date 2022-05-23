@@ -155,6 +155,12 @@ class ProgressiveResizing(Algorithm):
             Must be a value in between 0 and 1. Default: ``0.5``.
         size_increment (int, optional): Align sizes to a multiple of this number. Default: ``4``.
         resize_targets (bool, optional): If True, resize targets also. Default: ``False``.
+        input_key (str, int, or Callable): A key that indexes to the input 
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair.
+        target_key (str, int, or Callable): A key that indexes to the target 
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair.
     """
 
     def __init__(self,
@@ -163,7 +169,9 @@ class ProgressiveResizing(Algorithm):
                  finetune_fraction: float = .2,
                  delay_fraction: float = .5,
                  size_increment: int = 4,
-                 resize_targets: bool = False):
+                 resize_targets: bool = False,
+                 input_key: Union[str, int, Callable, Any] = 0,
+                 target_key: Union[str, int, Callable, Any] = 1):
 
         if mode not in _VALID_MODES:
             raise ValueError(f"mode '{mode}' is not supported. Must be one of {_VALID_MODES}")
@@ -184,6 +192,7 @@ class ProgressiveResizing(Algorithm):
         self.delay_fraction = delay_fraction
         self.size_increment = size_increment
         self.resize_targets = resize_targets
+        self.input_key, self.target_key = input_key, target_key
 
     def match(self, event: Event, state: State) -> bool:
         """Run on Event.AFTER_DATALOADER.
@@ -204,7 +213,7 @@ class ProgressiveResizing(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        input, target = state.batch
+        input, target = state.batch_get_item(key=self.input_key), state.batch_get_item(key=self.target_key)
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 
@@ -231,7 +240,8 @@ class ProgressiveResizing(Algorithm):
                                              scale_factor=scale_factor_pinned,
                                              mode=self.mode,
                                              resize_targets=self.resize_targets)
-        state.batch = (new_input, new_target)
+        state.batch_set_item(self.input_key, new_input)
+        state.batch_set_item(self.target_key, new_target)
 
         if logger is not None:
             logger.data_batch({
