@@ -30,7 +30,7 @@ __all__ = [
 
 
 @dataclass
-class ObjectStoreLoggerHparams(hp.AutoInitializedHparams):
+class ObjectStoreLoggerHparams(hp.Hparams):
     """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
     hyperparameters.
 
@@ -73,7 +73,7 @@ class ObjectStoreLoggerHparams(hp.AutoInitializedHparams):
         )
 
 
-logger_registry: Dict[str, Union[Type[LoggerDestination], Type[hp.AutoInitializedHparams]]] = {
+logger_registry: Dict[str, Union[Type[LoggerDestination], Type[hp.Hparams]]] = {
     "file": FileLogger,
     "wandb": WandBLogger,
     "progress_bar": ProgressBarLogger,

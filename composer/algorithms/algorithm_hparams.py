@@ -32,7 +32,7 @@ from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.swa import SWA
 from composer.core.algorithm import Algorithm
 
-algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.AutoInitializedHparams]]] = {
+algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'blurpool': BlurPool,
     'channels_last': ChannelsLast,
     'seq_length_warmup': SeqLengthWarmup,
@@ -59,8 +59,7 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.AutoInitializedHpar
 }
 
 
-def load(algorithm_cls: Union[Type[Algorithm], Type[hp.AutoInitializedHparams]],
-         alg_params: Optional[str]) -> Algorithm:
+def load(algorithm_cls: Union[Type[Algorithm], Type[hp.Hparams]], alg_params: Optional[str]) -> Algorithm:
     inverted_registry = {v: k for (k, v) in algorithm_registry.items()}
     alg_name = inverted_registry[algorithm_cls]
     alg_folder = os.path.join(os.path.dirname(composer.__file__), "yamls", "algorithms")

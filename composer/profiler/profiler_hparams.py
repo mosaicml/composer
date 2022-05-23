@@ -25,11 +25,12 @@ __all__ = [
     "profiler_scheduler_registry",
 ]
 
-trace_handler_registry: Dict[str, Union[Type[TraceHandler], Type[hp.AutoInitializedHparams]]] = {
+trace_handler_registry: Dict[str, Union[Type[TraceHandler], Type[hp.Hparams]]] = {
     "json": JSONTraceHandler,
 }
 
-profiler_scheduler_registry: Dict[str, Union[Callable[..., Callable[[State], ProfilerAction]],
-                                             Type[hp.AutoInitializedHparams],]] = {
-                                                 'cyclic': cyclic_schedule,
-                                             }
+ProfilerScheduler = Callable[[State], ProfilerAction]
+
+profiler_scheduler_registry: Dict[str, Union[Callable[..., ProfilerScheduler], Type[hp.Hparams],]] = {
+    'cyclic': cyclic_schedule,
+}

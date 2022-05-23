@@ -15,7 +15,7 @@ from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, Cosi
 
 __all__ = ["scheduler_registry"]
 
-scheduler_registry: Dict[str, Union[Type[ComposerScheduler], Type[hp.AutoInitializedHparams]]] = {
+scheduler_registry: Dict[str, Union[Type[ComposerScheduler], Type[hp.Hparams]]] = {
     "step": StepScheduler,
     "multistep": MultiStepScheduler,
     "exponential": ExponentialScheduler,
