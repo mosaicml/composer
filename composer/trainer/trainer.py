@@ -742,7 +742,9 @@ class Trainer:
         # optimizers and schedulers
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
-            warnings.warn(f"No optimizer was specified. Defaulting to {repr(optimizers)}")
+            # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
+            warnings.warn(("No optimizer was specified. Defaulting to "
+                           f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
 
         num_optimizers = len(ensure_tuple(optimizers))
         if num_optimizers != 1:
@@ -1264,10 +1266,6 @@ class Trainer:
                     raise ValueError("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
 
             self.state.evaluators = evaluators
-
-        if len(self.state.evaluators) == 0:
-            warnings.warn(("No `eval_dataloader` was specified. Please specify `eval_dataloader` to periodically "
-                           "evaluate your model while training."))
 
         # Grad Accum
         if grad_accum is not None:

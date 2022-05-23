@@ -7,7 +7,7 @@ from __future__ import annotations
 import collections.abc
 import logging
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -196,18 +196,6 @@ class State(Serializable):
         train_dataloader (Iterable): The training dataloader. (May be ``None`` if not training.)
     """
 
-    _dataloader: Optional[Iterable]
-    _dataloader_label: Optional[str]
-    _dataloader_len: Optional[Time[int]]
-    _max_duration: Optional[Time[int]]
-
-    batch: types.Batch
-    batch_num_samples: int
-    batch_num_tokens: int
-    loss: Union[torch.Tensor, Sequence[torch.Tensor]]
-    outputs: Union[torch.Tensor, Sequence[torch.Tensor]]
-    _schedulers: List[types.PyTorchScheduler]
-
     def __init__(
         self,
         # model
@@ -249,7 +237,10 @@ class State(Serializable):
         self.model = model
         self.grad_accum = grad_accum
         self._dataloader_len = None
+        self._dataloader = None
+        self._dataloader_label = None
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
+        self._max_duration = None
         self.max_duration = max_duration
 
         self.train_dataloader = train_dataloader
@@ -272,6 +263,13 @@ class State(Serializable):
         self._callbacks = list(ensure_tuple(callbacks))
 
         self.profiler: Optional[Profiler] = None
+
+        # Set defaults for transient variables (to make pyright happy)
+        self.batch: Any = None
+        self.batch_num_samples = 0
+        self.batch_num_tokens = 0
+        self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
+        self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
         # All other attributes will not be serialized.

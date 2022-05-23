@@ -26,6 +26,14 @@ def get_model_algs(model_name: str) -> List[str]:
     is_image_model = any(x in model_name for x in ("resnet", "mnist", "efficientnet", "timm", "vit", "deeplabv3"))
     is_language_model = any(x in model_name for x in ("gpt2", "bert"))
 
+    if "vit_small_patch16" in model_name:
+        algs.remove("blurpool")
+
+    if "classify_mnist" in model_name:
+        # Mnist has no strided conv2d or pool2d
+        # see https://github.com/pytorch/examples/blob/41b035f2f8faede544174cfd82960b7b407723eb/mnist/main.py#L14
+        algs.remove("blurpool")
+
     if is_image_model:
         algs.remove("alibi")
         algs.remove("seq_length_warmup")
@@ -62,6 +70,8 @@ def get_model_algs(model_name: str) -> List[str]:
 
 @pytest.mark.parametrize('model_name', model_names)
 @pytest.mark.timeout(15)
+@pytest.mark.filterwarnings(
+    r"ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics")
 def test_load(model_name: str):
     if 'timm' in model_name:
         pytest.importorskip("timm")

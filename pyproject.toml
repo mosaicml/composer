@@ -16,7 +16,9 @@ exclude = [
     "build/**",
     "node_modules/**",
 ]
-
+# Disable checks for missing imports, as a conditional install of composer will not include them
+# Any incorrect imports will be discovered through test cases
+reportMissingImports="none"
 # Sometimes for code validation or readability we want redundant isinstance checks.
 reportUnnecessaryIsInstance = "none"
 reportMissingTypeStubs = "none"
@@ -78,16 +80,26 @@ markers = [
     "remote",
 ]
 filterwarnings = [
-    # "error",  # warnings should be treated like errors, but still need to fix some warnings
-    'ignore:ExtraArgumentWarning',  # extra arguments originate from pytest-specific CLI args
-    'ignore:DistributedDefaultValueWarning',  # default distributed values are fine
-    'ignore:NoDistributedWarning',  # running without distributed is fine
-    'ignore:Deterministic mode is activated:UserWarning',  # all tests run with deterministic mode
-    'ignore:SubsetNumBatchesWarning',  # different subsets OK for testing
-    'ignore:No optimizer:UserWarning',  # testing defaults
-    'ignore:No scheduler:UserWarning',  # testing defaults
-    'ignore::DeprecationWarning:tensorboard',  # ignore tensorboard
-    'ignore:.*NoSchedulerWarning.*'  # we usually do not use schedulers
+    "error",  # Mark all warnings as errors
+    'ignore:Deterministic mode is activated:UserWarning',  # All tests run with deterministic mode
+    'ignore:SubsetNumBatchesWarning',  # SubsetNumBatches is used extensively in testing
+    # allow training metrics
+    'ignore:Computing model evaluation metrics during training doubles the number of forward passes:UserWarning',
+    'ignore:No optimizer was specified.:UserWarning',  # OK to not specify an optimizer in the tests
+    # Ignore deprecation warnings in pillow. TODO: remove this ignore for when we upgrade pillow-simd +
+    # use torchvision 0.13  -- it appears to be fixed in main -- see
+    # https://github.com/pytorch/vision/blob/main/torchvision/transforms/functional_pil.py
+    'ignore:.*is deprecated and will be removed in Pillow 10.*:DeprecationWarning',
+    # Ignore deprecation warnings in deepspeed. TODO: remove this when we upgrade to v0.6.1+ -- it has been fixed
+    'ignore::DeprecationWarning:deepspeed.*:',
+    # Ignore malformed yaml warnings coming from yahp
+    'ignore:MalformedYAMLWarning:UserWarning',
+    # Ignore a bug in the pytorch dataloader
+    '''ignore:Exception ignored in. <function _MultiProcessingDataLoaderIter.__del__:pytest.PytestUnraisableExceptionWarning''',
+    # Ignore torchvision complaining about no c libraries (happens in the conda build)
+    'ignore:Failed to load image Python extension:UserWarning',
+    # Ignore a deprecation warning in the conda build
+    'ignore:distutils Version classes are deprecated:DeprecationWarning',
 ]
 timeout_func_only = true  # exclude fixtures from the timeout
 
