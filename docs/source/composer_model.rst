@@ -77,7 +77,7 @@ We also provide several common classes for various tasks, specifically:
    loss and accuracy metric.
 -  :class:`.TIMM` - creates classification models from the popular `TIMM`_
    library.
--  :class:`.HuggingFaceModel` - converts a 🤗 `Transformers`_ model into a :class:`.ComposerModel`.
+-  :class:`.HuggingFaceModel` - :class:`.ComposerModel` wrapper for a 🤗 `Transformers`_ model.
 
 .. note::
 
