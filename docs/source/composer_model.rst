@@ -210,8 +210,8 @@ and make it compatible with our trainer.
     from torchmetrics import Accuracy
     from torchmetrics.collections import MetricCollection
 
-    from composer.models.huggingface import HuggingFaceModel
-    from composer.metrics.nlp import LanguageCrossEntropy
+    from composer.models import HuggingFaceModel
+    from composer.metrics import LanguageCrossEntropy
 
     # huggingface model
     model = AutoModelForSequenceClassification.from_pretrained(
