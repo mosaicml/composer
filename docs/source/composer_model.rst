@@ -216,7 +216,7 @@ and make it compatible with our trainer.
     # huggingface model
     model = AutoModelForSequenceClassification.from_pretrained(
                             'bert-base-uncased',
-                             num_labels=num_labels
+                             num_labels=num_labels)
 
     # list of torchmetrics
     metrics = [LanguageCrossEntropy(vocab_size=tokenizer.vocab_size), Accuracy()]
