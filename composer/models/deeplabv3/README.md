@@ -120,7 +120,7 @@ Improvements:
 - Increase batch size to 32
 - Decrease weight decay to 2e-5
 
-# Attribution
+## Attribution
 
 [Encoder-Decoder with Atrous Separable Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1802.02611) by Liang-Chieh Chen, Yukun Zhu, George Papandreou, Florian Schroff, Hartwig Adam
 
