@@ -52,6 +52,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
 
 @pytest.mark.remote()
 @pytest.mark.timeout(0)
+@pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize("name", [
     "ade20k",
     "imagenet1k",
@@ -89,6 +90,7 @@ def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str)
 
 @pytest.mark.remote()
 @pytest.mark.timeout(0)
+@pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize("name", [
     "ade20k",
     "imagenet1k",
