@@ -1,4 +1,4 @@
-# DeepLabv3+
+# 🤿 DeepLabv3+
 [\[Example\]](#example) &middot; [\[Architecture\]](#architecture) &middot; [\[Training Hyperparameters\]](#training-hyperparameters) &middot; [\[Attribution\]](#attribution) &middot; [\[API Reference\]](#api-reference)
 
 [DeepLabv3+](https://arxiv.org/abs/1802.02611) is an architecture designed for semantic segmenation i.e. per-pixel classification. DeepLabv3+ takes in a feature map from a backbone architecture (e.g. ResNet-101), then outputs classifications for each pixel in the input image. Our implementation is a simple wrapper around [torchvision’s ResNet](https://pytorch.org/vision/stable/models.html#id10) for the backbone and [mmsegmentation’s DeepLabv3+](https://github.com/open-mmlab/mmsegmentation/tree/master/configs/deeplabv3plus) for the head.
