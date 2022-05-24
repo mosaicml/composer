@@ -229,33 +229,43 @@ def test_dataloader_single_device(remote_local: Tuple[str, str], batch_size: int
 @pytest.mark.world_size(2)
 @pytest.mark.parametrize("batch_size", [4])
 @pytest.mark.parametrize("drop_last", [False, True])
+@pytest.mark.parametrize("multinode", [False, True])
 @pytest.mark.parametrize("num_samples", [30, 31])
 @pytest.mark.parametrize("num_workers", [1, 3])
 @pytest.mark.parametrize("shuffle", [False, True])
-def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, num_samples: int,
-                                 num_workers: int, shuffle: bool):
+def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, multinode: bool,
+                                 num_samples: int, num_workers: int, shuffle: bool):
+
+    if multinode:
+        # Force different nodes
+        os.environ["LOCAL_RANK"] = str(0)
+        os.environ["NODE_RANK"] = str(dist.get_global_rank())
+        os.environ["LOCAL_WORLD_SIZE"] = str(1)
 
     global_device = dist.get_global_rank()
     global_num_devices = dist.get_world_size()
+    node_rank = dist.get_node_rank()
+
     assert batch_size % global_num_devices == 0
     device_batch_size = batch_size // global_num_devices
 
     shard_size_limit = 1 << 6
     samples, decoders = get_fake_samples_decoders(num_samples)
 
-    # Broadcast remote, local
+    # Create globally shared remote, and node-local folders
     remote_local_list = list(remote_local)
     dist.broadcast_object_list(remote_local_list)
     remote, local = remote_local_list
+    node_local = os.path.join(local, str(node_rank))
 
-    # Create dataset on device 0
+    # Create remote dataset on global device 0
     if global_device == 0:
         write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
     dist.barrier()
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote,
-                               local=local,
+                               local=node_local,
                                shuffle=shuffle,
                                decoders=decoders,
                                batch_size=device_batch_size)
