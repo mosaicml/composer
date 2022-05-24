@@ -18,7 +18,10 @@ class WeightStandardizer(nn.Module):
 
 def apply_weight_standardization(model: torch.nn.Module):
     for module in model.modules():
-        if isinstance(module, nn.Conv2d):
+        if (isinstance(module, nn.Conv1d) or
+            isinstance(module, nn.Conv2d) or
+            isinstance(module, nn.Conv3d)):
+            
             parametrize.register_parametrization(module, "weight", WeightStandardizer())
 
 class WeightStandardization(Algorithm):
