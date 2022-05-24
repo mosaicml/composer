@@ -29,7 +29,7 @@ from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import format_name_with_dist
 from composer.utils.file_helpers import get_file
-from composer.utils.object_store import ObjectStore
+from composer.utils.object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -322,9 +322,9 @@ class ObjectStoreLogger(LoggerDestination):
         chunk_size: int = 2**20,
         progress_bar: bool = True,
     ):
-        object_store = ObjectStore(provider=self.provider,
-                                   container=self.container,
-                                   provider_kwargs=self.provider_kwargs)
+        object_store = LibcloudObjectStore(provider=self.provider,
+                                           container=self.container,
+                                           provider_kwargs=self.provider_kwargs)
         get_file(path=artifact_name,
                  destination=destination,
                  object_store=object_store,
@@ -378,7 +378,7 @@ def _validate_credentials(
 ) -> None:
     # Validates the credentails by attempting to touch a file in the bucket
     # raises a LibcloudError if there was a credentials failure.
-    object_store = ObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
+    object_store = LibcloudObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
     object_store.upload_object_via_stream(
         obj=b"credentials_validated_successfully",
         object_name=object_name_to_test,
@@ -398,7 +398,7 @@ def _upload_worker(
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.
     """
-    object_store = ObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
+    object_store = LibcloudObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
     while True:
         try:
             file_path_to_upload, object_name, overwrite = file_queue.get(block=True, timeout=0.5)
