@@ -1587,9 +1587,9 @@ class Trainer:
         """
         assert self._train_data_spec is not None, "The train data spec should be set on __init__ or fit()"
 
-        # Cache the device minibatch, because `self.state.batch` gets overridden in microbatching loop
-        # TODO: fix this name collision!!
-        minibatch = self.state.batch
+        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+        # TODO: fix this name collision!
+        device_batch = self.state.batch
 
         # Retry until we successfully complete training and return loss
         while True:
@@ -1599,7 +1599,7 @@ class Trainer:
             caught_timeout_error = None
             try:
                 assert self.state.scaler is not None
-                microbatches = self._train_data_spec.split_batch(minibatch, self.state.grad_accum)
+                microbatches = self._train_data_spec.split_batch(device_batch, self.state.grad_accum)
                 if self.deepspeed_enabled:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():
