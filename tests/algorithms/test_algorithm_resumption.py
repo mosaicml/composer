@@ -4,31 +4,31 @@
 import copy
 import os
 import pathlib
-from typing import Any, Callable, Dict
+from typing import Type
 
 import pytest
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 from composer import Algorithm, Trainer
 from composer.algorithms import SAM, Factorize, LayerFreezing, SqueezeExcite, StochasticDepth
-from composer.models import ComposerModel
-from tests.algorithms.algorithm_settings import get_algorithm_parametrization
+from tests.algorithms.algorithm_settings import get_alg_dataset, get_alg_kwargs, get_alg_model, get_algs_with_marks
 from tests.common import deep_compare
 
 
 @pytest.mark.timeout(30)
 @pytest.mark.gpu
-@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization())
+@pytest.mark.parametrize("alg_cls", get_algs_with_marks())
 def test_algorithm_resumption(
     tmp_path: pathlib.Path,
-    alg_cls: Callable[..., Algorithm],
-    alg_kwargs: Dict[str, Any],
-    model: ComposerModel,
-    dataset: Dataset,
+    alg_cls: Type[Algorithm],
 ):
     folder1 = os.path.join(tmp_path, 'folder1')
     folder2 = os.path.join(tmp_path, 'folder2')
+
+    model = get_alg_model(alg_cls)
+    dataset = get_alg_dataset(alg_cls)
+    alg_kwargs = get_alg_kwargs(alg_cls)
 
     copied_model = copy.deepcopy(model)  # copy the model so the params will start from the same point
 
