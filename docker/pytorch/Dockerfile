@@ -188,11 +188,6 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-###################
-# Add a /tmp folder
-###################
-RUN mkdir -p -m777 /tmp
-
 FROM pytorch_stage AS vision_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
