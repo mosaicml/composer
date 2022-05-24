@@ -26,6 +26,8 @@ class HuggingFaceModel(ComposerModel):
         model (transformers.PreTrainedModel): A 🤗 Transformers model.
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
 
+    .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
+
     Example:
 
     .. testcode::
