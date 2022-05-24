@@ -45,10 +45,10 @@ Applicable Settings
 .. Models, tasks, and settings (e.g., ResNet-50 on ImageNet, computer vision, language modeling) where this is applicable.
 
 ..
-        Please use the terms from the `categories of tasks <https://www.notion.so/1a4b8d2e45f04088ae83c61001fa8d48>`_, 
-        `kinds of tasks <https://www.notion.so/9ce3870f659c4428b1cdb43476eee23a>`_, `tasks <https://www.notion.so/6f7799d6cacb4db984d80856e536d11a>`_, 
-        `network families <https://www.notion.so/12eb15bf98fd469d817ce095703aa54d>`_, `networks <https://www.notion.so/2951ae64641d435db3fe6ca3dd6b3f89>`_, 
-        and `settings <https://www.notion.so/efb6ac1452da4333b9bc439eb18d6bf7>`_ as applicable. Think of these as tags that we might eventually want 
+        Please use the terms from the `categories of tasks <https://www.notion.so/1a4b8d2e45f04088ae83c61001fa8d48>`_,
+        `kinds of tasks <https://www.notion.so/9ce3870f659c4428b1cdb43476eee23a>`_, `tasks <https://www.notion.so/6f7799d6cacb4db984d80856e536d11a>`_,
+        `network families <https://www.notion.so/12eb15bf98fd469d817ce095703aa54d>`_, `networks <https://www.notion.so/2951ae64641d435db3fe6ca3dd6b3f89>`_,
+        and `settings <https://www.notion.so/efb6ac1452da4333b9bc439eb18d6bf7>`_ as applicable. Think of these as tags that we might eventually want
         to allow people to filter for.
 
 High-Level Summary
@@ -87,7 +87,7 @@ Suggested Hyperparameters
           - 0.2
         * - beta
           - 0 - 10
-          - 2  
+          - 2
 
 .. csv-table:: CSV Table Example
         :header: "Hyperparameters", "Values", "Suggested Value"

@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Dict, List, Mapping, Tuple, Union
 
 import pytest
@@ -12,7 +15,7 @@ def dummy_tensor_batch(batch_size=12) -> torch.Tensor:
 
 def dummy_tuple_batch(batch_size=12) -> List[torch.Tensor]:
     # pytorch default collate converts tuples to lists
-    # https://github.com/pytorch/pytorch/blob/master/torch/utils/data/_utils/collate.py#L67
+    # https://github.com/pytorch/pytorch/blob/e451259a609acdcd83105177ddba73fc41cfa9b4/torch/utils/data/_utils/collate.py#L67
     image = torch.randn(size=(batch_size, 3, 32, 32))
     target = torch.randint(size=(batch_size,), high=10)
     return [image, target]

@@ -184,10 +184,10 @@ class CutMix(Algorithm):
             box such that each pixel has an equal probability of being mixed.
             If ``False``, defaults to the sampling used in the original
             paper implementation. Default: ``False``.
-        input_key (str, int, or Callable): A key that indexes to the input 
+        input_key (str, int, or Callable): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.
-        target_key (str, int, or Callable): A key that indexes to the target 
+        target_key (str, int, or Callable): A key that indexes to the target
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.
 

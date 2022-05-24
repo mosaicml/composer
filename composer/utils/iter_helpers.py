@@ -54,7 +54,7 @@ def ensure_tuple(x):
         tuple: A tuple of ``x``.
     """
     if x is None:
-        return tuple()
+        return ()
     if isinstance(x, (str, bytes, bytearray)):
         return (x,)
     if isinstance(x, Sequence):

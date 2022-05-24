@@ -12,7 +12,7 @@ The profiler enables users to capture the following metrics:
 - Host metrics such as CPU, system memory, disk, and network utilization over time
 - Execution order, latency, and attributes of PyTorch operators and GPU kernels (see {mod}`torch.profiler`)
 
-This tutorial will demonstrate how to to setup and configure profiling, as well as capture and visualize performance traces. 
+This tutorial will demonstrate how to to setup and configure profiling, as well as capture and visualize performance traces.
 
 ## Getting Started
 
@@ -30,7 +30,7 @@ pip install mosaicml
 
 ### Steps
 
-1. Import required modules 
+1. Import required modules
 2. Instantiate the dataset and model
 3. Instantiate the `Trainer` and configure the Profiler
 4. Run training with profiling
@@ -82,7 +82,7 @@ Here, we configure following profiling options:
 When setting up profiling, it is important to specify the _profiling schedule_ via the ``schedule`` argument.
 
 This schedule determines the profiler's recording behavior. The schedule is a function that takes the training
-{class}`.State` and returns a {class}`.ProfilerAction`. 
+{class}`.State` and returns a {class}`.ProfilerAction`.
 
 For convenience, the Composer Profiler includes a {func}`.cyclic_schedule` which configures a cyclic profiling window
 that repeats each epoch. It takes the following arguments:
@@ -95,7 +95,7 @@ that repeats each epoch. It takes the following arguments:
   - `repeat`: Number of consecutive times the profiling window is repeated per epoch.
 
 The profiling window for an epoch is defined as: `wait` + `warmup` + `active`, while `skip_first` and `repeat` control
-profiler behavior preceding and after the window, respectively.  
+profiler behavior preceding and after the window, respectively.
 
 ```{warning}
 Profiling incurs additional overhead that can impact the performance of the workload. This overhead is fairly
@@ -201,15 +201,15 @@ They do not include the Composer Profiler metrics, such as event duration, datal
 ### Viewing traces in Chrome Trace Viewer
 
 All traces can be viewed using the Chrome Trace Viewer.  To launch, open a Chrome browser session and
-navigate to `chrome://tracing` in the address bar.  
+navigate to `chrome://tracing` in the address bar.
 
 In the following example, we load the `composer_profiler/node0.json` file which contains the unified trace data.
 Open the trace by clicking the ‘Load’ button and selecting the `composer_profiler/node0.json` file. Depending on the
 size of the trace, it could take a moment to load.  After the trace has been loaded, you will see a complete trace
 capture as follows:
 
-```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/profiler_trace_example.png 
-:alt: Example profiler trace file 
+```{thumbnail} https://storage.googleapis.com/docs.mosaicml.com/images/profiler/profiler_trace_example.png
+:alt: Example profiler trace file
 ```
 
 The Trace Viewer provides users the ability to navigate the trace and interact with individual events and analyze

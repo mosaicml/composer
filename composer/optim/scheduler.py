@@ -718,7 +718,7 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
     .. math::
        \tau_w = (t - t_{warmup}) / t_{max}
 
-    Where :math:`\kappa` represents the exponent to be used for the proportionality relationship, 
+    Where :math:`\kappa` represents the exponent to be used for the proportionality relationship,
     :math:`t_{warmup}` represents the warmup time, :math:`t_{max}` represents the duration of this scheduler, and
     :math:`\alpha_f` represents the learning rate multiplier to decay to.
 

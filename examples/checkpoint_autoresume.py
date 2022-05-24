@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 """Training with Checkpoint Autoresumption.
 
 In this example, the Trainer is configured with `autoresume` set to True. This flag

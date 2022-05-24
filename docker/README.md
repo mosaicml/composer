@@ -44,4 +44,3 @@ PYTHON_VERSION=3.8 make
 ```
 
 **Note**: Docker must be [installed](https://docs.docker.com/get-docker/) on your local machine.
-

@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from collections import ChainMap, Counter, OrderedDict, defaultdict, deque
 from typing import NamedTuple
 
@@ -94,7 +97,7 @@ def example_2D_array_tensor(request):
 
 @pytest.fixture
 def example_complicated_object():
-    return [dict(a=[1, 2], b=[2, 4]), dict(c=[3, 6], d=[5, 7])]
+    return [{"a": [1, 2], "b": [2, 4]}, {"c": [3, 6], "d": [5, 7]}]
 
 
 @pytest.fixture
