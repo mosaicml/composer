@@ -79,7 +79,7 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
         max_retries (int, default 2): Number of download re-attempts before giving up.
         timeout (float, default 60): How long to wait for file to download before raising an exception.
     """
-    ok = False
+    last_error = None
     error_msgs = []
     for _ in range(1 + max_retries):
         try:
@@ -91,10 +91,10 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
                     time.sleep(0.25)
             else:
                 dispatch_download(remote, local, timeout=timeout)
-            ok = True
             break
         except Exception as e:  # Retry for all causes of failure.
             error_msgs.append(e)
+            last_error = e
             continue
-    if not ok:
-        raise RuntimeError(f"Failed to download {remote} -> {local}. Got errors:\n{error_msgs}")
+    if last_error:
+        raise RuntimeError(f"Failed to download {remote} -> {local}. Got errors:\n{error_msgs}") from last_error
