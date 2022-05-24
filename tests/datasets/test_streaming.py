@@ -41,6 +41,7 @@ def write_synthetic_streaming_dataset(dirname: str, samples: List[Dict[str, byte
         writer.write_samples(samples=samples)
 
 
+@pytest.mark.timeout(10)
 @pytest.mark.parametrize("num_samples", [100, 10000])
 @pytest.mark.parametrize("shard_size_limit", [1 << 8, 1 << 16, 1 << 24])
 def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int) -> None:
@@ -61,6 +62,7 @@ def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limi
     assert len(files) == expected_num_files, f"Files written ({len(files)}) != expected ({expected_num_files})."
 
 
+@pytest.mark.timeout(10)
 @pytest.mark.parametrize("batch_size", [None, 1, 2])
 @pytest.mark.parametrize("share_remote_local", [False, True])
 @pytest.mark.parametrize("shuffle", [False, True])
