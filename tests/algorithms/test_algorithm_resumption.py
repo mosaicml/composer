@@ -27,7 +27,6 @@ def test_algorithm_resumption(
     folder2 = os.path.join(tmp_path, 'folder2')
 
     model = get_alg_model(alg_cls)
-    dataset = get_alg_dataset(alg_cls)
     alg_kwargs = get_alg_kwargs(alg_cls)
 
     copied_model = copy.deepcopy(model)  # copy the model so the params will start from the same point
@@ -42,7 +41,6 @@ def test_algorithm_resumption(
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
 
     shared_config = {
-        'train_dataloader': DataLoader(dataset=dataset, batch_size=4),
         'max_duration': '2ep',
         'save_filename': 'ep{epoch}-rank{rank}',
         'train_subset_num_batches': 2,
@@ -51,6 +49,7 @@ def test_algorithm_resumption(
     # train model once, saving checkpoints every epoch
     trainer1 = Trainer(
         model=model,
+        train_dataloader=DataLoader(dataset=get_alg_dataset(alg_cls), batch_size=4),
         optimizers=optimizer,
         schedulers=scheduler,
         save_folder=folder1,
@@ -67,6 +66,7 @@ def test_algorithm_resumption(
 
     trainer2 = Trainer(
         model=copied_model,
+        train_dataloader=DataLoader(dataset=get_alg_dataset(alg_cls), batch_size=4),
         load_path=os.path.join(folder1, 'ep1-rank{rank}'),
         load_weights_only=False,
         load_strict=False,

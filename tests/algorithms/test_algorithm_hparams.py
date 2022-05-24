@@ -10,7 +10,8 @@ from composer.algorithms import AlgorithmHparams
 from composer.algorithms.algorithm_registry import registry as algorithm_registry
 from composer.core import Algorithm
 from tests.algorithms.algorithm_settings import get_alg_kwargs
-from tests.common import assert_in_registry, assert_yaml_loads, get_module_subclasses
+from tests.common import get_module_subclasses
+from tests.common.hparams import assert_in_registry, assert_yaml_loads
 
 
 @pytest.mark.parametrize("alg_hparams_cls", get_module_subclasses(composer.algorithms, AlgorithmHparams))
