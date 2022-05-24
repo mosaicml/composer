@@ -19,7 +19,7 @@ __all__ = ["LibcloudObjectStoreHparams", "LibcloudObjectStore"]
 
 @dataclasses.dataclass
 class LibcloudObjectStoreHparams(hp.Hparams):
-    """:class:`~composer.utils.object_store.ObjectStore` hyperparameters.
+    """:class:`~composer.utils.object_store.LibcloudObjectStore` hyperparameters.
 
     .. rubric:: Example
 
@@ -52,7 +52,7 @@ class LibcloudObjectStoreHparams(hp.Hparams):
     Args:
         provider (str): Cloud provider to use.
 
-            See :class:`ObjectStore` for documentation.
+            See :class:`LibcloudObjectStore` for documentation.
         container (str): The name of the container (i.e. bucket) to use.
         key_environ (str, optional): The name of an environment variable containing the API key or username
             to use to connect to the provider. If no key is required, then set this field to ``None``.
@@ -136,7 +136,7 @@ class LibcloudObjectStoreHparams(hp.Hparams):
         """Returns the ``provider_kwargs`` argument, which is used to construct a :class:`.ObjectStore`.
 
         Returns:
-            Dict[str, Any]: The ``provider_kwargs`` for use in constructing an :class:`.ObjectStore`.
+            Dict[str, Any]: The ``provider_kwargs`` for use in constructing an :class:`.LibcloudObjectStore`.
         """
         init_kwargs = {}
         for key in ("host", "port", "region"):
@@ -149,10 +149,10 @@ class LibcloudObjectStoreHparams(hp.Hparams):
         return init_kwargs
 
     def initialize_object(self):
-        """Returns an instance of :class:`.ObjectStore`.
+        """Returns an instance of :class:`.LibcloudObjectStore`.
 
         Returns:
-            ObjectStore: The object_store.
+            LibcloudObjectStore: The object_store.
         """
 
         return LibcloudObjectStore(

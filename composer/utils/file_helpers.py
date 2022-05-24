@@ -321,10 +321,10 @@ def get_file(
             If ``path`` is a local filepath, then a symlink to ``path`` at ``destination`` will be created.
             Otherwise, ``path`` will be downloaded to a file at ``destination``.
 
-        object_store (ObjectStore, optional): An :class:`~.ObjectStore`, if ``path`` is located inside
+        object_store (LibcloudObjectStore, optional): An :class:`~.LibcloudObjectStore`, if ``path`` is located inside
             an object store (i.e. AWS S3 or Google Cloud Storage). (default: ``None``)
 
-            This :class:`~.ObjectStore` instance will be used to retreive the file. The ``path`` parameter
+            This :class:`~.LibcloudObjectStore` instance will be used to retreive the file. The ``path`` parameter
             should be set to the object name within the object store.
 
             Set this parameter to ``None`` (the default) if ``path`` is a URL or a local file.
@@ -339,8 +339,8 @@ def get_file(
             be raised.
     """
     if object_store is not None:
-        if isinstance(object_store, ObjectStore):
-            # Type ObjectStore
+        if isinstance(object_store, LibcloudObjectStore):
+            # Type LibcloudObjectStore
             try:
                 total_size_in_bytes = object_store.get_object_size(path)
             except Exception as e:

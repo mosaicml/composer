@@ -366,10 +366,10 @@ should be the path to the checkpoint file *within the container/bucket*.
 
 .. testcode::
 
-    from composer.utils.object_store import ObjectStore
+    from composer.utils.object_store import LibcloudObjectStore
     from composer.trainer import Trainer
 
-    object_store = ObjectStore(
+    object_store = LibcloudObjectStore(
         provider="s3",  # The Apache Libcloud provider name
         container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
         provider_kwargs={  # The Apache Libcloud provider driver initialization arguments 
