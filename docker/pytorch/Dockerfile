@@ -138,6 +138,23 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         rm -rf /tmp/mofed ; \
     fi
 
+
+#####################
+# Install nvidia apex
+#####################
+RUN if [ -n "$CUDA_VERSION" ] ; then \
+        mkdir -p /tmp/apex && \
+        cd /tmp/apex && \
+        git clone https://github.com/NVIDIA/apex && \
+        cd apex && \
+        pip${PYTHON_VERSION} install --no-cache-dir \
+            --global-option="--cpp_ext" \
+            --global-option="--cuda_ext" \
+            --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
+            ./ && \
+        rm -rf /tmp/apex ; \
+    fi
+
 #######################
 # Set the shell to bash
 #######################
@@ -174,11 +191,6 @@ ENV BASH_ENV=/etc/profile
 RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-
-###################
-# Add a /tmp folder
-###################
-RUN mkdir -p -m777 /tmp
 
 FROM pytorch_stage AS vision_stage
 ARG DEBIAN_FRONTEND=noninteractive
