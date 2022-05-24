@@ -57,7 +57,7 @@ def get_world() -> World:
     global_node = dist.get_node_rank()
     global_device = dist.get_global_rank()
     global_num_devices = dist.get_world_size()
-    node_device = dist.get_global_rank()
+    node_device = dist.get_local_rank()
     node_num_devices = dist.get_local_world_size()
 
     # TODO: to remove this block, composer.dist must provide 'num_nodes'

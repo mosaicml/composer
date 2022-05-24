@@ -258,7 +258,7 @@ class StreamingDatasetIndex(object):
         sample_shard_offsets = sample_begins - sample_shard_begins
         return sample_shards, sample_shard_offsets
 
-    def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], int, int]:
+    def get_partition(self, world: World, batch_size: Optional[int] = None) -> Tuple[List[int], List[int], int, int]:
         """Get the shards and sample range of a given partition of the dataset.
 
         Args:
@@ -274,13 +274,16 @@ class StreamingDatasetIndex(object):
                                     which will be read as batches: [0, 1], [4, 5], [6, 7], [2, 3]
 
         Returns:
-            shards (Sequence[int]): The shards that this partition overlaps.
+            shards (List[int]): The shards that this partition overlaps.
+            shards_to_download (List[int]): The shards that this worker should download (subset of ``shards``).
             min_id (int): The lowest sample ID of this partition.
             max_id (int): The highest sample ID of this partition.
         """
 
         global_device = world.global_device
         global_num_devices = world.global_num_devices
+        node_worker = world.node_worker
+        node_num_workers = world.node_num_workers
         device_worker = world.device_worker
         device_num_workers = world.device_num_workers
 
@@ -331,4 +334,14 @@ class StreamingDatasetIndex(object):
         min_shard = self.sample_shards[worker_min_id]
         max_shard = self.sample_shards[worker_max_id]
         shards = list(range(min_shard, max_shard + 1))
-        return shards, worker_min_id, worker_max_id
+
+        # Ensure that each shard only gets downloaded by 1 worker, so there are no race conditions.
+        # To do this, we skip downloading the last shard (likely overlapped with next worker) unless:
+        # - you are the last worker on your node (no files shared across nodes so you have to download it again!)
+        # - you are downloading the last sample of the shard (no overlap with next worker)
+        if ((node_worker + 1 == node_num_workers) or
+            (worker_max_id + 1 < self.total_samples and self.sample_shards[worker_max_id + 1] != max_shard)):
+            shards_to_download = shards
+        else:
+            shards_to_download = shards[:-1]
+        return shards, shards_to_download, worker_min_id, worker_max_id
