@@ -28,7 +28,7 @@ from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceH
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import dist, is_tar
-from composer.utils.object_store import ObjectStoreHparams
+from composer.utils.object_store import LibcloudObjectStoreHparams
 from tests.common import (EventCounterCallback, EventCounterCallbackHparams, assert_state_equivalent,
                           configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic, deep_compare)
 
@@ -265,7 +265,7 @@ def test_autoresume(
         monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
         provider = "local"
         container = "."
-        object_store_hparams = ObjectStoreHparams(
+        object_store_hparams = LibcloudObjectStoreHparams(
             provider=provider,
             container=container,
             key_environ="OBJECT_STORE_KEY",
@@ -393,7 +393,7 @@ def test_checkpoint_with_object_store_logger(
     monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
     provider = "local"
     container = "."
-    object_store_hparams = ObjectStoreHparams(
+    object_store_hparams = LibcloudObjectStoreHparams(
         provider=provider,
         container=container,
         key_environ="OBJECT_STORE_KEY",

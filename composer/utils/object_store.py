@@ -14,11 +14,11 @@ import yahp as hp
 from libcloud.storage.providers import get_driver
 from libcloud.storage.types import ObjectDoesNotExistError
 
-__all__ = ["ObjectStoreHparams", "LibcloudObjectStore"]
+__all__ = ["LibcloudObjectStoreHparams", "LibcloudObjectStore"]
 
 
 @dataclasses.dataclass
-class ObjectStoreHparams(hp.Hparams):
+class LibcloudObjectStoreHparams(hp.Hparams):
     """:class:`~composer.utils.object_store.ObjectStore` hyperparameters.
 
     .. rubric:: Example
@@ -29,17 +29,17 @@ class ObjectStoreHparams(hp.Hparams):
     * The AWS Access Key ID is stored in an environment variable named ``AWS_ACCESS_KEY_ID``.
     * The Secret Access Key is in an environmental variable named ``AWS_SECRET_ACCESS_KEY``.
 
-    .. testsetup:: composer.utils.object_store.ObjectStoreHparams.__init__.s3
+    .. testsetup:: composer.utils.object_store.LibcloudObjectStoreHparams.__init__.s3
 
         import os
 
         os.environ["AWS_ACCESS_KEY_ID"] = "key"
         os.environ["AWS_SECRET_ACCESS_KEY"] = "secret"
 
-    .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.s3
+    .. doctest:: composer.utils.object_store.LibcloudObjectStoreHparams.__init__.s3
 
-        >>> from composer.utils import ObjectStoreHparams
-        >>> provider_hparams = ObjectStoreHparams(
+        >>> from composer.utils import LibcloudObjectStoreHparams
+        >>> provider_hparams = LibcloudObjectStoreHparams(
         ...     provider="s3",
         ...     container="MY_CONTAINER",
         ...     key_environ="AWS_ACCESS_KEY_ID",
@@ -62,19 +62,19 @@ class ObjectStoreHparams(hp.Hparams):
             For example, if your key is an environment variable called ``OBJECT_STORE_KEY`` that is set to ``MY_KEY``,
             then you should set this parameter equal to ``OBJECT_STORE_KEY``. Composer will read the key like this:
 
-            .. testsetup::  composer.utils.object_store.ObjectStoreHparams.__init__.key
+            .. testsetup::  composer.utils.object_store.LibcloudObjectStoreHparams.__init__.key
 
                 import os
                 import functools
-                from composer.utils import ObjectStoreHparams
+                from composer.utils import LibcloudObjectStoreHparams
 
                 os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
-                ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")
+                LibcloudObjectStoreHparams = functools.partial(LibcloudObjectStoreHparams, provider="s3", container="container")
 
-            .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.key
+            .. doctest:: composer.utils.object_store.LibcloudObjectStoreHparams.__init__.key
 
                 >>> import os
-                >>> params = ObjectStoreHparams(key_environ="OBJECT_STORE_KEY")
+                >>> params = LibcloudObjectStoreHparams(key_environ="OBJECT_STORE_KEY")
                 >>> key = os.environ[params.key_environ]
                 >>> key
                 'MY_KEY'
@@ -86,21 +86,21 @@ class ObjectStoreHparams(hp.Hparams):
             For example, if your secret is an environment variable called ``OBJECT_STORE_SECRET`` that is set to ``MY_SECRET``,
             then you should set this parameter equal to ``OBJECT_STORE_SECRET``. Composer will read the secret like this:
 
-            .. testsetup:: composer.utils.object_store.ObjectStoreHparams.__init__.secret
+            .. testsetup:: composer.utils.object_store.LibcloudObjectStoreHparams.__init__.secret
 
                 import os
                 import functools
-                from composer.utils import ObjectStoreHparams
+                from composer.utils import LibcloudObjectStoreHparams
 
                 original_secret = os.environ.get("OBJECT_STORE_SECRET")
                 os.environ["OBJECT_STORE_SECRET"] = "MY_SECRET"
-                ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")
+                LibcloudObjectStoreHparams = functools.partial(LibcloudObjectStoreHparams, provider="s3", container="container")
 
 
-            .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.secret
+            .. doctest:: composer.utils.object_store.LibcloudObjectStoreHparams.__init__.secret
 
                 >>> import os
-                >>> params = ObjectStoreHparams(secret_environ="OBJECT_STORE_SECRET")
+                >>> params = LibcloudObjectStoreHparams(secret_environ="OBJECT_STORE_SECRET")
                 >>> secret = os.environ[params.secret_environ]
                 >>> secret
                 'MY_SECRET'

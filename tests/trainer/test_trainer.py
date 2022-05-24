@@ -34,7 +34,7 @@ from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
 from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import dist
-from composer.utils.object_store import ObjectStoreHparams
+from composer.utils.object_store import LibcloudObjectStoreHparams
 from tests.algorithms.algorithm_settings import get_settings
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
@@ -967,7 +967,7 @@ class TestTrainerAssets:
         local_dir = str(tmp_path / "local_dir")
         os.makedirs(local_dir)
         monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
-        provider_hparams = ObjectStoreHparams(
+        provider_hparams = LibcloudObjectStoreHparams(
             provider='local',
             key_environ="OBJECT_STORE_KEY",
             container=".",
