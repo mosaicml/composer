@@ -16,7 +16,7 @@ import tqdm
 from composer.core.time import Time, Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
-from composer.utils.object_store import ObjectStore
+from composer.utils.object_store import LibcloudObjectStore
 
 if TYPE_CHECKING:
     from composer.loggers import LoggerDestination
@@ -299,7 +299,7 @@ Args:
 def get_file(
     path: str,
     destination: str,
-    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+    object_store: Optional[Union[LibcloudObjectStore, LoggerDestination]] = None,
     chunk_size: int = 2**20,
     progress_bar: bool = True,
 ):
