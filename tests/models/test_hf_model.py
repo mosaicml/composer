@@ -5,6 +5,7 @@ import pytest
 import torch
 
 
+@pytest.mark.timeout(6)
 def test_hf_model_forward():
     pytest.importorskip("transformers")
     import transformers
@@ -19,8 +20,9 @@ def test_hf_model_forward():
     attention_mask = torch.randint(low=0, high=1, size=(2, 32))
     batch = dict(input_ids=input_ids, labels=labels, token_type_ids=token_type_ids, attention_mask=attention_mask)
 
-    hf_model = transformers.AutoModelForSequenceClassification.from_pretrained(
-        'bert-base-uncased', num_labels=2)  # type: ignore (thirdparty)
+    # non pretrained model to avoid a slow test that downloads the weights.
+    config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2)
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
     model = HuggingFaceModel(hf_model)
 
     out = model(batch)
