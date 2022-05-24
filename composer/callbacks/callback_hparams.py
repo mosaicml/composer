@@ -56,15 +56,15 @@ class BenchmarkerHparams(CallbackHparams):
     """
     min_steps: int = hp.optional(
         doc="Minimum number of steps to use for measuring throughput.",
-        default=10,
+        default=0,
     )
     epoch_list: List[int] = hp.optional(
         doc="List of epochs at which to measure throughput.",
-        default_factory=lambda: [0, 3, 4],
+        default_factory=lambda: [0, 4, 6, 8],
     )
     step_list: List[int] = hp.optional(
         doc="List of steps at which to measure throughput.",
-        default_factory=lambda: [0, 25, 50, 75],
+        default_factory=lambda: [0, 100, 200, 300],
     )
     all_epochs: bool = hp.optional(
         doc="If true, override epoch_list and profile at all epochs.",

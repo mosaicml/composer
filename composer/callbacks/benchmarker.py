@@ -180,9 +180,17 @@ class Benchmarker(Callback):
                 else:
                     # Comment: I avoided defining setters in Timestamp() as it can cause potential bugs for others. 
                     # Instead, I overwrite the private members (bad practice).
+                    print()
+                    print(">>>>>>>>>>>>>>>>>>> DEBUG BATCH END: epoch={}, dataloader_len={}, step_list[]={}, step_ix={}".format(state.timestamp.epoch, state.dataloader_len, self.step_list[self.step_ix], self.step_ix))
                     new_batch_value = int(state.timestamp.epoch) * int(state.dataloader_len) + self.step_list[self.step_ix]
                     # state.timestamp.batch._value = int(new_batch_value)
                     # state.timestamp.batch_in_epoch._value = int(self.ste÷p_list[self.step_ix])
                     
+
+                    print("old batch: {}, new batch: {}".format(state.timestamp._batch, Time(new_batch_value, TimeUnit.BATCH)))
+                    # print(state.timestamp.batch, " - ", state.timestamp.batch._value, " - ", state.timestamp._batch, " - ", state.timestamp._batch._value)
+                    # print(type(state.timestamp.batch), " - ", type(state.timestamp.batch._value), " - ", type(state.timestamp._batch), " - ", type(state.timestamp._batch._value))
                     state.timestamp._batch = Time(new_batch_value, TimeUnit.BATCH)
+                    print("old batch_in_epoch: {}, new batch_in_epoch: {}".format(state.timestamp._batch_in_epoch, Time(int(self.step_list[self.step_ix]), TimeUnit.BATCH)))
                     state.timestamp._batch_in_epoch = Time(int(self.step_list[self.step_ix]), TimeUnit.BATCH)
+                    print(">>>>>>>>>>>>>>>>>>> END DEBUG BATCH END")
