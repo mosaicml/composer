@@ -84,7 +84,6 @@ repos:
     rev: v1.1.13
     hooks:
       - id: insert-license
-        files: composer
         args:
           - --license-filepath
           - .ci/FILE_HEADER

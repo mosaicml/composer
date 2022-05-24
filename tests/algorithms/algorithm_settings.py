@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 """This file provides the canonical settings (dataset, model, algorithms, arguments)
 for each algorithm to be tested. This can be used throughout the codebase for
 functional tests, serialization tests, etc.

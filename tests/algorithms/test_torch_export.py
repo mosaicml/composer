@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Tests a variety of export options with our surgery methods applied, including
 torchscript, torch.fx, and ONNX.
