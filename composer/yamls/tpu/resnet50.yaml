@@ -31,10 +31,10 @@ model:
       - kaiming_normal
       - bn_uniform
     num_classes: 1000
-max_duration: 10ep
-eval_interval: 11ep
-train_batch_size: 128
-eval_batch_size: 64
+max_duration: 90ep
+eval_interval: 91ep
+train_batch_size: 512
+eval_batch_size: 256
 seed: 17
 device:
   gpu: {}

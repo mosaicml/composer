@@ -49,14 +49,13 @@ def t():
                                          artifact_name=f"{trainer.logger.run_name}/hparams.yaml",
                                          file_path=f.name,
                                          overwrite=True)
+    import torch_xla.core.xla_model as xm
+    xm.rendezvous('once')
             
     trainer.fit()
 
-def train():
-    print('1')
     
 def _mp_fn(index):
-    global FLAGS
     t()
     
 if __name__ == "__main__":

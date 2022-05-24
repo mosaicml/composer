@@ -43,6 +43,7 @@ from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store import ObjectStore
+import torch_xla.core.xla_model as xm
 
 log = logging.getLogger(__name__)
 
@@ -428,6 +429,10 @@ class Trainer:
         grad_clip_norm: Optional[float] = None,
     ):
         # Train Dataloader
+
+        if xm.is_master_ordinal():
+            xm.rendezvous('once')
+        
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
@@ -548,8 +553,13 @@ class Trainer:
 
     def _accumulate_samples_and_tokens_across_ranks(self, num_samples: int, num_tokens: int) -> Tuple[int, int]:
         tensor = self._device.tensor_to_device(torch.tensor([num_samples, num_tokens], dtype=torch.int))
-        dist.all_reduce(tensor, reduce_operation="SUM")
-        return int(tensor[0].cpu().item()), int(tensor[1].cpu().item())
+
+        ### probably need something else here
+        xm.all_reduce("sum", tensor, scale=1.0 / xm.xrt_world_size())
+
+        #dist.all_reduce(tensor, reduce_operation="SUM")
+        #return int(tensor[0].cpu().item()), int(tensor[1].cpu().item())
+        return int(tensor[0].item()), int(tensor[1].item())
 
     def _train_loop(self) -> None:
         self.logger.data_fit({"trainer/algorithms": [str(algo) for algo in self.state.algorithms]})
@@ -616,10 +626,15 @@ class Trainer:
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
+                    ## might be different for tpu
+                    total_num_samples, total_num_tokens = self.state.batch_num_samples, self.state.batch_num_tokens
+                    '''
                     total_num_samples, total_num_tokens = self._accumulate_samples_and_tokens_across_ranks(
                         num_samples=self.state.batch_num_samples,
                         num_tokens=self.state.batch_num_tokens,
                     )
+                    '''
+                    
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.data_batch({
@@ -729,8 +744,8 @@ class Trainer:
                             total_loss = self.state.scaler.step(
                                 optimizer, closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs))
                         else:
-                            if self._device == "tpu":
-                                total_loss = xm.optimizer_step(optimizer, optimizer_args={"closure": lambda_closure, **kwargs})#: self._train_microbatches(microbatches, **kwargs).item()})
+                            if True:#self._device == "tpu":
+                                total_loss = xm.optimizer_step(optimizer) #, optimizer_args={"closure": lambda_closure, **kwargs})#: self._train_microbatches(microbatches, **kwargs).item()})
                             else:
                                 total_loss = optimizer.step(
                                     closure=lambda **kwargs: self._train_microbatches(microbatches, **kwargs).item())
@@ -739,12 +754,12 @@ class Trainer:
                     total_loss = self._train_microbatches(microbatches)
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
-                            if self._device == "tpu":
+                            if True:#self._device == "tpu":
                                 xm.optimizer_step(optimizer)
                             else:
                                 self.state.scaler.step(optimizer)
                         else:
-                            if self._device == "tpu":
+                            if True:#self._device == "tpu":
                                 xm.optimizer_step(optimizer)
                             else:
                                 optimizer.step()
@@ -761,6 +776,9 @@ class Trainer:
             # Propagate across all ranks if any rank hit CUDA OOM
             should_handle_cuda_oom = self._device.tensor_to_device(
                 torch.tensor([should_handle_cuda_oom], dtype=torch.uint8))
+
+            return total_loss
+            '''
             dist.all_reduce(should_handle_cuda_oom, reduce_operation="MAX")
             if int(should_handle_cuda_oom.item()) == 1:
                 self._handle_cuda_oom()
@@ -769,6 +787,7 @@ class Trainer:
             else:
                 # Otherwise, return calculated loss
                 return total_loss
+            '''
 
     def _train_microbatches(self, microbatches: Sequence[Batch], ddp_sync: bool = True):
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
