@@ -16,7 +16,7 @@ from composer.models.classify_mnist import MNIST_Classifier
 # The project name must be deterministic, so we can restore from it
 wandb_logger = WandBLogger(
     log_artifacts=True,
-    init_params={
+    init_kwargs={
         'project': 'my-wandb-project-name',
     },
 )
