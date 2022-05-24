@@ -148,7 +148,8 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         git clone https://github.com/NVIDIA/apex && \
         cd apex && \
         pip${PYTHON_VERSION} install --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./ && \
-        rm -rf /tmp/apex ; \
+        python${PYTHON_VERSION} -c 'import apex;print(apex.__version__)' ; \
+        # rm -rf /tmp/apex ; \
     fi
 
 #######################
