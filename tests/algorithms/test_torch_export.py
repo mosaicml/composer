@@ -1,10 +1,13 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Tests a variety of export options with our surgery methods applied, including
 torchscript, torch.fx, and ONNX.
 """
 import os
 import pathlib
-from typing import Any, Callable, Dict, Type
+from typing import Any, Callable, Type
 
 import pytest
 import torch
@@ -17,11 +20,9 @@ from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite
 from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepth
 from composer.core.algorithm import Algorithm
-from composer.core.types import Dataset
 from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
                                  apply_squeeze_excite, apply_stochastic_depth)
-from composer.models.base import ComposerModel
-from tests.algorithms.algorithm_settings import get_algorithm_parametrization
+from tests.algorithms.algorithm_settings import get_alg_dataset, get_alg_kwargs, get_alg_model, get_algs_with_marks
 
 algo_kwargs = {
     apply_stochastic_depth: {
@@ -40,8 +41,8 @@ def input():
     return (torch.rand(4, 3, 112, 112), torch.Tensor())
 
 
-alg_class_parameterization = [
-    x for x in get_algorithm_parametrization()
+torchscript_algs_with_marks = [
+    x for x in get_algs_with_marks()
     if x.values[0] in (BlurPool, Factorize, GhostBatchNorm, SqueezeExcite, StochasticDepth, ChannelsLast)
 ]
 
@@ -65,19 +66,20 @@ def get_surgery_method(alg_cls: Type[Algorithm]) -> Callable:
 
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", alg_class_parameterization)
+@pytest.mark.parametrize("alg_cls", torchscript_algs_with_marks)
 def test_surgery_torchscript_train(
     input: Any,
     alg_cls: Type[Algorithm],
-    alg_kwargs: Dict[str, Any],
-    model: ComposerModel,
-    dataset: Dataset,
 ):
     """Tests torchscript model in train mode."""
     del dataset  # unused
 
     if alg_cls in (Factorize, GhostBatchNorm, StochasticDepth):
         pytest.xfail("Unsupported")
+
+    alg_kwargs = get_alg_kwargs(alg_cls)
+    model = get_alg_model(alg_cls)
+    dataset = get_alg_dataset(alg_cls)
 
     surgery_method = get_surgery_method(alg_cls)
 
@@ -92,13 +94,10 @@ def test_surgery_torchscript_train(
 
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", alg_class_parameterization)
+@pytest.mark.parametrize("alg_cls", torchscript_algs_with_marks)
 def test_surgery_torchscript_eval(
     input: Any,
     alg_cls: Type[Algorithm],
-    alg_kwargs: Dict[str, Any],
-    model: ComposerModel,
-    dataset: Dataset,
 ):
     """Tests torchscript model in eval mode."""
     del dataset  # unused
@@ -108,6 +107,8 @@ def test_surgery_torchscript_eval(
 
     surgery_method = get_surgery_method(alg_cls)
 
+    alg_kwargs = get_alg_kwargs(alg_cls)
+    model = get_alg_model(alg_cls)
     alg_kwargs = algo_kwargs.get(surgery_method, alg_kwargs)
 
     surgery_method(model, **alg_kwargs)
@@ -122,17 +123,15 @@ def test_surgery_torchscript_eval(
 
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", alg_class_parameterization)
+@pytest.mark.parametrize("alg_cls", torchscript_algs_with_marks)
 def test_surgery_torchfx_eval(
     input: Any,
     alg_cls: Type[Algorithm],
-    alg_kwargs: Dict[str, Any],
-    model: ComposerModel,
-    dataset: Dataset,
 ):
     """Tests torch.fx model in eval mode."""
-    del dataset  # unused
 
+    alg_kwargs = get_alg_kwargs(alg_cls)
+    model = get_alg_model(alg_cls)
     surgery_method = get_surgery_method(alg_cls)
 
     if alg_cls in (BlurPool, GhostBatchNorm):
@@ -152,25 +151,23 @@ def test_surgery_torchfx_eval(
 
 
 @pytest.mark.timeout(10)
-@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", alg_class_parameterization)
+@pytest.mark.parametrize("alg_cls", torchscript_algs_with_marks)
 @pytest.mark.filterwarnings(
     r"ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning")
 def test_surgery_onnx(
     input: Any,
     alg_cls: Type[Algorithm],
-    alg_kwargs: Dict[str, Any],
-    model: ComposerModel,
-    dataset: Dataset,
     tmp_path: pathlib.Path,
 ):
     """Tests onnx export and runtime"""
-    del dataset  # unused
     pytest.importorskip("onnx")
     import onnx  # type: ignore
     import onnxruntime as ort  # type: ignore
 
     surgery_method = get_surgery_method(alg_cls)
 
+    model = get_alg_model(alg_cls)
+    alg_kwargs = get_alg_kwargs(alg_cls)
     alg_kwargs = algo_kwargs.get(surgery_method, alg_kwargs)
 
     surgery_method(model, **alg_kwargs)

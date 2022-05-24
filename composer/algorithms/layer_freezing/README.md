@@ -23,7 +23,7 @@ TODO(CORY): FIX
 #   opt = torch.optim.Adam(model.parameters())
 #   loss_fn = F.cross_entropy
 #   model.train()
-  
+
 #   for epoch in range(num_epochs):
 #       for X, y in train_loader:
 #           y_hat = model(X)
