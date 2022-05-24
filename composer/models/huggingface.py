@@ -1,11 +1,12 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""A wrapper class that converts 🤗 Transformers models to composer models"""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional
 
-from torch import nn
 from torchmetrics import Metric
 from torchmetrics.collections import MetricCollection
 
@@ -19,9 +20,10 @@ __all__ = ["HuggingFaceModel"]
 
 class HuggingFaceModel(ComposerModel):
     """
+    A wrapper class that converts 🤗 Transformers models to composer models.
+
     Args:
-        model (transformers.PreTrainedModel | torch.nn.Module):  You can use your own models defined as
-        `torch.nn.Module` as long as they work the same way as the 🤗 Transformers models.
+        model (transformers.PreTrainedModel): A 🤗 Transformers model.
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
 
     Example:
@@ -35,9 +37,7 @@ class HuggingFaceModel(ComposerModel):
         model = HuggingFaceModel(hf_model)
     """
 
-    def __init__(self,
-                 model: Union[transformers.PreTrainedModel, nn.Module],
-                 metrics: Optional[List[Metric]] = None) -> None:
+    def __init__(self, model: transformers.PreTrainedModel, metrics: Optional[List[Metric]] = None) -> None:
         super().__init__()
         self.model = model
 
@@ -50,7 +50,7 @@ class HuggingFaceModel(ComposerModel):
             self.valid_metrics = metric_collection.clone(prefix='val_')
 
     def forward(self, batch):
-        output = self.model(**batch)
+        output = self.model(**batch)  # type: ignore (thirdparty)
         return output
 
     def loss(self, outputs, batch):
