@@ -64,6 +64,7 @@ repos:
         args:
           - --autofix
           - --no-sort-keys
+          - --indent=4
       - id: check-merge-conflict
       - id: check-symlinks
       - id: check-toml
