@@ -6,7 +6,7 @@ from composer.utils import ensure_tuple
 
 
 def test_none_to_tuple():
-    assert ensure_tuple(None) == tuple()
+    assert ensure_tuple(None) == ()
 
 
 @pytest.mark.parametrize("x", ['test', b'test', bytearray(b'test')])

@@ -25,7 +25,7 @@ def training_loop(model, train_loader):
     opt = torch.optim.Adam(model.parameters())
     loss_fn = F.cross_entropy
     model.train()
-  
+
     for epoch in range(num_epochs):
         for X, y in train_loader:
             opt.zero_grad()
@@ -66,7 +66,7 @@ AGC is implemented as follows:
 On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradients:
 1. Compute the parameter's weight norm with an L2 norm (normalized across rows for MLP's, across entire filters for CNN's, and across the entire vector for biases).
 2. Compute the parameter's gradient norm with an L2 norm.
-3. If `grad_norm > weight_norm * clipping_threshold`, scale all the contributing gradients by `clipping_threshold * (weight_norm / grad_norm)`. 
+3. If `grad_norm > weight_norm * clipping_threshold`, scale all the contributing gradients by `clipping_threshold * (weight_norm / grad_norm)`.
 
 
 ## Suggested Hyperparameters
@@ -74,7 +74,7 @@ On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradient
 We haven't done much experimentation with AGC. However, [the original authors, Brock et al.](https://arxiv.org/abs/2102.06171)
 and [Ayush Thakur](https://wandb.ai/ayush-thakur/nfnet/reports/Exploring-Adaptive-Gradient-Clipping-and-NFNets--Vmlldzo1MDc0NTQ)
 have done some ablations have some recommendations. Note, both parties use AGC with NF-ResNets, which is a variation
-of ResNets that removes Batch Norm and includes [Weight Standardization](https://arxiv.org/abs/1903.10520) 
+of ResNets that removes Batch Norm and includes [Weight Standardization](https://arxiv.org/abs/1903.10520)
 among other modifications.
 
 Brock et al. recommend using a `clipping threshold` of 0.01 for batch sizes between 1024 to 4096.
@@ -84,7 +84,7 @@ slightly increasing up to 0.08. They also recommend removing AGC from the last l
 Thakur recommends large `clipping threshold` for small batch sizes (at least 0.16 for batch sizes 128 and 256) and smaller `clipping threshold` for large batch sizes .
 They also found that AGC seems to work especially well for the NF-ResNet architecture. Specifically they found that for `clipping threshold` of 0.01 and batch size of 1024, AGC does not improve the the performance of a vanilla ResNet with Batch Norm removed.
 
-<!-- ## Technical Details 
+<!-- ## Technical Details
 TODO(eracah): fill in this section.
 -->
 

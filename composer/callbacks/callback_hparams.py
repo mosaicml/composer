@@ -130,8 +130,8 @@ class EarlyStopperHparams(CallbackHparams):
 
     Args:
         monitor (str): The name of the metric to monitor.
-        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If 
-            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
+        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If
+            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If
             monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
             should be set to 'train' or 'eval' respectively.
         comp (str, optional): A string dictating which comparison operator to use to measure
@@ -170,8 +170,8 @@ class ThresholdStopperHparams(CallbackHparams):
 
     Args:
         monitor (str): The name of the metric to monitor.
-        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If 
-            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
+        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If
+            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If
             monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
             should be set to 'train' or 'eval' respectively.
         threshold (float): The threshold that dictates when to halt training. Whether training stops if the metric

@@ -28,7 +28,7 @@ def apply_agc(
          .. testcode::
 
             import composer.functional as cf
-            
+
             cf.apply_agc(model=model)
 
 

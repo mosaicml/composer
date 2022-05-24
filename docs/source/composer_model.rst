@@ -88,7 +88,7 @@ We also provide several common classes for various tasks, specifically:
     loss. For this reason, we split it into two separate methods.
 
 By convention, we define our PyTorch layers in the ``self.model``
-attribute of :class:`.ComposerModel`. We encourage this pattern because 
+attribute of :class:`.ComposerModel`. We encourage this pattern because
 it makes it easier to extract the underlying model for inference when training is
 completed. However, this is not enforced, and users can configure the
 layers directly in the class if they prefer.
