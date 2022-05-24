@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 """This file provides the canonical settings (dataset, model, algorithms, arguments)
 for each algorithm to be tested. This can be used throughout the codebase for
 functional tests, serialization tests, etc.
@@ -10,30 +13,11 @@ from typing import Any, Dict, Optional, Type
 import pytest
 
 import composer
-from composer.algorithms.agc import AGC
-from composer.algorithms.alibi import Alibi
-from composer.algorithms.augmix import AugMix
-from composer.algorithms.blurpool import BlurPool
-from composer.algorithms.channels_last import ChannelsLast
-from composer.algorithms.colout import ColOut
-from composer.algorithms.cutmix import CutMix
-from composer.algorithms.cutout import CutOut
-from composer.algorithms.ema import EMA
-from composer.algorithms.factorize import Factorize
-from composer.algorithms.ghost_batchnorm import GhostBatchNorm
-from composer.algorithms.label_smoothing import LabelSmoothing
-from composer.algorithms.layer_freezing import LayerFreezing
-from composer.algorithms.mixup import MixUp
-from composer.algorithms.no_op_model.no_op_model import NoOpModel
-from composer.algorithms.progressive_resizing import ProgressiveResizing
-from composer.algorithms.randaugment import RandAugment
-from composer.algorithms.sam import SAM
-from composer.algorithms.selective_backprop import SelectiveBackprop
-from composer.algorithms.seq_length_warmup import SeqLengthWarmup
-from composer.algorithms.squeeze_excite import SqueezeExcite
-from composer.algorithms.stochastic_depth import StochasticDepth
-from composer.algorithms.swa import SWA
-from composer.core.algorithm import Algorithm
+from composer import Algorithm
+from composer.algorithms import (AGC, EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
+                                 Factorize, GhostBatchNorm, LabelSmoothing, LayerFreezing, MixUp, NoOpModel,
+                                 ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
+                                 StochasticDepth)
 from composer.models import ComposerResNet
 from tests import common
 
@@ -157,11 +141,11 @@ def get_algorithm_parametrization():
     """Returns a list of algorithms for a subsequent call to pytest.mark.parameterize.
     It applies markers as appropriate (e.g. XFAIL for algs missing config)
     It reads from the algorithm registry
-    
+
     E.g. @pytest.mark.parametrize("alg_class,alg_kwargs,model,dataset", get_algorithms_parametrization())
     """
     ans = []
-    for alg_cls in common.get_all_subclasses_in_module(composer.algorithms, Algorithm):
+    for alg_cls in common.get_module_subclasses(composer.algorithms, Algorithm):
         marks = []
         result = []
         settings = _settings[alg_cls]

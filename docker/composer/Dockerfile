@@ -12,4 +12,3 @@ ARG COMPOSER_EXTRA_DEPS
 
 # Install composer package
 RUN pip install "mosaicml[$COMPOSER_EXTRA_DEPS]"
-
