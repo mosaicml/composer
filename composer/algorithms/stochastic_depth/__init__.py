@@ -8,9 +8,7 @@ See :class:`~composer.algorithms.StochasticDepth`, the sample-wise stochastic de
 </method_cards/stochastic_depth>` for details.
 """
 
-from composer.algorithms.stochastic_depth.sample_stochastic_layers import \
-    SampleStochasticBottleneck as SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepth as StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import apply_stochastic_depth as apply_stochastic_depth
 
-__all__ = ["StochasticDepth", "apply_stochastic_depth", "SampleStochasticBottleneck"]
+__all__ = ["StochasticDepth", "apply_stochastic_depth"]
