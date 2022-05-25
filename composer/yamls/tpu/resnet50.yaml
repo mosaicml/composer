@@ -37,12 +37,8 @@ train_batch_size: 512
 eval_batch_size: 256
 seed: 17
 device:
-  gpu: {}
+  tpu: {}
 dataloader:
-  pin_memory: true
-  timeout: 0
-  prefetch_factor: 2
-  persistent_workers: true
   num_workers: 8
 grad_accum: 1
-precision: fp32
+precision: fp16
