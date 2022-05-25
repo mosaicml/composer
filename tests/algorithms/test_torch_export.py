@@ -22,7 +22,7 @@ from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDept
 from composer.core.algorithm import Algorithm
 from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
                                  apply_squeeze_excite, apply_stochastic_depth)
-from tests.algorithms.algorithm_settings import get_alg_dataset, get_alg_kwargs, get_alg_model, get_algs_with_marks
+from tests.algorithms.algorithm_settings import get_alg_kwargs, get_alg_model, get_algs_with_marks
 
 algo_kwargs = {
     apply_stochastic_depth: {
@@ -67,19 +67,13 @@ def get_surgery_method(alg_cls: Type[Algorithm]) -> Callable:
 
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize("alg_cls", torchscript_algs_with_marks)
-def test_surgery_torchscript_train(
-    input: Any,
-    alg_cls: Type[Algorithm],
-):
+def test_surgery_torchscript_train(input: Any, alg_cls: Type[Algorithm]):
     """Tests torchscript model in train mode."""
-    del dataset  # unused
-
     if alg_cls in (Factorize, GhostBatchNorm, StochasticDepth):
         pytest.xfail("Unsupported")
 
     alg_kwargs = get_alg_kwargs(alg_cls)
     model = get_alg_model(alg_cls)
-    dataset = get_alg_dataset(alg_cls)
 
     surgery_method = get_surgery_method(alg_cls)
 
@@ -95,13 +89,8 @@ def test_surgery_torchscript_train(
 
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize("alg_cls", torchscript_algs_with_marks)
-def test_surgery_torchscript_eval(
-    input: Any,
-    alg_cls: Type[Algorithm],
-):
+def test_surgery_torchscript_eval(input: Any, alg_cls: Type[Algorithm]):
     """Tests torchscript model in eval mode."""
-    del dataset  # unused
-
     if alg_cls is Factorize:
         pytest.xfail("Unsupported")
 
