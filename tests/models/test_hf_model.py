@@ -18,7 +18,7 @@ def test_hf_model_forward():
     labels = torch.randint(low=0, high=1, size=(2,))
     token_type_ids = torch.zeros(size=(2, 32), dtype=torch.int64)
     attention_mask = torch.randint(low=0, high=1, size=(2, 32))
-    batch = dict(input_ids=input_ids, labels=labels, token_type_ids=token_type_ids, attention_mask=attention_mask)
+    batch = {"input_ids":input_ids, "labels":labels, "token_type_ids":token_type_ids, "attention_mask":attention_mask}
 
     # non pretrained model to avoid a slow test that downloads the weights.
     config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2)
