@@ -77,7 +77,7 @@ class MemoryMonitor(Callback):
     """
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        # Ideally this check would be on Event.INIT, but the model is not moved to the device until AFTER Event.INIT
+        # TODO(ravi) move this check would be on Event.INIT after #1084 is merged
         # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
         model_device = next(state.model.parameters()).device
 

@@ -132,8 +132,8 @@ class TestCallbackTrains:
 
         return Trainer(
             model=SimpleModel(),
-            train_dataloader=DataLoader(RandomClassificationDataset(), batch_size=2),
-            eval_dataloader=DataLoader(RandomClassificationDataset(), batch_size=2),
+            train_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=2),
+            eval_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=2),
             compute_training_metrics=True,
             max_duration=2,
             grad_accum=grad_accum,

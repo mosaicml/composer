@@ -13,12 +13,13 @@ from tests.common import RandomClassificationDataset, SimpleModel
 @pytest.mark.gpu
 def test_memory_monitor_errors_on_cpu_models():
     # Error if the user sets device=cpu even when cuda is available
+    trainer = Trainer(
+        model=SimpleModel(),
+        callbacks=MemoryMonitor(),
+        device='cpu',
+    )
     with pytest.raises(RuntimeError, match="The memory monitor only works on CUDA devices"):
-        Trainer(
-            model=SimpleModel(),
-            callbacks=MemoryMonitor(),
-            device='cpu',
-        )
+        trainer.fit()
 
 
 @pytest.mark.gpu
@@ -31,6 +32,7 @@ def test_memory_monitor_gpu():
         callbacks=memory_monitor,
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomClassificationDataset()),
+        max_duration="1ba",
     )
     trainer.fit()
 
