@@ -6,42 +6,23 @@
 
 import os
 import shutil
-import tempfile
 import textwrap
-from time import sleep, time
+import time
 from urllib.parse import urlparse
 
-__all__ = ["safe_download"]
-
-
-def wait_for_download(local: str, timeout: float = 60) -> None:
-    """Block until another worker's shard download completes.
-
-    Args:
-        local (str): Path to file.
-        timeout (float): How long to wait before raising an exception. Default: 60 sec.
-    """
-    start_time = time()
-    while True:
-        if os.path.exists(local):
-            return
-        elapsed = time() - start_time
-        if elapsed > timeout:
-            raise TimeoutError(f'Waited too long (more than {timeout:.3f} sec) for download')
-        sleep(0.1)
+__all__ = ["download_or_wait"]
 
 
 def download_from_s3(remote: str, local: str, timeout: float) -> None:
     """Download a file from remote to local.
-
     Args:
         remote (str): Remote path (S3).
         local (str): Local path (local filesystem).
         timeout (float): How long to wait for shard to download before raising an exception.
     """
     try:
-        import boto3  # type: ignore (third-party)
-        from botocore.config import Config  # type: ignore (third-party)
+        import boto3
+        from botocore.config import Config
     except ImportError as e:
         raise ImportError(
             textwrap.dedent("""\
@@ -52,100 +33,68 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
     if obj.scheme != 's3':
         raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
 
-    # We don't know how much of total 'timeout' to assign to connect vs. read
-    # So we allow both connect and read to take up to 'timeout' seconds
-    # And if the overall time is greater than 'timeout', our parent `download` function will catch it.
-    config = Config(connect_timeout=timeout, read_timeout=timeout, retries={'total_max_attempts': 5})
+    config = Config(read_timeout=timeout)
     s3 = boto3.client('s3', config=config)
     s3.download_file(obj.netloc, obj.path[1:], local)
 
 
 def download_from_local(remote: str, local: str) -> None:
     """Download a file from remote to local.
-
     Args:
         remote (str): Remote path (local filesystem).
         local (str): Local path (local filesystem).
     """
-    shutil.copy(remote, local)
+    local_tmp = local + ".tmp"
+    if os.path.exists(local_tmp):
+        os.remove(local_tmp)
+    shutil.copy(remote, local_tmp)
+    os.rename(local_tmp, local)
 
 
-def download(remote: str, local: str, timeout: float) -> None:
-    """Download a file from remote to local.
-
+def dispatch_download(remote, local, timeout: float):
+    """Use the correct download handler to download the file
     Args:
-        remote (str): Remote path (S3 or local filesystem).
+        remote (str): Remote path (local filesystem).
         local (str): Local path (local filesystem).
-        timeout (float): How long to wait for shard to download before raising an exception.
+        timeout (float): How long to wait for file to download before raising an exception.
     """
-    local_dir = os.path.dirname(local)
-    os.makedirs(local_dir, exist_ok=True)
-    start_time = time()
-
-    if remote.startswith('s3://'):
-        download_from_s3(remote, local, timeout=timeout)
-    else:
-        download_from_local(remote, local)
-
-    elapsed = time() - start_time
-    if elapsed > timeout:
-        raise TimeoutError(f'Waited too long (more than {timeout:.3f} sec) for download')
-
-
-def safe_download(remote: str, local: str, timeout: float = 60) -> None:
-    """Safely downloads a file from remote to local.
-       Handles multiple threads attempting to download the same shard.
-       Gracefully deletes stale tmp files from crashed runs.
-
-
-    Args:
-        remote (str): Remote path (S3 or local filesystem).
-        local (str): Local path (local filesystem).
-        timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
-    """
-    # If we already have the file cached locally, we are done.
     if os.path.exists(local):
         return
 
-    # Check if there is a tmp file.
-    local_tmp = local + '.tmp'
-    if os.path.exists(local_tmp):
-        # Get tmp file created time
-        local_tmp_create_time = os.path.getctime(local_tmp)
-
-        # Get current disk time, more consistent than system time
-        with tempfile.NamedTemporaryFile() as f:
-            current_disk_time = os.path.getctime(f.name)
-
-        if current_disk_time - local_tmp_create_time < timeout + 1:  # 1s buffer to avoid race condition
-            # If the tmp file is recent, it is either (1) from a very recent crashed run, or (2) another thread is actively downloading it.
-            # So we wait but don't error out, in case we are in situation (1)
-            try:
-                wait_for_download(local, timeout)
-                return
-            except TimeoutError:
-                pass
-
-        # The tmp file is old, it is either (1) from a crashed run or (2) another thread is downloading it but is taking too long, and will timeout.
-        # Let's delete the tmp file. If situation (1), this is safe. If situation (2), the other thread is expected to crash with a TimeoutError anyways, so this is fine.
-        try:
-            os.remove(local_tmp)
-        except OSError:
-            # This occurs if another download thread got to the delete first.
-            pass
-
-    # There is no tmp file, so attempt to make it.
-    # If this fails, another download thread beat us to it, so wait.
     local_dir = os.path.dirname(local)
     os.makedirs(local_dir, exist_ok=True)
-    try:
-        with open(local_tmp, 'xb') as out:
-            out.write(b'')
-    except FileExistsError:
-        # If we run out of time here, we know a download thread was active and exceeded timeout, so we should error out.
-        wait_for_download(local, timeout)
-        return
 
-    # We succesfully created the tmp file. Perform the download and rename.
-    download(remote, local_tmp, timeout)
-    os.rename(local_tmp, local)
+    if remote.startswith('s3://'):
+        download_from_s3(remote, local, timeout)
+    else:
+        download_from_local(remote, local)
+
+
+def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: int = 2, timeout: float = 60) -> None:
+    """Downloads a file from remote to local, or waits for it to be downloaded. Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
+    Args:
+        remote (str): Remote path (S3 or local filesystem).
+        local (str): Local path (local filesystem).
+        wait (bool, default False): If ``true``, then do not actively download the file, but instead wait (up to ``timeout`` seconds) for the file to arrive.
+        max_retries (int, default 2): Number of download re-attempts before giving up.
+        timeout (float, default 60): How long to wait for file to download before raising an exception.
+    """
+    last_error = None
+    error_msgs = []
+    for _ in range(1 + max_retries):
+        try:
+            if wait:
+                start = time.time()
+                while not os.path.exists(local):
+                    if time.time() - start > timeout:
+                        raise TimeoutError(f"Waited longer than {timeout}s for other worker to download {local}.")
+                    time.sleep(0.25)
+            else:
+                dispatch_download(remote, local, timeout=timeout)
+            break
+        except Exception as e:  # Retry for all causes of failure.
+            error_msgs.append(e)
+            last_error = e
+            continue
+    if last_error:
+        raise RuntimeError(f"Failed to download {remote} -> {local}. Got errors:\n{error_msgs}") from last_error

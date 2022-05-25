@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 # Pytest stub for running lint tests and doctests
 
 # Running these checks through pytest allows us to report any errors in Junit format,

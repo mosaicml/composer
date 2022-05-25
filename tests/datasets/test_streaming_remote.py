@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import pathlib
 import time
 from typing import Optional, Tuple
@@ -52,17 +55,18 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
 
 @pytest.mark.remote()
 @pytest.mark.timeout(0)
+@pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize("name", [
     "ade20k",
     "imagenet1k",
     "coco",
 ])
 @pytest.mark.parametrize("split", ["val"])
-def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -> None:
+def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str) -> None:
 
     # Build StreamingDataset
     build_start = time.time()
-    expected_samples, dataset = get_dataset(name=name, local=str(tmpdir), split=split, shuffle=False, batch_size=None)
+    expected_samples, dataset = get_dataset(name=name, local=str(tmp_path), split=split, shuffle=False, batch_size=None)
     build_end = time.time()
     build_dur = build_end - build_start
     print("Built dataset")
@@ -89,13 +93,14 @@ def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -
 
 @pytest.mark.remote()
 @pytest.mark.timeout(0)
+@pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize("name", [
     "ade20k",
     "imagenet1k",
     "coco",
 ])
 @pytest.mark.parametrize("split", ["val"])
-def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str) -> None:
+def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: str) -> None:
 
     # Data loading info
     shuffle = True
@@ -108,7 +113,7 @@ def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str
     # Build StreamingDataset
     ds_build_start = time.time()
     expected_samples, dataset = get_dataset(name=name,
-                                            local=str(tmpdir),
+                                            local=str(tmp_path),
                                             split=split,
                                             shuffle=shuffle,
                                             batch_size=batch_size)

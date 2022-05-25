@@ -37,7 +37,7 @@ __all__ = [
     "ComposerScheduler", "compile_composer_scheduler", "StepScheduler", "MultiStepScheduler", "ConstantScheduler",
     "LinearScheduler", "ExponentialScheduler", "CosineAnnealingScheduler", "CosineAnnealingWarmRestartsScheduler",
     "PolynomialScheduler", "MultiStepWithWarmupScheduler", "LinearWithWarmupScheduler",
-    "CosineAnnealingWithWarmupScheduler"
+    "CosineAnnealingWithWarmupScheduler", "PolynomialWithWarmupScheduler"
 ]
 
 
@@ -697,3 +697,70 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value
 
         return _cosine_anneal(x=frac_of_total, min_y=self.alpha_f)
+
+
+class PolynomialWithWarmupScheduler(ComposerScheduler):
+    r"""Decays the learning rate according to a power of the fraction of training time left, with an initial warmup.
+
+    .. seealso::
+        This scheduler is based on :class:`~.PolynomialScheduler`, with an added warmup.
+
+    Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
+
+    .. math::
+        \alpha(t) = \begin{cases}
+            t / t_{warmup}, & \text{if } t < t_{warmup} \\
+            \alpha_f + (1 - \alpha_f) \times (1 - \tau_w) ^ {\kappa} & \text{otherwise}
+        \end{cases}
+
+    Given :math:`\tau_w`, the fraction of post-warmup time elpased (clipped to the interval :math:`[0, 1]`), as:
+
+    .. math::
+       \tau_w = (t - t_{warmup}) / t_{max}
+
+    Where :math:`\kappa` represents the exponent to be used for the proportionality relationship,
+    :math:`t_{warmup}` represents the warmup time, :math:`t_{max}` represents the duration of this scheduler, and
+    :math:`\alpha_f` represents the learning rate multiplier to decay to.
+
+    .. warning::
+        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
+        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "pace" will be
+        slightly distorted from what would otherwise be expected.
+
+    Args:
+        t_warmup (str | Time): Warmup time.
+        power (float): The exponent to be used for the proportionality relationship. Default = ``2.0``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
+        alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
+    """
+
+    def __init__(self,
+                 t_warmup: Union[str, Time],
+                 power: float = 2.0,
+                 t_max: Union[str, Time] = "1dur",
+                 alpha_f: float = 0.0):
+        self.t_warmup = t_warmup
+        self.power = power
+        self.t_max = t_max
+        self.alpha_f = alpha_f
+        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
+
+    def __call__(self, state: State, ssr: float = 1.0):
+        t_warmup = _convert_time(self.t_warmup, state)
+        if t_warmup.value == 0:
+            warnings.warn(
+                textwrap.dedent("""\
+                The warmup duration is 0. If you specified warmup as a fraction of total
+                training duration, take note that the warmup duration is calculated in the
+                same unit as the trainer's max_duration parameter."""))
+
+        if state.timestamp < t_warmup:
+            return self.warmup_scheduler(state)
+
+        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        current_time = state.timestamp.get(t_warmup.unit)
+        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value
+
+        coeff = (1 - frac_of_total)**self.power
+        current_factor = self.alpha_f + coeff * (1.0 - self.alpha_f)
+        return current_factor

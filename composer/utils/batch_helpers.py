@@ -1,12 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Callable, Optional, Sequence, Union
+from operator import attrgetter, itemgetter
+from typing import Any, Callable, Sequence, Union
 
 __all__ = ['batch_get', 'batch_set']
 
 
-def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable[[Any], Any]] = None) -> Any:
+def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
     """Indexes into the batch given the key.
 
     >>> from composer.utils.batch_helpers import batch_get
@@ -14,7 +15,9 @@ def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable[[
     2
     >>> batch_get({'a':1, 'b':7}, 'b')
     7
-    >>> batch_get([{'a':1, 'b':7},{'c':5}], get_fn=lambda x: x[1]['c'])
+    >>> batch_get([{'a':1, 'b':7},{'c':5}], lambda x: x[1]['c'])
+    5
+    >>> batch_get([{'a':1, 'b':7},{'c':5}], (lambda x: x[1]['c'], lambda x: 10))
     5
 
     Args:
@@ -22,71 +25,38 @@ def batch_get(batch: Any, key: Optional[Any] = None, get_fn: Optional[Callable[[
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (Any): A key to index into the batch. Key is optional if get_fn is supplied.
-        get_fn (Callable): A user-specified function to do the extracting. 
-            get_fn is optional if key is supplied.
+        key (str, int, or Callable): A key to index into the batch or a
+                user-specified function to do the extracting. A pair of callables is also
+                supported for cases where a get and set function pair are both passed
+                (like in Algorithms). The getter is assumed to be the first of the pair.
 
     Returns:
-        The part of the batch specified by the key or the get_fn. This could be any type 
+        The part of the batch specified by the key. This could be any type
             depending on what the batch is composed of.
-    
-    Raises:
-        ValueError if key is unset and get_fn is unset or if both are set.
     """
-    if key is None and get_fn is None:
-        raise ValueError("key or get_fn must be specified and neither were!")
-    if key is not None and get_fn is not None:
-        raise ValueError("key and get_fn were both set. Only one can be set!")
-    if get_fn is not None:
+    # Case 1: key is a tuple of (getter, setter).
+    if (isinstance(key, Sequence) and not isinstance(key, str) and _is_key_get_and_set_fn_pair(key)):
+        get_fn, _ = key
         return get_fn(batch)
-    if isinstance(key, Sequence) and not isinstance(key, str):
-        return _batch_get_multiple(batch, key)
-    else:
-        return _batch_get(batch, key)
 
+    # Case 2: key is a getter Callable.
+    if isinstance(key, Callable):
+        return key(batch)
 
-def _batch_get(batch: Any, key: Any) -> Any:
-    if isinstance(batch, tuple):
-        return _batch_get_tuple(batch, key)
-
+    # Case 3: key some sort of index or key to use to directly extract from the batch.
     try:
-        return batch[key]
-
-    # The only acceptable TypeError is for an object that doesn't have a __getitem__,
-    # which is TypeError("... object is not subscriptable").
-    except TypeError as e:
-        if 'object is not subscriptable' in str(e):
-            pass
-        else:
-            raise e
-
-    try:
-        return getattr(batch, key)
-
-    # If both getattr and __getitem__ result in exceptions then raise both of them.
-    except (AttributeError, TypeError):
-        raise RuntimeError(
-            f"Unable extract key {key} from batch {batch}. Please specify a custom get_fn, if necessary.")
+        return itemgetter(key)(batch)
+    except (IndexError, TypeError):
+        try:
+            return itemgetter(*key)(batch)
+        except TypeError:
+            try:
+                return attrgetter(key)(batch)
+            except:
+                return attrgetter(*key)(batch)
 
 
-def _batch_get_multiple(batch: Any, key: Any):
-    # Numpy arrays and Torch tensors can take tuples and lists as keys.
-    try:
-        return batch[key]
-    # Indexing a list with a sequence results in TypeError
-    # Indexing an array/tensor with a sequence that is longer than the rank of the array
-    # results in an IndexError.
-    # Indexing a dict with a tuple results in a key error.
-    except (IndexError, TypeError, KeyError):
-        pass
-    return [_batch_get(batch, k) for k in key]
-
-
-def batch_set(batch: Any,
-              *,
-              key: Optional[Any] = None,
-              value: Any,
-              set_fn: Optional[Callable[[Any, Any], Any]] = None) -> Any:
+def batch_set(batch: Any, key: Union[str, int, Callable, Any], value: Any) -> Any:
     """Indexes into the batch given the key and sets the element at that index to value.
 
     This is not an in-place operation for batches of type tuple as tuples are not mutable.
@@ -100,35 +70,41 @@ def batch_set(batch: Any,
     ...     batch[1]['d'] = value
     ...     return batch
     ...
-    >>> batch_set([{'a':1, 'b':7},{'d':3}], value=20, set_fn=setter)
+    >>> batch_set([{'a':1, 'b':7},{'d':3}], key=setter, value=20)
     [{'a': 1, 'b': 7}, {'d': 20}]
+    >>> batch_set([{'a':1, 'b':7},{'d':3}], key=(lambda x: x[0]['b'], setter), value=20)
+    [{'a': 1, 'b': 7}, {'d': 20}]
+
 
     Args:
         batch (Any): An object that contains the input and label of the items in the batch.
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (Any): A key to index into the batch.
+        key (str, int, or Callable): A key to index into the batch or a user-specified function
+            to do the setting. A pair of callables is also supported for cases where a get
+            and set function pair are both passed (like in Algorithms). The setter is
+            assumed to be the second of the pair.
         value (Any): The value that batch[key] or batch.key gets set to.
-        set_fn (Callable): A user-specified function to do the setting. set_fn is optional if key and 
-            value are supplied. set_fn must return the updated batch.
 
     Returns:
         batch (Any): updated batch with value set at key.
 
-    Raises:
-        ValueError if:
-            * key and set_fn are both unset
-            * key and set_fn are both set
     """
-    if key is None and set_fn is None:
-        raise ValueError("key or set_fn must be specified and neither were!")
-    if key is not None and set_fn is not None:
-        raise ValueError("key and set_fn were both set. Only one can be set!")
-    if set_fn:
+    # Case 1: key is a tuple of (getter, setter) callables.
+    if (isinstance(key, Sequence) and not isinstance(key, str) and _is_key_get_and_set_fn_pair(key)):
+        _, set_fn = key
         return set_fn(batch, value)
+
+    # Case 2: key is a callable.
+    if isinstance(key, Callable):
+        return key(batch, value)
+
+    # Case 4: key is sequence of sub-keys.
     if isinstance(key, Sequence) and not isinstance(key, str):
         return _batch_set_multiple(batch, key, value)
+
+    # Case 5: key is single object, like string or int.
     else:
         return _batch_set(batch, key, value)
 
@@ -211,12 +187,10 @@ def _batch_set_tuple(batch: Any, key: Union[int, str], value: Any) -> Any:
     return batch
 
 
-def _batch_get_tuple(batch: Any, key: Union[int, str]) -> Any:
-    """"Gets keys in tuples and NamedTuples."""
-    is_named_tuple = hasattr(batch, '_fields')
-    if is_named_tuple and isinstance(key, str):  # NamedTuple w/ named key
-        value = getattr(batch, key)
-    else:  # Normal tuple or namedtuple with int key.
-        value = batch[key]
-
-    return value
+def _is_key_get_and_set_fn_pair(key):
+    if all([callable(key_element) for key_element in key]):
+        if len(key) == 2:
+            return True
+        else:
+            raise ValueError(f"If key is a sequence of Callables, it should be of length 2' not {len(key)}")
+    return False

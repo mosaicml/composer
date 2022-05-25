@@ -742,7 +742,9 @@ class Trainer:
         # optimizers and schedulers
         if not optimizers:
             optimizers = DecoupledSGDW(list(model.parameters()), lr=0.1)
-            warnings.warn(f"No optimizer was specified. Defaulting to {repr(optimizers)}")
+            # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
+            warnings.warn(("No optimizer was specified. Defaulting to "
+                           f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
 
         num_optimizers = len(ensure_tuple(optimizers))
         if num_optimizers != 1:
@@ -1265,10 +1267,6 @@ class Trainer:
 
             self.state.evaluators = evaluators
 
-        if len(self.state.evaluators) == 0:
-            warnings.warn(("No `eval_dataloader` was specified. Please specify `eval_dataloader` to periodically "
-                           "evaluate your model while training."))
-
         # Grad Accum
         if grad_accum is not None:
             self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
@@ -1589,6 +1587,10 @@ class Trainer:
         """
         assert self._train_data_spec is not None, "The train data spec should be set on __init__ or fit()"
 
+        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+        # TODO: fix this name collision!
+        device_batch = self.state.batch
+
         # Retry until we successfully complete training and return loss
         while True:
             total_loss = None
@@ -1597,7 +1599,7 @@ class Trainer:
             caught_timeout_error = None
             try:
                 assert self.state.scaler is not None
-                microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
+                microbatches = self._train_data_spec.split_batch(device_batch, self.state.grad_accum)
                 if self.deepspeed_enabled:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():

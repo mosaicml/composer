@@ -35,7 +35,7 @@ repos:
         types: [python]
         pass_filenames: false
         args: [--warnings]
-        additional_dependencies: ["pyright@1.1.243"]
+        additional_dependencies: ["pyright@1.1.247"]
   # -   repo: https://github.com/PyCQA/pydocstyle
   #     hooks:
   #     -   id: pydocstyle
@@ -49,19 +49,40 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.1.0
     hooks:
-      # -   id: trailing-whitespace  # TODO(ravi): Enable this check later. Generates a large diff.
-      # -   id: end-of-file-fixer  # TODO(ravi): Enable this check later. Generates a large diff.
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-builtin-literals
+        args:
+          - --no-allow-dict-kwargs
+      - id: check-case-conflict
       - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-shebang-scripts-are-executable
+      - id: pretty-format-json
+        args:
+          - --autofix
+          - --no-sort-keys
+          - --indent=4
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-vcs-permalinks
+      - id: check-xml
       - id: check-yaml
       - id: debug-statements
-    # -   id: name-tests-test  # TODO(ravi): Enable this check later. Generates a large diff.
-    #     args: ['--django']
-    # -   id: double-quote-string-fixer  # TODO(ravi): Enable this check later. Generates a large diff.
+      - id: destroyed-symlinks
+   #  - id: double-quote-string-fixer  # TODO(ravi): Enable this check later. Generates a large diff.
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+    # - id: name-tests-test  # TODO(ravi): Enable this check later. Generates a large diff.
+    #   args: ['--django']
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.1.13
     hooks:
       - id: insert-license
-        files: composer
         args:
           - --license-filepath
           - .ci/FILE_HEADER

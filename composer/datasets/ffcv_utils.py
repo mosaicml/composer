@@ -12,7 +12,7 @@ from composer.datasets.webdataset_utils import init_webdataset_meta
 from composer.utils import MissingConditionalImportError
 
 try:
-    import ffcv  # type: ignore
+    import ffcv
     ffcv_installed = True
 except ImportError:
     ffcv_installed = False

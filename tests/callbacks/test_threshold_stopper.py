@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import List
 
 import pytest
@@ -8,8 +11,8 @@ from composer.callbacks import ThresholdStopper
 from composer.core.time import TimeUnit
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
-from tests.callbacks.test_early_stopper import TestMetricSetter
 from tests.common import RandomClassificationDataset, SimpleModel, device
+from tests.metrics import MetricSetterCallback
 
 
 @device('cpu', 'gpu')
@@ -29,7 +32,7 @@ def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit, de
 
     tstop = ThresholdStopper("Accuracy", dataloader_label, metric_threshold, comp=None, stop_on_batch=stop_on_batch)
 
-    test_metric_setter = TestMetricSetter("Accuracy", dataloader_label, metric_sequence, unit, test_device)
+    test_metric_setter = MetricSetterCallback("Accuracy", dataloader_label, metric_sequence, unit, test_device)
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),
