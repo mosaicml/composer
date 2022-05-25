@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Modify model architectures.
 
@@ -55,7 +56,7 @@ def _add_children_recursive(
         children_to_parents_and_names[child].append((module, name))
 
 
-# adapted from https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/module_inject/replace_module.py#L408
+# adapted from https://github.com/microsoft/DeepSpeed/blob/b8ff4825aae4bced15a29a4298cb3e59098df999/deepspeed/module_inject/replace_module.py#L699
 def replace_module_classes(
     module: torch.nn.Module,
     policies: Mapping[Type[torch.nn.Module], ReplacementFunction],

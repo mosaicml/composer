@@ -1,11 +1,13 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import textwrap
 from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import Optional, Union
 
 import yahp as hp
 
+from composer.algorithms.agc import AGC
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugMix
@@ -14,6 +16,7 @@ from composer.algorithms.channels_last import ChannelsLast
 from composer.algorithms.colout import ColOut
 from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
+from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.label_smoothing import LabelSmoothing
@@ -23,7 +26,6 @@ from composer.algorithms.no_op_model import NoOpModel
 from composer.algorithms.progressive_resizing import ProgressiveResizing
 from composer.algorithms.randaugment import RandAugment
 from composer.algorithms.sam import SAM
-from composer.algorithms.scale_schedule import ScaleSchedule
 from composer.algorithms.selective_backprop import SelectiveBackprop
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup
 from composer.algorithms.squeeze_excite import SqueezeExcite
@@ -31,6 +33,17 @@ from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import (_STOCHASTIC_LAYER_MAPPING,
                                                                    _validate_stochastic_hparams)
 from composer.algorithms.swa import SWA
+
+
+@dataclass
+class AGCHparams(AlgorithmHparams):
+    """See :class:`AGC`"""
+    clipping_threshold: float = hp.optional(
+        doc="The largest acceptable ratio between grad norms and parameter norms before clipping is done.",
+        default=0.01)
+
+    def initialize_object(self) -> AGC:
+        return AGC(**asdict(self))
 
 
 @dataclass
@@ -94,6 +107,7 @@ class BlurPoolHparams(AlgorithmHparams):
     replace_convs: bool = hp.optional('Replace Conv2d with BlurConv2d if stride > 1', default=True)
     replace_maxpools: bool = hp.optional('Replace MaxPool2d with BlurMaxPool2d', default=True)
     blur_first: bool = hp.optional('Blur input before convolution', default=True)
+    min_channels: int = hp.optional('Skip layers with in_channels < min_channels', default=16)
 
     def initialize_object(self) -> "BlurPool":
         return BlurPool(**asdict(self))
@@ -113,6 +127,10 @@ class ColOutHparams(AlgorithmHparams):
     p_row: float = hp.optional(doc="Fraction of rows to drop", default=0.15)
     p_col: float = hp.optional(doc="Fraction of cols to drop", default=0.15)
     batch: bool = hp.optional(doc="Run ColOut at the batch level", default=True)
+    resize_target: Union[bool, str] = hp.optional(
+        doc=
+        "Whether to resize the target in addition to the input. If set to 'auto', target resizing is based on if the target has the same spatial dimensions as the input ",
+        default="auto")
 
     def initialize_object(self) -> ColOut:
         return ColOut(**asdict(self))
@@ -140,6 +158,26 @@ class CutOutHparams(AlgorithmHparams):
 
     def initialize_object(self) -> CutOut:
         return CutOut(**asdict(self))
+
+
+@dataclass
+class EMAHparams(AlgorithmHparams):
+    """See :class:`EMA`"""
+
+    half_life: str = hp.optional(doc='Time string specifying the time scale (half-life) on which old information is '
+                                 'forgotten. For example, "10ba" means old information decays with a half-life of 10 '
+                                 'batches.',
+                                 default="100ba")
+    update_interval: Optional[str] = hp.optional(
+        doc='Time string denoting how often the averaged model is updated.'
+        'For example, "10ba" means the averaged model will be updated every 10 batches.'
+        'Time unit must match that of time_scale.'
+        'If not specified, defaults to an interval of 1 in the units of half_life.',
+        default=None)
+    train_with_ema_weights: bool = hp.optional('Train using the moving average weights.', default=False)
+
+    def initialize_object(self) -> EMA:
+        return EMA(**asdict(self))
 
 
 @dataclass
@@ -232,6 +270,8 @@ class ProgressiveResizingHparams(AlgorithmHparams):
     initial_scale: float = hp.optional(doc="Initial scale factor", default=0.5)
     finetune_fraction: float = hp.optional(doc="Fraction of training to reserve for finetuning on full-sized inputs",
                                            default=0.2)
+    delay_fraction: float = hp.optional(doc="Fraction of training before resizing ramp begins", default=0.5)
+    size_increment: int = hp.optional(doc="Align sizes to a multiple of this number.", default=4)
     resize_targets: bool = hp.optional(doc="Also resize targets", default=False)
 
     def initialize_object(self) -> ProgressiveResizing:
@@ -265,16 +305,6 @@ class SAMHparams(AlgorithmHparams):
 
     def initialize_object(self) -> SAM:
         return SAM(**asdict(self))
-
-
-@dataclass
-class ScaleScheduleHparams(AlgorithmHparams):
-    """See :class:`ScaleSchedule`"""
-
-    ratio: float = hp.optional('Ratio to scale the schedule.', default=1.0)
-
-    def initialize_object(self) -> "ScaleSchedule":
-        return ScaleSchedule(**asdict(self))
 
 
 @dataclass

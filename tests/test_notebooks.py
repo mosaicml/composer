@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import glob
 import os
 import textwrap
@@ -56,10 +59,10 @@ def test_notebook(tb):
             tb.inject("""
                 from composer.core import Time
                 trainer.state.max_duration = Time.from_timestring('2ep')
-                trainer.state.train_subset_num_batches = 2
+                trainer.state.dataloader_len = 2
             """)
             trainer = tb.ref("trainer")
-            assert trainer.state.train_subset_num_batches == 2
+            assert trainer.state.dataloader_len == 2
         except Exception as e:
             raise Exception(
                 textwrap.dedent("""

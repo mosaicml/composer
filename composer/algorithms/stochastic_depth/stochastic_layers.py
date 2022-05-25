@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import torch
 from torchvision.models.resnet import Bottleneck
@@ -66,18 +67,38 @@ class StochasticBottleneck(Bottleneck):
         self.use_same_depth_across_gpus = use_same_depth_across_gpus
         self.rand_generator = rand_generator
 
+    @torch.jit.unused
+    def _get_sample(self, device: int) -> torch.Tensor:
+        return _sample_bernoulli(probability=(1 - self.drop_rate),
+                                 device_id=device,
+                                 module_id=self.module_id,
+                                 num_modules=self.module_count,
+                                 generator=self.rand_generator,
+                                 use_same_gpu_seed=self.use_same_gpu_seed,
+                                 use_same_depth_across_gpus=self.use_same_depth_across_gpus)
+
+    """ Special consideration to serialize the layer's rng state.
+    """
+
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        super()._save_to_state_dict(destination, prefix, keep_vars)
+        destination[prefix + 'rng_state'] = self.rand_generator.get_state()
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+                              error_msgs):
+        self.rand_generator.set_state(state_dict[prefix + 'rng_state'])
+        return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+                                             error_msgs)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         identity = x
 
-        sample = _sample_bernoulli(probability=(1 - self.drop_rate),
-                                   device_id=x.get_device(),
-                                   module_id=self.module_id,
-                                   num_modules=self.module_count,
-                                   generator=self.rand_generator,
-                                   use_same_gpu_seed=self.use_same_gpu_seed,
-                                   use_same_depth_across_gpus=self.use_same_depth_across_gpus)
+        if self.training:
+            sample = bool(self._get_sample(identity.get_device()))
+        else:
+            sample = True
 
-        if not self.training or sample:
+        if sample:
             out = self.conv1(x)
             out = self.bn1(out)
             out = self.relu(out)

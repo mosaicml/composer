@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """CIFAR image classification dataset.
 
@@ -17,7 +18,6 @@ import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
-from composer.core.types import DataLoader
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
@@ -41,8 +41,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         use_ffcv (bool): Whether to use FFCV dataloaders. Default: ``False``.
         ffcv_dir (str): A directory containing train/val <file>.ffcv files. If these files don't exist and
             ``ffcv_write_dataset`` is ``True``, train/val <file>.ffcv files will be created in this dir. Default: ``"/tmp"``.
-        ffcv_dest_train (str): <file>.ffcv file that has training samples. Default: ``"cifar_train.ffcv"``.
-        ffcv_dest_val (str): <file>.ffcv file that has validation samples. Default: ``"cifar_val.ffcv"``.
+        ffcv_dest (str): <file>.ffcv file that has dataset samples. Default: ``"cifar_train.ffcv"``.
         ffcv_write_dataset (std): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
         ``False``.
     """
@@ -51,12 +50,11 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     ffcv_dir: str = hp.optional(
         "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
         default="/tmp")
-    ffcv_dest_train: str = hp.optional("<file>.ffcv file that has training samples", default="cifar_train.ffcv")
-    ffcv_dest_val: str = hp.optional("<file>.ffcv file that has validation samples", default="cifar_val.ffcv")
+    ffcv_dest: str = hp.optional("<file>.ffcv file that has dataset samples", default="cifar_train.ffcv")
     ffcv_write_dataset: bool = hp.optional("Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
                                            default=False)
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
 
         if self.use_synthetic:
             total_dataset_size = 50_000 if self.is_train else 10_000
@@ -71,17 +69,16 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
         elif self.use_ffcv:
             try:
-                import ffcv  # type: ignore
-                from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder  # type: ignore
-                from ffcv.pipeline.operation import Operation  # type: ignore
+                import ffcv
+                from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
+                from ffcv.pipeline.operation import Operation
             except ImportError:
                 raise ImportError(
                     textwrap.dedent("""\
                     Composer was installed without ffcv support.
                     To use ffcv with Composer, please install ffcv in your environment."""))
 
-            dataset_file = self.ffcv_dest_train if self.is_train else self.ffcv_dest_val
-            dataset_filepath = os.path.join(self.ffcv_dir, dataset_file)
+            dataset_filepath = os.path.join(self.ffcv_dir, self.ffcv_dest)
             # always create if ffcv_write_dataset is true
             if self.ffcv_write_dataset:
                 if dist.get_local_rank() == 0:
@@ -201,7 +198,7 @@ class CIFARWebDatasetHparams(WebDatasetHparams):
     channel_means: List[float] = hp.optional('Mean per image channel', default=(0, 0, 0))
     channel_stds: List[float] = hp.optional('Std per image channel', default=(0, 0, 0))
 
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         from composer.datasets.webdataset_utils import load_webdataset
 
         if self.is_train:

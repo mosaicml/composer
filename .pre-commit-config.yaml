@@ -1,0 +1,92 @@
+default_language_version:
+  python: python3
+repos:
+  - repo: https://github.com/google/yapf
+    rev: v0.32.0
+    hooks:
+      - id: yapf
+        name: yapf
+        description: "A formatter for Python files."
+        entry: yapf
+        args: [-i, -vv, -p] #inplace
+        language: python
+        types: [python]
+        additional_dependencies:
+          - "toml"
+  - repo: https://github.com/pycqa/isort
+    hooks:
+      - id: isort
+    rev: 5.10.1
+  # -   repo: https://github.com/pycqa/pylint
+  #     hooks:
+  #         - id: pylint
+  #           entry: pylint
+  #           args: ['composer', 'examples', 'tests']
+  #           language: python
+  #           types: [python]
+  #           require_serial: true
+  #     rev: v2.12.2
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: pyright
+        language: node
+        types: [python]
+        pass_filenames: false
+        args: [--warnings]
+        additional_dependencies: ["pyright@1.1.247"]
+  # -   repo: https://github.com/PyCQA/pydocstyle
+  #     hooks:
+  #     -   id: pydocstyle
+  #         name: pydocstyle
+  #         entry: pydocstyle
+  #         language: python
+  #         types: [python]
+  #         additional_dependencies:
+  #           - "toml"
+  #     rev: 6.1.1
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.1.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-builtin-literals
+        args:
+          - --no-allow-dict-kwargs
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-shebang-scripts-are-executable
+      - id: pretty-format-json
+        args:
+          - --autofix
+          - --no-sort-keys
+          - --indent=4
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-vcs-permalinks
+      - id: check-xml
+      - id: check-yaml
+      - id: debug-statements
+      - id: destroyed-symlinks
+   #  - id: double-quote-string-fixer  # TODO(ravi): Enable this check later. Generates a large diff.
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+    # - id: name-tests-test  # TODO(ravi): Enable this check later. Generates a large diff.
+    #   args: ['--django']
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.1.13
+    hooks:
+      - id: insert-license
+        args:
+          - --license-filepath
+          - .ci/FILE_HEADER
+          - --comment-style
+          - "#"
+        types: [python]
+exclude: .ci\/release_tests\/.*

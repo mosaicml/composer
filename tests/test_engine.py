@@ -1,13 +1,20 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
+import os
+import subprocess
+import sys
+import textwrap
 from typing import List, Sequence
 from unittest.mock import Mock
 
 import pytest
 
+import composer
 from composer.algorithms import SelectiveBackprop
-from composer.core import Event, engine
+from composer.core import Engine, Event
 from composer.core.algorithm import Algorithm
+from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers import Logger
 
@@ -22,6 +29,11 @@ def always_match_algorithms():
     ]
 
 
+@pytest.fixture()
+def dummy_logger(dummy_state: State):
+    return Logger(dummy_state)
+
+
 @pytest.fixture
 def never_match_algorithms():
     attrs = {'match.return_value': False}
@@ -29,7 +41,7 @@ def never_match_algorithms():
 
 
 def run_event(event: Event, state: State, logger: Logger):
-    runner = engine.Engine(state, logger)
+    runner = Engine(state, logger)
     return runner.run_event(event)
 
 
@@ -114,3 +126,150 @@ def test_engine_with_selective_backprop(always_match_algorithms: Sequence[Algori
     actual = [tr.exit_code for tr in trace.values()]
 
     assert actual == expected
+
+
+def test_engine_is_dead_after_close(dummy_state: State, dummy_logger: Logger):
+    # Create the trainer and run an event
+    engine = Engine(dummy_state, dummy_logger)
+    engine.run_event(Event.INIT)
+
+    # Close it
+    engine.close()
+
+    # Assert it complains if you try to run another event
+    with pytest.raises(RuntimeError):
+        engine.run_event(Event.FIT_START)
+
+
+class IsClosedCallback(Callback):
+
+    def __init__(self) -> None:
+        self.is_closed = True
+
+    def init(self, state: State, logger: Logger) -> None:
+        assert self.is_closed
+        self.is_closed = False
+
+    def close(self, state: State, logger: Logger) -> None:
+        assert not self.is_closed
+        self.is_closed = True
+
+
+def test_engine_closes_on_del(dummy_state: State, dummy_logger: Logger):
+    # Create the trainer and run an event
+    is_closed_callback = IsClosedCallback()
+    dummy_state.callbacks.append(is_closed_callback)
+    engine = Engine(dummy_state, dummy_logger)
+    engine.run_event(Event.INIT)
+
+    # Assert that there is just 2 -- once above, and once as the arg temp reference
+    assert sys.getrefcount(engine) == 2
+
+    # Implicitely close the engine
+    del engine
+
+    # Assert it is closed
+    assert is_closed_callback.is_closed
+
+
+class DummyTrainer:
+    """Helper to simulate what the trainer does w.r.t. events"""
+
+    def __init__(self, state: State, logger: Logger) -> None:
+        self.engine = Engine(state, logger)
+        self.engine.run_event(Event.INIT)
+
+    def close(self):
+        self.engine.close()
+
+
+def test_engine_triggers_close_only_once(dummy_state: State, dummy_logger: Logger):
+    # Create the trainer and run an event
+    is_closed_callback = IsClosedCallback()
+    dummy_state.callbacks.append(is_closed_callback)
+
+    # Create the trainer
+    trainer = DummyTrainer(dummy_state, dummy_logger)
+
+    # Close the trainer
+    trainer.close()
+
+    # Assert it is closed
+    assert is_closed_callback.is_closed
+
+    # Create a new trainer with the same callback. Should implicitly trigger __del__ AFTER
+    # AFTER DummyTrainer was constructed
+    trainer = DummyTrainer(dummy_state, dummy_logger)
+
+    # Assert it is open
+    assert not is_closed_callback.is_closed
+
+
+def test_engine_errors_if_previous_trainer_was_not_closed(dummy_state: State, dummy_logger: Logger):
+    # Create the trainer and run an event
+    is_closed_callback = IsClosedCallback()
+    dummy_state.callbacks.append(is_closed_callback)
+
+    # Create the trainer
+    _ = DummyTrainer(dummy_state, dummy_logger)
+
+    # Assert the callback is open
+    assert not is_closed_callback.is_closed
+
+    # Create a new trainer with the same callback. Should raise an exception
+    # because trainer.close() was not called before
+    with pytest.raises(RuntimeError,
+                       match=r"Cannot create a new trainer with an open callback or logger from a previous trainer"):
+        DummyTrainer(dummy_state, dummy_logger)
+
+
+def check_output(proc: subprocess.CompletedProcess):
+    # Check the subprocess output, and raise an exception with the stdout/stderr dump if there was a non-zero exit
+    # The `check=True` flag available in `subprocess.run` does not print stdout/stderr
+    if proc.returncode == 0:
+        return
+    error_msg = textwrap.dedent(f"""\
+        Command {proc.args} failed with exit code {proc.returncode}.
+        ----Begin stdout----
+        {proc.stdout}
+        ----End stdout------
+        ----Begin stderr----
+        {proc.stderr}
+        ----End stderr------""")
+
+    raise RuntimeError(error_msg)
+
+
+@pytest.mark.timeout(30)
+@pytest.mark.parametrize("exception", [True, False])
+def test_engine_closes_on_atexit(exception: bool):
+    # Running this test via a subprocess, as atexit() must trigger
+
+    code = textwrap.dedent("""\
+    from composer import Trainer, Callback
+    from tests.common import SimpleModel
+
+    class CallbackWithConditionalCloseImport(Callback):
+        def post_close(self):
+            import requests
+
+    model = SimpleModel(3, 10)
+    cb = CallbackWithConditionalCloseImport()
+    trainer = Trainer(
+        model=model,
+        callbacks=[cb],
+        max_duration="1ep",
+        train_dataloader=None,
+    )
+    """)
+    if exception:
+        # Should raise an exception, since no dataloader was provided
+        code += "trainer.fit()"
+
+    git_root_dir = os.path.join(os.path.dirname(composer.__file__), "..")
+    proc = subprocess.run(["python", "-c", code], cwd=git_root_dir, text=True, capture_output=True)
+    if exception:
+        # manually validate that there was no a conditional import exception
+        assert "ImportError: sys.meta_path is None, Python is likely shutting down" not in proc.stderr
+    else:
+        check_output(proc)

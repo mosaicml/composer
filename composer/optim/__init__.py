@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Optimizers and learning rate schedulers.
 
@@ -33,6 +34,7 @@ from composer.optim.scheduler import LinearWithWarmupScheduler as LinearWithWarm
 from composer.optim.scheduler import MultiStepScheduler as MultiStepScheduler
 from composer.optim.scheduler import MultiStepWithWarmupScheduler as MultiStepWithWarmupScheduler
 from composer.optim.scheduler import PolynomialScheduler as PolynomialScheduler
+from composer.optim.scheduler import PolynomialWithWarmupScheduler as PolynomialWithWarmupScheduler
 from composer.optim.scheduler import StepScheduler as StepScheduler
 from composer.optim.scheduler_hparams import ConstantSchedulerHparams as ConstantSchedulerHparams
 from composer.optim.scheduler_hparams import CosineAnnealingSchedulerHparams as CosineAnnealingSchedulerHparams
@@ -46,5 +48,7 @@ from composer.optim.scheduler_hparams import LinearWithWarmupSchedulerHparams as
 from composer.optim.scheduler_hparams import MultiStepSchedulerHparams as MultiStepSchedulerHparams
 from composer.optim.scheduler_hparams import MultiStepWithWarmupSchedulerHparams as MultiStepWithWarmupSchedulerHparams
 from composer.optim.scheduler_hparams import PolynomialSchedulerHparams as PolynomialSchedulerHparams
+from composer.optim.scheduler_hparams import \
+    PolynomialWithWarmupSchedulerHparams as PolynomialWithWarmupSchedulerHparams
 from composer.optim.scheduler_hparams import SchedulerHparams as SchedulerHparams
 from composer.optim.scheduler_hparams import StepSchedulerHparams as StepSchedulerHparams

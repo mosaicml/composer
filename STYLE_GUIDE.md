@@ -5,21 +5,32 @@
 Composer generally follows Google's
 [Python Style Guide](https://google.github.io/styleguide/pyguide.html) for how to format and structure code.
 
-### 2.2. Code Formatting
+### 2.2. Pre-Commit Hooks
 
-Composer uses the [yapf](https://github.com/google/yapf) formatter for general formatting,
-[isort](https://github.com/PyCQA/isort) to sort imports, and
-[docformatter](https://github.com/myint/docformatter) to format docstrings.
-
-To (auto)format code, run
-
-```bash
-make style
+Composer uses [Pre Commit](https://pre-commit.com/) to enforce style checks. To configure, run
+```
+pip install '.[dev]'  # if not already installed
+pre-commit install
 ```
 
-To verify that styling and typing (see below) is correct, run:
-```bash
-make lint
+The pre-commit hooks will now be run before each commit. You can also run the hooks manually via:
+
+```
+pre-commit run  # run all hooks on changed files
+pre-commit run --all-files  # or, run all hooks on all files
+```
+
+
+
+### 2.3. Code Formatting
+
+Composer uses the [yapf](https://github.com/google/yapf) formatter for general formatting
+[isort](https://github.com/PyCQA/isort) to sort imports. These checks run through pre-commit
+(see section 2.2). These checks can also be run manually via:
+
+```
+pre-commit run yapf --all-files  # for yahp
+pre-commit run isort --all-files  # for isort
 ```
 
 The configuration is stored in [pyproject.toml](pyproject.toml).
@@ -32,10 +43,11 @@ Composer aims to annotate all functions with type annotations (introduced in
 `AttributeError` bugs, in addition to other benefits, as outlined in the PEP.
 
 Composer uses [pyright](https://github.com/microsoft/pyright)
-to validate type annotations. To check typing, run:
+to validate type annotations. PyRight is automatically run as part of the pre-commit hooks, but you can also
+run PyRight specifically via:
 
-```bash
-make lint
+```
+pre-commit run pyright --all-files
 ```
 
 The pyright configuration is stored in [pyproject.toml](pyproject.toml).
@@ -48,6 +60,8 @@ Here are some suggestions to deal with pyright errors:
 1. Suppose a variable could be one of multiple types, like the following:
 
     ```python
+    from typing import Union
+
     def foo(x: Union[int, None]):
         return x + 5  # type error -- None + 5 is not allowed!
     ```
@@ -56,6 +70,8 @@ Here are some suggestions to deal with pyright errors:
     Instead, add a check to ensure that `x is not None`:
 
     ```python
+    from typing import Union
+
     def foo(x: Union[int, None]):
         if x is None:
             raise TypeError("x must be an integer, not None!")
@@ -65,6 +81,8 @@ Here are some suggestions to deal with pyright errors:
     Assert statements also work. However, assert statements should not be used for data validation
     (see the assert statement section below).
     ```python
+    from typing import Union
+
     def foo(x: Union[int, None]):
         assert x is not None, "x should never be None"
         return x + 5  # valid
@@ -102,9 +120,7 @@ The following rules apply to public APIs:
     class Trainer:
         def __init__(
             self,
-            ...,
             device: Union[str, Device],
-
         ):
             if isinstance(device, str):
                 device = Device(device)
@@ -125,7 +141,11 @@ The following rules apply to public APIs:
     For example
 
     ```python
-    def foo(x: Optional[Union[Tensor, Sequence[Tensor]]) -> Tuple[Tensor, ...]:
+    from torch import Tensor
+    from typing import Optional, Sequence, Tuple, Union
+    from composer.utils import ensure_tuple
+
+    def foo(x: Optional[Union[Tensor, Sequence[Tensor]]]) -> Tuple[Tensor, ...]:
         return ensure_tuple(x)  # ensures that the result is always a (potentially empty) tuple of tensors
     ```
 
@@ -136,6 +156,13 @@ The following rules apply to public APIs:
 not for data validation. As asserts can be disabled in python by using the `-O` flag (e.g. `python -O path/to/script.py`),
 they are not guaranteed to run. For data validation, instead use a style like the following:
 
+<!--
+```python
+parameter = None
+```
+-->
+<!--pytest-codeblocks:cont-->
+<!--pytest-codeblocks:expect-error-->
 ```python
 if parameter is None:
     raise ValueError("parameter must be specified and cannot be None")
@@ -153,23 +180,44 @@ All imports in composer should be absolute -- that is, they do not begin with a 
 1.  If a dependency is not core to Composer (e.g. it is for a model, dataset, algorithm, or some callbacks):
     1.  It must be specified in a entry of the `extra_deps` dictionary of [setup.py](setup.py).
         This dictionary groups dependencies that can be conditionally installed. An entry named `foo`
-        can be installed with `pip install mosaicml[foo]`. For example, running `pip install mosaicml[unet]`
+        can be installed with `pip install 'mosaicml[foo]'`. For example, running `pip install 'mosaicml[unet]'`
         will install everything in `install_requires`, along with `monai` and `scikit-learn`.
     1.  It must also be specified in the `run_constrained` and the `test.requires` section.
     1.  The import must be conditionally imported in the code. For example:
 
+        <!--pytest-codeblocks:importorskip(monai)-->
+        <!--pytest-codeblocks:importorskip(scikit-learn)-->
         ```python
+        from composer.utils import MissingConditionalImportError
+
         def unet():
             try:
                 import monai
             except ImportError as e:
-                raise ImportError(textwrap.dedent("""\
-                    Composer was installed without unet support. To use unet with Composer, run: `pip install mosaicml
-                    [unet]` if using pip or `conda install -c conda-forge monai` if using Anaconda""") from e
+                raise MissingConditionalImportError(extra_deps_group="unet",
+                                                    conda_package="monai",
+                                                    conda_channel="conda-forge",) from e
         ```
 
         This style allows users to perform minimal install of Composer without triggering `ImportError`s if
         an optional dependency is missing.
+
+        If the corresponding package is not published on Anaconda, then set the ``conda_package`` to the pip package name,
+        and set ``conda_channel`` to ``None``. For example, with DeepSpeed:
+
+        <!--pytest-codeblocks:importorskip(deepspeed)-->
+        ```python
+        from composer.utils import MissingConditionalImportError
+
+        try:
+            import deepspeed
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="deepspeed",
+                                                conda_package="deepspeed>=0.5.5",
+                                                conda_channel=None) from e
+        ```
+
+
 
     1.  If the dependency is core to Composer, add the dependency to the `install_requires` section of
         [setup.py](./setup.py) and the `requirements.run` section of [meta.yaml](./meta.yaml).
@@ -188,7 +236,8 @@ from typing import Dict, Union
 
 import torch.cuda
 
-from composer.core import Logger, State
+from composer.core import State
+from composer.loggers import Logger
 from composer.core.callback import Callback
 
 log = logging.getLogger(__name__)
@@ -205,6 +254,7 @@ class MemoryMonitor(Callback):
 
 All public classes and functions should be added to the module's `__init__.py`.
 
+<!--pytest-codeblocks:skip-->
 ```python
 from composer.path.to.module.file import MyClass as MyClass
 from composer.path.to.module.file import my_func as my_func
@@ -212,6 +262,7 @@ from composer.path.to.module.file import my_func as my_func
 
 If a file only contains public functions, then the following is also acceptable:
 
+<!--pytest-codeblocks:skip-->
 ```python
 from composer.path.to.module import my_file as my_file
 ```
@@ -227,6 +278,7 @@ The following guidelines apply to documentation.
     specify "optional", and the docstring should say the default value. Some examples:
 
     ```python
+    from typing import Optional, Tuple, Union
 
     def foo(bar: int):
         """Foo.
@@ -293,6 +345,9 @@ The following guidelines apply to documentation.
 
     For example:
     ```python
+    import torch
+    from typing import Optional
+
     def my_function(x: Optional[torch.Tensor]) -> torch.Tensor:
         """blah function
 
@@ -323,6 +378,7 @@ The following guidelines apply to documentation.
 
     To check doctests, run:
 
+    <!--pytest-codeblocks:skip-->
     ```bash
     cd docs && make clean && make html && make doctest
     ```

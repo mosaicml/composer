@@ -1,21 +1,24 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from unittest.mock import MagicMock
 
 import pytest
+import torch.utils.data
 from _pytest.monkeypatch import MonkeyPatch
 from tqdm import auto
 
-from composer.loggers import ProgressBarLoggerHparams
-from composer.trainer.trainer_hparams import TrainerHparams
+from composer.trainer.trainer import Trainer
 from composer.utils import dist
+from tests.common import RandomClassificationDataset, SimpleModel
 
 
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-def test_progress_bar_logger(composer_trainer_hparams: TrainerHparams, monkeypatch: MonkeyPatch, world_size: int):
+@pytest.mark.timeout(10)
+def test_progress_bar_logger(monkeypatch: MonkeyPatch, world_size: int):
     is_train_to_mock_tqdms = {
         True: [],
         False: [],
@@ -31,18 +34,29 @@ def test_progress_bar_logger(composer_trainer_hparams: TrainerHparams, monkeypat
     monkeypatch.setattr(auto, "tqdm", get_mock_tqdm)
 
     max_epochs = 2
-    composer_trainer_hparams.max_duration = f"{max_epochs}ep"
-    composer_trainer_hparams.loggers = [ProgressBarLoggerHparams()]
-    trainer = composer_trainer_hparams.initialize_object()
+    eval_epochs = 1
+
+    trainer = Trainer(
+        model=SimpleModel(),
+        max_duration=max_epochs,
+        eval_interval=eval_epochs,
+        progress_bar=True,
+        compute_training_metrics=True,
+        train_dataloader=torch.utils.data.DataLoader(RandomClassificationDataset()),
+        eval_dataloader=torch.utils.data.DataLoader(RandomClassificationDataset()),
+        eval_subset_num_batches=1,
+    )
+
     trainer.fit()
     if dist.get_global_rank() == 1:
         return
     assert len(is_train_to_mock_tqdms[True]) == max_epochs
-    assert composer_trainer_hparams.validate_every_n_batches < 0
-    assert len(is_train_to_mock_tqdms[False]) == composer_trainer_hparams.validate_every_n_epochs * max_epochs
+    assert len(is_train_to_mock_tqdms[False]) == eval_epochs * max_epochs
     for mock_tqdm in is_train_to_mock_tqdms[True]:
-        assert mock_tqdm.update.call_count == trainer.state.steps_per_epoch
+        assert trainer.state.dataloader_len is not None
+        assert trainer.state.dataloader_label == "train"
+        assert mock_tqdm.update.call_count == int(trainer.state.dataloader_len)
         mock_tqdm.close.assert_called_once()
     for mock_tqdm in is_train_to_mock_tqdms[False]:
-        assert mock_tqdm.update.call_count == trainer._eval_subset_num_batches
+        assert mock_tqdm.update.call_count == trainer.state.evaluators[0].subset_num_batches
         mock_tqdm.close.assert_called_once()

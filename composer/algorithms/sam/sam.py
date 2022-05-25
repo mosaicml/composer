@@ -1,4 +1,7 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+"""SAM algorithm and optimizer class."""
 
 from __future__ import annotations
 
@@ -12,6 +15,8 @@ from composer.loggers import Logger
 from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
+
+__all__ = ['SAM', 'SAMOptimizer']
 
 
 class SAMOptimizer(torch.optim.Optimizer):
@@ -27,7 +32,7 @@ class SAMOptimizer(torch.optim.Optimizer):
         self.global_step = 0
         self.interval = interval
         self._step_supports_amp_closure = True  # Flag for Composer trainer
-        defaults = dict(rho=rho, epsilon=epsilon, **kwargs)
+        defaults = {"rho": rho, "epsilon": epsilon, **kwargs}
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 
     @torch.no_grad()
@@ -92,7 +97,10 @@ class SAMOptimizer(torch.optim.Optimizer):
 
 class SAM(Algorithm):
     """Adds sharpness-aware minimization (`Foret et al, 2020 <https://arxiv.org/abs/2010.01412>`_) by wrapping an
-    existing optimizer with a :class:`SAMOptimizer`.
+    existing optimizer with a :class:`~composer.algorithms.sam.sam.SAMOptimizer`. SAM can improve model generalization
+    and provide robustness to label noise.
+
+    Runs on :attr:`~composer.core.event.Event.INIT`.
 
     Args:
         rho (float, optional): The neighborhood size parameter of SAM. Must be greater than 0.
@@ -102,6 +110,20 @@ class SAM(Algorithm):
         interval (int, optional): SAM will run once per ``interval`` steps. A value of 1 will
             cause SAM to run every step. Steps on which SAM runs take
             roughly twice as much time to complete. Default: ``1``.
+
+    Example:
+        .. testcode::
+
+            from composer.algorithms import SAM
+            algorithm = SAM(rho=0.05, epsilon=1.0e-12, interval=1)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[algorithm],
+                optimizers=[optimizer],
+            )
     """
 
     def __init__(
@@ -116,24 +138,9 @@ class SAM(Algorithm):
         self.interval = interval
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on Event.INIT.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now
-        """
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Optional[Logger]) -> Optional[int]:
-        """Applies SAM by wrapping the base optimizer with the SAM optimizer.
-
-        Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
-        """
         assert state.optimizers is not None
 
         state.optimizers = tuple(

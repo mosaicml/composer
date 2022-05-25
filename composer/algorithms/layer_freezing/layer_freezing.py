@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core Layer Freezing classes and functions."""
 
@@ -6,7 +7,8 @@ from __future__ import annotations
 
 import logging
 import textwrap
-from typing import List, Optional, Sequence, Tuple, Union
+import warnings
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import torch
 from torch.optim import Optimizer
@@ -133,10 +135,12 @@ class LayerFreezing(Algorithm):
         del event  # unused
         optimizers = state.optimizers
         assert optimizers is not None
+        elapsed_duration = state.get_elapsed_duration()
+        assert elapsed_duration is not None, "elapsed duration should be set on Event.EPOCH_END"
         freeze_depth, freeze_percentage = freeze_layers(
             model=state.model,
             optimizers=optimizers,
-            current_duration=float(state.get_elapsed_duration()),
+            current_duration=float(elapsed_duration),
             freeze_start=self.freeze_start,
             freeze_level=self.freeze_level,
         )
@@ -144,6 +148,15 @@ class LayerFreezing(Algorithm):
             'layer_freezing/layers_frozen': freeze_depth,
             'layer_freezing/percentage_frozen': freeze_percentage
         })
+
+    def state_dict(self) -> Dict[str, Any]:
+        warnings.warn(("Checkpoints with layer freezing cannot reliably be used to resume training."
+                       "See: https://github.com/mosaicml/composer/issues/1002"))
+        return {}
+
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        warnings.warn(("Checkpoints with layer freezing cannot reliably be used to resume training."
+                       "See: https://github.com/mosaicml/composer/issues/1002"))
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:

@@ -1,7 +1,7 @@
 |:robot:| Algorithms
 ====================
 
-Composer has a curated collection of speedup methods ("Algorithms") that can be composed 
+Composer has a curated collection of speedup methods ("Algorithms") that can be composed
 to easily create efficient training recipes.
 
 Below is a brief overview of the algorithms currently in Composer.
@@ -69,7 +69,7 @@ these in your training loop after a batch is loaded from the dataloader:
         data = cf.cutmix(
             data,
             target,
-            alpha=cutmix_alpha, 
+            alpha=cutmix_alpha,
             num_classes=num_classes
         )
         optimizer.zero_grad()
@@ -259,6 +259,6 @@ training loop at various :class:`.Events` and effect their changes by modifing t
 ..                   max_duration='90ep',
 ..                   device='gpu',
 ..                   algorithms=[channels_last, blurpool, custom_algorithm],
-..                   validate_every_n_epochs=-1,
+..                   eval_interval="0ep",
 ..                   seed=42)
 .. ```

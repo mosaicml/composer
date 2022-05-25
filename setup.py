@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 import site
@@ -31,6 +32,7 @@ class develop(develop_orig):
 # From https://github.com/pypa/pip/issues/7953#issuecomment-645133255
 site.ENABLE_USER_SITE = _IS_USER
 
+
 def package_files(prefix: str, directory: str, extension: str):
     # from https://stackoverflow.com/a/36693250
     paths = []
@@ -39,6 +41,7 @@ def package_files(prefix: str, directory: str, extension: str):
             if filename.endswith(extension):
                 paths.append(os.path.relpath(os.path.join(path, filename), prefix))
     return paths
+
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -70,6 +73,7 @@ install_requires = [
     "apache-libcloud>=3.3.1,<4",
     "psutil>=5.8.0,<6",
     "coolname>=1.1.0,<2",
+    "py-cpuinfo>=8.0.0",
 ]
 extra_deps = {}
 
@@ -85,8 +89,6 @@ extra_deps["dev"] = [
     "fasteners==0.17.3",  # object store tests require fasteners
     "pytest==7.1.0",
     "toml==0.10.2",
-    "yapf==0.32.0",
-    "isort==5.10.1",
     "ipython==7.32.0",
     "ipykernel==6.9.2",
     "jupyter==1.0.0",
@@ -94,6 +96,7 @@ extra_deps["dev"] = [
     "pytest-timeout==2.1.0",
     "recommonmark==0.7.1",
     "sphinx==4.4.0",
+    "pre-commit>=2.18.1,<3",
     # embedding md in rst require docutils>=0.17. See
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     "docutils==0.17.1",
@@ -104,15 +107,12 @@ extra_deps["dev"] = [
     "sphinxemoji==0.2.0",
     "furo==2022.3.4",
     "sphinx-copybutton==0.5.0",
+    "tabulate==0.8.9",  # for auto-generating tables
     "testbook==0.4.2",
     "myst-parser==0.16.1",
-    "pylint==2.12.2",
-    "docformatter==1.4",
     "sphinx_panels==0.6.0",
     "sphinxcontrib-images==0.9.4",
-    # need webdataset to run pyright. Including here to pass pyright.
-    # TODO Remove once https://github.com/mosaicml/composer/issues/771 is fixed.
-    "webdataset==0.1.103",
+    "pytest_codeblocks==0.15.0",
 ]
 
 extra_deps["deepspeed"] = [
@@ -151,14 +151,34 @@ extra_deps["webdataset"] = [
     "wurlitzer>=3.0.2,<4",
 ]
 
+extra_deps["mlperf"] = [
+    # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218
+    # "mlperf_logging @ git+https://github.com/mlperf/logging.git",
+    "py-cpuinfo>=8.0.0,<9",
+]
+
+extra_deps["streaming"] = [
+    "boto3>=1.21.45,<2",
+]
+
+extra_deps["onnx"] = [
+    "onnx>=1.11.0,<2",
+    "onnxruntime>=1.11.0,<2",
+]
+
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ["py.typed"]
 composer_data_files += package_files("composer", "yamls", ".yaml")
 composer_data_files += package_files("composer", "algorithms", ".json")
 
-setup(name="mosaicml",
-      version="0.4.0",
+package_name = os.environ.get('COMPOSER_PACKAGE_NAME', "mosaicml")
+
+if package_name != "mosaicml":
+    print(f"`Building composer as `{package_name}`)", file=sys.stderr)
+
+setup(name=package_name,
+      version="0.7.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="Composer provides well-engineered implementations of efficient training methods to give "
@@ -179,7 +199,8 @@ setup(name="mosaicml",
       ],
       install_requires=install_requires,
       entry_points={
-          "console_scripts": ["composer = composer.cli.launcher:main",],
+          "console_scripts":
+              ["composer = composer.cli.launcher:main", "composer_collect_env = composer.utils.collect_env:main"],
       },
       extras_require=extra_deps,
       dependency_links=["https://developer.download.nvidia.com/compute/redist"],

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core Progressive Resizing classes and functions."""
 
@@ -129,6 +130,8 @@ class ProgressiveResizing(Algorithm):
                                                 mode='resize',
                                                 initial_scale=1.0,
                                                 finetune_fraction=0.2,
+                                                delay_fraction=0.2,
+                                                size_increment=32,
                                                 resize_targets=False
                                             )
             trainer = Trainer(
@@ -148,6 +151,9 @@ class ProgressiveResizing(Algorithm):
             value in between 0 and 1. Default: ``0.5``.
         finetune_fraction (float, optional): Fraction of training to reserve for finetuning on the
             full-sized inputs. Must be a value in between 0 and 1. Default: ``0.2``.
+        delay_fraction (float, optional): Fraction of training before resizing ramp begins.
+            Must be a value in between 0 and 1. Default: ``0.5``.
+        size_increment (int, optional): Align sizes to a multiple of this number. Default: ``4``.
         resize_targets (bool, optional): If True, resize targets also. Default: ``False``.
     """
 
@@ -155,6 +161,8 @@ class ProgressiveResizing(Algorithm):
                  mode: str = 'resize',
                  initial_scale: float = .5,
                  finetune_fraction: float = .2,
+                 delay_fraction: float = .5,
+                 size_increment: int = 4,
                  resize_targets: bool = False):
 
         if mode not in _VALID_MODES:
@@ -166,9 +174,15 @@ class ProgressiveResizing(Algorithm):
         if not (0 <= finetune_fraction <= 1):
             raise ValueError(f"finetune_fraction must be between 0 and 1: {finetune_fraction}")
 
+        if not (delay_fraction + finetune_fraction <= 1):
+            raise ValueError(
+                f"delay_fraction + finetune_fraction must be less than 1: {delay_fraction + finetune_fraction}")
+
         self.mode = mode
         self.initial_scale = initial_scale
         self.finetune_fraction = finetune_fraction
+        self.delay_fraction = delay_fraction
+        self.size_increment = size_increment
         self.resize_targets = resize_targets
 
     def match(self, event: Event, state: State) -> bool:
@@ -190,21 +204,31 @@ class ProgressiveResizing(Algorithm):
             state (State): the current trainer state
             logger (Logger): the training logger
         """
-        input, target = state.batch_pair
+        input, target = state.batch
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             "Multiple tensors not supported for this method yet."
 
         # Calculate the current size of the inputs to use
-        initial_size = self.initial_scale
-        finetune_fraction = self.finetune_fraction
-        scale_frac_elapsed = min([state.get_elapsed_duration().value / (1 - finetune_fraction), 1])
+        elapsed_duration = state.get_elapsed_duration()
+        assert elapsed_duration is not None, "elapsed duration should be set on Event.AFTER_DATALOADER"
+        if elapsed_duration.value >= self.delay_fraction:
+            scale_frac_elapsed = min([
+                (elapsed_duration.value - self.delay_fraction) / (1 - self.finetune_fraction - self.delay_fraction), 1
+            ])
+        else:
+            scale_frac_elapsed = 0.0
 
         # Linearly increase to full size at the start of the fine tuning period
-        scale_factor = initial_size + (1 - initial_size) * scale_frac_elapsed
+        scale_factor = self.initial_scale + (1 - self.initial_scale) * scale_frac_elapsed
+
+        # adjust scale factor so that we make width a multiple of size_increment
+        width = input.shape[3]
+        scaled_width_pinned = round(width * scale_factor / self.size_increment) * self.size_increment
+        scale_factor_pinned = scaled_width_pinned / width
 
         new_input, new_target = resize_batch(input=input,
                                              target=target,
-                                             scale_factor=scale_factor,
+                                             scale_factor=scale_factor_pinned,
                                              mode=self.mode,
                                              resize_targets=self.resize_targets)
         state.batch = (new_input, new_target)
@@ -257,5 +281,5 @@ def _make_crop_pair(X: torch.Tensor, y: torch.Tensor,
 
 def _make_resize(scale_factor: float) -> T_ResizeTransform:
     """Makes a nearest-neighbor interpolation transform at the specified scale factor."""
-    resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest')
+    resize_transform = partial(F.interpolate, scale_factor=scale_factor, mode='nearest', recompute_scale_factor=False)
     return resize_transform

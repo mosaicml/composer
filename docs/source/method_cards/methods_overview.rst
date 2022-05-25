@@ -6,6 +6,15 @@
    :card: shadow
 
    ---
+   .. link-button:: agc.html
+      :text: AGC
+      :classes: card-title
+
+   :badge:`CV,badge-primary`
+   ++++++++++++++
+   Clips gradients based on the ratio of their norms with weights' norms.
+
+   ---
    .. link-button:: alibi.html
       :text: Alibi
       :classes: card-title
@@ -30,7 +39,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Apply blur before pooling
+   Applies blur before pooling or downsampling
 
    ---
    .. link-button:: channels_last.html
@@ -39,7 +48,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Use channels last memory format (NHWC)
+   Uses channels last memory format (NHWC)
 
    ---
    .. link-button:: colout.html
@@ -48,7 +57,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Remove columns and rows from images for augmentation and efficiency
+   Removes columns and rows from the image for augmentation and efficiency.
 
    ---
    .. link-button:: cutmix.html
@@ -57,7 +66,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Combine pairs of examples in non-overlapping regions and mix labels
+   Combines pairs of examples in non-overlapping regions and mixes labels
 
    ---
    .. link-button:: cutout.html
@@ -66,7 +75,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Randomly erase rectangular blocks from the image
+   Randomly erases rectangular blocks from the image.
 
    ---
    .. link-button:: factorize.html
@@ -93,7 +102,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Smooth labels with a uniform prior
+   Smooths the labels with a uniform prior
 
    ---
    .. link-button:: layer_freezing.html
@@ -102,7 +111,7 @@
 
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
-   Progressively freeze layers during training.
+   Progressively freezes layers during training.
 
    ---
    .. link-button:: mixup.html
@@ -111,7 +120,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Blend pairs of examples and labels
+   Blends pairs of examples and labels
 
    ---
    .. link-button:: progressive_resizing.html
@@ -120,7 +129,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Increase the input image size during training
+   Increases the input image size during training
 
    ---
    .. link-button:: randaugment.html
@@ -129,7 +138,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Apply a series of random augmentations
+   Applies a series of random augmentations
 
    ---
    .. link-button:: sam.html
@@ -138,12 +147,13 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-  Measure sharpness of optimization space
+   SAM optimizer measures sharpness of optimization space
 
    ---
    .. link-button:: scale_schedule.html
       :text: ScaleSchedule
       :classes: card-title
+
 
    ++++++++++++++
    Scale the learning rate schedule by a factor
@@ -155,7 +165,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Drop examples with small loss contributions.
+   Drops examples with small loss contributions.
 
    ---
    .. link-button:: seq_length_warmup.html
@@ -164,7 +174,7 @@
 
    :badge:`NLP,badge-success`
    ++++++++++++++
-   Progressively increase sequence length
+   Progressively increase sequence length.
 
    ---
    .. link-button:: squeeze_excite.html
@@ -173,7 +183,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Replace eligible layers with Squeeze-Excite layers
+   Replaces eligible layers with Squeeze-Excite layers
 
    ---
    .. link-button:: stochastic_depth.html
@@ -182,7 +192,7 @@
 
    :badge:`CV,badge-primary`
    ++++++++++++++
-   Replace a specified layer with a stochastic verion that randomly drops the layer or samples during training
+   Replaces a specified layer with a stochastic verion that randomly drops the layer or samples during training
 
    ---
    .. link-button:: swa.html
@@ -191,4 +201,4 @@
 
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
-   Compute running average of model weights
+   Computes running average of model weights.

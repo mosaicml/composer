@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helper function to generate the method overview rst."""
 import json
@@ -26,8 +27,8 @@ overview_path = os.path.join(os.path.dirname(__file__), '..', 'method_cards', 'm
 print("table_path ", overview_path)
 with open(overview_path, 'w') as overview_file:
     overview_file.write("""
-Methods Overview
-===================
+|:black_joker:| Methods Overview
+================================
 
 .. panels::
    :card: shadow
@@ -46,6 +47,7 @@ Methods Overview
    .. link-button:: {name}.html
       :text: {metadata[name]['class_name']}
       :classes: card-title
+
    {badge_string}
    ++++++++++++++
    {metadata[name]['tldr']}

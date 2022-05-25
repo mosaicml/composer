@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -117,8 +120,6 @@ html_favicon = 'https://mosaic-ml-staging.cdn.prismic.io/mosaic-ml-staging/b1f1a
 # Don't unfold our common type aliases
 autodoc_type_aliases = {
     'Batch': 'composer.core.types.Batch',
-    'BatchPair': 'composer.core.types.BatchPair',
-    'BatchDict': 'composer.core.types.BatchDict',
     'Hparams': 'yahp.hparams.Hparams',
 }
 
@@ -156,6 +157,8 @@ intersphinx_mapping = {
     'libcloud': ('https://libcloud.readthedocs.io/en/stable/', None),
     'PIL': ('https://pillow.readthedocs.io/en/stable', None),
     'coolname': ('https://coolname.readthedocs.io/en/latest/', None),
+    'datasets': ('https://huggingface.co/docs/datasets/master/en/', None),
+    'transformers': ('https://huggingface.co/docs/transformers/master/en/', None),
 }
 
 nitpicky = False  # warn on broken links

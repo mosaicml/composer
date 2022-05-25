@@ -5,10 +5,16 @@ set -euxo pipefail
 # Doctests are executed on the linting worker, so they are
 # executed only once on an install with all dependencies
 
-sudo npm install -g pyright@1.1.224
+# Install dependencies
+pip install '.[all]'
 
-pip install .[all]
-make lint
+# Mark the root folder as trusted (necessarry for pre-commit hooks to work on Jenkins)
+git config --global --add safe.directory $WORKSPACE
 
-# Must build the html first to ensure that doctests in .. autosummary:: generated pages are included
-cd docs && make html && make doctest && cd ..
+# Clean and make the output directory
+BUILD_DIR="build/output"
+rm -rf ${BUILD_DIR}
+mkdir -p ${BUILD_DIR}
+
+# Run lint and doctests through pytest
+pytest $(dirname $0)/test_lint_doctests.py --junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_lint_doctests.junit.xml

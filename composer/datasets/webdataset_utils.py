@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
@@ -14,10 +15,10 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Un
 from tqdm import tqdm
 
 if TYPE_CHECKING:
-    from webdataset import WebDataset
+    from webdataset import WebDataset  # type: ignore
 
 try:
-    from webdataset import ShardWriter, WebDataset
+    from webdataset import ShardWriter, WebDataset  # type: ignore
     from wurlitzer import pipes
     webdataset_installed = True
 except ImportError:

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from typing import cast
 from unittest.mock import MagicMock
@@ -14,7 +15,6 @@ def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, log_layers: bool =
     composer_trainer_hparams.callbacks.append(grad_monitor_hparams)
     composer_trainer_hparams.max_duration = "1ep"
 
-    composer_trainer_hparams.train_batch_size = 50
     trainer = composer_trainer_hparams.initialize_object()
     log_destination = MagicMock()
     log_destination = cast(LoggerDestination, log_destination)

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Base class for algorithms that improve model's quality or efficiency."""
 
@@ -34,6 +35,10 @@ class Algorithm(Serializable, ABC):
       |                | to the :class:`~.state.State`                                                 |
       +----------------+-------------------------------------------------------------------------------+
     """
+
+    def __init__(self, *args, **kwargs):  # Stub signature for PyRight
+        del args, kwargs  # unused
+        pass
 
     @property
     def find_unused_parameters(self) -> bool:
@@ -78,7 +83,7 @@ class Algorithm(Serializable, ABC):
 
         >>> class MyAlgorithm:
         ...     def match(self, event, state):
-        ...        return state.timer.epoch > 30
+        ...        return state.timestamp.epoch > 30
         >>> MyAlgorithm().match(Event.BEFORE_LOSS, state)
         False
 

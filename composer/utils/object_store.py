@@ -1,14 +1,18 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Utility for uploading to and downloading from cloud object stores."""
 import dataclasses
 import os
 import sys
+import tempfile
 import textwrap
+import uuid
 from typing import Any, Dict, Iterator, Optional, Union
 
 import yahp as hp
 from libcloud.storage.providers import get_driver
+from libcloud.storage.types import ObjectDoesNotExistError
 
 __all__ = ["ObjectStoreHparams", "ObjectStore"]
 
@@ -53,11 +57,11 @@ class ObjectStoreHparams(hp.Hparams):
         key_environ (str, optional): The name of an environment variable containing the API key or username
             to use to connect to the provider. If no key is required, then set this field to ``None``.
             (default: ``None``)
-            
+
             For security reasons, composer requires that the key be specified via an environment variable.
             For example, if your key is an environment variable called ``OBJECT_STORE_KEY`` that is set to ``MY_KEY``,
             then you should set this parameter equal to ``OBJECT_STORE_KEY``. Composer will read the key like this:
-            
+
             .. testsetup::  composer.utils.object_store.ObjectStoreHparams.__init__.key
 
                 import os
@@ -66,7 +70,7 @@ class ObjectStoreHparams(hp.Hparams):
 
                 os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
                 ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")
-            
+
             .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.key
 
                 >>> import os
@@ -81,7 +85,7 @@ class ObjectStoreHparams(hp.Hparams):
             For security reasons, composer requires that the secret be specified via an environment variable.
             For example, if your secret is an environment variable called ``OBJECT_STORE_SECRET`` that is set to ``MY_SECRET``,
             then you should set this parameter equal to ``OBJECT_STORE_SECRET``. Composer will read the secret like this:
-                
+
             .. testsetup:: composer.utils.object_store.ObjectStoreHparams.__init__.secret
 
                 import os
@@ -202,7 +206,7 @@ class ObjectStore:
         provider_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
             for the specified provider. These arguments would usually include the cloud region
             and credentials.
-            
+
             Common keys are:
 
             * ``key`` (str): API key or username to be used (required).
@@ -286,7 +290,33 @@ class ObjectStore:
                                                 headers=headers)
 
     def _get_object(self, object_name: str):
-        return self._provider.get_object(self._container.name, object_name)
+        """Get object from object store. Recursively follow any symlinks. If an object does not exist, automatically
+        checks if it is a symlink by appending ``.symlink``.
+
+        Args:
+            object_name (str): The name of the object.
+        """
+        obj = None
+        try:
+            obj = self._provider.get_object(self._container.name, object_name)
+        except ObjectDoesNotExistError:
+            # Object not found, check for potential symlink
+            object_name += ".symlink"
+            obj = self._provider.get_object(self._container.name, object_name)
+        # Recursively trace any symlinks
+        if obj.name.endswith(".symlink"):
+            # Download symlink object to temporary folder
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmppath = os.path.join(tmpdir, str(uuid.uuid4()))
+                self._provider.download_object(obj=obj,
+                                               destination_path=tmppath,
+                                               overwrite_existing=True,
+                                               delete_on_failure=True)
+                # Read object name in symlink and recurse
+                with open(tmppath) as f:
+                    symlinked_object_name = f.read()
+                    return self._get_object(symlinked_object_name)
+        return obj
 
     def get_object_size(self, object_name: str) -> int:
         """Get the size of an object, in bytes.
