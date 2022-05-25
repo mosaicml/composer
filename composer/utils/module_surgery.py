@@ -178,6 +178,8 @@ def replace_module_classes(
             indices[policy_class] += 1
             if replacement is not None:
                 assert child not in replaced_pairs
+                # Preserve the device with surgery
+                replacement = replacement.to(next(child.parameters()).device)
                 replaced_pairs[child] = replacement
 
                 for parent, name in parents:

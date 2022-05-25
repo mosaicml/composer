@@ -384,6 +384,11 @@ class TestTrainerInitOrFit:
 
         trainer.fit()
 
+    @pytest.mark.gpu
+    def test_device(self, model: ComposerModel):
+        trainer = Trainer(model=model, device='gpu')
+        assert next(trainer.state.model.parameters()).device.type == 'cuda'
+
     @pytest.mark.parametrize("precision", list(Precision))
     @pytest.mark.parametrize("device", ["cpu", pytest.param("gpu", marks=pytest.mark.gpu)])
     def test_precision(
