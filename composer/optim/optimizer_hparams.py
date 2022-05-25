@@ -40,10 +40,9 @@ class OptimizerHparams(hp.Hparams, ABC):
         """Initializes the optimizer.
 
         Args:
-            param_group (Iterable[torch.Tensor] | Iterable[Dict[str, torch.Tensor]]):
-                Parameters for this optimizer to optimize.
+            param_group (Iterable[torch.Tensor] | Iterable[Dict[str, torch.Tensor]]): Parameters for this optimizer
+                to optimize.
         """
-
         assert issubclass(self.optimizer_object, torch.optim.Optimizer)
         return self.optimizer_object(param_group, **asdict(self))
 

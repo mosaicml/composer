@@ -306,6 +306,11 @@ class CheckpointSaverHparams(CallbackHparams):
     )
 
     def initialize_object(self) -> CheckpointSaver:
+        """Initialize the Checkpoint Saver Callback.
+
+        Returns:
+            CheckpointSaver: An instance of :class:`~.CheckpointSaver`
+        """
         try:
             save_interval = Time.from_timestring(self.save_interval)
         except ValueError:

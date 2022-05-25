@@ -436,10 +436,9 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def post_close(self) -> None:
-        """This hook is called after :meth:`close` has been invoked for each callback. Very few callbacks should need to
-        implement :meth:`post_close`.
+        """Called after :meth:`close` has been invoked for each callback.
 
-        This callback can be used to back up any data that may have been written by other callbacks during
-        :meth:`close`.
+        Very few callbacks should need to implement :meth:`post_close`. This callback can be used to back up any data
+        that may have been written by other callbacks during :meth:`close`.
         """
         pass

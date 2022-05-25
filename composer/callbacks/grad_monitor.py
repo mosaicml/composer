@@ -17,8 +17,7 @@ class GradMonitor(Callback):
     the model and hence may cause a reduction in throughput while training large models. In order to ensure the
     correctness of norm, this function should be called after gradient unscaling in cases where gradients are scaled.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer.callbacks import GradMonitor
@@ -57,7 +56,6 @@ class GradMonitor(Callback):
     """
 
     def __init__(self, log_layer_grad_norms: bool = False):
-        super().__init__()
         self.log_layer_grad_norms = log_layer_grad_norms
 
     def after_train_batch(self, state: State, logger: Logger):

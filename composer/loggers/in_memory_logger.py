@@ -23,8 +23,9 @@ __all__ = ["InMemoryLogger"]
 
 
 class InMemoryLogger(LoggerDestination):
-    """Logs metrics to dictionary objects that persist in memory throughout training. Useful for collecting and plotting
-    data inside notebooks.
+    """Logs metrics to dictionary objects that persist in memory throughout training.
+
+    Useful for collecting and plotting data inside notebooks.
 
     Example usage:
         .. testcode::
@@ -120,7 +121,6 @@ class InMemoryLogger(LoggerDestination):
                 plt.xlabel("Batch")
                 plt.ylabel("Validation Accuracy")
         """
-
         # Check that desired metric is in present data
         if metric not in self.data.keys():
             raise ValueError(f"Invalid value for argument `metric`: {metric}. Requested "

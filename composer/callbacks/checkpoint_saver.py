@@ -27,11 +27,11 @@ __all__ = ["CheckpointSaver", "checkpoint_periodically"]
 
 
 def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State, Event], bool]:
-    """Helper function to create a checkpoint scheduler according to a specified interval.
+    r"""Helper function to create a checkpoint scheduler according to a specified interval.
 
     Args:
         interval (Union[str, int, :class:`.Time`]): The interval describing how often checkpoints should be
-            saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`\\s.
+            saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`\s.
             Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH` or :attr:`.TimeUnit.BATCH`.
 
             Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
@@ -85,7 +85,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
     return save_interval
 
 
-class CheckpointSaver(Callback):
+class CheckpointSaver(Callback):  # noqa: D101
     __doc__ = f"""Callback to save checkpoints.
 
     .. note::

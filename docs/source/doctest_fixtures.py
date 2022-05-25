@@ -4,8 +4,7 @@
 # disabling general type issues because of monkeypatching
 # pyright: reportGeneralTypeIssues=none
 
-"""
-Fixtures available in doctests.
+"""Fixtures available in doctests.
 
 The script is run before any doctests are executed,
 so all imports and variables are available in any doctest.
@@ -135,6 +134,7 @@ y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
 
 def loss_fun(output, target, reduction="none"):
+    """Dummy los function."""
     return torch.ones_like(target)
 
 
@@ -142,7 +142,7 @@ def loss_fun(output, target, reduction="none"):
 original_trainer_init = Trainer.__init__
 
 
-def new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
+def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
     if "model" not in kwargs:
         kwargs["model"] = model
     if "optimizers" not in kwargs:
@@ -162,21 +162,21 @@ def new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
     original_trainer_init(self, **kwargs)
 
 
-Trainer.__init__ = new_trainer_init
+Trainer.__init__ = _new_trainer_init
 
 
 # Do not attempt to validate cloud credentials
-def do_not_validate(*args, **kwargs) -> None:
+def _do_not_validate(*args, **kwargs) -> None:
     pass
 
 
-composer.loggers.object_store_logger._validate_credentials = do_not_validate
+composer.loggers.object_store_logger._validate_credentials = _do_not_validate
 
 # Patch ObjectStoreLogger __init__ function to replace arguments while preserving type
 original_objectStoreLogger_init = ObjectStoreLogger.__init__
 
 
-def new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
+def _new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         use_procs=False,
@@ -190,13 +190,13 @@ def new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
     original_objectStoreLogger_init(self, **kwargs)
 
 
-ObjectStoreLogger.__init__ = new_objectStoreLogger_init
+ObjectStoreLogger.__init__ = _new_objectStoreLogger_init
 
 # Patch ObjectStore __init__ function to replace arguments while preserving type
 original_objectStore_init = ObjectStore.__init__
 
 
-def new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
+def _new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         provider='local',
@@ -208,4 +208,4 @@ def new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
     original_objectStore_init(self, **kwargs)
 
 
-ObjectStore.__init__ = new_objectStore_init
+ObjectStore.__init__ = _new_objectStore_init

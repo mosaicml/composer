@@ -19,7 +19,7 @@ __all__ = ["DeviceHparams", "CPUDeviceHparams", "GPUDeviceHparams"]
 
 @dataclass
 class DeviceHparams(hp.Hparams):
-    """Base for :class:`.CPUDeviceHparams` and :class:`.GPUDeviceHparams`"""
+    """Base for :class:`.CPUDeviceHparams` and :class:`.GPUDeviceHparams`."""
 
     @abstractmethod
     def initialize_object(self) -> Device:
@@ -28,7 +28,7 @@ class DeviceHparams(hp.Hparams):
 
 @dataclass
 class GPUDeviceHparams(DeviceHparams):
-    """Used to construct a :class:`.DeviceGPU`"""
+    """Used to construct a :class:`.DeviceGPU`."""
 
     def initialize_object(self) -> DeviceGPU:
         return DeviceGPU()
@@ -36,7 +36,7 @@ class GPUDeviceHparams(DeviceHparams):
 
 @dataclass
 class CPUDeviceHparams(DeviceHparams):
-    """Used to construct a :class:`.DeviceCPU`"""
+    """Used to construct a :class:`.DeviceCPU`."""
 
     def initialize_object(self) -> DeviceCPU:
         return DeviceCPU()

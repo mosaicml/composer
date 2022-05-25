@@ -293,11 +293,13 @@ def _restore_checkpoint(
         return state_dict['rng']
 
 
-def save_checkpoint(state: State,
-                    logger: Logger,
-                    filename: str = "ep{epoch}-ba{batch}-rank{rank}",
-                    *,
-                    weights_only: bool = False) -> List[pathlib.Path]:
+def save_checkpoint(
+    state: State,
+    logger: Logger,
+    filename: str = "ep{epoch}-ba{batch}-rank{rank}",
+    *,
+    weights_only: bool = False,
+) -> List[pathlib.Path]:  # noqa: D103
     state_dict = {
         'state': state.state_dict(),
         'rng': reproducibility.get_rng_state(),

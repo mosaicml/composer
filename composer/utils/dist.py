@@ -130,7 +130,9 @@ def get_local_rank() -> int:
 
 
 def get_node_rank() -> int:
-    """Returns the node rank. For example, if there are 2 nodes, and 2 ranks per node, then global ranks 0-1 will have a
+    """Returns the node rank.
+
+    For example, if there are 2 nodes, and 2 ranks per node, then global ranks 0-1 will have a
     node rank of 0, and global ranks 2-3 will have a node rank of 1.
 
     Returns:
@@ -239,6 +241,7 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
             Each object must be picklable. Only objects on the ``src`` rank will be broadcast,
             but each rank must provide lists of equal sizes.
         src (int, optional): Source rank (default: ``0``)
+
     Returns:
         None:  ``object_list`` will be modified in-place and set to values of ``object_list`` from the ``src`` rank.
     """
@@ -257,8 +260,7 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
 
 
 def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
-    """Collects a :class:`~torch.Tensor` from each rank and return a sequence of
-    :class:`~torch.Tensor`\\s indexed by rank.
+    """Collects a :class:`~torch.Tensor` from each rank.
 
     .. seealso:: :func:`torch.distributed.all_gather`
 
@@ -392,7 +394,9 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
 
 
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):
-    """Constructs a :class:`~torch.utils.data.distributed.DistributedSampler` for a dataset. The
+    """Constructs a :class:`~torch.utils.data.distributed.DistributedSampler` for a dataset.
+
+    The
     :class:`~torch.utils.data.distributed.DistributedSampler` assumes that each rank has a complete copy of the dataset.
     It ensures that each rank sees a unique shard for each epoch containing ``len(datset) / get_world_size()`` samples.
 

@@ -36,7 +36,6 @@ class SchedulerHparams(hp.Hparams, ABC):
 
     def initialize_object(self) -> ComposerScheduler:
         """Initializes the scheduler."""
-
         if self._scheduler_cls is None:
             raise NotImplementedError(f"Cannot initialize {self} because `_scheduler_cls` is undefined.")
 

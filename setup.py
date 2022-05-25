@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Composer package setup."""
+
 import os
 import site
 import sys
@@ -17,6 +19,7 @@ _IS_VIRTUALENV = "VIRTUAL_ENV" in os.environ
 
 # From https://stackoverflow.com/questions/51292333/how-to-tell-from-setup-py-if-the-module-is-being-installed-in-editable-mode
 class develop(develop_orig):
+    """Override the ``develop`` class to error if attempting an editable install as root."""
 
     def run(self):
         if _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
@@ -34,6 +37,7 @@ site.ENABLE_USER_SITE = _IS_USER
 
 
 def package_files(prefix: str, directory: str, extension: str):
+    """Get all the files to package."""
     # from https://stackoverflow.com/a/36693250
     paths = []
     for (path, _, filenames) in os.walk(os.path.join(prefix, directory)):

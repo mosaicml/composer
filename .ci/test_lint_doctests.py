@@ -58,7 +58,7 @@ def test_run_doctests():
 
 @pytest.mark.timeout(30)
 def test_docker_build_matrix():
-    """Test that the docker build matrix is up to date"""
+    """Test that the docker build matrix is up to date."""
     docker_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docker'
 
     # Capture the existing readme and build matrix contents
@@ -86,7 +86,7 @@ def test_docker_build_matrix():
 
 @pytest.mark.parametrize("example", [1, 2])
 def test_release_tests_reflect_readme(example: int):
-    """Test that example_1.py and example_2.py in release_tests reflect the README.md"""
+    """Test that example_1.py and example_2.py in release_tests reflect the README.md."""
     with open(pathlib.Path(os.path.dirname(__file__)) / '..' / 'README.md', 'r') as f:
         readme_lines = f.readlines()
     example_code_lines = []

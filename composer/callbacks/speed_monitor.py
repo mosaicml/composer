@@ -23,8 +23,7 @@ class SpeedMonitor(Callback):
     average throughput and wall clock train, validation, and total time is also logged on the
     :attr:`~composer.core.event.Event.EPOCH_END` event.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer.callbacks import SpeedMonitor
@@ -90,13 +89,6 @@ class SpeedMonitor(Callback):
         self.loaded_state: Optional[Dict[str, Any]] = None
 
     def state_dict(self) -> Dict[str, Any]:
-        """Returns a dictionary representing the internal state of the SpeedMonitor object.
-
-        The returned dictionary is pickle-able via :func:`torch.save`.
-
-        Returns:
-            Dict[str, Any]: The state of the SpeedMonitor object
-        """
         current_time = time.time()
         return {
             "train_examples_per_epoch": self.train_examples_per_epoch,
@@ -109,12 +101,6 @@ class SpeedMonitor(Callback):
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        """Restores the state of SpeedMonitor object.
-
-        Args:
-            state (Dict[str, Any]): The state of the object,
-                as previously returned by :meth:`.state_dict`
-        """
         self.loaded_state = state
 
     def _load_state(self) -> None:

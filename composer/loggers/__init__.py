@@ -4,7 +4,7 @@
 """Loggers to store metrics and artifacts.
 
 In Composer, algorithms and callbacks can make calls to the :class:`~.logger.Logger`,
-which then routes the calls to the appropriate :class:`~.logger_destination.LoggerDestination`\\s.
+which then routes the calls to the appropriate :class:`~.logger_destination.LoggerDestination` instances.
 The :class:`~.logger_destination.LoggerDestination` does the actual logging, for example to a file,
 or Weights and Biases.
 

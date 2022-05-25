@@ -1050,8 +1050,7 @@ class ExperimentHparams(hp.Hparams):
     evals: List[EvalHparams] = hp.optional("Eval hparams", default_factory=list)
 
     def initialize_object(self) -> Tuple[Trainer, List[FitKwargs], List[EvalKwargs]]:
-        """Construct the :class:`.Trainer`, :meth:`~Trainer.fit` kwargs, and
-        :meth:`~Trainer.eval` kwargs.
+        """Construct the :class:`.Trainer`, :meth:`~Trainer.fit` kwargs, and :meth:`~Trainer.eval` kwargs.
 
         Returns:
             Tuple[Trainer, List[FitKwargs], List[EvalKwargs]]: A tuple of the

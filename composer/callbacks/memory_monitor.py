@@ -22,8 +22,7 @@ class MemoryMonitor(Callback):
     This callback calls the torch memory stats API for cuda (see :func:`torch.cuda.memory_stats`) on the
     :attr:`~composer.core.event.Event.AFTER_TRAIN_BATCH` and reports different memory statistics.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer.callbacks import MemoryMonitor
@@ -77,7 +76,6 @@ class MemoryMonitor(Callback):
     """
 
     def __init__(self):
-        super().__init__()
         log.info(
             "Memory monitor just profiles the current GPU assuming that the memory footprint across GPUs is balanced.")
         if torch.cuda.device_count() == 0:

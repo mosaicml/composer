@@ -51,8 +51,7 @@ class LoggerDestinationHparams(hp.Hparams, ABC):
 
 @dataclass
 class FileLoggerHparams(LoggerDestinationHparams):
-    """:class:`~composer.loggers.file_logger.FileLogger`
-    hyperparameters.
+    """:class:`~composer.loggers.file_logger.FileLogger` hyperparameters.
 
     See :class:`~composer.loggers.file_logger.FileLogger` for documentation.
 
@@ -199,8 +198,7 @@ class WandBLoggerHparams(LoggerDestinationHparams):
 
 @dataclass
 class ProgressBarLoggerHparams(LoggerDestinationHparams):
-    """:class:`~composer.loggers.progress_bar_logger.ProgressBarLogger`
-    hyperparameters.
+    """:class:`~composer.loggers.progress_bar_logger.ProgressBarLogger` hyperparameters.
 
     .. deprecated:: 0.6.0
 
@@ -231,8 +229,7 @@ class ProgressBarLoggerHparams(LoggerDestinationHparams):
 
 @dataclass
 class InMemoryLoggerHparams(LoggerDestinationHparams):
-    """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
-    hyperparameters.
+    """:class:`~composer.loggers.in_memory_logger.InMemoryLogger` hyperparameters.
 
     Args:
         log_level (str | LogLevel, optional):
@@ -246,8 +243,7 @@ class InMemoryLoggerHparams(LoggerDestinationHparams):
 
 @dataclass
 class ObjectStoreLoggerHparams(LoggerDestinationHparams):
-    """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
-    hyperparameters.
+    """:class:`~composer.loggers.in_memory_logger.InMemoryLogger` hyperparameters.
 
     Args:
         object_store_hparams (ObjectStoreHparams): The object store provider hparams.

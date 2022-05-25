@@ -36,16 +36,17 @@ repos:
         pass_filenames: false
         args: [--warnings]
         additional_dependencies: ["pyright@1.1.247"]
-  # -   repo: https://github.com/PyCQA/pydocstyle
-  #     hooks:
-  #     -   id: pydocstyle
-  #         name: pydocstyle
-  #         entry: pydocstyle
-  #         language: python
-  #         types: [python]
-  #         additional_dependencies:
-  #           - "toml"
-  #     rev: 6.1.1
+  -   repo: https://github.com/PyCQA/pydocstyle
+      hooks:
+      -   id: pydocstyle
+          name: pydocstyle
+          entry: pydocstyle
+          language: python
+          types: [python]
+          exclude: '(?:tests|.ci|composer\/algorithms|composer\/datasets|composer\/models|scripts\/webdatasets)\/.*'
+          additional_dependencies:
+            - "toml"
+      rev: 6.1.1
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.1.0
     hooks:
@@ -72,13 +73,11 @@ repos:
       - id: check-yaml
       - id: debug-statements
       - id: destroyed-symlinks
-   #  - id: double-quote-string-fixer  # TODO(ravi): Enable this check later. Generates a large diff.
+    #  - id: double-quote-string-fixer  # TODO(ravi): Enable this check later. Generates a large diff.
       - id: end-of-file-fixer
       - id: fix-byte-order-marker
       - id: mixed-line-ending
       - id: trailing-whitespace
-    # - id: name-tests-test  # TODO(ravi): Enable this check later. Generates a large diff.
-    #   args: ['--django']
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.1.13
     hooks:

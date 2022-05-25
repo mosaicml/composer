@@ -1,6 +1,11 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Profiling Example.
+
+For a walk-through of this example, please see the `profiling guide</trainer/performance_tutorials/profiling>`_.
+"""
+
 # [imports-start]
 import torch
 from torch.utils.data import DataLoader

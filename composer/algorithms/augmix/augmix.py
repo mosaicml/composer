@@ -32,13 +32,13 @@ def augmix_image(img: ImgT,
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImgT:
-    """Applies AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data
-    augmentation to a single image or batch of images. See
-    :class:`.AugMix` and the
-    :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
-    single image (or batch) per call and is unlikely to be used in a training loop. Use
-    :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
-    part of a :class:`torchvision.datasets.VisionDataset`\\'s ``transform``.
+    r"""Apply the AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation.
+
+    This function works on a single image or batch of images. See :class:`.AugMix` and
+    the :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
+    single image (or batch) per call and is unlikely to be used in a training loop.
+    Use :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
+    part of a :class:`torchvision.datasets.VisionDataset`\'s ``transform``.
 
     Example:
         .. testcode::
@@ -166,7 +166,9 @@ class AugmentAndMixTransform(torch.nn.Module):
 
 
 class AugMix(Algorithm):
-    """AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) creates ``width`` sequences of ``depth``
+    r"""The AugMix data augmentation technique.
+
+    AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) creates ``width`` sequences of ``depth``
     image augmentations, applies each sequence with random intensity, and returns a convex combination of the ``width``
     augmented images and the original image.  The coefficients for mixing the augmented images are drawn from a uniform
     ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing the combined augmented image and the
@@ -224,7 +226,7 @@ class AugMix(Algorithm):
                 ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``. The
                 original implementations have an intensity sampling scheme that samples a
                 value bounded by 0.118 at a minimum, and a maximum value of
-                :math:`intensity \\times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
+                :math:`intensity \times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
                 to 1.9 (intensity 10). These augmentations have different effects
                 depending on whether they are < 0 or > 0 (or < 1 or > 1).
                 "all" uses implementations of "color", "contrast",

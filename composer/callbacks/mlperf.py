@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Create compliant results file for MLPerf Training benchmark."""
+
 import json
 import logging
 import os
@@ -44,14 +46,14 @@ def _local_rank_zero() -> bool:
     return dist.get_local_rank() == 0
 
 
-def require_mlperf_logging():
+def _require_mlperf_logging():
     if not mlperf_available:
         raise ImportError("""Please install with `pip install 'mosaicml[mlperf]'` and also
                           install the logging library from: https://github.com/mlcommons/logging""")
 
 
 class MLPerfCallback(Callback):
-    """Creates a compliant results file for MLPerf Training benchmark.
+    """Create compliant results file for MLPerf Training benchmark.
 
     A submission folder structure will be created with the ``root_folder``
     as the base and the following directories::
@@ -73,7 +75,6 @@ class MLPerfCallback(Callback):
     Currently, only open division submissions are supported with this Callback.
 
     Example:
-
     .. code-block:: python
 
         from composer.callbacks import MLPerfCallback
@@ -138,7 +139,7 @@ class MLPerfCallback(Callback):
         host_processors_per_node: Optional[int] = None,
     ) -> None:
 
-        require_mlperf_logging()
+        _require_mlperf_logging()
 
         if benchmark not in BENCHMARKS:
             raise ValueError(f"benchmark: {benchmark} must be one of {BENCHMARKS}")
@@ -176,7 +177,6 @@ class MLPerfCallback(Callback):
         self.success = False
 
     def init(self, state: State, logger: Logger) -> None:
-
         # setup here requies access to rank, which is only available after
         # the trainer is initialized
         if _local_rank_zero():
@@ -242,8 +242,7 @@ class MLPerfCallback(Callback):
         return float(metric)
 
     def _get_dataloader_stats(self, dataloader: Iterable):
-        """ returns tuple of (batch_size, num_samples)"""
-
+        """Returns a tuple of ``(batch_size, num_samples)``."""
         if isinstance(dataloader, DataLoader):
             return (dataloader.batch_size, len(dataloader.dataset))  # type: ignore
         try:

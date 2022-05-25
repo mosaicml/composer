@@ -1,18 +1,18 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Configuration file for the Sphinx documentation builder.
-#
-# This file only contains a selection of the most common options. For a full
-# list see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
+"""Configuration file for the Sphinx documentation builder.
 
-# -- Path setup --------------------------------------------------------------
+This file only contains a selection of the most common options. For a full
+list see the documentation:
+https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
+-- Path setup --------------------------------------------------------------
+
+If extensions (or modules to document with autodoc) are in another directory,
+add these directories to sys.path here. If the directory is relative to the
+documentation root, use os.path.abspath to make it absolute, like shown here.
+"""
 import importlib
 import json
 import os
@@ -186,7 +186,7 @@ def skip_redundant_namedtuple_attributes(
     skip: bool,
     options: sphinx.ext.autodoc.Options,
 ):
-    # Hide the default, duplicate attributes for named tuples
+    """Hide the default, duplicate attributes for named tuples."""
     del app, what, name, skip, options
     if '_tuplegetter' in obj.__class__.__name__:
         return True
@@ -212,7 +212,6 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
         or could be a very unlikely edge condition where a public item in a private module is reimported only by
         sibling module(s), not any (grand)parents.
     """
-
     # Check to see if `item` is itself private
     if item.__name__.startswith("_"):
         public_name = item.__name__
@@ -363,9 +362,7 @@ def add_module_summary_tables(
 
 
 def rstjinja(app, docname, source):
-    """
-    Render our pages as a jinja template for fancy templating goodness.
-    """
+    """Render our pages as a jinja template for fancy templating goodness."""
     # Make sure we're outputting HTML
     if app.builder.format != 'html':
         return
@@ -375,6 +372,7 @@ def rstjinja(app, docname, source):
 
 
 def get_algorithms_metadata() -> Dict[str, Dict[str, str]]:
+    """Get the metadata for algorithms from the ``metadata.json`` files."""
     EXCLUDE = ['no_op_model']
 
     root = os.path.join(os.path.dirname(__file__), '..', '..', 'composer', 'algorithms')
@@ -412,7 +410,7 @@ add_line = ClassDocumenter.add_line
 line_to_delete = _('Bases: %s') % u':py:class:`object`'
 
 
-def add_line_no_object_base(self, text, *args, **kwargs):
+def _add_line_no_object_base(self, text, *args, **kwargs):
     if text.strip() == line_to_delete:
         return
 
@@ -422,8 +420,9 @@ def add_line_no_object_base(self, text, *args, **kwargs):
 add_directive_header = ClassDocumenter.add_directive_header
 
 
-def add_directive_header_no_object_base(self, *args, **kwargs):
-    self.add_line = add_line_no_object_base.__get__(self)
+def _add_directive_header_no_object_base(self, *args, **kwargs):
+    """Hide that all classes inherit from the base class ``object``."""
+    self.add_line = _add_line_no_object_base.__get__(self)
 
     result = add_directive_header(self, *args, **kwargs)
 
@@ -432,10 +431,11 @@ def add_directive_header_no_object_base(self, *args, **kwargs):
     return result
 
 
-ClassDocumenter.add_directive_header = add_directive_header_no_object_base
+ClassDocumenter.add_directive_header = _add_directive_header_no_object_base
 
 
 def setup(app: sphinx.application.Sphinx):
+    """Setup hook."""
     app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('autodoc-process-docstring', add_module_summary_tables)
     app.connect('source-read', rstjinja)

@@ -173,7 +173,6 @@ def get_rng_state() -> List[Dict[str, Any]]:
     Returns:
         List[Dict[str, Any]]: A list of RNG State Dicts, indexed by global rank.
     """
-
     rng_state = {
         "python": random.getstate(),
         "numpy": np.random.get_state(),

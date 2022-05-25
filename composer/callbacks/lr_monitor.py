@@ -14,8 +14,7 @@ class LRMonitor(Callback):
     This callback iterates over all optimizers and their parameter groups to log learning rate under the
     ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer.callbacks import LRMonitor
@@ -46,7 +45,7 @@ class LRMonitor(Callback):
     """
 
     def __init__(self) -> None:
-        super().__init__()
+        pass
 
     def batch_end(self, state: State, logger: Logger):
         assert state.optimizers is not None, "optimizers must be defined"

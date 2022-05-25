@@ -140,7 +140,7 @@ COMPOSER_OPEN_ISSUE_URL = "https://github.com/mosaicml/composer/issues/new/choos
 
 
 def _exc_report(exc_type) -> None:
-    """Produces exception report (exception message + environment report)
+    """Produces exception report (exception message + environment report).
 
     Args:
         exc_type (Exception): Type of exception.
@@ -230,7 +230,6 @@ def configure_excepthook() -> None:
         >>> sys.excepthook
         <function _custom_exception_handler at ...>
     """
-
     global _EXCEPTHOOK_REGISTERED
     # Needs to be indempotent across multiple trainers, don't register if we've already registered
     if not _EXCEPTHOOK_REGISTERED:
@@ -268,7 +267,6 @@ CUDA Device Count: {cuda_device_count}
 # Get Composer environment info
 def get_composer_env() -> str:
     """Query Composer pertinent system information."""
-
     mutable_dict = ComposerEnv(
         composer_version=get_composer_version(),
         host_processor_model_name=get_host_processor_name(),
@@ -287,7 +285,6 @@ def print_env(file: Optional[TextIO] = None) -> None:
     """Generate system information report.
 
     Example:
-
     .. code-block:: python
 
         from composer.utils.collect_env import print_env
@@ -363,7 +360,6 @@ def print_env(file: Optional[TextIO] = None) -> None:
     Args:
         file (TextIO, optional): File handle, `sys.stdout` or `sys.stderr`. Defaults to `sys.stdout`.
     """
-
     # Set stdout during runtime if no output file is specified
     if file is None:
         file = sys.stdout
