@@ -15,7 +15,7 @@ import numpy as np
 from torch import Tensor
 
 from composer.core.state import State
-from composer.core.time import Timestamp
+from composer.core.time import Time, Timestamp
 from composer.loggers.logger import LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 
@@ -133,7 +133,7 @@ class InMemoryLogger(LoggerDestination):
             timeseries.setdefault(metric, []).append(metric_value)
             # Iterate through time units and add them all!
             for field, time in timestamp.get_state().items():
-                time_value = time.value
+                time_value = time.value if isinstance(time, Time) else time.total_seconds()
                 timeseries.setdefault(field, []).append(time_value)
         # Convert to numpy arrays
         for k, v in timeseries.items():

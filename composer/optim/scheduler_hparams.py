@@ -13,13 +13,14 @@ from composer.optim.scheduler import (ComposerScheduler, ConstantScheduler, Cosi
                                       CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
                                       ExponentialScheduler, LinearScheduler, LinearWithWarmupScheduler,
                                       MultiStepScheduler, MultiStepWithWarmupScheduler, PolynomialScheduler,
-                                      StepScheduler)
+                                      PolynomialWithWarmupScheduler, StepScheduler)
 
 __all__ = [
     "SchedulerHparams", "StepSchedulerHparams", "MultiStepSchedulerHparams", "ConstantSchedulerHparams",
     "LinearSchedulerHparams", "ExponentialSchedulerHparams", "CosineAnnealingSchedulerHparams",
     "CosineAnnealingWarmRestartsSchedulerHparams", "PolynomialSchedulerHparams", "MultiStepWithWarmupSchedulerHparams",
-    "LinearWithWarmupSchedulerHparams", "CosineAnnealingWithWarmupSchedulerHparams"
+    "LinearWithWarmupSchedulerHparams", "CosineAnnealingWithWarmupSchedulerHparams",
+    "PolynomialWithWarmupSchedulerHparams"
 ]
 
 
@@ -242,3 +243,24 @@ class CosineAnnealingWithWarmupSchedulerHparams(SchedulerHparams):
     alpha_f: float = hp.optional(default=0.0, doc="Learning rate multiplier to decay to.")
 
     _scheduler_cls = CosineAnnealingWithWarmupScheduler
+
+
+@dataclass
+class PolynomialWithWarmupSchedulerHparams(SchedulerHparams):
+    """Hyperparameters for the :class:`~.PolynomialWithWarmupScheduler` scheduler.
+
+    See :class:`~.PolynomialWithWarmupScheduler` for documentation.
+
+    Args:
+        t_warmup (str): See :class:`~.PolynomialWithWarmupScheduler`.
+        power (float): See :class:`~.PolynomialWithWarmupScheduler`.
+        t_max (str, optional): See :class:`~.PolynomialWithWarmupScheduler`.
+        alpha_f (float, optional): See :class:`~.PolynomialWithWarmupScheduler`.
+    """
+
+    t_warmup: str = hp.required(doc="Warmup time.")
+    power: float = hp.optional(default=2.0, doc="Power of the polynomial.")
+    t_max: str = hp.optional(default="1dur", doc="Duration of this scheduler.")
+    alpha_f: float = hp.optional(default=0.0, doc="Learning rate multiplier to decay to.")
+
+    _scheduler_cls = PolynomialWithWarmupScheduler

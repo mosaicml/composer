@@ -113,6 +113,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :caption: Model Library
 
    model_cards/cifar_resnet.md
+   model_cards/deeplabv3.md
    model_cards/efficientnet.md
    model_cards/GPT2.md
    model_cards/resnet.md

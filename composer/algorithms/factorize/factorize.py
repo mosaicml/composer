@@ -117,9 +117,9 @@ class Factorize(Algorithm):
     See :func:`~composer.algorithms.factorize.factorize_matrix` and
     :func:`~composer.algorithms.factorize.factorize_conv2d` for more
     information about the factorization process. See
-    :class:`~composer.algorithms.factorize.FactorizedConv2d` and
-    :class:`~composer.algorithms.factorize.FactorizedLinear`
-    for more information about the factorized modules used to replace the
+    :class:`~composer.algorithms.factorize.FactorizedConv2d`
+    and :class:`~composer.algorithms.factorize.FactorizedLinear` for
+    more information about the factorized modules used to replace the
     original modules.
 
     Runs on :attr:`~composer.core.event.Event.INIT`.

@@ -5,12 +5,11 @@ import pathlib
 import random
 from unittest.mock import Mock
 
-import pytest
 import torch
 import torch.nn.functional as F
 from torch.functional import Tensor
 
-from composer.algorithms import ChannelsLastHparams
+from composer.algorithms import ChannelsLast
 from composer.core import DataSpec, Precision, State
 from composer.core import state as state_module
 from composer.core.types import Batch
@@ -32,7 +31,7 @@ def get_dummy_state():
                   precision=Precision.AMP,
                   max_duration=f"{random.randint(0, 100)}ep",
                   optimizers=optimizers,
-                  algorithms=[ChannelsLastHparams().initialize_object()])
+                  algorithms=[ChannelsLast()])
     state.schedulers = torch.optim.lr_scheduler.StepLR(optimizers, step_size=3)
     state.loss = random_tensor()
     state.batch = (random_tensor(), random_tensor())
@@ -69,7 +68,7 @@ def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHpa
 
 
 def test_state_serialize(
-    tmpdir: pathlib.Path,
+    tmp_path: pathlib.Path,
     dummy_dataloader_hparams: DataLoaderHparams,
     dummy_train_dataset_hparams: DatasetHparams,
 ):
@@ -82,7 +81,7 @@ def test_state_serialize(
 
     # load from state1 to state2
     state_dict = state1.state_dict()
-    filepath = str(tmpdir / "state.pt")
+    filepath = str(tmp_path / "state.pt")
     torch.save(state_dict, filepath)
     state_dict_2 = torch.load(filepath, map_location="cpu")
     state2.load_state_dict(state_dict_2)
@@ -105,7 +104,7 @@ def test_state_batch_get_item(monkeypatch):
     mock_batch_get.return_value = 7
     monkeypatch.setattr(state_module, 'batch_get', mock_batch_get)
     assert state.batch_get_item(2) == 7
-    mock_batch_get.assert_called_once_with(state.batch, 2, None)
+    mock_batch_get.assert_called_once_with(state.batch, 2)
 
 
 def test_state_batch_set_item(monkeypatch):
@@ -115,7 +114,7 @@ def test_state_batch_set_item(monkeypatch):
     mock_batch_set.return_value = [7, 10]
     monkeypatch.setattr(state_module, 'batch_set', mock_batch_set)
     state.batch_set_item(key=1, value=154)
-    mock_batch_set.assert_called_once_with([1, 2], key=1, value=154, set_fn=None)
+    mock_batch_set.assert_called_once_with([1, 2], key=1, value=154)
 
 
 def test_state_batch_get_item_callable(monkeypatch):
@@ -124,32 +123,24 @@ def test_state_batch_get_item_callable(monkeypatch):
     mock_batch_get = Mock()
     monkeypatch.setattr(state_module, 'batch_get', mock_batch_get)
     getter = lambda x: x**2
-    state.batch_get_item(get_fn=getter)
-    mock_batch_get.assert_called_once_with(state.batch, None, getter)
+    state.batch_get_item(key=getter)
+    mock_batch_get.assert_called_once_with(state.batch, getter)
+    state.batch_get_item(key=(getter, getter))
+    mock_batch_get.assert_called_with(state.batch, (getter, getter))
 
 
 def test_state_batch_set_item_callable(monkeypatch):
     state = get_dummy_state()
     state.batch = [1, 2]
     mock_batch_set = Mock()
+    mock_batch_set.return_value = [4, 5]
     monkeypatch.setattr(state_module, 'batch_set', mock_batch_set)
 
     def setter(x, v):
         x[0] = v
         return x
 
-    state.batch_set_item(value=3, set_fn=setter)
-    mock_batch_set.assert_called_once_with([1, 2], key=None, value=3, set_fn=setter)
-
-
-def test_batch_set_item_errors(monkeypatch):
-    state = get_dummy_state()
-    state.batch = [1, 2]
-    mock_setter = Mock()
-    # key and set_fn unset.
-    with pytest.raises(ValueError):
-        state.batch_set_item(value=2)
-
-    # key and set_fn set.
-    with pytest.raises(ValueError):
-        state.batch_set_item(key=1, value=2, set_fn=mock_setter)
+    state.batch_set_item(key=setter, value=3)
+    mock_batch_set.assert_called_once_with([1, 2], key=setter, value=3)
+    state.batch_set_item(key=(setter, setter), value=4)
+    mock_batch_set.assert_called_with([4, 5], key=(setter, setter), value=4)

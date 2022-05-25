@@ -76,6 +76,7 @@ Below are the supported schedulers found at :mod:`composer.optim.scheduler`.
     CosineAnnealingWithWarmupScheduler
     CosineAnnealingWarmRestartsScheduler
     PolynomialScheduler
+    PolynomialWithWarmupScheduler
 
 .. note::
 
@@ -135,4 +136,3 @@ period is *never* scaled. For example, if we apply
 
 The resulting scheduler would warmup for 4 epochs and then
 have step milestones at 5 epochs and 10 epochs.
-

@@ -30,7 +30,11 @@ class SimpleSegmentationModel(torch.nn.Module):
         input_shape = x.shape[-2:]
         features = self.backbone(x)
         logits = self.classifier(tuple(features.values()))
-        logits = F.interpolate(logits, size=input_shape, mode="bilinear", align_corners=False)
+        logits = F.interpolate(logits,
+                               size=input_shape,
+                               mode="bilinear",
+                               align_corners=False,
+                               recompute_scale_factor=False)
         return logits
 
 
@@ -81,7 +85,7 @@ def deeplabv3_builder(num_classes: int,
     backbone = _utils.IntermediateLayerGetter(backbone, return_layers=return_layers)
 
     try:
-        from mmseg.models import ASPPHead, DepthwiseSeparableASPPHead  # type: ignore
+        from mmseg.models import ASPPHead, DepthwiseSeparableASPPHead
     except ImportError as e:
         raise ImportError(
             textwrap.dedent("""\
@@ -90,7 +94,7 @@ def deeplabv3_builder(num_classes: int,
              {torch_version} refer to your CUDA and PyTorch versions, respectively. To install mmsegmentation, please
              run pip install mmsegmentation==0.22.0 on command-line.""")) from e
     norm_type = 'SyncBN' if sync_bn else 'BN'
-    norm_cfg = dict(type=norm_type, requires_grad=True)
+    norm_cfg = {"type": norm_type, "requires_grad": True}
     if use_plus:
         # mmseg config:
         # https://github.com/open-mmlab/mmsegmentation/blob/master/configs/_base_/models/deeplabv3plus_r50-d8.py

@@ -59,7 +59,7 @@ class RandomResizePair(torch.nn.Module):
         return resized_image, resized_target
 
 
-# Based on: https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L584
+# Based on: https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L584
 class RandomCropPair(torch.nn.Module):
     """Crop the image and target at a randomly sampled position.
 
@@ -152,7 +152,7 @@ class PhotometricDistoration(torch.nn.Module):
     """Applies a combination of brightness, contrast, saturation, and hue jitters with random intensity.
 
     This is a less severe form of PyTorch's ColorJitter used by the mmsegmentation library here:
-    https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+    https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
 
     Args:
         brightness (float): max and min to jitter brightness.
@@ -356,7 +356,7 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 )
 
                 # Photometric distoration values come from mmsegmentation:
-                # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+                # https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
                 r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
                 image_transforms = torch.nn.Sequential(
                     PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
@@ -468,7 +468,7 @@ class StreamingADE20k(StreamingDataset):
             )
 
             # Photometric distoration values come from mmsegmentation:
-            # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+            # https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
             r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
             self.image_transform = torch.nn.Sequential(
                 PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
@@ -501,7 +501,7 @@ class StreamingADE20kHparams(DatasetHparams):
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-ade20k/md/```
+            Default: ``'s3://mosaicml-internal-dataset-ade20k/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-ade20k/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
@@ -514,7 +514,7 @@ class StreamingADE20kHparams(DatasetHparams):
     """
 
     remote: str = hp.optional("Remote directory (S3 or local filesystem) where dataset is stored",
-                              default="s3://mosaicml-internal-dataset-ade20k/mds/")
+                              default="s3://mosaicml-internal-dataset-ade20k/mds/1/")
     local: str = hp.optional("Local filesystem directory where dataset is cached during operation",
                              default="/tmp/mds-cache/mds-ade20k/")
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
@@ -604,7 +604,7 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
             )
 
             # Photometric distoration values come from mmsegmentation:
-            # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+            # https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
             r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
             image_transforms = torch.nn.Sequential(
                 PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),

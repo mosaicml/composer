@@ -18,18 +18,18 @@ Progressive Resizing works by initially training on images that have been downsa
 TODO(CORY): FIX
 
 ```python
-def training_loop(model, train_loader):
-  opt = torch.optim.Adam(model.parameters())
-  loss_fn = F.cross_entropy
-  model.train()
-  
-  for epoch in range(num_epochs):
-      for X, y in train_loader:
-          y_hat = model(X)
-          loss = loss_fn(y_hat, y)
-          loss.backward()
-          opt.step()
-          opt.zero_grad()
+# def training_loop(model, train_loader):
+#   opt = torch.optim.Adam(model.parameters())
+#   loss_fn = F.cross_entropy
+#   model.train()
+
+#   for epoch in range(num_epochs):
+#       for X, y in train_loader:
+#           y_hat = model(X)
+#           loss = loss_fn(y_hat, y)
+#           loss.backward()
+#           opt.step()
+#           opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -37,16 +37,16 @@ def training_loop(model, train_loader):
 TODO(CORY): Verify and provide commentary and/or comments
 
 ```python
-from composer.algorithms import XXX
-from composer.trainer import Trainer
+# from composer.algorithms import XXX
+# from composer.trainer import Trainer
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[
-                  ])
+# trainer = Trainer(model=model,
+#                   train_dataloader=train_dataloader,
+#                   max_duration='1ep',
+#                   algorithms=[
+#                   ])
 
-trainer.fit()
+# trainer.fit()
 ```
 
 ### Implementation Details
@@ -65,7 +65,7 @@ Ideally, generalization performance is not impacted much by Progressive Resizing
 In our experience with ResNets on ImageNet, Progressive Resizing improves training speed (as measured by wall clock time) with limited effects on classification accuracy.
 
 > ✅ Progressive Resizing Improves the Tradeoff Between Quality and Training Speed
-> 
+>
 > In our experiments, Progressive Resizing improves the attainable tradeoffs between training speed and the final quality of the trained model.
 > In some cases, it leads to slightly lower quality than the original model for the same number of training steps.
 > However, Progressive Resizing increases training speed so much (via improved throughput during the early part of training) that it is possible to train for more steps, recover accuracy, and still complete training in less time.
@@ -77,7 +77,7 @@ Our implementation of Progressive Resizing gives two options for resizing the im
 Progressive Resizing requires that the network architecture be capable of handling different sized images. Additionally, since the early epochs of training require significantly less GPU compute than the later epochs, CPU/dataloading may become a bottleneck in the early epochs even if this isn’t true in the late epochs.
 
 > ❗ Potential CPU or Data Loading Bottleneck
-> 
+>
 > Progressive resizing increases training throughput during the pre-training phase, when images are smaller, and especially so during the earliest parts of training.
 > It is possible that this increased throughput may lead other parts of the training pipeline, such as data loading or CPU image processing, to become bottlenecks during the early part of training.
 

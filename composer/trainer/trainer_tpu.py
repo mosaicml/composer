@@ -508,15 +508,6 @@ class Trainer:
 
 
         self._train_loop()
-        '''
-        if True:#self._device == DeviceTPU():
-            import torch_xla.distributed.xla_multiprocessing as xmp
-            def _mp_fn(index):
-                self._train_loop()
-            xmp.spawn(_mp_fn, args=(), nprocs=8, start_method='fork')
-        else:
-            print('HEREEEEEEEE', self._device)
-        '''
             
 
     def close(self):

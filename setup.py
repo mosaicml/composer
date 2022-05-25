@@ -112,9 +112,7 @@ extra_deps["dev"] = [
     "myst-parser==0.16.1",
     "sphinx_panels==0.6.0",
     "sphinxcontrib-images==0.9.4",
-    # need webdataset to run pyright. Including here to pass pyright.
-    # TODO Remove once https://github.com/mosaicml/composer/issues/771 is fixed.
-    "webdataset==0.1.103",
+    "pytest_codeblocks==0.15.0",
 ]
 
 extra_deps["deepspeed"] = [
@@ -180,7 +178,7 @@ if package_name != "mosaicml":
     print(f"`Building composer as `{package_name}`)", file=sys.stderr)
 
 setup(name=package_name,
-      version="0.6.0",
+      version="0.7.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="Composer provides well-engineered implementations of efficient training methods to give "

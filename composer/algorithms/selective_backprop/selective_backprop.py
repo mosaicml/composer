@@ -131,7 +131,11 @@ def select_using_loss(input: torch.Tensor,
 
         # Maybe interpolate
         if scale_factor < 1:
-            X_scaled = F.interpolate(input, scale_factor=scale_factor, mode=interp_mode)
+            X_scaled = F.interpolate(input,
+                                     scale_factor=scale_factor,
+                                     mode=interp_mode,
+                                     align_corners=False,
+                                     recompute_scale_factor=False)
         else:
             X_scaled = input
 
@@ -175,18 +179,6 @@ class SelectiveBackprop(Algorithm):
 
      .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
 
-     Args:
-         start (float, optional): SB interval start as fraction of training duration
-             Default: ``0.5``.
-         end (float, optional): SB interval end as fraction of training duration
-             Default: ``0.9``.
-         keep (float, optional): fraction of minibatch to select and keep for gradient computation
-             Default: ``0.5``.
-         scale_factor (float, optional): scale for downsampling input for selection forward pass
-             Default: ``1.``.
-         interrupt (int, optional): interrupt SB with a vanilla minibatch step every
-             ``interrupt`` batches. Default: ``2``.
-
     Example:
          .. testcode::
 
@@ -200,6 +192,18 @@ class SelectiveBackprop(Algorithm):
                  algorithms=[algorithm],
                  optimizers=[optimizer]
              )
+
+    Args:
+         start (float, optional): SB interval start as fraction of training duration
+             Default: ``0.5``.
+         end (float, optional): SB interval end as fraction of training duration
+             Default: ``0.9``.
+         keep (float, optional): fraction of minibatch to select and keep for gradient computation
+             Default: ``0.5``.
+         scale_factor (float, optional): scale for downsampling input for selection forward pass
+             Default: ``1.``.
+         interrupt (int, optional): interrupt SB with a vanilla minibatch step every
+             ``interrupt`` batches. Default: ``2``.
     """
 
     def __init__(self,

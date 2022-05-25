@@ -79,10 +79,9 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             device_transform_fn = None
         elif self.use_ffcv:
             try:
-                import ffcv  # type: ignore
-                from ffcv.fields.decoders import RandomResizedCropRGBImageDecoder  # type: ignore
-                from ffcv.fields.decoders import CenterCropRGBImageDecoder, IntDecoder  # type: ignore
-                from ffcv.pipeline.operation import Operation  # type: ignore
+                import ffcv
+                from ffcv.fields.decoders import CenterCropRGBImageDecoder, IntDecoder, RandomResizedCropRGBImageDecoder
+                from ffcv.pipeline.operation import Operation
             except ImportError:
                 raise ImportError(
                     textwrap.dedent("""\
@@ -259,7 +258,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-imagenet1k/mds/```
+            Default: ``'s3://mosaicml-internal-dataset-imagenet1k/mds/1/```
         local (str): Local filesystem directory where dataset is cached during operation.
             Default: ``'/tmp/mds-cache/mds-imagenet1k/```
         split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
@@ -268,7 +267,7 @@ class StreamingImageNet1kHparams(DatasetHparams):
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
-                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/')
+                              default='s3://mosaicml-internal-dataset-imagenet1k/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-imagenet1k/')
     split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
