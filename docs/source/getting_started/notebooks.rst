@@ -11,6 +11,7 @@ Some of these demonstrate the speed-ups from our work, even with already short t
     `Functional API`_, Use our methods within your own trainer, |colab_functional|_
     `Trainer`_, Getting started with our Composer :class:`.Trainer`, |colab_trainer|_
     `NLP`_, Fine-tune NLP models from |:hugging_face:| Transformers with our trainer, |colab_nlp|_
+    `Hugging Face`_, Fine-tune NLP models from |:hugging_face:| Transformers with our trainer and Hugging Face integrations, |colab_hf|_
     `Segmentation`_, Apply a segmentation model on a Kaggle challenge, |colab_seg|_
     `Custom Algorithms`_, Tour of our algorithms design based on (`Howard et al 2020 <https://arxiv.org/abs/2002.04688>`_), |colab_algos|_
     `FFCV Dataloaders`_, Use `FFCV <https://github.com/libffcv/ffcv>`_ dataloaders with our Composer :class:`.Trainer`, |colab_ffcv|_
@@ -19,6 +20,7 @@ Some of these demonstrate the speed-ups from our work, even with already short t
 .. _Functional API: https://github.com/mosaicml/composer/blob/main/notebooks/Composer_Functional.ipynb
 .. _Trainer: https://github.com/mosaicml/composer/blob/main/notebooks/up_and_running_with_composer.ipynb
 .. _NLP: https://github.com/mosaicml/composer/blob/main/notebooks/nlp_notebook_tutorial.ipynb
+.. _Hugging Face: https://github.com/mosaicml/composer/blob/main/notebooks/huggingface_notebook.ipynb
 .. _Segmentation: https://github.com/mosaicml/composer/blob/main/notebooks/medical_image_segmentation_composer.ipynb
 .. _Custom Algorithms: https://github.com/mosaicml/composer/blob/main/notebooks/custom_method_tutorial.ipynb
 .. _FFCV Dataloaders: https://github.com/mosaicml/composer/blob/main/notebooks/composer_with_ffcv_dataloaders.ipynb
@@ -28,6 +30,8 @@ Some of these demonstrate the speed-ups from our work, even with already short t
 .. |colab_trainer| image:: https://colab.research.google.com/assets/colab-badge.svg
 .. _colab_nlp: https://colab.research.google.com/github/mosaicml/composer/blob/main/notebooks/nlp_notebook_tutorial.ipynb
 .. |colab_nlp| image:: https://colab.research.google.com/assets/colab-badge.svg
+.. _colab_hf: https://colab.research.google.com/github/mosaicml/composer/blob/main/notebooks/huggingface_notebook.ipynb
+.. |colab_hf| image:: https://colab.research.google.com/assets/colab-badge.svg
 .. _colab_seg: https://colab.research.google.com/github/mosaicml/composer/blob/main/notebooks/medical_image_segmentation_composer.ipynb
 .. |colab_seg| image:: https://colab.research.google.com/assets/colab-badge.svg
 .. _colab_algos: https://colab.research.google.com/github/mosaicml/composer/blob/main/notebooks/custom_method_tutorial.ipynb

@@ -8,7 +8,6 @@ from tests.common.compare import deep_compare
 from tests.common.datasets import (RandomClassificationDataset, RandomClassificationDatasetHparams, RandomImageDataset,
                                    configure_dataset_hparams_for_synthetic)
 from tests.common.events import EventCounterCallback, EventCounterCallbackHparams
-from tests.common.hparams import assert_in_registry, assert_yaml_loads
 from tests.common.markers import device, world_size
 from tests.common.models import (SimpleConvModel, SimpleConvModelHparams, SimpleModel, SimpleModelHparams,
                                  configure_model_hparams_for_synthetic)
@@ -37,6 +36,4 @@ __all__ = [
     "world_size",
     "configure_model_hparams_for_synthetic",
     "get_module_subclasses",
-    "assert_yaml_loads",
-    "assert_in_registry",
 ]

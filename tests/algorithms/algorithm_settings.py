@@ -51,13 +51,7 @@ simple_resnet_settings = {
 _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     AGC: simple_vision_settings,
     Alibi: None,  # NLP settings needed
-    AugMix: {
-        'model': common.SimpleConvModel,
-        'dataset': common.RandomImageDataset,
-        'kwargs': {
-            'num_classes': 2
-        }
-    },
+    AugMix: simple_vision_settings,
     BlurPool: {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
@@ -99,13 +93,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     LayerFreezing: simple_vision_settings,
     MixUp: simple_vision_settings,
     ProgressiveResizing: simple_vision_settings,
-    RandAugment: {
-        'model': common.SimpleConvModel,
-        'dataset': common.RandomImageDataset,
-        'kwargs': {
-            'num_classes': 2
-        }
-    },
+    RandAugment: simple_vision_settings,
     NoOpModel: simple_vision_settings,
     SAM: simple_vision_settings,
     SelectiveBackprop: simple_vision_settings,
