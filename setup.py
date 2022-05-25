@@ -145,12 +145,6 @@ extra_deps["nlp"] = [
     "datasets>=1.14,<2",
 ]
 
-extra_deps["webdataset"] = [
-    # PyPI does not permit git dependencies. See https://github.com/mosaicml/composer/issues/771
-    # "webdataset @ git+https://github.com/mosaicml/webdataset.git@dev"
-    "wurlitzer>=3.0.2,<4",
-]
-
 extra_deps["mlperf"] = [
     # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218
     # "mlperf_logging @ git+https://github.com/mlperf/logging.git",
