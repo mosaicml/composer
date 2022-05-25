@@ -6,7 +6,8 @@ import torch
 from torchvision.models.resnet import Bottleneck
 
 
-def stochastic_bottleneck_forward(x: torch.Tensor, module: torch.nn.Module, drop_rate: torch.Tensor) -> torch.Tensor:
+def block_stochastic_bottleneck_forward(x: torch.Tensor, module: torch.nn.Module,
+                                        drop_rate: torch.Tensor) -> torch.Tensor:
     identity = x
 
     sample = (not module.training) or bool(torch.bernoulli(1 - drop_rate))
@@ -37,6 +38,7 @@ def stochastic_bottleneck_forward(x: torch.Tensor, module: torch.nn.Module, drop
             out = identity
     return out
 
+
 def _sample_drop(x: torch.Tensor, sample_drop_rate: float, is_training: bool):
     """Randomly drops samples from the input batch according to the `sample_drop_rate`.
 
@@ -51,6 +53,7 @@ def _sample_drop(x: torch.Tensor, sample_drop_rate: float, is_training: bool):
     sample_mask.floor_()  # binarize
     x *= sample_mask
     return x
+
 
 def sample_stochastic_bottleneck_forward(x: torch.Tensor, module: torch.nn.Module, drop_rate: torch.Tensor):
     identity = x
@@ -80,7 +83,7 @@ def make_resnet_bottleneck_stochastic(module: Bottleneck, module_index: int, mod
                                       drop_distribution: str, stochastic_method: str):
     if drop_distribution == 'linear':
         drop_rate = ((module_index + 1) / module_count) * drop_rate
-    stochastic_func = stochastic_bottleneck_forward if stochastic_method == 'block' else sample_stochastic_bottleneck_forward
+    stochastic_func = block_stochastic_bottleneck_forward if stochastic_method == 'block' else sample_stochastic_bottleneck_forward
     module.forward = functools.partial(stochastic_func, module=module, drop_rate=torch.tensor(drop_rate))
     print(module.forward)
     return module
