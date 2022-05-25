@@ -81,7 +81,7 @@ trainer.fit()
 ### Implementation Details
 
 ColOut currently has two implementations.
-One implementation, accessed by passing `batch=False`, acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example. 
+One implementation, accessed by passing `batch=False`, acts as an additional data augmentation for use in PyTorch dataloaders. It runs on the CPU and applies ColOut independently to each training example.
 A second implementation, accessed by passing `batch=True`, runs immediately before the training example is provided to the model. It runs on the GPU and drops the same rows and columns for all training examples in a mini-batch.
 
 ## Suggested Hyperparameters

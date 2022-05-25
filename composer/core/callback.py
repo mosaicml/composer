@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from composer.core.serializable import Serializable
 
@@ -87,6 +87,11 @@ class Callback(Serializable, abc.ABC):
 
             trainer.engine.close()
     """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Stub signature for pyright
+        del args, kwargs  # unused
+        pass
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         """This method is called by the engine on each event.

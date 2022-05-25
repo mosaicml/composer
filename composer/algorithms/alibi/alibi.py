@@ -287,7 +287,7 @@ def _zero_and_freeze_expand_position_embeddings(
 
 
 def _register_alibi(module: torch.nn.Module, n_heads: int, max_token_length: int):
-    # Modified from https://github.com/ofirpress/attention_with_linear_biases/blob/master/fairseq/models/transformer.py#L742
+    # Modified from https://github.com/ofirpress/attention_with_linear_biases/blob/5b327adc6d131e28b40ba58906b30bb469483519/fairseq/models/transformer.py#L742
     slopes = torch.Tensor(_get_alibi_head_slopes(n_heads))
     # In the next line, the part after the * is what constructs the diagonal matrix
     # (right matrix in Figure 3 in the paper).

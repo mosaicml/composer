@@ -4,54 +4,30 @@
 import copy
 import os
 import pathlib
-from typing import Any, Callable, Dict
+from typing import Type
 
 import pytest
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
-from composer import Trainer
-from composer.algorithms.factorize.factorize import Factorize
-from composer.algorithms.layer_freezing.layer_freezing import LayerFreezing
-from composer.algorithms.sam.sam import SAM
-from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite
-from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepth
-from composer.core.algorithm import Algorithm
-from composer.models.base import ComposerModel
-from tests.algorithms.algorithm_settings import get_algorithm_parametrization
-from tests.common import deep_compare, device
+from composer import Algorithm, Trainer
+from composer.algorithms import SAM, Factorize, LayerFreezing, SqueezeExcite, StochasticDepth
+from tests.algorithms.algorithm_settings import get_alg_dataset, get_alg_kwargs, get_alg_model, get_algs_with_marks
+from tests.common import deep_compare
 
 
-@pytest.fixture
-def model(request):
-    # Copy the model, so other parameterization start with a fresh model
-    return copy.deepcopy(request.param)
-
-
-@pytest.mark.timeout(180)
-@device('gpu')
-@pytest.mark.parametrize(
-    "save_interval,save_filename,resume_file,final_checkpoint",
-    [
-        ["1ep", "ep{epoch}-rank{rank}", "ep2-rank{rank}", "latest-rank{rank}"],  # symlinking
-        ["1ep", "ep{epoch}-rank{rank}", "ep3-rank{rank}", "ep5-rank{rank}"],  # test save at epoch end
-    ],
-)
-@pytest.mark.parametrize("alg_cls,alg_kwargs,model,dataset", get_algorithm_parametrization(), indirect=['model'])
+@pytest.mark.timeout(30)
+@pytest.mark.gpu
+@pytest.mark.parametrize("alg_cls", get_algs_with_marks())
 def test_algorithm_resumption(
-    device,
-    save_interval: int,
-    save_filename: str,
-    resume_file: str,
-    final_checkpoint: str,
     tmp_path: pathlib.Path,
-    alg_cls: Callable[..., Algorithm],
-    alg_kwargs: Dict[str, Any],
-    model: ComposerModel,
-    dataset: Dataset,
+    alg_cls: Type[Algorithm],
 ):
     folder1 = os.path.join(tmp_path, 'folder1')
     folder2 = os.path.join(tmp_path, 'folder2')
+
+    model = get_alg_model(alg_cls)
+    alg_kwargs = get_alg_kwargs(alg_cls)
 
     copied_model = copy.deepcopy(model)  # copy the model so the params will start from the same point
 
@@ -65,17 +41,15 @@ def test_algorithm_resumption(
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
 
     shared_config = {
-        'train_dataloader': DataLoader(dataset=dataset, batch_size=4),
-        'max_duration': '5ep',
-        'device': device,
-        'save_filename': save_filename,
-        'save_interval': save_interval,
+        'max_duration': '2ep',
+        'save_filename': 'ep{epoch}-rank{rank}',
         'train_subset_num_batches': 2,
     }
 
     # train model once, saving checkpoints every epoch
     trainer1 = Trainer(
         model=model,
+        train_dataloader=DataLoader(dataset=get_alg_dataset(alg_cls), batch_size=4),
         optimizers=optimizer,
         schedulers=scheduler,
         save_folder=folder1,
@@ -92,7 +66,8 @@ def test_algorithm_resumption(
 
     trainer2 = Trainer(
         model=copied_model,
-        load_path=os.path.join(folder1, resume_file),
+        train_dataloader=DataLoader(dataset=get_alg_dataset(alg_cls), batch_size=4),
+        load_path=os.path.join(folder1, 'ep1-rank{rank}'),
         load_weights_only=False,
         load_strict_model_weights=False,
         optimizers=optimizer,
@@ -105,16 +80,16 @@ def test_algorithm_resumption(
 
     # check that the checkpoints are equal
     _assert_checkpoints_equal(
-        file1=os.path.join(folder1, final_checkpoint.format(rank=0)),
-        file2=os.path.join(folder2, final_checkpoint.format(rank=0)),
+        file1=os.path.join(folder1, "ep2-rank0"),
+        file2=os.path.join(folder2, "ep2-rank0"),
     )
 
     # check that different epoch checkpoints are _not_ equal
     # this ensures that the model weights are being updated.
     with pytest.raises(AssertionError):
         _assert_model_weights_equal(
-            file1=os.path.join(folder1, save_filename.format(epoch=4, rank=0)),
-            file2=os.path.join(folder1, final_checkpoint.format(rank=0)),
+            file1=os.path.join(folder1, 'ep1-rank0'),
+            file2=os.path.join(folder1, "ep2-rank0"),
         )
 
 
