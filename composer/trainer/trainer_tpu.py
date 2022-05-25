@@ -47,7 +47,7 @@ import torch_xla.core.xla_model as xm
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Trainer"]
+__all__ = ["TrainerTPU"]
 
 # syntax to shorten the Scheduler type annoations
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
@@ -158,7 +158,7 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-class Trainer:
+class TrainerTPU:
     def __init__(
         self,
         *,

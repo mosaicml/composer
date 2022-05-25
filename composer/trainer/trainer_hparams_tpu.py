@@ -42,20 +42,19 @@ from composer.optim import (AdamHparams, AdamWHparams, ComposerScheduler, Consta
                             RMSpropHparams, SchedulerHparams, SGDHparams, StepSchedulerHparams)
 from composer.profiler.profiler_hparams import ProfilerHparams
 from composer.trainer.ddp import DDPSyncStrategy
-from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams, TPUDeviceHparams
-from composer.trainer.trainer import Trainer
+from composer.trainer.devices import DeviceHparams, TPUDeviceHparams
 from composer.trainer.trainer_tpu import TrainerTPU
 from composer.utils import dist, reproducibility
 from composer.utils.object_store import ObjectStoreHparams
+import torch_xla.core.xla_model as xm
 
 if TYPE_CHECKING:
     from typing import TypedDict
 else:
     TypedDict = object  # TypedDict is not available on python 3.7
 
-# Specifically excluding `FitKwargs` and `EvalKwargs` from `__all__` and documentation
-# They exist purely for pyright and should never need
-__all__ = ["TrainerHparams", "FitHparams", "EvalHparams", "ExperimentHparams"]
+
+__all__ = ["TrainerTPUHparams"]#, "FitHparams", "EvalHparams", "ExperimentHparams"]
 
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 
@@ -114,8 +113,6 @@ callback_registry = {
 }
 
 device_registry = {
-    "gpu": GPUDeviceHparams,
-    "cpu": CPUDeviceHparams,
     "tpu": TPUDeviceHparams,
 }
 
@@ -137,7 +134,10 @@ def _initialize_dataloader(
                 f"The batch size for {dataloader_label} must be specified if the {dataloader_label} dataset is specified"
             )
 
-        train_device_batch_size = batch_size // dist.get_world_size()
+        #train_device_batch_size = batch_size // dist.get_world_size()
+        import torch_xla.core.xla_model as xm
+        train_device_batch_size = batch_size // xm.xrt_world_size()
+        
         if dataset_hparams.shuffle and subset_num_batches is not None:
             warnings.warn(
                 (f"SubsetNumBatchesWarning: When specifying `subset_num_batches` for the {dataloader_label} dataset, "
@@ -183,127 +183,7 @@ def _initialize_eval_dataloader(
 
 
 @dataclasses.dataclass
-class TrainerHparams(hp.Hparams):
-    """Params for instantiating the :class:`.Trainer`.
-
-    .. seealso:: The documentation for the :class:`.Trainer`.
-
-    Args:
-        model (ModelHparams): Hparams for constructing the model to train.
-
-            .. seealso:: :mod:`composer.models` for models built into Composer.
-
-        dataloader (DataLoaderHparams): Hparams used for constructing the dataloader which will be used
-            for loading the train dataset and (if provided) the validation dataset.
-
-        train_dataset (DatasetHparams): Hparams used to construct the dataset used for training.
-
-            .. seealso:: :mod:`composer.datasets` for datasets built into Composer.
-        train_dataloader_label (str): See :class:`.Trainer`.
-        train_batch_size (int): The optimization batch size to use for training. This is the total batch
-            size that is used to produce a gradient for the optimizer update step.
-        train_subset_num_batches (int, optional): See :class:`.Trainer`.
-        compute_training_metrics (bool, optional): See :class:`.Trainer`.
-
-        max_duration (str): The maximum duration to train as a str (e.g. ``1ep``, or ``10ba``).
-            Will be converted to a :class:`~composer.core.Time` object.
-
-            .. seealso:: :class:`~composer.core.Time` for more details on time construction.
-
-        algorithms (List[AlgorithmHparams], optional): The algorithms to use during training. (default: ``[]``)
-
-            .. seealso:: :mod:`composer.algorithms` for the different algorithms built into Composer.
-
-        optimizers (OptimizerHparams, optional): The hparams for constructing the optimizer. (default: ``None``)
-
-            .. seealso:: :class:`.Trainer` for the default optimizer behavior when ``None`` is provided.
-
-            .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
-        schedulers (List[SchedulerHparams], optional): The learning rate schedulers. (default: ``[]``).
-
-            .. seealso:: :class:`.Trainer` for the default scheduler behavior when ``[]`` is provided.
-
-            .. seealso:: :mod:`composer.optim.scheduler` for the different schedulers built into Composer.
-        scale_schedule_ratio (float, optional): See :class:`.Trainer`.
-        step_schedulers_every_batch (bool, optional): See :class:`.Trainer`.
-
-        val_dataset (DatasetHparams, optional): Hparams for constructing the dataset used for evaluation.
-            (default: ``None``)
-
-            .. seealso:: :mod:`composer.datasets` for datasets built into Composer.
-        evaluators (List[EvaluatorHparams], optional): Hparams for constructing evaluators to be used during the
-            eval loop. Evaluators should be used when evaluating one or more specific metrics across one
-            or more datasets. (default: ``None``)
-
-            .. seealso:: :class:`~composer.core.evaluator.Evaluator` for more details on evaluators.
-        eval_batch_size (int, optional): The batch size to use for evaluation. Must be provided if one of
-            ``val_dataset`` or ``evaluators`` is set. (default: ``None``)
-        eval_interval (str, optional): See :class:`.Trainer`.
-        eval_subset_num_batches (int, optional): See :class:`.Trainer`.
-
-        callbacks (List[CallbackHparams], optional): Hparams to construct the callbacks to
-            run during training. (default: ``[]``)
-
-            .. seealso:: :mod:`composer.callbacks` for the different callbacks built into Composer.
-
-        loggers (List[LoggerDestinationHparams], optional): Hparams for constructing the destinations
-            to log to. (default: ``[]``)
-
-            .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        run_name (str, optional): See :class:`.Trainer`.
-        progress_bar (bool, optional): See :class:`.Trainer`.
-        log_to_console (bool, optional): See :class:`.Trainer`.
-        console_log_level (bool, optional): See :class:`.Trainer`.
-        console_stream (bool, optional): See :class:`.Trainer`.
-        python_log_level (str): The Python log level to use for log statements in the :mod:`composer`
-            module. (default: ``INFO``)
-
-            .. seealso:: The :mod:`logging` module in Python.
-
-        load_path (str, optional): See :class:`.Trainer`.
-        load_object_store (ObjectStore, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
-            ``load_object_store`` should not be provided since there can only be one location to load from.
-        load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for
-            ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects. Both
-            ``load_logger_destination`` and ``load_object_store`` should not be provided since there can only be one location
-            to load from.
-        load_weights_only (bool, optional): See :class:`.Trainer`.
-        load_strict_model_weights (bool, optional): See :class:`.Trainer`.
-        load_chunk_size (int, optional): See :class:`.Trainer`.
-        load_progress_bar (bool, optional): See :class:`.Trainer`.
-
-        save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_latest_filename (str, optional): See
-            :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_latest_artifact_name (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_overwrite (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_weights_only (bool, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        save_interval (str, optional): See
-            :class:`~composer.callbacks.callback_hparams.CheckpointSaverHparams`.
-        save_num_checkpoints_to_keep (int, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
-        autoresume (bool, optional): See :class:`.Trainer`.
-
-        deepspeed (Dict[str, JSON], optional): If set to a dict will be used for as the DeepSpeed
-            config for training  (see :class:`.Trainer` for more details). If ``None`` (the default), DeepSpeed will not
-            be used.
-
-        device (DeviceHparams, optional): Hparams for constructing the device used for training.
-            (default: ``None``)
-        precision (Precision, optional): See :class:`.Trainer`.
-        grad_accum (int, optional): See :class:`.Trainer`.
-
-        seed (int, optional): See :class:`.Trainer`.
-        deterministic_mode (bool, optional): See :class:`.Trainer`.
-
-        dist_timeout (float, optional): See :class:`.Trainer`.
-        ddp_sync_strategy (DDPSyncStrategy, optional): See :class:`.Trainer`.
-
-        grad_clip_norm (float, optional): See :class:`.Trainer`.
-
-        profiler (ProfilerHparams, optional): Profiler hyperparameters.
-    """
+class TrainerTPUHparams(hp.Hparams):
 
     hparams_registry = {  # type: ignore
         "algorithms": algorithms_registry,
@@ -464,9 +344,6 @@ class TrainerHparams(hp.Hparams):
                                          "be specified and ``save_overwrite`` to be ``False``. ")),
                                    default=False)
 
-    # DeepSpeed
-    deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
-
     # System/Numerics
     device: Optional[DeviceHparams] = hp.optional(doc="Device Parameters", default=None)
     precision: Optional[Precision] = hp.optional(doc="Precision to use for training", default=None)
@@ -487,17 +364,6 @@ class TrainerHparams(hp.Hparams):
         default=False,
     )
 
-    # Distributed
-    dist_timeout: float = hp.optional(
-        doc="Timeout, in seconds, for initializing the distributed process group.",
-        default=300.0,
-    )
-    ddp_sync_strategy: Optional[DDPSyncStrategy] = hp.optional(
-        doc=(("The strategy for synchronizing DDP. Default value ``None`` causes the "
-              "trainer to auto-select a value depending on what algorithms are used.")),
-        default=None,
-    )
-
     # Grad Clip Norm
     grad_clip_norm: float = hp.optional(
         default=-1.0,
@@ -510,21 +376,7 @@ class TrainerHparams(hp.Hparams):
     def validate(self):
         super().validate()
 
-        if self.deepspeed is not None:
-            self.deepspeed["steps_per_print"] = cast(int, self.deepspeed.get("steps_per_print", 1e20))
-
-            if "zero_optimization" in self.deepspeed:
-                zero_stage = cast(dict, self.deepspeed["zero_optimization"]).get("stage", 0)
-            else:
-                zero_stage = 0
-
-            if self.deterministic_mode and zero_stage > 0:
-                raise ValueError("Deepspeed with zero stage > 0 is not compatible with deterministic mode")
-
-            if isinstance(self.device, CPUDeviceHparams):
-                raise ValueError("Training on CPUs is not supported with DeepSpeed.")
-
-        world_size = dist.get_world_size()
+        world_size = xm.xrt_world_size()
 
         if self.train_batch_size is not None and self.train_batch_size % world_size != 0:
             raise ValueError(
@@ -557,30 +409,18 @@ class TrainerHparams(hp.Hparams):
         import composer
         logging.getLogger(composer.__name__).setLevel(self.python_log_level)
 
-        # Device
-        device_hparams = self.device
-        if device_hparams is None:
-            if torch.cuda.is_available():
-                device_hparams = GPUDeviceHparams()
-            elif self.device == 'cpu':
-                    device_hparams = CPUDeviceHparams()
-            else:
-                device_hparams = TPUDeviceHparams()
-                
-            device_hparams = GPUDeviceHparams() if torch.cuda.is_available() else CPUDeviceHparams()
+        device_hparams = TPUDeviceHparams()
+        
         device = device_hparams.initialize_object()
 
         # Distributed
         # Initialized here so it is available within dataloaders
+        # TODO: check for xm
         if False:#dist.get_world_size() > 1:# and device is not "tpu":
             dist.initialize_dist(device.dist_backend, datetime.timedelta(seconds=self.dist_timeout))
 
         # Reproducibility
         seed = self.seed if self.seed else reproducibility.get_random_seed()
-        # need to set seed before model initialization for determinism
-        # don't need to set different seeds per process since only the rank 0 initialization is used
-        # Algorithms should not use the `seed` on `__init__` but rather on `Event.INIT`, which occurs
-        # after the seed was properly distributed across ranks to ensure checkpoint compatibility
         reproducibility.seed_all(seed)
 
         # The model
@@ -619,7 +459,7 @@ class TrainerHparams(hp.Hparams):
         elif self.load_logger_destination is not None:
             load_object_store = self.load_logger_destination.initialize_object()
 
-        trainer = Trainer(
+        trainer = TrainerTPU(
             # Model
             model=model,
 
@@ -678,9 +518,6 @@ class TrainerHparams(hp.Hparams):
             # Graceful Resumption
             autoresume=self.autoresume,
 
-            # DeepSpeed
-            deepspeed_config=self.deepspeed,
-
             # System/Numerics
             device=device,
             precision=self.precision,
@@ -691,8 +528,6 @@ class TrainerHparams(hp.Hparams):
             deterministic_mode=self.deterministic_mode,
 
             # Distributed
-            dist_timeout=self.dist_timeout,
-            ddp_sync_strategy=self.ddp_sync_strategy,
 
             # Grad Clip Norm
             grad_clip_norm=self.grad_clip_norm,
@@ -704,15 +539,15 @@ class TrainerHparams(hp.Hparams):
         return trainer
 
     @classmethod
-    def load(cls, model: str) -> TrainerHparams:
+    def load(cls, model: str) -> TrainerTPUHparams:
         model_hparams_file = os.path.join(
             os.path.dirname(composer.__file__),
             "yamls",
             "models",
             f"{model}.yaml",
         )
-        trainer_hparams = TrainerHparams.create(model_hparams_file, cli_args=False)
-        assert isinstance(trainer_hparams, TrainerHparams), "trainer hparams should return an instance of self"
+        trainer_hparams = TrainerTPUHparams.create(model_hparams_file, cli_args=False)
+        assert isinstance(trainer_hparams, TrainerTPUHparams), "trainer hparams should return an instance of self"
         return trainer_hparams
 
 
@@ -900,20 +735,6 @@ class EvalKwargs(TypedDict):
 
 @dataclasses.dataclass
 class EvalHparams(hp.Hparams):
-    """Hyperparameters to describe a call to :meth:`.Trainer.eval`.
-
-    Args:
-        dataset (DatasetHparams): Dataset hyperparameters.
-        batch_size (int): The evaluation batch size across all workers.
-        dataloader_label (str, optional): See :meth:`.Trainer.eval`.
-        subset_num_batches (int, optional): See :meth:`.Trainer.eval`.
-        log_level (LogLevel, optional): See :meth:`.Trainer.eval`.
-        metric_names (List[str], optional): Name of the metrics for the evaluator. (default: ``None``)
-
-            Can be a :mod:`torchmetrics` metric name or the class name of a metric returned by
-            :meth:`.ComposerModel.metrics`.
-            If None (the default), uses all metrics in the model.
-    """
 
     hparams_registry = {
         "dataset": dataset_registry,
@@ -934,15 +755,6 @@ class EvalHparams(hp.Hparams):
     )
 
     def initialize_object(self, model: ComposerModel, dataloader_hparams: DataLoaderHparams) -> EvalKwargs:
-        """Construct a kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.eval`.
-
-        Args:
-            model (ComposerModel): The model.
-            dataloader_hparams (DataLoaderHparams): The dataloader hyperparameters.
-
-        Returns:
-            EvalKwargs: A kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.eval`.
-        """
         # Dataloader
         dataloader = _initialize_dataloader(
             dataset_hparams=self.dataset,
@@ -952,12 +764,6 @@ class EvalHparams(hp.Hparams):
             dataloader_hparams=dataloader_hparams,
         )
         assert dataloader is not None, "The dataloader is a required argument"
-
-        # Metrics
-
-        # TODO(Ravi): Cleanup this code as part of the MetricsModule. This code was copied
-        # from composer/datasets/evaluator.py, but will likely be removed when the MetricsModule
-        # is implemented, as the trainer will not be responsible for constructing metrics.
 
         # Get and copy all the model's associated evaluation metrics
         model_metrics = model.metrics(train=False)
@@ -993,67 +799,6 @@ class EvalHparams(hp.Hparams):
 
 @dataclasses.dataclass
 class ExperimentHparams(hp.Hparams):
-    """Hyperparameters to describe an experiment.
-
-    Unlike the :class:`.TrainerHparams`, this class allows for multiple configurations
-    to :meth:`.Trainer.fit` and :meth:`.Trainer.eval` to also be specified.
-
-    Example usage:
-
-    .. testsetup::
-
-        from tests.common import SimpleModelHparams, RandomClassificationDatasetHparams
-
-        from composer.datasets import DataLoaderHparams
-        from composer.trainer import ExperimentHparams, FitHparams, EvalHparams, TrainerHparams
-
-        trainer_hparams = TrainerHparams(
-            model=SimpleModelHparams(),
-            dataloader=DataLoaderHparams(
-                num_workers=0,
-                persistent_workers=False,
-                pin_memory=False,
-            ),
-            max_duration=1,
-        )
-        fit_1_hparams = FitHparams(
-            train_dataset=RandomClassificationDatasetHparams(),
-            train_batch_size=1,
-            train_subset_num_batches=1,
-            reset_time=True,
-        )
-        fit_2_hparams = fit_1_hparams
-        eval_1_hparams = EvalHparams(
-            dataset=RandomClassificationDatasetHparams(),
-            batch_size=1,
-            subset_num_batches=1,
-        )
-        eval_2_hparams = eval_1_hparams
-
-    .. testcode::
-
-        experiment_hparams = ExperimentHparams(
-            trainer=trainer_hparams,
-            fits=[fit_1_hparams, fit_2_hparams],
-            evals=[eval_1_hparams, eval_2_hparams],
-        )
-
-        trainer, fits, evals = experiment_hparams.initialize_object()
-
-        # The caller can invoke `trainer.fit(...)` and `trainer.eval(...)` in whatever
-        # order or combination makes sense for the experiment.
-        # In this example, all of the evaluations are run for each call to `trainer.fit(...)`.
-
-        for fit_kwargs in fits:
-            trainer.fit(**fit_kwargs)
-            for eval_kwargs in evals:
-                trainer.eval(**eval_kwargs)
-
-    Args:
-        trainer (TrainerHparams): The trainer hparams.
-        fits (List[FitHparams]): The hparams for calls to :meth:`.Trainer.fit`.
-        evals (List[EvalHparams]): The hparams for calls to :meth:`.Trainer.eval`.
-    """
     trainer: TrainerHparams = hp.required("Trainer hparams")
     fits: List[FitHparams] = hp.optional("Fit hparams", default_factory=list)
     evals: List[EvalHparams] = hp.optional("Eval hparams", default_factory=list)

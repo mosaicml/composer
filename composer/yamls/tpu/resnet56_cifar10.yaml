@@ -31,7 +31,7 @@ model:
       - kaiming_normal
       - bn_uniform
 eval_interval: 160ep
-max_duration: 10ep
+max_duration: 5ep
 train_batch_size: 128
 eval_batch_size: 128
 seed: 17
@@ -39,5 +39,5 @@ grad_accum: 1
 device:
   tpu: {}
 dataloader:
-  num_workers: 4
+  num_workers: 8
 precision: fp16
