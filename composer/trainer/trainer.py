@@ -195,7 +195,7 @@ def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
 def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]], find_unused_parameters: bool):
     if ddp_sync_strategy is None:
         if find_unused_parameters:
-            ddp_sync_strategy = DDPSyncStrategy.FORCED_SYNC
+            ddp_sync_strategy = DDPSyncStrategy.MULTI_AUTO_SYNC
         else:
             ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC
     else:
