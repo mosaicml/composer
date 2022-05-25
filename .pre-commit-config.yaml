@@ -51,7 +51,6 @@ repos:
     hooks:
       - id: check-added-large-files
       - id: check-ast
-      - id: check-byte-order-marker
       - id: check-builtin-literals
         args:
           - --no-allow-dict-kwargs
