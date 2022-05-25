@@ -28,7 +28,7 @@ def get_parser():
                         type=str,
                         default="s3://mosaicml-internal-dataset-cifar10",
                         help=textwrap.dedent("""\
-                                WebDataset to use. Default: s3://mosaicml-internal-dataset-cifar10"""))
+                                Streaming dataset to use. Default: s3://mosaicml-internal-dataset-cifar10"""))
     parser.add_argument("--split",
                         type=str,
                         default="train",
