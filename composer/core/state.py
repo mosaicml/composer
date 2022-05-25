@@ -347,32 +347,32 @@ class State(Serializable):
         See batch_get in `utils/batch_helpers.py` for examples.
 
         Args:
-            key (str, int, or Callable): A key to index into the batch or a 
+            key (str, int, or Callable): A key to index into the batch or a
                 user-specified function to do the extracting. A pair of callables is also
-                supported for cases where a get and set function pair are both passed 
+                supported for cases where a get and set function pair are both passed
                 (like in Algorithms). The getter is assumed to be the first of the pair.
 
 
         Returns:
-            The part of the batch specified by the key. This could be any type 
+            The part of the batch specified by the key. This could be any type
                 depending on what the batch is composed of.
         """
         return batch_get(self.batch, key)
 
     def batch_set_item(self, key: Union[str, int, Callable, Any], value: Any):
-        """Sets the element specified by the key of the set_fn to the specified value. 
+        """Sets the element specified by the key of the set_fn to the specified value.
 
-        This is not an in-place operation, as for tuple-typed batches, a new batch object 
+        This is not an in-place operation, as for tuple-typed batches, a new batch object
         must be created to modify them.
 
         See batch_set in `utils/batch_helpers.py` for examples.
-        
+
         Args:
-            key (str, int, or Callable): A key to index into the batch or a user-specified 
-                function to do the setting. A pair of callables is also supported for 
-                cases where a get and set function pair are both passed (like in 
+            key (str, int, or Callable): A key to index into the batch or a user-specified
+                function to do the setting. A pair of callables is also supported for
+                cases where a get and set function pair are both passed (like in
                 Algorithms). The setter is assumed to be the second of the pair.
-            value (Any): The value that batch[key] or batch.key gets set to or that the 
+            value (Any): The value that batch[key] or batch.key gets set to or that the
                 user-defined set function sets a part of the batch to.
 
         Returns:

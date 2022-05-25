@@ -70,7 +70,7 @@ Here are some suggestions to deal with pyright errors:
     Instead, add a check to ensure that `x is not None`:
 
     ```python
-    from typing import Union 
+    from typing import Union
 
     def foo(x: Union[int, None]):
         if x is None:

@@ -138,6 +138,23 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         rm -rf /tmp/mofed ; \
     fi
 
+
+#####################
+# Install nvidia apex
+#####################
+RUN if [ -n "$CUDA_VERSION" ] ; then \
+        mkdir -p /tmp/apex && \
+        cd /tmp/apex && \
+        git clone https://github.com/NVIDIA/apex && \
+        cd apex && \
+        pip${PYTHON_VERSION} install --no-cache-dir \
+            --global-option="--cpp_ext" \
+            --global-option="--cuda_ext" \
+            --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
+            ./ && \
+        rm -rf /tmp/apex ; \
+    fi
+
 #######################
 # Set the shell to bash
 #######################
@@ -160,7 +177,7 @@ RUN mkdir -p ${COMPOSER_PYTHON_BIN} && \
     ln -s $(which pip${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/pip && \
     ln -s $(which pip${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/pip3 && \
     ln -s $(which pip${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/pip${PYTHON_VERSION} && \
-    # Include this folder, and the local bin folder, on the path 
+    # Include this folder, and the local bin folder, on the path
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/profile && \
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/bash.bashrc && \
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/zshenv
@@ -174,11 +191,6 @@ ENV BASH_ENV=/etc/profile
 RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-
-###################
-# Add a /tmp folder
-###################
-RUN mkdir -p -m777 /tmp
 
 FROM pytorch_stage AS vision_stage
 ARG DEBIAN_FRONTEND=noninteractive

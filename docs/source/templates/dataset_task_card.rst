@@ -7,7 +7,7 @@ Dataset/Task Name
 
 TLDR
 =======
-.. 
+..
         TLDR about the dataset name, kind of data, tasks associated with it, and number of examples.
 
         *E.g., ImageNet is a dataset of natural images for 1000-way classification consisting of 1.2M training examples and 50K validation examples at about resolution 224x224.*
