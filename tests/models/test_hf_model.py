@@ -22,7 +22,7 @@ def test_hf_model_forward():
         "input_ids": input_ids,
         "labels": labels,
         "token_type_ids": token_type_ids,
-        "attention_mask": attention_mask
+        "attention_mask": attention_mask,
     }
 
     # non pretrained model to avoid a slow test that downloads the weights.
