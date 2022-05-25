@@ -179,7 +179,10 @@ def replace_module_classes(
             if replacement is not None:
                 assert child not in replaced_pairs
                 # Preserve the device with surgery
-                replacement = replacement.to(next(child.parameters()).device)
+                # However, some children don't have any parameters, so using a for loop
+                for p in child.parameters():
+                    replacement = replacement.to(p.device)
+                    break
                 replaced_pairs[child] = replacement
 
                 for parent, name in parents:
