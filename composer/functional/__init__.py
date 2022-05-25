@@ -15,7 +15,6 @@
     # replace some layers with squeeze-excite
     cf.apply_squeeze_excite(model, latent_channels=64, min_channels=128)
 """
-from composer.algorithms.agc import apply_agc
 from composer.algorithms.alibi.alibi import apply_alibi
 from composer.algorithms.augmix import augmix_image
 from composer.algorithms.blurpool import apply_blurpool
@@ -26,6 +25,7 @@ from composer.algorithms.cutout import cutout_batch
 from composer.algorithms.ema import compute_ema
 from composer.algorithms.factorize import apply_factorization
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm
+from composer.algorithms.gradient_clipping import apply_gradient_clipping
 from composer.algorithms.label_smoothing import smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers
 from composer.algorithms.mixup import mixup_batch
@@ -38,7 +38,7 @@ from composer.algorithms.stochastic_depth import apply_stochastic_depth
 
 # All must be manually defined so sphinx automodule will work properly
 __all__ = [
-    "apply_agc",
+    "apply_gradient_clipping",
     "apply_alibi",
     "augmix_image",
     "apply_blurpool",

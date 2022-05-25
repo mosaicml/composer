@@ -8,8 +8,9 @@ import torch
 from torch import nn
 
 import composer.functional as cf
-from composer.algorithms.agc import AGC
-from composer.algorithms.agc.agc import _get_clipped_gradient_coeff
+from composer.algorithms.gradient_clipping import GradientClipping, apply_gradient_clipping
+from composer.algorithms.gradient_clipping.gradient_clipping import _get_clipped_gradient_coeff, _apply_agc
+import composer.algorithms.gradient_clipping.gradient_clipping as gc_module
 from composer.core import Engine
 from composer.core.event import Event
 
@@ -58,7 +59,25 @@ def cnn_model_with_grads():
     return model
 
 
-def test_agc_functional(simple_model_with_grads):
+def test_gradient_clipping_functional(monkeypatch):
+    parameters = Mock()
+    new_gc_fn = Mock()
+    monkeypatch.setattr(gc_module, '_apply_agc', new_gc_fn)
+    apply_gradient_clipping(parameters, 'adaptive', 0.1)
+    new_gc_fn.assert_called_once_with(parameters, clipping_threshold=0.1)
+
+    new_gc_fn = Mock()
+    monkeypatch.setattr(torch.nn.utils, 'clip_grad_norm_', new_gc_fn)
+    apply_gradient_clipping(parameters, 'norm', 0.1)
+    new_gc_fn.assert_called_once()
+
+    new_gc_fn = Mock()
+    monkeypatch.setattr(torch.nn.utils, 'clip_grad_value_', new_gc_fn)
+    apply_gradient_clipping(parameters, 'value', 0.1)
+    new_gc_fn.assert_called_once()
+
+
+def test_apply_agc(simple_model_with_grads):
 
     model = simple_model_with_grads
     # Make sure after calling apply_agc, the gradients inside the model are
@@ -67,12 +86,12 @@ def test_agc_functional(simple_model_with_grads):
     weights = next(model.parameters())
     grad = weights.grad
     expected_clipped_grad = grad.detach() * _get_clipped_gradient_coeff(weights, grad)
-    cf.apply_agc(model)
+    _apply_agc(model.parameters(), 0.01)
     current_grad = next(model.parameters()).grad
     torch.equal(current_grad, expected_clipped_grad)
 
 
-def test_agc_functional_with_cnn_does_not_error(cnn_model_with_grads):
+def test_apply_agc_with_cnn_does_not_error(cnn_model_with_grads):
     """This test is just to ensure that no errors are raised.
 
     Accuracy of the AGC calculations are tested in other tests.
@@ -80,32 +99,27 @@ def test_agc_functional_with_cnn_does_not_error(cnn_model_with_grads):
 
     model = cnn_model_with_grads
     # Call apply_agc. If this function returns then we know that nothing errored out.
-    cf.apply_agc(model)
+    _apply_agc(model.parameters(), 0.01)
 
 
-def test_AGC_algorithm(simple_model_with_grads):
-    # Get weight and gradients from the fixture model.
+@pytest.mark.parametrize('clipping_type', [('adaptive',), ('norm',),('value',)])
+def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_with_grads):
     model = simple_model_with_grads
-    weights = next(model.parameters())
-    grad = weights.grad
-    expected_clipped_grad = grad.detach() * _get_clipped_gradient_coeff(weights, grad)
-
-    # Set up a mock engine.
+    apply_gc_fn = Mock()
+    monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
     state = Mock()
     state.model = model
     state.profiler.marker = Mock(return_value=None)
     state.callbacks = []
-    state.algorithms = [AGC()]
+    state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=0.01)]
     logger = Mock()
     engine = Engine(state, logger)
 
     # Run the Event that should cause AGC.apply to be called.
     engine.run_event(Event.AFTER_TRAIN_BATCH)
 
-    # Check that the gradients weights holds are equivalent to the calling
-    # grad.detach() * _get_clipped_gradient_coeff on the weights and grads.
-    current_grad = next(model.parameters()).grad
-    torch.equal(current_grad, expected_clipped_grad)
+    apply_gc_fn.assert_called_once()
+
 
 
 def test_get_clipped_gradients_1D():

@@ -1,12 +1,12 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Core adaptive gradient clipping classes and functions."""
+"""Core gradient clipping classes and functions."""
 
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Optional, Union, Iterable
 
 import torch
 
@@ -15,29 +15,63 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["AGC", "apply_agc"]
+__all__ = ["GradientClipping", "ApplyGradientClipping"]
 
 
-def apply_agc(
-    model: torch.nn.Module,
-    clipping_threshold: float = 0.01,
-) -> None:
-    """Clips all gradients in model based on ratio of gradient norms to parameter norms.
-
-    Example:
-         .. testcode::
-
-            import composer.functional as cf
-
-            cf.apply_agc(model=model)
-
+def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tensor]], 
+                            clipping_type: str, clipping_threshold: float):
+    """Clips all gradients in model based on specified clipping_type.
 
     Args:
-        model (torch.nn.Module): The model being trained.
+        parameters (torch.Tensor or Iterable[torch.Tensor]): The parameters to of the 
+            model for whose gradients we will clip
+        clipping_type ('adaptive', 'norm', 'value'): String denoting which type of 
+            gradient clipping to do. The options are:
+
+            =============   ===========                             ========
+            clipping_type   description                             function
+            =============   ===========                             ========
+            'adaptive'      Clips all gradients based on            composer.algorithms.
+                             gradient norm:parameter norm            gradient_clipping.
+                             ratio.                                  gradient_clipping.
+                                                                    _apply_agc         
+                                                            
+            'norm'          Clips gradient norm                     torch.nn.utils.
+                                                                    clip_grad_norm_
+
+            'value'         Clips gradient at specified value       torch.nn.utils.
+                                                                    clip_grad_value_
+            =============
+
+        clipping_threshold (float, optional): Specifies:
+            * what value to clip the gradients to (for 'value')
+            * what values to clip the gradient norms to (for 'norm')
+            * threshold by which if grad_norm / weight_norm is greater than this threshold
+                then scale gradients by 
+                this threshold * (weight_norm / grad_norm) (for 'adaptive')
+    """
+    if clipping_type == 'adaptive':
+        _apply_agc(parameters, clipping_threshold=clipping_threshold)
+    elif clipping_type == 'norm':
+        torch.nn.utils.clip_grad_norm_(parameters, max_norm=clipping_threshold)
+    elif clipping_type == 'value':
+        torch.nn.utils.clip_grad_value_(parameters, clip_value=clipping_threshold)
+    else:
+        raise ValueError(f"clipping_type must be 'adaptive', 'norm', or 'value' not {clipping_type} ")
+
+
+def _apply_agc(
+    parameters: Union[torch.Tensor, Iterable[torch.Tensor]],
+    clipping_threshold: float,
+) -> None:
+    """Clips all gradients in model based on ratio of gradient norms to parameter norms.
+    Args:
+        parameters (torch.Tensor or Iterable[torch.Tensor]): The parameters to of the 
+            model for whose gradients we will clip
         clipping_threshold (float, optional): The largest acceptable ratio between grad
             norms and parameter norms before clipping is done.
     """
-    for param in model.parameters():
+    for param in parameters:
         if param.grad is None:
             continue
 
@@ -47,14 +81,15 @@ def apply_agc(
         grad = param.grad.detach()
 
         # Get clipped version of gradients.
-        clipped_grad_coeff = _get_clipped_gradient_coeff(weights, grad)
+        clipped_grad_coeff = _get_clipped_gradient_coeff(weights, grad,
+                                                         clipping_threshold=clipping_threshold)
 
         # Copy clipped gradients into param.grad attribute, so they can be accessed by
         # optimizer.
         grad.mul_(clipped_grad_coeff)
 
 
-class AGC(Algorithm):
+class GradientClipping(Algorithm):
     """Clips all gradients in model based on ratio of gradient norms to parameter norms.
 
     From <https://arxiv.org/abs/2102.06171>.
@@ -86,7 +121,8 @@ class AGC(Algorithm):
             norms and parameter norms before clipping is done.
     """
 
-    def __init__(self, clipping_threshold: float = 0.01):
+    def __init__(self, clipping_type: str, clipping_threshold: float):
+        self.clipping_type = clipping_type
         self.clipping_threshold = clipping_threshold
 
     def match(self, event: Event, state: State) -> bool:
@@ -94,8 +130,8 @@ class AGC(Algorithm):
         return event == Event.AFTER_TRAIN_BATCH
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Freeze layers in the model."""
-        apply_agc(model=state.model, clipping_threshold=self.clipping_threshold)
+        apply_gradient_clipping(parameters=state.model.parameters(), clipping_type=self.clipping_type,
+                                clipping_threshold=self.clipping_threshold)
 
 
 # Factored this to a function to enable easier testing.

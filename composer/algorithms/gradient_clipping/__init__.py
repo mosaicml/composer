@@ -7,6 +7,6 @@ gradient norms to parameter norms.
 See the :doc:`Method Card </method_cards/agc>` for more details.
 """
 
-from composer.algorithms.agc.agc import AGC, apply_agc
+from composer.algorithms.gradient_clipping.gradient_clipping import GradientClipping, apply_gradient_clipping
 
-__all__ = ["AGC", "apply_agc"]
+__all__ = ["GradientClipping", "apply_gradient_clipping"]

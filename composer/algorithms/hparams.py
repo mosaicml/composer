@@ -7,7 +7,6 @@ from typing import Optional, Union
 
 import yahp as hp
 
-from composer.algorithms.agc import AGC
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugMix
@@ -19,6 +18,7 @@ from composer.algorithms.cutout import CutOut
 from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
+from composer.algorithms.gradient_clipping import GradientClipping
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
@@ -36,14 +36,16 @@ from composer.algorithms.swa import SWA
 
 
 @dataclass
-class AGCHparams(AlgorithmHparams):
-    """See :class:`AGC`"""
+class GradientClippingHparams(AlgorithmHparams):
+    """See :class:`GradientClipping`"""
+    clipping_type: str = hp.required("String denoting which type of gradient clipping to"
+                                     "do. The options are 'norm', 'adaptive', and 'value'")
     clipping_threshold: float = hp.optional(
-        doc="The largest acceptable ratio between grad norms and parameter norms before clipping is done.",
+        doc="Specifies what value to threshold gradients, gradient norms, or gradient norm / weight norm ratios.",
         default=0.01)
 
-    def initialize_object(self) -> AGC:
-        return AGC(**asdict(self))
+    def initialize_object(self) -> GradientClipping:
+        return GradientClipping(**asdict(self))
 
 
 @dataclass

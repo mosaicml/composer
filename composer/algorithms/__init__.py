@@ -37,7 +37,6 @@ For example, a simple algorithm that shortens training:
 
 For more information about events, see :class:`~composer.core.event.Event`.
 """
-from composer.algorithms.agc import AGC
 from composer.algorithms.algorithm_hparams import AlgorithmHparams
 from composer.algorithms.algorithm_registry import get_algorithm_registry, list_algorithms
 from composer.algorithms.alibi import Alibi
@@ -50,12 +49,14 @@ from composer.algorithms.cutout import CutOut
 from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
-from composer.algorithms.hparams import (AGCHparams, AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
+from composer.algorithms.gradient_clipping import GradientClipping
+from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
                                          ColOutHparams, CutMixHparams, CutOutHparams, EMAHparams, FactorizeHparams,
-                                         GhostBatchNormHparams, LabelSmoothingHparams, LayerFreezingHparams,
-                                         MixUpHparams, NoOpModelHparams, ProgressiveResizingHparams, RandAugmentHparams,
-                                         SAMHparams, SelectiveBackpropHparams, SeqLengthWarmupHparams,
-                                         SqueezeExciteHparams, StochasticDepthHparams, SWAHparams)
+                                         GhostBatchNormHparams, GradientClippingHparams, LabelSmoothingHparams,
+                                         LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
+                                         ProgressiveResizingHparams, RandAugmentHparams, SAMHparams,
+                                         SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
+                                         StochasticDepthHparams, SWAHparams)
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
@@ -77,7 +78,7 @@ __all__ = [
     "load_multiple",
     "get_algorithm_registry",
     "list_algorithms",
-    "AGC",
+    "GradientClipping",
     "Alibi",
     "AugmentAndMixTransform",
     "AugMix",
@@ -107,7 +108,7 @@ __all__ = [
     "SWA",
 
     # hparams objects
-    "AGCHparams",
+    "GradientClippingHparams",
     "AlgorithmHparams",
     "AlibiHparams",
     "AugMixHparams",
