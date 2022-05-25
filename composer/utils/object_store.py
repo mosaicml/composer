@@ -47,7 +47,7 @@ class LibcloudObjectStoreHparams(hp.Hparams):
         ... )
         >>> provider = provider_hparams.initialize_object()
         >>> provider
-        <composer.utils.object_store.ObjectStore object at ...>
+        <composer.utils.object_store.LibcloudObjectStore object at ...>
 
     Args:
         provider (str): Cloud provider to use.
@@ -133,7 +133,7 @@ class LibcloudObjectStoreHparams(hp.Hparams):
         "Extra keyword arguments to pass into the constructor for the specified provider.", default_factory=dict)
 
     def get_provider_kwargs(self) -> Dict[str, Any]:
-        """Returns the ``provider_kwargs`` argument, which is used to construct a :class:`.ObjectStore`.
+        """Returns the ``provider_kwargs`` argument, which is used to construct a :class:`.LibcloudObjectStore`.
 
         Returns:
             Dict[str, Any]: The ``provider_kwargs`` for use in constructing an :class:`.LibcloudObjectStore`.
@@ -169,8 +169,8 @@ class LibcloudObjectStore:
 
     Here's an example for an Amazon S3 bucket named ``MY_CONTAINER``:
 
-    >>> from composer.utils import ObjectStore
-    >>> object_store = LibCloudObjectStore(
+    >>> from composer.utils import LibcloudObjectStore
+    >>> object_store = LibcloudObjectStore(
     ...     provider="s3",
     ...     container="MY_CONTAINER",
     ...     provider_kwargs={
