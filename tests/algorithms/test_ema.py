@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from composer.algorithms import EMAHparams
+from composer.algorithms import EMA
 from composer.algorithms.ema.ema import ShadowModel, compute_ema
 from composer.core import Event, Time, Timestamp, TimeUnit
 from tests.common import SimpleConvModel, SimpleModel
@@ -49,8 +49,7 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
     input = torch.rand((32, 5))
 
     half_life, update_interval = params[0], params[1]
-    algorithm = EMAHparams(half_life=half_life, update_interval=update_interval,
-                           train_with_ema_weights=False).initialize_object()
+    algorithm = EMA(half_life=half_life, update_interval=update_interval, train_with_ema_weights=False)
     state = minimal_state
     state.model = SimpleConvModel()
     state.batch = (input, torch.Tensor())
