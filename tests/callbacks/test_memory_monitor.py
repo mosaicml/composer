@@ -17,6 +17,7 @@ def test_memory_monitor_errors_on_cpu_models():
         model=SimpleModel(),
         callbacks=MemoryMonitor(),
         device='cpu',
+        max_duration="1ba",
     )
     with pytest.raises(RuntimeError, match="The memory monitor only works on CUDA devices"):
         trainer.fit()
@@ -38,4 +39,4 @@ def test_memory_monitor_gpu():
 
     num_memory_monitor_calls = len(in_memory_logger.data["memory/alloc_requests"])
 
-    assert num_memory_monitor_calls == int(trainer.state.batch)
+    assert num_memory_monitor_calls == int(trainer.state.timestamp.batch)
