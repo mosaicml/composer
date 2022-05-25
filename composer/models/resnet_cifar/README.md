@@ -56,7 +56,7 @@ schedulers:
         - "120ep"
       gamma: 0.1
 train_batch_size: 1024
-max_duration: 16ep
+max_duration: 160ep
 ```
 
 ## Attribution
