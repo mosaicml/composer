@@ -3,6 +3,7 @@
 
 """Log memory usage during training."""
 import logging
+import warnings
 from typing import Dict, Union
 
 import torch.cuda
@@ -82,8 +83,7 @@ class MemoryMonitor(Callback):
         model_device = next(state.model.parameters()).device
 
         if model_device.type != 'cuda':
-            raise RuntimeError(
-                f"The memory monitor only works on CUDA devices, but the model is on {model_device.type}.")
+            warnings.warn(f"The memory monitor only works on CUDA devices, but the model is on {model_device.type}.")
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}

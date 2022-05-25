@@ -7,19 +7,21 @@ from torch.utils.data import DataLoader
 from composer.callbacks import MemoryMonitor
 from composer.loggers import InMemoryLogger
 from composer.trainer import Trainer
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common import RandomClassificationDataset, SimpleModel, device
 
 
-@pytest.mark.gpu
-def test_memory_monitor_errors_on_cpu_models():
+@device('cpu', 'gpu')
+def test_memory_monitor_warnings_on_cpu_models(device: str):
     # Error if the user sets device=cpu even when cuda is available
+    del device  # unused. always using cpu
     trainer = Trainer(
         model=SimpleModel(),
         callbacks=MemoryMonitor(),
         device='cpu',
+        train_dataloader=DataLoader(RandomClassificationDataset()),
         max_duration="1ba",
     )
-    with pytest.raises(RuntimeError, match="The memory monitor only works on CUDA devices"):
+    with pytest.warns(UserWarning, match="The memory monitor only works on CUDA devices"):
         trainer.fit()
 
 
