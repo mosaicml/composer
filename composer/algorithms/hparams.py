@@ -340,8 +340,7 @@ class StochasticDepthHparams(AlgorithmHparams):
     """See :class:`StochasticDepth`"""
 
     target_layer_name: str = hp.required(
-        f'Reference name of layer to replace. "block" method can be {list(_STOCHASTIC_LAYER_MAPPING["block"].keys())}.'
-        f' "sample" method can be {list(_STOCHASTIC_LAYER_MAPPING["sample"].keys())}.')
+        f'Reference name of layer to replace. Can be {list(_STOCHASTIC_LAYER_MAPPING.keys())}.')
     stochastic_method: str = hp.optional('The version of stochastic depth to use. One of ["sample", "block"].',
                                          default='block')
     drop_rate: float = hp.optional('The probability of dropping a block or sample.', default=0.2)
@@ -349,8 +348,6 @@ class StochasticDepthHparams(AlgorithmHparams):
         '"Uniform" keeps the drop rate the same across blocks. "linear" linearly'
         ' increases the drop rate with block depth until it reaches `drop_rate`.',
         default='linear')
-    use_same_gpu_seed: bool = hp.optional(
-        'Whether or not to drop the same blocks across GPUs. Only used with "block" method.', default=True)
     drop_warmup: str = hp.optional(textwrap.dedent("""\
             Time string to represent the amount of training to warmup the `drop_rate`.
             Only use with "block" stochastic method."""),

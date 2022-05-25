@@ -20,6 +20,8 @@ log = logging.getLogger(__name__)
 
 _VALID_LAYER_DISTRIBUTIONS = ("uniform", "linear")
 
+_VALID_STOCHASTIC_METHODS = ("block", "sample")
+
 _STOCHASTIC_LAYER_MAPPING = {'ResNetBottleneck': (Bottleneck, make_resnet_bottleneck_stochastic)}
 
 
@@ -74,7 +76,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
                                  drop_rate=drop_rate,
                                  drop_distribution=drop_distribution)
     transforms = {}
-    target_layer, stochastic_converter = _STOCHASTIC_LAYER_MAPPING[stochastic_method][target_layer_name]
+    target_layer, stochastic_converter = _STOCHASTIC_LAYER_MAPPING[target_layer_name]
     module_count = module_surgery.count_module_instances(model, target_layer)
     stochastic_from_target_layer = functools.partial(stochastic_converter,
                                                      drop_rate=drop_rate,
@@ -208,13 +210,13 @@ def _validate_stochastic_hparams(target_layer_name: str,
                                  drop_warmup: str = "0dur"):
     """Helper function to validate the Stochastic Depth hyperparameter values."""
 
-    if stochastic_method and (stochastic_method not in _STOCHASTIC_LAYER_MAPPING):
+    if stochastic_method and (stochastic_method not in _VALID_STOCHASTIC_METHODS):
         raise ValueError(f"stochastic_method {stochastic_method} is not supported."
-                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}")
+                         f" Must be one of {_VALID_STOCHASTIC_METHODS}")
 
-    if target_layer_name and (target_layer_name not in _STOCHASTIC_LAYER_MAPPING[stochastic_method]):
+    if target_layer_name and (target_layer_name not in _STOCHASTIC_LAYER_MAPPING):
         raise ValueError(f"target_layer_name {target_layer_name} is not supported with {stochastic_method}."
-                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING[stochastic_method].keys())}")
+                         f" Must be one of {list(_STOCHASTIC_LAYER_MAPPING.keys())}")
 
     if drop_rate and (drop_rate < 0 or drop_rate > 1):
         raise ValueError(f"drop_rate must be between 0 and 1: {drop_rate}")
@@ -235,8 +237,7 @@ def _update_drop_rate(module: torch.nn.Module, target_block: Type[torch.nn.Modul
         return
     else:
         for child in module.children():
-            if isinstance(child, target_block) and isinstance(
-                    child.forward, functools.partial) and 'drop_rate' in child.forward.keywords:
+            if isinstance(child, target_block) and hasattr(child, "drop_rate"):
                 if drop_distribution == 'uniform':
                     current_drop_rate = drop_rate
                 elif drop_distribution == 'linear':
@@ -244,5 +245,5 @@ def _update_drop_rate(module: torch.nn.Module, target_block: Type[torch.nn.Modul
                 else:
                     raise ValueError(f"drop_distribution '{drop_distribution}' is"
                                      f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
-                child.forward.keywords['drop_rate'] = torch.tensor(current_drop_rate)
+                child.drop_rate = torch.tensor(current_drop_rate)
             _update_drop_rate(child, target_block, drop_rate, drop_distribution)
