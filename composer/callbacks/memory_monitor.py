@@ -76,23 +76,25 @@ class MemoryMonitor(Callback):
         Memory usage monitoring is only supported for the GPU devices.
     """
 
-    def init(self, state: State, logger: Logger) -> None:
+    def fit_start(self, state: State, logger: Logger) -> None:
+        # Ideally this check would be on Event.INIT, but the model is not moved to the device until AFTER Event.INIT
+        # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
         model_device = next(state.model.parameters()).device
 
         if model_device.type != 'cuda':
-            raise RuntimeError("The memory monitor only works on CUDA devices, but the model is on CPU.")
+            raise RuntimeError(
+                f"The memory monitor only works on CUDA devices, but the model is on {model_device.type}.")
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}
 
-        n_devices = torch.cuda.device_count()
-        if n_devices == 0:
+        model_device = next(state.model.parameters()).device
+        if model_device.type != 'cuda':
             return
 
         memory_report = _get_memory_report()
 
-        for mem_stat, val in memory_report.items():
-            logger.data_batch({'memory/{}'.format(mem_stat): val})
+        logger.data_batch({f'memory/{mem_stat}': val for (mem_stat, val) in memory_report.items()})
 
 
 _MEMORY_STATS = {
@@ -107,12 +109,7 @@ _MEMORY_STATS = {
 
 
 def _get_memory_report() -> Dict[str, Union[int, float]]:
-    assert torch.cuda.is_available(), "the memory report requires cuda"
     memory_stats = torch.cuda.memory_stats()
-
-    if len(memory_stats) == 0:
-        log.debug("No GPU memory was used, returning empty.")
-        return {}
 
     # simplify the memory_stats
     memory_report = {
