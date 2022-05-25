@@ -35,7 +35,8 @@ class NoOpModelClass(ComposerModel):
 
     def __init__(self, original_model: torch.nn.Module):
         super().__init__()
-        self.weights = torch.nn.Parameter(torch.Tensor([1.5]))
+        original_device = next(original_model.parameters()).device
+        self.weights = torch.nn.Parameter(torch.Tensor([1.5], device=original_device))
         try:
             # For classification
             self.num_classes = original_model.num_classes
