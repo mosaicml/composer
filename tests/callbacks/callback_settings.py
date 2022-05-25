@@ -72,7 +72,10 @@ _callback_marks: Dict[Union[
                 # post_close might not be called if being used outside of the trainer
                 r'ignore:Implicitly cleaning up:ResourceWarning')
         ],
-        MemoryMonitor: [pytest.mark.gpu],
+        MemoryMonitor: [
+            pytest.mark.filterwarnings(
+                r'ignore:The memory monitor only works on CUDA devices, but the model is on cpu:UserWarning')
+        ],
         MLPerfCallback: [pytest.mark.skipif(not _MLPERF_INSTALLED, reason="MLPerf is optional")],
         WandBLogger: [
             pytest.mark.filterwarnings(r'ignore:unclosed file:ResourceWarning'),
