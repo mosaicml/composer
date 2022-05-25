@@ -5,7 +5,8 @@ import pytest
 import torch
 
 
-@pytest.mark.timeout(6)
+@pytest.mark.timeout(30)
+@pytest.mark.gpu
 def test_hf_model_forward():
     pytest.importorskip("transformers")
     import transformers
@@ -29,6 +30,7 @@ def test_hf_model_forward():
     config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2)
     hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
     model = HuggingFaceModel(hf_model)
+    model = model.cuda()
 
     out = model(batch)
     assert isinstance(out, SequenceClassifierOutput)
