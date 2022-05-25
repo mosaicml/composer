@@ -8,7 +8,6 @@ from typing import Optional
 import numpy as np
 
 from composer.core.types import Dataset
-from composer.datasets.webdataset_utils import init_webdataset_meta
 from composer.utils import MissingConditionalImportError
 
 try:
@@ -85,6 +84,7 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
     if dataset:
         writer.from_indexed_dataset(dataset, chunksize=chunk_size)
     elif remote is not None:
+        raise NotImplementedError("FFCV with remote datasets is not implemented")
         pipeline = lambda dataset: dataset.decode('pil').to_tuple('jpg', 'cls')
 
         text = init_webdataset_meta(remote)
