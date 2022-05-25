@@ -89,7 +89,7 @@ class Callback(Serializable, abc.ABC):
     """
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        """This method is called by the engine on each event.
+        """Called by the engine on each event.
 
         Args:
             event (Event): The event.
