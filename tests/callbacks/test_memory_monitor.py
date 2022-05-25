@@ -17,6 +17,7 @@ def test_memory_monitor_errors_on_cpu_models():
         model=SimpleModel(),
         callbacks=MemoryMonitor(),
         device='cpu',
+        train_dataloader=DataLoader(RandomClassificationDataset()),
         max_duration="1ba",
     )
     with pytest.raises(RuntimeError, match="The memory monitor only works on CUDA devices"):
