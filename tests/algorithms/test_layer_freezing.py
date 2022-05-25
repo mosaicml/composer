@@ -6,7 +6,7 @@ from unittest.mock import Mock
 
 import torch
 
-from composer.algorithms import LayerFreezing, LayerFreezingHparams
+from composer.algorithms import LayerFreezing
 from composer.core import Event, Precision, State, Timestamp
 from composer.loggers import Logger
 from tests.common import SimpleConvModel
@@ -69,10 +69,3 @@ def test_freeze_layers_with_freeze(empty_logger: Logger):
     expected_param_groups[0]['params'] = []
 
     _assert_param_groups_equal(expected_param_groups, updated_param_groups)
-
-
-def test_layer_freezing_hparams():
-    hparams = LayerFreezingHparams(freeze_start=0.05, freeze_level=1.0)
-    algorithm = hparams.initialize_object()
-
-    assert isinstance(algorithm, LayerFreezing)
