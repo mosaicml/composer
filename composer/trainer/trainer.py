@@ -55,7 +55,7 @@ Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 def _raise_missing_argument_exception(arg_name: str):
     raise ValueError((f"{arg_name} is a required argument and must be specified when constructing the "
                       f"{Trainer.__name__} or when calling {Trainer.__name__}.{Trainer.fit.__name__}(). "
-                      f"To fix, please specify `arg_name` via {Trainer.__name__}({arg_name}=...) or "
+                      f"To fix, please specify `{arg_name}` via {Trainer.__name__}({arg_name}=...) or "
                       f"{Trainer.__name__}.{Trainer.fit.__name__}({arg_name}=...)."))
 
 
