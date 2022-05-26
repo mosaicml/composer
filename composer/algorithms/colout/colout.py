@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from typing import Tuple, TypeVar, Union
+from typing import Tuple, TypeVar, Union, Callable, Any
 
 import torch
 import torch.utils.data
@@ -187,12 +187,14 @@ class ColOut(Algorithm):
         batch (bool, optional): Run ColOut at the batch level. Default: ``True``.
         resize_target (bool | str, optional): Whether to resize the target in addition to the input. If set to 'auto', resizing
             the target will be based on if the target has the same spatial dimensions as the input. Default: ``auto``.
-        input_key (str, int, or Callable): A key that indexes to the input 
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input 
             from the batch. Can also be a pair of get and set functions, where the getter
-            is assumed to be first in the pair.
-        target_key (str, int, or Callable): A key that indexes to the target 
+            is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
+            is the input. Default: ``0``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target 
             from the batch. Can also be a pair of get and set functions, where the getter
-            is assumed to be first in the pair.
+            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
+            is the target. Default: ``1``.
     """
 
     def __init__(self,
@@ -200,8 +202,8 @@ class ColOut(Algorithm):
                  p_col: float = 0.15,
                  batch: bool = True,
                  resize_target: Union[bool, str] = 'auto',
-                 input_key: Union[str, int, Callable, Any] = 0,
-                 target_key: Union[str, int, Callable, Any] = 1):
+                 input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+                 target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,):
         if not (0 <= p_col <= 1):
             raise ValueError("p_col must be between 0 and 1")
 

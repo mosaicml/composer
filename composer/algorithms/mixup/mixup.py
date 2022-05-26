@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable, Any, Union
 
 import numpy as np
 import torch
@@ -102,12 +102,14 @@ class MixUp(Algorithm):
         interpolate_loss (bool, optional): Interpolates the loss rather than the labels.
             A useful trick when using a cross entropy loss. Will produce incorrect behavior if the loss is not a linear
             function of the targets. Default: ``False``
-        input_key (str, int, or Callable): A key that indexes to the input 
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input 
             from the batch. Can also be a pair of get and set functions, where the getter
-            is assumed to be first in the pair.
-        target_key (str, int, or Callable): A key that indexes to the target 
+            is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
+            is the input. Default: ``0``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target 
             from the batch. Can also be a pair of get and set functions, where the getter
-            is assumed to be first in the pair.
+            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
+            is the target. Default: ``1``.
 
     Example:
         .. testcode::
@@ -127,8 +129,8 @@ class MixUp(Algorithm):
     def __init__(self,
                  alpha: float = 0.2,
                  interpolate_loss: bool = False,
-                 input_key: Union[str, int, Callable, Any] = 0,
-                 target_key: Union[str, int, Callable, Any] = 1):
+                 input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+                 target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,):
         self.alpha = alpha
         self.interpolate_loss = interpolate_loss
         self.mixing = 0.0

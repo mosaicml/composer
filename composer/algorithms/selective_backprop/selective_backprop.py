@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Callable, Optional, Sequence, Tuple, Union
+from typing import Callable, Optional, Sequence, Tuple, Union, Any
 
 import numpy as np
 import torch
@@ -180,37 +180,39 @@ class SelectiveBackprop(Algorithm):
      .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
 
      Args:
-         start (float, optional): SB interval start as fraction of training duration
-             Default: ``0.5``.
-         end (float, optional): SB interval end as fraction of training duration
-             Default: ``0.9``.
-         keep (float, optional): fraction of minibatch to select and keep for gradient computation
-             Default: ``0.5``.
-         scale_factor (float, optional): scale for downsampling input for selection forward pass
-             Default: ``1.``.
-         interrupt (int, optional): interrupt SB with a vanilla minibatch step every
-             ``interrupt`` batches. Default: ``2``.
-         input_key (str, int, or Callable): A key that indexes to the input 
-             from the batch. Can also be a pair of get and set functions, where the getter
-             is assumed to be first in the pair.
-         target_key (str, int, or Callable): A key that indexes to the target 
-             from the batch. Can also be a pair of get and set functions, where the getter
-             is assumed to be first in the pair.
+        start (float, optional): SB interval start as fraction of training duration
+            Default: ``0.5``.
+        end (float, optional): SB interval end as fraction of training duration
+            Default: ``0.9``.
+        keep (float, optional): fraction of minibatch to select and keep for gradient computation
+            Default: ``0.5``.
+        scale_factor (float, optional): scale for downsampling input for selection forward pass
+            Default: ``1.``.
+        interrupt (int, optional): interrupt SB with a vanilla minibatch step every
+            ``interrupt`` batches. Default: ``2``.
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input 
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
+            is the input. Default: ``0``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target 
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
+            is the target. Default: ``1``.
 
     Example:
-         .. testcode::
+        .. testcode::
 
-             from composer.algorithms import SelectiveBackprop
-             algorithm = SelectiveBackprop(start=0.5, end=0.9, keep=0.5)
-             trainer = Trainer(
-                 model=model,
-                 train_dataloader=train_dataloader,
-                 eval_dataloader=eval_dataloader,
-                 max_duration="1ep",
-                 algorithms=[algorithm],
-                 optimizers=[optimizer]
-             )
-    """
+            from composer.algorithms import SelectiveBackprop
+            algorithm = SelectiveBackprop(start=0.5, end=0.9, keep=0.5)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[algorithm],
+                optimizers=[optimizer]
+            )
+"""
 
     def __init__(self,
                  start: float = 0.5,
@@ -218,8 +220,8 @@ class SelectiveBackprop(Algorithm):
                  keep: float = 0.5,
                  scale_factor: float = 1.,
                  interrupt: int = 2,
-                 input_key: Union[str, int, Callable, Any] = 0,
-                 target_key: Union[str, int, Callable, Any] = 1):
+                 input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+                 target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,):
         self.start = start
         self.end = end
         self.keep = keep
