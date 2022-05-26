@@ -69,7 +69,7 @@ def test_algorithm_resumption(
         train_dataloader=DataLoader(dataset=get_alg_dataset(alg_cls), batch_size=4),
         load_path=os.path.join(folder1, 'ep1-rank{rank}'),
         load_weights_only=False,
-        load_strict=False,
+        load_strict_model_weights=False,
         optimizers=optimizer,
         schedulers=scheduler,
         save_folder=folder2,
