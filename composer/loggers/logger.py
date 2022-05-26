@@ -226,7 +226,7 @@ def format_log_data_value(data: Any) -> str:
     if isinstance(data, float):
         return f"{data:.4f}"
     if isinstance(data, torch.Tensor):
-        if data.shape == tuple() or reduce(operator.mul, data.shape, 1) == 1:
+        if data.shape == () or reduce(operator.mul, data.shape, 1) == 1:
             return format_log_data_value(data.cpu().item())
         return "Tensor of shape " + str(data.shape)
     if isinstance(data, collections.abc.Mapping):

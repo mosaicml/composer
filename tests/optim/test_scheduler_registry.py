@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Any, Callable, Dict
 
 import pytest
@@ -5,9 +8,9 @@ import pytest
 from composer.optim.scheduler import (ComposerScheduler, CosineAnnealingWarmRestartsScheduler,
                                       CosineAnnealingWithWarmupScheduler, ExponentialScheduler,
                                       LinearWithWarmupScheduler, MultiStepScheduler, MultiStepWithWarmupScheduler,
-                                      PolynomialScheduler, StepScheduler)
+                                      PolynomialScheduler, PolynomialWithWarmupScheduler, StepScheduler)
 from composer.optim.scheduler_hparams import scheduler_registry
-from tests.common import assert_is_constructable_from_yaml
+from tests.common.hparams import assert_yaml_loads
 
 # Cannot query the module and use an isinstance check because schedulers have no base class -- they're just functions
 # that return functions. Instead, using the registry
@@ -28,6 +31,9 @@ scheduler_settings: Dict[Callable[..., ComposerScheduler], Dict[str, Any]] = {
     },
     PolynomialScheduler: {
         'power': 0.1,
+    },
+    PolynomialWithWarmupScheduler: {
+        't_warmup': "0ep",
     },
     MultiStepWithWarmupScheduler: {
         'milestones': [0],
@@ -52,4 +58,4 @@ class TestSchedulers:
 
     def test_scheduler_is_constructable_from_hparams(self, scheduler_cls: Callable[..., ComposerScheduler]):
         kwargs = scheduler_settings.get(scheduler_cls, {})
-        assert_is_constructable_from_yaml(scheduler_cls, kwargs)
+        assert_yaml_loads(scheduler_cls, kwargs)

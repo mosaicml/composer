@@ -20,7 +20,6 @@ def run_and_measure_memory(precision: Precision) -> int:
     hparams.train_subset_num_batches = 1
     hparams.eval_interval = "0ep"
     assert isinstance(hparams, TrainerHparams)
-    assert hparams.device == 'gpu'
     hparams.precision = precision
     hparams.dataloader.num_workers = 0
     hparams.dataloader.persistent_workers = False

@@ -69,11 +69,11 @@ class AdamHparams(OptimizerHparams):
 
     optimizer_cls = torch.optim.Adam
 
-    lr: float = hp.auto(torch.optim.Adam, "lr")
-    betas: List[float] = hp.auto(torch.optim.Adam, "betas")
-    eps: float = hp.auto(torch.optim.Adam, "eps")
-    weight_decay: float = hp.auto(torch.optim.Adam, "weight_decay")
-    amsgrad: bool = hp.auto(torch.optim.Adam, "amsgrad")
+    lr: float = hp.auto(torch.optim.Adam, "lr", ignore_docstring_errors=True)
+    betas: List[float] = hp.auto(torch.optim.Adam, "betas", ignore_docstring_errors=True)
+    eps: float = hp.auto(torch.optim.Adam, "eps", ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch.optim.Adam, "weight_decay", ignore_docstring_errors=True)
+    amsgrad: bool = hp.auto(torch.optim.Adam, "amsgrad", ignore_docstring_errors=True)
 
 
 @dataclass
@@ -91,10 +91,10 @@ class RAdamHparams(OptimizerHparams):
 
     optimizer_cls = torch_optimizer.RAdam
 
-    lr: float = hp.auto(torch.optim.RAdam, "lr")
-    betas: List[float] = hp.auto(torch.optim.RAdam, "betas")
-    eps: float = hp.auto(torch.optim.RAdam, "eps")
-    weight_decay: float = hp.auto(torch.optim.RAdam, "weight_decay")
+    lr: float = hp.auto(torch.optim.RAdam, "lr", ignore_docstring_errors=True)
+    betas: List[float] = hp.auto(torch.optim.RAdam, "betas", ignore_docstring_errors=True)
+    eps: float = hp.auto(torch.optim.RAdam, "eps", ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch.optim.RAdam, "weight_decay", ignore_docstring_errors=True)
 
 
 @dataclass
@@ -113,11 +113,11 @@ class AdamWHparams(OptimizerHparams):
 
     optimizer_cls = torch.optim.AdamW
 
-    lr: float = hp.auto(torch.optim.AdamW, "lr")
-    betas: List[float] = hp.auto(torch.optim.AdamW, "betas")
-    eps: float = hp.auto(torch.optim.AdamW, "eps")
-    weight_decay: float = hp.auto(torch.optim.AdamW, "weight_decay")
-    amsgrad: bool = hp.auto(torch.optim.AdamW, "amsgrad")
+    lr: float = hp.auto(torch.optim.AdamW, "lr", ignore_docstring_errors=True)
+    betas: List[float] = hp.auto(torch.optim.AdamW, "betas", ignore_docstring_errors=True)
+    eps: float = hp.auto(torch.optim.AdamW, "eps", ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch.optim.AdamW, "weight_decay", ignore_docstring_errors=True)
+    amsgrad: bool = hp.auto(torch.optim.AdamW, "amsgrad", ignore_docstring_errors=True)
 
 
 @dataclass
@@ -159,11 +159,11 @@ class SGDHparams(OptimizerHparams):
 
     optimizer_cls = torch.optim.SGD
 
-    lr: float = hp.auto(torch.optim.SGD, "lr")
-    momentum: float = hp.auto(torch.optim.SGD, "momentum")
-    weight_decay: float = hp.auto(torch.optim.SGD, "weight_decay")
-    dampening: float = hp.auto(torch.optim.SGD, "dampening")
-    nesterov: bool = hp.auto(torch.optim.SGD, "nesterov")
+    lr: float = hp.auto(torch.optim.SGD, "lr", ignore_docstring_errors=True)
+    momentum: float = hp.auto(torch.optim.SGD, "momentum", ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch.optim.SGD, "weight_decay", ignore_docstring_errors=True)
+    dampening: float = hp.auto(torch.optim.SGD, "dampening", ignore_docstring_errors=True)
+    nesterov: bool = hp.auto(torch.optim.SGD, "nesterov", ignore_docstring_errors=True)
 
 
 @dataclass
@@ -206,12 +206,12 @@ class RMSpropHparams(OptimizerHparams):
 
     optimizer_cls = torch.optim.RMSprop
 
-    lr: float = hp.auto(torch.optim.RMSprop, "lr")
-    alpha: float = hp.auto(torch.optim.RMSprop, "alpha")
-    eps: float = hp.auto(torch.optim.RMSprop, "eps")
-    momentum: float = hp.auto(torch.optim.RMSprop, "momentum")
-    weight_decay: float = hp.auto(torch.optim.RMSprop, "weight_decay")
-    centered: float = hp.auto(torch.optim.RMSprop, "centered")
+    lr: float = hp.auto(torch.optim.RMSprop, "lr", ignore_docstring_errors=True)
+    alpha: float = hp.auto(torch.optim.RMSprop, "alpha", ignore_docstring_errors=True)
+    eps: float = hp.auto(torch.optim.RMSprop, "eps", ignore_docstring_errors=True)
+    momentum: float = hp.auto(torch.optim.RMSprop, "momentum", ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch.optim.RMSprop, "weight_decay", ignore_docstring_errors=True)
+    centered: float = hp.auto(torch.optim.RMSprop, "centered", ignore_docstring_errors=True)
 
 
 optimizer_registry = {

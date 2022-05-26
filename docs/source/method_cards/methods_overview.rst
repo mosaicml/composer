@@ -154,7 +154,7 @@
       :text: ScaleSchedule
       :classes: card-title
 
-   
+
    ++++++++++++++
    Scale the learning rate schedule by a factor
 

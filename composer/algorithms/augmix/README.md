@@ -50,7 +50,7 @@ def augmix_image(image: Union[PillowImage, torch.Tensor]):
 import torchvision.transforms as transforms
 from torchvision.datasets.vision import VisionDataset
 
-from composer.algorithms.augmix import AugmentAndMixTransform 
+from composer.algorithms.augmix import AugmentAndMixTransform
 
 augmix_transform = AugmentAndMixTransform(severity=3,
                                           width=3,
@@ -105,7 +105,7 @@ The class form of AugMix runs on `Event.FIT_START` and inserts `AugmentAndMixTra
 [As per Hendrycks et al. (2020)](https://arxiv.org/abs/1912.02781), we found that `width=3`, `depth=-1`, (`depth=-1` means that depth will be randomly sampled from the uniform distribution {1, 2, 3} for each data sample), `severity=3` (out of a maximum possible value of 10), and `alpha=1` (i.e., performing no mixing with the original image) worked well for different models of the ResNet family. We used `augmentation_set=all`.
 
 > ❗ Potential CPU Bottleneck
-> 
+>
 > Further increasing `width` or `depth` significantly decreases throughput when training ResNet-50 on ImageNet due to bottlenecks in performing data augmentation on the CPU.
 
 ## Technical Details
@@ -125,7 +125,7 @@ When omitting the custom loss function and using the AugMix augmentation scheme 
 However, the increased CPU load imposed by AugMix substantially reduces throughput.
 
 > ❗ Potential CPU Bottleneck
-> 
+>
 > We found that using AugMix with the hyperparameters recommended by Hendrycks et al. can increase the data augmentation load on the CPU so much that it bottlenecks training.
 > Depending on the hardware configuration and model, we found that those hyperparameters increase training time by 1.1x-10x.
 
@@ -135,7 +135,7 @@ In addition, AugMix is a regularization technique, meaning it makes training mor
 Doing so can allow models to reach higher quality, but this typically requires (1) larger models with more capacity to perform this more difficult learning and (2) longer training runs to allow these models time to learn.
 
 > 🚧 AugMix May Reduce Quality for Smaller Models and Shorter Training Runs
-> 
+>
 > AugMix is a regularization technique that makes training more difficult for the model.
 > Because AugMix is a regularization technique, it can allow models to reach higher quality for
 >
@@ -150,7 +150,7 @@ Doing so can allow models to reach higher quality, but this typically requires (
 > As general rule, composing regularization methods may lead to diminishing returns in quality improvements while increasing the risk of creating a CPU bottleneck.
 
 > ❗ CIFAR-10C and ImageNet-C are no longer out-of-distribution
-> 
+>
 > [CIFAR-10C and ImageNet-C](https://github.com/hendrycks/robustness) are test sets created to evaluate the ability of models to generalize to images that are corrupted in various ways (i.e., images that are _out-of-distribution_ with respect to the standard CIFAR-10 and ImageNet training sets).
 > These images were corrupted using some of the augmentation techniques in `augmentation_set=all`.
 > If you use `augmentation_set=all`, these images are therefore no longer out-of-distribution.

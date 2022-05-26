@@ -91,8 +91,17 @@ def dummy_scheduler(dummy_optimizer: Optimizer):
 
 
 @pytest.fixture()
-def dummy_state(dummy_model: SimpleModel, dummy_train_dataloader: Iterable, dummy_optimizer: Optimizer,
-                dummy_scheduler: PyTorchScheduler, rank_zero_seed: int) -> State:
+def dummy_state(
+    dummy_model: SimpleModel,
+    dummy_train_dataloader: Iterable,
+    dummy_optimizer: Optimizer,
+    dummy_scheduler: PyTorchScheduler,
+    rank_zero_seed: int,
+    request: pytest.FixtureRequest,
+) -> State:
+    if request.node.get_closest_marker('gpu') is not None:
+        # If using `dummy_state`, then not using the trainer, so move the model to the correct device
+        dummy_model = dummy_model.cuda()
     state = State(
         model=dummy_model,
         precision=Precision.FP32,

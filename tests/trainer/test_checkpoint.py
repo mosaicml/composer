@@ -102,6 +102,13 @@ def assert_checkpoints_equivalent(
         del checkpoint_a['state']['callbacks']['EventCounterCallback']
         del checkpoint_b['state']['callbacks']['EventCounterCallback']
 
+        # Remove the wall clock time
+        del checkpoint_a['state']['timestamp']['Timestamp']['total_wct']
+        del checkpoint_a['state']['timestamp']['Timestamp']['epoch_wct']
+        del checkpoint_a['state']['timestamp']['Timestamp']['batch_wct']
+        del checkpoint_b['state']['timestamp']['Timestamp']['total_wct']
+        del checkpoint_b['state']['timestamp']['Timestamp']['epoch_wct']
+        del checkpoint_b['state']['timestamp']['Timestamp']['batch_wct']
         deep_compare(checkpoint_a, checkpoint_b)
 
         if 'model' not in checkpoint_a['state']:
@@ -368,6 +375,8 @@ def test_checkpoint_with_object_store_logger(
     artifact_name = f"{run_name}/checkpoints/ep2-ba10-rank" + "{rank}"
     trainer = composer_trainer_hparams.initialize_object()
     trainer.fit()
+
+    trainer.close()
 
     # Load model weights using object store
     checkpoint_a_file_path = [os.path.join(os.path.abspath(checkpoint_a_folder), final_checkpoint)]

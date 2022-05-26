@@ -80,10 +80,12 @@ class RandomImageDataset(VisionDataset):
         self.is_PIL = is_PIL
         if is_PIL:  # PIL expects HWC
             shape = (shape[1], shape[2], shape[0])
+        self.shape = shape
+        self.num_classes = num_classes
 
         self.size = size
-        self.x = torch.randn(size, *shape)
-        self.y = torch.randint(0, num_classes, size=(size,))
+        self.x = None
+        self.y = None
 
         super().__init__(root='')
 
@@ -91,6 +93,10 @@ class RandomImageDataset(VisionDataset):
         return self.size
 
     def __getitem__(self, index: int):
+        if self.x is None:
+            self.x = torch.randn(self.size, *self.shape)
+        if self.y is None:
+            self.y = torch.randint(0, self.num_classes, size=(self.size,))
         x = self.x[index]
         y = self.y[index]
 

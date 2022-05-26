@@ -1,7 +1,10 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import pathlib
 
 from composer.profiler import Profiler
-from tests.common import assert_is_constructable_from_yaml
+from tests.common.hparams import assert_yaml_loads
 
 
 def test_profiler_is_constructable_from_hparams(tmp_path: pathlib.Path):
@@ -19,4 +22,4 @@ def test_profiler_is_constructable_from_hparams(tmp_path: pathlib.Path):
         'torch_prof_profile_memory': False,
         'torch_prof_with_flops': False,
     }
-    assert_is_constructable_from_yaml(Profiler, yaml_dict, expected=Profiler)
+    assert_yaml_loads(Profiler, yaml_dict, expected=Profiler)

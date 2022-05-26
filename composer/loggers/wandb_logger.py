@@ -133,9 +133,8 @@ class WandBLogger(LoggerDestination):
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
             name = self._init_kwargs["name"]
-            group = self._init_kwargs.get("group", None)
-            self._init_kwargs["name"] = f"{name} [RANK_{dist.get_global_rank()}]"
-            self._init_kwargs["group"] = group if group else name
+            self._init_kwargs["name"] += f"-rank{dist.get_global_rank()}"
+            self._init_kwargs["group"] = self._init_kwargs["group"] if "group" in self._init_kwargs else name
         if self._enabled:
             wandb.init(**self._init_kwargs)
             atexit.register(self._set_is_in_atexit)

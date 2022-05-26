@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 """Pytest marker helpers."""
 
 from typing import Callable
@@ -52,7 +55,7 @@ def world_size(*world_sizes: int, param_name: str = "world_size"):
     Args:
         world_sizes (int): The world sizes.
         param_name (str, optional): The parameter name for the `world_size` parameter. Defaults to ``'world_size'``.
-    
+
     Example:
     >>> @world_size(1, 2)
     def test_something(world_size: int):
