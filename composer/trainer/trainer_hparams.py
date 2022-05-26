@@ -45,7 +45,7 @@ from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
-from composer.utils.object_store import ObjectStoreHparams
+from composer.utils.object_store import LibcloudObjectStoreHparams
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -259,7 +259,7 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: The :mod:`logging` module in Python.
 
         load_path (str, optional): See :class:`.Trainer`.
-        load_object_store (ObjectStore, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
+        load_object_store (LibcloudObjectStore, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
             ``load_object_store`` should not be provided since there can only be one location to load from.
         load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for
             ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects. Both
@@ -397,7 +397,7 @@ class TrainerHparams(hp.Hparams):
             "(if the checkpoint is in a cloud bucket). Set to None (the default) to skip loading from a checkpoint.")),
         default=None,
     )
-    load_object_store: Optional[ObjectStoreHparams] = hp.optional(
+    load_object_store: Optional[LibcloudObjectStoreHparams] = hp.optional(
         doc=(("If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for "
               "connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, "
               "leave blank. This parameter has no effect if `load_path` is not specified.")),
