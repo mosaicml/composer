@@ -93,17 +93,3 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
             processing, a :class:`~core.data_spec.DataSpec`.
         """
         pass
-
-
-@dataclass
-class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
-    """Abstract base class for hyperparameters to initialize a webdataset.
-
-    Args:
-        webdataset_cache_dir (str): WebDataset cache directory.
-        webdataset_cache_verbose (str): WebDataset cache verbosity.
-    """
-
-    webdataset_cache_dir: str = hp.optional('WebDataset cache directory', default='/tmp/webdataset_cache/')
-    webdataset_cache_verbose: bool = hp.optional('WebDataset cache verbosity', default=False)
-    shuffle_buffer: int = hp.optional('WebDataset shuffle buffer size per worker', default=256)
