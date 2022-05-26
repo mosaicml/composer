@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar, Union
 
 import numpy as np
 import torch
@@ -108,12 +108,21 @@ class CutOut(Algorithm):
             box such that each pixel has an equal probability of being masked.
             If ``False``, defaults to the sampling used in the original paper
             implementation. Default: ``False``.
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
+            is the input. Default: ``0``.
     """
 
-    def __init__(self, num_holes: int = 1, length: float = 0.5, uniform_sampling: bool = False):
+    def __init__(self,
+                 num_holes: int = 1,
+                 length: float = 0.5,
+                 uniform_sampling: bool = False,
+                 input_key: Union[str, int, Callable, Any] = 0):
         self.num_holes = num_holes
         self.length = length
         self.uniform_sampling = uniform_sampling
+        self.input_key = input_key
 
     def match(self, event: Event, state: State) -> bool:
         """Runs on Event.AFTER_DATALOADER."""
@@ -121,11 +130,11 @@ class CutOut(Algorithm):
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
         """Apply cutout on input images."""
-        x, y = state.batch
+        x = state.batch_get_item(self.input_key)
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 
         new_x = cutout_batch(x, num_holes=self.num_holes, length=self.length, uniform_sampling=self.uniform_sampling)
-        state.batch = (new_x, y)
+        state.batch_set_item(self.input_key, new_x)
 
 
 def _generate_mask(mask: Tensor, width: int, height: int, x: int, y: int, cutout_length: int) -> Tensor:
