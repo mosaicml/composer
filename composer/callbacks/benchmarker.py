@@ -126,9 +126,10 @@ class Benchmarker(Callback):
             self.epoch_list = list(range(state.max_duration))
             log.info(f"all_epochs=True, overriding epoch_list to be every epoch from 0 to {state.max_duration}")
         self.wct_dict = {e: {s: -1.0 for s in self.step_list} for e in self.epoch_list}
-        state.max_duration = f"{len(self.epoch_list)}ep"
+        # state.max_duration = f"{len(self.epoch_list)}ep"
 
     def epoch_end(self, state: State, logger: Logger):
+        # print (">>>>>>>> BENCHMARKER DEBUG: epoch_end is called")
         prev_epoch = self.epoch_list[self.epoch_ix]
         epoch_wct_dict = self.wct_dict[prev_epoch]
         self.epoch_ix += 1
@@ -137,7 +138,7 @@ class Benchmarker(Callback):
         else:
             next_epoch = self.original_max_duration
 
-        state.timestamp._epoch = Time(int(next_epoch - 1), TimeUnit.EPOCH) 
+        state.timestamp._epoch = Time(int(next_epoch), TimeUnit.EPOCH) 
         state.timestamp._batch = Time(int(next_epoch * int(state.dataloader_len)), TimeUnit.BATCH) 
         n_epochs = next_epoch - prev_epoch
 
@@ -146,6 +147,7 @@ class Benchmarker(Callback):
 
     def batch_start(self, state: State, logger: Logger):
         del logger  # Unused
+        print (">>>>>>>> BENCHMARKER DEBUG: batch_start is called -> batch={}, epoch={}".format(state.timestamp.batch, state.timestamp.epoch))
         if self.current_time is None:
             self.current_time = time.time()
             self.profile_examples = 0
@@ -176,21 +178,22 @@ class Benchmarker(Callback):
                 self.step_ix += 1
                 if self.step_ix == len(self.step_list):
                     self.step_ix = 0
+                    print (">>>>>>>> BENCHMARKER DEBUG: end of step_list -> BreakEpochException raised")
                     raise BreakEpochException
                 else:
                     # Comment: I avoided defining setters in Timestamp() as it can cause potential bugs for others. 
                     # Instead, I overwrite the private members (bad practice).
-                    print()
-                    print(">>>>>>>>>>>>>>>>>>> DEBUG BATCH END: epoch={}, dataloader_len={}, step_list[]={}, step_ix={}".format(state.timestamp.epoch, state.dataloader_len, self.step_list[self.step_ix], self.step_ix))
+                    # print()
+                    # print(">>>>>>>>>>>>>>>>>>> DEBUG BATCH END: epoch={}, dataloader_len={}, step_list[]={}, step_ix={}".format(state.timestamp.epoch, state.dataloader_len, self.step_list[self.step_ix], self.step_ix))
                     new_batch_value = int(state.timestamp.epoch) * int(state.dataloader_len) + self.step_list[self.step_ix]
                     # state.timestamp.batch._value = int(new_batch_value)
                     # state.timestamp.batch_in_epoch._value = int(self.ste÷p_list[self.step_ix])
                     
 
-                    print("old batch: {}, new batch: {}".format(state.timestamp._batch, Time(new_batch_value, TimeUnit.BATCH)))
+                    # print("old batch: {}, new batch: {}".format(state.timestamp._batch, Time(new_batch_value, TimeUnit.BATCH)))
                     # print(state.timestamp.batch, " - ", state.timestamp.batch._value, " - ", state.timestamp._batch, " - ", state.timestamp._batch._value)
                     # print(type(state.timestamp.batch), " - ", type(state.timestamp.batch._value), " - ", type(state.timestamp._batch), " - ", type(state.timestamp._batch._value))
                     state.timestamp._batch = Time(new_batch_value, TimeUnit.BATCH)
-                    print("old batch_in_epoch: {}, new batch_in_epoch: {}".format(state.timestamp._batch_in_epoch, Time(int(self.step_list[self.step_ix]), TimeUnit.BATCH)))
+                    # print("old batch_in_epoch: {}, new batch_in_epoch: {}".format(state.timestamp._batch_in_epoch, Time(int(self.step_list[self.step_ix]), TimeUnit.BATCH)))
                     state.timestamp._batch_in_epoch = Time(int(self.step_list[self.step_ix]), TimeUnit.BATCH)
-                    print(">>>>>>>>>>>>>>>>>>> END DEBUG BATCH END")
+                    # print(">>>>>>>>>>>>>>>>>>> END DEBUG BATCH END")
