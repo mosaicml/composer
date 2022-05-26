@@ -245,7 +245,7 @@ class CheckpointSaver(Callback):
             If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
 
-        save_interval (:class:`.Time` | str | int | (:class:`.State`, :class:`.Event`) -> bool): A :class:`.Time`, time-string, integer (in epochs),
+        save_interval (Time | str | int | (State, Event) -> bool): A :class:`.Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
 
             If an integer, checkpoints will be saved every n epochs.

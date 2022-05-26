@@ -3,6 +3,7 @@
 
 """Log memory usage during training."""
 import logging
+import warnings
 from typing import Dict, Union
 
 import torch.cuda
@@ -76,24 +77,24 @@ class MemoryMonitor(Callback):
         Memory usage monitoring is only supported for the GPU devices.
     """
 
-    def __init__(self):
-        super().__init__()
-        log.info(
-            "Memory monitor just profiles the current GPU assuming that the memory footprint across GPUs is balanced.")
-        if torch.cuda.device_count() == 0:
-            log.warning("Memory monitor only works on GPU devices.")
+    def fit_start(self, state: State, logger: Logger) -> None:
+        # TODO(ravi) move this check would be on Event.INIT after #1084 is merged
+        # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
+        model_device = next(state.model.parameters()).device
+
+        if model_device.type != 'cuda':
+            warnings.warn(f"The memory monitor only works on CUDA devices, but the model is on {model_device.type}.")
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}
 
-        n_devices = torch.cuda.device_count()
-        if n_devices == 0:
+        model_device = next(state.model.parameters()).device
+        if model_device.type != 'cuda':
             return
 
         memory_report = _get_memory_report()
 
-        for mem_stat, val in memory_report.items():
-            logger.data_batch({'memory/{}'.format(mem_stat): val})
+        logger.data_batch({f'memory/{mem_stat}': val for (mem_stat, val) in memory_report.items()})
 
 
 _MEMORY_STATS = {
@@ -108,14 +109,7 @@ _MEMORY_STATS = {
 
 
 def _get_memory_report() -> Dict[str, Union[int, float]]:
-    if not torch.cuda.is_available():
-        log.debug("Cuda is not available. The memory report will be empty.")
-        return {}
     memory_stats = torch.cuda.memory_stats()
-
-    if len(memory_stats) == 0:
-        log.debug("No GPU memory was used, returning empty.")
-        return {}
 
     # simplify the memory_stats
     memory_report = {

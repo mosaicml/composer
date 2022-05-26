@@ -266,7 +266,7 @@ Parameters with different names will ignored.
         max_duration="10ep",
         load_path="./path/to/checkpoints/ep50.pt",
         load_weights_only=True,
-        load_strict=False,
+        load_strict_model_weights=False,
     )
 
     ft_trainer.fit()

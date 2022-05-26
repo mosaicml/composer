@@ -57,7 +57,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     tokenizer_name: Optional[str] = hp.optional("The name of the tokenizer to preprocess text with.", default=None)
     use_masked_lm: bool = hp.optional("Whether the dataset should be encoded with masked language modeling or not.",
-                                      default=None)
+                                      default=False)
     num_tokens: int = hp.optional(doc='If desired, the number of tokens to truncate the dataset to.', default=0)
     mlm_probability: float = hp.optional("If using masked language modeling, the probability to mask tokens with.",
                                          default=0.15)

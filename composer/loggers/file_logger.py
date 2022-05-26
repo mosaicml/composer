@@ -113,6 +113,7 @@ class FileLogger(LoggerDestination):
             :attr:`~.LogLevel.EPOCH`, then the logfile will be flushed every n epochs.  If
             the ``log_level`` is :attr:`~.LogLevel.BATCH`, then the logfile will be
             flushed every n batches. Default: ``100``.
+        overwrite (bool, optional): Whether to overwrite an existing logfile. (default: ``False``)
     """
 
     def __init__(
