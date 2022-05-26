@@ -1,12 +1,10 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, Type, Union
 
 import yahp as hp
 
-import composer
 from composer.algorithms.agc import AGC
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugMix
@@ -57,33 +55,3 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'selective_backprop': SelectiveBackprop,
     'agc': AGC,
 }
-
-
-def load(algorithm_cls: Union[Type[Algorithm], Type[hp.Hparams]], alg_params: Optional[str]) -> Algorithm:
-    inverted_registry = {v: k for (k, v) in algorithm_registry.items()}
-    alg_name = inverted_registry[algorithm_cls]
-    alg_folder = os.path.join(os.path.dirname(composer.__file__), "yamls", "algorithms")
-    if alg_params is None:
-        hparams_file = os.path.join(alg_folder, f"{alg_name}.yaml")
-    else:
-        hparams_file = os.path.join(alg_folder, alg_name, f"{alg_params}.yaml")
-    alg = hp.create(algorithm_cls, f=hparams_file, cli_args=False)
-    assert isinstance(alg, Algorithm)
-    return alg
-
-
-def load_multiple(cls, *algorithms: str) -> List[Algorithm]:
-    algs = []
-    for alg in algorithms:
-        alg_parts = alg.split("/")
-        alg_name = alg_parts[0]
-        if len(alg_parts) > 1:
-            alg_params = "/".join(alg_parts[1:])
-        else:
-            alg_params = None
-        try:
-            alg = algorithm_registry[alg_name]
-        except KeyError as e:
-            raise ValueError(f"Algorithm {e.args[0]} not found") from e
-        algs.append(load(alg, alg_params))
-    return algs
