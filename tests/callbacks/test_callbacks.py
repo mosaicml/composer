@@ -148,6 +148,7 @@ class TestCallbackTrains:
         trainer = self._get_trainer(cb, grad_accum)
         trainer.fit()
 
+    @pytest.mark.timeout(15)
     def test_trains_multiple_calls(self, cb_cls: Type[Callback], grad_accum: int):
         """
         Tests that training with multiple fits complete.
