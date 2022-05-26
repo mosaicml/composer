@@ -11,6 +11,7 @@ import logging
 from dataclasses import dataclass
 from functools import partial
 from itertools import chain, cycle
+from typing import Optional
 
 import yahp as hp
 from torch.utils.data import DataLoader, IterableDataset, get_worker_info
@@ -50,13 +51,15 @@ class C4DatasetHparams(DatasetHparams):
         DataLoader: A PyTorch :class:`~torch.utils.data.DataLoader` object.
     """
 
-    split: str = hp.optional("What split of the dataset to use. Either `train` or `validation`.", default=None)
-    num_samples: int = hp.optional(
+    split: Optional[str] = hp.optional("What split of the dataset to use. Either `train` or `validation`.",
+                                       default=None)
+    num_samples: Optional[int] = hp.optional(
         "The number of post-processed token samples, used to set epoch size of the IterableDataset.", default=None)
-    tokenizer_name: str = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.", default=None)
-    max_seq_len: int = hp.optional("The max sequence length of each token sample.", default=None)
-    group_method: str = hp.optional("How to group text samples into token samples. Either `truncate` or `concat`.",
-                                    default=None)
+    tokenizer_name: Optional[str] = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.",
+                                                default=None)
+    max_seq_len: Optional[int] = hp.optional("The max sequence length of each token sample.", default=None)
+    group_method: Optional[str] = hp.optional(
+        "How to group text samples into token samples. Either `truncate` or `concat`.", default=None)
     mlm: bool = hp.optional("Whether or not to use masked language modeling.", default=False)
     mlm_probability: float = hp.optional("If `mlm=True`, the probability that tokens are masked.", default=0.15)
     shuffle: bool = hp.optional(

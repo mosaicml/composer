@@ -29,7 +29,11 @@ __all__ = [
     "MemoryMonitorHparams",
     "LRMonitorHparams",
     "SpeedMonitorHparams",
+    "EarlyStopperHparams",
     "CheckpointSaverHparams",
+    "ThresholdStopperHparams",
+    "MLPerfCallbackHparams",
+    "callback_registry",
 ]
 
 
@@ -326,3 +330,15 @@ class CheckpointSaverHparams(CallbackHparams):
             weights_only=self.weights_only,
             num_checkpoints_to_keep=self.num_checkpoints_to_keep,
         )
+
+
+callback_registry = {
+    "checkpoint_saver": CheckpointSaverHparams,
+    "speed_monitor": SpeedMonitorHparams,
+    "lr_monitor": LRMonitorHparams,
+    "grad_monitor": GradMonitorHparams,
+    "memory_monitor": MemoryMonitorHparams,
+    "mlperf": MLPerfCallbackHparams,
+    "early_stopper": EarlyStopperHparams,
+    "threshold_stopper": ThresholdStopperHparams,
+}

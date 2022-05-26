@@ -135,18 +135,18 @@ class WandBLoggerHparams(LoggerDestinationHparams):
             config_dict = self._flatten_dict(config_dict, prefix=[])
 
         init_params = {
-            "project": self.project,
-            "name": self.name,
-            "group": self.group,
-            "entity": self.entity,
-            "tags": tags,
             "config": config_dict,
         }
         init_params.update(self.extra_init_params)
         return WandBLogger(
+            project=self.project,
+            group=self.group,
+            name=self.name,
+            entity=self.entity,
+            tags=tags,
             log_artifacts=self.log_artifacts,
             rank_zero_only=self.rank_zero_only,
-            init_params=init_params,
+            init_kwargs=init_params,
         )
 
     @classmethod

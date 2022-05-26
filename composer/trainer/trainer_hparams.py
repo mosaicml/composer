@@ -305,7 +305,7 @@ class TrainerHparams(hp.Hparams):
 
     hparams_registry = {  # type: ignore
         "algorithms": algorithms_registry,
-        "optimizer": optimizer_registry,
+        "optimizers": optimizer_registry,
         "schedulers": scheduler_registry,
         "loggers": logger_registry,
         "load_logger_destination": logger_registry,
@@ -350,7 +350,7 @@ class TrainerHparams(hp.Hparams):
     algorithms: List[AlgorithmHparams] = hp.optional(doc="Algorithms", default_factory=list)
 
     # Optimizer and Scheduler
-    optimizer: Optional[OptimizerHparams] = hp.optional(doc="Optimizer to use", default=None)
+    optimizers: Optional[OptimizerHparams] = hp.optional(doc="Optimizer to use", default=None)
     schedulers: List[SchedulerHparams] = hp.optional(doc="Schedulers", default_factory=list)
     scale_schedule_ratio: float = hp.optional(
         doc="Ratio by which to scale the training duration and learning rate schedules.",
@@ -463,7 +463,7 @@ class TrainerHparams(hp.Hparams):
                                    default=False)
 
     # DeepSpeed
-    deepspeed: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
+    deepspeed_config: Optional[Dict[str, JSON]] = hp.optional(doc="Configuration for DeepSpeed.", default=None)
 
     # System/Numerics
     device: Optional[DeviceHparams] = hp.optional(doc="Device Parameters", default=None)
@@ -508,11 +508,11 @@ class TrainerHparams(hp.Hparams):
     def validate(self):
         super().validate()
 
-        if self.deepspeed is not None:
-            self.deepspeed["steps_per_print"] = cast(int, self.deepspeed.get("steps_per_print", 1e20))
+        if self.deepspeed_config is not None:
+            self.deepspeed_config["steps_per_print"] = cast(int, self.deepspeed_config.get("steps_per_print", 1e20))
 
-            if "zero_optimization" in self.deepspeed:
-                zero_stage = cast(dict, self.deepspeed["zero_optimization"]).get("stage", 0)
+            if "zero_optimization" in self.deepspeed_config:
+                zero_stage = cast(dict, self.deepspeed_config["zero_optimization"]).get("stage", 0)
             else:
                 zero_stage = 0
 
@@ -597,7 +597,7 @@ class TrainerHparams(hp.Hparams):
         )
 
         # Optimizers and Schedulers
-        optimizer = self.optimizer.initialize_object(model.parameters()) if self.optimizer is not None else None
+        optimizer = self.optimizers.initialize_object(model.parameters()) if self.optimizers is not None else None
         schedulers = [scheduler.initialize_object() for scheduler in self.schedulers]
 
         load_object_store = None
@@ -652,7 +652,7 @@ class TrainerHparams(hp.Hparams):
             load_path=self.load_path,
             load_object_store=load_object_store,
             load_weights_only=self.load_weights_only,
-            load_strict=self.load_strict_model_weights,
+            load_strict_model_weights=self.load_strict_model_weights,
             load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
 
@@ -670,7 +670,7 @@ class TrainerHparams(hp.Hparams):
             autoresume=self.autoresume,
 
             # DeepSpeed
-            deepspeed_config=self.deepspeed,
+            deepspeed_config=self.deepspeed_config,
 
             # System/Numerics
             device=device,

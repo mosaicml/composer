@@ -33,7 +33,7 @@ class TimmHparams(ModelHparams):
         bn_eps (float, optional): BatchNorm epsilon override (model default if ``None``). Default: ``None``.
     """
 
-    model_name: str = hp.optional(
+    model_name: Optional[str] = hp.optional(
         textwrap.dedent("""\
         timm model name e.g: 'resnet50', list of models can be found at
         https://github.com/rwightman/pytorch-image-models"""),
@@ -60,6 +60,8 @@ class TimmHparams(ModelHparams):
             raise ValueError(f"model must be one of {timm.models.list_models()}")
 
     def initialize_object(self):
+        if self.model_name is None:
+            raise ValueError("model_name must be specified")
         return Timm(model_name=self.model_name,
                     pretrained=self.pretrained,
                     num_classes=self.num_classes,
