@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import textwrap
 from functools import partial
-from typing import Callable, Optional, Tuple, Any, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
@@ -155,25 +155,27 @@ class ProgressiveResizing(Algorithm):
             Must be a value in between 0 and 1. Default: ``0.5``.
         size_increment (int, optional): Align sizes to a multiple of this number. Default: ``4``.
         resize_targets (bool, optional): If True, resize targets also. Default: ``False``.
-        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input 
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
             is the input. Default: ``0``.
-        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target 
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
             is the target. Default: ``1``.
     """
 
-    def __init__(self,
-                 mode: str = 'resize',
-                 initial_scale: float = .5,
-                 finetune_fraction: float = .2,
-                 delay_fraction: float = .5,
-                 size_increment: int = 4,
-                 resize_targets: bool = False,
-                 input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-                 target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,):
+    def __init__(
+        self,
+        mode: str = 'resize',
+        initial_scale: float = .5,
+        finetune_fraction: float = .2,
+        delay_fraction: float = .5,
+        size_increment: int = 4,
+        resize_targets: bool = False,
+        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
 
         if mode not in _VALID_MODES:
             raise ValueError(f"mode '{mode}' is not supported. Must be one of {_VALID_MODES}")

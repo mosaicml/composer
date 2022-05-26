@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Callable, Optional, Sequence, Tuple, Union, Any
+from typing import Any, Callable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -179,7 +179,7 @@ class SelectiveBackprop(Algorithm):
 
      .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
 
-     
+
     Example:
         .. testcode::
 
@@ -193,7 +193,7 @@ class SelectiveBackprop(Algorithm):
                 algorithms=[algorithm],
                 optimizers=[optimizer]
             )
-     
+
      Args:
         start (float, optional): SB interval start as fraction of training duration
             Default: ``0.5``.
@@ -205,24 +205,26 @@ class SelectiveBackprop(Algorithm):
             Default: ``1.``.
         interrupt (int, optional): interrupt SB with a vanilla minibatch step every
             ``interrupt`` batches. Default: ``2``.
-        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input 
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
             is the input. Default: ``0``.
-        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target 
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
             is the target. Default: ``1``.
 """
 
-    def __init__(self,
-                 start: float = 0.5,
-                 end: float = 0.9,
-                 keep: float = 0.5,
-                 scale_factor: float = 1.,
-                 interrupt: int = 2,
-                 input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
-                 target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,):
+    def __init__(
+        self,
+        start: float = 0.5,
+        end: float = 0.9,
+        keep: float = 0.5,
+        scale_factor: float = 1.,
+        interrupt: int = 2,
+        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
         self.start = start
         self.end = end
         self.keep = keep
