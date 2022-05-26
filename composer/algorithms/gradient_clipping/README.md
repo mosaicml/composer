@@ -2,20 +2,20 @@
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
- `Computer Vision`
+ `Computer Vision`, `Natural Language Processing`
 
-AGC (Adaptive Gradient Clipping) .
+Gradient Clipping
 
 <!--| ![AGC](https://storage.googleapis.com/docs.mosaicml.com/images/methods/agc.png) |
 |:--:
 |*Need a picture.*|-->
 
 ## How to Use
-
+Gradient Clipping
 ### Functional Interface
 
 ```python
-# Run the AGC algorithm directly on the model right after a loss.backward() call
+# Run gradient clipping directly on the model right after a loss.backward() call
 # using the Composer functional API.
 
 import torch
@@ -32,7 +32,8 @@ def training_loop(model, train_loader):
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
             loss.backward()
-            cf.apply_agc(model)
+            cf.apply_gradient_clipping(model.parameters(), clipping_type='norm',
+                                        clipping_threshold=0.1)
             opt.step()
 ```
 
@@ -44,16 +45,16 @@ def training_loop(model, train_loader):
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
 
-from composer.algorithms import AGC
+from composer.algorithms import GradientClipping
 from composer.trainer import Trainer
 
-agc = AGC(clipping_threshold = 0.01)
+gc = GradientClipping(clipping_type='norm', clipping_threshold = 0.1)
 
 trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
     max_duration='1ep',
-    algorithms=[agc]
+    algorithms=[gc]
 )
 
 trainer.fit()

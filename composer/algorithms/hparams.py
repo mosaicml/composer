@@ -40,11 +40,10 @@ class GradientClippingHparams(AlgorithmHparams):
     """See :class:`GradientClipping`"""
     clipping_type: str = hp.required("String denoting which type of gradient clipping to"
                                      "do. The options are 'norm', 'adaptive', and 'value'")
-    clipping_threshold: float = hp.optional(
-        doc="Specifies what value to threshold gradients, gradient norms, or gradient norm / weight norm ratios.",
-        default=0.01)
+    clipping_threshold: float = hp.required(
+        doc="Specifies what value to threshold gradients, gradient norms, or gradient norm / weight norm ratios.")
 
-    def initialize_object(self) -> GradientClipping:
+    def initialize_object(self) -> "GradientClipping":
         return GradientClipping(**asdict(self))
 
 

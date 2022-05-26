@@ -7,10 +7,9 @@ import pytest
 import torch
 from torch import nn
 
-import composer.functional as cf
-from composer.algorithms.gradient_clipping import GradientClipping, apply_gradient_clipping
-from composer.algorithms.gradient_clipping.gradient_clipping import _get_clipped_gradient_coeff, _apply_agc
 import composer.algorithms.gradient_clipping.gradient_clipping as gc_module
+from composer.algorithms.gradient_clipping import GradientClipping, apply_gradient_clipping
+from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, _get_clipped_gradient_coeff
 from composer.core import Engine
 from composer.core.event import Event
 
@@ -102,7 +101,7 @@ def test_apply_agc_with_cnn_does_not_error(cnn_model_with_grads):
     _apply_agc(model.parameters(), 0.01)
 
 
-@pytest.mark.parametrize('clipping_type', [('adaptive',), ('norm',),('value',)])
+@pytest.mark.parametrize('clipping_type', [('adaptive',), ('norm',), ('value',)])
 def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_with_grads):
     model = simple_model_with_grads
     apply_gc_fn = Mock()
@@ -119,7 +118,6 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_wi
     engine.run_event(Event.AFTER_TRAIN_BATCH)
 
     apply_gc_fn.assert_called_once()
-
 
 
 def test_get_clipped_gradients_1D():

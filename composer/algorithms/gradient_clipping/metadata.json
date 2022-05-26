@@ -1,15 +1,16 @@
 {
-    "agc": {
-        "name": "AGC",
-        "class_name": "AGC",
-        "functional": "apply_agc",
-        "tldr": "Clips gradients based on the ratio of their norms with weights' norms",
-        "attribution": "(Brock et al, 2021)",
+    "gradient_clipping": {
+        "name": "Gradient Clipping",
+        "class_name": "GradientClipping",
+        "functional": "apply_gradient_clipping",
+        "tldr": "Clips all gradients in model based on specified clipping_type",
+        "attribution": "(Brock et al, 2021, Mikolov, 2012)",
         "link": "https://arxiv.org/abs/2102.06171",
         "domains": [
-            "cv"
+            "cv",
+            "nlp"
         ],
-        "summary": "Gradients with norms larger than a maximum norm (equal to the weight norm multiplied by a constant) are scaled by the ratio of the maximum norm to the grad norm.",
-        "use": "Computer vision tasks"
+        "summary": "Limits the values gradients can take on to a certain range.",
+        "use": "Computer vision and NLP tasks"
     }
 }

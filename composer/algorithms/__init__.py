@@ -91,6 +91,7 @@ __all__ = [
     "EMA",
     "Factorize",
     "GhostBatchNorm",
+    "GradientClipping",
     "LabelSmoothing",
     "LayerFreezing",
     "MixUp",

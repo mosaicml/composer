@@ -82,7 +82,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :caption: Methods Library
 
    method_cards/methods_overview.rst
-   method_cards/agc.md
+   method_cards/gradient_clipping.md
    method_cards/alibi.md
    method_cards/augmix.md
    method_cards/blurpool.md

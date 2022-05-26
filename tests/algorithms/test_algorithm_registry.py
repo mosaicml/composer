@@ -6,8 +6,8 @@ import dataclasses
 import pytest
 from torch.utils.data import Dataset
 
-from composer.algorithms import (AlgorithmHparams, AlibiHparams, CutMixHparams, StochasticDepthHparams,
-                                 algorithm_registry)
+from composer.algorithms import (AlgorithmHparams, AlibiHparams, CutMixHparams, GradientClippingHparams,
+                                 StochasticDepthHparams, algorithm_registry)
 from composer.core.algorithm import Algorithm
 from composer.models.base import ComposerModel
 from tests.algorithms.algorithm_settings import get_settings
@@ -26,6 +26,10 @@ default_required_fields = {
     StochasticDepthHparams: {
         'target_layer_name': 'ResNetBottleneck',
     },
+    GradientClippingHparams: {
+        'clipping_type': 'norm',
+        'clipping_threshold': 0.1
+    }
 }
 
 
@@ -50,7 +54,7 @@ def test_algorithm_registry(name, registry):
 
 @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
 def test_algorithm_settings(name):
-    if name in ('alibi', 'seq_length_warmup', 'factorize', 'no_op_model', 'scale_schedule'):
+    if name in ('alibi', 'seq_length_warmup', 'factorize', 'no_op_model', 'scale_schedule', 'gradient_clipping'):
         pytest.skip()
 
     setting = get_settings(name)
