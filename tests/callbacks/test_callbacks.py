@@ -142,6 +142,7 @@ class TestCallbackTrains:
             profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[]),
         )
 
+    @pytest.mark.timeout(15)
     def test_trains(self, cb_cls: Type[Callback], grad_accum: int):
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
