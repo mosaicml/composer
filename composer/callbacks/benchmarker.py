@@ -143,7 +143,7 @@ class Benchmarker(Callback):
         n_epochs = next_epoch - prev_epoch
 
         self.wall_clock_train += float(self._compute_elapsed_wct(epoch_wct_dict, state.dataloader_len, n_epochs))
-        logger.data_epoch({'wall_clock_train': self.wall_clock_train})
+        logger.data_epoch({'wall_clock/train': self.wall_clock_train})
 
     def batch_start(self, state: State, logger: Logger):
         del logger  # Unused
@@ -178,7 +178,7 @@ class Benchmarker(Callback):
                 self.step_ix += 1
                 if self.step_ix == len(self.step_list):
                     self.step_ix = 0
-                    print (">>>>>>>> BENCHMARKER DEBUG: end of step_list -> BreakEpochException raised")
+                    # print (">>>>>>>> BENCHMARKER DEBUG: end of step_list -> BreakEpochException raised")
                     raise BreakEpochException
                 else:
                     # Comment: I avoided defining setters in Timestamp() as it can cause potential bugs for others. 
