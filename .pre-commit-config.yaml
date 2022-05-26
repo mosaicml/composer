@@ -43,7 +43,7 @@ repos:
           entry: pydocstyle
           language: python
           types: [python]
-          exclude: '(?:tests|.ci|composer\/algorithms|composer\/datasets|composer\/models|scripts\/webdatasets)\/.*'
+          exclude: '(?:tests|.ci|composer\/algorithms|composer\/datasets|composer\/models)\/.*'
           additional_dependencies:
             - "toml"
       rev: 6.1.1
