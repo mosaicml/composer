@@ -195,7 +195,7 @@ def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
 def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]], find_unused_parameters: bool):
     if ddp_sync_strategy is None:
         if find_unused_parameters:
-            ddp_sync_strategy = DDPSyncStrategy.FORCED_SYNC
+            ddp_sync_strategy = DDPSyncStrategy.MULTI_AUTO_SYNC
         else:
             ddp_sync_strategy = DDPSyncStrategy.SINGLE_AUTO_SYNC
     else:
@@ -1587,6 +1587,10 @@ class Trainer:
         """
         assert self._train_data_spec is not None, "The train data spec should be set on __init__ or fit()"
 
+        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+        # TODO: fix this name collision!
+        device_batch = self.state.batch
+
         # Retry until we successfully complete training and return loss
         while True:
             total_loss = None
@@ -1595,7 +1599,7 @@ class Trainer:
             caught_timeout_error = None
             try:
                 assert self.state.scaler is not None
-                microbatches = self._train_data_spec.split_batch(self.state.batch, self.state.grad_accum)
+                microbatches = self._train_data_spec.split_batch(device_batch, self.state.grad_accum)
                 if self.deepspeed_enabled:
                     total_loss = self._train_microbatches(microbatches)
                 elif self._use_closures():

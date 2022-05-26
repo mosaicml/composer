@@ -27,11 +27,11 @@ def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
             or attribute store (object with data members, namedtuple).
         key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a 
                 user-specified function to do the extracting. A pair of callables is also
-                supported for cases where a get and set function pair are both passed 
+                supported for cases where a get and set function pair are both passed
                 (like in Algorithms). The getter is assumed to be the first of the pair.
 
     Returns:
-        The part of the batch specified by the key. This could be any type 
+        The part of the batch specified by the key. This could be any type
             depending on what the batch is composed of.
     """
     # Case 1: key is a tuple of (getter, setter).

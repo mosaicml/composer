@@ -23,7 +23,7 @@ class MIoU(Metric):
     The intersection is then divided by the area of the union of the predicted and label masks.
     This measures the quality of predicted class mask with respect to the label. The IoU for each
     class is then averaged and the final result is the mIoU score. Implementation is primarily
-    based on `mmsegmentation <https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/core/evaluation/metrics.py#L132>`_
+    based on `mmsegmentation <https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/core/evaluation/metrics.py#L132>`_
 
     Args:
         num_classes (int): the number of classes in the segmentation task.

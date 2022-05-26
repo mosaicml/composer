@@ -207,8 +207,8 @@ class _FactorizedModule(nn.Module, abc.ABC):
         using the solution is worthwhile.
 
         Args:
-            solution (:class:`LowRankSolution`): an object encapsulating the new 
-                parameters to be used and their associated mean squared error on 
+            solution (:class:`LowRankSolution`): an object encapsulating the new
+                parameters to be used and their associated mean squared error on
                 the input for which they were optimized. Can be obtained using
                 :meth:`~solution_for_rank`.
         """
@@ -436,7 +436,7 @@ class FactorizedLinear(_FactorizedModule):
 
     @property
     def latent_features(self) -> int:
-        """The dimensionality of the space into which the input is 
+        """The dimensionality of the space into which the input is
         projected by the first matrix in the factorization."""
         return self.latent_size
 

@@ -179,6 +179,21 @@ class SelectiveBackprop(Algorithm):
 
      .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
 
+     
+    Example:
+        .. testcode::
+
+            from composer.algorithms import SelectiveBackprop
+            algorithm = SelectiveBackprop(start=0.5, end=0.9, keep=0.5)
+            trainer = Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                eval_dataloader=eval_dataloader,
+                max_duration="1ep",
+                algorithms=[algorithm],
+                optimizers=[optimizer]
+            )
+     
      Args:
         start (float, optional): SB interval start as fraction of training duration
             Default: ``0.5``.
@@ -198,20 +213,6 @@ class SelectiveBackprop(Algorithm):
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
             is the target. Default: ``1``.
-
-    Example:
-        .. testcode::
-
-            from composer.algorithms import SelectiveBackprop
-            algorithm = SelectiveBackprop(start=0.5, end=0.9, keep=0.5)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[algorithm],
-                optimizers=[optimizer]
-            )
 """
 
     def __init__(self,
