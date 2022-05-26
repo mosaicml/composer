@@ -43,7 +43,6 @@ def ffcv_monkey_patches():
 
 
 def write_ffcv_dataset(dataset: Optional[Dataset] = None,
-                       remote: Optional[str] = None,
                        write_path: str = "/tmp/dataset.ffcv",
                        max_resolution: Optional[int] = None,
                        num_workers: int = 16,
@@ -51,11 +50,10 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
                        compress_probability: float = 0.50,
                        jpeg_quality: float = 90,
                        chunk_size: int = 100):
-    """Converts PyTorch ``dataset`` or streaming dataset at ``remote`` into FFCV format at filepath ``write_path``.
+    """Converts PyTorch compatible ``dataset`` into FFCV format at filepath ``write_path``.
 
     Args:
         dataset (Iterable[Sample]): A PyTorch dataset. Default: ``None``.
-        remote (str): A remote path for a streaming dataset. Default: ``None``.
         write_path (str): Write results to this file. Default: ``"/tmp/dataset.ffcv"``.
         max_resolution (int): Limit resolution if provided. Default: ``None``.
         num_workers (int): Numbers of workers to use. Default: ``16``.
@@ -66,8 +64,8 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
     """
 
     _require_ffcv()
-    if dataset is None and remote is None:
-        raise ValueError("At least one of dataset or remote should not be None.")
+    if dataset is None:
+        raise ValueError("dataset should not be None.")
 
     log.info(f"Writing dataset in FFCV <file>.ffcv format to {write_path}.")
     writer = ffcv.writer.DatasetWriter(write_path, {
@@ -80,7 +78,4 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
             ffcv.fields.IntField()
     },
                                        num_workers=num_workers)
-    if dataset:
-        writer.from_indexed_dataset(dataset, chunksize=chunk_size)
-    elif remote is not None:
-        raise NotImplementedError("FFCV with remote datasets is not implemented")
+    writer.from_indexed_dataset(dataset, chunksize=chunk_size)
