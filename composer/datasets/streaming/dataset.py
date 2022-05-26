@@ -1,384 +1,629 @@
-# Copyright 2022 MosaicML Composer authors
-# SPDX-License-Identifier: Apache-2.0
-
-"""The :class:`StreamingDataset` class, used for building streaming iterable datasets.
-"""
-
-import math
+from argparse import ArgumentParser
+from multiprocessing import Process
+from multiprocessing.shared_memory import SharedMemory
+import numpy as np
+from numpy.typing import NDArray
 import os
-from io import BytesIO
+import psutil
 from threading import Lock, Thread
 from time import sleep
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
+import torch
+from torch import distributed as dist
+from torch.utils.data import get_worker_info, IterableDataset
+from typing import Any, Callable, Dict, Iterator, List, Optional
+from urllib.parse import urlparse
 
-import numpy as np
-from PIL import Image
-from torch.utils.data import IterableDataset
-from torchvision import transforms
+from composer.datasets.streaming.format import (
+    bytes_to_sample_dict, get_index_basename, get_shard_basename, StreamingDatasetIndex)
+from composer.utils import dist as c_dist
 
-from composer.datasets.streaming.download import download_or_wait
-from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
-                                                get_shard_basename)
-from composer.datasets.streaming.world import get_world
-from composer.utils import dist
 
-__all__ = ['StreamingDataset', 'StreamingImageClassDataset']
+def get_has_shard_basename():
+    return 'has_shard.u8'
+
+
+def parse_args():
+    args = ArgumentParser()
+    args.add_argument('--rank', type=int, required=True)
+    args.add_argument('--world_size', type=int, required=True)
+    args.add_argument('--local_world_size', type=int, default=8)
+    args.add_argument('--master_addr', type=str, required=True)
+    args.add_argument('--master_port', type=int, required=True)
+    return args.parse_args()
+
+
+class World(object):
+    def __init__(self, rank, world_size, local_world_size):
+        self.rank = rank
+        self.world_size = world_size
+        self.local_rank = rank % local_world_size
+        self.local_world_size = local_world_size
+        self.device = torch.device('cuda:%d' % self.local_rank)
+
+        self.leader = 0
+        self.is_leader = self.rank == self.leader
+        self.is_local_leader = not self.local_rank
+        self.is_ng_local_leader = self.is_local_leader and not self.is_leader
+
+        self.node = self.rank // local_world_size
+        self.num_nodes = self.world_size // local_world_size
+
+
+def _get_root_python_pid() -> int:
+    pid = os.getpid()
+    ppid = os.getppid()
+    proc = psutil.Process(ppid)
+    while proc.name().startswith('python'):
+        pid = proc.pid
+        ppid = proc.ppid()
+        proc = psutil.Process(ppid)
+    return pid
+
+
+def _send_broadcast(world: World, data: bytes) -> None:
+    """Send broadcast to all other ranks.
+
+    Args:
+        world (World): World info.
+        data (bytes): The bytes to broadcast.
+    """
+    size = torch.tensor([len(data)], dtype=torch.int64, device=world.device)
+    dist.broadcast(size, world.rank)
+
+    arr = np.frombuffer(data, np.uint8)
+    tensor = torch.tensor(arr, dtype=torch.uint8, device=world.device)
+    dist.broadcast(tensor, world.rank)
+
+
+def _recv_broadcast(world: World, source: int) -> bytes:
+    """Receive broadcast from the specified rank.
+
+    Args:
+        world (World): World info.
+        source (int): Rank of broadcaster.
+
+    Returns:
+        bytes: The bytes that were broadcasted.
+    """
+    size = torch.empty(1, dtype=torch.int64, device=world.device)
+    dist.broadcast(size, source)
+    size = int(size)
+
+    data = torch.empty(size, dtype=torch.uint8, device=world.device)
+    dist.broadcast(data, source)
+    return data.cpu().numpy().tobytes()
+
+
+def _get_seed(seed: Optional[int] = None) -> int:
+    """Get the seed.
+
+    Args:
+        seed (Optional[int]): Optional seed.
+
+    Returns:
+        int: Seed (randomly generated if not provided).
+    """
+    if seed is None:
+        seed = int(np.random.choice(1 << 31))
+    return seed
+
+
+def _distribute_seed(world: World, seed: Optional[int] = None):
+    """Initialize and distribute the same seed from rank zero to all processes.
+
+    Args:
+        world (World): World info.
+        seed (Optional[int]): Optional seed.
+
+    Returns:
+        int: Seed from rank zero.
+    """
+    if world.world_size == 1:
+        seed = _get_seed(seed)
+    elif world.is_leader:
+        seed = _get_seed(seed)
+        data = torch.tensor([seed], dtype=torch.int32, device=world.device)
+        dist.broadcast(data, world.leader)
+    else:
+        data = torch.empty(1, dtype=torch.int32, device=world.device)
+        dist.broadcast(data, world.leader)
+        seed = int(data)
+    return seed
+
+
+def _download_from_s3(remote: str, local: str, retry: int, timeout: float) -> None:
+    """Download a file from S3.
+
+    Args:
+        remote (str): Remote file path.
+        local (str): Local file path.
+        retry (int): Number of retries.
+        timeout (float): Connect and read timeout.
+    """
+    import boto3
+    from botocore.config import Config
+    obj = urlparse(remote)
+    assert obj.scheme == 's3'
+    config = Config(connect_timeout=timeout, read_timeout=timeout, retries={'total_max_attempts': retry + 1})
+    s3 = boto3.client('s3', config=config)
+    s3.download_file(obj.netloc, obj.path[1:], local)
+
+
+def _download_from_local(remote: str, local: str) -> None:
+    """Download a file from the local filesystem.
+
+    Args:
+        remote (str): Remote file path.
+        local (str): Local file path.
+    """
+    import shutil
+    shutil.copy(remote, local)
+
+
+def _download(remote: str, local: str, retry: int, timeout: float):
+    """Download a file from a remote filesystem.
+
+    Args:
+        remote (str): Remote file path.
+        local (str): Local file path.
+        retry (int): Number of retries.
+        timeout (float): Connect and read timeout.
+    """
+    if os.path.exists(local):
+        return
+    os.makedirs(os.path.dirname(local), exist_ok=True)
+    if remote.startswith('s3://'):
+        _download_from_s3(remote, local, retry, timeout)
+    else:
+        _download_from_local(remote, local)
+
+
+def _download_index(remote: str, local: str, retry: int, timeout: float):
+    """Download a StreamingDatasetIndex file from a remote filesystem.
+
+    Args:
+        remote (str): Remote file path.
+        local (str): Local file path.
+        retry (int): Number of retries.
+        timeout (float): Connect and read timeout.
+    """
+    basename = get_index_basename()
+    remote_filename = os.path.join(remote, basename)
+    local_filename = os.path.join(local, basename)
+    _download(remote_filename, local_filename, retry, timeout)
+    return open(local_filename, 'rb').read()
+
+
+def _save_index(index_data: bytes, local: str) -> None:
+    """Save serialized StreamingDatasetIndex to a local streaming dataset directory.
+
+    Args:
+        index_data (bytes): Bytes to write.
+        local (str): Local directory path.
+    """
+    filename = os.path.join(local, get_index_basename())
+    if os.path.isfile(filename):
+        return
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    with open(filename, 'xb') as out:
+        out.write(index_data)
+
+
+def _download_and_distribute_index(world: World, remote: str, local: str, retry: int,
+                                   timeout: float) -> StreamingDatasetIndex:
+    """Download and distribute a streaming dataset index.
+
+    Args:
+        world (World): World info.
+        remote (str): Remote file path.
+        local (str): Local file path.
+        retry (int): Number of retries.
+        timeout (float): Connect and read timeout.
+
+    Returns:
+        StreamingDatasetIndex: The index.
+    """
+    if world.world_size == 1:
+        index_data = _download_index(remote, local, retry, timeout)
+    elif world.is_leader:
+        index_data = _download_index(remote, local, retry, timeout)
+        _send_broadcast(world, index_data)
+    elif world.is_ng_local_leader:
+        index_data = _recv_broadcast(world, world.leader)
+        _save_index(index_data, local)
+    else:
+        index_data = _recv_broadcast(world, world.leader)
+    return StreamingDatasetIndex.loads(index_data)
+
+
+def _list_shards(local: str, num_shards: int) -> NDArray[np.uint8]:
+    """Get which shards have been downloaded, saving array to file for fast lookup.
+
+    This file is then polled by all the workers for shards to arrive.
+
+    Args:
+        local (str): Local dataset directory.
+        num_shards (int): Number of dataset shards to expect.
+
+    Returns:
+        NDArray[np.uint8]: Whether downloaded (byte per file).
+    """
+    has_shard = np.empty(num_shards, np.uint8)
+    for shard in range(num_shards):
+        filename = os.path.join(local, get_shard_basename(shard))
+        has_shard[shard] = os.path.isfile(filename)
+    filename = os.path.join(local, get_has_shard_basename())
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    has_shard.tofile(filename)
+    return has_shard
+
+
+def _mp_list_shards(world: World, local: str, num_shards: int) -> NDArray[np.uint8]:
+    """Get which shards have been downloaded (called by all ranks).
+
+    Args:
+        world (World): World info.
+        local (str): Local dataset directory.
+        num_shards (int): Number of dataset shards to expect.
+
+    Returns:
+        NDArray[np.uint8]: Whether downloaded (byte per file).
+    """
+    has_shard = np.zeros(num_shards, np.uint8)
+    if world.is_local_leader:
+        has_shard = _list_shards(local, num_shards)
+    dist.barrier()
+    if not world.is_local_leader:
+        has_shard_filename = os.path.join(local, get_has_shard_basename())
+        has_shard = np.fromfile(has_shard_filename, np.uint8)
+    return has_shard
+
+
+def _load_shard(local: str, shard: int) -> bytes:
+    """Read the specified dataset shard.
+
+    Args:
+        local (str): Local file path.
+        shard (int): Shard ID.
+
+    Returns:
+        bytes: Shard data.
+    """
+    shard_filename = os.path.join(local, get_shard_basename(shard))
+    return open(shard_filename, 'rb').read()
+
+def _set_has_shard(local: str, shard: int, has: bool) -> None:
+    """Set whether the specified shard has been downloaded.
+
+    Args:
+        local (str): Local file path.
+        shard (int): Shard ID.
+        has (bool): Whether downloaded.
+    """
+    has_shard_filename = os.path.join(local, get_has_shard_basename())
+    with open(has_shard_filename, 'r+b', 0) as out:
+        out.seek(shard)
+        out.write(b'\1' if has else b'\0')
+
+
+def _save_shard(shard_data: bytes, local: str, shard: int) -> None:
+    """Save the given shard.
+
+    Args:
+        shard_data (bytes): Shard data.
+        local (str): Local dataset directory.
+        shard (int): Shard ID.
+    """
+    shard_filename = os.path.join(local, get_shard_basename(shard))
+    if os.path.exists(shard_filename):
+        return
+    with open(shard_filename, 'xb') as out:
+        out.write(shard_data)
+    _set_has_shard(local, shard, True)
+
+
+def _distribute_shard(world: World, local: str, shard: int) -> None:
+    """Distribute the given downloaded shards from rank zero to all ranks.
+
+    Args:
+        world (World): World info.
+        local (str): Local dataset directory.
+        shard (int): Shard ID.
+    """
+    if world.is_leader:
+        shard_data = _load_shard(local, shard)
+        _send_broadcast(world, shard_data)
+    elif world.is_ng_local_leader:
+        shard_data = _recv_broadcast(world, world.leader)
+        _save_shard(shard_data, local, shard)
+    else:
+        _recv_broadcast(world, world.leader)
+
+
+def _distribute_shards(world: World, local: str, num_shards: int) -> None:
+    """Distribute already-downloaded shards to all ranks.
+
+    Args:
+        world (World): World info.
+        local (str): Local dataset directory.
+        num_shards (int): Number of shards to expect.
+    """
+    if world.num_nodes == 1:
+        _list_shards(local, num_shards)
+        return
+
+    shards_per_process = [torch.empty(num_shards, dtype=torch.uint8, device=world.device)
+                          for _ in range(world.world_size)]
+    has_shard = _mp_list_shards(world, local, num_shards)
+    shards_this_process = torch.tensor(has_shard, device=world.device)
+    dist.all_gather(shards_per_process, shards_this_process)
+    processes_per_shard = torch.stack(shards_per_process, 1)
+    for shard, processes in enumerate(processes_per_shard):
+        if len(set(processes.cpu().numpy())) == 1:
+            continue
+        if not processes[0]:
+            continue
+        _distribute_shard(world, local, shard)
+
+
+def _download_and_distribute_shard(world: World, remote: str, local: str, retry: int, timeout: float,
+                                   shard: int) -> None:
+    """Download and distribute the specified shard.
+
+    Args:
+        world (World): World info.
+        remote (str): Remote dataset directory.
+        local (str): Local dataset directory.
+        retry (int): Number of retries.
+        timeout (float): Connect and read timeout.
+    """
+    if world.is_leader:
+        remote_filename = os.path.join(remote, get_shard_basename(shard))
+        local_filename = os.path.join(local, get_shard_basename(shard))
+        _download(remote_filename, local_filename, retry, timeout)
+        _set_has_shard(local, shard, True)
+
+    if 1 < world.num_nodes:
+        _distribute_shard(world, local, shard)
+
+
+def _download_and_distribute_shards(world: World, remote: str, local: str, retry: int, timeout: float, seed: int,
+                                    num_shards: int) -> None:
+    """Download and distribute all missing shards, one at at time.
+
+    Args:
+        world (World): World info.
+        remote (str): Remote dataset directory.
+        local (str): Local dataset directory.
+        retry (int): Number of retries.
+        timeout (float): Connect and read timeout.
+    """
+    has_shard = _mp_list_shards(world, local, num_shards)
+    missing_shards = np.argwhere(has_shard == 0).flatten()
+    rng = np.random.default_rng(seed)
+    rng.shuffle(missing_shards)
+    for shard in missing_shards:
+        _download_and_distribute_shard(world, remote, local, retry, timeout, shard)
 
 
 class StreamingDataset(IterableDataset):
-    """A sharded, streaming, iterable dataset.
-
-    :class:`StreamingDataset` reads samples from binary `.mds` files that were written out by :class:`StreamingDatasetWriter`.
-
-    It currently supports downloading data from etiher S3 paths or local filepaths.
-
-    It supports multi-gpu + multi-node training, and has smart local cacheing to minimize network bandwidth.
-
-    It also provides best-effort shuffling to preserve randomness when ``shuffle=True``.
-
-    Args:
-        remote (str): Download shards from this remote S3 path or directory.
-        local (str): Download shards to this local directory for for caching.
-        shuffle (bool): Whether to shuffle the samples.  Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
-        decoders (Dict[str, Callable[bytes, Any]]]): For each sample field you wish to read, you must provide a decoder to convert the raw bytes to an object.
-        max_retries (int): Number of download re-attempts before giving up. Default: 2.
-        timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
-        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
-                                    Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
-                                    E.g. if the DataLoader is reading over (samples=[0, 1, 2, 3, 4, 5, 6, 7], num_workers=3, batch_size=2, drop_last=True)
-                                    but `batch_size` is not hinted to the StreamingDataset ahead of time
-                                    then the samples will by default be assigned like: w0: [0, 1, 2], w1: [3, 4, 5], w2: [6, 7]
-                                    and will be read as batches: [0, 1], [3, 4], [6, 7] (with batches [2] and [5] dropped as incomplete)
-                                    but this is suboptimal because we could have dropped no samples.
-                                    So when `batch_size` is provided as a hint, we assign samples like this: w0: [0, 1, 2, 3], w1: [4, 5], w2: [6, 7]
-                                    which will be read as batches: [0, 1], [4, 5], [6, 7], [2, 3]
-
-
-    .. doctest::
-
-        To write the dataset:
-        >>> from composer.datasets.streaming import StreamingDatasetWriter
-        >>> samples = [
-        ...     {
-        ...         "uid": f"{ix:06}".encode("utf-8"),
-        ...         "data": (3 * ix).to_bytes(4, "big"),
-        ...         "unused": "blah".encode("utf-8"),
-        ...     }
-        ...     for ix in range(100)
-        ... ]
-        >>> dirname = "remote"
-        >>> fields = ["uid", "data"]
-        >>> with StreamingDatasetWriter(dirname=dirname, fields=fields) as writer:
-        ...     writer.write_samples(samples=samples)
-
-        To read the dataset:
-        >>> from composer.datasets.streaming import StreamingDataset
-        >>> remote = "remote"
-        >>> local = "local"
-        >>> decoders = {
-        ...     "uid": lambda uid_bytes: uid_bytes.decode("utf-8"),
-        ...     "data": lambda data_bytes: int.from_bytes(data_bytes, "big"),
-        ... }
-        >>> dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
-    """
-
-    def __init__(self,
-                 remote: str,
-                 local: str,
-                 shuffle: bool,
-                 decoders: Dict[str, Callable[[bytes], Any]],
-                 max_retries: int = 2,
-                 timeout: float = 60,
-                 batch_size: Optional[int] = None) -> None:
-
+    def __init__(self, world: World, remote: str, local: str, shuffle: bool, decoders: Dict[str, Callable], retry: int,
+                 timeout: float, seed: Optional[int]) -> None:
+        self.world = world
         self.remote = remote
         self.local = local
         self.shuffle = shuffle
         self.decoders = decoders
-        self.max_retries = max_retries
+        self.retry = retry
         self.timeout = timeout
-        self.batch_size = batch_size
+        self.seed = _distribute_seed(world, seed)
 
-        # Load the index file containing the shard metadata
-        # This file contains the shard and offset in bytes of each sample (for direct access).
-        # Only local device 0 on each node downloads the index. All other devices wait.
-        index_basename = get_index_basename()
-        index_local = self._download(index_basename, wait=(dist.get_local_rank() != 0))
-        with open(index_local, 'rb') as fp:
-            self.index = StreamingDatasetIndex.load(fp)
+        self.index = _download_and_distribute_index(world, remote, local, retry, timeout)
+        _distribute_shards(world, local, self.index.num_shards)
+        #Process(target=_download_and_distribute_shards,
+        #        args=(world, remote, local, retry, timeout, self.seed, self.index.num_shards), daemon=True).start()
+        _download_and_distribute_shards(world, remote, local, retry, timeout, self.seed, self.index.num_shards)
 
-        # Fields, protected by the lock, relating to loading shards in the background.
-        self._lock = None
-        self._next_epoch = 0
-        self._epoch_to_todo_ids = {}
-        self._downloaded_ids = []
-        self._are_all_shards_downloaded = False
+        self._lock: Lock
+        self._has_worker_init = False
+        self._next_epoch_shm: SharedMemory
+        self._is_downloaded: bool
+        self._is_id_downloaded: NDArray[np.uint8]
+        self._epoch2is_id_mine: Dict[int, NDArray[np.uint8]]
+        self._epoch2todo_ids: Dict[int, List[int]]
 
-    def _download(self, basename: str, wait=False) -> str:
-        """Safely download a file from remote to local cache.
+    def _shards_to_samples(self, shards: NDArray[np.int64]) -> NDArray[np.int64]:
+        """Get the samples of the given shards according to the index.
 
         Args:
-            basename (str): Basename of file to download.
-            wait (bool): Whether to wait for another worker to download the file.
+            shards (NDArray[np.int64]): The shards.
 
         Returns:
-            str: Local cache filename.
+            NDArray[np.int64]: The samples of the shards.
         """
-        remote = os.path.join(self.remote, basename)
-        local = os.path.join(self.local, basename)
-        download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
-        return local
+        ids = []
+        for shard in shards:
+            begin = self.index.shard_begins[shard]
+            end = self.index.shard_ends[shard]
+            ids += list(range(begin, end))
+        return np.array(ids)
 
-    def _load_shard(self, shard: int, part_min_id: int, part_max_id: int) -> None:
-        """Load the given locally cached shard into the dataset.
-
-        Every time you call __iter__ on this dataset, it registers the list of
-        samples you have left, which will not be the full epoch if the dataset
-        isn't finished loaded when you start training.
-
-        Calls to _load_shard during training modify the samples remaining on
-        these iterations on the fly to insert these new samples and then re-sort,
-        making the shuffle as perfect as was possible.
-
-        This operation takes the lock, so batch your _load_shard calls where
-        possible.
+    def _add_shards(self, shards: NDArray[np.int64]) -> None:
+        """Insert the samples of the given shards, updating any dynamic epochs.
 
         Args:
-            shard (int): Shard to load.
-            part_min_id (int): Minimum sample ID of this partition.
-            part_max_id (int): Maximum sample ID of this partition.
+            NDArray[np.int64]: The shards.
         """
-        # Get all samples from the given shards that fall within our partition.
-        shard_min_id = self.index.shard_begins[shard]
-        shard_max_id = self.index.shard_ends[shard] - 1
-        min_id = max(part_min_id, shard_min_id)
-        max_id = min(part_max_id, shard_max_id)
-        new_ids = list(range(min_id, max_id + 1))
-
-        if not self._lock:
-            raise RuntimeError("Attempted to use lock but lock was not created.")
-
         with self._lock:
-            # Extend and optionally reshuffle the remaining samples of any
-            # epochs we have in progress.
+            new_ids = self._shards_to_samples(shards)
+            self._is_id_downloaded[new_ids] = 1
+            for epoch, is_id_mine in self._epoch2is_id_mine.items():
+                new_todo_ids = new_ids[np.argwhere(is_id_mine[new_ids]).flatten()].tolist()
+                todo_ids = self._epoch2todo_ids[epoch]
+                todo_ids.reverse()
+                todo_ids.extend(new_todo_ids)
+                todo_ids.reverse()
+
+    def _poll_for_shards(self) -> None:
+        """Poll for new shards to be downloaded, inserting their samples."""
+        has_shard_filename = os.path.join(self.local, get_has_shard_basename())
+        old_has_shard = np.zeros(self.index.num_shards, np.uint8)
+        while True:
+            with self._lock:
+                has_shard = np.fromfile(has_shard_filename, np.uint8)
+                new_shards = np.argwhere(has_shard - old_has_shard).flatten()
+                self._add_shards(new_shards)
+                old_has_shard = has_shard
+                self._is_downloaded = bool(has_shard.all())
+                if self._is_downloaded:
+                    break
+            sleep(1.337)
+
+    def _maybe_worker_init(self) -> None:
+        """Worker setup method, run once on first `__iter__`."""
+        if self._has_worker_init:
+            return
+        self._has_worker_init = True
+        self._lock = Lock()
+        with self._lock:
+            next_epoch_shm_name = os.path.join(str(_get_root_python_pid()), 'next_epoch')
+            try:
+                self._next_epoch_shm = SharedMemory(next_epoch_shm_name, True, np.int64().nbytes)
+                self._next_epoch_shm.buf[:] = b'\0'
+            except:
+                self._next_epoch_shm = SharedMemory(next_epoch_shm_name, False, np.int64().nbytes)
+            self._is_id_downloaded = np.zeros(self.index.total_samples, np.uint8)
+            self._is_downloaded = False
+            self._epoch2is_id_mine = {}
+            self._epoch2todo_ids = {}
+        Thread(target=self._poll_for_shards, daemon=True).start()
+
+    def _next_epoch(self) -> int:
+        """Get the epoch, incrementing the counter.
+
+        Returns:
+            int: Epoch.
+        """
+        epoch = np.frombuffer(self._next_epoch_shm.buf, np.int64)[0]
+        if self.world.is_local_leader:
+            info = get_worker_info()
+            if info is None or info.id == 0:
+                sleep(0.42)
+                self._next_epoch_shm.buf[:] = np.int64(epoch + 1).tobytes()
+        return epoch
+
+    def _epoch_init(self) -> int:
+        """Epoch setup method, run on `__iter__`.
+
+        Returns:
+            int: Epoch.
+        """
+        with self._lock:
+            epoch = self._next_epoch()
+            epoch_seed = self.seed + epoch
+            rng = np.random.default_rng(epoch_seed)
+
+            all_ids = rng.permutation(self.index.total_samples)
+            begin = len(all_ids) * self.world.rank // self.world.world_size
+            end = len(all_ids) * (self.world.rank + 1) // self.world.world_size
+            my_ids = all_ids[begin:end]
+
+            is_id_mine = np.zeros(self.index.total_samples, np.uint8)
+            is_id_mine[my_ids] = 1
+            self._epoch2is_id_mine[epoch] = is_id_mine
+
+            todo_ids = np.argwhere(is_id_mine * self._is_id_downloaded).flatten()
             if self.shuffle:
-                if not self._are_all_shards_downloaded:
-                    self._downloaded_ids.extend(new_ids)
-                    np.random.shuffle(self._downloaded_ids)
-                for todo_ids in self._epoch_to_todo_ids.values():
-                    todo_ids.extend(new_ids)
-                    np.random.shuffle(todo_ids)
-            else:
-                if not self._are_all_shards_downloaded:
-                    self._downloaded_ids.extend(new_ids)
-                for todo_ids in self._epoch_to_todo_ids.values():
-                    todo_ids.extend(new_ids)
-
-    def _done_loading(self) -> None:
-        """Callback on completion of loading my shards."""
-        if not self._lock:
-            raise RuntimeError("Attempted to use lock but lock was not created.")
-
-        with self._lock:
-            self._are_all_shards_downloaded = True
-
-    def _download_thread(self, part_shards: List[int], part_shards_to_download: List[int], part_min_id: int,
-                         part_max_id: int) -> None:
-        """Background thread to download and assimilate missing shards.
-
-        Args:
-            part_shards (List[int]): The shards to be used by this partition.
-            part_shards_to_download (List[int]): The shards to be downloaded by this partition's worker (subset of ``part_shards``).
-            part_min_id (int): Minimum sample ID of this partition.
-            part_max_id (int): Maximum sample ID of this partition.
-        """
-        if self.shuffle:
-            # Always process first shard first because other workers may be waiting on it
-            part_shards_array = np.array(part_shards)
-            np.random.shuffle(part_shards_array[1:])
-            part_shards = part_shards_array.tolist()
-
-        for shard in part_shards:
-            # If this worker is in charge of downloading the shard, download it.
-            # Otherwise, wait until shard gets downloaded by another worker on this node
-            # This produces deterministic sample order.
-            basename = get_shard_basename(shard)
-            self._download(basename, wait=(shard not in part_shards_to_download))
-            self._load_shard(shard, part_min_id, part_max_id)
-        self._done_loading()
-
-    def _load(self) -> None:
-        """Load shards."""
-        # We find out num workers, and therefore num partitions, when __iter__ is called.
-        # From the partition, derive our shard overlap range and exact sample range.
-        world = get_world()
-        part_shards, part_shards_to_download, part_min_id, part_max_id = self.index.get_partition(
-            world, self.batch_size)
-
-        # Start downloading our part's shards in a background thread, if any are missing.
-        if not self._are_all_shards_downloaded:
-            thread = Thread(target=self._download_thread,
-                            args=(part_shards, part_shards_to_download, part_min_id, part_max_id),
-                            daemon=True)
-            thread.start()
-
-    def __len__(self) -> int:
-        """Get the length of the dataset.
-
-        Returns:
-            int: Dataset length.
-        """
-        return math.ceil(self.index.total_samples / dist.get_world_size())
-
-    def _unpack_sample(self, data: bytes) -> Dict[str, Any]:
-        """Unpack a sample dict from raw bytes.
-
-        First unpacks the str to raw bytes dict, then unpacks each field's raw bytes.
-
-        Args:
-            data (bytes): The packed bytes of the sample.
-
-        Returns:
-            Dict[str, Any]: The sample dict.
-        """
-        key_to_raw = bytes_to_sample_dict(data, self.index.fields)
-        obj = {}
-        for key, decode in self.decoders.items():
-            raw_value = key_to_raw[key]
-            decoded_value = decode(raw_value)
-            obj[key] = decoded_value
-        return obj
+                np.random.shuffle(todo_ids)
+            self._epoch2todo_ids[epoch] = todo_ids.tolist()
+        return epoch
 
     def __getitem__(self, idx: int) -> Any:
-        """Get the sample at the index, assuming its shard is loaded.
-
-        Do not call this directly unless the shard containing this idx has been loaded.
-        Will crash otherwise.
+        """Get the sample dict for the given sample ID.
 
         Args:
             idx (int): Sample ID.
 
         Returns:
-            Any: The sample.
+            Dict[str, bytes]: Sample dict of keys to bytes.
         """
         shard = self.index.sample_shards[idx]
         offset = self.index.sample_shard_offsets[idx]
         size = self.index.bytes_per_sample[idx]
 
-        basename = get_shard_basename(shard)
-        shard_filename = os.path.join(self.local, basename)
+        shard_filename = os.path.join(self.local, get_shard_basename(shard))
         with open(shard_filename, 'rb', 0) as fp:
             fp.seek(offset)
-            data = fp.read(size)
+            sample_data = fp.read(size)
 
-        return self._unpack_sample(data)
+        key2raw = bytes_to_sample_dict(sample_data, self.index.fields)
 
-    def _make_new_growing_epoch(self) -> int:
-        """Start a new growing epoch, in which we own the sample sequence because it grows.
+        sample = {}
+        for key, decode in self.decoders.items():
+            sample[key] = decode(key2raw[key])
 
-        Returns:
-            int: The epoch ID, an identifier which is given back to the caller.
-        """
-        if not self._lock:
-            raise RuntimeError("Attempted to use lock but lock was not created.")
+        return sample
 
-        with self._lock:
-            epoch = self._next_epoch
-            self._next_epoch += 1
-            self._epoch_to_todo_ids[epoch] = list(self._downloaded_ids)
-        return epoch
-
-    def _next_id(self, epoch: int) -> Optional[int]:
-        """Get next sample of the growing epoch given by epoch, or None if done.
-
-        If we are currently out of samples but not finished downloading the
-        shards, blocks until it has new samples.
+    def _dynamic_iter_ids(self, epoch: int) -> Iterator[int]:
+        """Iterate over sample IDs (loading while iterating).
 
         Args:
-            epoch (int): The epoch, an identifier for this sequence of samples.
+            epoch (int): Which epoch (different partition per epoch).
 
         Returns:
-            int: ID of next sample.
+            Iterator[int]: Iterator over sample IDs.
         """
-        if not self._lock:
-            raise RuntimeError("Attempted to use lock but lock was not created.")
-
+        todo_ids = self._epoch2todo_ids[epoch]
         while True:
             with self._lock:
-                todo_ids = self._epoch_to_todo_ids[epoch]
                 if todo_ids:
-                    return todo_ids.pop(0)
-                elif self._are_all_shards_downloaded:
-                    del self._epoch_to_todo_ids[epoch]
-                    return None
-                else:
-                    pass
-            sleep(0.25)
+                    yield todo_ids.pop()
+                elif self._is_downloaded:
+                    del self._epoch2todo_ids[epoch]
+                    break
+            sleep(0.1337)
+
+    def _static_iter_ids(self, epoch: int) -> Iterator[int]:
+        """Iterate over sample IDs (fully loaded).
+
+        Args:
+            epoch (int): Which epoch (different partition per epoch).
+
+        Returns:
+            Iterator[int]: Iterator over sample IDs.
+        """
+        epoch_seed = self.seed + epoch
+        rng = np.random.default_rng(epoch_seed)
+        ids = rng.permutation(self.index.total_samples)
+        begin = len(ids) * self.world.rank // self.world.world_size
+        end = len(ids) * (self.world.rank + 1) // self.world.world_size
+        yield from ids[begin:end]
 
     def _iter_ids(self) -> Iterator[int]:
-        """Get an iterator over all our sample IDs.
+        """Iterate over sample IDs.
 
         Returns:
-            Iterator[int]: Each sample ID.
+            Iterator[int]: Iterator over sample IDs.
         """
-        if not self._lock:
-            raise RuntimeError("Attempted to use lock but lock was not created.")
+        self._maybe_worker_init()
+        epoch = self._epoch_init()
 
         with self._lock:
-            have_full_epoch = self._are_all_shards_downloaded
+            iter_ids = self._static_iter_ids if self._is_downloaded else self._dynamic_iter_ids
 
-        if have_full_epoch:
-            ids = list(self._downloaded_ids)
-            if self.shuffle:
-                np.random.shuffle(ids)
-            for idx in ids:
-                yield idx
-        else:
-            epoch = self._make_new_growing_epoch()
-            while True:
-                idx = self._next_id(epoch)
-                if idx is None:
-                    break
-                yield idx
+        yield from iter_ids(epoch)
 
-    def __iter__(self) -> Iterator[Any]:
-        """Iterate over all the samples in our partition.
-
-        If not all samples have been downloaded yet, iterates over what it has
-        while inserting the remainder into the sequence behind the scenes as it
-        progresses.
+    def __iter__(self) -> Iterator[Dict[str, bytes]]:
+        """Iterate over samples.
 
         Returns:
-            Iterator[Any]: Each sample.
+            Iterator[Dict[str, bytes]]: Iterator over raw sample dicts.
         """
-        # Lock is created here because DataLoader calls __iter__ in each worker process
-        # and the lock is worker-specific
-        if self._lock is None:
-            self._lock = Lock()
-
-        # Load samples
-        self._load()
-
         for idx in self._iter_ids():
             yield self[idx]
 
 
 class StreamingImageClassDataset(StreamingDataset):
-    """A streaming image classification dataset, for (img, class) pairs.
-
-       This is a subclass of :class:`StreamingDataset`.
-
-    Args:
-        remote (str): Download shards from this remote S3 path or directory.
-        local (str): Download shards to this local filesystem directory for reuse.
-        shuffle (bool): Whether to shuffle the samples. Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
-        transform (Optional[Callable]): Optional input data transform for data augmentation, etc.
-        max_retries (int): Number of download re-attempts before giving up. Default: 2.
-        timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
-        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
-                                    Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
-    """
-
     def decode_image(self, data: bytes) -> Image.Image:
         """Decode the sample image.
 
@@ -409,17 +654,13 @@ class StreamingImageClassDataset(StreamingDataset):
                  max_retries: int = 2,
                  timeout: float = 60,
                  batch_size: Optional[int] = None) -> None:
+        world = World(c_dist.get_global_rank(), c_dist.get_world_size(), c_dist.get_local_world_size())
         decoders = {
             'x': self.decode_image,
             'y': self.decode_class,
         }
-        super().__init__(remote=remote,
-                         local=local,
-                         shuffle=shuffle,
-                         decoders=decoders,
-                         max_retries=max_retries,
-                         timeout=timeout,
-                         batch_size=batch_size)
+        seed = None
+        super().__init__(world, remote, local, shuffle, decoders, max_retries, timeout, seed)
         self.transform = transform or transforms.ToTensor()
 
     def __getitem__(self, idx: int) -> Tuple[Any, Any]:
@@ -436,3 +677,27 @@ class StreamingImageClassDataset(StreamingDataset):
         x = self.transform(x)
         y = obj['y']
         return x, y
+
+
+def main(args):
+    remote = 's3://mosaicml-internal-dataset-cifar10/mds/1/train/'
+    local = '/tmp/mds-cache/mds-cifar10/train/'
+    shuffle = True
+    decoders = {}
+    retry = 2
+    timeout = 120
+    seed = None
+    world = World(args.rank, args.world_size, args.local_world_size)
+
+    os.environ['MASTER_ADDR'] = args.master_addr
+    os.environ['MASTER_PORT'] = str(args.master_port)
+    dist.init_process_group('nccl', rank=args.rank, world_size=args.world_size)
+
+    dataset = StreamingDataset(world, remote, local, shuffle, decoders, retry, timeout, seed)
+    del dataset
+
+    dist.destroy_process_group()
+
+
+if __name__ == '__main__':
+    main(parse_args())
