@@ -66,10 +66,6 @@ class ObjectStoreLogger(LoggerDestination):
             loggers=[object_store_logger],
         )
 
-    .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
-
-        trainer.engine.close()
-
     .. note::
 
         This callback blocks the training loop to copy each artifact where ``should_log_artifact`` returns ``True``, as

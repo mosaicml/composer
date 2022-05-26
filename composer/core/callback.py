@@ -50,10 +50,6 @@ class Callback(Serializable, abc.ABC):
             >>> _ = trainer.engine.run_event(Event.EPOCH_START)
             Epoch: 0
 
-        .. testcleanup::
-
-            trainer.engine.close()
-
     #.  Override :meth:`run_event` if you want a single method to handle all events.  If this method is overridden, then
         the individual methods corresponding to each event name (such as :meth:`epoch_start`) will no longer be
         automatically invoked. For example, if you override :meth:`run_event` then :meth:`epoch_start` will not be called
@@ -82,10 +78,6 @@ class Callback(Serializable, abc.ABC):
             >>> # is triggered, like this:
             >>> _ = trainer.engine.run_event(Event.EPOCH_START)
             Epoch: 0
-
-        .. testcleanup::
-
-            trainer.engine.close()
     """
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:

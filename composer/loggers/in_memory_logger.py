@@ -47,10 +47,6 @@ class InMemoryLogger(LoggerDestination):
             # which index in trainer.logger.destinations contains your desired logger.
             logged_data = trainer.logger.destinations[0].data
 
-        .. testcleanup::
-
-            trainer.engine.close()
-
     Args:
         log_level (str | LogLevel, optional):
             :class:`~.logger.LogLevel` (i.e. unit of resolution) at

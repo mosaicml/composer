@@ -111,10 +111,6 @@ class DataSpec:
        ...     max_duration="1ep",
        ... )
 
-    .. testcleanup::
-
-        trainer.engine.close()
-
     Args:
         dataloader (Iterable): The dataloader, which can be any iterable that yields batches.
 

@@ -36,10 +36,6 @@ class MemoryMonitor(Callback):
         ...     callbacks=[MemoryMonitor()],
         ... )
 
-    .. testcleanup::
-
-        trainer.engine.close()
-
     The memory statistics are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
 

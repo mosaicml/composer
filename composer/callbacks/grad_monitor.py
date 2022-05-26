@@ -31,10 +31,6 @@ class GradMonitor(Callback):
         ...     callbacks=[GradMonitor()],
         ... )
 
-    .. testcleanup::
-
-        trainer.engine.close()
-
     The L2 norms are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as described below.
 
     +-----------------------------------+-------------------------------------------------------------+

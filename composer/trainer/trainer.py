@@ -483,10 +483,6 @@ class Trainer:
                     load_path=checkpoint_path,
                     load_object_store=store,
                 )
-
-            .. testcleanup::
-
-                trainer.engine.close()
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.

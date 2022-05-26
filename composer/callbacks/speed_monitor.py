@@ -37,10 +37,6 @@ class SpeedMonitor(Callback):
         ...     callbacks=[SpeedMonitor(window_size=100)],
         ... )
 
-    .. testcleanup::
-
-        trainer.engine.close()
-
     The training throughput is logged by the :class:`~composer.loggers.logger.Logger` to the following keys as
     described below.
 

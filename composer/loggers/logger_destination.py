@@ -36,10 +36,6 @@ class LoggerDestination(Callback, ABC):
         ...     loggers=[logger]
         ... )
         Batch 0: {'rank_zero_seed': ...}
-
-    .. testcleanup::
-
-        trainer.engine.close()
     """
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):

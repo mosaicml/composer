@@ -28,10 +28,6 @@ class LRMonitor(Callback):
         ...     callbacks=[LRMonitor()],
         ... )
 
-    .. testcleanup::
-
-        trainer.engine.close()
-
     The learning rate is logged by the :class:`~composer.loggers.logger.Logger` to the following key as described
     below.
 

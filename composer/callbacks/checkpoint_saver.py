@@ -114,10 +114,6 @@ class CheckpointSaver(Callback):  # noqa: D101
         ...     )
         ... ])
 
-    .. testcleanup::
-
-        trainer.engine.close()
-
     Args:
         folder (str, optional): Format string for the folder where checkpoints will be saved.
             Default: ``'{{run_name}}/checkpoints'``.
