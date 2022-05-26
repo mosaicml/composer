@@ -160,41 +160,27 @@ def select_using_loss(input: torch.Tensor,
 class SelectiveBackprop(Algorithm):
     """Selectively backpropagate gradients from a subset of each batch.
 
-     Based on (`Jiang et al, 2019`_), Selective Backprop (SB) prunes minibatches
-     according to the difficulty of the individual training examples, and only
-     computes weight gradients over the pruned subset, reducing iteration time and
-     speeding up training.
+        Based on (`Jiang et al, 2019`_), Selective Backprop (SB) prunes minibatches
+        according to the difficulty of the individual training examples, and only
+        computes weight gradients over the pruned subset, reducing iteration time and
+        speeding up training.
 
-     The fraction of the minibatch that is kept for gradient computation is
-     specified by the argument ``0 <= keep <= 1``.
+        The fraction of the minibatch that is kept for gradient computation is
+        specified by the argument ``0 <= keep <= 1``.
 
-     To speed up SB's selection forward pass, the argument ``scale_factor`` can
-     be used to spatially downsample input image tensors. The full-sized inputs
-     will still be used for the weight gradient computation.
+        To speed up SB's selection forward pass, the argument ``scale_factor`` can
+        be used to spatially downsample input image tensors. The full-sized inputs
+        will still be used for the weight gradient computation.
 
-     To preserve convergence, SB can be interrupted with vanilla minibatch
-     gradient steps every ``interrupt`` steps. When ``interrupt=0``, SB will be
-     used at every step during the SB interval. When ``interrupt=2``, SB will
-     alternate with vanilla minibatch steps.
+        To preserve convergence, SB can be interrupted with vanilla minibatch
+        gradient steps every ``interrupt`` steps. When ``interrupt=0``, SB will be
+        used at every step during the SB interval. When ``interrupt=2``, SB will
+        alternate with vanilla minibatch steps.
 
-     .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
+        .. _Jiang et al, 2019: https://arxiv.org/abs/1910.00762
 
 
-    Example:
-        .. testcode::
-
-            from composer.algorithms import SelectiveBackprop
-            algorithm = SelectiveBackprop(start=0.5, end=0.9, keep=0.5)
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[algorithm],
-                optimizers=[optimizer]
-            )
-
-     Args:
+    Args:
         start (float, optional): SB interval start as fraction of training duration
             Default: ``0.5``.
         end (float, optional): SB interval end as fraction of training duration
@@ -213,6 +199,21 @@ class SelectiveBackprop(Algorithm):
             from the batch. Can also be a pair of get and set functions, where the getter
             is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
             is the target. Default: ``1``.
+
+    Example:
+    .. testcode::
+
+        from composer.algorithms import SelectiveBackprop
+        algorithm = SelectiveBackprop(start=0.5, end=0.9, keep=0.5)
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+            max_duration="1ep",
+            algorithms=[algorithm],
+            optimizers=[optimizer]
+        )
+
 """
 
     def __init__(
