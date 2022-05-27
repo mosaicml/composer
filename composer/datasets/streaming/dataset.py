@@ -171,8 +171,15 @@ class StreamingDataset(IterableDataset):
                 for todo_ids in self._epoch_to_todo_ids.values():
                     todo_ids.extend(new_ids)
 
-    def _download(self) -> None:
-        """Do the work of downloading and assimilating missing shards."""
+    def download(self) -> None:
+        """Download and assimilate missing shards."""
+        if not self._lock:
+            self._lock = Lock()
+
+        with self._lock:
+            if self._is_downloaded:
+                return
+
         # We find out num workers, and therefore num partitions, when __iter__ is called.
         # From the partition, derive our shard overlap range and exact sample range.
         world = get_world()
@@ -181,9 +188,8 @@ class StreamingDataset(IterableDataset):
 
         if self.shuffle:
             # Always process first shard first because other workers may be waiting on it
-            part_shards_array = np.array(part_shards)
-            np.random.shuffle(part_shards_array[1:])
-            part_shards = part_shards_array.tolist()
+            part_shards = np.array(part_shards)
+            np.random.shuffle(part_shards[1:])
 
         for shard in part_shards:
             # If this worker is in charge of downloading the shard, download it.
@@ -192,24 +198,9 @@ class StreamingDataset(IterableDataset):
             basename = get_shard_basename(shard)
             self._download_file(basename, wait=(shard not in part_shards_to_download))
             self._insert_shard_samples(shard, part_min_id, part_max_id)
-        self._is_downloaded = True
 
-    def download(self, blocking: bool = True) -> None:
-        """Download and assimilate missing shards (usually in a background thread).
-
-        Args:
-            blocking (bool): Whether to return when done, or immediately. Default: True.
-        """
-        if not self._lock:
-            self._lock = Lock()
-
-        if self._is_downloaded:
-            return
-
-        if blocking:
-            self._download()
-        else:
-            Thread(target=self._download, daemon=True).start()
+        with self._lock:
+            self._is_downloaded = True
 
     def __len__(self) -> int:
         """Get the length of the dataset.
@@ -331,7 +322,10 @@ class StreamingDataset(IterableDataset):
         Returns:
             Iterator[Any]: Each sample.
         """
-        self.download(False)
+        if not self._lock:
+            self._lock = Lock()
+
+        Thread(target=self.download, daemon=True).start()
 
         for idx in self._iter_ids():
             yield self[idx]
