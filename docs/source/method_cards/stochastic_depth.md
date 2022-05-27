@@ -1,80 +1,104 @@
-# 🧊 Stochastic Depth (Block)
+# 🎰 Stochastic Depth (Sample)
 
-AKA: Progressive Layer Dropping
+[\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
-![block_wise_stochastic_depth.png](https://storage.googleapis.com/docs.mosaicml.com/images/methods/block_wise_stochastic_depth.png)
+ `Computer Vision`
 
-From *[Deep Networks with Stochastic Depth](https://arxiv.org/abs/1603.09382)* by Huang et al. 2016
+ Sample-wise stochastic depth is a regularization technique for networks with residual connections that probabilistically drops samples after the transformation function in each residual block. This means that different samples go through different combinations of blocks.
 
-Tags: `Method`,`NLP`, `Networks with Residual Connections`, `Vision`,`Regularization`, `Speedup`,`Decreased GPU Throughput`, `Decreased Wall Clock Time`, `Reduced GPU Memory Usage`
+## How to Use
 
-## TL;DR
+### Functional Interface
 
-Block-wise stochastic depth assigns every residual block a probability of dropping the transformation function, leaving only the skip connection, to regularize and reduce the amount of computation.
+<!--pytest-codeblocks:skip-->
+```python
+# Run the Stochastic Depth algorithm directly on the model using the Composer functional API
 
-## Attribution
+import torch
+import torch.nn.functional as F
+import composer.functional as cf
 
-*[Deep Networks with Stochastic Depth](https://arxiv.org/abs/1603.09382)* by Gao Huang, Yu Sun, Zhuang Liu, Daniel Sedra, and Killian Weinberger. Published in ECCV in 2016.
+from torchvision.models import resnet50
 
-*[Accelerating Training of Transformer-Based Language Models with Progressive Layer Dropping](https://arxiv.org/abs/2010.13369)* by Minjia Zhang and Yuxiong He. Published in NeurIPS 2020.
+# Training
 
-## Applicable Settings
+# Stochastic depth can only be run on ResNet-50/101/152
+model = resnet50()
 
-Block-wise stochastic depth is only applicable to network architectures that include skip connections since they make it possible to drop parts of the network without disconnecting the network.
+opt = torch.optim.Adam(model.parameters())
 
-## Hyperparameters
+# only need to pass in opt if apply_stochastic_depth is used after the optimizer
+# creation; otherwise only the model needs to be passed in
+cf.apply_stochastic_depth(
+    model,
+    target_layer_name='ResNetBottleneck',
+    stochastic_method='sample',
+    drop_rate=0.2,
+    drop_distribution='linear',
+    optimizers=opt
+)
 
-- `stochastic_method` - Specifies the version of the stochastic depth method to use. Block-wise stochastic depth is specified by `stochastic_method=block`.
-- `target_block_name` - The reference name for the module that will be replaced with a functionally equivalent stochastic block. For example, `target_block_name=ResNetBottleNeck` will replace modules in the model named `ResNetBottleNeck`.
-- `drop_rate` - The base probability of dropping a block.
-- `drop_distribution` - How the `drop_rate` is distributed across the model's blocks. The two possible values are "uniform" and "linear". "Uniform" assigns a single `drop_rate` across all blocks. "Linear" linearly increases the drop rate according to the block's depth, starting from 0 at the first block and ending with `drop_rate` at the last block.
-- `use_same_gpu_seed` - Set to false to have the blocks to drop sampled independently on each GPU. Only has an effect when training on multiple GPUs.
-- `drop_warmup` - Percentage of training to linearly warm-up the drop rate from 0 to `drop_rate`.
+loss_fn = F.cross_entropy
+model.train()
 
-## Example Effects
+for epoch in range(10):
+    for X, y in train_loader:
+        y_hat = model(X)
+        loss = loss_fn(y_hat, y)
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
+```
 
-For ResNet-50 on ImageNet, we used `drop_rate=0.2` and `drop_distribution=linear`. We measured a 5% decrease in training wall-clock time while maintaining a similar accuracy to the baseline. For ResNet-101 on ImageNet, we used `drop_rate=0.4` and `drop_distribution=linear`. We measured a 10% decrease in training wall-clock time while maintaining an accuracy within 0.1% of the baseline.
+### Composer Trainer
 
-Huang et al. used `drop_rate=0.5` and `drop_distribution=linear` for ResNet-110 on CIFAR-10/100 and for ResNet-152 on ImageNet. They report that these hyperparameters result in a 25% reduction in training time with absolute accuracy differences of +1.2%, +2.8%, and -0.2% on CIFAR-10, CIFAR-100, and ImageNet, respectively.
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
+```python
+# Instantiate the algorithm and pass it into the Trainer
+# The trainer will automatically run it at the appropriate point in the training loop
 
-## Implementation Details
+from composer.algorithms import StochasticDepth
+from composer.trainer import Trainer
 
-Every residual block in the model has an independent probability of skipping the transformation component by utilizing only the skip connection. This effectively drops the block from the computation graph for the current iteration. During inference, the transformation component is always used and the output is scaled by (1 - drop rate). This scaling compensates for skipping the transformation during training.
+# Train model
 
-When using multiple GPUs to train, setting `use_same_gpu_seed=False` assigns each GPU a different random seed for sampling the blocks to drop. This effectively drops different proportions of the batch at each block, making block-wise stochastic depth  similar to example-wise stochastic depth. Typically, the result is increased accuracy and decreased throughput compared to dropping the same blocks across GPUs.
+# Stochastic depth can only be run on ResNet-50/101/152
+model = resnet50()
 
-As proposed by Zhang et al., drop warmup specifies a portion of training to linearly increase the drop rate from 0 to `drop_rate`. This provides stability during the initial phase of training, improving convergence in some scenarios.
+stochastic_depth = StochasticDepth(
+    target_layer_name='ResNetBottleneck',
+    stochastic_method='sample',
+    drop_rate=0.2,
+    drop_distribution='linear'
+)
+
+trainer = Trainer(
+    model=model,
+    train_dataloader=train_dataloader,
+    max_duration='10ep',
+    algorithms=[stochastic_depth]
+)
+
+trainer.fit()
+```
+
+### Implementation Details
+
+The Composer implementation of Stochastic Depth uses model surgery to replace residual bottleneck blocks with analogous stochastic versions. When training, samples are dropped after the transformation function in a residual block by multiplying the batch by a binary vector. The binary vector is generated by sampling independent Bernoulli distributions with probability (1 - `drop_rate`). After the samples are dropped, the skip connection is added as usual. During inference, no samples are dropped, but the batch of samples is scaled by (1 - `drop_rate`) to compensate for the drop frequency when training.
 
 ## Suggested Hyperparameters
 
-The drop rate will primarily depend on the model depth. For ResNet50 on ImageNet, we find that a drop rate of 0.2 with a linear drop distribution has the largest reduction in training time while maintaining the same accuracy. We do not use any drop warmup and drop the same blocks across all GPUs.
+We observe that `drop_rate=0.1` and `drop_distribution=linear` yield maximum accuracy improvements on both ResNet-50 and ResNet-101.
 
-- `drop_rate = 0.2`
-- `drop_distribution = "linear"`
-- `drop_warmup = 0.0dur`
-- `use_same_gpu_seed = True`
+## Technical Details
 
-## Considerations
+For both ResNet-50 and ResNet-101 on ImageNet, we measure a +0.4% absolute accuracy improvement when using `drop_rate=0.1` and `drop_distribution=linear`. The training wall-clock time is approximately 5% longer when using sample-wise stochastic depth.
 
-Because block-wise stochastic depth reduces model capacity by probabilistically excluding blocks from training updates, the increased capacity of larger models allows them to accommodate higher block drop rates. For example, the largest drop rate that maintains accuracy on ResNet-101 is almost double the drop rate on ResNet-50. If using a model with only a few blocks, it is best to use a small drop rate or to avoid stochastic depth.
+## Attribution
 
-Although `use_same_gpu_seed = False` usually improves accuracy, there is a decrease in throughput that makes this setting undesirable in most scenarios. Only set this hyperparameter to false if the default settings are causing significant accuracy degradation.
+[Deep Networks with Stochastic Depth](https://arxiv.org/abs/1603.09382) by Gao Huang, Yu Sun, Zhuang Liu, Daniel Sedra, and Killian Weinberger. Published in ECCV in 2016.
 
-## Composability
+[EfficientNet model in the TPU Github repository](https://github.com/tensorflow/tpu/tree/master/models/official/efficientnet) from Google
 
-As a general rule, combining several regularization methods may have diminishing returns and can even degrade accuracy. This may hold true when combining block-wise stochastic depth with other regularization methods.
-
-Stochastic depth decreases forward and backward pass time, increasing GPU throughput. In doing so, it may cause data loading to become a bottleneck.
-
----
-
-## Code
-
-```{eval-rst}
-.. autoclass:: composer.algorithms.stochastic_depth.StochasticDepth
-    :members: match, apply
-    :noindex:
-
-.. autofunction:: composer.algorithms.stochastic_depth.apply_stochastic_depth
-    :noindex:
-```
+[EfficientNet model in gen-efficientnet-pytorch Github repository](https://github.com/rwightman/gen-efficientnet-pytorch) by Ross Wightman

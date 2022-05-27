@@ -13,7 +13,7 @@ import torch
 
 from composer.algorithms import BlurPool
 from composer.algorithms.blurpool import apply_blurpool
-from composer.algorithms.blurpool.blurpool_layers import BlurConv2d, BlurMaxPool2d
+from composer.algorithms.blurpool_layers import BlurConv2d, BlurMaxPool2d
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Event, State
 from composer.loggers import Logger
