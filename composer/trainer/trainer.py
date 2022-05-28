@@ -1032,7 +1032,7 @@ class Trainer:
                 else:
                     latest_filename_formatted = format_name_with_dist(save_latest_filename, run_name)
                     save_folder_formatted = format_name_with_dist(save_folder, run_name)
-                    save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, run_name)
+                    latest_artifact_name = format_name_with_dist(save_latest_artifact_name, run_name)
             latest_checkpoint_path = os.path.join(save_folder_formatted, latest_filename_formatted)
             # If latest checkpoint is not saved locally, try to fetch from loggers
             if not os.path.exists(latest_checkpoint_path):
