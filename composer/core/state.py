@@ -101,6 +101,7 @@ class State(Serializable):
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         profiler (Optional[Profiler]): The Composer profiler.
+        run_name (str): The name for this training run.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
@@ -232,6 +233,9 @@ class State(Serializable):
         # algorithms and callbacks
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
+
+        # run_name
+        run_name: str = "",
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -271,6 +275,8 @@ class State(Serializable):
         self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
+        self.run_name = run_name
+
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
         # All other attributes will not be serialized.
         # For simplicity, omit the leading underscore for private attributes.
@@ -286,6 +292,7 @@ class State(Serializable):
             "timestamp",
             "rank_zero_seed",
             "current_metrics",
+            "run_name",
         ]
 
         self.current_metrics: Dict[str, Dict[str, Any]] = {}

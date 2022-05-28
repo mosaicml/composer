@@ -754,23 +754,6 @@ class Trainer:
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
 
-        # Create the State
-        self.state = State(
-            rank_zero_seed=rank_zero_seed,
-            algorithms=algorithms,
-            model=model,
-            callbacks=callbacks,
-            grad_accum=grad_accum,
-            precision=precision,
-            optimizers=optimizers,
-        )
-
-        # Profiler
-        if profiler is not None:
-            warnings.warn("The profiler is enabled. Using the profiler adds additional overhead when training.")
-            self.state.profiler = profiler
-            self.state.profiler.bind_to_state(self.state)
-
         # Console Logging
         loggers = list(ensure_tuple(loggers))
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
@@ -791,6 +774,22 @@ class Trainer:
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
+
+        # Create the State
+        self.state = State(rank_zero_seed=rank_zero_seed,
+                           algorithms=algorithms,
+                           model=model,
+                           callbacks=callbacks,
+                           grad_accum=grad_accum,
+                           precision=precision,
+                           optimizers=optimizers,
+                           run_name=self.logger.run_name)
+
+        # Profiler
+        if profiler is not None:
+            warnings.warn("The profiler is enabled. Using the profiler adds additional overhead when training.")
+            self.state.profiler = profiler
+            self.state.profiler.bind_to_state(self.state)
 
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
@@ -947,6 +946,13 @@ class Trainer:
                                               strict_model_weights=load_strict_model_weights,
                                               chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
+            # If using autoresume, use loaded run_name
+            if autoresume and run_name is not None:
+                self.logger.run_name = self.state.run_name
+                log.info(f"Using loaded run_name {self.state.run_name} from checkpoint.")
+            # Otherwise, discard loaded run_name and use new one
+            else:
+                self.state.run_name = self.logger.run_name
             log.info(f"Setting seed to {self.state.seed}")
             reproducibility.seed_all(self.state.seed)
 
@@ -1014,19 +1020,29 @@ class Trainer:
             if save_latest_filename is None:
                 raise ValueError(
                     "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
-            if run_name is None:
-                raise ValueError("run_name must be specified so autoresume knows which run to load from.")
-            latest_filename_formatted = format_name_with_dist(save_latest_filename, run_name)
-            latest_checkpoint_path = os.path.join(save_folder, latest_filename_formatted)
+            latest_filename_formatted = save_latest_filename
+            save_folder_formatted = save_folder
+            latest_artifact_name = save_latest_artifact_name
+            # Check run_name is provided if necessary
+            if ("{run_name}" in save_folder or "{run_name}" in save_latest_filename or
+                    "{run_name}" in save_latest_artifact_name):
+                # Raise error if run_name is not provided
+                if run_name is None:
+                    raise ValueError("run_name must be specified so autoresume knows which run to load from.")
+                # Otherwise, format names
+                else:
+                    latest_filename_formatted = format_name_with_dist(save_latest_filename, run_name)
+                    save_folder_formatted = format_name_with_dist(save_folder, run_name)
+                    save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, run_name)
+            latest_checkpoint_path = os.path.join(save_folder_formatted, latest_filename_formatted)
             # If latest checkpoint is not saved locally, try to fetch from loggers
-            if not os.path.exists(latest_checkpoint_path) and save_latest_artifact_name is not None:
+            if not os.path.exists(latest_checkpoint_path):
                 # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
                 os.makedirs(save_folder, exist_ok=True)
                 for logger in loggers:
                     try:
                         # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                        logger.get_file_artifact(artifact_name=format_name_with_dist(
-                            save_latest_artifact_name, run_name),
+                        logger.get_file_artifact(artifact_name=latest_artifact_name,
                                                  destination=latest_checkpoint_path,
                                                  chunk_size=load_chunk_size,
                                                  progress_bar=load_progress_bar)
