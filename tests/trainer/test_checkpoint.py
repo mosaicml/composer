@@ -79,6 +79,8 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams,
     for p1, p2 in zip(original_weights, recovered_weights):
         assert (p1.data == p2.data).all()
 
+    return original_trainer, new_trainer
+
 
 def _load_checkpoint(checkpoint_dir: str, filename: str):
     filename = filename.format(rank=0)
@@ -298,10 +300,11 @@ def test_autoresume(
     second_trainer_hparams.load_path = middle_checkpoint
 
     # pass in the two trainers, verify that the weights are the same
-    assert_weights_equivalent(original_trainer_hparams=composer_trainer_hparams,
-                              new_trainer_hparams=second_trainer_hparams,
-                              overwrite_load_path=False,
-                              save_overwrite=False)
+    trainer, second_trainer = assert_weights_equivalent(original_trainer_hparams=composer_trainer_hparams,
+                                                        new_trainer_hparams=second_trainer_hparams,
+                                                        overwrite_load_path=False,
+                                                        save_overwrite=False)
+    assert trainer.state.run_name == second_trainer.state.run_name
 
 
 @pytest.mark.timeout(90)
@@ -476,6 +479,7 @@ def test_checkpoint_with_object_store_logger(
     pytest.param("resnet50_synthetic", marks=pytest.mark.daily),
     pytest.param("gpt2_52m", marks=pytest.mark.daily),
 ])
+@pytest.mark.parametrize("different_names", [pytest.param(True), pytest.param(False)])
 def test_checkpoint(
     device_hparams: DeviceHparams,
     world_size: int,
@@ -489,6 +493,7 @@ def test_checkpoint(
     seed: Optional[int],
     model_name: Optional[str],
     tmp_path: pathlib.Path,
+    different_names: bool,
 ):
     """strategy:
     - train two epochs. capture checkpoints after `checkpoint_interval` and ep2.
@@ -613,14 +618,32 @@ def test_checkpoint(
     _test_checkpoint_trainer(second_trainer_hparams)
     second_trainer_final_checkpoint_filepath = os.path.join(checkpoint_b_folder, final_checkpoint)
 
-    assert_checkpoints_equivalent(
-        hparams_a=composer_trainer_hparams,
-        checkpoint_file_a=first_trainer_final_checkpoint_filepath,
-        hparams_b=second_trainer_hparams,
-        checkpoint_file_b=second_trainer_final_checkpoint_filepath,
-        # TODO: Determine why the GPT2 Optimizer state dict differs per-checkpoint and post-checkpoint.
-        state_attrs_to_skip=["optimizers"] if model_name == "gpt2_52m" else [],
-    )
+    # If only checking for different names, change seed and ensure run_names are different
+    if different_names:
+        second_trainer_hparams.seed = 2
+        composer_trainer_hparams.load_weights_only = False
+        composer_trainer_hparams.save_overwrite = True
+        composer_trainer_hparams.load_strict_model_weights = False
+        composer_trainer_hparams.save_folder = second_trainer_hparams.save_folder
+        second_trainer_hparams.save_overwrite = True
+
+        composer_trainer_hparams.load_path = first_trainer_final_checkpoint_filepath
+        second_trainer_hparams.load_path = second_trainer_final_checkpoint_filepath
+
+        trainer_a = composer_trainer_hparams.initialize_object()
+        trainer_b = second_trainer_hparams.initialize_object()
+
+        assert trainer_a.state.run_name != trainer_b.state.run_name
+    # Otherwise, compare full checkpoints
+    else:
+        assert_checkpoints_equivalent(
+            hparams_a=composer_trainer_hparams,
+            checkpoint_file_a=first_trainer_final_checkpoint_filepath,
+            hparams_b=second_trainer_hparams,
+            checkpoint_file_b=second_trainer_final_checkpoint_filepath,
+            # TODO: Determine why the GPT2 Optimizer state dict differs per-checkpoint and post-checkpoint.
+            state_attrs_to_skip=["optimizers"] if model_name == "gpt2_52m" else [],
+        )
 
 
 def _test_checkpoint_trainer(trainer_hparams: TrainerHparams):
