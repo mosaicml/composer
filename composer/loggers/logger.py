@@ -116,6 +116,7 @@ class Logger:
             run_name = run_name_list[0]
         assert run_name is not None, "run name is set above if not specified."
         self.run_name = run_name
+        state.run_name = run_name
         self._state = state
 
     def data(self, log_level: Union[str, int, LogLevel], data: Dict[str, Any]) -> None:

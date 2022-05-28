@@ -235,7 +235,7 @@ class State(Serializable):
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
 
         # run_name
-        run_name: str = "",
+        run_name: Optional[str] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model

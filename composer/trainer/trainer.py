@@ -754,6 +754,21 @@ class Trainer:
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
 
+        # Create the State
+        self.state = State(rank_zero_seed=rank_zero_seed,
+                           algorithms=algorithms,
+                           model=model,
+                           callbacks=callbacks,
+                           grad_accum=grad_accum,
+                           precision=precision,
+                           optimizers=optimizers)
+
+        # Profiler
+        if profiler is not None:
+            warnings.warn("The profiler is enabled. Using the profiler adds additional overhead when training.")
+            self.state.profiler = profiler
+            self.state.profiler.bind_to_state(self.state)
+
         # Console Logging
         loggers = list(ensure_tuple(loggers))
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
@@ -774,22 +789,6 @@ class Trainer:
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
-
-        # Create the State
-        self.state = State(rank_zero_seed=rank_zero_seed,
-                           algorithms=algorithms,
-                           model=model,
-                           callbacks=callbacks,
-                           grad_accum=grad_accum,
-                           precision=precision,
-                           optimizers=optimizers,
-                           run_name=self.logger.run_name)
-
-        # Profiler
-        if profiler is not None:
-            warnings.warn("The profiler is enabled. Using the profiler adds additional overhead when training.")
-            self.state.profiler = profiler
-            self.state.profiler.bind_to_state(self.state)
 
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
