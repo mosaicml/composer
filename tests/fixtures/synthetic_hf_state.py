@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from collections.abc import Iterable
 
 import pytest
@@ -5,23 +8,18 @@ import torch
 from transformers import PreTrainedTokenizer
 
 from composer.core.state import State
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.lm_datasets import LMDatasetHparams
+from composer.datasets import DataLoaderHparams, LMDatasetHparams
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.models import BERTHparams, GPT2Hparams, TransformerHparams
-from composer.models.transformer_shared import ComposerTransformer
 from tests.common.models import generate_dummy_model_config
 from tests.datasets import test_synthetic_lm_data
 
 
-def make_dataset_configs():
+def make_dataset_configs() -> list:
     lm_dataset_configs = [
         config[0] for config in test_synthetic_lm_data.generate_parameter_configs(
             ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'])
     ]
-    for config in lm_dataset_configs:
-        config['drop_last'] = False
-        config['use_masked_lm'] = config['tokenizer_family'] == 'bert'
     return lm_dataset_configs
 
 
@@ -34,7 +32,6 @@ def make_lm_tokenizer(config: dict):
 
 
 def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer: PreTrainedTokenizer):
-    pytest.importorskip("transformers")
     class_name = TransformerHparams
     if model_name == 'gpt2':
         class_name = GPT2Hparams
@@ -45,11 +42,10 @@ def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer: PreT
     model_config = generate_dummy_model_config(class_name, tokenizer)
     model_config['max_position_embeddings'] = max_position_embeddings
     model = class_name(model_config=model_config).initialize_object()
-    model.eval()
     return model
 
 
-def synthetic_to_dataloader(dataset_config: dict):
+def make_synthetic_dataloader(dataset_config: dict):
     """
     """
     dataloader = LMDatasetHparams(use_synthetic=True,
@@ -63,32 +59,43 @@ def synthetic_to_dataloader(dataset_config: dict):
     return dataloader
 
 
-def synthetic_hf_state(model: ComposerTransformer, dataloader: Iterable, rank_zero_seed: int = 0):
+def model_components(config):
+    tokenizer = make_lm_tokenizer(config)
+    model = make_dummy_lm(config['tokenizer_family'], config['chars_per_sample'], tokenizer)
+    dataloader = make_synthetic_dataloader(config)
+    return model, dataloader
+
+
+@pytest.fixture(params=make_dataset_configs())
+def synthetic_hf_state(request) -> State:
     """
     An example state using synthetic HF transformer function which could used for testing purposes
     """
+    config = request.params
+    model, dataloader = model_components(config)
     state = State(
         model=model,
-        rank_zero_seed=rank_zero_seed,
+        rank_zero_seed=0,
         dataloader=dataloader,
         dataloader_label="train",
         max_duration='1ep',
     )
-    assert isinstance(state.dataloader, Iterable)
-    state.batch = next(iter(state.dataloader)).data
+
     return state
 
 
-@pytest.mark.parametrize("config", make_dataset_configs())
-def test_synthetic_hf_state(config: dict):
-    tokenizer = make_lm_tokenizer(config)
-    lm = make_dummy_lm(config['tokenizer_family'], config['chars_per_sample'], tokenizer)
-    dataloader = synthetic_to_dataloader(config)
+@pytest.fixture(params=make_dataset_configs())
+def test_synthetic_hf_state(synthetic_hf_state: State, request):
+    config = request.params
+    state = synthetic_hf_state
+    lm, dataloader = model_components(config)
+    assert isinstance(state.dataloader, Iterable)
     sample = next(iter(dataloader)).data
-    state = synthetic_hf_state(lm, dataloader)
+    state.batch = next(iter(state.dataloader)).data
     assert state.batch.keys() == sample.keys()
     for key in state.batch.keys():
         assert state.batch[key].size() == sample[key].size()
+    lm.eval()
     logits, labels = lm.validate(sample)
     assert hasattr(state, "batch")
     state_output = state.model(state.batch)
