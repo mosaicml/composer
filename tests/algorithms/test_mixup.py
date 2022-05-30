@@ -4,7 +4,7 @@
 import pytest
 import torch
 
-from composer.algorithms import MixUpHparams
+from composer.algorithms import MixUp
 from composer.algorithms.mixup.mixup import _gen_mixing_coef, mixup_batch
 from composer.core import Event
 from composer.models import ComposerClassifier
@@ -55,7 +55,7 @@ class TestMixUp:
         # Generate fake data
         x_fake, y_fake, _ = fake_data
 
-        algorithm = MixUpHparams(alpha=alpha, interpolate_loss=interpolate_loss).initialize_object()
+        algorithm = MixUp(alpha=alpha, interpolate_loss=interpolate_loss)
         state = minimal_state
         state.model = ComposerClassifier(torch.nn.Flatten())
         state.batch = (x_fake, y_fake)

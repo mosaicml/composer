@@ -48,8 +48,8 @@ class EarlyStopper(Callback):
 
     Args:
         monitor (str): The name of the metric to monitor.
-        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If 
-            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
+        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If
+            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If
             monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
             should be set to 'train' or 'eval' respectively.
         comp (Union[str, Callable[[Any, Any], Any]], optional): A comparison operator to measure change of the monitored metric. The comparison

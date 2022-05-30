@@ -1,18 +1,16 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import json
 import logging
 from typing import Optional
 
 import numpy as np
 
 from composer.core.types import Dataset
-from composer.datasets.webdataset_utils import init_webdataset_meta
 from composer.utils import MissingConditionalImportError
 
 try:
-    import ffcv  # type: ignore
+    import ffcv
     ffcv_installed = True
 except ImportError:
     ffcv_installed = False
@@ -53,11 +51,11 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
                        compress_probability: float = 0.50,
                        jpeg_quality: float = 90,
                        chunk_size: int = 100):
-    """Converts PyTorch ``dataset`` or webdataset at ``remote`` into FFCV format at filepath ``write_path``.
+    """Converts PyTorch ``dataset`` or streaming dataset at ``remote`` into FFCV format at filepath ``write_path``.
 
     Args:
         dataset (Iterable[Sample]): A PyTorch dataset. Default: ``None``.
-        remote (str): A remote path for webdataset. Default: ``None``.
+        remote (str): A remote path for a streaming dataset. Default: ``None``.
         write_path (str): Write results to this file. Default: ``"/tmp/dataset.ffcv"``.
         max_resolution (int): Limit resolution if provided. Default: ``None``.
         num_workers (int): Numbers of workers to use. Default: ``16``.
@@ -85,27 +83,4 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
     if dataset:
         writer.from_indexed_dataset(dataset, chunksize=chunk_size)
     elif remote is not None:
-        pipeline = lambda dataset: dataset.decode('pil').to_tuple('jpg', 'cls')
-
-        text = init_webdataset_meta(remote)
-
-        metadata = json.loads(text)
-        num_shards = metadata['n_shards']
-        if metadata['n_leftover'] > 0:
-            num_shards = num_shards + 1
-
-        if remote.startswith('s3://'):
-            urls = [f'pipe: aws s3 cp {remote}/{idx:05d}.tar -' for idx in range(num_shards)]
-        else:
-            urls = [f'{remote}/{idx:05d}.tar' for idx in range(num_shards)]
-
-        lengths = np.repeat(metadata['samples_per_shard'], metadata['n_shards'])
-        lengths = np.insert(lengths, 0, 0)
-        # we don't have n_leftover in the lengths array so we don't need to
-        # remove it from offsets.
-        offsets = np.cumsum(lengths)
-        todos = zip(urls, offsets)
-        total_len = metadata['samples_per_shard'] * metadata['n_shards'] + metadata['n_leftover']
-        # We call this internal API instead of writer.from_webdataset because with writer.from_webdataset
-        # FFCV downloads the whole dataset twice.
-        writer._write_common(total_len, todos, ffcv.writer.worker_job_webdataset, (pipeline,))
+        raise NotImplementedError("FFCV with remote datasets is not implemented")

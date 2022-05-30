@@ -37,7 +37,7 @@ model:
     use_pretrained: false
     tokenizer_name: bert-base-uncased
     pretrained_model_name: bert-base-uncased
-optimizer:
+optimizers:
   decoupled_adamw:
     lr: 5.0e-4
     betas:
@@ -48,12 +48,10 @@ optimizer:
 schedulers:
   - linear_decay_with_warmup:
       t_warmup: 0.06dur
-max_duration: 7ep # Baseline is 256M samples, 7 epochs is ~280M samples
+max_duration: 256_000_000
 train_batch_size: 4000
 eval_batch_size: 2000
 seed: 19
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   persistent_workers: true
@@ -61,5 +59,4 @@ dataloader:
   timeout: 0
   prefetch_factor: 2
 grad_accum: 2
-precision: amp
 eval_interval: 1000ba

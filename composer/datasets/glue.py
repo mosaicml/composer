@@ -18,7 +18,7 @@ Please refer to the `GLUE`_ benchmark for more details.
 
 import logging
 from dataclasses import dataclass
-from typing import cast
+from typing import Optional, cast
 
 import yahp as hp
 from torch.utils.data import DataLoader
@@ -64,10 +64,11 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
         DataLoader: A PyTorch :class:`~torch.utils.data.DataLoader` object.
     """
 
-    task: str = hp.optional(
+    task: Optional[str] = hp.optional(
         "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B.", default=None)
-    tokenizer_name: str = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.", default=None)
-    split: str = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
+    tokenizer_name: Optional[str] = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.",
+                                                default=None)
+    split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
     max_network_retries: int = hp.optional(default=10,
@@ -95,6 +96,9 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
         self.validate()
+        assert self.task is not None, "checked in validate()"
+        assert self.tokenizer_name is not None, "checked in validate()"
+
         if self.use_synthetic:
             column_names = [i for i in _task_to_keys[self.task] if i is not None]
 
@@ -137,7 +141,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             num_proc=None if dataloader_hparams.num_workers == 0 else dataloader_hparams.num_workers,
             batch_size=1000,
             remove_columns=columns_to_remove,
-            new_fingerprint=f"{self.task}-tokenization-{self.split}",
+            new_fingerprint=f"{self.task}-{self.tokenizer_name}-tokenization-{self.split}",
             load_from_cache_file=True,
         )
 

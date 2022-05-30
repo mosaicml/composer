@@ -91,7 +91,7 @@ class CheckpointSaver(Callback):
     .. note::
 
         If the ``folder`` argument is specified when constructing the :class:`.Trainer`, then the :class:`.CheckpointSaver`
-        callback need not be constructed manually. However, for advanced checkpointing use cases 
+        callback need not be constructed manually. However, for advanced checkpointing use cases
         (such as saving a weights-only checkpoint at one interval and the full training state
         at another interval), instance(s) of this :class:`.CheckpointSaver` callback can be specified in the
         ``callbacks`` argument of the :class:`.Trainer`, as shown in the example below.
@@ -168,7 +168,7 @@ class CheckpointSaver(Callback):
             *   The current epoch count is ``1``.
             *   The current batch count is ``42``.
 
-            When DeepSpeed is not being used, the rank zero process will save the checkpoint to 
+            When DeepSpeed is not being used, the rank zero process will save the checkpoint to
             ``"awesome-training-run/checkpoints/ep1-ba42-rank0"``.
 
             When DeepSpeed is being used, each rank (process) will save checkpoints to::
@@ -193,8 +193,8 @@ class CheckpointSaver(Callback):
             To disable logging trace files as file artifacts, set this parameter to ``None``.
         latest_filename (str, optional): A format string for a symlink which points to the last saved checkpoint.
             Default: ``'latest-rank{{rank}}'``.
-            
-            Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``. 
+
+            Symlinks will be created approximately at ``{{folder}}/{{latest_filename.format(...)}}``.
 
             The same format variables as for ``name`` are available.
 
@@ -245,7 +245,7 @@ class CheckpointSaver(Callback):
             If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
 
-        save_interval (:class:`.Time` | str | int | (:class:`.State`, :class:`.Event`) -> bool): A :class:`.Time`, time-string, integer (in epochs),
+        save_interval (Time | str | int | (State, Event) -> bool): A :class:`.Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
 
             If an integer, checkpoints will be saved every n epochs.

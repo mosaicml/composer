@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import pathlib
 import time
 from typing import Optional, Tuple
@@ -16,7 +19,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
                 batch_size: Optional[int]) -> Tuple[int, StreamingDataset]:
     dataset_map = {
         "ade20k": {
-            "remote": "s3://mosaicml-internal-dataset-ade20k/mds/",
+            "remote": "s3://mosaicml-internal-dataset-ade20k/mds/1/",
             "num_samples": {
                 "train": 20206,
                 "val": 2000,
@@ -24,7 +27,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
             "class": StreamingADE20k,
         },
         "imagenet1k": {
-            "remote": "s3://mosaicml-internal-dataset-imagenet1k/mds/",
+            "remote": "s3://mosaicml-internal-dataset-imagenet1k/mds/1/",
             "num_samples": {
                 "train": 1281167,
                 "val": 50000,
@@ -32,7 +35,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
             "class": StreamingImageNet1k
         },
         "coco": {
-            "remote": "s3://mosaicml-internal-dataset-coco/mds/",
+            "remote": "s3://mosaicml-internal-dataset-coco/mds/1/",
             "num_samples": {
                 "train": 117266,
                 "val": 4952,
@@ -52,17 +55,18 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
 
 @pytest.mark.remote()
 @pytest.mark.timeout(0)
+@pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize("name", [
     "ade20k",
     "imagenet1k",
-    pytest.param("coco", marks=pytest.mark.skip(reason="StreamingCOCO dataset needs to be debugged.")),
+    "coco",
 ])
 @pytest.mark.parametrize("split", ["val"])
-def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -> None:
+def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str) -> None:
 
     # Build StreamingDataset
     build_start = time.time()
-    expected_samples, dataset = get_dataset(name=name, local=str(tmpdir), split=split, shuffle=False, batch_size=None)
+    expected_samples, dataset = get_dataset(name=name, local=str(tmp_path), split=split, shuffle=False, batch_size=None)
     build_end = time.time()
     build_dur = build_end - build_start
     print("Built dataset")
@@ -89,13 +93,14 @@ def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -
 
 @pytest.mark.remote()
 @pytest.mark.timeout(0)
+@pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
 @pytest.mark.parametrize("name", [
     "ade20k",
     "imagenet1k",
-    pytest.param("coco", marks=pytest.mark.skip(reason="StreamingCOCO dataset needs to be debugged.")),
+    "coco",
 ])
 @pytest.mark.parametrize("split", ["val"])
-def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str) -> None:
+def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: str) -> None:
 
     # Data loading info
     shuffle = True
@@ -108,7 +113,7 @@ def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str
     # Build StreamingDataset
     ds_build_start = time.time()
     expected_samples, dataset = get_dataset(name=name,
-                                            local=str(tmpdir),
+                                            local=str(tmp_path),
                                             split=split,
                                             shuffle=shuffle,
                                             batch_size=batch_size)
@@ -133,8 +138,8 @@ def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str
     for epoch in range(3):
         rcvd_samples = 0
         epoch_start = time.time()
-        for _, (images, _) in enumerate(loader):
-            n_samples = images.shape[0]
+        for _, batch in enumerate(loader):
+            n_samples = batch[0].shape[0]
             rcvd_samples += n_samples
         epoch_end = time.time()
         epoch_dur = epoch_end - epoch_start

@@ -40,11 +40,17 @@ class TestHparamsCreate:
         hparams = TrainerHparams.create(hparams_file, cli_args=False)
         assert isinstance(hparams, TrainerHparams)
 
+    @pytest.mark.filterwarnings(
+        r"ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics"
+    )
     def test_trainer_initialize(self, hparams_file: str):
         if "timm" in hparams_file:
             pytest.importorskip("timm")
         if "vit" in hparams_file:
             pytest.importorskip("vit_pytorch")
+        if "glue/mnli.yaml" in hparams_file:
+            pytest.xfail(
+                "The max duration for MNLI, combined with the warmup period, results in a warmup duration of 0.")
         if hparams_file in ["unet.yaml"]:
             pytest.importorskip("monai")
 

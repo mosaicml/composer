@@ -1,11 +1,14 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import math
 import os
+import pathlib
 import shutil
 import time
 from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
-import py
 import pytest
 from torch.utils.data import DataLoader
 
@@ -14,10 +17,12 @@ from composer.utils import dist
 
 
 @pytest.fixture
-def remote_local(tmpdir: py.path.local) -> Tuple[str, str]:
-    remote = str(tmpdir.mkdir("remote"))
-    local = str(tmpdir.mkdir("local"))
-    return remote, local
+def remote_local(tmp_path: pathlib.Path) -> Tuple[str, str]:
+    remote = tmp_path / "remote"
+    local = tmp_path / "local"
+    remote.mkdir()
+    local.mkdir()
+    return str(remote), str(local)
 
 
 def get_fake_samples_decoders(num_samples: int) -> Tuple[List[Dict[str, bytes]], Dict[str, Callable[[bytes], Any]]]:
@@ -36,6 +41,7 @@ def write_synthetic_streaming_dataset(dirname: str, samples: List[Dict[str, byte
         writer.write_samples(samples=samples)
 
 
+@pytest.mark.timeout(10)
 @pytest.mark.parametrize("num_samples", [100, 10000])
 @pytest.mark.parametrize("shard_size_limit", [1 << 8, 1 << 16, 1 << 24])
 def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limit: int) -> None:
@@ -56,6 +62,7 @@ def test_writer(remote_local: Tuple[str, str], num_samples: int, shard_size_limi
     assert len(files) == expected_num_files, f"Files written ({len(files)}) != expected ({expected_num_files})."
 
 
+@pytest.mark.timeout(10)
 @pytest.mark.parametrize("batch_size", [None, 1, 2])
 @pytest.mark.parametrize("share_remote_local", [False, True])
 @pytest.mark.parametrize("shuffle", [False, True])
@@ -222,33 +229,43 @@ def test_dataloader_single_device(remote_local: Tuple[str, str], batch_size: int
 @pytest.mark.world_size(2)
 @pytest.mark.parametrize("batch_size", [4])
 @pytest.mark.parametrize("drop_last", [False, True])
+@pytest.mark.parametrize("multinode", [False, True])
 @pytest.mark.parametrize("num_samples", [30, 31])
 @pytest.mark.parametrize("num_workers", [1, 3])
 @pytest.mark.parametrize("shuffle", [False, True])
-def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, num_samples: int,
-                                 num_workers: int, shuffle: bool):
+def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int, drop_last: bool, multinode: bool,
+                                 num_samples: int, num_workers: int, shuffle: bool):
+
+    if multinode:
+        # Force different nodes
+        os.environ["LOCAL_RANK"] = str(0)
+        os.environ["NODE_RANK"] = str(dist.get_global_rank())
+        os.environ["LOCAL_WORLD_SIZE"] = str(1)
 
     global_device = dist.get_global_rank()
     global_num_devices = dist.get_world_size()
+    node_rank = dist.get_node_rank()
+
     assert batch_size % global_num_devices == 0
     device_batch_size = batch_size // global_num_devices
 
     shard_size_limit = 1 << 6
     samples, decoders = get_fake_samples_decoders(num_samples)
 
-    # Broadcast remote, local
+    # Create globally shared remote, and node-local folders
     remote_local_list = list(remote_local)
     dist.broadcast_object_list(remote_local_list)
     remote, local = remote_local_list
+    node_local = os.path.join(local, str(node_rank))
 
-    # Create dataset on device 0
+    # Create remote dataset on global device 0
     if global_device == 0:
         write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
     dist.barrier()
 
     # Build StreamingDataset
     dataset = StreamingDataset(remote=remote,
-                               local=local,
+                               local=node_local,
                                shuffle=shuffle,
                                decoders=decoders,
                                batch_size=device_batch_size)

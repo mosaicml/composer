@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import numpy as np
 import pytest
 import torch
@@ -6,7 +9,7 @@ from composer.utils import ensure_tuple
 
 
 def test_none_to_tuple():
-    assert ensure_tuple(None) == tuple()
+    assert ensure_tuple(None) == ()
 
 
 @pytest.mark.parametrize("x", ['test', b'test', bytearray(b'test')])

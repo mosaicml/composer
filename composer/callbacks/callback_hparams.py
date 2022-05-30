@@ -29,7 +29,11 @@ __all__ = [
     "MemoryMonitorHparams",
     "LRMonitorHparams",
     "SpeedMonitorHparams",
+    "EarlyStopperHparams",
     "CheckpointSaverHparams",
+    "ThresholdStopperHparams",
+    "MLPerfCallbackHparams",
+    "callback_registry",
 ]
 
 
@@ -130,8 +134,8 @@ class EarlyStopperHparams(CallbackHparams):
 
     Args:
         monitor (str): The name of the metric to monitor.
-        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If 
-            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
+        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If
+            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If
             monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
             should be set to 'train' or 'eval' respectively.
         comp (str, optional): A string dictating which comparison operator to use to measure
@@ -170,8 +174,8 @@ class ThresholdStopperHparams(CallbackHparams):
 
     Args:
         monitor (str): The name of the metric to monitor.
-        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If 
-            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If 
+        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If
+            monitor is in an Evaluator, the dataloader_label field should be set to the Evaluator's label. If
             monitor is a training metric or an ordinary evaluation metric not in an Evaluator, dataloader_label
             should be set to 'train' or 'eval' respectively.
         threshold (float): The threshold that dictates when to halt training. Whether training stops if the metric
@@ -228,7 +232,8 @@ class MLPerfCallbackHparams(CallbackHparams):
         status (str, optional): Submission status. One of (onprem, cloud, or preview).
             Default: ``"onprem"``.
         cache_clear_cmd (str, optional): Command to invoke during the cache clear. This callback
-            will call ``subprocess(cache_clear_cmd)``. Default is disabled (``None``).
+            will call ``subprocess(cache_clear_cmd)``. Default is disabled (``None``)
+        host_processors_per_node (int, optional): Total number of host processors per node.  Default: ``None``.
 
     """
 
@@ -252,6 +257,8 @@ class MLPerfCallbackHparams(CallbackHparams):
         "Command to invoke during the cache clear. This callback will call subprocess(cache_clear_cmd). Default: Disabled.",
         default=None,
     )
+    host_processors_per_node: Optional[int] = hp.optional(
+        "Total number of host processors per node.  Default: ``None``.", default=None)
 
     def initialize_object(self) -> MLPerfCallback:
         """Initialize the MLPerf Callback.
@@ -318,3 +325,15 @@ class CheckpointSaverHparams(CallbackHparams):
             weights_only=self.weights_only,
             num_checkpoints_to_keep=self.num_checkpoints_to_keep,
         )
+
+
+callback_registry = {
+    "checkpoint_saver": CheckpointSaverHparams,
+    "speed_monitor": SpeedMonitorHparams,
+    "lr_monitor": LRMonitorHparams,
+    "grad_monitor": GradMonitorHparams,
+    "memory_monitor": MemoryMonitorHparams,
+    "mlperf": MLPerfCallbackHparams,
+    "early_stopper": EarlyStopperHparams,
+    "threshold_stopper": ThresholdStopperHparams,
+}

@@ -18,7 +18,7 @@ from composer.utils import dist
 
 __all__ = ["ProgressBarLogger"]
 
-_IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['accuracy/val']}
+_IS_TRAIN_TO_KEYS_TO_LOG = {True: ['loss/train'], False: ['metrics/eval/Accuracy']}
 
 
 @dataclass
@@ -37,9 +37,9 @@ class _ProgressBarLoggerInstance:
         self.state = state
         self.pbar = tqdm.auto.tqdm(
             total=state.total,
-            desc=state.description,
             position=state.position,
-            bar_format="{l_bar}{bar:10}{r_bar}{bar:-10b}",
+            # Putting state.description in bar_format to avoid floating colons.
+            bar_format=f'{state.description} {{l_bar}}{{bar:25}}{{r_bar}}{{bar:-1b}}',
             file=file,
             dynamic_ncols=True,
         )
@@ -129,7 +129,8 @@ class ProgressBarLogger(LoggerDestination):
             elif stream.lower() == "stderr":
                 stream = sys.stderr
             else:
-                raise ValueError("Invalid stream option: Should be 'stdout', 'stderr', or a TextIO-like object.")
+                raise ValueError(
+                    f"Invalid stream option: Should be 'stdout', 'stderr', or a TextIO-like object; got {stream}")
         self.stream = stream
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:
@@ -157,10 +158,9 @@ class ProgressBarLogger(LoggerDestination):
         assert self.is_train is not None, "self.is_train should be set by the callback"
         assert state.dataloader_len is not None, "dataloader_len should be set when using tqdm"
 
-        desc = f'Epoch {int(state.timestamp.epoch)}'
+        split = 'train' if self.is_train else 'val'
+        desc = f'Epoch {int(state.timestamp.epoch):5d} {split:5s}'
         position = 0 if self.is_train else 1
-        if not self.is_train:
-            desc += f", Batch {int(state.timestamp.batch)} (val)"
         self.pbars[self.is_train] = _ProgressBarLoggerInstance(
             file=self.stream,
             state=_ProgressBarLoggerInstanceState(

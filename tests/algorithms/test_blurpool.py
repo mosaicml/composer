@@ -5,7 +5,6 @@
 
 Primitives are tested in test_blurpool.py
 """
-import itertools
 from typing import List, Sequence, Union
 from unittest.mock import Mock
 
@@ -28,7 +27,7 @@ class ConvModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        conv_args = dict(kernel_size=(3, 3), padding=1)
+        conv_args = {"kernel_size": (3, 3), "padding": 1}
         self.conv1 = torch.nn.Conv2d(in_channels=32, out_channels=8, stride=2, bias=False, **conv_args)  # stride > 1
         self.conv2 = torch.nn.Conv2d(in_channels=8, out_channels=32, stride=2, bias=False,
                                      **conv_args)  # stride > 1 but in_channels < 16
@@ -59,7 +58,15 @@ def state(minimal_state: State):
     return minimal_state
 
 
-@pytest.fixture(params=itertools.product([True, False], [True, False], [True, False]))
+@pytest.fixture(params=[
+    # replace_conv, replace_pool, blur_first
+    (True, True, True),
+    (True, True, False),
+    (True, False, True),
+    (True, False, False),
+    (False, True, True),
+    (False, True, False),
+])
 def blurpool_instance(request) -> BlurPool:
     replace_conv, replace_pool, blur_first = request.param
     return BlurPool(

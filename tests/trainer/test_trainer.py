@@ -4,9 +4,10 @@
 import collections.abc
 import contextlib
 import copy
+import datetime
 import os
-import pathlib
-from typing import Dict, List, Optional, Union
+import time
+from typing import List, Optional, Union
 
 import pytest
 import torch
@@ -14,29 +15,36 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 
-from composer import Trainer
-from composer.algorithms import CutOut, LabelSmoothing, algorithm_registry
+from composer import Callback, Evaluator, Trainer
+from composer.algorithms import CutOut, LabelSmoothing
 from composer.callbacks import LRMonitor
-from composer.core.callback import Callback
-from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
+from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.loggers import FileLogger, WandBLogger
 from composer.loggers.in_memory_logger import InMemoryLogger
+from composer.loggers.logger import Logger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
-from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import dist
-from composer.utils.object_store import ObjectStoreHparams
-from tests.algorithms.algorithm_settings import get_settings
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
+
+
+class SleepyCallback(Callback):
+
+    def __init__(self, sleep_duration: datetime.timedelta, event: Event) -> None:
+        self.sleep_duration = sleep_duration
+        self.event = event
+
+    def run_event(self, event: Event, state: State, logger: Logger) -> None:
+        if event == self.event:
+            time.sleep(self.sleep_duration.total_seconds())
 
 
 class TestTrainerInit():
@@ -59,8 +67,6 @@ class TestTrainerInit():
             model=model,
             loggers=[InMemoryLogger()],
             callbacks=[LRMonitor()],
-            progress_bar=False,
-            log_to_console=False,
         )
         assert isinstance(trainer.state.callbacks[0], InMemoryLogger)
         assert isinstance(trainer.state.callbacks[2], LRMonitor)
@@ -296,8 +302,6 @@ class TestTrainerInitOrFit:
             callbacks=[init_event_counter_callback],
             eval_subset_num_batches=eval_subset_num_batches,
             eval_interval=eval_interval,
-            progress_bar=False,
-            log_to_console=False,
         )
         init_trainer.fit()
 
@@ -308,8 +312,6 @@ class TestTrainerInitOrFit:
             max_duration=max_duration,
             train_dataloader=train_dataloader,
             callbacks=[fit_event_counter_callback],
-            progress_bar=False,
-            log_to_console=False,
         )
         fit_trainer.fit(
             eval_dataloader=eval_dataloader,
@@ -507,6 +509,82 @@ class TestTrainerInitOrFit:
 
         assert trainer.state.timestamp.get(max_duration.unit) == 2 * max_duration
 
+    @pytest.mark.timeout(10)
+    @pytest.mark.parametrize("eval_interval", ["1ba", "1ep"])
+    def test_eval_is_excluded_from_wct_tracking(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        eval_interval: str,
+    ):
+        # Construct the trainer with a callback that sleeps during evaluation
+        sleep_duration = datetime.timedelta(seconds=0.5)
+        sleepy_callback = SleepyCallback(
+            sleep_duration=sleep_duration,
+            event=Event.EVAL_AFTER_FORWARD,
+        )
+        event_counter_callback = EventCounterCallback()
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            train_subset_num_batches=2,  # make training fast
+            eval_dataloader=DataLoader(dataset=RandomClassificationDataset(), batch_size=2),
+            callbacks=[sleepy_callback, event_counter_callback],
+            eval_interval=eval_interval,
+            max_duration="2ep",
+            eval_subset_num_batches=1,
+        )
+
+        # Train
+        trainer.fit()
+
+        # Validate that eval was called
+        expected_num_evals = 4 if eval_interval == "1ba" else 2
+        assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_num_evals
+
+        # Validate the timestamps.
+        # Training duration should be less than the sleeping
+        assert trainer.state.timestamp.total_wct < sleep_duration * expected_num_evals
+        # The last evaluation duration should be at least as much as the sleeping
+        assert trainer.state.eval_timestamp.total_wct > sleep_duration
+
+    @pytest.mark.world_size(2)
+    def test_wct_consistency_across_ranks(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+    ):
+        """Test that the wct is the same across multiple ranks"""
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            max_duration="1ba",
+        )
+
+        trainer.fit()
+
+        # First check that the timestamp is non-zero
+        timestamp = trainer.state.timestamp
+        assert timestamp.total_wct.total_seconds() > 0
+        assert timestamp.epoch_wct.total_seconds() > 0
+        assert timestamp.batch_wct.total_seconds() > 0
+
+        # Validate it is the same across ranks
+        my_timestamp_tensor = torch.tensor([
+            timestamp.total_wct.total_seconds(),
+            timestamp.epoch_wct.total_seconds(),
+            timestamp.batch_wct.total_seconds(),
+        ],
+                                           dtype=torch.float64)
+        rank_zero_timestamp_tensor = torch.tensor([
+            timestamp.total_wct.total_seconds(),
+            timestamp.epoch_wct.total_seconds(),
+            timestamp.batch_wct.total_seconds(),
+        ],
+                                                  dtype=torch.float64)
+        dist.broadcast(rank_zero_timestamp_tensor, src=0)
+        assert torch.all(my_timestamp_tensor == rank_zero_timestamp_tensor)
+
     @pytest.mark.parametrize("unit", [TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.SAMPLE])
     def test_training_duration_unit(
         self,
@@ -554,6 +632,8 @@ class TestTrainerInitOrFit:
         else:
             raise ValueError(f"Unsupported unit: {unit}")
 
+        current_epoch_time = datetime.timedelta(seconds=0)
+
         # Train for one epoch, incrementally in steps of size `duration`
         for i in range(num_steps_per_epoch):
             # Train for `duration`
@@ -570,6 +650,7 @@ class TestTrainerInitOrFit:
             assert trainer.state.timestamp.sample == num_batches_trained * batch_size
             assert trainer.state.timestamp.token == 0  # tokens not tracked
             assert trainer.state.timestamp.token_in_epoch == 0  # tokens not tracked
+            assert trainer.state.timestamp.total_wct > current_epoch_time
 
             # Validate the event counter callback
             assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 1
@@ -584,6 +665,12 @@ class TestTrainerInitOrFit:
                 assert trainer.state.timestamp.sample_in_epoch == num_batches_trained * batch_size
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 0
+                assert trainer.state.timestamp.epoch_wct > current_epoch_time
+                assert trainer.state.timestamp.epoch_wct == trainer.state.timestamp.total_wct
+                if i > 0:
+                    assert trainer.state.timestamp.epoch_wct > trainer.state.timestamp.batch_wct
+                else:
+                    assert trainer.state.timestamp.epoch_wct == trainer.state.timestamp.batch_wct
             else:
                 # Finished the epoch
                 assert trainer.state.timestamp.epoch == 1
@@ -591,6 +678,10 @@ class TestTrainerInitOrFit:
                 assert trainer.state.timestamp.sample_in_epoch == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 1
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 1
+                assert trainer.state.timestamp.epoch_wct == datetime.timedelta(seconds=0)
+                assert trainer.state.timestamp.batch_wct == datetime.timedelta(seconds=0)
+
+            current_epoch_time = trainer.state.timestamp.total_wct
 
         # Train for a second epoch
         # Validate that batch_in_epoch / sample_in_epoch are reset properly
@@ -609,6 +700,8 @@ class TestTrainerInitOrFit:
             assert trainer.state.timestamp.sample == num_samples_per_epoch + num_batches_trained * batch_size
             assert trainer.state.timestamp.token == 0  # tokens not tracked
             assert trainer.state.timestamp.token_in_epoch == 0  # tokens not tracked
+            assert trainer.state.timestamp.total_wct > trainer.state.timestamp.batch_wct
+            assert trainer.state.timestamp.total_wct > trainer.state.timestamp.epoch_wct
 
             # Validate the event counter callback
             assert event_counter_callback.event_to_num_calls[Event.EPOCH_START] == 2
@@ -635,12 +728,12 @@ class TestTrainerInitOrFit:
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
-@pytest.mark.timeout(15)  # higher timeout as each model is trained twice
+@pytest.mark.timeout(15)  # higher timeout since each model is trained twice
 class TestTrainerEquivalence():
 
-    reference_model: torch.nn.Module
-    reference_folder: pathlib.Path
-    default_threshold: Dict[str, float]
+    default_threshold = {'atol': 0, 'rtol': 0}
+    reference_model = None
+    reference_folder = None
 
     def assert_models_equal(self, model_1, model_2, threshold=None):
         if threshold is None:
@@ -649,14 +742,6 @@ class TestTrainerEquivalence():
         assert model_1 is not model_2, "Same model should not be compared."
         for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
             torch.testing.assert_allclose(param1, param2, **threshold)
-
-    @pytest.fixture(autouse=True)
-    def set_default_threshold(self, device, precision, world_size):
-        """Sets the default threshold to 0.
-
-        Individual tests can override by passing thresholds directly to assert_models_equal.
-        """
-        self.default_threshold = {'atol': 0, 'rtol': 0}
 
     @pytest.fixture
     def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
@@ -681,11 +766,11 @@ class TestTrainerEquivalence():
         }
 
     @pytest.fixture(autouse=True)
-    def create_reference_model(self, config, tmpdir_factory, *args):
+    def create_reference_model(self, config, tmp_path_factory, *args):
         """Trains the reference model, and saves checkpoints."""
         config = copy.deepcopy(config)  # ensure the reference model is not passed to tests
 
-        save_folder = tmpdir_factory.mktemp("{device}-{precision}".format(**config))
+        save_folder = tmp_path_factory.mktemp("{device}-{precision}".format(**config))
         config.update({'save_interval': '1ep', 'save_folder': str(save_folder), 'save_filename': 'ep{epoch}.pt'})
 
         trainer = Trainer(**config)
@@ -816,193 +901,41 @@ class TestTrainerEvents():
             trainer.fit()
 
 
-@pytest.mark.timeout(15)
-class TestTrainerAssets:
-    """The below is a catch-all test that runs the Trainer with each algorithm, callback, and loggers. Success is
-    defined as a successful training run.
-
-    This should eventually be replaced by functional
-    tests for each object, in situ of our trainer.
-
-    We use the hparams_registry associated with our
-    config management to retrieve the objects to test.
-    """
-
-    @pytest.fixture(params=[1, 2], ids=['ga-1', 'ga-2'])
-    def config(self, rank_zero_seed: int, request):
-        grad_accum = request.param
-
-        return {
-            'model': SimpleConvModel(),
-            'train_dataloader': DataLoader(
-                dataset=RandomImageDataset(size=16),
-                batch_size=4,
-            ),
-            'eval_dataloader': DataLoader(
-                dataset=RandomImageDataset(size=16),
-                batch_size=4,
-            ),
-            'max_duration': '2ep',
-            'loggers': [],  # no progress bar
-            'seed': rank_zero_seed,
-            'grad_accum': grad_accum,
-        }
-
-    # Note: Not all algorithms, callbacks, and loggers are compatible
-    #       with the above configuration. The fixtures below filter and
-    #       create the objects to test.
-
-    @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
-    def callback(self, request):
-        name, hparams = request.param
-
-        if name == 'mlperf':
-            pytest.skip('mlperf callback tested separately.')
-
-        if name == 'early_stopper' or name == 'threshold_stopper':
-            pytest.skip('early_stopper and threshold_stopper callback tested separately.')
-
-        callback = hparams().initialize_object()
-
-        return callback
-
-    @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
-    def logger(self, request, tmpdir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-
-        name, hparams = request.param
-
-        remote_dir = str(tmpdir / "remote_dir")
-        os.makedirs(remote_dir)
-        local_dir = str(tmpdir / "local_dir")
-        os.makedirs(local_dir)
-        monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
-        provider_hparams = ObjectStoreHparams(
-            provider='local',
-            key_environ="OBJECT_STORE_KEY",
-            container=".",
-        )
-
-        required_args = {}
-        if name == 'wandb':
-            pytest.importorskip('wandb', reason='Required wandb')
-        if name == 'object_store':
-            required_args['object_store_hparams'] = provider_hparams
-            required_args['use_procs'] = False
-
-        if name == 'object_store_logger':
-            monkeypatch.setenv("KEY_ENVIRON", str(tmpdir))
-
-            logger = hparams(
-                provider='local',
-                container='.',
-                key_environ="KEY_ENVIRON",
-            ).initialize_object()
-        else:
-            logger = hparams(**required_args).initialize_object()
-
-        return logger
-
-    """
-    Tests that training completes.
-    """
-
-    def test_callbacks(self, config, callback):
-        config['callbacks'] = [callback]
-        trainer = Trainer(**config)
-        trainer.fit()
-
-    def test_loggers(self, config, logger):
-        config['loggers'] = [logger]
-        trainer = Trainer(**config)
-        trainer.fit()
-
-    """
-    Tests that training with multiple fits complete.
-    Note: future functional tests should test for
-    idempotency (e.g functionally)
-    """
-
-    def test_callbacks_multiple_calls(self, config, callback):
-        config['callbacks'] = [callback]
-        trainer = Trainer(**config)
-        self._test_multiple_fits(trainer)
-
-    def test_loggers_multiple_calls(self, config, logger):
-        if isinstance(logger, (FileLogger, WandBLogger)):
-            pytest.xfail("Cannot close/load multiple times yet.")
-        config['loggers'] = [logger]
-        trainer = Trainer(**config)
-        self._test_multiple_fits(trainer)
-
-    def _test_multiple_fits(self, trainer):
-        trainer.fit()
-        trainer.state.max_duration *= 2
-        trainer.fit()
-
-
-class TestTrainerAlgorithms:
-
-    @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
-    @pytest.mark.timeout(5)
-    @device('gpu')
-    def test_algorithm_trains(self, name: str, rank_zero_seed: int, device: str):
-        if name in ('no_op_model', 'scale_schedule'):
-            pytest.skip('stub algorithms')
-
-        if name in ('cutmix, mixup, label_smoothing'):
-            # see: https://github.com/mosaicml/composer/issues/362
-            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
-
-        setting = get_settings(name)
-        if setting is None:
-            pytest.xfail('No setting provided in algorithm_settings.')
-
-        trainer = Trainer(
-            model=setting['model'],
-            train_dataloader=DataLoader(dataset=setting['dataset'], batch_size=4),
-            max_duration='2ep',
-            loggers=[],
-            seed=rank_zero_seed,
-            device=device,
-        )
-        trainer.fit()
-
-        # fit again for another epoch
-        trainer.fit(duration='1ep')
-
-
 @pytest.mark.vision
 @pytest.mark.timeout(30)
 class TestFFCVDataloaders:
-    train_file: str
-    val_file: str
-    tmpdir: str
+
+    train_file = None
+    val_file = None
+    tmp_path = None
 
     @pytest.fixture(autouse=True)
-    def create_dataset(self, tmpdir_factory):
+    def create_dataset(self, tmp_path_factory: pytest.TempPathFactory):
         dataset_train = RandomImageDataset(size=16, is_PIL=True)
-        output_train_file = str(tmpdir_factory.mktemp("ffcv").join("train.ffcv"))
+        self.tmp_path = tmp_path_factory.mktemp("ffcv")
+        output_train_file = str(self.tmp_path / "train.ffcv")
         write_ffcv_dataset(dataset_train, write_path=output_train_file, num_workers=1, write_mode='proportion')
         dataset_val = RandomImageDataset(size=16, is_PIL=True)
-        tmp_dir = tmpdir_factory.mktemp("ffcv")
-        output_val_file = str(tmp_dir.join("val.ffcv"))
+        output_val_file = str(self.tmp_path / "val.ffcv")
         write_ffcv_dataset(dataset_val, write_path=output_val_file, num_workers=1, write_mode='proportion')
         self.train_file = output_train_file
         self.val_file = output_val_file
-        self.tmpdir = str(tmp_dir)
 
     def _get_dataloader(self, is_train):
+        assert self.tmp_path is not None
+        assert self.train_file is not None
+        assert self.val_file is not None
         dl_hparams = DataLoaderHparams(num_workers=0)
         ds_hparams = ImagenetDatasetHparams(is_train=is_train,
                                             use_ffcv=True,
-                                            ffcv_dir=self.tmpdir,
+                                            ffcv_dir=str(self.tmp_path),
                                             ffcv_dest=self.train_file if is_train else self.val_file)
         return ds_hparams.initialize_object(batch_size=4, dataloader_hparams=dl_hparams)
 
     @pytest.fixture
     def config(self):
         try:
-            import ffcv  # type: ignore
+            import ffcv
         except ImportError as e:
             raise ImportError(("Composer was installed without ffcv support. "
                                "To use ffcv with Composer, please install ffcv in your environment.")) from e

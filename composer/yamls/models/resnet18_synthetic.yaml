@@ -14,7 +14,7 @@ val_dataset:
     use_synthetic: true
     shuffle: true
     drop_last: true
-optimizer:
+optimizers:
   decoupled_sgdw:
     lr: 2.048
     momentum: 0.875
@@ -37,8 +37,6 @@ eval_batch_size: 1000
 train_subset_num_batches: 10
 eval_subset_num_batches: 10
 seed: 17
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
@@ -46,4 +44,3 @@ dataloader:
   persistent_workers: true
   num_workers: 8
 grad_accum: 1
-precision: amp

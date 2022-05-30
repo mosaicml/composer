@@ -8,7 +8,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from composer.algorithms import StochasticDepth, StochasticDepthHparams
+from composer.algorithms import StochasticDepth
 from composer.algorithms.stochastic_depth.sample_stochastic_layers import SampleStochasticBottleneck
 from composer.algorithms.stochastic_depth.stochastic_depth import _STOCHASTIC_LAYER_MAPPING, apply_stochastic_depth
 from composer.algorithms.stochastic_depth.stochastic_layers import StochasticBottleneck, _sample_bernoulli
@@ -69,15 +69,6 @@ def test_se_functional(state: State, stochastic_method: str, target_layer_name: 
     stochastic_block_count = module_surgery.count_module_instances(state.model, stochastic_layer)
 
     assert target_block_count == stochastic_block_count
-
-
-def test_stochastic_depth_hparams(stochastic_method: str, target_layer_name: str):
-    hparams = StochasticDepthHparams(
-        stochastic_method=stochastic_method,
-        target_layer_name=target_layer_name,
-    )
-    algorithm = hparams.initialize_object()
-    assert isinstance(algorithm, StochasticDepth)
 
 
 class TestSampleBernoulli:

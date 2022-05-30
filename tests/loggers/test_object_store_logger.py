@@ -9,8 +9,9 @@ import pytest
 
 from composer.core.event import Event
 from composer.core.state import State
-from composer.loggers import Logger, LogLevel, ObjectStoreLoggerHparams
-from composer.utils.object_store import ObjectStoreHparams
+from composer.loggers import Logger, LogLevel
+from composer.loggers.logger_hparams import ObjectStoreLoggerHparams
+from composer.utils.object_store import LibcloudObjectStoreHparams
 
 
 def my_filter_func(state: State, log_level: LogLevel, artifact_name: str):
@@ -18,20 +19,20 @@ def my_filter_func(state: State, log_level: LogLevel, artifact_name: str):
     return False
 
 
-def object_store_test_helper(tmpdir: pathlib.Path,
+def object_store_test_helper(tmp_path: pathlib.Path,
                              dummy_state: State,
                              monkeypatch: pytest.MonkeyPatch,
                              use_procs: bool = False,
                              overwrite: bool = True,
                              should_filter: bool = False):
-    remote_dir = str(tmpdir / "object_store")
+    remote_dir = str(tmp_path / "object_store")
 
     os.makedirs(remote_dir, exist_ok=True)
     monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
     provider = "local"
     container = "."
     hparams = ObjectStoreLoggerHparams(
-        object_store_hparams=ObjectStoreHparams(
+        object_store_hparams=LibcloudObjectStoreHparams(
             provider=provider,
             container=container,
             key_environ="OBJECT_STORE_KEY",
@@ -48,7 +49,7 @@ def object_store_test_helper(tmpdir: pathlib.Path,
     symlink_artifact_name = "latest_artifact"
     destination.run_event(Event.INIT, dummy_state, logger)
 
-    file_path = os.path.join(tmpdir, f"file")
+    file_path = os.path.join(tmp_path, f"file")
     with open(file_path, "w+") as f:
         f.write("1")
     logger.file_artifact(LogLevel.FIT, artifact_name, file_path, overwrite=overwrite)
@@ -56,7 +57,7 @@ def object_store_test_helper(tmpdir: pathlib.Path,
     # Add symlink to ``artifact_name``.
     logger.symlink_artifact(LogLevel.FIT, artifact_name, symlink_artifact_name, overwrite=overwrite)
 
-    file_path_2 = os.path.join(tmpdir, f"file_2")
+    file_path_2 = os.path.join(tmp_path, f"file_2")
     with open(file_path_2, "w+") as f:
         f.write("2")
 
@@ -89,7 +90,7 @@ def object_store_test_helper(tmpdir: pathlib.Path,
 
     if not should_filter:
         # Test downloading artifact
-        download_path = os.path.join(tmpdir, "download")
+        download_path = os.path.join(tmp_path, "download")
         destination.get_file_artifact(artifact_name, download_path)
         with open(download_path, "r") as f:
             assert f.read() == "1" if not overwrite else "2"
@@ -111,16 +112,16 @@ def object_store_test_helper(tmpdir: pathlib.Path,
 
 
 @pytest.mark.timeout(15)
-def test_object_store_logger_use_procs(tmpdir: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
-    object_store_test_helper(tmpdir=tmpdir, dummy_state=dummy_state, monkeypatch=monkeypatch, use_procs=True)
+def test_object_store_logger_use_procs(tmp_path: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
+    object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, monkeypatch=monkeypatch, use_procs=True)
 
 
 @pytest.mark.timeout(15)
 @pytest.mark.filterwarnings(r"ignore:((.|\n)*)FileExistsError((.|\n)*):pytest.PytestUnhandledThreadExceptionWarning")
-def test_object_store_logger_no_overwrite(tmpdir: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
-    object_store_test_helper(tmpdir=tmpdir, dummy_state=dummy_state, monkeypatch=monkeypatch, overwrite=False)
+def test_object_store_logger_no_overwrite(tmp_path: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
+    object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, monkeypatch=monkeypatch, overwrite=False)
 
 
-def test_object_store_logger_should_log_artifact_filter(tmpdir: pathlib.Path, dummy_state: State,
+def test_object_store_logger_should_log_artifact_filter(tmp_path: pathlib.Path, dummy_state: State,
                                                         monkeypatch: pytest.MonkeyPatch):
-    object_store_test_helper(tmpdir=tmpdir, dummy_state=dummy_state, monkeypatch=monkeypatch, should_filter=True)
+    object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, monkeypatch=monkeypatch, should_filter=True)

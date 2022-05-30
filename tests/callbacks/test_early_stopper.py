@@ -1,59 +1,22 @@
-from typing import List, Optional, Sequence
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+from typing import List
 
 import pytest
-from torch import tensor
 from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.callbacks.early_stopper import EarlyStopper
-from composer.core import State
-from composer.core.callback import Callback
 from composer.core.time import Time, TimeUnit
-from composer.loggers import Logger
-from composer.trainer.devices.device import Device
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU
 from tests.common import RandomClassificationDataset, SimpleModel, device
-
-
-class TestMetricSetter(Callback):
-
-    def __init__(self,
-                 monitor: str,
-                 dataloader_label: str,
-                 metric_sequence: Sequence,
-                 unit: TimeUnit,
-                 device: Optional[Device] = None):
-        self.monitor = monitor
-        self.dataloader_label = dataloader_label
-        self.metric_sequence = metric_sequence
-        self.unit = unit
-        self.device = device
-
-    def _update_metrics(self, state: State):
-        idx = min(len(self.metric_sequence) - 1, state.timestamp.get(self.unit).value)
-        metric_val = self.metric_sequence[idx]
-        state.current_metrics[self.dataloader_label] = state.current_metrics.get(self.dataloader_label, dict())
-        metric_tensor = tensor(metric_val)
-        if self.device is not None:
-            self.device.tensor_to_device(metric_tensor)
-        state.current_metrics[self.dataloader_label][self.monitor] = metric_tensor
-
-    def eval_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label == state.dataloader_label:
-            self._update_metrics(state)
-
-    def epoch_end(self, state: State, logger: Logger) -> None:
-        if self.dataloader_label == state.dataloader_label:
-            self._update_metrics(state)
-
-    def batch_end(self, state: State, logger: Logger) -> None:
-        if self.unit == TimeUnit.BATCH and self.dataloader_label == state.dataloader_label:
-            self._update_metrics(state)
+from tests.metrics import MetricSetterCallback
 
 
 @device('cpu', 'gpu')
-@pytest.mark.timeout(5)
+@pytest.mark.timeout(10)
 @pytest.mark.parametrize('metric_sequence', [[0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.2, 1.3], [0.1, 0.2]])
 @pytest.mark.parametrize('unit', [TimeUnit.EPOCH, TimeUnit.BATCH])
 def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str):
@@ -67,7 +30,7 @@ def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str
 
     early_stopper = EarlyStopper("Accuracy", dataloader_label, patience=Time(3, unit))
 
-    test_metric_setter = TestMetricSetter("Accuracy", dataloader_label, metric_sequence, unit, test_device)
+    test_metric_setter = MetricSetterCallback("Accuracy", dataloader_label, metric_sequence, unit, test_device)
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),
