@@ -858,7 +858,7 @@ class AssertDataAugmented(Callback):
         if state.grad_accum != 1:
             raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
         batch_idx = state.timestamp.batch_in_epoch.value
-        batch_size = state.batch_num_samples
+        batch_size = len(state.batch[0])
         original_batch = self.dataset[batch_idx:batch_idx + batch_size]
         original_outputs = state.model(original_batch)
 
