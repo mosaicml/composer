@@ -36,6 +36,21 @@ pre-commit run isort --all-files  # for isort
 The configuration is stored in [pyproject.toml](pyproject.toml).
 
 
+### 2.4. Code Structure
+
+As a general rule of thumb,
+
+- Don't: use classes to make code look more like an outline
+
+  Do: include only code that relies on an object's state or internals within the class
+- Don't: Default to using inheritance for code reuse
+
+  Do: prefer [composition over inheritance](https://en.wikipedia.org/wiki/Composition_over_inheritance)
+- Don't: strive to implement all logic using classes
+
+  Do: strive to implement logic as pure functions when possible, and classes when there is good reason
+
+
 ## 3. Type Annotations and Typechecking
 
 Composer aims to annotate all functions with type annotations (introduced in
