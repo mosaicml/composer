@@ -78,23 +78,23 @@ class AdamHparams(OptimizerHparams):
 
 @dataclass
 class RAdamHparams(OptimizerHparams):
-    """Hyperparameters for the :class:`~torch.optim.RAdam` optimizer.
+    """Hyperparameters for the :class:`~torch_optimizer.RAdam` optimizer.
 
-    See :class:`~torch.optim.RAdam` for documentation.
+    See :class:`~torch_optimizer.RAdam` for documentation.
 
     Args:
-        lr (float, optional): See :class:`~torch.optim.RAdam`.
-        betas (float, optional): See :class:`~torch.optim.RAdam`.
-        eps (float, optional): See :class:`~torch.optim.RAdam`.
-        weight_decay (float, optional): See :class:`~torch.optim.RAdam`.
+        lr (float, optional): See :class:`~torch_optimizer.RAdam`.
+        betas (float, optional): See :class:`~torch_optimizer.RAdam`.
+        eps (float, optional): See :class:`~torch_optimizer.RAdam`.
+        weight_decay (float, optional): See :class:`~torch_optimizer.RAdam`.
     """
 
     optimizer_cls = torch_optimizer.RAdam
 
-    lr: float = hp.auto(torch.optim.RAdam, "lr", ignore_docstring_errors=True)
-    betas: List[float] = hp.auto(torch.optim.RAdam, "betas", ignore_docstring_errors=True)
-    eps: float = hp.auto(torch.optim.RAdam, "eps", ignore_docstring_errors=True)
-    weight_decay: float = hp.auto(torch.optim.RAdam, "weight_decay", ignore_docstring_errors=True)
+    lr: float = hp.auto(torch_optimizer.RAdam, "lr", ignore_docstring_errors=True)
+    betas: List[float] = hp.auto(torch_optimizer.RAdam, "betas", ignore_docstring_errors=True)
+    eps: float = hp.auto(torch_optimizer.RAdam, "eps", ignore_docstring_errors=True)
+    weight_decay: float = hp.auto(torch_optimizer.RAdam, "weight_decay", ignore_docstring_errors=True)
 
 
 @dataclass
