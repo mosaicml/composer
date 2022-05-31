@@ -279,6 +279,7 @@ Composer uses [Google Style Docstrings](https://sphinxcontrib-napoleon.readthedo
 
 The following guidelines apply to documentation.
 1.  Each function that needs a docstring must have its input arguments and return statement (if not None) annotated.
+1.  The arguments for the `__init__` signature of classes should be documented under the class-level docstring. There should not be any `__init__`-level docstring.
 1.  Each argument annotation should include the type. If the argument has a default value, the type annotation should
     specify "optional", and the docstring should say the default value. Some examples:
 
