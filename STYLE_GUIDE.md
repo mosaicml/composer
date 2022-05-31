@@ -39,8 +39,13 @@ The configuration is stored in [pyproject.toml](pyproject.toml).
 ## 3. Type Annotations and Typechecking
 
 Composer aims to annotate all functions with type annotations (introduced in
-[PEP 526](https://www.python.org/dev/peps/pep-0526/). Type annotations help statically catch `TypeError` and
+[PEP 526](https://www.python.org/dev/peps/pep-0526/)). Type annotations help statically catch `TypeError` and
 `AttributeError` bugs, in addition to other benefits, as outlined in the PEP.
+
+For documentation on typing annotations, see:
+* [PEP 483](https://peps.python.org/pep-0483/) for a simplified introducation
+* [PEP 484](https://peps.python.org/pep-0484/) for the full specification
+* [Python docs for `typing`](https://docs.python.org/3/library/typing.html) for the API reference
 
 Composer uses [pyright](https://github.com/microsoft/pyright)
 to validate type annotations. PyRight is automatically run as part of the pre-commit hooks, but you can also
