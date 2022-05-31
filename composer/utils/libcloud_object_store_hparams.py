@@ -7,12 +7,12 @@ from typing import Any, Dict, Optional
 
 import yahp as hp
 
-from composer.utils.object_store import ObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 
 @dataclasses.dataclass
-class ObjectStoreHparams(hp.Hparams):
-    """:class:`~composer.utils.object_store.ObjectStore` hyperparameters.
+class LibcloudObjectStoreHparams(hp.Hparams):
+    """:class:`~composer.utils.libcloud_object_store.LibcloudObjectStore` hyperparameters.
 
     .. rubric:: Example
 
@@ -22,17 +22,17 @@ class ObjectStoreHparams(hp.Hparams):
     * The AWS Access Key ID is stored in an environment variable named ``AWS_ACCESS_KEY_ID``.
     * The Secret Access Key is in an environmental variable named ``AWS_SECRET_ACCESS_KEY``.
 
-    .. testsetup:: composer.utils.object_store.ObjectStoreHparams.__init__.s3
+    .. testsetup:: composer.utils.libcloud_object_store.LibcloudObjectStoreHparams.__init__.s3
 
         import os
 
         os.environ["AWS_ACCESS_KEY_ID"] = "key"
         os.environ["AWS_SECRET_ACCESS_KEY"] = "secret"
 
-    .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.s3
+    .. doctest:: composer.utils.libcloud_object_store.LibcloudObjectStoreHparams.__init__.s3
 
-        >>> from composer.utils import ObjectStoreHparams
-        >>> provider_hparams = ObjectStoreHparams(
+        >>> from composer.utils import LibcloudObjectStoreHparams
+        >>> provider_hparams = LibcloudObjectStoreHparams(
         ...     provider="s3",
         ...     container="MY_CONTAINER",
         ...     key_environ="AWS_ACCESS_KEY_ID",
@@ -40,12 +40,12 @@ class ObjectStoreHparams(hp.Hparams):
         ... )
         >>> provider = provider_hparams.initialize_object()
         >>> provider
-        <composer.utils.object_store.ObjectStore object at ...>
+        <composer.utils.libcloud_object_store.LibcloudObjectStore object at ...>
 
     Args:
         provider (str): Cloud provider to use.
 
-            See :class:`ObjectStore` for documentation.
+            See :class:`LibcloudObjectStore` for documentation.
         container (str): The name of the container (i.e. bucket) to use.
         key_environ (str, optional): The name of an environment variable containing the API key or username
             to use to connect to the provider. If no key is required, then set this field to ``None``.
@@ -55,19 +55,19 @@ class ObjectStoreHparams(hp.Hparams):
             For example, if your key is an environment variable called ``OBJECT_STORE_KEY`` that is set to ``MY_KEY``,
             then you should set this parameter equal to ``OBJECT_STORE_KEY``. Composer will read the key like this:
 
-            .. testsetup::  composer.utils.object_store.ObjectStoreHparams.__init__.key
+            .. testsetup::  composer.utils.libcloud_object_store.LibcloudObjectStoreHparams.__init__.key
 
                 import os
                 import functools
-                from composer.utils import ObjectStoreHparams
+                from composer.utils import LibcloudObjectStoreHparams
 
                 os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
-                ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")
+                LibcloudObjectStoreHparams = functools.partial(LibcloudObjectStoreHparams, provider="s3", container="container")
 
-            .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.key
+            .. doctest:: composer.utils.libcloud_object_store.LibcloudObjectStoreHparams.__init__.key
 
                 >>> import os
-                >>> params = ObjectStoreHparams(key_environ="OBJECT_STORE_KEY")
+                >>> params = LibcloudObjectStoreHparams(key_environ="OBJECT_STORE_KEY")
                 >>> key = os.environ[params.key_environ]
                 >>> key
                 'MY_KEY'
@@ -79,21 +79,21 @@ class ObjectStoreHparams(hp.Hparams):
             For example, if your secret is an environment variable called ``OBJECT_STORE_SECRET`` that is set to ``MY_SECRET``,
             then you should set this parameter equal to ``OBJECT_STORE_SECRET``. Composer will read the secret like this:
 
-            .. testsetup:: composer.utils.object_store.ObjectStoreHparams.__init__.secret
+            .. testsetup:: composer.utils.libcloud_object_store.LibcloudObjectStoreHparams.__init__.secret
 
                 import os
                 import functools
-                from composer.utils import ObjectStoreHparams
+                from composer.utils import LibcloudObjectStoreHparams
 
                 original_secret = os.environ.get("OBJECT_STORE_SECRET")
                 os.environ["OBJECT_STORE_SECRET"] = "MY_SECRET"
-                ObjectStoreHparams = functools.partial(ObjectStoreHparams, provider="s3", container="container")
+                LibcloudObjectStoreHparams = functools.partial(LibcloudObjectStoreHparams, provider="s3", container="container")
 
 
-            .. doctest:: composer.utils.object_store.ObjectStoreHparams.__init__.secret
+            .. doctest:: composer.utils.libcloud_object_store.LibcloudObjectStoreHparams.__init__.secret
 
                 >>> import os
-                >>> params = ObjectStoreHparams(secret_environ="OBJECT_STORE_SECRET")
+                >>> params = LibcloudObjectStoreHparams(secret_environ="OBJECT_STORE_SECRET")
                 >>> secret = os.environ[params.secret_environ]
                 >>> secret
                 'MY_SECRET'
@@ -109,8 +109,8 @@ class ObjectStoreHparams(hp.Hparams):
 
     """
 
-    provider: str = hp.auto(ObjectStore, "provider")
-    container: str = hp.auto(ObjectStore, "container")
+    provider: str = hp.auto(LibcloudObjectStore, "provider")
+    container: str = hp.auto(LibcloudObjectStore, "container")
     key_environ: Optional[str] = hp.optional(("The name of an environment variable containing "
                                               "an API key or username to use to connect to the provider."),
                                              default=None)
@@ -124,10 +124,10 @@ class ObjectStoreHparams(hp.Hparams):
         "Extra keyword arguments to pass into the constructor for the specified provider.", default_factory=dict)
 
     def get_provider_kwargs(self) -> Dict[str, Any]:
-        """Returns the ``provider_kwargs`` argument, which is used to construct a :class:`.ObjectStore`.
+        """Returns the ``provider_kwargs`` argument, which is used to construct a :class:`.LibcloudObjectStore`.
 
         Returns:
-            Dict[str, Any]: The ``provider_kwargs`` for use in constructing an :class:`.ObjectStore`.
+            Dict[str, Any]: The ``provider_kwargs`` for use in constructing an :class:`.LibcloudObjectStore`.
         """
         init_kwargs = {}
         for key in ("host", "port", "region"):
@@ -140,13 +140,13 @@ class ObjectStoreHparams(hp.Hparams):
         return init_kwargs
 
     def initialize_object(self):
-        """Returns an instance of :class:`.ObjectStore`.
+        """Returns an instance of :class:`.LibcloudObjectStore`.
 
         Returns:
-            ObjectStore: The object_store.
+            LibcloudObjectStore: The object_store.
         """
 
-        return ObjectStore(
+        return LibcloudObjectStore(
             provider=self.provider,
             container=self.container,
             provider_kwargs=self.get_provider_kwargs(),

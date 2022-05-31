@@ -29,7 +29,7 @@ from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, is_tar
 from composer.utils.iter_helpers import ensure_tuple
-from composer.utils.object_store_hparams import ObjectStoreHparams
+from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
 from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
                           configure_model_hparams_for_synthetic, deep_compare, device)
 
@@ -348,7 +348,7 @@ def test_checkpoint_with_object_store_logger(
     provider = "local"
     container = '.'
     monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
-    object_store_hparams = ObjectStoreHparams(
+    object_store_hparams = LibcloudObjectStoreHparams(
         provider=provider,
         container=container,
         key_environ="OBJECT_STORE_KEY",

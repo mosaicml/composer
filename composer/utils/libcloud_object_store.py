@@ -11,18 +11,18 @@ from typing import Any, Dict, Iterator, Optional, Union
 from libcloud.storage.providers import get_driver
 from libcloud.storage.types import ObjectDoesNotExistError
 
-__all__ = ["ObjectStore"]
+__all__ = ["LibcloudObjectStore"]
 
 
-class ObjectStore:
+class LibcloudObjectStore:
     """Utility for uploading to and downloading from object (blob) stores, such as Amazon S3.
 
     .. rubric:: Example
 
     Here's an example for an Amazon S3 bucket named ``MY_CONTAINER``:
 
-    >>> from composer.utils import ObjectStore
-    >>> object_store = ObjectStore(
+    >>> from composer.utils import LibcloudObjectStore
+    >>> object_store = LibcloudObjectStore(
     ...     provider="s3",
     ...     container="MY_CONTAINER",
     ...     provider_kwargs={
@@ -31,7 +31,7 @@ class ObjectStore:
     ...     }
     ... )
     >>> object_store
-    <composer.utils.object_store.ObjectStore object at ...>
+    <composer.utils.object_store.LibcloudObjectStore object at ...>
 
     Args:
         provider (str): Cloud provider to use. Valid options are:
