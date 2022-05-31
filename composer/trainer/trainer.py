@@ -42,7 +42,7 @@ from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collec
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.object_store import ObjectStore
+from composer.utils.object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 def _raise_missing_argument_exception(arg_name: str):
     raise ValueError((f"{arg_name} is a required argument and must be specified when constructing the "
                       f"{Trainer.__name__} or when calling {Trainer.__name__}.{Trainer.fit.__name__}(). "
-                      f"To fix, please specify `arg_name` via {Trainer.__name__}({arg_name}=...) or "
+                      f"To fix, please specify `{arg_name}` via {Trainer.__name__}({arg_name}=...) or "
                       f"{Trainer.__name__}.{Trainer.fit.__name__}({arg_name}=...)."))
 
 
@@ -442,8 +442,8 @@ class Trainer:
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
-            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
+        load_object_store (Union[LibcloudObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
+            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.LibcloudObjectStore` or
             :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
             (default: ``None``)
@@ -459,12 +459,12 @@ class Trainer:
             .. testcode::
 
                 from composer import Trainer
-                from composer.utils import ObjectStore
+                from composer.utils import LibcloudObjectStore
 
                 # Create the object store provider with the specified credentials
                 creds = {"key": "object_store_key",
                          "secret": "object_store_secret"}
-                store = ObjectStore(provider="s3",
+                store = LibcloudObjectStore(provider="s3",
                                             container="my_container",
                                             provider_kwargs=creds)
 
@@ -489,7 +489,7 @@ class Trainer:
                 trainer.engine.close()
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
-        load_strict (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
+        load_strict_model_weights (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
             Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
@@ -668,9 +668,9 @@ class Trainer:
 
         # Load Checkpoint
         load_path: Optional[str] = None,
-        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+        load_object_store: Optional[Union[LibcloudObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
-        load_strict: bool = False,
+        load_strict_model_weights: bool = False,
         load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
 
@@ -944,7 +944,7 @@ class Trainer:
                                               path=load_path,
                                               object_store=load_object_store,
                                               load_weights_only=load_weights_only,
-                                              strict_model_weights=load_strict,
+                                              strict_model_weights=load_strict_model_weights,
                                               chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
             log.info(f"Setting seed to {self.state.seed}")
@@ -1427,8 +1427,8 @@ class Trainer:
 
                     self.state.batch = self._device.batch_to_device(self.state.batch)
                     self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
-                    self.state.batch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-                    self.state.batch_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
+                    rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
+                    rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
                     if self.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
@@ -1443,9 +1443,6 @@ class Trainer:
                                 self.train_metrics.update(*self._original_model.validate(eval_microbatch))
 
                     self.state.model.train()
-
-                    rank_num_samples = self.state.batch_num_samples
-                    rank_num_tokens = self.state.batch_num_tokens
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
@@ -1568,16 +1565,6 @@ class Trainer:
                     log_level=log_level,
                 )
 
-    def _handle_cuda_oom(self):
-        """Handles CUDA Out of Memory and rescales if using adaptive grad_accum."""
-        # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
-        if self.state.grad_accum == self.state.batch_num_samples:
-            raise RuntimeError(("CUDA out of memory. The train loop failed with an internal microbatch of size 1."
-                                "The GPU does not have enough memory to process even 1 sample."))
-        else:
-            self.state.grad_accum = min(2 * self.state.grad_accum, self.state.batch_num_samples)
-            self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
-
     def _train_batch(self, use_grad_scaling: bool):
         """Compute loss by training on a full batch of data. Adaptively change microbatch size if enabled to maximize
         GPU usage.
@@ -1637,7 +1624,15 @@ class Trainer:
             if int(should_handle_cuda_oom.item()) == 1:
                 # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
                 # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
-                self._handle_cuda_oom()
+                # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
+                device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
+                if self.state.grad_accum == device_batch_size:
+                    raise RuntimeError(
+                        ("CUDA out of memory. The train loop failed with an internal microbatch of size 1."
+                         "The GPU does not have enough memory to process even 1 sample."))
+                else:
+                    self.state.grad_accum = min(2 * self.state.grad_accum, device_batch_size)
+                    self.logger.data_batch({'trainer/grad_accum': self.state.grad_accum})
             elif caught_timeout_error:
                 # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
                 # back only to this newly raised error.
@@ -1807,16 +1802,16 @@ class Trainer:
             self.engine.run_event(Event.PREDICT_START)
 
             for self.state.batch in self._iter_dataloader():
-                # Update the batch size and num tokens
-                self.state.batch_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
-                self.state.batch_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
-
                 # Move the batch onto the device
                 self.state.batch = self._device.batch_to_device(self.state.batch)
 
                 # Perform any device transforms
                 if data_spec.device_transforms is not None:
                     self.state.batch = data_spec.device_transforms(self.state.batch)
+
+                # Count the batch size and num tokens before any events run
+                rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
+                rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
                 # Fix the batch if using DeepSpeed
                 if self.deepspeed_enabled:
@@ -1832,8 +1827,8 @@ class Trainer:
                 batch_time = now - last_wct
 
                 total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
-                    num_samples=self.state.batch_num_samples,
-                    num_tokens=self.state.batch_num_tokens,
+                    num_samples=rank_num_samples,
+                    num_tokens=rank_num_tokens,
                     batch_time=batch_time,
                 )
 
@@ -1926,8 +1921,10 @@ class Trainer:
                 self.state.batch = self._device.batch_to_device(self.state.batch)
                 if data_spec.device_transforms is not None:
                     self.state.batch = data_spec.device_transforms(self.state.batch)
-                self.state.batch_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
-                self.state.batch_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
+
+                # Count the batch size and num tokens before any events run
+                rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
+                rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
                 if self.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
@@ -1945,8 +1942,8 @@ class Trainer:
                 batch_time = now - last_wct
 
                 total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
-                    num_samples=self.state.batch_num_samples,
-                    num_tokens=self.state.batch_num_tokens,
+                    num_samples=rank_num_samples,
+                    num_tokens=rank_num_tokens,
                     batch_time=batch_time,
                 )
 

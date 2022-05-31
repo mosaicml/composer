@@ -106,7 +106,7 @@ class TestScaleScheduleTrainer():
         composer_trainer_hparams: TrainerHparams,
     ):
 
-        composer_trainer_hparams.optimizer = SGDHparams(lr=1.0)
+        composer_trainer_hparams.optimizers = SGDHparams(lr=1.0)
         composer_trainer_hparams.max_duration = '10ep'
         composer_trainer_hparams.schedulers = [MultiStepSchedulerHparams(milestones=['30ba', '50ba'], gamma=0.1)]
 

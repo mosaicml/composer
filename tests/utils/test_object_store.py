@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from composer.utils.object_store import ObjectStoreHparams
+from composer.utils.object_store import LibcloudObjectStoreHparams
 
 
 def test_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
@@ -15,7 +15,7 @@ def test_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     local_dir = str(tmp_path / "local_dir")
     os.makedirs(local_dir)
     monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
-    provider_hparams = ObjectStoreHparams(
+    provider_hparams = LibcloudObjectStoreHparams(
         provider='local',
         key_environ="OBJECT_STORE_KEY",
         container=".",

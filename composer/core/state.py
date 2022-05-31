@@ -105,8 +105,6 @@ class State(Serializable):
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
-        batch_num_samples (int): The number of samples in the :attr:`batch`.
-        batch_num_tokens (int): The number of tokens in the :attr:`batch`.
         current_metrics (Dict[str, Dict[str, Any]]): The current computed metrics, organized by dataloader label
             and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
             the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
@@ -266,8 +264,6 @@ class State(Serializable):
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
-        self.batch_num_samples = 0
-        self.batch_num_tokens = 0
         self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
@@ -347,7 +343,7 @@ class State(Serializable):
         See batch_get in `utils/batch_helpers.py` for examples.
 
         Args:
-            key (str, int, or Callable): A key to index into the batch or a
+            key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a
                 user-specified function to do the extracting. A pair of callables is also
                 supported for cases where a get and set function pair are both passed
                 (like in Algorithms). The getter is assumed to be the first of the pair.
@@ -368,7 +364,7 @@ class State(Serializable):
         See batch_set in `utils/batch_helpers.py` for examples.
 
         Args:
-            key (str, int, or Callable): A key to index into the batch or a user-specified
+            key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a user-specified
                 function to do the setting. A pair of callables is also supported for
                 cases where a get and set function pair are both passed (like in
                 Algorithms). The setter is assumed to be the second of the pair.

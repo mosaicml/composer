@@ -13,7 +13,7 @@ import shutil
 import sys
 import tempfile
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
@@ -28,6 +28,12 @@ class WandBLogger(LoggerDestination):
     """Log to Weights and Biases (https://wandb.ai/)
 
     Args:
+        project (str, optional): WandB project name.
+        group (str, optional): WandB group name.
+        name (str, optional): WandB run name.
+            If not specified, the :attr:`.Logger.run_name` will be used.
+        entity (str, optional): WandB entity name.
+        tags (List[str], optional): WandB tags.
         log_artifacts (bool, optional): Whether to log
             `artifacts <https://docs.wandb.ai/ref/python/artifact>`_ (Default: ``False``).
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
@@ -36,15 +42,22 @@ class WandBLogger(LoggerDestination):
             stored, which may discard pertinent information. For example, when using
             Deepspeed ZeRO, it would be impossible to restore from checkpoints without
             artifacts from all ranks (default: ``False``).
-        init_params (Dict[str, Any], optional): Parameters to pass into
+        init_kwargs (Dict[str, Any], optional): Any additional init kwargs
             ``wandb.init`` (see
             `WandB documentation <https://docs.wandb.ai/ref/python/init>`_).
     """
 
-    def __init__(self,
-                 log_artifacts: bool = False,
-                 rank_zero_only: bool = True,
-                 init_params: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        project: Optional[str] = None,
+        group: Optional[str] = None,
+        name: Optional[str] = None,
+        entity: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        log_artifacts: bool = False,
+        rank_zero_only: bool = True,
+        init_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
         try:
             import wandb
         except ImportError as e:
@@ -60,11 +73,27 @@ class WandBLogger(LoggerDestination):
                  "restore from checkpoints."))
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
+        if init_kwargs is None:
+            init_kwargs = {}
+
+        if project is not None:
+            init_kwargs['project'] = project
+
+        if group is not None:
+            init_kwargs['group'] = group
+
+        if name is not None:
+            init_kwargs['name'] = name
+
+        if entity is not None:
+            init_kwargs['entity'] = entity
+
+        if tags is not None:
+            init_kwargs['tags'] = tags
+
         self._rank_zero_only = rank_zero_only
         self._log_artifacts = log_artifacts
-        if init_params is None:
-            init_params = {}
-        self._init_params = init_params
+        self._init_kwargs = init_kwargs
         self._is_in_atexit = False
 
     def _set_is_in_atexit(self):
@@ -98,17 +127,16 @@ class WandBLogger(LoggerDestination):
         del state  # unused
 
         # Use the logger run name if the name is not set.
-        if "name" not in self._init_params or self._init_params["name"] is None:
-            self._init_params["name"] = logger.run_name
+        if "name" not in self._init_kwargs or self._init_kwargs["name"] is None:
+            self._init_kwargs["name"] = logger.run_name
 
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
-            name = self._init_params["name"]
-            group = self._init_params.get("group", None)
-            self._init_params["name"] = f"{name} [RANK_{dist.get_global_rank()}]"
-            self._init_params["group"] = group if group else name
+            name = self._init_kwargs["name"]
+            self._init_kwargs["name"] += f"-rank{dist.get_global_rank()}"
+            self._init_kwargs["group"] = self._init_kwargs["group"] if "group" in self._init_kwargs else name
         if self._enabled:
-            wandb.init(**self._init_params)
+            wandb.init(**self._init_kwargs)
             atexit.register(self._set_is_in_atexit)
 
     def log_file_artifact(self, state: State, log_level: LogLevel, artifact_name: str, file_path: pathlib.Path, *,

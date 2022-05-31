@@ -28,7 +28,7 @@ from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceH
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams, callback_registry
 from composer.utils import dist, is_tar
-from composer.utils.object_store import ObjectStoreHparams
+from composer.utils.object_store import LibcloudObjectStoreHparams
 from tests.common import (EventCounterCallback, EventCounterCallbackHparams, assert_state_equivalent,
                           configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic, deep_compare)
 
@@ -203,7 +203,7 @@ def test_load_weights(
     second_trainer_hparams.load_weights_only = True
     second_trainer_hparams.load_strict_model_weights = True
     # setup a new optimizer
-    second_trainer_hparams.optimizer = AdamWHparams()
+    second_trainer_hparams.optimizers = AdamWHparams()
 
     # setup a new LR scheduler
     assert isinstance(second_trainer_hparams.max_duration, str)
@@ -265,7 +265,7 @@ def test_autoresume(
         monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
         provider = "local"
         container = "."
-        object_store_hparams = ObjectStoreHparams(
+        object_store_hparams = LibcloudObjectStoreHparams(
             provider=provider,
             container=container,
             key_environ="OBJECT_STORE_KEY",
@@ -393,7 +393,7 @@ def test_checkpoint_with_object_store_logger(
     monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
     provider = "local"
     container = "."
-    object_store_hparams = ObjectStoreHparams(
+    object_store_hparams = LibcloudObjectStoreHparams(
         provider=provider,
         container=container,
         key_environ="OBJECT_STORE_KEY",
@@ -513,7 +513,7 @@ def test_checkpoint(
         composer_trainer_hparams.train_dataset = model_hparams.train_dataset
         composer_trainer_hparams.val_dataset = model_hparams.val_dataset
         composer_trainer_hparams.model = model_hparams.model
-        composer_trainer_hparams.optimizer = model_hparams.optimizer
+        composer_trainer_hparams.optimizers = model_hparams.optimizers
         composer_trainer_hparams.schedulers = model_hparams.schedulers
 
     if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
@@ -554,7 +554,7 @@ def test_checkpoint(
                         Skipping test since deterministic mode is required for
                         non-trivial models, but deterministic mode isn't compatible with deepspeed
                         zero stage {zero_stage}"""))
-        composer_trainer_hparams.deepspeed = {"zero_optimization": {"stage": zero_stage}}
+        composer_trainer_hparams.deepspeed_config = {"zero_optimization": {"stage": zero_stage}}
 
     checkpoint_a_folder = str(tmp_path / "first")
     composer_trainer_hparams.save_folder = checkpoint_a_folder

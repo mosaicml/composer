@@ -120,7 +120,7 @@ extra_deps["deepspeed"] = [
 ]
 
 extra_deps["wandb"] = [
-    "wandb>=0.12.10,<0.13",
+    "wandb>=0.12.10,<0.12.17",
 ]
 
 extra_deps["unet"] = [
@@ -143,12 +143,6 @@ extra_deps["coco"] = [
 extra_deps["nlp"] = [
     "transformers>=4.11,<5",
     "datasets>=1.14,<2",
-]
-
-extra_deps["webdataset"] = [
-    # PyPI does not permit git dependencies. See https://github.com/mosaicml/composer/issues/771
-    # "webdataset @ git+https://github.com/mosaicml/webdataset.git@dev"
-    "wurlitzer>=3.0.2,<4",
 ]
 
 extra_deps["mlperf"] = [

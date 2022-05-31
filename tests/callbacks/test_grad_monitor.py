@@ -1,52 +1,39 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import cast
-from unittest.mock import MagicMock
+import pytest
+from torch.utils.data import DataLoader
 
-from composer.callbacks import GradMonitorHparams
-from composer.loggers import LoggerDestination
-from composer.trainer import TrainerHparams
-from composer.utils import ensure_tuple
+from composer.callbacks import GradMonitor
+from composer.loggers import InMemoryLogger
+from composer.trainer import Trainer
+from tests.common.datasets import RandomClassificationDataset
+from tests.common.models import SimpleModel
 
 
-def _do_trainer_fit(composer_trainer_hparams: TrainerHparams, log_layers: bool = False):
-    grad_monitor_hparams = GradMonitorHparams(log_layer_grad_norms=log_layers)
-    composer_trainer_hparams.callbacks.append(grad_monitor_hparams)
-    composer_trainer_hparams.max_duration = "1ep"
+@pytest.mark.parametrize("log_layers", [True, False])
+def test_grad_monitor(log_layers: bool):
+    # Construct the callback
+    grad_monitor = GradMonitor(log_layer_grad_norms=log_layers)
+    in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
 
-    trainer = composer_trainer_hparams.initialize_object()
-    log_destination = MagicMock()
-    log_destination = cast(LoggerDestination, log_destination)
-    trainer.logger.destinations = ensure_tuple(log_destination)
+    # Construct the trainer and train
+    trainer = Trainer(
+        model=SimpleModel(),
+        callbacks=grad_monitor,
+        loggers=in_memory_logger,
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        max_duration="1ep",
+    )
     trainer.fit()
+    num_train_steps = int(trainer.state.timestamp.batch)
 
-    num_train_steps = composer_trainer_hparams.train_subset_num_batches
-
-    return log_destination, num_train_steps
-
-
-def test_grad_monitor_no_layers(composer_trainer_hparams: TrainerHparams):
-    log_destination, num_train_steps = _do_trainer_fit(composer_trainer_hparams, log_layers=False)
-    grad_norm_calls = 0
-    for log_call in log_destination.log_data.mock_calls:
-        metrics = log_call[1][2]
-        if "grad_l2_norm/step" in metrics:
-            grad_norm_calls += 1
+    # Count the logged steps
+    grad_norm_calls = len(in_memory_logger.data["grad_l2_norm/step"])
+    layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if "layer_grad_l2_norm" in k]
 
     # expected to log gradient norm once per step (total batch)
     assert grad_norm_calls == num_train_steps
-
-
-def test_grad_monitor_per_layer(composer_trainer_hparams: TrainerHparams):
-    log_destination, num_train_steps = _do_trainer_fit(composer_trainer_hparams, log_layers=True)
-    layer_norm_calls = 0
-    for log_call in log_destination.log_data.mock_calls:
-        metrics = log_call[1][2]
-        if not isinstance(metrics, dict):
-            continue
-        if any(map(lambda x: "layer_grad_l2_norm" in x, metrics.keys())):
-            layer_norm_calls += 1
-
-    # expected to log layer grad norms once per training step
-    assert layer_norm_calls == num_train_steps
+    if log_layers:
+        for num_calls in layer_norm_calls:
+            assert num_calls == num_train_steps
