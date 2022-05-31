@@ -6,7 +6,7 @@ from typing import Type
 import pytest
 
 import composer.algorithms
-from composer.algorithms.algorithm_hparams import algorithm_registry
+from composer.algorithms.algorithm_hparams_registry import algorithm_registry
 from composer.core import Algorithm
 from tests.algorithms.algorithm_settings import get_alg_kwargs, get_algs_with_marks
 from tests.common import get_module_subclasses

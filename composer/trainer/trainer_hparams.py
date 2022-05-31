@@ -18,26 +18,26 @@ import yahp as hp
 from torchmetrics import Metric, MetricCollection
 
 import composer
-from composer.algorithms.algorithm_hparams import algorithm_registry
-from composer.callbacks.callback_hparams import callback_registry
+from composer.algorithms.algorithm_hparams_registry import algorithm_registry
+from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.core import Algorithm, Callback, DataSpec, Evaluator, Event, Precision, State, Time
 from composer.core.types import JSON, PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_registry import get_dataset_registry
 from composer.datasets.evaluator import EvaluatorHparams
 from composer.loggers import LoggerDestination, LogLevel
-from composer.loggers.logger_hparams import logger_registry
+from composer.loggers.logger_hparams_registry import logger_registry
 from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
                              GPT2Hparams, MnistClassifierHparams, ModelHparams, ResNetCIFARHparams, ResNetHparams,
                              SSDHparams, TimmHparams, UnetHparams, ViTSmallPatch16Hparams)
 from composer.models.base import ComposerModel
 from composer.optim import ComposerScheduler
-from composer.optim.optimizer_hparams import OptimizerHparams, optimizer_registry
-from composer.optim.scheduler_hparams import scheduler_registry
+from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimizer_registry
+from composer.optim.scheduler_hparams_registry import scheduler_registry
 from composer.profiler import Profiler
 from composer.trainer.ddp import DDPSyncStrategy
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.trainer.devices.device_hparams import device_registry
+from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
 from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams

@@ -10,7 +10,7 @@ import pytest
 from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger, LogLevel
-from composer.loggers.logger_hparams import ObjectStoreLoggerHparams
+from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams
 from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
 
 

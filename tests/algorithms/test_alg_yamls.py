@@ -10,7 +10,7 @@ import yahp as hp
 
 import composer
 from composer import Algorithm, Trainer
-from composer.algorithms.algorithm_hparams import algorithm_registry
+from composer.algorithms.algorithm_hparams_registry import algorithm_registry
 from composer.core.precision import Precision
 from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.trainer_hparams import TrainerHparams

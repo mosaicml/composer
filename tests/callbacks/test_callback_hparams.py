@@ -6,10 +6,10 @@ from typing import Type, Union
 import pytest
 import yahp as hp
 
-from composer.callbacks.callback_hparams import callback_registry
+from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.core import Callback
 from composer.loggers import ObjectStoreLogger
-from composer.loggers.logger_hparams import ObjectStoreLoggerHparams, logger_registry
+from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams, logger_registry
 from composer.profiler import JSONTraceHandler, SystemProfiler, TorchProfiler, TraceHandler
 from tests.callbacks.callback_settings import get_cb_hparams_and_marks, get_cb_kwargs, get_cbs_and_marks
 from tests.common.hparams import assert_in_registry, assert_yaml_loads

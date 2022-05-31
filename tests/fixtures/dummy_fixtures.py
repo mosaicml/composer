@@ -13,7 +13,7 @@ from composer.core.types import PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.models import ModelHparams
 from composer.optim import ExponentialScheduler
-from composer.optim.optimizer_hparams import AdamHparams
+from composer.optim.optimizer_hparams_registry import AdamHparams
 from composer.trainer.trainer_hparams import TrainerHparams, dataset_registry, model_registry
 from tests.common import RandomClassificationDatasetHparams, SimpleModel, SimpleModelHparams
 

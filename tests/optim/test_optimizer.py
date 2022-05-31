@@ -6,8 +6,9 @@ from typing import Dict, Type
 import pytest
 import torch
 
-from composer.optim.optimizer_hparams import (AdamHparams, AdamWHparams, DecoupledAdamWHparams, DecoupledSGDWHparams,
-                                              OptimizerHparams, RAdamHparams, RMSpropHparams, SGDHparams)
+from composer.optim.optimizer_hparams_registry import (AdamHparams, AdamWHparams, DecoupledAdamWHparams,
+                                                       DecoupledSGDWHparams, OptimizerHparams, RAdamHparams,
+                                                       RMSpropHparams, SGDHparams)
 from composer.trainer.trainer_hparams import optimizer_registry
 
 optimizer_constructors: Dict[Type[OptimizerHparams], OptimizerHparams] = {

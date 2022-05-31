@@ -5,13 +5,13 @@ from typing import Callable
 
 import pytest
 
-import composer.optim.optimizer_hparams
-from composer.optim.optimizer_hparams import OptimizerHparams, optimizer_registry
+import composer.optim.optimizer_hparams_registry
+from composer.optim.optimizer_hparams_registry import OptimizerHparams, optimizer_registry
 from tests.common import get_module_subclasses
 from tests.common.hparams import assert_in_registry, assert_yaml_loads
 from tests.common.models import SimpleModel
 
-optimizer_hparam_classes = get_module_subclasses(composer.optim.optimizer_hparams, OptimizerHparams)
+optimizer_hparam_classes = get_module_subclasses(composer.optim.optimizer_hparams_registry, OptimizerHparams)
 
 
 @pytest.mark.parametrize("optimizer_hparams_cls", optimizer_hparam_classes)

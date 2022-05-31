@@ -23,7 +23,7 @@ from composer.core.time import Time, TimeUnit, ensure_time
 from composer.datasets import DatasetHparams, SyntheticHparamsMixin
 from composer.loggers import ObjectStoreLogger
 from composer.optim import CosineAnnealingScheduler
-from composer.optim.optimizer_hparams import AdamWHparams
+from composer.optim.optimizer_hparams_registry import AdamWHparams
 from composer.trainer.devices import Device, DeviceGPU
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams

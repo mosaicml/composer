@@ -11,11 +11,11 @@ import composer.loggers
 import composer.profiler
 from composer import Callback
 from composer.callbacks import EarlyStopper, MemoryMonitor, ThresholdStopper
-from composer.callbacks.callback_hparams import callback_registry
+from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.loggers import ObjectStoreLogger, WandBLogger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.loggers.logger_hparams import ObjectStoreLoggerHparams, logger_registry
+from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams, logger_registry
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from tests.common import get_module_subclasses
 
