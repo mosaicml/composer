@@ -1,10 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from collections.abc import Iterable
+#from collections.abc import Iterable
 
 import pytest
-import torch
 from transformers import PreTrainedTokenizer
 
 from composer.core.state import State
@@ -66,12 +65,11 @@ def model_components(config):
     return model, dataloader
 
 
-@pytest.fixture(params=make_dataset_configs())
-def synthetic_hf_state(request) -> State:
+def synthetic_hf_state_maker(config) -> State:
     """
     An example state using synthetic HF transformer function which could used for testing purposes
     """
-    config = request.params
+    #config = request.params
     model, dataloader = model_components(config)
     state = State(
         model=model,
@@ -84,24 +82,7 @@ def synthetic_hf_state(request) -> State:
     return state
 
 
-@pytest.fixture(params=make_dataset_configs())
-def test_synthetic_hf_state(synthetic_hf_state: State, request):
+@pytest.fixture(params=make_dataset_configs(), name="synthetic_hf_state_maker")
+def synthetic_hf_state_fixture(request):
     config = request.params
-    state = synthetic_hf_state
-    lm, dataloader = model_components(config)
-    assert isinstance(state.dataloader, Iterable)
-    sample = next(iter(dataloader)).data
-    state.batch = next(iter(state.dataloader)).data
-    assert state.batch.keys() == sample.keys()
-    for key in state.batch.keys():
-        assert state.batch[key].size() == sample[key].size()
-    lm.eval()
-    logits, labels = lm.validate(sample)
-    assert hasattr(state, "batch")
-    state_output = state.model(state.batch)
-    if labels is not None:
-        assert isinstance(logits, torch.Tensor)
-        assert state_output['logits'].size() == logits.size()
-        assert state.batch['labels'].size() == labels.size()
-    else:
-        assert state_output['logits'].size() == logits['logits'].size()
+    return synthetic_hf_state_maker(config)
