@@ -82,7 +82,7 @@ def synthetic_hf_state_maker(config) -> State:
     return state
 
 
-@pytest.fixture(params=make_dataset_configs(), name="synthetic_hf_state_maker")
+@pytest.fixture(params=make_dataset_configs(), scope="session")
 def synthetic_hf_state_fixture(request):
     config = request.params
     return synthetic_hf_state_maker(config)
