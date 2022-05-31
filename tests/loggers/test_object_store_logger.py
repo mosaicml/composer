@@ -11,7 +11,7 @@ from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger, LogLevel
 from composer.loggers.logger_hparams import ObjectStoreLoggerHparams
-from composer.utils.object_store import ObjectStoreHparams
+from composer.utils.object_store import LibcloudObjectStoreHparams
 
 
 def my_filter_func(state: State, log_level: LogLevel, artifact_name: str):
@@ -32,7 +32,7 @@ def object_store_test_helper(tmp_path: pathlib.Path,
     provider = "local"
     container = "."
     hparams = ObjectStoreLoggerHparams(
-        object_store_hparams=ObjectStoreHparams(
+        object_store_hparams=LibcloudObjectStoreHparams(
             provider=provider,
             container=container,
             key_environ="OBJECT_STORE_KEY",

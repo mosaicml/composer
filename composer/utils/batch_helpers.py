@@ -27,7 +27,7 @@ def batch_get(batch: Any, key: Union[str, int, Callable, Any]):
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (str, int, or Callable): A key to index into the batch or a
+        key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a
                 user-specified function to do the extracting. A pair of callables is also
                 supported for cases where a get and set function pair are both passed
                 (like in Algorithms). The getter is assumed to be the first of the pair.
@@ -83,7 +83,7 @@ def batch_set(batch: Any, key: Union[str, int, Callable, Any], value: Any) -> An
             Can be any abritrary type that user creates, but we assume some sort of
             sequence (list, tuple, tensor, array), mapping (dictionary),
             or attribute store (object with data members, namedtuple).
-        key (str, int, or Callable): A key to index into the batch or a user-specified function
+        key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a user-specified function
             to do the setting. A pair of callables is also supported for cases where a get
             and set function pair are both passed (like in Algorithms). The setter is
             assumed to be the second of the pair.

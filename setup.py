@@ -124,7 +124,7 @@ extra_deps["deepspeed"] = [
 ]
 
 extra_deps["wandb"] = [
-    "wandb>=0.12.10,<0.13",
+    "wandb>=0.12.10,<0.12.17",
 ]
 
 extra_deps["unet"] = [

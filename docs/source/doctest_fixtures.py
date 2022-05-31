@@ -51,7 +51,7 @@ from composer.loggers import LogLevel as LogLevel
 from composer.loggers import ObjectStoreLogger
 from composer.models import ComposerModel as ComposerModel
 from composer.optim.scheduler import ConstantScheduler
-from composer.utils import ObjectStore
+from composer.utils import LibcloudObjectStore
 from composer.utils import ensure_tuple as ensure_tuple
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
@@ -193,7 +193,7 @@ def _new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any)
 ObjectStoreLogger.__init__ = _new_objectStoreLogger_init
 
 # Patch ObjectStore __init__ function to replace arguments while preserving type
-original_objectStore_init = ObjectStore.__init__
+original_objectStore_init = LibcloudObjectStore.__init__
 
 
 def _new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
@@ -208,4 +208,4 @@ def _new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
     original_objectStore_init(self, **kwargs)
 
 
-ObjectStore.__init__ = _new_objectStore_init
+LibcloudObjectStore.__init__ = new_objectStore_init

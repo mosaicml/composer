@@ -97,10 +97,6 @@ def _add_precision_config(config: Dict[str, Any], state: State):
         fp16_config = config["fp16"]
         assert isinstance(fp16_config, dict)
 
-        # For equivalence with the non-DeepSpeed defaults of the Mosaic trainer.
-        fp16_config.setdefault("initial_scale_power", 16)
-        fp16_config.setdefault("loss_scale_window", 2000)
-
 
 def _add_other_config(config: Dict[str, Any], grad_clip_norm: float):
     if "gradient_clipping" in config:
