@@ -16,7 +16,9 @@
 import importlib
 import json
 import os
+import shutil
 import sys
+import tempfile
 import textwrap
 import types
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -27,7 +29,14 @@ import sphinx.util.logging
 import torch
 import torch.nn
 import yahp as hp
+from pypandoc.pandoc_download import download_pandoc
 from sphinx.ext.autodoc import ClassDocumenter, _
+
+if not shutil.which("pandoc"):
+    # Install pandoc if it is not installed.
+    # Pandoc is required by nbconvert but it is not included in the pypandoc pip package
+    with tempfile.TemporaryDirectory() as tmpdir:
+        download_pandoc(version='2.18', download_folder=tmpdir)
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -61,7 +70,27 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx_panels',
     'sphinxcontrib.images',
+    'nbsphinx',
 ]
+
+_GIT_COMMIT = "dev"  # TODO(ravi) -- replace this with the git commit
+
+# Don't show notebook output in the docs
+nbsphinx_execute = 'never'
+
+notebook_path = "mosaicml/composer/blob/" + _GIT_COMMIT + "/{{ env.doc2path(env.docname, base=None) }}"
+
+# Include an "Open in Colab" link at the beginning of all notebooks
+nbsphinx_prolog = f"""
+
+.. tip::
+
+    This tutorial is available as a `Jupyter notebook <https://github.com/{notebook_path}>`_.
+
+    ..  image:: https://colab.research.google.com/assets/colab-badge.svg
+        :target: https://colab.research.google.com/github/{notebook_path}
+        :alt: Open in Colab
+"""
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
