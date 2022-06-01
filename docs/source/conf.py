@@ -9,11 +9,13 @@
 
 # -- Path setup --------------------------------------------------------------
 
+import ast
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import importlib
+import inspect
 import json
 import os
 import shutil
@@ -21,6 +23,7 @@ import sys
 import tempfile
 import textwrap
 import types
+import warnings
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import sphinx.application
@@ -29,8 +32,12 @@ import sphinx.util.logging
 import torch
 import torch.nn
 import yahp as hp
+from docutils import nodes
+from docutils.nodes import Element
+from git.repo.base import Repo
 from pypandoc.pandoc_download import download_pandoc
 from sphinx.ext.autodoc import ClassDocumenter, _
+from sphinx.writers.html5 import HTML5Translator
 
 if not shutil.which("pandoc"):
     # Install pandoc if it is not installed.
@@ -60,7 +67,7 @@ extensions = [
     "sphinx.ext.coverage",
     "sphinx.ext.napoleon",
     'sphinxcontrib.katex',
-    "sphinx.ext.viewcode",
+    "sphinx.ext.linkcode",
     "sphinx.ext.intersphinx",
     'sphinxemoji.sphinxemoji',
     "sphinxext.opengraph",
@@ -73,12 +80,33 @@ extensions = [
     'nbsphinx',
 ]
 
-_GIT_COMMIT = "dev"  # TODO(ravi) -- replace this with the git commit
+
+def _get_commit_sha() -> str:
+    """Determine the commit sha.
+
+    Returns:
+        str: The git commit sha, as a string.
+    """
+    repo_root = os.path.join(os.path.dirname(__file__), "..", "..")
+    repo = Repo(repo_root)
+    if repo.is_dirty():
+        warning_msg = "The git repo is dirty. The commit sha for source code links will be incorrect."
+        if os.environ.get('CI', '0') == '0':
+            # If developing locally, warn.
+            warnings.warn(warning_msg)
+        else:
+            # If on CI, error.
+            raise RuntimeError(warning_msg)
+    _commit_sha = repo.commit().hexsha
+    return _commit_sha
+
+
+_COMMIT_SHA = _get_commit_sha()
 
 # Don't show notebook output in the docs
 nbsphinx_execute = 'never'
 
-notebook_path = "mosaicml/composer/blob/" + _GIT_COMMIT + "/{{ env.doc2path(env.docname, base=None) }}"
+notebook_path = "mosaicml/composer/blob/" + _COMMIT_SHA + "/{{ env.doc2path(env.docname, base=None) }}"
 
 # Include an "Open in Colab" link at the beginning of all notebooks
 nbsphinx_prolog = f"""
@@ -464,7 +492,110 @@ def add_directive_header_no_object_base(self, *args, **kwargs):
 ClassDocumenter.add_directive_header = add_directive_header_no_object_base
 
 
+def _recursive_getattr(obj: Any, path: str):
+    parts = path.split(".")
+    try:
+        obj = getattr(obj, parts[0])
+    except AttributeError:
+        return None
+    path = ".".join(parts[1:])
+    if path == "":
+        return obj
+    else:
+        return _recursive_getattr(obj, path)
+
+
+def _determine_lineno_of_attribute(module: types.ModuleType, attribute: str):
+    # inspect.getsource() does not work with module-level attributes
+    # instead, parse the module manually using ast, and determine where
+    # the expression was defined
+    source = inspect.getsource(module)
+    filename = inspect.getsourcefile(module)
+    assert filename is not None, f"filename for module {module} could not be found"
+    ast_tree = ast.parse(source, filename)
+    for stmt in ast_tree.body:
+        if isinstance(stmt, ast.Assign):
+            if any(isinstance(x, ast.Name) and x.id == attribute for x in stmt.targets):
+                return stmt.lineno
+    return None
+
+
+def linkcode_resolve(domain: str, info: Dict[str, str]):
+    assert domain == "py", f"unsupported domain: {domain}"
+    module_name = info['module']
+
+    # Get the object and determine the line number
+    obj_name_in_module = info['fullname']
+    module = importlib.import_module(module_name)
+    lineno = _determine_lineno_of_attribute(module, obj_name_in_module)
+    if lineno is None:
+        obj = _recursive_getattr(module, obj_name_in_module)
+        if isinstance(obj, property):
+            # For properties, return the getter, where it is documented
+            obj = obj.fget
+        try:
+            _, lineno = inspect.getsourcelines(obj)
+        except TypeError:
+            # `inspect.getsourcelines` does not work on all object types (e.g. attributes).
+            # If it fails, it still might be possible to determine the source line through better parsing
+            # in _determine_lineno_of_attribute
+            pass
+    if lineno is None:
+        log.debug(f"Could not determine source line number for {module_name}.{obj_name_in_module}.")
+        return None
+    # Format the link
+    filename = module_name.replace(".", "/")
+    commit_sha = _COMMIT_SHA
+    return f"https://github.com/mosaicml/composer/blob/{commit_sha}/{filename}.py#L{lineno}"
+
+
+class PatchedHTMLTranslator(HTML5Translator):
+    """Open all external links in a new tab."""
+
+    # Adapted from https://stackoverflow.com/a/61669375
+
+    def visit_reference(self, node: Element) -> None:
+        atts = {'class': 'reference'}
+        if node.get('internal') or 'refuri' not in node:
+            atts['class'] += ' internal'
+        else:
+            atts['class'] += ' external'
+            # ---------------------------------------------------------
+            # Customize behavior (open in new tab, secure linking site)
+            if 'refid' not in node and (not any(node['refuri'].startswith(x)
+                                                for x in ("/", "https://docs.mosaicml.com", "#")) or
+                                        node['refuri'].startswith("https://docs.mosaicml.com/projects/yahp")):
+                # If there's a refid, or the refuri starts with a non-external uri scheme, then it's an internal
+                # (hardcoded) link, so don't open that in a new tab
+                # Treat yahp links as external
+                # Otherwise, it's really an external link. Open it in a new tab.
+                atts['target'] = '_blank'
+                atts['rel'] = 'noopener noreferrer'
+            # ---------------------------------------------------------
+        if 'refuri' in node:
+            atts['href'] = node['refuri'] or '#'
+            if self.settings.cloak_email_addresses and atts['href'].startswith('mailto:'):
+                atts['href'] = self.cloak_mailto(atts['href'])
+                self.in_mailto = True
+        else:
+            assert 'refid' in node, \
+                   'References must have "refuri" or "refid" attribute.'
+            atts['href'] = '#' + node['refid']
+        if not isinstance(node.parent, nodes.TextElement):
+            assert len(node) == 1 and isinstance(node[0], nodes.image)
+            atts['class'] += ' image-reference'
+        if 'reftitle' in node:
+            atts['title'] = node['reftitle']
+        if 'target' in node:
+            atts['target'] = node['target']
+        self.body.append(self.starttag(node, 'a', '', **atts))
+
+        if node.get('secnumber'):
+            self.body.append(('%s' + self.secnumber_suffix) % '.'.join(map(str, node['secnumber'])))
+
+
 def setup(app: sphinx.application.Sphinx):
     app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('autodoc-process-docstring', add_module_summary_tables)
     app.connect('source-read', rstjinja)
+    app.set_translator('html', PatchedHTMLTranslator)
