@@ -55,9 +55,9 @@ gitCredentialsId = '9cf9add1-2cdd-414b-8160-94bd4ac4a13d' // Jenkins credential 
 
 // Artifact setting
 buildOutputFolder = 'build/output' // Folder where build artifacts are stored
-artifactsGlob = "$buildOutputFolder/**" // Files matching this glob will be archived by Jenkins
-junitGlob = "$buildOutputFolder/*.junit.xml" // Files matching this glob will be presented Junit test reports
-coverageGlob = "$buildOutputFolder/*.coverage.xml" // Files matching this glob will be presented Junit coverage reports
+artifactsGlob = "**.$buildOutputFolder/**" // Files matching this glob will be archived by Jenkins
+junitGlob = "**/$buildOutputFolder/**.junit.xml" // Files matching this glob will be in Junit test reports
+coverageGlob = "**/$buildOutputFolder/**.coverage.xml" // Files matching this glob will be in coverage reports
 
 // Spawned builds
 builds = [] // List of spawned sub-jobs
