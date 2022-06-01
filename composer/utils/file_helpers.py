@@ -16,7 +16,7 @@ import tqdm
 from composer.core.time import Time, Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
-from composer.utils.object_store import LibcloudObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 if TYPE_CHECKING:
     from composer.loggers import LoggerDestination
