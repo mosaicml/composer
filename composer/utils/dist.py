@@ -69,7 +69,7 @@ def _get_distributed_config_var(
 ) -> int:
     if not dist.is_available():
         return default
-    # print(">>>>>>>>>>>>>> TORCH DEBUG: is_initialized()=", dist.is_initialized())
+
     if dist.is_initialized() and fetch_fn_name is not None:
         dist_value = int(getattr(dist, fetch_fn_name)())
         if env_var in os.environ:

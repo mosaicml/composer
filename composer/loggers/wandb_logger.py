@@ -21,8 +21,6 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
 
-import numpy as np
-
 __all__ = ["WandBLogger"]
 
 

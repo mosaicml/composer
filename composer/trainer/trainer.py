@@ -716,7 +716,7 @@ class Trainer:
         # Device
         self._device = _get_device(device)
 
-        #todo: this is temp
+        #todo: this is temp, check with Jamie Bloxham
         # Distributed
         # if deepspeed_enabled or dist.get_world_size() > 1:
             # deepspeed requires torch.distributed to be initialized, even if the world size is 1
