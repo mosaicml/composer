@@ -30,8 +30,11 @@ import sphinx.util.logging
 import torch
 import torch.nn
 import yahp as hp
+from docutils import nodes
+from docutils.nodes import Element
 from git.repo.base import Repo
 from sphinx.ext.autodoc import ClassDocumenter, _
+from sphinx.writers.html5 import HTML5Translator
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -491,7 +494,7 @@ def _determine_lineno_of_attribute(module: types.ModuleType, attribute: str):
 
 
 def linkcode_resolve(domain: str, info: Dict[str, str]):
-    assert domain == "py", f"unknown domain: {domain}"
+    assert domain == "py", f"unsupported domain: {domain}"
     module_name = info['module']
 
     # Get the object and determine the line number
@@ -519,7 +522,53 @@ def linkcode_resolve(domain: str, info: Dict[str, str]):
     return f"https://github.com/mosaicml/composer/blob/{commit_sha}/{filename}.py#L{lineno}"
 
 
+class PatchedHTMLTranslator(HTML5Translator):
+    """Open all external links in a new tab."""
+
+    # Adapted from https://stackoverflow.com/a/61669375
+
+    def visit_reference(self, node: Element) -> None:
+        atts = {'class': 'reference'}
+        if node.get('internal') or 'refuri' not in node:
+            atts['class'] += ' internal'
+        else:
+            atts['class'] += ' external'
+            # ---------------------------------------------------------
+            # Customize behavior (open in new tab, secure linking site)
+            if 'refid' not in node and (not any(node['refuri'].startswith(x)
+                                                for x in ("/", "https://docs.mosaicml.com", "#")) or
+                                        node['refuri'].startswith("https://docs.mosaicml.com/projects/yahp")):
+                # If there's a refid, or the refuri starts with a non-external uri scheme, then it's an internal
+                # (hardcoded) link, so don't open that in a new tab
+                # Treat yahp links as external
+                # Otherwise, it's really an external link. Open it in a new tab.
+                atts['target'] = '_blank'
+                atts['rel'] = 'noopener noreferrer'
+            # ---------------------------------------------------------
+        if 'refuri' in node:
+            atts['href'] = node['refuri'] or '#'
+            if self.settings.cloak_email_addresses and atts['href'].startswith('mailto:'):
+                atts['href'] = self.cloak_mailto(atts['href'])
+                self.in_mailto = True
+        else:
+            assert 'refid' in node, \
+                   'References must have "refuri" or "refid" attribute.'
+            atts['href'] = '#' + node['refid']
+        if not isinstance(node.parent, nodes.TextElement):
+            assert len(node) == 1 and isinstance(node[0], nodes.image)
+            atts['class'] += ' image-reference'
+        if 'reftitle' in node:
+            atts['title'] = node['reftitle']
+        if 'target' in node:
+            atts['target'] = node['target']
+        self.body.append(self.starttag(node, 'a', '', **atts))
+
+        if node.get('secnumber'):
+            self.body.append(('%s' + self.secnumber_suffix) % '.'.join(map(str, node['secnumber'])))
+
+
 def setup(app: sphinx.application.Sphinx):
     app.connect('autodoc-skip-member', skip_redundant_namedtuple_attributes)
     app.connect('autodoc-process-docstring', add_module_summary_tables)
     app.connect('source-read', rstjinja)
+    app.set_translator('html', PatchedHTMLTranslator)
