@@ -31,7 +31,7 @@ class LibcloudObjectStore:
     ...     }
     ... )
     >>> object_store
-    <composer.utils.object_store.LibcloudObjectStore object at ...>
+    <composer.utils.libcloud_object_store.LibcloudObjectStore object at ...>
 
     Args:
         provider (str): Cloud provider to use. Valid options are:
