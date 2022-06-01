@@ -219,30 +219,34 @@ def _launch_processes(
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
-        cmd = f"exec {sys.executable} -u"
+        cmd = [sys.executable]
         if module_mode:
-            cmd += " -m"
-        training_script_args_quoted = [f'"{arg}"' for arg in training_script_args]
+            cmd.append("-m")
 
-        cmd += f" {training_script} {' '.join(training_script_args_quoted)}"
+        cmd.append(training_script)
 
-        current_env = os.environ.copy()
-        current_env["RANK"] = str(global_rank)
-        current_env["WORLD_SIZE"] = str(world_size)
-        current_env["LOCAL_RANK"] = str(local_rank)
-        current_env["LOCAL_WORLD_SIZE"] = str(nproc)
-        current_env["NODE_RANK"] = str(node_rank)
-        current_env["MASTER_ADDR"] = master_addr
-        current_env["MASTER_PORT"] = str(master_port)
+        # Back up the env
+        original_env = os.environ.copy()
+
+        # Update the env with the distributed variables
+        os.environ["RANK"] = str(global_rank)
+        os.environ["WORLD_SIZE"] = str(world_size)
+        os.environ["LOCAL_RANK"] = str(local_rank)
+        os.environ["LOCAL_WORLD_SIZE"] = str(nproc)
+        os.environ["NODE_RANK"] = str(node_rank)
+        os.environ["MASTER_ADDR"] = master_addr
+        os.environ["MASTER_PORT"] = str(master_port)
+
+        # Populate the distributed variables in all launcher args
+        for arg in training_script_args:
+            cmd.append(os.path.expandvars(os.path.expanduser(arg)))
 
         log.info("Launching process for local_rank(%s), global_rank(%s) with command(%s)", local_rank, global_rank, cmd)
 
         if local_rank == 0:
             process = subprocess.Popen(
                 cmd,
-                env=current_env,
                 text=True,
-                shell=True,
             )
         else:
 
@@ -261,9 +265,6 @@ def _launch_processes(
 
             process = subprocess.Popen(
                 cmd,
-                # Using a shell to execute the command, so the env variables will be available to the CLI arguments
-                shell=True,
-                env=current_env,
                 stdout=stdout_file,
                 stderr=stderr_file,
                 text=True,
@@ -271,6 +272,13 @@ def _launch_processes(
             process.stderr = stderr_file
             process.stdout = stdout_file
         processes[global_rank] = process
+
+        # Restore the env variables back to the original values
+        for var in ("RANK", "WORLD_SIZE", "LOCAL_RANK", "LOCAL_WORLD_SIZE", "NODE_RANK", "MASTER_ADDR", "MASTER_PORT"):
+            if var in original_env:
+                os.environ[var] = original_env[var]
+            else:
+                del os.environ[var]
 
 
 def _monitor_processes(processes: Dict[int, subprocess.Popen]):
