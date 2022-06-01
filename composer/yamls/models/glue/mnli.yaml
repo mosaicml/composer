@@ -52,8 +52,6 @@ max_duration: 3ep
 train_batch_size: 48
 eval_batch_size: 48
 seed: 19
-loggers:
-  wandb: {}
 dataloader:
   pin_memory: true
   persistent_workers: true
