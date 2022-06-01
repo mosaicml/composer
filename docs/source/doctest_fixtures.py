@@ -139,10 +139,10 @@ def loss_fun(output, target, reduction="none"):
 
 
 # Patch Trainer __init__ function to replace arguments while preserving type
-original_trainer_init = Trainer.__init__
+_original_trainer_init = Trainer.__init__
 
 
-def new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
+def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
     if "model" not in kwargs:
         kwargs["model"] = model
     if "optimizers" not in kwargs:
@@ -159,10 +159,10 @@ def new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
         kwargs["progress_bar"] = False  # hide tqdm logging
     if "log_to_console" not in kwargs:
         kwargs["log_to_console"] = False  # hide console logging
-    original_trainer_init(self, **kwargs)
+    _original_trainer_init(self, **kwargs)
 
 
-Trainer.__init__ = new_trainer_init
+Trainer.__init__ = _new_trainer_init
 
 
 # Do not attempt to validate cloud credentials
@@ -173,10 +173,10 @@ def do_not_validate(*args, **kwargs) -> None:
 composer.loggers.object_store_logger._validate_credentials = do_not_validate
 
 # Patch ObjectStoreLogger __init__ function to replace arguments while preserving type
-original_objectStoreLogger_init = ObjectStoreLogger.__init__
+_original_objectStoreLogger_init = ObjectStoreLogger.__init__
 
 
-def new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
+def _new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         use_procs=False,
@@ -187,16 +187,16 @@ def new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
             'key': os.path.abspath("./object_store"),
         },
     )
-    original_objectStoreLogger_init(self, **kwargs)
+    _original_objectStoreLogger_init(self, **kwargs)
 
 
-ObjectStoreLogger.__init__ = new_objectStoreLogger_init
+ObjectStoreLogger.__init__ = _new_objectStoreLogger_init
 
 # Patch ObjectStore __init__ function to replace arguments while preserving type
-original_objectStore_init = LibcloudObjectStore.__init__
+_original_objectStore_init = LibcloudObjectStore.__init__
 
 
-def new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
+def _new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         provider='local',
@@ -205,7 +205,7 @@ def new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
             'key': os.path.abspath("./object_store"),
         },
     )
-    original_objectStore_init(self, **kwargs)
+    _original_objectStore_init(self, **kwargs)
 
 
-LibcloudObjectStore.__init__ = new_objectStore_init
+LibcloudObjectStore.__init__ = _new_objectStore_init
