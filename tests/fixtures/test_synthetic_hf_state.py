@@ -3,7 +3,10 @@
 
 #from collections.abc import Iterable
 
+from typing import Tuple
+
 import pytest
+import torch
 from transformers import PreTrainedTokenizer
 
 from composer.core.state import State
@@ -65,7 +68,7 @@ def model_components(config):
     return model, dataloader
 
 
-def synthetic_hf_state_maker(config) -> State:
+def synthetic_hf_state_maker(config) -> Tuple:
     """
     An example state using synthetic HF transformer function which could used for testing purposes
     """
@@ -79,10 +82,31 @@ def synthetic_hf_state_maker(config) -> State:
         max_duration='1ep',
     )
 
-    return state
+    return state, model, dataloader
 
 
 @pytest.fixture(params=make_dataset_configs())
 def synthetic_hf_state_fixture(request):
     config = request.param
     return synthetic_hf_state_maker(config)
+
+
+@pytest.mark.filterwarnings(
+    r"ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics")
+def test_synthetic_hf_state(synthetic_hf_state_fixture):
+    state, lm, dataloader = synthetic_hf_state_fixture
+    sample = next(iter(dataloader)).data
+    state.batch = next(iter(state.dataloader)).data
+    assert state.batch.keys() == sample.keys()
+    for key in state.batch.keys():
+        assert state.batch[key].size() == sample[key].size()
+    lm.eval()
+    logits, labels = lm.validate(sample)
+    assert hasattr(state, "batch")
+    state_output = state.model(state.batch)
+    if labels is not None:
+        assert isinstance(logits, torch.Tensor)
+        assert state_output['logits'].size() == logits.size()
+        assert state.batch['labels'].size() == labels.size()
+    else:
+        assert state_output['logits'].size() == logits['logits'].size()
