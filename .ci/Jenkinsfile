@@ -424,9 +424,8 @@ stage('Build') {
                 archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
                 junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests', keepLongStdio: true)
                 publishCoverage(
-                    adapters: [cobertura(path: coverageGlob, mergeToOneReport: true)],
-                    calculateDiffForChangeRequests: true,
-                    sourceFileResolver: [level: 'STORE_LAST_BUILD']
+                    adapters: [istanbulCoberturaAdapter(path: coverageGlob, mergeToOneReport: true)],
+                    sourceFileResolver: sourceFiles('STORE_LAST_BUILD'),
                 )
             }
         }
