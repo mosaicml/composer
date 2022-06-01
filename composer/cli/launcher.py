@@ -219,7 +219,7 @@ def _launch_processes(
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
-        cmd = [sys.executable]
+        cmd = [sys.executable, "-u"]
         if module_mode:
             cmd.append("-m")
 
