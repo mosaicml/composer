@@ -12,10 +12,9 @@ from composer.core import Precision, State
 from composer.core.types import PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.models import ModelHparams
-from composer.optim import AdamHparams, ExponentialSchedulerHparams
-from composer.trainer import TrainerHparams
-from composer.trainer.devices import CPUDeviceHparams
-from composer.trainer.trainer_hparams import dataset_registry, model_registry
+from composer.optim import ExponentialScheduler
+from composer.optim.optimizer_hparams_registry import AdamHparams
+from composer.trainer.trainer_hparams import TrainerHparams, dataset_registry, model_registry
 from tests.common import RandomClassificationDatasetHparams, SimpleModel, SimpleModelHparams
 
 
@@ -158,7 +157,7 @@ def composer_trainer_hparams(
     return TrainerHparams(
         algorithms=[],
         optimizers=AdamHparams(),
-        schedulers=[ExponentialSchedulerHparams(gamma=0.9)],
+        schedulers=[ExponentialScheduler(gamma=0.9)],
         max_duration="2ep",
         precision=Precision.FP32,
         train_batch_size=dummy_train_batch_size,
@@ -171,7 +170,6 @@ def composer_trainer_hparams(
             pin_memory=False,
             timeout=0.0,
         ),
-        device=CPUDeviceHparams(),
         model=dummy_model_hparams,
         val_dataset=dummy_val_dataset_hparams,
         train_dataset=dummy_train_dataset_hparams,
