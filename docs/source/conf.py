@@ -9,17 +9,20 @@
 
 # -- Path setup --------------------------------------------------------------
 
+import ast
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import importlib
+import inspect
 import json
 import os
 import sys
 import textwrap
 import types
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+import warnings
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import sphinx.application
 import sphinx.ext.autodoc
@@ -27,6 +30,7 @@ import sphinx.util.logging
 import torch
 import torch.nn
 import yahp as hp
+from git.repo.base import Repo
 from sphinx.ext.autodoc import ClassDocumenter, _
 
 sys.path.insert(0, os.path.abspath('..'))
@@ -51,7 +55,7 @@ extensions = [
     "sphinx.ext.coverage",
     "sphinx.ext.napoleon",
     'sphinxcontrib.katex',
-    "sphinx.ext.viewcode",
+    "sphinx.ext.linkcode",
     "sphinx.ext.intersphinx",
     'sphinxemoji.sphinxemoji',
     "sphinxext.opengraph",
@@ -433,6 +437,88 @@ def add_directive_header_no_object_base(self, *args, **kwargs):
 
 
 ClassDocumenter.add_directive_header = add_directive_header_no_object_base
+
+_commit_sha = None
+
+
+def _recursive_getattr(obj: Any, path: str):
+    parts = path.split(".")
+    try:
+        obj = getattr(obj, parts[0])
+    except AttributeError:
+        return None
+    path = ".".join(parts[1:])
+    if path == "":
+        if isinstance(obj, (types.ModuleType, type, types.MethodType, types.FunctionType, types.TracebackType,
+                            types.FrameType, Callable)):
+            return obj
+        if isinstance(obj, property):
+            # For properties, return the getter, where it is documented
+            return obj.fget
+        return None
+    else:
+        return _recursive_getattr(obj, path)
+
+
+def _get_commit_sha() -> str:
+    """Lazily determine the commit sha and cache it.
+
+    Returns:
+        str: The git commit sha, as a string.
+    """
+    global _commit_sha
+    if _commit_sha is not None:
+        return _commit_sha
+    repo_root = os.path.join(os.path.dirname(__file__), "..", "..")
+    repo = Repo(repo_root)
+    if repo.is_dirty():
+        warning_msg = "The git repo is dirty. The commit sha for source code links will be incorrect."
+        if os.environ.get('CI', '0') == '0':
+            # If developing locally, warn.
+            warnings.warn(warning_msg)
+        else:
+            # If on CI, error.
+            raise RuntimeError(warning_msg)
+    _commit_sha = repo.commit().hexsha
+    return _commit_sha
+
+
+def _determine_lineno_of_attribute(module: types.ModuleType, attribute: str):
+    # inspect.getsource() does not work with module-level attributes
+    # instead, parse the module manually using ast, and determine where
+    # the expression was defined
+    source = inspect.getsource(module)
+    filename = inspect.getsourcefile(module)
+    assert filename is not None, f"filename for module {module} could not be found"
+    ast_tree = ast.parse(source, filename)
+    for stmt in ast_tree.body:
+        if isinstance(stmt, ast.Assign):
+            if any(isinstance(x, ast.Name) and x.id == attribute for x in stmt.targets):
+                return stmt.lineno
+    return None
+
+
+def linkcode_resolve(domain: str, info: Dict[str, str]):
+    assert domain == "py", f"unknown domain: {domain}"
+    module_name = info['module']
+
+    # Get the object and determine the line number
+    obj_name_in_module = info['fullname']
+    module = importlib.import_module(module_name)
+    lineno = _determine_lineno_of_attribute(module, obj_name_in_module)
+    if lineno is None:
+        obj = _recursive_getattr(module, obj_name_in_module)
+        if obj is not None:
+            _, lineno = inspect.getsourcelines(obj)
+    if lineno is None:
+        # Class-level and instance-level attributes will generally be undocumented for now
+        # This can be fixed doing better parsing in_determine_lineno_of_attribute
+        log.debug(f"Could not determine source line number for {module_name}.{obj_name_in_module}.")
+        return None
+    # Format the link
+    filename = module_name.replace(".", "/")
+    commit_sha = _get_commit_sha()
+    return f"https://github.com/mosaicml/composer/blob/{commit_sha}/{filename}.py#L{lineno}"
 
 
 def setup(app: sphinx.application.Sphinx):
