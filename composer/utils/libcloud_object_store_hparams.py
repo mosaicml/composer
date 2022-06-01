@@ -31,7 +31,7 @@ class LibcloudObjectStoreHparams(hp.Hparams):
 
     .. doctest:: composer.utils.libcloud_object_store.LibcloudObjectStoreHparams.__init__.s3
 
-        >>> from composer.utils import LibcloudObjectStoreHparams
+        >>> from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
         >>> provider_hparams = LibcloudObjectStoreHparams(
         ...     provider="s3",
         ...     container="MY_CONTAINER",
@@ -59,7 +59,7 @@ class LibcloudObjectStoreHparams(hp.Hparams):
 
                 import os
                 import functools
-                from composer.utils import LibcloudObjectStoreHparams
+                from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
 
                 os.environ["OBJECT_STORE_KEY"] = "MY_KEY"
                 LibcloudObjectStoreHparams = functools.partial(LibcloudObjectStoreHparams, provider="s3", container="container")
@@ -83,7 +83,7 @@ class LibcloudObjectStoreHparams(hp.Hparams):
 
                 import os
                 import functools
-                from composer.utils import LibcloudObjectStoreHparams
+                from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
 
                 original_secret = os.environ.get("OBJECT_STORE_SECRET")
                 os.environ["OBJECT_STORE_SECRET"] = "MY_SECRET"
