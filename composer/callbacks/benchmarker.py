@@ -38,8 +38,8 @@ class Benchmarker(Callback):
         which is an exception to the convention that callbacks should NOT
         modify state. This callback may break other algorithms and callbacks.
     Args:
-        min_steps (int, optional):
-            Minimum number of steps to profile per epoch, regardless of the length of :attr:`step_list`.
+        window_length (int, optional):
+            Number of steps to profile at each entry of :attr:`step_list`.
             Defaults to 50.
         epoch_list (Sequence[int], optional).
             List of epochs at which to measure throughput.
@@ -53,18 +53,15 @@ class Benchmarker(Callback):
             the steps and epochs being profiled (specified by ``epoch_list``
             and ``step_list``, respectively).
             Otherwise, if True, then the throughput for
-            the first ``min_steps`` batches of every epoch are recorded.
+            the first ``window_length`` batches of every epoch are recorded.
     """
 
     def __init__(self,
-                 min_steps: int = 50,
+                 window_length: int = 50,
                  epoch_list: Sequence[int] = (0, 1),
                  step_list: Sequence[int] = (0, 50),
                  all_epochs: bool = False):
         super().__init__()
-        #todo: remove this print
-        print (">>>>>>>>>>>>>>> DEBUG: epoch_list ", epoch_list, " , step_list: ", step_list)
-
         if not all_epochs:
             if len(epoch_list) == 0:
                 raise ValueError("'epoch_list'  must be non-empty.")
@@ -86,7 +83,7 @@ class Benchmarker(Callback):
         self.profile_time = 0
         self.wall_clock_train = 0
 
-        self.min_steps = min_steps
+        self.window_length = window_length
 
         self.all_epochs = all_epochs
         self.epoch_list = epoch_list
@@ -102,13 +99,7 @@ class Benchmarker(Callback):
         wct = 0.0
         wct_per_step = 0
         assert 0 in epoch_wct_dict, "epoch_wct_dict must contain 0"
-        #todo: remove
-        # print(">>>>>>>>DEBUG START")
-        # for key in epoch_wct_dict:
-        #     value = epoch_wct_dict[key]
-        #     print(key, "--", value)
-        #     print(type(key), "--", type(value))
-        # print(">>>>>>>>DEBUG END")
+
         for step in range(int(steps_per_epoch)):
             if step in epoch_wct_dict:
                 wct_per_step = epoch_wct_dict[step]
@@ -126,10 +117,8 @@ class Benchmarker(Callback):
             self.epoch_list = list(range(state.max_duration))
             log.info(f"all_epochs=True, overriding epoch_list to be every epoch from 0 to {state.max_duration}")
         self.wct_dict = {e: {s: -1.0 for s in self.step_list} for e in self.epoch_list}
-        # state.max_duration = f"{len(self.epoch_list)}ep"
 
     def epoch_end(self, state: State, logger: Logger):
-        # print (">>>>>>>> BENCHMARKER DEBUG: epoch_end is called")
         prev_epoch = self.epoch_list[self.epoch_ix]
         epoch_wct_dict = self.wct_dict[prev_epoch]
         self.epoch_ix += 1
@@ -147,7 +136,6 @@ class Benchmarker(Callback):
 
     def batch_start(self, state: State, logger: Logger):
         del logger  # Unused
-        print (">>>>>>>> BENCHMARKER DEBUG: batch_start is called -> batch={}, epoch={}".format(state.timestamp.batch, state.timestamp.epoch))
         if self.current_time is None:
             self.current_time = time.time()
             self.profile_examples = 0
@@ -166,7 +154,7 @@ class Benchmarker(Callback):
             self.profile_steps += 1
             self.profile_time += elapsed
 
-            if self.profile_steps >= self.min_steps:
+            if self.profile_steps >= self.window_length:
                 avg_throughput = self.profile_examples / self.profile_time
                 avg_time_per_step = self.profile_time / self.profile_steps
                 profile_epoch = self.epoch_list[self.epoch_ix]
@@ -178,22 +166,11 @@ class Benchmarker(Callback):
                 self.step_ix += 1
                 if self.step_ix == len(self.step_list):
                     self.step_ix = 0
-                    # print (">>>>>>>> BENCHMARKER DEBUG: end of step_list -> BreakEpochException raised")
                     raise BreakEpochException
                 else:
-                    # Comment: I avoided defining setters in Timestamp() as it can cause potential bugs for others. 
-                    # Instead, I overwrite the private members (bad practice).
-                    # print()
-                    # print(">>>>>>>>>>>>>>>>>>> DEBUG BATCH END: epoch={}, dataloader_len={}, step_list[]={}, step_ix={}".format(state.timestamp.epoch, state.dataloader_len, self.step_list[self.step_ix], self.step_ix))
+                    # Todo: I avoided defining setters in Timestamp() as it can cause potential bugs for others. 
+                    # Instead, I overwrite the private members (despite not being an ideal practice).
                     new_batch_value = int(state.timestamp.epoch) * int(state.dataloader_len) + self.step_list[self.step_ix]
-                    # state.timestamp.batch._value = int(new_batch_value)
-                    # state.timestamp.batch_in_epoch._value = int(self.ste÷p_list[self.step_ix])
-                    
 
-                    # print("old batch: {}, new batch: {}".format(state.timestamp._batch, Time(new_batch_value, TimeUnit.BATCH)))
-                    # print(state.timestamp.batch, " - ", state.timestamp.batch._value, " - ", state.timestamp._batch, " - ", state.timestamp._batch._value)
-                    # print(type(state.timestamp.batch), " - ", type(state.timestamp.batch._value), " - ", type(state.timestamp._batch), " - ", type(state.timestamp._batch._value))
                     state.timestamp._batch = Time(new_batch_value, TimeUnit.BATCH)
-                    # print("old batch_in_epoch: {}, new batch_in_epoch: {}".format(state.timestamp._batch_in_epoch, Time(int(self.step_list[self.step_ix]), TimeUnit.BATCH)))
                     state.timestamp._batch_in_epoch = Time(int(self.step_list[self.step_ix]), TimeUnit.BATCH)
-                    # print(">>>>>>>>>>>>>>>>>>> END DEBUG BATCH END")

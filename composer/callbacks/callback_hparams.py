@@ -54,17 +54,17 @@ class BenchmarkerHparams(CallbackHparams):
     """:class:`~composer.callbacks.benchmarker.Benchmarker` hyperparameters.
     See :class:`~composer.callbacks.benchmarker.Benchmarker` for documentation.
     """
-    min_steps: int = hp.optional(
-        doc="Minimum number of steps to use for measuring throughput.",
-        default=0,
+    window_length: int = hp.optional(
+        doc="Number of steps to use for measuring throughput.",
+        default=50,
     )
     epoch_list: List[int] = hp.optional(
         doc="List of epochs at which to measure throughput.",
-        default_factory=lambda: [0, 4, 6, 8],
+        default_factory=lambda: [0, 1],
     )
     step_list: List[int] = hp.optional(
         doc="List of steps at which to measure throughput.",
-        default_factory=lambda: [0, 100, 200, 300],
+        default_factory=lambda: [0, 50],
     )
     all_epochs: bool = hp.optional(
         doc="If true, override epoch_list and profile at all epochs.",
@@ -74,7 +74,7 @@ class BenchmarkerHparams(CallbackHparams):
     def initialize_object(self) -> Benchmarker:
         from composer.callbacks.benchmarker import Benchmarker
         return Benchmarker(
-            min_steps=self.min_steps,
+            window_length=self.window_length,
             epoch_list=self.epoch_list,
             step_list=self.step_list,
             all_epochs=self.all_epochs,
