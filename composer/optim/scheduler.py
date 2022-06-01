@@ -23,13 +23,11 @@ from torch.optim.lr_scheduler import LambdaLR
 from composer.core import State, Time, TimeUnit
 from composer.core.types import PyTorchScheduler
 
-try:
-    from typing import Protocol
-except ImportError:
-    Protocol = object  # Protocol is not available in python 3.7
-
 if TYPE_CHECKING:
     from typing import Protocol
+else:
+    # subclasses of Protocol cannot be instantiated in Python 3.8
+    Protocol = object
 
 log = logging.getLogger(__name__)
 

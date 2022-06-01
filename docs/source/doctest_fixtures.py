@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # disabling general type issues because of monkeypatching
-# pyright: reportGeneralTypeIssues=none
+#yright: reportGeneralTypeIssues=none
 
 """Fixtures available in doctests.
 
@@ -17,6 +17,7 @@ from typing import Any
 from typing import Callable as Callable
 
 import numpy as np
+import torch
 import torch.optim
 import torch.utils.data
 from PIL import Image
@@ -24,14 +25,12 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import composer
 import composer.loggers
-import composer.loggers.logger_hparams
 import composer.loggers.object_store_logger
 import composer.trainer
 import composer.trainer.trainer
 import composer.utils
 import composer.utils.checkpoint
 import composer.utils.file_helpers
-import composer.utils.object_store
 from composer import Trainer
 from composer.core import Algorithm as Algorithm
 from composer.core import Callback as Callback
@@ -170,7 +169,7 @@ def _do_not_validate(*args, **kwargs) -> None:
     pass
 
 
-composer.loggers.object_store_logger._validate_credentials = _do_not_validate
+composer.loggers.object_store_logger._validate_credentials = _do_not_validate  # type: ignore
 
 # Patch ObjectStoreLogger __init__ function to replace arguments while preserving type
 _original_objectStoreLogger_init = ObjectStoreLogger.__init__
@@ -190,7 +189,7 @@ def _new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any)
     _original_objectStoreLogger_init(self, **kwargs)
 
 
-ObjectStoreLogger.__init__ = _new_objectStoreLogger_init
+ObjectStoreLogger.__init__ = _new_objectStoreLogger_init  # type: ignore
 
 # Patch ObjectStore __init__ function to replace arguments while preserving type
 _original_objectStore_init = LibcloudObjectStore.__init__
@@ -208,4 +207,4 @@ def _new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
     _original_objectStore_init(self, **kwargs)
 
 
-LibcloudObjectStore.__init__ = _new_objectStore_init
+LibcloudObjectStore.__init__ = _new_objectStore_init  # type: ignore

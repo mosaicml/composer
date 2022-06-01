@@ -71,7 +71,7 @@ install_requires = [
     "torch_optimizer>=0.1.0,<0.2",
     "torchvision>=0.10.0",  # torchvision has strict pytorch requirements
     "torch>=1.9,<2",
-    "yahp==0.1.0",
+    "yahp==0.1.1",
     "requests>=2.26.0,<3",
     "numpy>=1.21.5,<2",
     "apache-libcloud>=3.3.1,<4",
@@ -118,6 +118,7 @@ extra_deps["dev"] = [
     "sphinxcontrib-images==0.9.4",
     "pytest_codeblocks==0.15.0",
     "traitlets==5.1.1",  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
+    "GitPython==3.1.27",
 ]
 
 extra_deps["deepspeed"] = [

@@ -42,7 +42,7 @@ from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collec
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.object_store import LibcloudObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 

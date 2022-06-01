@@ -72,6 +72,10 @@ class MemoryMonitor(Callback):
         Memory usage monitoring is only supported for the GPU devices.
     """
 
+    def __init__(self) -> None:
+        # Memory monitor takes no args
+        pass
+
     def fit_start(self, state: State, logger: Logger) -> None:
         # TODO(ravi) move this check would be on Event.INIT after #1084 is merged
         # Not relying on `torch.cuda.is_available()` since the model could be on CPU.

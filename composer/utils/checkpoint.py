@@ -20,7 +20,7 @@ import torch
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, GetFileNotFoundException,
                                          format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.object_store import LibcloudObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 if TYPE_CHECKING:
     from composer.core.state import State
