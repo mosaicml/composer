@@ -22,7 +22,7 @@ import sys
 import textwrap
 import types
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import sphinx.application
 import sphinx.ext.autodoc
@@ -66,6 +66,29 @@ extensions = [
     'sphinx_panels',
     'sphinxcontrib.images',
 ]
+
+
+def _get_commit_sha() -> str:
+    """Determine the commit sha.
+
+    Returns:
+        str: The git commit sha, as a string.
+    """
+    repo_root = os.path.join(os.path.dirname(__file__), "..", "..")
+    repo = Repo(repo_root)
+    if repo.is_dirty():
+        warning_msg = "The git repo is dirty. The commit sha for source code links will be incorrect."
+        if os.environ.get('CI', '0') == '0':
+            # If developing locally, warn.
+            warnings.warn(warning_msg)
+        else:
+            # If on CI, error.
+            raise RuntimeError(warning_msg)
+    _commit_sha = repo.commit().hexsha
+    return _commit_sha
+
+
+_COMMIT_SHA = _get_commit_sha()
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -438,8 +461,6 @@ def add_directive_header_no_object_base(self, *args, **kwargs):
 
 ClassDocumenter.add_directive_header = add_directive_header_no_object_base
 
-_commit_sha = None
-
 
 def _recursive_getattr(obj: Any, path: str):
     parts = path.split(".")
@@ -452,29 +473,6 @@ def _recursive_getattr(obj: Any, path: str):
         return obj
     else:
         return _recursive_getattr(obj, path)
-
-
-def _get_commit_sha() -> str:
-    """Lazily determine the commit sha and cache it.
-
-    Returns:
-        str: The git commit sha, as a string.
-    """
-    global _commit_sha
-    if _commit_sha is not None:
-        return _commit_sha
-    repo_root = os.path.join(os.path.dirname(__file__), "..", "..")
-    repo = Repo(repo_root)
-    if repo.is_dirty():
-        warning_msg = "The git repo is dirty. The commit sha for source code links will be incorrect."
-        if os.environ.get('CI', '0') == '0':
-            # If developing locally, warn.
-            warnings.warn(warning_msg)
-        else:
-            # If on CI, error.
-            raise RuntimeError(warning_msg)
-    _commit_sha = repo.commit().hexsha
-    return _commit_sha
 
 
 def _determine_lineno_of_attribute(module: types.ModuleType, attribute: str):
@@ -517,7 +515,7 @@ def linkcode_resolve(domain: str, info: Dict[str, str]):
         return None
     # Format the link
     filename = module_name.replace(".", "/")
-    commit_sha = _get_commit_sha()
+    commit_sha = _COMMIT_SHA
     return f"https://github.com/mosaicml/composer/blob/{commit_sha}/{filename}.py#L{lineno}"
 
 
