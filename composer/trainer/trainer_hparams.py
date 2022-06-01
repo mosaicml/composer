@@ -270,11 +270,6 @@ class TrainerHparams(hp.Hparams):
     model: ModelHparams = hp.auto(Trainer, "model")
 
     # Shared data
-    datadir: Optional[str] = hp.optional(
-        doc=(("Datadir to apply for both the training and validation datasets. If specified, "
-              "it will override train_dataset.datadir and val_dataset.datadir.")),
-        default=None,
-    )
     dataloader: DataLoaderHparams = hp.optional(doc="dataloader hparams", default=DataLoaderHparams())
 
     # Train Data
