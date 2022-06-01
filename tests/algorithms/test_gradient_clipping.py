@@ -76,6 +76,27 @@ def test_gradient_clipping_functional(monkeypatch):
     new_gc_fn.assert_called_once()
 
 
+@pytest.mark.parametrize('clipping_type', [('adaptive',), ('norm',), ('value',)])
+def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_with_grads):
+    model = simple_model_with_grads
+    apply_gc_fn = Mock()
+    monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
+    state = Mock()
+    state.model = model
+    state.profiler.marker = Mock(return_value=None)
+    state.callbacks = []
+    state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=0.01)]
+    logger = Mock()
+    engine = Engine(state, logger)
+
+    # Run the Event that should cause AGC.apply to be called.
+    engine.run_event(Event.AFTER_TRAIN_BATCH)
+
+    apply_gc_fn.assert_called_once()
+
+
+#### Tests Specific to AGC ######
+
 def test_apply_agc(simple_model_with_grads):
 
     model = simple_model_with_grads
@@ -99,25 +120,6 @@ def test_apply_agc_with_cnn_does_not_error(cnn_model_with_grads):
     model = cnn_model_with_grads
     # Call apply_agc. If this function returns then we know that nothing errored out.
     _apply_agc(model.parameters(), 0.01)
-
-
-@pytest.mark.parametrize('clipping_type', [('adaptive',), ('norm',), ('value',)])
-def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_with_grads):
-    model = simple_model_with_grads
-    apply_gc_fn = Mock()
-    monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
-    state = Mock()
-    state.model = model
-    state.profiler.marker = Mock(return_value=None)
-    state.callbacks = []
-    state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=0.01)]
-    logger = Mock()
-    engine = Engine(state, logger)
-
-    # Run the Event that should cause AGC.apply to be called.
-    engine.run_event(Event.AFTER_TRAIN_BATCH)
-
-    apply_gc_fn.assert_called_once()
 
 
 def test_get_clipped_gradients_1D():
