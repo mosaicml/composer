@@ -238,10 +238,10 @@ class TrainerHparams(hp.Hparams):
             config for training  (see :class:`.Trainer` for more details). If ``None`` (the default), DeepSpeed will not
             be used.
 
-        device (DeviceHparams, optional): Hparams for constructing the device used for training.
+        device (Device, optional): Hparams for constructing the device used for training.
             (default: ``None``)
         precision (Precision, optional): See :class:`.Trainer`.
-        grad_accum (int, optional): See :class:`.Trainer`.
+        grad_accum (int | str, optional): See :class:`.Trainer`.
 
         seed (int, optional): See :class:`.Trainer`.
         deterministic_mode (bool, optional): See :class:`.Trainer`.

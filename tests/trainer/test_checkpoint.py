@@ -25,6 +25,7 @@ from composer.loggers import ObjectStoreLogger
 from composer.optim import CosineAnnealingScheduler
 from composer.optim.optimizer_hparams_registry import AdamWHparams
 from composer.trainer.devices import Device, DeviceGPU
+from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, is_tar
@@ -416,7 +417,7 @@ def test_checkpoint_with_object_store_logger(
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-@pytest.mark.parametrize("device_hparams,deepspeed_enabled,zero_stage", [
+@pytest.mark.parametrize("device,deepspeed_enabled,zero_stage", [
     pytest.param('cpu', False, None, id="cpu-ddp"),
     pytest.param('gpu', False, None, id="gpu-ddp", marks=pytest.mark.gpu),
     pytest.param('gpu', True, 0, id="deepspeed-zero0", marks=pytest.mark.gpu),
@@ -442,7 +443,7 @@ def test_checkpoint_with_object_store_logger(
     pytest.param("gpt2_52m", marks=pytest.mark.daily),
 ])
 def test_checkpoint(
-    device_hparams: Device,
+    device: str,
     world_size: int,
     deepspeed_enabled: bool,
     zero_stage: Optional[int],
@@ -462,9 +463,6 @@ def test_checkpoint(
     """
     del world_size  # unused. Read via env variable
 
-    if not isinstance(device_hparams, DeviceGPU) and deepspeed_enabled:
-        pytest.skip("DeepSpeed tests must be ran on GPU")
-
     if deepspeed_enabled:
         if not is_tar(resume_file):
             resume_file += ".tar"
@@ -472,7 +470,7 @@ def test_checkpoint(
             final_checkpoint += ".tar"
 
     if model_name is not None:
-        if not isinstance(device_hparams, DeviceGPU):
+        if device == "cpu":
             pytest.skip("Real models require a GPU -- otherwise they take too long")
         model_hparams = TrainerHparams.load(model_name)
         composer_trainer_hparams.train_dataset = model_hparams.train_dataset
@@ -509,7 +507,7 @@ def test_checkpoint(
     composer_trainer_hparams.callbacks = [DummyStatefulCallback(), EventCounterCallback()]
     composer_trainer_hparams.train_subset_num_batches = 5
     composer_trainer_hparams.eval_subset_num_batches = 5
-    composer_trainer_hparams.device = device_hparams
+    composer_trainer_hparams.device = DeviceCPU() if device == "cpu" else DeviceGPU()
     if deepspeed_enabled:
         assert zero_stage is not None
         if zero_stage > 0:
