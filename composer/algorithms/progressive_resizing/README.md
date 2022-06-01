@@ -29,7 +29,7 @@ def training_loop(model, train_loader):
 
     for epoch in range(num_epochs):
         for X, y in train_loader:
-            X_resized, _ = resize_batch(X, y, scale_factor=0.5, mode='resize', resize_targets=False)
+            X_resized, _ = cf.resize_batch(X, y, scale_factor=0.5, mode='resize', resize_targets=False)
             y_hat = model(X_resized)
             loss = loss_fn(y_hat, y)
             loss.backward()
