@@ -449,13 +449,7 @@ def _recursive_getattr(obj: Any, path: str):
         return None
     path = ".".join(parts[1:])
     if path == "":
-        if isinstance(obj, (types.ModuleType, type, types.MethodType, types.FunctionType, types.TracebackType,
-                            types.FrameType, Callable)):
-            return obj
-        if isinstance(obj, property):
-            # For properties, return the getter, where it is documented
-            return obj.fget
-        return None
+        return obj
     else:
         return _recursive_getattr(obj, path)
 
@@ -508,11 +502,17 @@ def linkcode_resolve(domain: str, info: Dict[str, str]):
     lineno = _determine_lineno_of_attribute(module, obj_name_in_module)
     if lineno is None:
         obj = _recursive_getattr(module, obj_name_in_module)
-        if obj is not None:
+        if isinstance(obj, property):
+            # For properties, return the getter, where it is documented
+            obj = obj.fget
+        try:
             _, lineno = inspect.getsourcelines(obj)
+        except TypeError:
+            # `inspect.getsourcelines` does not work on all object types (e.g. attributes).
+            # If it fails, it still might be possible to determine the source line through better parsing
+            # in _determine_lineno_of_attribute
+            pass
     if lineno is None:
-        # Class-level and instance-level attributes will generally be undocumented for now
-        # This can be fixed doing better parsing in_determine_lineno_of_attribute
         log.debug(f"Could not determine source line number for {module_name}.{obj_name_in_module}.")
         return None
     # Format the link
