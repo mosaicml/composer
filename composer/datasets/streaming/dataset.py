@@ -9,7 +9,7 @@ import os
 from io import BytesIO
 from threading import Lock, Thread
 from time import sleep
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, Optional, Tuple
 
 import numpy as np
 from PIL import Image
@@ -108,7 +108,7 @@ class StreamingDataset(IterableDataset):
             self.index = StreamingDatasetIndex.load(fp)
 
         # Fields, protected by the lock, relating to loading shards in the background.
-        self._lock = None
+        self._lock: Lock
         self._next_epoch = 0
         self._epoch_to_todo_ids = {}
         self._downloaded_ids = []
@@ -173,7 +173,7 @@ class StreamingDataset(IterableDataset):
 
     def download(self) -> None:
         """Download and assimilate missing shards."""
-        if not self._lock:
+        if not hasattr(self, '_lock'):
             self._lock = Lock()
 
         with self._lock:
@@ -322,7 +322,7 @@ class StreamingDataset(IterableDataset):
         Returns:
             Iterator[Any]: Each sample.
         """
-        if not self._lock:
+        if not hasattr(self, '_lock'):
             self._lock = Lock()
 
         Thread(target=self.download, daemon=True).start()
