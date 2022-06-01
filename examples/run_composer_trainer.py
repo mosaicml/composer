@@ -19,8 +19,7 @@ import warnings
 from typing import Type
 
 from composer.loggers.logger import LogLevel
-from composer.loggers.logger_hparams import WandBLoggerHparams
-from composer.trainer import TrainerHparams
+from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 
 
@@ -37,12 +36,16 @@ def main() -> None:
 
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
 
-    # if using wandb, store the config inside the wandb run
-    for logger_hparams in hparams.loggers:
-        if isinstance(logger_hparams, WandBLoggerHparams):
-            logger_hparams.config = hparams.to_dict()
-
     trainer = hparams.initialize_object()
+
+    # if using wandb, store the config inside the wandb run
+    try:
+        import wandb
+    except ImportError:
+        pass
+    else:
+        if wandb.run is not None:
+            wandb.config.update(**hparams.to_dict())
 
     # Only log the config once, since it should be the same on all ranks.
     if dist.get_global_rank() == 0:

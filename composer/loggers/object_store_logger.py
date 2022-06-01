@@ -29,7 +29,7 @@ from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import format_name_with_dist
 from composer.utils.file_helpers import get_file
-from composer.utils.object_store import LibcloudObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 

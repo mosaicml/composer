@@ -7,8 +7,8 @@ import pytest
 
 import composer
 from composer.core.precision import Precision
-from composer.trainer import TrainerHparams
-from composer.trainer.devices import CPUDeviceHparams
+from composer.trainer.devices.device_cpu import DeviceCPU
+from composer.trainer.trainer_hparams import TrainerHparams
 from tests.common import configure_dataset_hparams_for_synthetic, configure_model_hparams_for_synthetic
 
 
@@ -79,7 +79,7 @@ class TestHparamsCreate:
         if hparams.evaluators is not None:
             for evaluator in hparams.evaluators:
                 configure_dataset_hparams_for_synthetic(evaluator.eval_dataset)
-        hparams.device = CPUDeviceHparams()
+        hparams.device = DeviceCPU()
         hparams.load_path = None
 
         hparams.initialize_object()
