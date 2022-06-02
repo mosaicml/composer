@@ -1,5 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+import contextlib
 import datetime
 import logging
 import os
@@ -200,6 +201,30 @@ def _parse_args():
     return args
 
 
+@contextlib.contextmanager
+def _patch_env(**environs: str):
+    """Returns a context manager that patches ``os.environ`` with ``environs``.
+
+    The original ``os.environ`` values are restored at the end."""
+    # Adapted loosely from https://stackoverflow.com/a/34333710
+    # Capture the original environ values
+    original_environs = {k: os.environ.get(k) for k in environs}
+
+    # Patch the environment
+    for k, v in environs.items():
+        os.environ[k] = v
+    try:
+        # Run the context manager
+        yield
+    finally:
+        # Restore the original environ values
+        for k, v in original_environs.items():
+            if v is None:
+                del os.environ[k]
+            else:
+                os.environ[k] = v
+
+
 def _launch_processes(
     nproc: int,
     world_size: int,
@@ -225,60 +250,53 @@ def _launch_processes(
 
         cmd.append(training_script)
 
-        # Back up the env
-        original_env = os.environ.copy()
-
         # Update the env with the distributed variables
-        os.environ["RANK"] = str(global_rank)
-        os.environ["WORLD_SIZE"] = str(world_size)
-        os.environ["LOCAL_RANK"] = str(local_rank)
-        os.environ["LOCAL_WORLD_SIZE"] = str(nproc)
-        os.environ["NODE_RANK"] = str(node_rank)
-        os.environ["MASTER_ADDR"] = master_addr
-        os.environ["MASTER_PORT"] = str(master_port)
+        with _patch_env(
+                RANK=str(global_rank),
+                WORLD_SIZE=str(world_size),
+                LOCAL_RANK=str(local_rank),
+                LOCAL_WORLD_SIZE=str(nproc),
+                NODE_RANK=str(node_rank),
+                MASTER_ADDR=master_addr,
+                MASTER_PORT=str(master_port),
+        ):
 
-        # Populate the distributed variables in all launcher args
-        for arg in training_script_args:
-            cmd.append(os.path.expandvars(os.path.expanduser(arg)))
+            # Populate the distributed variables in all launcher args
+            for arg in training_script_args:
+                cmd.append(os.path.expandvars(os.path.expanduser(arg)))
 
-        log.info("Launching process for local_rank(%s), global_rank(%s) with command(%s)", local_rank, global_rank, cmd)
+            log.info("Launching process for local_rank(%s), global_rank(%s) with command(%s)", local_rank, global_rank,
+                     cmd)
 
-        if local_rank == 0:
-            process = subprocess.Popen(
-                cmd,
-                text=True,
-            )
-        else:
-
-            def _get_file(format: str):
-                filename = format.format(
-                    rank=global_rank,
-                    world_size=world_size,
-                    local_rank=local_rank,
-                    local_world_size=nproc,
-                    node_rank=node_rank,
+            if local_rank == 0:
+                process = subprocess.Popen(
+                    cmd,
+                    text=True,
                 )
-                return open(filename, 'x+')
-
-            stderr_file = _get_file(stderr_file_format)
-            stdout_file = _get_file(stdout_file_format)
-
-            process = subprocess.Popen(
-                cmd,
-                stdout=stdout_file,
-                stderr=stderr_file,
-                text=True,
-            )
-            process.stderr = stderr_file
-            process.stdout = stdout_file
-        processes[global_rank] = process
-
-        # Restore the env variables back to the original values
-        for var in ("RANK", "WORLD_SIZE", "LOCAL_RANK", "LOCAL_WORLD_SIZE", "NODE_RANK", "MASTER_ADDR", "MASTER_PORT"):
-            if var in original_env:
-                os.environ[var] = original_env[var]
             else:
-                del os.environ[var]
+
+                def _get_file(format: str):
+                    filename = format.format(
+                        rank=global_rank,
+                        world_size=world_size,
+                        local_rank=local_rank,
+                        local_world_size=nproc,
+                        node_rank=node_rank,
+                    )
+                    return open(filename, 'x+')
+
+                stderr_file = _get_file(stderr_file_format)
+                stdout_file = _get_file(stdout_file_format)
+
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=stdout_file,
+                    stderr=stderr_file,
+                    text=True,
+                )
+                process.stderr = stderr_file
+                process.stdout = stdout_file
+            processes[global_rank] = process
 
 
 def _monitor_processes(processes: Dict[int, subprocess.Popen]):
