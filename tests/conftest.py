@@ -33,7 +33,7 @@ _include_deprecated_fixtures = True
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
     "tests.fixtures.new_fixtures",
-    "tests.fixtures.test_synthetic_hf_state",
+    "tests.fixtures.synthetic_hf_state",
 ]
 
 if _include_deprecated_fixtures:

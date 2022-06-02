@@ -4,7 +4,6 @@
 from typing import Tuple
 
 import pytest
-import torch
 
 from composer.core.state import State
 from composer.datasets import DataLoaderHparams, LMDatasetHparams
@@ -55,6 +54,7 @@ def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer: PreT
 
 def make_synthetic_dataloader(dataset_config: dict):
     """
+    creates a dataloader for synthetic sequence data
     """
     dataloader = LMDatasetHparams(use_synthetic=True,
                                   tokenizer_name=dataset_config['tokenizer_family'],
@@ -78,7 +78,6 @@ def synthetic_hf_state_maker(config) -> Tuple:
     """
     An example state using synthetic HF transformer function which could used for testing purposes
     """
-    #config = request.params
     model, dataloader = model_components(config)
     state = State(
         model=model,
@@ -92,27 +91,6 @@ def synthetic_hf_state_maker(config) -> Tuple:
 
 
 @pytest.fixture(params=make_dataset_configs())
-def synthetic_hf_state_fixture(request):
+def synthetic_hf_state(request):
     config = request.param
     return synthetic_hf_state_maker(config)
-
-
-@pytest.mark.filterwarnings(
-    r"ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics")
-def test_synthetic_hf_state(synthetic_hf_state_fixture):
-    state, lm, dataloader = synthetic_hf_state_fixture
-    sample = next(iter(dataloader)).data
-    state.batch = next(iter(state.dataloader)).data
-    assert state.batch.keys() == sample.keys()
-    for key in state.batch.keys():
-        assert state.batch[key].size() == sample[key].size()
-    lm.eval()
-    logits, labels = lm.validate(sample)
-    assert hasattr(state, "batch")
-    state_output = state.model(state.batch)
-    if labels is not None:
-        assert isinstance(logits, torch.Tensor)
-        assert state_output['logits'].size() == logits.size()
-        assert state.batch['labels'].size() == labels.size()
-    else:
-        assert state_output['logits'].size() == logits['logits'].size()
