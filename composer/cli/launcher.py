@@ -208,7 +208,8 @@ def _parse_args():
 def _patch_env(**environs: str):
     """Returns a context manager that patches ``os.environ`` with ``environs``.
 
-    The original ``os.environ`` values are restored at the end."""
+    The original ``os.environ`` values are restored at the end.
+    """
     # Adapted loosely from https://stackoverflow.com/a/34333710
     # Capture the original environ values
     original_environs = {k: os.environ.get(k) for k in environs}
