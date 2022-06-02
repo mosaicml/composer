@@ -10,20 +10,9 @@ import os
 import pathlib
 import shutil
 import subprocess
-import tempfile
 import textwrap
 
 import pytest
-from pypandoc.pandoc_download import download_pandoc
-
-
-@pytest.fixture
-def install_pandoc():
-    if not shutil.which("pandoc"):
-        # Install pandoc if it is not installed.
-        # Pandoc is required by nbconvert but it is not included in the pypandoc pip package
-        with tempfile.TemporaryDirectory() as tmpdir:
-            download_pandoc(version='2.18', download_folder=tmpdir)
 
 
 def check_output(proc: subprocess.CompletedProcess):
@@ -56,8 +45,7 @@ def test_run_pre_commit_hooks():
 
 
 @pytest.mark.timeout(0)
-def test_run_doctests(install_pandoc: None):
-    del install_pandoc  # unused
+def test_run_doctests():
     docs_folder = pathlib.Path(os.path.dirname(__file__)) / '..' / 'docs'
     api_reference_folder = docs_folder / 'source' / 'api_reference'
     # Remove the `api_reference` folder, which isn't automatically removed via `make clean`

@@ -43,7 +43,17 @@ if not shutil.which("pandoc"):
     # Install pandoc if it is not installed.
     # Pandoc is required by nbconvert but it is not included in the pypandoc pip package
     with tempfile.TemporaryDirectory() as tmpdir:
-        download_pandoc(version='2.18', download_folder=tmpdir)
+        # if root on linux, use the "/bin" folder, since "~/bin" = "/root/bin" is not in the path by default
+        # similar on osx -- use /Applications instead of "~/Applications" = "/root/Applications"
+        target_folder = None
+        if os.getuid() == 0:
+            if sys.platform == "linux":
+                target_folder = "/bin"
+            elif sys.platform == "darwin":
+                target_folder = "/Applications/pandoc"
+            # Not handling windows; nobody uses root on windows lol
+
+        download_pandoc(version='2.18', download_folder=tmpdir, targetfolder=target_folder, delete_installer=True)
 
 sys.path.insert(0, os.path.abspath('..'))
 
