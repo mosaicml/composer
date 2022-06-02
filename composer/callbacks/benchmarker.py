@@ -136,6 +136,8 @@ class Benchmarker(Callback):
 
     def batch_start(self, state: State, logger: Logger):
         del logger  # Unused
+        # Todo: update the progress_bar so that it is compatible with Benchmarker and remove this print.
+        print(">>> Benchmarker Info: Sampling at epoch #{} - batch #{}".format(state.timestamp.epoch, state.timestamp.batch))
         if self.current_time is None:
             self.current_time = time.time()
             self.profile_examples = 0
