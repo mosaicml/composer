@@ -58,9 +58,8 @@ class Device(Serializable, ABC):
     def batch_to_device(self, batch: T_Batch) -> T_Batch:
         """Invoked by the :class:`.Trainer` move all tensors items in a batch to device.
 
-        Supports nested sequences and
-        mappings of tensors. Ignores non-tensor items. Preserves sequence and types when possible, otherwise converts
-        sequences to lists. Converts mappings to dictionaries.
+        Supports nested sequences and mappings of tensors. Ignores non-tensor items. Preserves sequence and mapping types
+        when possible; otherwise, sequences are converted to lists, and mappings are converted to dictionaries.
 
         Args:
             batch (Any): The batch to move to the device.

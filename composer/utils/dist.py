@@ -352,7 +352,7 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
     Args:
         backend (str): The distributed backend to use. Should be ``gloo`` for CPU training,
             or ``nccl`` for GPU training.
-        timeout (datetime.timedelta): The timeout for operations exected against the process group.
+        timeout (datetime.timedelta): The timeout for operations executed against the process group.
     """
     if get_world_size() > 1 and not dist.is_available():
         raise RuntimeError("When the world size is > 1, ``torch.distributed`` must be used. However, it is "
@@ -396,13 +396,13 @@ def initialize_dist(backend: str, timeout: datetime.timedelta):
 def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool, shuffle: bool):
     """Constructs a :class:`~torch.utils.data.distributed.DistributedSampler` for a dataset.
 
-    The
-    :class:`~torch.utils.data.distributed.DistributedSampler` assumes that each rank has a complete copy of the dataset.
-    It ensures that each rank sees a unique shard for each epoch containing ``len(datset) / get_world_size()`` samples.
+    The :class:`~torch.utils.data.distributed.DistributedSampler` assumes that each rank has a complete copy of the
+    dataset. It ensures that each rank sees a unique shard for each epoch containing
+    ``len(dataset) / get_world_size()`` samples.
 
     .. note::
 
-        If the ``dataset`` is already shareded by rank, use a :class:`~torch.utils.data.SequentialSampler`
+        If the ``dataset`` is already sharded by rank, use a :class:`~torch.utils.data.SequentialSampler`
         or :class:`~torch.utils.data.RandomSampler`.
 
     Args:
