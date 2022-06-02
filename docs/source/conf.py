@@ -282,7 +282,7 @@ def add_module_summary_tables(
     options: sphinx.ext.autodoc.Options,
     lines: List[str],
 ):
-    """Add in summary tables for each module, documenting all functions, exceptions, classes, and attributes.
+    """Add summary tables for each module, documenting all functions, exceptions, classes, and attributes.
 
     It links reimported imports to their original source, as not to create a duplicate, indexed toctree entry.
     It automatically inserts itself at the end of each module docstring.

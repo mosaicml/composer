@@ -133,7 +133,7 @@ y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
 
 def loss_fun(output, target, reduction="none"):
-    """Dummy los function."""
+    """Dummy loss function."""
     return torch.ones_like(target)
 
 

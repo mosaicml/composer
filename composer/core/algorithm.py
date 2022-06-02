@@ -42,7 +42,7 @@ class Algorithm(Serializable, ABC):
 
     @property
     def find_unused_parameters(self) -> bool:
-        """Whether this algorithm may cause some model parameters to be unused. Defaults to False.
+        """Indicates whether this algorithm may cause some model parameters to be unused. Defaults to False.
 
         For example, it is used to tell :class:`torch.nn.parallel.DistributedDataParallel` (DDP) that some parameters
         will be frozen during training and hence it should not expect gradients from them. All algorithms which do any
@@ -65,7 +65,7 @@ class Algorithm(Serializable, ABC):
 
     @abstractmethod
     def match(self, event: Event, state: State) -> bool:
-        """Whether this algorithm should run given the current :class:`~.event.Event` and :class:`~.state.State`.
+        """Determines whether this algorithm should run given the current :class:`~.event.Event` and :class:`~.state.State`.
 
         Examples:
         To only run on a specific event (e.g., on :attr:`~.Event.BEFORE_LOSS`), override match as shown below:
