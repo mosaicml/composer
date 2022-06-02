@@ -32,7 +32,7 @@ def augmix_image(img: ImgT,
                  width: int = 3,
                  alpha: float = 1.0,
                  augmentation_set: List = augmentation_sets["all"]) -> ImgT:
-    r"""Apply the AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation.
+    r"""Applies the AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation.
 
     This function works on a single image or batch of images. See :class:`.AugMix` and
     the :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a

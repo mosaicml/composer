@@ -1005,7 +1005,7 @@ class Trainer:
         load_chunk_size: int,
         load_progress_bar: bool,
     ):
-        """Determine the load path when using autoresume.
+        """Determines the load path when using autoresume.
 
         First, check for latest checkpoint locally. If none is found, check loggers
         for checkpoint. If any checkpoint is found, load that instead of load_path. If none are found,

@@ -97,7 +97,7 @@ class Algorithm(Serializable, ABC):
 
     @abstractmethod
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Apply the algorithm to make an in-place change to the :class:`~.state.State`.
+        """Applies the algorithm to make an in-place change to the :class:`~.state.State`.
 
         Can optionally return an exit code to be stored in a :class:`~.engine.Trace` and this exit code is made
         accessible for debugging.

@@ -111,7 +111,7 @@ def get_host_processor_name() -> str:
 
 
 def get_host_processor_cores() -> int:
-    """Determine the number of physical host processor cores."""
+    """Determines the number of physical host processor cores."""
     return psutil.cpu_count(logical=False)
 
 
@@ -126,7 +126,7 @@ def get_accel_model_name() -> str:
 
 
 def get_local_world_size() -> int:
-    """Determine the number of accelerators per node."""
+    """Determines the number of accelerators per node."""
     return dist.get_local_world_size() if cuda_available() else 0
 
 

@@ -72,7 +72,7 @@ extensions = [
 
 
 def _get_commit_sha() -> str:
-    """Determine the commit sha.
+    """Determines the commit sha.
 
     Returns:
         str: The git commit sha, as a string.
