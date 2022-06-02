@@ -28,13 +28,13 @@ class Benchmarker(Callback):
     It logs:
     * The throughput (averaged over the number of steps profiled in an epoch)
       to the ``throughput/step`` key.
-    * The total elapsed training time to the ``wall_clock_train`` key.
+    * The total elapsed training time to the ``wall_clock/train`` key.
     .. warning::
         The :class:`Benchmarker`: should NOT be used in conjunction with the
         :class:`~composer.callbacks.speed_monitor.SpeedMonitor`, since they
         log to the same keys.
     .. warning::
-        The :class:`Benchmarker`: modifies the :class:`~compose.core.State`,
+        The :class:`Benchmarker`: modifies the :class:`~composer.core.State`,
         which is an exception to the convention that callbacks should NOT
         modify state. This callback may break other algorithms and callbacks.
     Args:
