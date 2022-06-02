@@ -16,6 +16,7 @@ from composer.utils import MissingConditionalImportError
 from tests.common.models import generate_dummy_model_config
 from tests.datasets import test_synthetic_lm_data
 
+pytest.importorskip("transformers")
 try:
     from transformers import PreTrainedTokenizer
 except ImportError as e:
