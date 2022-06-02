@@ -18,7 +18,9 @@ import importlib
 import inspect
 import json
 import os
+import shutil
 import sys
+import tempfile
 import textwrap
 import types
 import warnings
@@ -33,8 +35,25 @@ import yahp as hp
 from docutils import nodes
 from docutils.nodes import Element
 from git.repo.base import Repo
+from pypandoc.pandoc_download import download_pandoc
 from sphinx.ext.autodoc import ClassDocumenter, _
 from sphinx.writers.html5 import HTML5Translator
+
+if not shutil.which("pandoc"):
+    # Install pandoc if it is not installed.
+    # Pandoc is required by nbconvert but it is not included in the pypandoc pip package
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # if root on linux, use the "/bin" folder, since "~/bin" = "/root/bin" is not in the path by default
+        # similar on osx -- use /Applications instead of "~/Applications" = "/root/Applications"
+        target_folder = None
+        if os.getuid() == 0:
+            if sys.platform == "linux":
+                target_folder = "/bin"
+            elif sys.platform == "darwin":
+                target_folder = "/Applications/pandoc"
+            # Not handling windows; nobody uses root on windows lol
+
+        download_pandoc(version='2.18', download_folder=tmpdir, targetfolder=target_folder, delete_installer=True)
 
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -68,6 +87,7 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx_panels',
     'sphinxcontrib.images',
+    'nbsphinx',
 ]
 
 
@@ -92,6 +112,23 @@ def _get_commit_sha() -> str:
 
 
 _COMMIT_SHA = _get_commit_sha()
+
+# Don't show notebook output in the docs
+nbsphinx_execute = 'never'
+
+notebook_path = "mosaicml/composer/blob/" + _COMMIT_SHA + "/{{ env.doc2path(env.docname, base=None) }}"
+
+# Include an "Open in Colab" link at the beginning of all notebooks
+nbsphinx_prolog = f"""
+
+.. tip::
+
+    This tutorial is available as a `Jupyter notebook <https://github.com/{notebook_path}>`_.
+
+    ..  image:: https://colab.research.google.com/assets/colab-badge.svg
+        :target: https://colab.research.google.com/github/{notebook_path}
+        :alt: Open in Colab
+"""
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
