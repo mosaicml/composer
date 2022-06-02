@@ -531,6 +531,7 @@ def test_checkpoint(
 
     second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
     first_trainer = _test_checkpoint_trainer(composer_trainer_hparams)
+    dist.barrier()  # Ensure all ranks wrote the checkpoint file
     save_interval_time = Time.from_timestring(save_interval)
     if save_interval_time.unit == TimeUnit.EPOCH:
         expected_num_checkpoints = ((num_epochs - 1) // save_interval_time.value) + 1
@@ -575,6 +576,7 @@ def test_checkpoint(
     second_trainer_hparams.load_strict_model_weights = False
 
     _test_checkpoint_trainer(second_trainer_hparams)
+    dist.barrier()  # Ensure all ranks wrote the checkpoint file
     second_trainer_final_checkpoint_filepath = os.path.join(checkpoint_b_folder, final_checkpoint)
 
     assert_checkpoints_equivalent(
