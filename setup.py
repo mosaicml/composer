@@ -114,6 +114,9 @@ extra_deps["dev"] = [
     "sphinxcontrib-images==0.9.4",
     "pytest_codeblocks==0.15.0",
     "traitlets==5.1.1",  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
+    "nbsphinx==0.8.8",
+    "pandoc==2.2",
+    "pypandoc==1.8.1",
     "GitPython==3.1.27",
 ]
 
@@ -187,7 +190,7 @@ setup(name=package_name,
       package_data={
           "composer": composer_data_files,
       },
-      packages=setuptools.find_packages(exclude=["docker*", "notebooks*", "scripts*", "tests*"]),
+      packages=setuptools.find_packages(exclude=["docker*", "examples*", "scripts*", "tests*"]),
       classifiers=[
           "Programming Language :: Python :: 3",
           "Programming Language :: Python :: 3.7",

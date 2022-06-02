@@ -89,4 +89,10 @@ repos:
           - --comment-style
           - "#"
         types: [python]
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.5.0
+    hooks:
+      - id: nbstripout
+        types:
+          - "jupyter"
 exclude: .ci\/release_tests\/.*
