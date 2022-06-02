@@ -90,7 +90,7 @@ def synthetic_hf_state_maker(config) -> Tuple:
     return state, model, dataloader
 
 
-@pytest.fixture(params=make_dataset_configs())
+@pytest.fixture(params=make_dataset_configs(), scope="session")
 def synthetic_hf_state(request):
     config = request.param
     return synthetic_hf_state_maker(config)
