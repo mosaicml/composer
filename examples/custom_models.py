@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Example for training with an algorithm on a custom model."""
+
 import torch
 import torch.utils.data
 from torchvision import datasets, transforms
@@ -13,6 +15,7 @@ from composer.algorithms import CutOut, LabelSmoothing
 
 # Your custom model
 class SimpleModel(composer.models.ComposerClassifier):
+    """Your custom model."""
 
     def __init__(self, num_hidden: int, num_classes: int):
         module = torch.nn.Sequential(

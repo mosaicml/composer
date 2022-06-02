@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Hyperparameter registry for callbacks."""
+
 from typing import Dict, Type, Union
 
 import yahp as hp

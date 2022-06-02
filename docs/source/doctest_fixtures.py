@@ -4,8 +4,7 @@
 # disabling general type issues because of monkeypatching
 #yright: reportGeneralTypeIssues=none
 
-"""
-Fixtures available in doctests.
+"""Fixtures available in doctests.
 
 The script is run before any doctests are executed,
 so all imports and variables are available in any doctest.
@@ -134,6 +133,7 @@ y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
 
 def loss_fun(output, target, reduction="none"):
+    """Dummy loss function."""
     return torch.ones_like(target)
 
 

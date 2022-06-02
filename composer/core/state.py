@@ -453,7 +453,6 @@ class State(Serializable):
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
         """
-
         state = _ensure_backwards_compatible_checkpointing(state)
 
         for attribute_name, serialized_value in state.items():

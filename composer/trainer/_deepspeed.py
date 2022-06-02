@@ -148,7 +148,6 @@ def _parse_deepspeed_config(
             to the trainer.
         RuntimeError: If the batch size of the train dataloader in the provided state is not set.
     """
-
     new_config = copy.deepcopy(config)
     _add_batch_config(new_config, state)
     _ensure_no_optim_in_config(new_config)
@@ -178,7 +177,6 @@ def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Ba
     Returns:
         Batch: The batch with it's precision adjusted to the specified precision.
     """
-
     if precision != Precision.FP16:
         return batch
 

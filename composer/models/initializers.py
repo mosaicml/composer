@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Module Initializers."""
+
 from typing import Callable
 
 import torch
@@ -19,6 +21,11 @@ class Initializer(StringEnum):
     LINEAR_LOG_CONSTANT_BIAS = "linear_log_constant_bias"
 
     def get_initializer(self) -> Callable[[torch.nn.Module], None]:
+        """Get the initializer function.
+
+        Returns:
+            (torch.nn.Module) -> None: The initializer function.
+        """
 
         def kaiming_normal(w: nn.Module):
             if isinstance(w, torch.nn.Linear) or isinstance(w, torch.nn.Conv2d):

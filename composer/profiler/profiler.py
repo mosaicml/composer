@@ -171,8 +171,10 @@ class Profiler:
         self._trace_handlers[:] = ensure_tuple(trace_handlers)
 
     def record_chrome_json_trace_file(self, filepath: Union[str, pathlib.Path]):
-        """Record trace events in `Chrome JSON format <https://\\
-        docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_ in the trace handlers.
+        """Record trace events in Chrome JSON format in the trace handlers.
+
+        See `this document <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_
+        for more information about Chrome JSON format.
 
         .. note::
 

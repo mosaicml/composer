@@ -45,7 +45,6 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
     Args:
         precision (str | Precision): Precision for the context
     """
-
     precision = Precision(precision)
     if precision == Precision.FP32:
         if torch.cuda.is_available():

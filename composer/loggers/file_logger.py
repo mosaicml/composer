@@ -19,7 +19,7 @@ from composer.utils.file_helpers import FORMAT_NAME_WITH_DIST_TABLE, format_name
 __all__ = ["FileLogger"]
 
 
-class FileLogger(LoggerDestination):
+class FileLogger(LoggerDestination):  # noqa: D101
     __doc__ = f"""Log data to a file.
 
     Example usage:

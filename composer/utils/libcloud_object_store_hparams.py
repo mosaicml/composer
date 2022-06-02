@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Hyperparameters for the :class:`~.LibcloudObjectStore`."""
+
 import dataclasses
 import os
 from typing import Any, Dict, Optional
@@ -12,7 +14,7 @@ from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 @dataclasses.dataclass
 class LibcloudObjectStoreHparams(hp.Hparams):
-    """:class:`~composer.utils.libcloud_object_store.LibcloudObjectStore` hyperparameters.
+    """:class:`~.LibcloudObjectStore` hyperparameters.
 
     .. rubric:: Example
 
@@ -145,7 +147,6 @@ class LibcloudObjectStoreHparams(hp.Hparams):
         Returns:
             LibcloudObjectStore: The object_store.
         """
-
         return LibcloudObjectStore(
             provider=self.provider,
             container=self.container,

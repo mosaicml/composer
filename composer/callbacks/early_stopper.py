@@ -21,11 +21,9 @@ __all__ = ["EarlyStopper"]
 
 
 class EarlyStopper(Callback):
-    """This callback tracks a training or evaluation metric and halts training if the metric does not
-    improve within a given interval.
+    """Halt training if a metric does not improve within a given interval.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer.callbacks.early_stopper import EarlyStopper

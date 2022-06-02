@@ -48,7 +48,7 @@ For additional configurations of our launcher script, run ``composer --help``.
 
 .. argparse::
    :module: composer.cli.launcher
-   :func: get_parser
+   :func: _get_parser
    :prog: composer
    :nodescription:
 

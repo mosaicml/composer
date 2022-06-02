@@ -142,7 +142,9 @@ class LibcloudObjectStore:
                                                 headers=headers)
 
     def _get_object(self, object_name: str):
-        """Get object from object store. Recursively follow any symlinks. If an object does not exist, automatically
+        """Get object from object store.
+
+        Recursively follow any symlinks. If an object does not exist, automatically
         checks if it is a symlink by appending ``.symlink``.
 
         Args:
