@@ -7,14 +7,21 @@ from typing import Tuple
 
 import pytest
 import torch
-from transformers import PreTrainedTokenizer
 
 from composer.core.state import State
 from composer.datasets import DataLoaderHparams, LMDatasetHparams
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.models import BERTHparams, GPT2Hparams, TransformerHparams
+from composer.utils import MissingConditionalImportError
 from tests.common.models import generate_dummy_model_config
 from tests.datasets import test_synthetic_lm_data
+
+try:
+    from transformers import PreTrainedTokenizer
+except ImportError as e:
+    raise MissingConditionalImportError(extra_deps_group="transformers",
+                                        conda_package="transformers",
+                                        conda_channel="conda-forge") from e
 
 
 def make_dataset_configs() -> list:
