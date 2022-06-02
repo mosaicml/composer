@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Coco streaming dataset conversion scripts."""
+
 import os
 from argparse import ArgumentParser, Namespace
 from typing import Dict, Iterable

@@ -75,7 +75,6 @@ def merge_traces(output_file: Union[str, pathlib.Path], *trace_files: Union[str,
         output_file (str | pathlib.Path): The file to write the merged trace to
         trace_files (str | pathlib.Path): Variable number of trace files to merge together
     """
-
     ranks_to_clock_sync = _get_rank_to_clock_syncs(trace_files)
     rank_to_backwards_thread = {}
     rank_to_seen_threads = {rank: set() for rank in ranks_to_clock_sync.keys()}

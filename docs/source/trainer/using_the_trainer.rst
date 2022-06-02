@@ -187,10 +187,6 @@ argument.
     # points of the training loop
     trainer.fit()
 
-.. testcleanup::
-
-    trainer.engine.close()
-
 We handle inserting algorithms into the training loop and in the right order.
 
 .. seealso::
