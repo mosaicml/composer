@@ -9,17 +9,8 @@ from composer.core.state import State
 from composer.datasets import DataLoaderHparams, LMDatasetHparams
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.models import BERTHparams, GPT2Hparams, TransformerHparams
-from composer.utils import MissingConditionalImportError
 from tests.common.models import generate_dummy_model_config
 from tests.datasets import test_synthetic_lm_data
-
-pytest.importorskip("transformers")
-try:
-    from transformers import PreTrainedTokenizer
-except ImportError as e:
-    raise MissingConditionalImportError(extra_deps_group="transformers",
-                                        conda_package="transformers",
-                                        conda_channel="conda-forge") from e
 
 
 def make_dataset_configs() -> list:
@@ -38,7 +29,7 @@ def make_lm_tokenizer(config: dict):
     return tokenizer
 
 
-def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer: PreTrainedTokenizer):
+def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
     class_name = TransformerHparams
     if model_name == 'gpt2':
         class_name = GPT2Hparams
@@ -90,7 +81,8 @@ def synthetic_hf_state_maker(config) -> Tuple:
     return state, model, dataloader
 
 
-@pytest.fixture(params=make_dataset_configs(), scope="session")
+@pytest.fixture(params=make_dataset_configs())
 def synthetic_hf_state(request):
+    pytest.importorskip("transformers")
     config = request.param
     return synthetic_hf_state_maker(config)

@@ -8,6 +8,8 @@ import torch
 @pytest.mark.filterwarnings(
     r"ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics")
 def test_synthetic_hf_state(synthetic_hf_state):
+    pytest.importorskip("transformers")
+
     state, lm, dataloader = synthetic_hf_state
     sample = next(iter(dataloader)).data
     state.batch = next(iter(state.dataloader)).data
