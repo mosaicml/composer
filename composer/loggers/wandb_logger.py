@@ -164,7 +164,7 @@ class WandBLogger(LoggerDestination):
             if state.dataloader is not state.train_dataloader:
                 # TODO If not actively training, then it is impossible to tell from the state whether
                 # the trainer is evaluating or predicting. Assuming evaluation in this case.
-                metadata = {f"eval_timestamp/{k}": v for (k, v) in state.eval_timestamp.state_dict().items()}
+                metadata.update({f"eval_timestamp/{k}": v for (k, v) in state.eval_timestamp.state_dict().items()})
 
             artifact = wandb.Artifact(
                 name=new_artifact_name,
