@@ -40,16 +40,38 @@ The configuration is stored in [pyproject.toml](pyproject.toml).
 
 As a general rule of thumb,
 
-- Don't: use classes to make code look more like an outline
+-   Don't: Default to using inheritance for code reuse
 
-  Do: include only code that relies on an object's state or internals within the class
-- Don't: Default to using inheritance for code reuse
+    Do: prefer [composition over inheritance](https://en.wikipedia.org/wiki/Composition_over_inheritance)
+-   Don't: strive to implement all logic using classes
 
-  Do: prefer [composition over inheritance](https://en.wikipedia.org/wiki/Composition_over_inheritance)
-- Don't: strive to implement all logic using classes
+    Do: strive to implement logic as pure functions when possible, and classes when there is good reason
+-   Don't: Have a function accept falsy values that would then result in a no-op.
 
-  Do: strive to implement logic as pure functions when possible, and classes when there is good reason
+    Example of the anti-pattern:
 
+    ```python
+    def configure_deepspeed(deepspeed_config: Optional[dict]):
+        if deepspeed_config is None:
+            # Don't do this check in the callee, which results in a no-op
+            return
+        ...
+    ```
+
+    Do: Require the caller, instead of the callee, check for and handle falsy values. It's ok to accept falsy values
+    for individual arguments of a caller function, so long as the entire function would not be a no-op.
+
+    Example:
+    ```python
+    def configure_deepspeed(deepspeed_config: dict):
+        ...
+
+    def trainer(deepspeed_config: Optional[dict]):
+        if deepspeed_config is not None:
+            # Do this check in the caller function
+            configure_deepspeed(deepspeed_config)
+        ...
+    ```
 
 ## 3. Type Annotations and Typechecking
 
