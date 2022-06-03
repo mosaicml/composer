@@ -3,6 +3,7 @@
 
 """The Composer CLI launcher for distributed training."""
 
+import contextlib
 import datetime
 import logging
 import os
@@ -203,6 +204,31 @@ def _parse_args():
     return args
 
 
+@contextlib.contextmanager
+def _patch_env(**environs: str):
+    """Returns a context manager that patches ``os.environ`` with ``environs``.
+
+    The original ``os.environ`` values are restored at the end.
+    """
+    # Adapted loosely from https://stackoverflow.com/a/34333710
+    # Capture the original environ values
+    original_environs = {k: os.environ.get(k) for k in environs}
+
+    # Patch the environment
+    for k, v in environs.items():
+        os.environ[k] = v
+    try:
+        # Run the context manager
+        yield
+    finally:
+        # Restore the original environ values
+        for k, v in original_environs.items():
+            if v is None:
+                del os.environ[k]
+            else:
+                os.environ[k] = v
+
+
 def _launch_processes(
     nproc: int,
     world_size: int,
@@ -222,58 +248,59 @@ def _launch_processes(
 
     for local_rank in range(nproc):
         global_rank = base_rank + local_rank
-        cmd = f"exec {sys.executable} -u"
+        cmd = [sys.executable, "-u"]
         if module_mode:
-            cmd += " -m"
-        training_script_args_quoted = [f'"{arg}"' for arg in training_script_args]
+            cmd.append("-m")
 
-        cmd += f" {training_script} {' '.join(training_script_args_quoted)}"
+        cmd.append(training_script)
 
-        current_env = os.environ.copy()
-        current_env["RANK"] = str(global_rank)
-        current_env["WORLD_SIZE"] = str(world_size)
-        current_env["LOCAL_RANK"] = str(local_rank)
-        current_env["LOCAL_WORLD_SIZE"] = str(nproc)
-        current_env["NODE_RANK"] = str(node_rank)
-        current_env["MASTER_ADDR"] = master_addr
-        current_env["MASTER_PORT"] = str(master_port)
+        # Update the env with the distributed variables
+        with _patch_env(
+                RANK=str(global_rank),
+                WORLD_SIZE=str(world_size),
+                LOCAL_RANK=str(local_rank),
+                LOCAL_WORLD_SIZE=str(nproc),
+                NODE_RANK=str(node_rank),
+                MASTER_ADDR=master_addr,
+                MASTER_PORT=str(master_port),
+        ):
 
-        log.info("Launching process for local_rank(%s), global_rank(%s) with command(%s)", local_rank, global_rank, cmd)
+            # Populate the distributed variables in all launcher args
+            for arg in training_script_args:
+                cmd.append(os.path.expandvars(os.path.expanduser(arg)))
 
-        if local_rank == 0:
-            process = subprocess.Popen(
-                cmd,
-                env=current_env,
-                text=True,
-                shell=True,
-            )
-        else:
+            log.info("Launching process for local_rank(%s), global_rank(%s) with command(%s)", local_rank, global_rank,
+                     cmd)
 
-            def _get_file(format: str):
-                filename = format.format(
-                    rank=global_rank,
-                    world_size=world_size,
-                    local_rank=local_rank,
-                    local_world_size=nproc,
-                    node_rank=node_rank,
+            if local_rank == 0:
+                process = subprocess.Popen(
+                    cmd,
+                    text=True,
                 )
-                return open(filename, 'x+')
+            else:
 
-            stderr_file = _get_file(stderr_file_format)
-            stdout_file = _get_file(stdout_file_format)
+                def _get_file(format: str):
+                    filename = format.format(
+                        rank=global_rank,
+                        world_size=world_size,
+                        local_rank=local_rank,
+                        local_world_size=nproc,
+                        node_rank=node_rank,
+                    )
+                    return open(filename, 'x+')
 
-            process = subprocess.Popen(
-                cmd,
-                # Using a shell to execute the command, so the env variables will be available to the CLI arguments
-                shell=True,
-                env=current_env,
-                stdout=stdout_file,
-                stderr=stderr_file,
-                text=True,
-            )
-            process.stderr = stderr_file
-            process.stdout = stdout_file
-        processes[global_rank] = process
+                stderr_file = _get_file(stderr_file_format)
+                stdout_file = _get_file(stdout_file_format)
+
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=stdout_file,
+                    stderr=stderr_file,
+                    text=True,
+                )
+                process.stderr = stderr_file
+                process.stdout = stdout_file
+            processes[global_rank] = process
 
 
 def _monitor_processes(processes: Dict[int, subprocess.Popen]):
