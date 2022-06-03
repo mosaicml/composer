@@ -158,7 +158,19 @@ class WandBLogger(LoggerDestination):
                                f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
 
             extension = new_artifact_name.split(".")[-1]
-            artifact = wandb.Artifact(name=new_artifact_name, type=extension)
+
+            metadata = {f"timestamp/{k}": v for (k, v) in state.timestamp.state_dict().items()}
+            # if evaluating, also log the evaluation timestamp
+            if state.dataloader is not state.train_dataloader:
+                # TODO If not actively training, then it is impossible to tell from the state whether
+                # the trainer is evaluating or predicting. Assuming evaluation in this case.
+                metadata = {f"eval_timestamp/{k}": v for (k, v) in state.eval_timestamp.state_dict().items()}
+
+            artifact = wandb.Artifact(
+                name=new_artifact_name,
+                type=extension,
+                metadata=metadata,
+            )
             artifact.add_file(os.path.abspath(file_path))
             wandb.log_artifact(artifact, aliases=aliases)
 
