@@ -45,7 +45,7 @@ def _main() -> None:
         pass
     else:
         if wandb.run is not None:
-            wandb.config.update(**hparams.to_dict())
+            wandb.config.update(hparams.to_dict())
 
     # Only log the config once, since it should be the same on all ranks.
     if dist.get_global_rank() == 0:
