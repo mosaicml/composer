@@ -79,6 +79,7 @@ markers = [
 ]
 filterwarnings = [
     "error",  # Mark all warnings as errors
+    "default::DeprecationWarning",  # But treat all deprecation warnings as warnings
     'ignore:Deterministic mode is activated:UserWarning',  # All tests run with deterministic mode
     'ignore:SubsetNumBatchesWarning',  # SubsetNumBatches is used extensively in testing
     # allow training metrics
