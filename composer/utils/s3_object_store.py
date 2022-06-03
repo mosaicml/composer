@@ -6,90 +6,28 @@ import os
 import sys
 import tempfile
 import uuid
+import io
 from typing import Any, Dict, Iterator, Optional, Union
 import boto3
-
-from libcloud.storage.providers import get_driver
-from libcloud.storage.types import ObjectDoesNotExistError
+from botocore.config import Config
+from composer.utils.object_store import ObjectStore
 
 __all__ = ["S3ObjectStore"]
 
 
-class S3ObjectStore:
+class S3ObjectStore(ObjectStore):
     """Utility for uploading to and downloading from Amazon S3.
-
-    .. rubric:: Example
-
-    Here's an example for an Amazon S3 bucket named ``MY_CONTAINER``:
-
-    >>> from composer.utils import LibcloudObjectStore
-    >>> object_store = LibcloudObjectStore(
-    ...     provider="s3",
-    ...     container="MY_CONTAINER",
-    ...     provider_kwargs={
-    ...         "key": "AKIA...",
-    ...         "secret": "*********",
-    ...     }
-    ... )
-    >>> object_store
-    <composer.utils.libcloud_object_store.LibcloudObjectStore object at ...>
-
-    Args:
-        provider (str): Cloud provider to use. Valid options are:
-
-            * :mod:`~libcloud.storage.drivers.atmos`
-            * :mod:`~libcloud.storage.drivers.auroraobjects`
-            * :mod:`~libcloud.storage.drivers.azure_blobs`
-            * :mod:`~libcloud.storage.drivers.backblaze_b2`
-            * :mod:`~libcloud.storage.drivers.cloudfiles`
-            * :mod:`~libcloud.storage.drivers.digitalocean_spaces`
-            * :mod:`~libcloud.storage.drivers.google_storage`
-            * :mod:`~libcloud.storage.drivers.ktucloud`
-            * :mod:`~libcloud.storage.drivers.local`
-            * :mod:`~libcloud.storage.drivers.minio`
-            * :mod:`~libcloud.storage.drivers.nimbus`
-            * :mod:`~libcloud.storage.drivers.ninefold`
-            * :mod:`~libcloud.storage.drivers.oss`
-            * :mod:`~libcloud.storage.drivers.rgw`
-            * :mod:`~libcloud.storage.drivers.s3`
-
-            .. seealso:: :doc:`Full list of libcloud providers <libcloud:storage/supported_providers>`
-
-        container (str): The name of the container (i.e. bucket) to use.
-        provider_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
-            for the specified provider. These arguments would usually include the cloud region
-            and credentials.
-
-            Common keys are:
-
-            * ``key`` (str): API key or username to be used (required).
-            * ``secret`` (str): Secret password to be used (required).
-            * ``secure`` (bool): Whether to use HTTPS or HTTP. Note: Some providers only support HTTPS, and it is on by default.
-            * ``host`` (str): Override hostname used for connections.
-            * ``port`` (int): Override port used for connections.
-            * ``api_version`` (str): Optional API version. Only used by drivers which support multiple API versions.
-            * ``region`` (str): Optional driver region. Only used by drivers which support multiple regions.
-
-            .. seealso:: :class:`libcloud.storage.base.StorageDriver`
     """
 
-    def __init__(self,
-                 provider: str,
-                 container: str,
-                 aws_access_key_id: Optional[str] = None,
-                 aws_secret_access_key: Optional[str] = None,
-                 aws_session_token: Optional[str] = None,
-                 provider_kwargs: Optional[Dict[str, Any]] = None) -> None:
-        provider_cls = get_driver(provider)
-        if provider_kwargs is None:
-            provider_kwargs = {}
-        self._provider = provider_cls(**provider_kwargs)
-        self._container = self._provider.get_container(container)
+    def __init__(self, 
+            container: str,
+            s3_client_config = Dict[Any, Any],
+            s3_transfer_config = Dict[Any, Any]) -> None:
+        self._container = container
+        config = Config(**s3_client_config)
+        self.client = boto3.client('s3', config=config)
 
-    @property
-    def provider_name(self):
-        """The name of the cloud provider."""
-        return self._provider.name
+        self.s3_transfer_config = s3_transfer_config
 
     @property
     def container_name(self):
@@ -115,12 +53,9 @@ class S3ObjectStore:
             headers (Optional[Dict[str, str]], optional): Additional request headers, such as CORS headers.
                 (defaults: ``None``, which is equivalent to an empty dictionary)
         """
-        self._provider.upload_object(file_path=file_path,
-                                     container=self._container,
-                                     object_name=object_name,
-                                     extra=extra,
-                                     verify_hash=verify_hash,
-                                     headers=headers)
+        del headers, verify_hash # used in the libcloud interface
+
+        self.client.upload_file(filename=file_path, bucket=self.container_name, key=object_name, ExtraArgs=extra)
 
     def upload_object_via_stream(self,
                                  obj: Union[bytes, Iterator[bytes]],
@@ -140,53 +75,18 @@ class S3ObjectStore:
             headers (Optional[Dict[str, str]], optional): Additional request headers, such as CORS headers.
                 (defaults: ``None``)
         """
-        if isinstance(obj, bytes):
-            obj = iter(i.to_bytes(1, sys.byteorder) for i in obj)
-        self._provider.upload_object_via_stream(iterator=obj,
-                                                container=self._container,
-                                                object_name=object_name,
-                                                extra=extra,
-                                                headers=headers)
+        del headers
+        
+        # add handling for other bytes-like types
+        if not isinstance(obj, bytes):
+            raise NotImplementedError("S3ObjectStore.upload_object_via_stream only takes a bytes object.")
+        
+        obj = io.BytesIO(obj)
 
-    def _get_object(self, object_name: str):
-        """Get object from object store. Recursively follow any symlinks. If an object does not exist, automatically
-        checks if it is a symlink by appending ``.symlink``.
-
-        Args:
-            object_name (str): The name of the object.
-        """
-        obj = None
-        try:
-            obj = self._provider.get_object(self._container.name, object_name)
-        except ObjectDoesNotExistError:
-            # Object not found, check for potential symlink
-            object_name += ".symlink"
-            obj = self._provider.get_object(self._container.name, object_name)
-        # Recursively trace any symlinks
-        if obj.name.endswith(".symlink"):
-            # Download symlink object to temporary folder
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmppath = os.path.join(tmpdir, str(uuid.uuid4()))
-                self._provider.download_object(obj=obj,
-                                               destination_path=tmppath,
-                                               overwrite_existing=True,
-                                               delete_on_failure=True)
-                # Read object name in symlink and recurse
-                with open(tmppath) as f:
-                    symlinked_object_name = f.read()
-                    return self._get_object(symlinked_object_name)
-        return obj
-
-    def get_object_size(self, object_name: str) -> int:
-        """Get the size of an object, in bytes.
-
-        Args:
-            object_name (str): The name of the object.
-
-        Returns:
-            int: The object size, in bytes.
-        """
-        return self._get_object(object_name).size
+        # if isinstance(obj, bytes):
+        #     obj = iter(i.to_bytes(1, sys.byteorder) for i in obj)
+        
+        self.client.upload_fileobj(obj, bucket=self.container_name, key=object_name, ExtraArgs=extra)
 
     def download_object(self,
                         object_name: str,
@@ -194,28 +94,11 @@ class S3ObjectStore:
                         overwrite_existing: bool = False,
                         delete_on_failure: bool = True):
         """Download an object to the specified destination path.
-
-        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.download_object`.
-
-        Args:
-            object_name (str): The name of the object to download.
-
-            destination_path (str): Full path to a file or a directory where the incoming file will be saved.
-
-            overwrite_existing (bool, optional): Set to ``True`` to overwrite an existing file. (default: ``False``)
-            delete_on_failure (bool, optional): Set to ``True`` to delete a partially downloaded file if
-                the download was not successful (hash mismatch / file size). (default: ``True``)
         """
-        obj = self._get_object(object_name)
-        self._provider.download_object(obj=obj,
-                                       destination_path=destination_path,
-                                       overwrite_existing=overwrite_existing,
-                                       delete_on_failure=delete_on_failure)
+        self.client.download_file(bucket=self.container_name, key=object_name, filename=destination_path)
 
     def download_object_as_stream(self, object_name: str, chunk_size: Optional[int] = None):
         """Return a iterator which yields object data.
-
-        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.download_object_as_stream`.
 
         Args:
             object_name (str): Object name.
@@ -224,5 +107,7 @@ class S3ObjectStore:
         Returns:
             Iterator[bytes]: The object, as a byte stream.
         """
-        obj = self._get_object(object_name)
-        return self._provider.download_object_as_stream(obj, chunk_size=chunk_size)
+        obj = io.BytesIO()
+        self.client.download_fileobj(Bucket=self.container_name, Key=object_name, Fileobj=obj)
+        obj.seek(0)
+        return obj
