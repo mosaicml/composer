@@ -151,7 +151,6 @@ class IsClosedCallback(Callback):
         self.is_closed = False
 
     def close(self, state: State, logger: Logger) -> None:
-        assert not self.is_closed
         self.is_closed = True
 
 
@@ -165,7 +164,7 @@ def test_engine_closes_on_del(dummy_state: State, dummy_logger: Logger):
     # Assert that there is just 2 -- once above, and once as the arg temp reference
     assert sys.getrefcount(engine) == 2
 
-    # Implicitely close the engine
+    # Implicitly close the engine
     del engine
 
     # Assert it is closed

@@ -6,10 +6,10 @@ import pathlib
 
 import pytest
 
-from composer.utils.object_store import LibcloudObjectStoreHparams
+from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
 
 
-def test_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
+def test_object_store_hparams(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     remote_dir = str(tmp_path / "remote_dir")
     os.makedirs(remote_dir)
     local_dir = str(tmp_path / "local_dir")

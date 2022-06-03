@@ -11,7 +11,7 @@ from collections.abc import Sequence
 
 
 def map_collection(collection, map_fn):
-    """Apply ``map_fn`` on each element in ``collection``.
+    """Applies ``map_fn`` on each element in ``collection``.
 
     * If ``collection`` is a tuple or list of elements, ``map_fn`` is applied on each element,
       and a tuple or list, respectively, containing mapped values is returned.

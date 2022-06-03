@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Train models!"""
+"""Train models."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collec
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.object_store import LibcloudObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -486,10 +486,6 @@ class Trainer:
                     load_path=checkpoint_path,
                     load_object_store=store,
                 )
-
-            .. testcleanup::
-
-                trainer.engine.close()
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict_model_weights (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
@@ -932,24 +928,25 @@ class Trainer:
         # Load Checkpoint
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
-        latest_checkpoint_path = self._check_for_autoresume(autoresume=autoresume,
-                                                            save_folder=save_folder,
-                                                            save_overwrite=save_overwrite,
-                                                            save_latest_filename=save_latest_filename,
-                                                            run_name=run_name,
-                                                            save_latest_artifact_name=save_latest_artifact_name,
-                                                            loggers=loggers,
-                                                            load_chunk_size=load_chunk_size,
-                                                            load_progress_bar=load_progress_bar)
-        # Found latest checkpoint path, load that instead
-        if latest_checkpoint_path:
-            load_path = latest_checkpoint_path
-            # Disable object_store and load_weights_only since we're autoresuming locally
-            load_object_store = None
-            load_weights_only = False
-            log.info(
-                f"Found latest checkpoint at {latest_checkpoint_path}, loading instead of load_path {load_path} as autoresume enabled."
-            )
+        if autoresume:
+            latest_checkpoint_path = self._determine_autoresume_load_path(
+                save_folder=save_folder,
+                save_overwrite=save_overwrite,
+                save_latest_filename=save_latest_filename,
+                run_name=run_name,
+                save_latest_artifact_name=save_latest_artifact_name,
+                loggers=loggers,
+                load_chunk_size=load_chunk_size,
+                load_progress_bar=load_progress_bar)
+            # Found latest checkpoint path, load that instead
+            if latest_checkpoint_path:
+                load_path = latest_checkpoint_path
+                # Disable object_store and load_weights_only since we're autoresuming locally
+                load_object_store = None
+                load_weights_only = False
+                log.info(
+                    f"Found latest checkpoint at {latest_checkpoint_path}, loading instead of load_path {load_path} as autoresume enabled."
+                )
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
             self._rng_state = load_checkpoint(state=self.state,
@@ -1016,55 +1013,64 @@ class Trainer:
             return []
         return self._checkpoint_saver.saved_checkpoints
 
-    def _check_for_autoresume(self, autoresume: bool, save_folder: Optional[str], save_overwrite: bool,
-                              save_latest_filename: str, run_name: Optional[str], save_latest_artifact_name: str,
-                              loggers: List[LoggerDestination], load_chunk_size: int, load_progress_bar: bool):
-        """If autoresume is enabled, check for latest checkpoint locally. If none is found, check loggers
+    def _determine_autoresume_load_path(
+        self,
+        save_folder: Optional[str],
+        save_overwrite: bool,
+        save_latest_filename: str,
+        run_name: Optional[str],
+        save_latest_artifact_name: str,
+        loggers: List[LoggerDestination],
+        load_chunk_size: int,
+        load_progress_bar: bool,
+    ):
+        """Determines the load path when using autoresume.
+
+        First, check for latest checkpoint locally. If none is found, check loggers
         for checkpoint. If any checkpoint is found, load that instead of load_path. If none are found,
         use the user specified load_path.
         """
-        if autoresume:
-            if save_folder is None:
-                raise ValueError("save_folder must be specified when autoresume is enabled.")
-            if save_overwrite:
-                raise ValueError(
-                    "save_overwrite must be False when autoresume is enabled as autoresume always loads the latest existing checkpoint in save_folder."
-                )
-            if save_latest_filename is None:
-                raise ValueError(
-                    "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
-            # Check run_name is provided if necessary
-            if run_name is None:
-                for save_arg in [save_folder, save_latest_filename, save_latest_artifact_name]:
-                    for _, field_name, _, _ in string.Formatter().parse(save_arg):
-                        if field_name == "run_name":
-                            raise ValueError("run_name must be specified so autoresume knows which run to load from.")
-            save_latest_filename = format_name_with_dist(save_latest_filename, run_name)
-            save_folder = format_name_with_dist(save_folder, run_name)
-            save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, run_name)
-            latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
-            # If latest checkpoint is not saved locally, try to fetch from loggers
-            if not os.path.exists(latest_checkpoint_path):
-                # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
-                os.makedirs(save_folder, exist_ok=True)
-                for logger in loggers:
-                    try:
-                        # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                        logger.get_file_artifact(artifact_name=save_latest_artifact_name,
-                                                 destination=latest_checkpoint_path,
-                                                 chunk_size=load_chunk_size,
-                                                 progress_bar=load_progress_bar)
-                        break
-                    except (NotImplementedError, GetFileNotFoundException):
-                        # Ignore errors caused by no checkpoint saved with logger
-                        pass
-            # Require all ranks to have local checkpoint if we wish to restore from it
-            latest_checkpoint_exists = self._device.tensor_to_device(
-                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-            dist.all_reduce(latest_checkpoint_exists, reduce_operation="MIN")
-            # If latest checkpoint is saved locally, change load_path to it
-            if int(latest_checkpoint_exists.item()) == 1:
-                return latest_checkpoint_path
+        if save_folder is None:
+            raise ValueError("save_folder must be specified when autoresume is enabled.")
+        if save_overwrite:
+            raise ValueError(
+                "save_overwrite must be False when autoresume is enabled as autoresume always loads the latest existing checkpoint in save_folder."
+            )
+        if save_latest_filename is None:
+            raise ValueError(
+                "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
+        # Check run_name is provided if necessary
+        if run_name is None:
+            for save_arg in [save_folder, save_latest_filename, save_latest_artifact_name]:
+                for _, field_name, _, _ in string.Formatter().parse(save_arg):
+                    if field_name == "run_name":
+                        raise ValueError("run_name must be specified so autoresume knows which run to load from.")
+        save_latest_filename = format_name_with_dist(save_latest_filename, run_name)
+        save_folder = format_name_with_dist(save_folder, run_name)
+        save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, run_name)
+        latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
+        # If latest checkpoint is not saved locally, try to fetch from loggers
+        if not os.path.exists(latest_checkpoint_path):
+            # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
+            os.makedirs(save_folder, exist_ok=True)
+            for logger in loggers:
+                try:
+                    # Fetch from logger. If it succeeds, stop trying the rest of the loggers
+                    logger.get_file_artifact(artifact_name=save_latest_artifact_name,
+                                                destination=latest_checkpoint_path,
+                                                chunk_size=load_chunk_size,
+                                                progress_bar=load_progress_bar)
+                    break
+                except (NotImplementedError, GetFileNotFoundException):
+                    # Ignore errors caused by no checkpoint saved with logger
+                    pass
+        # Require all ranks to have local checkpoint if we wish to restore from it
+        latest_checkpoint_exists = self._device.tensor_to_device(
+            torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
+        dist.all_reduce(latest_checkpoint_exists, reduce_operation="MIN")
+        # If latest checkpoint is saved locally, change load_path to it
+        if int(latest_checkpoint_exists.item()) == 1:
+            return latest_checkpoint_path
 
     def fit(
         self,
@@ -1197,8 +1203,7 @@ class Trainer:
                 If ``reset_time`` is True, then :attr:`.State.max_duration` will be set to this parameter.
 
             optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): See :class:`.Trainer`.
-            schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional):
-                See :class:`.Trainer`.
+            schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional): See :class:`.Trainer`.
             scale_schedule_ratio (float, optional): See :class:`.Trainer`.
             step_schedulers_every_batch (bool, optional): See :class:`.Trainer`.
             eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
@@ -1576,7 +1581,6 @@ class Trainer:
 
     def _run_evaluators(self, event: Event, log_level: LogLevel):
         """Runs evaluators periodically during training."""
-
         for evaluator in self.state.evaluators:
             assert evaluator.eval_interval is not None, "eval_interval should have been set on __init__() or fit()"
             assert evaluator.subset_num_batches is not None, "subset_num_batches should have been set on __init__() or fit()"
@@ -1590,8 +1594,9 @@ class Trainer:
                 )
 
     def _train_batch(self, use_grad_scaling: bool):
-        """Compute loss by training on a full batch of data. Adaptively change microbatch size if enabled to maximize
-        GPU usage.
+        """Compute loss by training on a full batch of data.
+
+        Adaptively change microbatch size if enabled to maximize GPU usage.
 
         Args:
             use_grad_scaling (bool): Enables gradient scaling
@@ -1723,6 +1728,7 @@ class Trainer:
 
         Args:
             use_grad_scaling (bool): Whether to use gradient scaling.
+            current_batch_size (int): The current batch size.
             minibatch_num_samples (int): Number of samples in the minibatch.
             total_loss (torch.Tensor): Total loss aggregated across all microbatches.
             is_final_microbatch (bool): If current microbatch is the last one.
@@ -1799,7 +1805,6 @@ class Trainer:
                 on this many batches. This parameter has no effect if it is greater than ``len(dataloader)``.
                 If ``-1``, then the entire loader will be iterated over. (default: ``-1``)
         """
-
         if isinstance(dataloader, DataSpec):
             data_spec = dataloader
         else:

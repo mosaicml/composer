@@ -23,8 +23,9 @@ __all__ = ["InMemoryLogger"]
 
 
 class InMemoryLogger(LoggerDestination):
-    """Logs metrics to dictionary objects that persist in memory throughout training. Useful for collecting and plotting
-    data inside notebooks.
+    """Logs metrics to dictionary objects that persist in memory throughout training.
+
+    Useful for collecting and plotting data inside notebooks.
 
     Example usage:
         .. testcode::
@@ -45,10 +46,6 @@ class InMemoryLogger(LoggerDestination):
             # Get data from logger. If you are using multiple loggers, be sure to confirm
             # which index in trainer.logger.destinations contains your desired logger.
             logged_data = trainer.logger.destinations[0].data
-
-        .. testcleanup::
-
-            trainer.engine.close()
 
     Args:
         log_level (str | LogLevel, optional):
@@ -120,7 +117,6 @@ class InMemoryLogger(LoggerDestination):
                 plt.xlabel("Batch")
                 plt.ylabel("Validation Accuracy")
         """
-
         # Check that desired metric is in present data
         if metric not in self.data.keys():
             raise ValueError(f"Invalid value for argument `metric`: {metric}. Requested "
