@@ -29,7 +29,7 @@ from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import format_name_with_dist
 from composer.utils.file_helpers import get_file
-from composer.utils.object_store import LibcloudObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def _always_log(state: State, log_level: LogLevel, artifact_name: str):
 
 
 class ObjectStoreLogger(LoggerDestination):
-    """Logger destination that uploads artifacts to an object store.
+    r"""Logger destination that uploads artifacts to an object store.
 
     This logger destination handles calls to :meth:`~composer.loggers.logger.Logger.file_artifact`
     and uploads files to an object store, such as AWS S3 or Google Cloud Storage.
@@ -66,10 +66,6 @@ class ObjectStoreLogger(LoggerDestination):
             loggers=[object_store_logger],
         )
 
-    .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
-
-        trainer.engine.close()
-
     .. note::
 
         This callback blocks the training loop to copy each artifact where ``should_log_artifact`` returns ``True``, as
@@ -83,7 +79,7 @@ class ObjectStoreLogger(LoggerDestination):
             always occurs in the background.
 
         *   Provide a RAM disk path for the ``upload_staging_folder`` parameter. Copying files to stage on RAM will be
-            faster than writing to disk. However, there must have sufficient excess RAM, or :exc:`MemoryError`\\s may
+            faster than writing to disk. However, there must have sufficient excess RAM, or :exc:`MemoryError`\s may
             be raised.
 
     Args:
@@ -301,8 +297,8 @@ class ObjectStoreLogger(LoggerDestination):
 
     def log_symlink_artifact(self, state: State, log_level: LogLevel, existing_artifact_name: str,
                              symlink_artifact_name: str, overwrite: bool):
-        """Object stores do not natively support symlinks, so we emulate symlinks by adding a .symlink file to the
-        object store, which is a text file containing the name of the object it is pointing to."""
+        # Object stores do not natively support symlinks, so we emulate symlinks by adding a .symlink file to the
+        # object store, which is a text file containing the name of the object it is pointing to.
         # Only symlink if we're logging artifact to begin with
         if not self.should_log_artifact(state, log_level, existing_artifact_name):
             return
@@ -392,8 +388,7 @@ def _upload_worker(
     container: str,
     provider_kwargs: Optional[Dict[str, Any]],
 ):
-    """A long-running function to handle uploading files to the object store specified by (``provider``, ``container``,
-    ``provider_kwargs``).
+    """A long-running function to handle uploading files to the object store.
 
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.

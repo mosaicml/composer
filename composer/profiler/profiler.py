@@ -22,6 +22,15 @@ __all__ = ["Profiler"]
 
 log = logging.getLogger(__name__)
 
+try:
+    import yahp
+    del yahp
+except ImportError:
+    profiler_scheduler_registry = {}
+    trace_handler_registry = {}
+else:
+    from composer.profiler.profiler_hparams import profiler_scheduler_registry, trace_handler_registry
+
 
 class Profiler:
     """Composer Profiler.
@@ -82,10 +91,15 @@ class Profiler:
         torch_prof_num_traces_to_keep (int, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
     """
 
+    hparams_registry = {
+        "schedule": profiler_scheduler_registry,
+        "trace_handlers": trace_handler_registry,
+    }
+
     def __init__(
         self,
         schedule: Callable[[State], ProfilerAction],
-        trace_handlers: Union[TraceHandler, Sequence[TraceHandler]],
+        trace_handlers: List[TraceHandler],
         sys_prof_cpu: bool = True,
         sys_prof_memory: bool = False,
         sys_prof_disk: bool = False,
@@ -157,8 +171,10 @@ class Profiler:
         self._trace_handlers[:] = ensure_tuple(trace_handlers)
 
     def record_chrome_json_trace_file(self, filepath: Union[str, pathlib.Path]):
-        """Record trace events in `Chrome JSON format <https://\\
-        docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_ in the trace handlers.
+        """Record trace events in Chrome JSON format in the trace handlers.
+
+        See `this document <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_
+        for more information about Chrome JSON format.
 
         .. note::
 

@@ -23,10 +23,10 @@ def test_json_trace_profiler_handler(tmp_path: pathlib.Path):
     # Construct the trainer
     profiler = Profiler(
         schedule=cyclic_schedule(wait=0, warmup=0, active=1000, repeat=0),
-        trace_handlers=JSONTraceHandler(
+        trace_handlers=[JSONTraceHandler(
             folder=str(tmp_path),
             merged_trace_filename='trace.json',
-        ),
+        )],
         sys_prof_cpu=False,
         sys_prof_net=False,
         sys_prof_disk=False,

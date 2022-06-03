@@ -20,7 +20,7 @@ import torch
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, GetFileNotFoundException,
                                          format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.object_store import LibcloudObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -293,11 +293,13 @@ def _restore_checkpoint(
         return state_dict['rng']
 
 
-def save_checkpoint(state: State,
-                    logger: Logger,
-                    filename: str = "ep{epoch}-ba{batch}-rank{rank}",
-                    *,
-                    weights_only: bool = False) -> List[pathlib.Path]:
+def save_checkpoint(
+    state: State,
+    logger: Logger,
+    filename: str = "ep{epoch}-ba{batch}-rank{rank}",
+    *,
+    weights_only: bool = False,
+) -> List[pathlib.Path]:  # noqa: D103
     state_dict = {
         'state': state.state_dict(),
         'rng': reproducibility.get_rng_state(),

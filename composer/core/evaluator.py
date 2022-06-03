@@ -80,11 +80,6 @@ class Evaluator:
        ...     max_duration="1ep",
        ... )
 
-    .. testcleanup::
-
-        trainer.engine.close()
-
-
     Args:
         label (str): Name of the Evaluator
         dataloader (DataSpec | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec` for evaluation,

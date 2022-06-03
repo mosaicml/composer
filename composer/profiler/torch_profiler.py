@@ -25,7 +25,7 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, F
 __all__ = ["TorchProfiler"]
 
 
-class TorchProfiler(Callback):
+class TorchProfiler(Callback):  # noqa: D101
     __doc__ = f"""Profile the execution using the :class:`PyTorch Profiler <torch.profiler.profile>`.
 
     Profiling results are stored in TensorBoard format in the directory specified by ``folder``.

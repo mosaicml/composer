@@ -57,7 +57,7 @@ reportUnusedCoroutine = "error"
 # Pytest
 [tool.pytest.ini_options]
 # By default, do not run gpu, vision, notebook, or daily tests
-addopts = "--strict-markers -m 'not notebooks and not gpu and not vision and not daily and not remote'"
+addopts = "--strict-markers -m 'not gpu and not vision and not daily and not remote'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)
@@ -70,8 +70,6 @@ markers = [
     "world_size(val)",
     # Tests that require a gpu should be annotated with `@pytest.mark.gpu`
     "gpu",
-    # Whether the test is a notebook test.
-    "notebooks",
     # Whether the test should run in a container based on the vision dockerimage, which contains ffcv and opencv
     "vision",
     # Should be run during daily regression
@@ -94,6 +92,8 @@ filterwarnings = [
     'ignore::DeprecationWarning:deepspeed.*:',
     # Ignore malformed yaml warnings coming from yahp
     'ignore:MalformedYAMLWarning:UserWarning',
+    # Ingore validate is deprecated warnings. TODO(ravi) Need to manually remove on hparams.validate functionality
+    'ignore:.*Instead, perform any validation directly in initialize_object\(\):DeprecationWarning',
     # Ignore a bug in the pytorch dataloader
     '''ignore:Exception ignored in. <function _MultiProcessingDataLoaderIter.__del__:pytest.PytestUnraisableExceptionWarning''',
     # Ignore torchvision complaining about no c libraries (happens in the conda build)
@@ -1013,3 +1013,8 @@ min-public-methods=2
 # Exceptions that will emit a warning when being caught. Defaults to
 # "BaseException, Exception".
 overgeneral-exceptions="BaseException,Exception"
+
+[tool.pydocstyle]
+convention="google"
+add_ignore="D102,D105,D107,D401"
+add_select="D400,D404"
