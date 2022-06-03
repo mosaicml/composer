@@ -5,11 +5,13 @@ from typing import Callable, Dict, Type
 
 import pytest
 
-from composer.datasets import (ADE20kDatasetHparams, BratsDatasetHparams, C4DatasetHparams, CIFAR10DatasetHparams,
-                               COCODatasetHparams, DataLoaderHparams, DatasetHparams, GLUEHparams,
-                               ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams, StreamingADE20kHparams,
-                               StreamingCOCOHparams, StreamingImageNet1kHparams, SyntheticHparamsMixin)
-from composer.trainer.trainer_hparams import dataset_registry
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.dataset_hparams_registry import (ADE20kDatasetHparams, BratsDatasetHparams, C4DatasetHparams,
+                                                        CIFAR10DatasetHparams, COCODatasetHparams, GLUEHparams,
+                                                        ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
+                                                        StreamingADE20kHparams, StreamingCOCOHparams,
+                                                        StreamingImageNet1kHparams, dataset_registry)
+from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 
 # for testing, we provide values for required hparams fields
 # to initialize test hparams objects

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Callable, Type
 
 import pytest
 
-from composer.datasets.dataloader import DataLoaderHparams
+from composer.datasets.dataloader_hparams import DataLoaderHparams
 from composer.trainer import Trainer
 from composer.trainer.trainer_hparams import (EvalHparams, EvalKwargs, ExperimentHparams, FitHparams, FitKwargs,
                                               TrainerHparams)
