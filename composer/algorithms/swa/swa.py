@@ -26,7 +26,7 @@ def _assert_valid_duration(time: Time):
 
 
 class SWA(Algorithm):
-    """Apply Stochastic Weight Averaging (`Izmailov et al, 2018 <https://arxiv.org/abs/1803.05407>`_)
+    """Applies Stochastic Weight Averaging (`Izmailov et al, 2018 <https://arxiv.org/abs/1803.05407>`_)
 
     Stochastic Weight Averaging (SWA) averages model weights sampled at
     different times near the end of training. This leads to better

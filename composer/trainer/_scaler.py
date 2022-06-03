@@ -62,7 +62,6 @@ class ClosureGradScaler(GradScaler):
         Always called before the optimizer step. Checks if the optimizer can handle AMP closures (currently only
         Composer's SAM optimizer) If so, it passes an AMP-modified closure to the optimizer.
         """
-
         closure = kwargs["closure"]
 
         def _amp_closure(**kwargs):

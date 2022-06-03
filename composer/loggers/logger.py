@@ -31,6 +31,7 @@ class LogLevel(IntEnum):
 
     Logging destinations use the LogLevel to determine whether to record a given
     metric or state change.
+
     Attributes:
         FIT: Logged once per training run.
         EPOCH: Logged once per epoch.
@@ -152,7 +153,6 @@ class Logger:
             overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``artifact_name``.
                 (default: ``False``)
         """
-
         log_level = LogLevel(log_level)
         file_path = format_name_with_dist(format_str=str(file_path), run_name=self.run_name)
         file_path = pathlib.Path(file_path)
@@ -185,7 +185,6 @@ class Logger:
             overwrite (bool, optional): Whether to overwrite an existing artifact with the same ``symlink_artifact_name``.
                 (default: ``False``)
         """
-
         log_level = LogLevel(log_level)
         for destination in self.destinations:
             destination.log_symlink_artifact(
@@ -197,15 +196,15 @@ class Logger:
             )
 
     def data_fit(self, data: Dict[str, Any]) -> None:
-        """Helper function for ``self.data(LogLevel.FIT, data)``"""
+        """Helper function for ``self.data(LogLevel.FIT, data)``."""
         self.data(LogLevel.FIT, data)
 
     def data_epoch(self, data: Dict[str, Any]) -> None:
-        """Helper function for ``self.data(LogLevel.EPOCH, data)``"""
+        """Helper function for ``self.data(LogLevel.EPOCH, data)``."""
         self.data(LogLevel.EPOCH, data)
 
     def data_batch(self, data: Dict[str, Any]) -> None:
-        """Helper function for ``self.data(LogLevel.BATCH, data)``"""
+        """Helper function for ``self.data(LogLevel.BATCH, data)``."""
         self.data(LogLevel.BATCH, data)
 
 
@@ -214,6 +213,7 @@ def format_log_data_value(data: Any) -> str:
 
     Args:
         data: Data to format.
+
     Returns:
         str: ``data`` as a string.
     """

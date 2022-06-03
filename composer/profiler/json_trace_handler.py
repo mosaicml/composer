@@ -28,9 +28,11 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, F
 __all__ = ["JSONTraceHandler"]
 
 
-class JSONTraceHandler(TraceHandler):
-    __doc__ = f"""Records trace events in `JSON trace format <https://\\
-    docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_.
+class JSONTraceHandler(TraceHandler):  # noqa: D101
+    __doc__ = f"""Records trace events in Chrome JSON trace format.
+
+    See `this document <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_
+    for more information.
 
     Traces are output to ``output_directory``.  Traces can be visualized using the Chrome Trace Viewer.
     To view in a Google Chrome browser, navigate to ``chrome://tracing`` and load the JSON trace file.

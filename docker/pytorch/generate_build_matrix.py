@@ -1,14 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Helper script to generate the build_matrix.yaml
+"""Helper script to generate the ``build_matrix.yaml`` and update ``README.md``.
 
-Note: this script requires tabulate. Run `pip install tabulate` if not installed
+Note: this script requires tabulate. Run ``pip install tabulate`` if not installed
 
-To run: python generate_build_matrix.py
+To run::
 
-Also update the `README.md` in the docker folder with the resulting table.
+    python generate_build_matrix.py
 """
 
 import itertools
@@ -20,7 +19,7 @@ import tabulate
 import yaml
 
 
-def get_pytorch_version(python_version: str):
+def _get_pytorch_version(python_version: str):
     if python_version == "3.9":
         return "1.11.0"
     if python_version in "3.8":
@@ -30,7 +29,7 @@ def get_pytorch_version(python_version: str):
     raise ValueError(f"Invalid python version: {python_version}")
 
 
-def get_torchvision_version(pytorch_version: str):
+def _get_torchvision_version(pytorch_version: str):
     if pytorch_version == "1.10.2":
         return "0.11.3"
     if pytorch_version == "1.11.0":
@@ -40,7 +39,7 @@ def get_torchvision_version(pytorch_version: str):
     raise ValueError(f"Invalid pytorch_version: {pytorch_version}")
 
 
-def get_base_image(cuda_version: str):
+def _get_base_image(cuda_version: str):
     if cuda_version == "cpu":
         return "ubuntu:20.04"
     if cuda_version == "11.1.1":
@@ -50,7 +49,7 @@ def get_base_image(cuda_version: str):
     raise ValueError(f"Invalid cuda_version: {cuda_version}")
 
 
-def get_cuda_version(pytorch_version: str, use_cuda: bool):
+def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return "cpu"
     if pytorch_version == "1.9.1":
@@ -60,7 +59,7 @@ def get_cuda_version(pytorch_version: str, use_cuda: bool):
     raise ValueError(f"Invalid pytorch_version: {str}")
 
 
-def get_cuda_version_tag(cuda_version: str):
+def _get_cuda_version_tag(cuda_version: str):
     if cuda_version == "cpu":
         return "cpu"
     if cuda_version == "11.1.1":
@@ -70,7 +69,7 @@ def get_cuda_version_tag(cuda_version: str):
     raise ValueError(f"Invalid cuda_version: {cuda_version}")
 
 
-def get_tags(python_version: str, pytorch_version: str, cuda_version_tag: str, cuda_version: str, stage: str):
+def _get_tags(python_version: str, pytorch_version: str, cuda_version_tag: str, cuda_version: str, stage: str):
     if stage == "pytorch_stage":
         base_image_name = "mosaicml/pytorch"
     elif stage == "vision_stage":
@@ -88,7 +87,7 @@ def get_tags(python_version: str, pytorch_version: str, cuda_version_tag: str, c
     return tags
 
 
-def main():
+def _main():
     python_versions = ["3.7", "3.8", "3.9"]
     cuda_options = [True, False]
     stages = ["pytorch_stage", "vision_stage"]
@@ -98,13 +97,13 @@ def main():
     for product in itertools.product(python_versions, cuda_options, stages):
         python_version, use_cuda, stage = product
 
-        pytorch_version = get_pytorch_version(python_version)
-        cuda_version = get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
-        cuda_version_tag = get_cuda_version_tag(cuda_version)
+        pytorch_version = _get_pytorch_version(python_version)
+        cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
+        cuda_version_tag = _get_cuda_version_tag(cuda_version)
 
         entry = {
             "BASE_IMAGE":
-                get_base_image(cuda_version),
+                _get_base_image(cuda_version),
             "CUDA_VERSION":
                 cuda_version,
             "CUDA_VERSION_TAG":
@@ -118,9 +117,9 @@ def main():
             "TARGET":
                 stage,
             "TORCHVISION_VERSION":
-                get_torchvision_version(pytorch_version),
+                _get_torchvision_version(pytorch_version),
             "TAGS":
-                get_tags(
+                _get_tags(
                     python_version=python_version,
                     pytorch_version=pytorch_version,
                     cuda_version_tag=cuda_version_tag,
@@ -184,4 +183,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    _main()

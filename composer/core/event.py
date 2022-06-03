@@ -1,15 +1,17 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Events represent specific points in the training loop where an :class:`~.core.Algorithm` and :class:`~.core.Callback`
-can run."""
+"""Training Loop Events."""
 from composer.utils.string_enum import StringEnum
 
 __all__ = ["Event"]
 
 
 class Event(StringEnum):
-    """Enum to represent events in the training loop.
+    """Enum to represent training loop events.
+
+    Events mark specific points in the training loop where an :class:`~.core.Algorithm` and :class:`~.core.Callback`
+    can run.
 
     The following pseudocode shows where each event fires in the training loop:
 
@@ -167,14 +169,20 @@ class Event(StringEnum):
 
     @property
     def is_before_event(self) -> bool:
-        """Whether the event is a 'before_*' event (e.g., :attr:`~Event.BEFORE_LOSS`) and has a corresponding 'after_*'
-        (.e.g., :attr:`~Event.AFTER_LOSS`)."""
+        """Whether the event is an "before" event.
+
+        An "before" event (e.g., :attr:`~Event.BEFORE_LOSS`) has a corresponding "after" event
+        (.e.g., :attr:`~Event.AFTER_LOSS`).
+        """
         return self in _BEFORE_EVENTS
 
     @property
     def is_after_event(self) -> bool:
-        """Whether the event is an 'after_*' event (e.g., :attr:`~Event.AFTER_LOSS`) and has a corresponding 'before_*'
-        (.e.g., :attr:`~Event.BEFORE_LOSS`)."""
+        """Whether the event is an "after" event.
+
+        An "after" event (e.g., :attr:`~Event.AFTER_LOSS`) has a corresponding "before" event
+        (.e.g., :attr:`~Event.BEFORE_LOSS`).
+        """
         return self in _AFTER_EVENTS
 
     @property
