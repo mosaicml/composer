@@ -27,9 +27,7 @@ def binary_cross_entropy_with_logits(
     pos_weight: Optional[Tensor] = None,
     scale_by_batch_size: Optional[bool] = True,
 ) -> torch.Tensor:
-    r"""Replacement for
-    :class:`~torch.nn.functional.binary_cross_entropy_with_logits` that can handle class
-    indices or one-hot labels.
+    r"""Replacement for :class:`~F.binary_cross_entropy_with_logits` that handles class indices or one-hot labels.
 
     :class:`~torch.nn.functional.binary_cross_entropy_with_logits` with ``reduction =
     'mean'` will typically result in very small loss values (on the order of 1e-3), which
@@ -83,8 +81,12 @@ def soft_cross_entropy(input: Tensor,
                        ignore_index: int = -100,
                        reduce: Optional[bool] = None,
                        reduction: str = 'mean'):
-    r"""Drop-in replacement for :class:`~torch.nn.functional.cross_entropy` that can
-     handle class indices or one-hot labels.
+    r"""Drop-in replacement for :class:`~.F.cross_entropy` that handles class indices or one-hot labels.
+
+    .. note::
+
+        This function will be obsolete with `this update <https://github.com/pytorch/pytorch/pull/61044>`_.
+
     Args:
         input (torch.Tensor) : :math:`(N, C)` where `C = number of classes` or :math:`(N, C, H, W)`
             in case of 2D Loss, or :math:`(N, C, d_1, d_2, ..., d_K)` where :math:`K \geq 1`
@@ -116,7 +118,6 @@ def soft_cross_entropy(input: Tensor,
             elements in the output, ``'sum'``: the output will be summed. Note: ``size_average``
             and ``reduce`` are in the process of being deprecated, and in the meantime,
             specifying either of those two args will override ``reduction``. Default: ``'mean'``
-    This function will be obsolete with `this update <https://github.com/pytorch/pytorch/pull/61044>`_.
     """
     target_type = infer_target_type(input, target)
 

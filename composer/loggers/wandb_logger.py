@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to Weights and Biases (https://wandb.ai/)"""
+"""Log to `Weights and Biases <https://wandb.ai/>`_."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ __all__ = ["WandBLogger"]
 
 
 class WandBLogger(LoggerDestination):
-    """Log to Weights and Biases (https://wandb.ai/)
+    """Log to `Weights and Biases <https://wandb.ai/>`_.
 
     Args:
         project (str, optional): WandB project name.
@@ -158,7 +158,19 @@ class WandBLogger(LoggerDestination):
                                f"The artifact with name '{artifact_name}' will be stored as '{new_artifact_name}'."))
 
             extension = new_artifact_name.split(".")[-1]
-            artifact = wandb.Artifact(name=new_artifact_name, type=extension)
+
+            metadata = {f"timestamp/{k}": v for (k, v) in state.timestamp.state_dict().items()}
+            # if evaluating, also log the evaluation timestamp
+            if state.dataloader is not state.train_dataloader:
+                # TODO If not actively training, then it is impossible to tell from the state whether
+                # the trainer is evaluating or predicting. Assuming evaluation in this case.
+                metadata.update({f"eval_timestamp/{k}": v for (k, v) in state.eval_timestamp.state_dict().items()})
+
+            artifact = wandb.Artifact(
+                name=new_artifact_name,
+                type=extension,
+                metadata=metadata,
+            )
             artifact.add_file(os.path.abspath(file_path))
             wandb.log_artifact(artifact, aliases=aliases)
 

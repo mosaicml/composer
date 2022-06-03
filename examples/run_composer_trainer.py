@@ -23,13 +23,13 @@ from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 
 
-def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
+def _warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
     return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
 
 
-def main() -> None:
-    warnings.formatwarning = warning_on_one_line
+def _main() -> None:
+    warnings.formatwarning = _warning_on_one_line
 
     if len(sys.argv) == 1:
         sys.argv = [sys.argv[0], "--help"]
@@ -45,7 +45,7 @@ def main() -> None:
         pass
     else:
         if wandb.run is not None:
-            wandb.config.update(**hparams.to_dict())
+            wandb.config.update(hparams.to_dict())
 
     # Only log the config once, since it should be the same on all ranks.
     if dist.get_global_rank() == 0:
@@ -67,4 +67,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    _main()

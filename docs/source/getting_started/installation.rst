@@ -155,6 +155,6 @@ Besides easily running our built-in algorithms, Composer also features:
 Next steps
 ----------
 
-* Try :doc:`/getting_started/notebooks` to see some of our speed-ups with notebooks on Colab.
+* Try our :doc:`/examples/getting_started` tutorial on Colab.
 * See :doc:`/trainer/using_the_trainer` for more details on our trainer.
 * Read :doc:`/getting_started/welcome_tour` for a tour through the library.

@@ -45,8 +45,8 @@ class OptimizerHparams(hp.Hparams, ABC):
         """Initializes the optimizer.
 
         Args:
-            param_group (Iterable[torch.Tensor] | Iterable[Dict[str, torch.Tensor]]):
-                Parameters for this optimizer to optimize.
+            param_group (Iterable[torch.Tensor] | Iterable[Dict[str, torch.Tensor]]): Parameters for
+                this optimizer to optimize.
         """
         if self.optimizer_cls is None:
             raise ValueError(f"{type(self).__name__}.optimizer_cls must be defined")

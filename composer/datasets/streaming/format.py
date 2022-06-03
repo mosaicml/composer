@@ -1,8 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`.
-"""
+"""The :class:`StreamingDatsetIndex` format that defines shard/sample metadata for :class:`StreamingDataset`."""
 
 import math
 from io import BufferedIOBase, BufferedReader, BufferedWriter, BytesIO
@@ -279,7 +278,6 @@ class StreamingDatasetIndex(object):
             min_id (int): The lowest sample ID of this partition.
             max_id (int): The highest sample ID of this partition.
         """
-
         global_device = world.global_device
         global_num_devices = world.global_num_devices
         node_worker = world.node_worker

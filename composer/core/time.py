@@ -55,9 +55,8 @@ _TIME_STR_REGEX = re.compile(r'^(?:' + r'|'.join(fr"(?:({_NUM_REGEX})({time_unit
 TValue = TypeVar("TValue", int, float)
 
 
-class Time(Generic[TValue]):
-    """Time represents static durations of training time or points in the training process in terms of a
-    :class:`TimeUnit` enum (epochs, batches, samples, tokens, or duration).
+class Time(Generic[TValue], Serializable):
+    """Time represents static durations of training time in terms of a :class:`TimeUnit` enum.
 
     See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
 
@@ -129,7 +128,9 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_epoch(cls, epoch: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.EPOCH`. Equivalent to ``Time(epoch, TimeUnit.EPOCH)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.EPOCH`.
+
+        Equivalent to ``Time(epoch, TimeUnit.EPOCH)``.
 
         Args:
             epoch (int): Number of epochs.
@@ -141,7 +142,9 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_batch(cls, batch: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.BATCH`. Equivalent to ``Time(batch, TimeUnit.BATCH)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.BATCH`.
+
+        Equivalent to ``Time(batch, TimeUnit.BATCH)``.
 
         Args:
             batch (int): Number of batches.
@@ -153,8 +156,9 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_sample(cls, sample: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.SAMPLE`. Equivalent to ``Time(sample,
-        TimeUnit.SAMPLE)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.SAMPLE`.
+
+        Equivalent to ``Time(sample, TimeUnit.SAMPLE)``.
 
         Args:
             sample (int): Number of samples.
@@ -166,7 +170,9 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_token(cls, token: int) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.TOKEN`. Equivalent to ``Time(sample, TimeUnit.TOKEN)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.TOKEN`.
+
+        Equivalent to ``Time(sample, TimeUnit.TOKEN)``.
 
         Args:
             token (int): Number of tokens.
@@ -178,8 +184,9 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_duration(cls, duration: float) -> Time:
-        """Create a :class:`Time` with units of :attr:`TimeUnit.DURATION`. Equivalent to ``Time(duration,
-        TimeUnit.DURATION)``.
+        """Create a :class:`Time` with units of :attr:`TimeUnit.DURATION`.
+
+        Equivalent to ``Time(duration, TimeUnit.DURATION)``.
 
         Args:
             duration (float): Duration of the training process. Should be on ``[0, 1)``
@@ -326,8 +333,9 @@ class Time(Generic[TValue]):
 
     @classmethod
     def from_timestring(cls, timestring: str) -> Time:
-        """Parse a time string into a :class:`Time` instance. A time string is a numerical value followed by the value
-        of a :class:`TimeUnit` enum. For example:
+        """Parse a time string into a :class:`Time` instance.
+
+        A time string is a numerical value followed by the value of a :class:`TimeUnit` enum. For example:
 
         >>> Time.from_timestring("5ep")  # describes 5 epochs.
         Time(5, TimeUnit.EPOCH)
@@ -356,8 +364,10 @@ class Time(Generic[TValue]):
 
 
 class Timestamp(Serializable):
-    """Timestamp represents a snapshot of the current training progress, in terms of epochs, batches,
-    samples, and tokens. Timestamps are not updated in-place.
+    """Timestamp represents a snapshot of the current training progress.
+
+    The timestamp measures training progress in terms of epochs, batches, samples, tokens, and wall clock time.
+    Timestamps are not updated in-place.
 
     See the :doc:`Time Guide </trainer/time>` for more details on tracking time during training.
 
@@ -452,6 +462,11 @@ class Timestamp(Serializable):
         }
 
     def get_state(self) -> Dict[str, Union[Time[int], datetime.timedelta]]:
+        """Returns all values of the timestamp object in a dictionary.
+
+        Returns:
+            Dict[str, Union[Time[int], datetime.timedelta]]: All values of the timestamp object.
+        """
         return {
             "epoch": self.epoch,
             "batch": self.batch,
@@ -614,7 +629,7 @@ class Timestamp(Serializable):
         tokens: Union[int, Time] = 0,
         duration: Optional[datetime.timedelta] = None,
     ):
-        """Create a new :class:`.Timestamp`, with the batch, sample, and token counts properly incremented.
+        """Create a new :class:`.Timestamp`, advanced to the next batch.
 
         Equivalent to:
 
@@ -670,11 +685,9 @@ class Timestamp(Serializable):
         )
 
     def to_next_epoch(self):
-        """Create a new :class:`.Timestamp` incremented by one epoch and with
-        :attr:`batch_in_epoch`, :attr:`sample_in_epoch`, and :attr:`token_in_epoch` reset.
+        """Create a new :class:`.Timestamp`, advanced to the next epoch.
 
         Equivalent to:
-
 
         .. testsetup::
 
@@ -718,8 +731,9 @@ class Timestamp(Serializable):
         epoch_wct: Optional[datetime.timedelta] = None,
         batch_wct: Optional[datetime.timedelta] = None,
     ) -> Timestamp:
-        """Create a copy of the timestamp. Any specified values will override the existing values in the
-        returned copy.
+        """Create a copy of the timestamp.
+
+        Any specified values will override the existing values in the returned copy.
 
         Args:
             epoch (int | Time[int], optional): The epoch.
@@ -764,7 +778,7 @@ class Timestamp(Serializable):
 
 
 def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str]) -> Time:
-    """Ensure ``maybe_time`` is an instance of :class:`.Time`
+    """Ensure ``maybe_time`` is an instance of :class:`.Time`.
 
     Args:
         maybe_time (Time | str): A time string, integer, or instance of :class:`.Time`.

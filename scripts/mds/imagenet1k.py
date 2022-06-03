@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""ImageNet 1K Streaming Dataset Conversion Script."""
+
 import os
 import random
 from argparse import ArgumentParser, Namespace
@@ -70,12 +72,11 @@ def each(pairs: List[Tuple[str, int]]) -> Iterable[Dict[str, Any]]:
 
 
 def main(args: Namespace) -> None:
-    """Main: create ImageNet1k streaming dataset.
+    """Create ImageNet1k streaming dataset.
 
     Args:
         args (Namespace): Commandline arguments.
     """
-
     fields = ['uid', 'x', 'y']
 
     for (split, expected_num_samples, shuffle) in [

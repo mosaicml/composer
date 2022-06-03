@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Composer package setup."""
+
 import os
 import site
 import sys
@@ -17,6 +19,7 @@ _IS_VIRTUALENV = "VIRTUAL_ENV" in os.environ
 
 # From https://stackoverflow.com/questions/51292333/how-to-tell-from-setup-py-if-the-module-is-being-installed-in-editable-mode
 class develop(develop_orig):
+    """Override the ``develop`` class to error if attempting an editable install as root."""
 
     def run(self):
         if _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
@@ -34,6 +37,7 @@ site.ENABLE_USER_SITE = _IS_USER
 
 
 def package_files(prefix: str, directory: str, extension: str):
+    """Get all the files to package."""
     # from https://stackoverflow.com/a/36693250
     paths = []
     for (path, _, filenames) in os.walk(os.path.join(prefix, directory)):
@@ -114,6 +118,10 @@ extra_deps["dev"] = [
     "sphinxcontrib-images==0.9.4",
     "pytest_codeblocks==0.15.0",
     "traitlets==5.1.1",  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
+    "nbsphinx==0.8.8",
+    "pandoc==2.2",
+    "pypandoc==1.8.1",
+    "GitPython==3.1.27",
 ]
 
 extra_deps["deepspeed"] = [
@@ -121,8 +129,7 @@ extra_deps["deepspeed"] = [
 ]
 
 extra_deps["wandb"] = [
-    "wandb>=0.12.10,<0.12.17",
-    "protobuf<3.21.0",
+    "wandb>=0.12.17,<0.13",
 ]
 
 extra_deps["unet"] = [
@@ -186,7 +193,7 @@ setup(name=package_name,
       package_data={
           "composer": composer_data_files,
       },
-      packages=setuptools.find_packages(exclude=["docker*", "notebooks*", "scripts*", "tests*"]),
+      packages=setuptools.find_packages(exclude=["docker*", "examples*", "scripts*", "tests*"]),
       classifiers=[
           "Programming Language :: Python :: 3",
           "Programming Language :: Python :: 3.7",

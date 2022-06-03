@@ -129,7 +129,7 @@ class CutOut(Algorithm):
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Apply cutout on input images."""
+        """Applies cutout on input images."""
         x = state.batch_get_item(self.input_key)
         assert isinstance(x, Tensor), "Multiple tensors not supported for Cutout."
 

@@ -31,8 +31,7 @@ __all__ = [
 
 @dataclass
 class ObjectStoreLoggerHparams(hp.Hparams):
-    """:class:`~composer.loggers.in_memory_logger.InMemoryLogger`
-    hyperparameters.
+    """Hyperparameters for the :class:`~.ObjectStoreLogger`.
 
     Args:
         object_store_hparams (LibcloudObjectStoreHparams): The object store provider hparams.

@@ -257,7 +257,7 @@ class TestColOutAlgorithm:
     @pytest.mark.parametrize("batch", [True])
     def test_apply_batch(self, fake_image_batch: torch.Tensor, colout_algorithm: ColOut, minimal_state: State,
                          empty_logger: Logger):
-        """Apply the algorithm to a fake batch."""
+        """Applies the algorithm to a fake batch."""
         p_row = colout_algorithm.p_row
         p_col = colout_algorithm.p_col
 
@@ -270,7 +270,7 @@ class TestColOutAlgorithm:
     @pytest.mark.parametrize("batch", [True])
     def test_apply_batch_pair(self, fake_image_batch: torch.Tensor, colout_algorithm: ColOut, minimal_state: State,
                               empty_logger: Logger):
-        """Apply batch ColOut to 2-tuple of images."""
+        """Applies batch ColOut to 2-tuple of images."""
         p_row = colout_algorithm.p_row
         p_col = colout_algorithm.p_col
 
