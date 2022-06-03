@@ -51,6 +51,8 @@ As a general rule of thumb,
     Example of the anti-pattern:
 
     ```python
+    from typing import Optional
+
     def configure_deepspeed(deepspeed_config: Optional[dict]):
         if deepspeed_config is None:
             # Don't do this check in the callee, which results in a no-op
@@ -63,6 +65,8 @@ As a general rule of thumb,
 
     Example:
     ```python
+    from typing import Optional
+
     def configure_deepspeed(deepspeed_config: dict):
         ...
 
