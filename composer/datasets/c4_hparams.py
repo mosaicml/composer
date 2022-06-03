@@ -10,8 +10,7 @@ import yahp as hp
 from torch.utils.data import DataLoader
 
 from composer.datasets.c4 import C4Dataset
-from composer.datasets.dataloader_hparams import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
