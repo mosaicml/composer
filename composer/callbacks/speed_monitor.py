@@ -4,11 +4,11 @@
 """Monitor throughput during training."""
 from __future__ import annotations
 
-import time
+import datetime
 from collections import deque
-from typing import Any, Deque, Dict, Optional
+from typing import Any, Deque, Dict, Optional, Tuple
 
-from composer.core import State
+from composer.core import State, Time
 from composer.core.callback import Callback
 from composer.loggers import Logger
 
@@ -50,11 +50,11 @@ class SpeedMonitor(Callback):
     |                       | Number of samples processed per second (averaged over       |
     | ``samples/epoch``     | an entire epoch)                                            |
     +-----------------------+-------------------------------------------------------------+
-    |``wall_clock/train``   | Total elapsed training time                                 |
+    | ``wall_clock/train``  | Total elapsed training time                                 |
     +-----------------------+-------------------------------------------------------------+
-    |``wall_clock/val``     | Total elapsed validation time                               |
+    | ``wall_clock/val``    | Total elapsed validation time                               |
     +-----------------------+-------------------------------------------------------------+
-    |``wall_clock/total``   | Total elapsed time (wall_clock/train + wall_clock/val)      |
+    | ``wall_clock/total``  | Total elapsed time (wall_clock/train + wall_clock/val)      |
     +-----------------------+-------------------------------------------------------------+
 
     Args:
@@ -63,106 +63,104 @@ class SpeedMonitor(Callback):
     """
 
     def __init__(self, window_size: int = 100):
-        super().__init__()
-        self.train_examples_per_epoch = 0
+        # Track the epoch num samples and wct to compute throughput over the entire epoch
+        self.epoch_start_num_samples = Time.from_sample(0)
+        self.epoch_start_wct = datetime.timedelta(0)
 
-        # log the total wall clock time that this program has been running for
-        self.wall_clock_total = 0.0
-
-        # log the total wall clock_time that has been spent in training
-        self.wall_clock_train = 0.0
-
-        # log the total wall clock_time that has been spent in validation
-        self.wall_clock_val = 0.0
-
-        self.epoch_start_time = 0.0
-        self.validation_start_time = 0.0
-        self.epoch_time_in_validation = 0.0
-        self.batch_start_num_samples = None
-        self.batch_end_times: Deque[float] = deque(maxlen=window_size + 1)  # rolling list of batch end times
-        self.batch_num_samples: Deque[int] = deque(maxlen=window_size)  # rolling list of num samples in batch.
+        # Track the batch num samples and wct to compute throughput over a window of batches
+        self.batch_start_num_samples = Time.from_sample(0)
+        self.batch_start_wct = datetime.timedelta(0)
+        self.rolling_batch_times_and_num_samples: Deque[Tuple[datetime.timedelta,
+                                                              Time[int]]] = deque(maxlen=window_size)
         self.window_size = window_size
-        self.loaded_state: Optional[Dict[str, Any]] = None
+
+        # To optimize performance for the the batch wct calculations, keep a running sum over the entire deque
+        self.running_wct = datetime.timedelta(0)
+        self.running_num_samples = Time.from_sample(0)
+
+        # Keep track of time spent evaluating
+        self.total_eval_wct = datetime.timedelta(0)
+
+        self._loaded_state: Optional[Dict[str, Any]] = None
 
     def state_dict(self) -> Dict[str, Any]:
-        current_time = time.time()
         return {
-            "train_examples_per_epoch": self.train_examples_per_epoch,
-            "wall_clock/train": self.wall_clock_train,
-            "wall_clock/val": self.wall_clock_val,
-            "wall_clock/total": self.wall_clock_total,
-            "epoch_duration": current_time - self.epoch_start_time,
-            "batch_durations": [current_time - x for x in self.batch_end_times],
-            "batch_num_samples": self.batch_num_samples,
+            "epoch_start_num_samples": self.epoch_start_num_samples,
+            "epoch_start_wct": self.epoch_start_wct,
+            "batch_start_num_samples": self.batch_start_num_samples,
+            "batch_start_wct": self.batch_start_wct,
+            "rolling_batch_times_and_num_samples": self.rolling_batch_times_and_num_samples,
+            "running_wct": self.running_wct,
+            "running_num_samples": self.running_num_samples,
+            "total_eval_wct": self.total_eval_wct,
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.loaded_state = state
+        self._loaded_state = state
 
     def _load_state(self) -> None:
-        current_time = time.time()
-        if self.loaded_state is not None:
-            self.train_examples_per_epoch = self.loaded_state["train_examples_per_epoch"]
-            self.wall_clock_train = self.loaded_state["wall_clock/train"]
-            self.wall_clock_val = self.loaded_state["wall_clock/val"]
-            self.wall_clock_total = self.loaded_state["wall_clock/total"]
-            self.epoch_start_time = current_time - self.loaded_state["epoch_duration"]
-            self.batch_end_times = deque([current_time - x for x in self.loaded_state["batch_durations"]],
-                                         maxlen=self.window_size + 1)
-            self.batch_num_samples = self.loaded_state["batch_num_samples"]
-            self.loaded_state = None
+        if self._loaded_state is not None:
+            self.epoch_start_num_samples = self._loaded_state["epoch_start_num_samples"]
+            self.epoch_start_wct = self._loaded_state["epoch_start_wct"]
+            self.batch_start_num_samples = self._loaded_state["batch_start_num_samples"]
+            self.batch_start_wct = self._loaded_state["batch_start_wct"]
+            self.rolling_batch_times_and_num_samples = deque(
+                [x for x in self._loaded_state["rolling_batch_times_and_num_samples"]],
+                maxlen=self.window_size,
+            )
+            self.running_wct = self._loaded_state["running_wct"]
+            self.running_num_samples = self._loaded_state["running_num_samples"]
+            self.total_eval_wct = self._loaded_state["total_eval_wct"]
+            self._loaded_state = None
+
+    def epoch_start(self, state: State, logger: Logger):
+        del logger  # unused
+        self._load_state()
+        self.rolling_batch_times_and_num_samples.clear()
+        self.epoch_start_wct = state.timestamp.total_wct
+        self.epoch_start_num_samples = state.timestamp.sample
 
     def batch_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
         self._load_state()
+        self.batch_start_wct = state.timestamp.total_wct
         self.batch_start_num_samples = state.timestamp.sample
 
-    def epoch_start(self, state: State, logger: Logger):
-        del state, logger  # unused
-        self._load_state()
-        self.epoch_start_time = time.time()
-        self.batch_end_times.clear()
-        self.batch_num_samples.clear()
-        self.train_examples_per_epoch = 0
-
     def batch_end(self, state: State, logger: Logger):
-        self.batch_end_times.append(time.time())
         new_num_samples = state.timestamp.sample
-        assert self.batch_start_num_samples is not None, "self.batch_start_num_samples should have been set on Event.BATCH_START"
-        batch_num_samples = int(new_num_samples - self.batch_start_num_samples)
-        self.batch_num_samples.append(batch_num_samples)
-        self.train_examples_per_epoch += batch_num_samples
-        if len(self.batch_end_times) == self.window_size + 1:
-            throughput = sum(self.batch_num_samples) / (self.batch_end_times[-1] - self.batch_end_times[0])
+        batch_num_samples = new_num_samples - self.batch_start_num_samples
+        self.running_num_samples += batch_num_samples
+        batch_wct = state.timestamp.total_wct - self.batch_start_wct
+        self.running_wct += batch_wct
+
+        if len(self.rolling_batch_times_and_num_samples) == self.window_size:
+            # the buffer is full. subtract out the oldest num samples and wct from the running tallies, before the new entry is added
+            oldest_wct, oldest_num_samples = self.rolling_batch_times_and_num_samples.popleft()
+            self.running_num_samples -= oldest_num_samples
+            self.running_wct -= oldest_wct
+
+            # Log the throughput
+            throughput = self.running_num_samples / self.running_wct.total_seconds()
             logger.data_batch({'samples/step': throughput})
 
-    def eval_start(self, state: State, logger: Logger):
-        del state, logger  # unused
-        self.validation_start_time = time.time()
+        # Add the new element
+        self.rolling_batch_times_and_num_samples.append((batch_wct, batch_num_samples))
+
+        # Log the time
+        logger.data_batch({
+            "wall_clock/train": state.timestamp.total_wct,
+            "wall_clock/val": self.total_eval_wct,
+            "wall_clock/total": state.timestamp.total_wct + self.total_eval_wct,
+        })
 
     def eval_end(self, state: State, logger: Logger):
-        del state, logger  # unused
-        self.epoch_time_in_validation += time.time() - self.validation_start_time
+        del logger  # unused
+        self.total_eval_wct += state.eval_timestamp.total_wct
 
     def epoch_end(self, state: State, logger: Logger):
-        del state  # unused
-
-        epoch_time_in_train = time.time() - self.epoch_start_time - self.epoch_time_in_validation
-        self.wall_clock_train += epoch_time_in_train
-        self.wall_clock_val += self.epoch_time_in_validation
-        self.wall_clock_total += epoch_time_in_train + self.epoch_time_in_validation
-        assert (self.wall_clock_train + self.wall_clock_val) == self.wall_clock_total
+        epoch_time_in_train = state.timestamp.total_wct - self.epoch_start_wct
+        train_examples_per_epoch = int(state.timestamp.sample - self.epoch_start_num_samples)
 
         logger.data_epoch({
-            "wall_clock/train": self.wall_clock_train,
+            "samples/epoch": train_examples_per_epoch / epoch_time_in_train.total_seconds(),
         })
-        logger.data_epoch({
-            "wall_clock/val": self.wall_clock_val,
-        })
-        logger.data_epoch({
-            "wall_clock/total": self.wall_clock_total,
-        })
-        logger.data_epoch({
-            "samples/epoch": self.train_examples_per_epoch / epoch_time_in_train,
-        })
-        self.epoch_time_in_validation = 0.0
