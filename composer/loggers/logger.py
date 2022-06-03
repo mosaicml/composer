@@ -8,15 +8,13 @@ from __future__ import annotations
 import collections.abc
 import operator
 import pathlib
-import time
 from enum import IntEnum
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
-import coolname
 import torch
 
-from composer.utils import dist, ensure_tuple
+from composer.utils import ensure_tuple
 from composer.utils.file_helpers import format_name_with_dist
 
 if TYPE_CHECKING:
@@ -106,17 +104,7 @@ class Logger:
         run_name: Optional[str] = None,
     ):
         self.destinations = ensure_tuple(destinations)
-        if run_name is None:
-            # prefixing with the time so experiments sorted alphabetically will
-            # have the latest experiment last
-            run_name = str(int(time.time())) + "-" + coolname.generate_slug(2)
-            run_name_list = [run_name]
-            # ensure all ranks have the same experiment name
-            dist.broadcast_object_list(run_name_list)
-            run_name = run_name_list[0]
-        assert run_name is not None, "run name is set above if not specified."
         self.run_name = run_name
-        state.run_name = run_name
         self._state = state
 
     def data(self, log_level: Union[str, int, LogLevel], data: Dict[str, Any]) -> None:

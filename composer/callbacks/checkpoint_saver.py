@@ -354,10 +354,7 @@ class CheckpointSaver(Callback):
 
     def _save_checkpoint(self, state: State, logger: Logger, log_level: LogLevel):
         checkpoint_filepath = os.path.join(format_name_with_dist(self.folder, logger.run_name), self.filename)
-        checkpoint_filepaths = checkpoint.save_checkpoint(state,
-                                                          logger,
-                                                          checkpoint_filepath,
-                                                          weights_only=self.weights_only)
+        checkpoint_filepaths = checkpoint.save_checkpoint(state, checkpoint_filepath, weights_only=self.weights_only)
 
         if dist.get_global_rank() < len(checkpoint_filepaths):
             # Log the checkpoint as an artifact

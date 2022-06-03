@@ -77,6 +77,7 @@ class State(Serializable):
         model (torch.nn.Module): The model, typically as a subclass of :class:`~.ComposerModel`.
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
+        run_name (str): The name for this training run.
         grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch
             size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         train_dataloader (types.DataLoader, optional): Dataloader used for training
@@ -101,7 +102,6 @@ class State(Serializable):
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         profiler (Optional[Profiler]): The Composer profiler.
-        run_name (str): The name for this training run.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
@@ -203,6 +203,9 @@ class State(Serializable):
         # determinism
         rank_zero_seed: int,
 
+        # run_name
+        run_name: str,
+
         # stopping conditions
         max_duration: Optional[Union[str, Time[int]]] = None,
 
@@ -231,12 +234,10 @@ class State(Serializable):
         # algorithms and callbacks
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
-
-        # run_name
-        run_name: Optional[str] = None,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
+        self.run_name = run_name
         self.grad_accum = grad_accum
         self._dataloader_len = None
         self._dataloader = None
@@ -270,8 +271,6 @@ class State(Serializable):
         self.batch: Any = None
         self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
-
-        self.run_name = run_name
 
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
         # All other attributes will not be serialized.
