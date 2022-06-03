@@ -1,5 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+
+"""The Composer CLI launcher for distributed training."""
+
 import datetime
 import logging
 import os
@@ -21,7 +24,7 @@ CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 log = logging.getLogger(__name__)
 
 
-def get_parser():
+def _get_parser():
     parser = ArgumentParser(description="Utility for launching distributed machine learning jobs.")
 
     required_args = parser.add_argument_group("required arguments")
@@ -120,7 +123,7 @@ def _get_free_tcp_port() -> int:
 
 
 def _parse_args():
-    parser = get_parser()
+    parser = _get_parser()
 
     args = parser.parse_args()
 
@@ -399,6 +402,7 @@ def _aggregate_process_returncode(processes: Dict[int, subprocess.Popen]) -> int
 
 
 def main():
+    """Entrypoint into the Composer CLI."""
     args = _parse_args()
 
     logging.basicConfig()

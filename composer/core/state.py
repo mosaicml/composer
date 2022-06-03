@@ -105,8 +105,6 @@ class State(Serializable):
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
-        batch_num_samples (int): The number of samples in the :attr:`batch`.
-        batch_num_tokens (int): The number of tokens in the :attr:`batch`.
         current_metrics (Dict[str, Dict[str, Any]]): The current computed metrics, organized by dataloader label
             and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
             the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
@@ -266,8 +264,6 @@ class State(Serializable):
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
-        self.batch_num_samples = 0
-        self.batch_num_tokens = 0
         self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
@@ -457,7 +453,6 @@ class State(Serializable):
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
         """
-
         state = _ensure_backwards_compatible_checkpointing(state)
 
         for attribute_name, serialized_value in state.items():

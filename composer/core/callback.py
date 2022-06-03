@@ -50,10 +50,6 @@ class Callback(Serializable, abc.ABC):
             >>> _ = trainer.engine.run_event(Event.EPOCH_START)
             Epoch: 0
 
-        .. testcleanup::
-
-            trainer.engine.close()
-
     #.  Override :meth:`run_event` if you want a single method to handle all events.  If this method is overridden, then
         the individual methods corresponding to each event name (such as :meth:`epoch_start`) will no longer be
         automatically invoked. For example, if you override :meth:`run_event` then :meth:`epoch_start` will not be called
@@ -82,10 +78,6 @@ class Callback(Serializable, abc.ABC):
             >>> # is triggered, like this:
             >>> _ = trainer.engine.run_event(Event.EPOCH_START)
             Epoch: 0
-
-        .. testcleanup::
-
-            trainer.engine.close()
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -94,7 +86,7 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        """This method is called by the engine on each event.
+        """Called by the engine on each event.
 
         Args:
             event (Event): The event.
@@ -441,10 +433,9 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def post_close(self) -> None:
-        """This hook is called after :meth:`close` has been invoked for each callback. Very few callbacks should need to
-        implement :meth:`post_close`.
+        """Called after :meth:`close` has been invoked for each callback.
 
-        This callback can be used to back up any data that may have been written by other callbacks during
-        :meth:`close`.
+        Very few callbacks should need to implement :meth:`post_close`. This callback can be used to back up any data
+        that may have been written by other callbacks during :meth:`close`.
         """
         pass

@@ -16,7 +16,7 @@ import tqdm
 from composer.core.time import Time, Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
-from composer.utils.object_store import LibcloudObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 if TYPE_CHECKING:
     from composer.loggers import LoggerDestination
@@ -69,9 +69,11 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
 
 
 def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path], filename: str, timestamp: Timestamp):
-    """Ensure that the given folder does not have any files conflicting with the ``filename`` format string. If any
-    filename is formatted with a timestamp where the epoch, batch, sample, or token counts are after ``timestamp``, a
-    ``FileExistsError`` will be raised. ``filename`` and occurs later than ``timestamp``, raise a ``FileExistsError``.
+    """Ensure that the given folder does not have any files conflicting with the ``filename`` format string.
+
+    If any filename is formatted with a timestamp where the epoch, batch, sample, or token counts are after
+    ``timestamp``, a ``FileExistsError`` will be raised.
+    If ``filename`` and occurs later than ``timestamp``, raise a ``FileExistsError``.
 
     Args:
         folder_name (str | pathlib.Path): The folder to inspect.
@@ -154,7 +156,7 @@ FORMAT_NAME_WITH_DIST_TABLE = """
 """
 
 
-def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: object):
+def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: object):  # noqa: D103
     formatted_str = format_str.format(
         run_name=run_name,
         rank=dist.get_global_rank(),
@@ -246,7 +248,12 @@ FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """
 """
 
 
-def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Timestamp, **extra_format_kwargs: object):
+def format_name_with_dist_and_time(
+    format_str: str,
+    run_name: str,
+    timestamp: Timestamp,
+    **extra_format_kwargs: object,
+):  # noqa: D103
     formatted_str = format_str.format(
         run_name=run_name,
         rank=dist.get_global_rank(),

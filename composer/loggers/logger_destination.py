@@ -23,9 +23,7 @@ class LoggerDestination(Callback, ABC):
     :class:`~composer.core.event.Event`. For example, it may be helpful to run on
     :attr:`~composer.core.event.Event.EPOCH_END` to perform any flushing at the end of every epoch.
 
-    Example
-    -------
-
+    Example:
     .. doctest::
 
         >>> from composer.loggers import LoggerDestination
@@ -38,10 +36,6 @@ class LoggerDestination(Callback, ABC):
         ...     loggers=[logger]
         ... )
         Batch 0: {'rank_zero_seed': ...}
-
-    .. testcleanup::
-
-        trainer.engine.close()
     """
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
@@ -115,12 +109,15 @@ class LoggerDestination(Callback, ABC):
         symlink_artifact_name: str,
         overwrite: bool,
     ):
-        """Handle creating a symlink of a file artifact stored at ``existing_artifact_name`` to an artifact named
+        """Create a symlink.
+
+        of a file artifact stored at ``existing_artifact_name`` to an artifact named
         ``symlink_artifact_name``.
 
-        Subclasses should implement this method to symlink logged files. However, not all loggers need to implement this
-        method. For example, the :class:`~composer.loggers.tqdm_logger.TQDMLogger` does not implement this method, as it
-        cannot handle file artifacts and thus does not need to do any special symlinking.
+        Subclasses should implement this method to create a symlink of a file artifact stored at
+        ``existing_artifact_name`` to an artifact named ``symlink_artifact_name``.. However, not all loggers need to
+        implement this method. For example, the :class:`~composer.loggers.tqdm_logger.TQDMLogger` does not implement
+        this method, as it cannot handle file artifacts and thus does not need to do any special symlinking.
 
         .. note::
 

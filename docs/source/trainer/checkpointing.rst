@@ -366,7 +366,7 @@ should be the path to the checkpoint file *within the container/bucket*.
 
 .. testcode::
 
-    from composer.utils.object_store import LibcloudObjectStore
+    from composer.utils.libcloud_object_store import LibcloudObjectStore
     from composer.trainer import Trainer
 
     object_store = LibcloudObjectStore(

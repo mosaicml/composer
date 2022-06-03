@@ -49,8 +49,9 @@ def _split_mapping(m, num_microbatches: int):
 
 
 def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
-    """Splits batch into `num_microbatches` chunks for gradient accumulation. Works with tensors, dictionaries of
-    tensors, (x, y) tuples, and lists where batch is the 2nd dimension.
+    """Splits batch into `num_microbatches` chunks for gradient accumulation.
+
+    Works with tensors, dictionaries of tensors, (x, y) tuples, and lists where batch is the 2nd dimension.
 
     Args:
         batch: output from the dataloader.
@@ -109,10 +110,6 @@ class DataSpec:
        ...     optimizers=optimizer,
        ...     max_duration="1ep",
        ... )
-
-    .. testcleanup::
-
-        trainer.engine.close()
 
     Args:
         dataloader (Iterable): The dataloader, which can be any iterable that yields batches.
@@ -216,7 +213,7 @@ class DataSpec:
 
 
 def ensure_data_spec(dataloader: Union[DataSpec, Iterable, dict]) -> DataSpec:
-    """Ensures that the ``dataloader`` is a :class:`.DataSpec`
+    """Ensures that the ``dataloader`` is a :class:`.DataSpec`.
 
     Args:
         dataloader (DataSpec | Iterable | dict): A DataSpec, DataLoader, or Dict of DataSpec kwargs.
