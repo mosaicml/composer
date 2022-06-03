@@ -39,7 +39,7 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmp_path: pathlib.
         flush_interval=1,
     )
     file_tracker_destination = FileArtifactLoggerTracker()
-    logger = Logger(dummy_state, destinations=[log_destination, file_tracker_destination])
+    logger = Logger(dummy_state, destinations=[log_destination, file_tracker_destination], run_name="run_name")
     log_destination.run_event(Event.INIT, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)
@@ -113,7 +113,7 @@ def test_file_logger_capture_stdout_stderr(dummy_state: State, tmp_path: pathlib
     # capturing should start immediately
     print("Hello, stdout!\nExtra Line")
     print("Hello, stderr!\nExtra Line2", file=sys.stderr)
-    logger = Logger(dummy_state, destinations=[log_destination])
+    logger = Logger(dummy_state, destinations=[log_destination], run_name="run_name")
     log_destination.run_event(Event.INIT, dummy_state, logger)
     log_destination.run_event(Event.EPOCH_START, dummy_state, logger)
     log_destination.run_event(Event.BATCH_START, dummy_state, logger)

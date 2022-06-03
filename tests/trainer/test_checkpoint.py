@@ -112,6 +112,11 @@ def assert_checkpoints_equivalent(
         del checkpoint_b['state']['timestamp']['Timestamp']['total_wct']
         del checkpoint_b['state']['timestamp']['Timestamp']['epoch_wct']
         del checkpoint_b['state']['timestamp']['Timestamp']['batch_wct']
+
+        # Remove run_name, since it's a function of time
+        del checkpoint_a['state']['run_name']
+        del checkpoint_b['state']['run_name']
+
         deep_compare(checkpoint_a, checkpoint_b)
 
         if 'model' not in checkpoint_a['state']:
@@ -298,7 +303,7 @@ def test_different_run_names(
     composer_trainer_hparams.load_path = os.path.join(checkpoint_a_folder, final_checkpoint)
     
     # Create new trainer and change seed for new run_name generation
-    second_trainer_hparams = TrainerHparams.create(data=composer_trainer_hparams.to_dict(), cli_args=False)
+    second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
     second_trainer_hparams.seed = 2
 
     trainer_a = composer_trainer_hparams.initialize_object()

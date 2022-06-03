@@ -798,7 +798,7 @@ class Trainer:
                 ))
 
         # Logger
-        self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
+        self.logger = Logger(state=self.state, destinations=loggers, run_name=generated_run_name)
 
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
