@@ -147,6 +147,7 @@ class SpeedMonitor(Callback):
         self.rolling_batch_times_and_num_samples.append((batch_wct, batch_num_samples))
 
         # Log the time
+        # `state.timestamp` excludes any time spent in evaluation
         logger.data_batch({
             "wall_clock/train": state.timestamp.total_wct,
             "wall_clock/val": self.total_eval_wct,
@@ -158,6 +159,7 @@ class SpeedMonitor(Callback):
         self.total_eval_wct += state.eval_timestamp.total_wct
 
     def epoch_end(self, state: State, logger: Logger):
+        # `state.timestamp` excludes any time spent in evaluation
         epoch_time_in_train = state.timestamp.total_wct - self.epoch_start_wct
         train_examples_per_epoch = int(state.timestamp.sample - self.epoch_start_num_samples)
 
