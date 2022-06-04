@@ -1,4 +1,4 @@
-# 📎 AGC
+# 📎 Gradient Clipping
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
 
@@ -6,7 +6,7 @@
 
 Gradient Clipping
 
-<!--| ![AGC](https://storage.googleapis.com/docs.mosaicml.com/images/methods/agc.png) |
+<!--| |
 |:--:
 |*Need a picture.*|-->
 
@@ -21,6 +21,7 @@ Gradient Clipping
 import torch
 import composer.functional as cf
 
+clipping_type = 'norm' # can also be 'adaptive' or 'value'
 def training_loop(model, train_loader):
     opt = torch.optim.Adam(model.parameters())
     loss_fn = F.cross_entropy
@@ -32,7 +33,7 @@ def training_loop(model, train_loader):
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
             loss.backward()
-            cf.apply_gradient_clipping(model.parameters(), clipping_type='norm',
+            cf.apply_gradient_clipping(model.parameters(), clipping_type=clipping_type,
                                         clipping_threshold=0.1)
             opt.step()
 ```
@@ -48,7 +49,8 @@ def training_loop(model, train_loader):
 from composer.algorithms import GradientClipping
 from composer.trainer import Trainer
 
-gc = GradientClipping(clipping_type='norm', clipping_threshold = 0.1)
+clipping_type = 'norm' # can also be 'adaptive' or 'value'
+gc = GradientClipping(clipping_type=clipping_type, clipping_threshold = 0.1)
 
 trainer = Trainer(
     model=model,
@@ -62,7 +64,23 @@ trainer.fit()
 
 ### Implementation Details
 
-AGC is implemented as follows:
+#### clipping_type='norm'
+Norm-based gradient clipping is implemented as follows:
+On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradients:
+1. Compute the parameter's gradients and concatenate all parameters' gradients into one big vector
+2. Compute the norm of all the gradients (single scalar), `total_norm`
+3. Compute the clipping coefficient: `clip_coeff` = `clipping_threshold` / `total_norm`
+4. Clamp the `clip_coeff` to be less than or equal to 1.0
+5. Multiply all the gradients by the `clip_coeff`.
+
+#### clipping_type='value'
+Value-based gradient clipping is implemented as follows:
+On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradients:
+1. Any gradients that are greater than `clipping_threshold` are set to `clipping_threshold` and
+any gradients less than -`clipping_threshold` are set to -`clipping_threshold`. See [here](https://pytorch.org/docs/stable/generated/torch.nn.utils.clip_grad_value_.html) for more details.
+#### clipping_type='adaptive'
+
+Adaptive gradient clipping is implemented as follows:
 
 On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradients:
 1. Compute the parameter's weight norm with an L2 norm (normalized across rows for MLP's, across entire filters for CNN's, and across the entire vector for biases).
@@ -71,7 +89,19 @@ On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradient
 
 
 ## Suggested Hyperparameters
+### Norm-based gradient clipping
+The [original authors, R. Pascanu](https://arxiv.org/abs/1211.5063) of this type of clipping used gradient clipping with recurrent neural networks. They recommend monitoring the average gradient norm of your model's gradients over many iterations as a heuristic to help
+figure out a value for the `clipping_theshold`. 
 
+For computer vision, the authors of the famous [Inception convolutional neura network architecture](https://arxiv.org/abs/1512.00567v3) used a `clipping_threshold` of 2.0, which they claim helped stabilize their training.
+
+For NLP with transformers, [Keskar, et al](https://arxiv.org/abs/1909.05858v2) used a `clipping_threshold` of 0.25 for their CTRL, a conditional transformer language model.
+The [authors of TABERT](https://arxiv.org/abs/2005.08314v1), a transformer-based BERT model tabular data, recommend a `clipping_threshold` of 1.0
+The [authors of the Compressive Transformer](https://arxiv.org/abs/1911.05507v1) and [Gated Convolutional Neural Networks](https://arxiv.org/pdf/1612.08083v3.pdf) both used a `clipping_threshold` of 0.1.
+
+### Value-based gradient clipping
+The [original author of this type of clipping, Mikolov](https://www.fit.vut.cz/study/phd-thesis/283/.en) uses it for training recurrent neural networks and recommends setting the `clipping_threshold` to 15. This approach to gradient clipping is not as prevalent as the norm-based clipping and thus to our knowledge there are not very many examples of good settings for `clipping_threshold`.
+### Adaptive gradient clipping
 We haven't done much experimentation with AGC. However, [the original authors, Brock et al.](https://arxiv.org/abs/2102.06171)
 and [Ayush Thakur](https://wandb.ai/ayush-thakur/nfnet/reports/Exploring-Adaptive-Gradient-Clipping-and-NFNets--Vmlldzo1MDc0NTQ)
 have done some ablations have some recommendations. Note, both parties use AGC with NF-ResNets, which is a variation
@@ -93,5 +123,6 @@ TODO(eracah): fill in this section.
 ## Attribution
 
 [*High-Performance Large-Scale Image Recognition Without Normalization*](https://arxiv.org/abs/2102.06171) by Andrew Brock, Soham De, Samuel L. Smith, Karen Simonyan. Published in ICML 2021.
-
+[*On the difficulty of training recurrent neural networks*](https://arxiv.org/abs/1211.5063) by R. Pascanu, T. Mikolov, and Y. Bengio, 2012
+[*STATISTICAL LANGUAGE MODELS BASED ON NEURAL NETWORKS*](https://www.fit.vut.cz/study/phd-thesis/283/.en)
 *The Composer implementation of this method and the accompanying documentation were produced by Evan Racah at MosaicML.*
