@@ -29,6 +29,7 @@ from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, is_tar
+from composer.utils.checkpoint import glob_filter
 from composer.utils.iter_helpers import ensure_tuple
 from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
 from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
@@ -135,6 +136,43 @@ def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, che
     composer_trainer_hparams.seed = None
     composer_trainer_hparams.eval_interval = "1ba"
     return composer_trainer_hparams
+
+@pytest.mark.timeout(5)
+def test_ignore_params():
+    # Set up base dictionary
+    base_dict = {
+        'state': {
+            'run_name': 'my_first_run',
+            'timestep': 7
+        },
+        'seed': 0,
+        'model': {
+            'classifier': {
+                'weights': 5,
+                'bias': 3
+            }
+        }
+    }
+
+    # Remove classifier params
+    new_dict = copy.deepcopy(base_dict)
+    del base_dict['model']["classifier"]["weights"]
+    del base_dict['model']["classifier"]["bias"]
+    filter_params = [["model", "classifier", "weights"], ["model", "classifier", "bias"]]
+    glob_filter(filter_params)(new_dict) 
+    assert base_dict == new_dict
+
+    # Remove classifier
+    del base_dict["model"]["classifier"]
+    filter_classifier = [["model", "classifier"]]
+    glob_filter(filter_classifier)(new_dict)
+    assert base_dict == new_dict
+
+    # Remove timestep
+    del base_dict['state']['timestep']
+    filter_timestep = [["state", "timestep"]]
+    glob_filter(filter_timestep)(new_dict)
+    assert base_dict == new_dict
 
 
 @pytest.mark.timeout(90)
