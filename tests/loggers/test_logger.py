@@ -15,7 +15,7 @@ def test_logger_run_name(dummy_state: State):
     # seeding with the global rank to ensure that each rank has a different seed
     reproducibility.seed_all(dist.get_global_rank())
 
-    logger = Logger(state=dummy_state)
+    logger = Logger(state=dummy_state, run_name="run_name")
     # The run name should be the same on every rank -- it is set via a distributed reduction
     # Manually verify that all ranks have the same run name
     run_names = dist.all_gather_object(logger.run_name)
@@ -37,7 +37,7 @@ def test_logger_file_artifact(dummy_state: State):
             assert file_path.name == "bar"
             assert overwrite
 
-    logger = Logger(state=dummy_state, destinations=[DummyLoggerDestination()])
+    logger = Logger(state=dummy_state, destinations=[DummyLoggerDestination()], run_name="run_name")
     logger.file_artifact(
         log_level="epoch",
         artifact_name="foo",

@@ -391,9 +391,8 @@ class Trainer:
         loggers (LoggerDestination | Sequence[LoggerDestination], optional): The destinations to log training information to.
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        run_name (str, optional): A name for this training run. If not specified, one will be generated automatically.
-
-            .. seealso:: :class:`~composer.loggers.logger.Logger` for a description of the run name.
+        run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a 
+            :doc:`coolname <coolname:index>`.
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
@@ -1045,6 +1044,9 @@ class Trainer:
                 for _, field_name, _, _ in string.Formatter().parse(save_arg):
                     if field_name == "run_name":
                         raise ValueError("run_name must be specified so autoresume knows which run to load from.")
+            # Set run_name to a dummy value so we can still call format_name_with_dist
+            run_name = "dummy_run_name"
+        assert run_name is not None
         save_latest_filename = format_name_with_dist(save_latest_filename, run_name)
         save_folder = format_name_with_dist(save_folder, run_name)
         save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, run_name)
@@ -1057,9 +1059,9 @@ class Trainer:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                     logger.get_file_artifact(artifact_name=save_latest_artifact_name,
-                                                destination=latest_checkpoint_path,
-                                                chunk_size=load_chunk_size,
-                                                progress_bar=load_progress_bar)
+                                             destination=latest_checkpoint_path,
+                                             chunk_size=load_chunk_size,
+                                             progress_bar=load_progress_bar)
                     break
                 except (NotImplementedError, GetFileNotFoundException):
                     # Ignore errors caused by no checkpoint saved with logger

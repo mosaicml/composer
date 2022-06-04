@@ -9,7 +9,7 @@ import tarfile
 import tempfile
 import textwrap
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import pytest
 import torch
@@ -53,7 +53,7 @@ class DummyStatefulCallback(Callback):
 def assert_weights_equivalent(original_trainer_hparams: TrainerHparams,
                               new_trainer_hparams: TrainerHparams,
                               overwrite_load_path=True,
-                              save_overwrite=True) -> None:
+                              save_overwrite=True) -> Tuple[Trainer, Trainer]:
     """
     Strategy: get the weights from a new trainer
     Then assert that they are equivalent to the weights from the original model.
@@ -273,12 +273,13 @@ def test_autoresume(
                                                         save_overwrite=False)
     assert trainer.state.run_name == second_trainer.state.run_name
 
+
 @pytest.mark.timeout(90)
 @device('cpu', 'gpu')
 def test_different_run_names(
-        device: Device,
-        composer_trainer_hparams: TrainerHparams,
-    ):
+    device: Device,
+    composer_trainer_hparams: TrainerHparams,
+):
     """strategy:
     - train two epochs and save checkpoints
     - load checkpoint with two different hparams and verify run_names are different as
@@ -294,14 +295,13 @@ def test_different_run_names(
     # Train original checkpoints
     checkpoint_a_folder = "first"
     final_checkpoint = "ep2.pt"
-    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams,
-                                                              checkpoint_a_folder)
+    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, checkpoint_a_folder)
     composer_trainer_hparams.save_overwrite = True
     composer_trainer_hparams.load_weights_only = False
     composer_trainer_hparams.load_strict_model_weights = False
     _test_checkpoint_trainer(composer_trainer_hparams)
     composer_trainer_hparams.load_path = os.path.join(checkpoint_a_folder, final_checkpoint)
-    
+
     # Create new trainer and change seed for new run_name generation
     second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
     second_trainer_hparams.seed = 2

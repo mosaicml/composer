@@ -73,6 +73,7 @@ def synthetic_hf_state_maker(config) -> Tuple:
     state = State(
         model=model,
         rank_zero_seed=0,
+        run_name="run_name",
         dataloader=dataloader,
         dataloader_label="train",
         max_duration='1ep',

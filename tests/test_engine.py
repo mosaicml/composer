@@ -31,7 +31,7 @@ def always_match_algorithms():
 
 @pytest.fixture()
 def dummy_logger(dummy_state: State):
-    return Logger(dummy_state)
+    return Logger(dummy_state, run_name="run_name")
 
 
 @pytest.fixture

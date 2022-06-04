@@ -65,32 +65,7 @@ class Logger:
         state (State): The training state.
         destinations (LoggerDestination | Sequence[LoggerDestination], optional):
             The logger destinations, to where logging data will be sent. (default: ``None``)
-        run_name (str, optional): The name for this training run.
-
-            If not specified, the timestamp will be combined with a :doc:`coolname <coolname:index>` like the
-            following:
-
-            .. testsetup:: composer.loggers.logger.Logger.__init__.run_name
-
-                import random
-                import coolname
-                import time
-
-                coolname.replace_random(random.Random(0))
-
-                original_time = time.time
-
-                time.time = lambda: 1647293526.1849217
-
-            .. doctest:: composer.loggers.logger.Logger.__init__.run_name
-
-                >>> logger = Logger(state=state, destinations=[])
-                >>> logger.run_name
-                '1647293526-electric-zebra'
-
-            .. testcleanup:: composer.loggers.logger.Logger.__init__.run_name
-
-                time.time = original_time
+        run_name (str): The name for this training run.
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
@@ -101,8 +76,8 @@ class Logger:
     def __init__(
         self,
         state: State,
+        run_name: str,
         destinations: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
-        run_name: Optional[str] = None,
     ):
         self.destinations = ensure_tuple(destinations)
         self.run_name = run_name
