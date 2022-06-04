@@ -688,7 +688,7 @@ class Trainer:
         load_strict_model_weights: bool = False,
         load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
-        load_ignore_keys: Union[List[List[str]], Callable[[Dict], None]] = None,
+        load_ignore_keys: Optional[Union[List[List[str]], Callable[[Dict], None]]] = None,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,

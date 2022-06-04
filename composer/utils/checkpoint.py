@@ -74,7 +74,7 @@ def load_checkpoint(
     strict_model_weights: bool = False,
     chunk_size: int = 1_048_576,
     progress_bar: bool = True,
-    ignore_keys: Union[List[List[str]], Callable[[Dict], None]] = None,
+    ignore_keys: Optional[Union[List[List[str]], Callable[[Dict], None]]] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -294,7 +294,7 @@ def _restore_checkpoint(
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     strict_model_weights: bool,
-    ignore_keys: Union[List[List[str]], Callable[[Dict], None]],
+    ignore_keys: Optional[Union[List[List[str]], Callable[[Dict], None]]],
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
