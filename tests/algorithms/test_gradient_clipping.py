@@ -1,7 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+
 from unittest.mock import Mock
+from xml.dom import NotSupportedErr
 
 import pytest
 import torch
@@ -82,6 +84,7 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_wi
     apply_gc_fn = Mock()
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
     state = Mock()
+    state.is_model_deepspeed = False
     state.model = model
     state.profiler.marker = Mock(return_value=None)
     state.callbacks = []
@@ -93,6 +96,57 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_wi
     engine.run_event(Event.AFTER_TRAIN_BATCH)
 
     apply_gc_fn.assert_called_once()
+
+
+def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.MonkeyPatch):
+    clipping_threshold = 0.1191
+    apply_gc_fn = Mock()
+    monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
+    state = Mock()
+    state.profiler.marker = Mock(return_value=None)
+    state.callbacks = []
+
+    # Enable deepspeed and set clipping_type to norm to ensure that apply_gradient_clipping
+    # is not called.
+    state.algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=clipping_threshold)]
+    state.is_model_deepspeed = True
+
+    state.model = Mock()
+    state.model._config.gradient_clipping = Mock()
+    logger = Mock()
+    engine = Engine(state, logger)
+
+    # Run the Event that should cause AGC.apply to be called.
+    engine.run_event(Event.AFTER_TRAIN_BATCH)
+
+    # Make sure deepspeed engine's gradient_clipping_field is set properly.
+    assert state.model._config.gradient_clipping == clipping_threshold
+    # Make sure apply_gradient_clipping is not called.
+    apply_gc_fn.assert_not_called()
+
+
+def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(monkeypatch: pytest.MonkeyPatch):
+    clipping_threshold = 0.1191
+    apply_gc_fn = Mock()
+    monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
+    state = Mock()
+    state.profiler.marker = Mock(return_value=None)
+    state.callbacks = []
+
+    # Enable deepspeed and set clipping_type to norm to ensure that apply_gradient_clipping
+    # is not called.
+    state.algorithms = [GradientClipping(clipping_type='value', clipping_threshold=clipping_threshold)]
+    state.is_model_deepspeed = True
+
+    state.model = Mock()
+    state.model._config.gradient_clipping = Mock()
+    logger = Mock()
+    engine = Engine(state, logger)
+
+    # Run the Event that should cause AGC.apply to be called.
+    with pytest.raises(NotImplementedError):
+        engine.run_event(Event.AFTER_TRAIN_BATCH)
+
 
 
 #### Tests Specific to AGC ######

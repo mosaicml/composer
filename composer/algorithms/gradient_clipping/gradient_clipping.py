@@ -6,12 +6,15 @@
 from __future__ import annotations
 
 import logging
+from sqlite3 import NotSupportedError
 from typing import Iterable, Optional, Union
 
 import torch
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
+from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
@@ -134,17 +137,35 @@ class GradientClipping(Algorithm):
             * threshold by which if grad_norm / weight_norm is greater than this threshold
                 then scale gradients by
                 this threshold * (weight_norm / grad_norm) (for 'adaptive')
+    
+    Raises:
+        NotImplementedError: if deepspeed is enabled and clipping_type is not 'norm'.
     """
 
     def __init__(self, clipping_type: str, clipping_threshold: float):
         self.clipping_type = clipping_type
         self.clipping_threshold = clipping_threshold
+        try:
+            import deepspeed
+            self.deep_speed_imported = True
+        except ImportError:
+            self.deep_speed_imported = False
 
     def match(self, event: Event, state: State) -> bool:
         """Run on ``Event.AFTER_TRAIN_BATCH``."""
         return event == Event.AFTER_TRAIN_BATCH
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
+        # If Deepspeed is enabled and clipping_type is norm, set the clipping through
+        # deepspeed.
+        if state.is_model_deepspeed:
+            if self.clipping_type == 'norm':
+                state.model._config.gradient_clipping = self.clipping_threshold
+                return
+            else:
+                raise NotImplementedError(f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'")
+
+        # If Deepspeed is not enabled apply gradient clipping as normal.
         apply_gradient_clipping(parameters=state.model.parameters(),
                                 clipping_type=self.clipping_type,
                                 clipping_threshold=self.clipping_threshold)
