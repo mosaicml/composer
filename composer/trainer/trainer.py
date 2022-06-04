@@ -491,6 +491,25 @@ class Trainer:
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
+        load_ignore_keys (List[List[str]] | (Dict) -> None, optional): A list of paths for the ``state_dict``,
+            which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
+            of strings specifying the keys to index into ``state_dict``. If a prefix is provided, all children are also 
+            ignored. 
+            
+            Example 1: `load_ignore_model_keys = [["state", "model", "classifier", "weights"], "state", "model", "classifier", "bias"]]` 
+            would ignore the corresponding weights and biases of the classifier. 
+            
+            Example 2: In the above example, if these were the only parameters for the classifier, alternatively
+            `load_ignore_model_keys = [["state", "model", "classifier"]]` would have the same effect.
+
+            Example 3: `load_ignore_model_keys = [["state", "rank_zero_seed"], ["rng"]]` would reset all randomness when
+            loading the checkpoint.
+
+            If a callable, it should take one argument which is the state_dict. See :mod:`composer.core.state` for the 
+            structure of state_dict). The callable is free to arbitrarily modify the state_dict before it is loaded.
+
+            (default: ``None``)
+
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. (default: ``None``)
 
@@ -669,6 +688,7 @@ class Trainer:
         load_strict_model_weights: bool = False,
         load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
+        load_ignore_keys: Union[List[List[str]], Callable[[Dict], None]] = None,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
@@ -925,7 +945,8 @@ class Trainer:
                 save_latest_artifact_name=save_latest_artifact_name,
                 loggers=loggers,
                 load_chunk_size=load_chunk_size,
-                load_progress_bar=load_progress_bar)
+                load_progress_bar=load_progress_bar,
+                load_ignore_keys=load_ignore_keys)
             # Found latest checkpoint path, load that instead
             if latest_checkpoint_path:
                 load_path = latest_checkpoint_path
@@ -943,7 +964,8 @@ class Trainer:
                                               load_weights_only=load_weights_only,
                                               strict_model_weights=load_strict_model_weights,
                                               chunk_size=load_chunk_size,
-                                              progress_bar=load_progress_bar)
+                                              progress_bar=load_progress_bar,
+                                              ignore_keys=load_ignore_keys)
             log.info(f"Setting seed to {self.state.seed}")
             reproducibility.seed_all(self.state.seed)
 

@@ -13,7 +13,7 @@ import shutil
 import tarfile
 import tempfile
 import textwrap
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 
@@ -74,6 +74,7 @@ def load_checkpoint(
     strict_model_weights: bool = False,
     chunk_size: int = 1_048_576,
     progress_bar: bool = True,
+    ignore_keys: Union[List[List[str]], Callable[[Dict], None]] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -125,6 +126,24 @@ def load_checkpoint(
             Ignored if the checkpoint is a local file path. (default: ``1_048_576`` bytes (1 MB))
         progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``True``)
+        ignore_keys (List[List[str]] | (Dict) -> None, optional): A list of paths for the ``state_dict``,
+            which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
+            of strings specifying the keys to index into ``state_dict``. If a prefix is provided, all children are also 
+            ignored. 
+            
+            Example 1: `load_ignore_model_keys = [["state", "model", "classifier", "weights"], "state", "model", "classifier", "bias"]]` 
+            would ignore the corresponding weights and biases of the classifier. 
+            
+            Example 2: In the above example, if these were the only parameters for the classifier, alternatively
+            `load_ignore_model_keys = [["state", "model", "classifier"]]` would have the same effect.
+
+            Example 3: `load_ignore_model_keys = [["state", "rank_zero_seed"], ["rng"]]` would reset all randomness when
+            loading the checkpoint.
+
+            If a callable, it should take one argument which is the state_dict. See :mod:`composer.core.state` for the 
+            structure of state_dict). The callable is free to arbitrarily modify the state_dict before it is loaded.
+
+            (default: ``None``)
 
     Returns:
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
@@ -149,6 +168,7 @@ def load_checkpoint(
                 extracted_checkpoint_folder,
                 load_weights_only=load_weights_only,
                 strict_model_weights=strict_model_weights,
+                ignore_keys=ignore_keys,
             )
         finally:
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
@@ -255,6 +275,15 @@ def _download_checkpoint(
 
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
 
+def glob_filter(exclude_globs: List[List[str]]) -> Callable[[Dict], None]:
+    def filter_func(state_dict: Dict) -> None:
+        for exclude_glob in exclude_globs:
+            temp_dict = state_dict
+            for step in exclude_glob[:-1]:
+                temp_dict = temp_dict[step]
+            del temp_dict[exclude_glob[-1]]
+    return filter_func
+
 
 def _restore_checkpoint(
     state: State,
@@ -263,10 +292,19 @@ def _restore_checkpoint(
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     strict_model_weights: bool,
+    ignore_keys: Union[List[List[str]], Callable[[Dict], None]],
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = torch.load(composer_states_filepath, map_location='cpu')
+    if ignore_keys: 
+        if state.is_model_deepspeed:
+            raise ValueError("load_ignore_keys is not supported with DeepSpeed")
+        # Filter provided list of key paths
+        if not callable(ignore_keys):
+            ignore_keys = glob_filter(ignore_keys)
+        # Call function to modify state_dict
+        ignore_keys(state_dict)
     log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
 
     if state.is_model_deepspeed:
