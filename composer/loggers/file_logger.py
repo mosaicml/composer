@@ -19,7 +19,7 @@ from composer.utils.file_helpers import FORMAT_NAME_WITH_DIST_TABLE, format_name
 __all__ = ["FileLogger"]
 
 
-class FileLogger(LoggerDestination):
+class FileLogger(LoggerDestination):  # noqa: D101
     __doc__ = f"""Log data to a file.
 
     Example usage:
@@ -113,6 +113,7 @@ class FileLogger(LoggerDestination):
             :attr:`~.LogLevel.EPOCH`, then the logfile will be flushed every n epochs.  If
             the ``log_level`` is :attr:`~.LogLevel.BATCH`, then the logfile will be
             flushed every n batches. Default: ``100``.
+        overwrite (bool, optional): Whether to overwrite an existing logfile. (default: ``False``)
     """
 
     def __init__(

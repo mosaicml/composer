@@ -105,26 +105,22 @@ class TestResizeInputs:
     @pytest.mark.parametrize("Wx,Hx", [(31, 31), (32, 32), (32, 16)])
     def test_resize_batch_shape(self, X: torch.Tensor, y: torch.Tensor, mode: str, scale_factor: float):
         """Test scaling works for different input shapes."""
-
         Xc, _ = resize_batch(X, y, scale_factor, mode, resize_targets=False)
         assert check_scaled_shape(X, Xc, scale_factor)
 
     def test_resize_outputs_shape(self, X: torch.Tensor, y: torch.Tensor, mode: str, scale_factor: float):
         """Test that resizing outputs works."""
-
         _, yc = resize_batch(X, y, scale_factor, mode, resize_targets=True)
         assert check_scaled_shape(y, yc, scale_factor)
 
     def test_resize_outputs_crop(self, X: torch.Tensor, scale_factor: float):
         """Test that resizing outputs in crop mode gives the right targets."""
-
         xc, yc = resize_batch(X, X, scale_factor, "crop", resize_targets=True)
         assert torch.equal(xc, yc)
 
     @pytest.mark.parametrize("Wx,Hx,Wy,Hy", [(32, 32, 16, 16)])
     def test_resize_outputs_different_shape(self, X, y, scale_factor: float, mode: str):
         """Test that resizing works when X and y have different shapes."""
-
         _, yc = resize_batch(X, y, scale_factor, mode, resize_targets=True)
         assert check_scaled_shape(y, yc, scale_factor)
 

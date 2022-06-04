@@ -11,8 +11,7 @@ from packaging import version
 import composer
 from composer.core import Precision
 from composer.datasets.hparams import SyntheticHparamsMixin
-from composer.trainer import TrainerHparams
-from composer.trainer.devices import GPUDeviceHparams
+from composer.trainer.trainer_hparams import TrainerHparams
 
 
 def run_and_measure_memory(precision: Precision) -> int:
@@ -21,7 +20,6 @@ def run_and_measure_memory(precision: Precision) -> int:
     hparams.train_subset_num_batches = 1
     hparams.eval_interval = "0ep"
     assert isinstance(hparams, TrainerHparams)
-    assert isinstance(hparams.device, GPUDeviceHparams)
     hparams.precision = precision
     hparams.dataloader.num_workers = 0
     hparams.dataloader.persistent_workers = False

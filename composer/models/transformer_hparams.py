@@ -1,8 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""General `YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for
-ComposerTransformers."""
+"""YAHP :class:`.hp.Hparams` hyperparameters for ComposerTransformers."""
 
 from abc import ABC
 from dataclasses import dataclass
@@ -18,7 +17,7 @@ __all__ = ["TransformerHparams"]
 
 @dataclass
 class TransformerHparams(ModelHparams, ABC):
-    """Defines the necessary hyparameters for a Transformer base module.
+    """Defines the necessary hyperparameters for a Transformer base module.
 
     Args:
         pretrained_model_name (Optional[str]): "Pretrained model name to pull from Huggingface Model Hub."

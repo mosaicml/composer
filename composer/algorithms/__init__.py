@@ -37,8 +37,8 @@ For example, a simple algorithm that shortens training:
 
 For more information about events, see :class:`~composer.core.event.Event`.
 """
-from composer.algorithms.algorithm_hparams import AlgorithmHparams
-from composer.algorithms.algorithm_registry import get_algorithm_registry, list_algorithms
+
+from composer.algorithms.gradient_clipping import GradientClipping
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugmentAndMixTransform, AugMix
 from composer.algorithms.blurpool import BlurPool
@@ -49,14 +49,6 @@ from composer.algorithms.cutout import CutOut
 from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
-from composer.algorithms.gradient_clipping import GradientClipping
-from composer.algorithms.hparams import (AlibiHparams, AugMixHparams, BlurPoolHparams, ChannelsLastHparams,
-                                         ColOutHparams, CutMixHparams, CutOutHparams, EMAHparams, FactorizeHparams,
-                                         GhostBatchNormHparams, GradientClippingHparams, LabelSmoothingHparams,
-                                         LayerFreezingHparams, MixUpHparams, NoOpModelHparams,
-                                         ProgressiveResizingHparams, RandAugmentHparams, SAMHparams,
-                                         SelectiveBackpropHparams, SeqLengthWarmupHparams, SqueezeExciteHparams,
-                                         StochasticDepthHparams, SWAHparams)
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
 from composer.algorithms.mixup import MixUp
@@ -70,15 +62,7 @@ from composer.algorithms.squeeze_excite import SqueezeExcite, SqueezeExcite2d, S
 from composer.algorithms.stochastic_depth import StochasticDepth
 from composer.algorithms.swa import SWA
 
-load_multiple = AlgorithmHparams.load_multiple
-load = AlgorithmHparams.load
-
 __all__ = [
-    "load",
-    "load_multiple",
-    "get_algorithm_registry",
-    "list_algorithms",
-    "GradientClipping",
     "Alibi",
     "AugmentAndMixTransform",
     "AugMix",
@@ -107,30 +91,4 @@ __all__ = [
     "SqueezeExciteConv2d",
     "StochasticDepth",
     "SWA",
-
-    # hparams objects
-    "GradientClippingHparams",
-    "AlgorithmHparams",
-    "AlibiHparams",
-    "AugMixHparams",
-    "BlurPoolHparams",
-    "ChannelsLastHparams",
-    "ColOutHparams",
-    "CutMixHparams",
-    "CutOutHparams",
-    "EMAHparams",
-    "FactorizeHparams",
-    "GhostBatchNormHparams",
-    "LabelSmoothingHparams",
-    "LayerFreezingHparams",
-    "MixUpHparams",
-    "NoOpModelHparams",
-    "ProgressiveResizingHparams",
-    "RandAugmentHparams",
-    "SAMHparams",
-    "SelectiveBackpropHparams",
-    "SeqLengthWarmupHparams",
-    "SqueezeExciteHparams",
-    "StochasticDepthHparams",
-    "SWAHparams",
 ]

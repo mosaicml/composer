@@ -31,7 +31,7 @@ def _padding_for_filt_2d_same(filt: torch.Tensor):
 
 
 def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.Tensor] = None) -> torch.Tensor:
-    """Apply a spatial low-pass filter.
+    """Applies a spatial low-pass filter.
 
     Args:
         input (:class:`torch.Tensor`): a 4d tensor of shape NCHW

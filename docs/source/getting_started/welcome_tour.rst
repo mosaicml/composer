@@ -110,7 +110,7 @@ simple:
 
     class MixUp(Algorithm):
         def match(self, event: Event, state: State) -> bool:
-            """Determine whether the algorithm should run on a given event."""
+            """Determines whether the algorithm should run on a given event."""
             return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
 
         def apply(self, event: Event, state: State, logger: Logger) -> None:

@@ -3,7 +3,6 @@
 
 from typing import Any, Dict
 
-from composer.callbacks import CallbackHparams
 from composer.core import Callback, Event, State
 from composer.loggers import Logger
 
@@ -25,9 +24,3 @@ class EventCounterCallback(Callback):
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         self.event_to_num_calls.update(state["events"])
-
-
-class EventCounterCallbackHparams(CallbackHparams):
-
-    def initialize_object(self) -> EventCounterCallback:
-        return EventCounterCallback()

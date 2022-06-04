@@ -27,11 +27,11 @@ __all__ = ["CheckpointSaver", "checkpoint_periodically"]
 
 
 def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State, Event], bool]:
-    """Helper function to create a checkpoint scheduler according to a specified interval.
+    r"""Helper function to create a checkpoint scheduler according to a specified interval.
 
     Args:
         interval (Union[str, int, :class:`.Time`]): The interval describing how often checkpoints should be
-            saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`\\s.
+            saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`\s.
             Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH` or :attr:`.TimeUnit.BATCH`.
 
             Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
@@ -85,7 +85,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
     return save_interval
 
 
-class CheckpointSaver(Callback):
+class CheckpointSaver(Callback):  # noqa: D101
     __doc__ = f"""Callback to save checkpoints.
 
     .. note::
@@ -113,10 +113,6 @@ class CheckpointSaver(Callback):
         ...         weights_only=False,
         ...     )
         ... ])
-
-    .. testcleanup::
-
-        trainer.engine.close()
 
     Args:
         folder (str, optional): Format string for the folder where checkpoints will be saved.
@@ -245,7 +241,7 @@ class CheckpointSaver(Callback):
             If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
 
-        save_interval (:class:`.Time` | str | int | (:class:`.State`, :class:`.Event`) -> bool): A :class:`.Time`, time-string, integer (in epochs),
+        save_interval (Time | str | int | (State, Event) -> bool): A :class:`.Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
 
             If an integer, checkpoints will be saved every n epochs.

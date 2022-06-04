@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Save and Load Checkpoints with `Weights and Biases <https://wandb.ai/>`."""
+
 import shutil
 
 import torch.utils.data
@@ -16,9 +18,7 @@ from composer.models.classify_mnist import MNIST_Classifier
 # The project name must be deterministic, so we can restore from it
 wandb_logger = WandBLogger(
     log_artifacts=True,
-    init_params={
-        'project': 'my-wandb-project-name',
-    },
+    project='my-wandb-project-name',
 )
 
 # Configure the trainer -- here, we train a simple MNIST classifier
