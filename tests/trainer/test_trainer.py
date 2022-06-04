@@ -103,8 +103,7 @@ class TestTrainerInit():
         parameters = trainer.state.optimizers[0].param_groups[0]["params"]
         target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
-
-
+    
 class TestTrainerInitOrFit:
     """Validate that certain parameters can be passed in on `Trainer.__init__()` or `Trainer.fit()`"""
 
@@ -438,24 +437,26 @@ class TestTrainerInitOrFit:
         if not should_error:
             assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
-    @pytest.mark.parametrize("grad_clip_norm", [-1.0, 1.0])
+    @pytest.mark.parametrize("grad_clip_norm,context_manager", [(-1.0, contextlib.nullcontext),
+                                                                (1.0, pytest.deprecated_call)])
     def test_grad_clip_norm(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
         grad_clip_norm: float,
+        context_manager,
     ):
         # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
         copied_model = copy.deepcopy(model)
-
-        # Train once with the grad_clip_norm param on Trainer.__init__()
-        init_trainer = Trainer(
-            model=model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-            grad_clip_norm=grad_clip_norm,
-        )
+        with context_manager():
+            # Train once with the grad_clip_norm param on Trainer.__init__()
+            init_trainer = Trainer(
+                model=model,
+                max_duration=max_duration,
+                train_dataloader=train_dataloader,
+                grad_clip_norm=grad_clip_norm,
+            )
         init_trainer.fit()
 
         # Train again with the grad_clip_norm param specified on Trainer.fit()
@@ -464,7 +465,8 @@ class TestTrainerInitOrFit:
             max_duration=max_duration,
             train_dataloader=train_dataloader,
         )
-        fit_trainer.fit(grad_clip_norm=grad_clip_norm)
+        with pytest.deprecated_call():
+            fit_trainer.fit(grad_clip_norm=grad_clip_norm)
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)

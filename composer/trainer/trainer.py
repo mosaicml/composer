@@ -611,7 +611,7 @@ class Trainer:
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1`` for no gradient
-            clipping. (default: ``-1``)
+            clipping. (default: ``-1``). Deprecated. Please use composer.algorithms.GradientClipping.
         profiler (Profiler, optional): The profiler, if profiling should be enabled. (default: ``None``)
 
             .. seealso::
@@ -872,6 +872,12 @@ class Trainer:
         self.state.evaluators = evaluators
 
         # Grad Clip Norm
+        if grad_clip_norm > 0:
+            warnings.warn(
+                DeprecationWarning(
+                    (f"Using the 'grad_clip_norm' field in Trainer is deprecated. PLease use"
+                     "the GradientClipping Algorithm in composer/algorithms/gradient_clipping")))
+        
         self._grad_clip_norm = grad_clip_norm
 
         # Some algorithms require specific settings
@@ -1182,7 +1188,7 @@ class Trainer:
             eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
             grad_accum (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
-            grad_clip_norm (float, optional): See :class:`.Trainer`.
+            grad_clip_norm (float, optional): See :class:`.Trainer`. Deprecated. Please use composer.algorithms.GradientClipping
 
                 .. note::
 
@@ -1274,6 +1280,10 @@ class Trainer:
 
         # Grad Clip Norm
         if grad_clip_norm is not None:
+            warnings.warn(
+                DeprecationWarning(
+                    (f"Using the 'grad_clip_norm' field in fit() is deprecated. PLease use"
+                     "the GradientClipping Algorithm in composer/algorithms/gradient_clipping")))
             if self.deepspeed_enabled:
                 raise ValueError("Changing the grad_clip_norm when using DeepSpeed is not supported.")
             self._grad_clip_norm = grad_clip_norm
