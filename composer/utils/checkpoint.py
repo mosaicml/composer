@@ -128,19 +128,19 @@ def load_checkpoint(
             Ignored if the checkpoint is a local file path. (default: ``True``)
         ignore_keys (List[List[str]] | (Dict) -> None, optional): A list of paths for the ``state_dict``,
             which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
-            of strings specifying the keys to index into ``state_dict``. If a prefix is provided, all children are also 
-            ignored. 
-            
-            Example 1: `load_ignore_model_keys = [["state", "model", "classifier", "weights"], "state", "model", "classifier", "bias"]]` 
-            would ignore the corresponding weights and biases of the classifier. 
-            
+            of strings specifying the keys to index into ``state_dict``. If a prefix is provided, all children are also
+            ignored.
+
+            Example 1: `load_ignore_model_keys = [["state", "model", "classifier", "weights"], "state", "model", "classifier", "bias"]]`
+            would ignore the corresponding weights and biases of the classifier.
+
             Example 2: In the above example, if these were the only parameters for the classifier, alternatively
             `load_ignore_model_keys = [["state", "model", "classifier"]]` would have the same effect.
 
             Example 3: `load_ignore_model_keys = [["state", "rank_zero_seed"], ["rng"]]` would reset all randomness when
             loading the checkpoint.
 
-            If a callable, it should take one argument which is the state_dict. See :mod:`composer.core.state` for the 
+            If a callable, it should take one argument which is the state_dict. See :mod:`composer.core.state` for the
             structure of state_dict). The callable is free to arbitrarily modify the state_dict before it is loaded.
 
             (default: ``None``)
@@ -275,15 +275,17 @@ def _download_checkpoint(
 
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
 
+
 def glob_filter(exclude_globs: List[List[str]]) -> Callable[[Dict], None]:
-    """Provides a function which deletes all subparts of a dictionary based on a list of paths.
-    """
+    """Provides a function which deletes all subparts of a dictionary based on a list of paths."""
+
     def filter_func(state_dict: Dict) -> None:
         for exclude_glob in exclude_globs:
             temp_dict = state_dict
             for step in exclude_glob[:-1]:
                 temp_dict = temp_dict[step]
             del temp_dict[exclude_glob[-1]]
+
     return filter_func
 
 
@@ -299,7 +301,7 @@ def _restore_checkpoint(
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = torch.load(composer_states_filepath, map_location='cpu')
-    if ignore_keys: 
+    if ignore_keys:
         if state.is_model_deepspeed:
             raise ValueError("load_ignore_keys is not supported with DeepSpeed")
         # Filter provided list of key paths

@@ -137,6 +137,7 @@ def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, che
     composer_trainer_hparams.eval_interval = "1ba"
     return composer_trainer_hparams
 
+
 @pytest.mark.timeout(5)
 def test_ignore_params():
     # Set up base dictionary
@@ -159,7 +160,7 @@ def test_ignore_params():
     del base_dict['model']["classifier"]["weights"]
     del base_dict['model']["classifier"]["bias"]
     filter_params = [["model", "classifier", "weights"], ["model", "classifier", "bias"]]
-    glob_filter(filter_params)(new_dict) 
+    glob_filter(filter_params)(new_dict)
     assert base_dict == new_dict
 
     # Remove classifier
