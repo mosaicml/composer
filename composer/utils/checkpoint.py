@@ -276,6 +276,8 @@ def _download_checkpoint(
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
 
 def glob_filter(exclude_globs: List[List[str]]) -> Callable[[Dict], None]:
+    """Provides a function which deletes all subparts of a dictionary based on a list of paths.
+    """
     def filter_func(state_dict: Dict) -> None:
         for exclude_glob in exclude_globs:
             temp_dict = state_dict

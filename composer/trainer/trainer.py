@@ -945,8 +945,7 @@ class Trainer:
                 save_latest_artifact_name=save_latest_artifact_name,
                 loggers=loggers,
                 load_chunk_size=load_chunk_size,
-                load_progress_bar=load_progress_bar,
-                load_ignore_keys=load_ignore_keys)
+                load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
             if latest_checkpoint_path:
                 load_path = latest_checkpoint_path
