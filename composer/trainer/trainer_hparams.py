@@ -822,7 +822,7 @@ class ExperimentHparams(hp.Hparams):
 
         from tests.common import SimpleModelHparams, RandomClassificationDatasetHparams
 
-        from composer.datasets import DataLoaderHparams
+        from composer.datasets.dataset_hparams import DataLoaderHparams
         from composer.trainer.trainer_hparams import ExperimentHparams, FitHparams, EvalHparams, TrainerHparams
 
         trainer_hparams = TrainerHparams(
