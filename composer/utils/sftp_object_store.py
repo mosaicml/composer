@@ -18,32 +18,23 @@ class SFTPObjectStore:
     """
 
     def __init__(self, host: str, port: int, username: str, key_file_path: str):
+        self.client = self._create_client
         try:
             key = RSAKey.from_private_key_file(key_file_path)
-            transport = Transport(sock=(host, port))
+            self.transport = Transport(sock=(host, port))
             #host key verification?
-            transport.connect(None, username=username, pkey=key)
+            self.transport.connect(None, username=username, pkey=key)
 
-            self.client = SFTPClient.from_transport(transport)
-            
+            self.client = SFTPClient.from_transport(self.transport)
 
         except Exception as e:
-            if self.client is not None:
-                self.client.close()
-            if transport is not None:
-                transport.close()
+            self.close_client()
             
-    def close(self):
+    def close_client(self):
         if self.client is not None:
-                self.client.close()
-            if transport is not None:
-                transport.close()
-
-    def __init__(self, provider: str, container: str, provider_kwargs: Optional[Dict[str, Any]] = None) -> None:
-        pass
-    
-    def _create_client(self, host, port, username, password, keyfilepath, keyfiletype):
-        pass
+            self.client.close()
+            if self.transport is not None:
+                self.transport.close()
         
 
     def upload_object(self,
@@ -67,12 +58,9 @@ class SFTPObjectStore:
 
     def download_object(self,
                         object_name: str,
-                        destination_path: str,
-                        overwrite_existing: bool = False,
-                        delete_on_failure: bool = True):
+                        destination_path: str):
         """Download an object to the specified destination path.
 
-        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.download_object`.
 
         Args:
             object_name (str): The name of the object to download.
@@ -83,7 +71,7 @@ class SFTPObjectStore:
             delete_on_failure (bool, optional): Set to ``True`` to delete a partially downloaded file if
                 the download was not successful (hash mismatch / file size). (default: ``True``)
         """
-        pass
+        self.client.get(object_name, destination_path)
 
     def download_object_as_stream(self, object_name: str, chunk_size: Optional[int] = None):
         """Return a iterator which yields object data.
