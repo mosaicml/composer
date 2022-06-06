@@ -1,37 +1,24 @@
-# Copyright 2022 MosaicML Composer authors
-# SPDX-License-Identifier: Apache-2.0
-
-"""ImageNet classification streaming dataset.
-
-The most widely used dataset for Image Classification algorithms. Please refer to the `ImageNet 2012 Classification
-Dataset <http://image-net.org/>`_ for more details.
-"""
-
-from io import BytesIO
 import numpy as np
 import os
 from PIL import Image
-from typing import Any, List, Optional
+from typing import Any, Optional
 
-import torch
 from torchvision import transforms
 
 from composer.datasets.streaming import StreamingDataset
 
-__all__ = ["StreamingImageNet1k"]
+__all__ = ["StreamingCIFAR10"]
 
 
-class StreamingImageNet1k(StreamingDataset):
+class StreamingCIFAR10(StreamingDataset):
     """
-    Implementation of the ImageNet1k dataset using StreamingDataset.
+    Implementation of the CIFAR10 dataset using StreamingDataset.
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): The dataset split to use, either 'train' or 'val'.
+        is_train (bool): Whether is training split.
         shuffle (bool): Whether to shuffle the samples in this dataset.
-        resize_size (int, optional): The resize size to use. Use -1 to not resize. Default: ``-1``.
-        crop size (int): The crop size to use. Default: ``224``.
         batch_size (Optional[int]): Hint batch_size that will be used on each device's DataLoader. Default: ``None``.
     """
 
@@ -44,7 +31,9 @@ class StreamingImageNet1k(StreamingDataset):
         Returns:
             Image: PIL image encoded by the bytes.
         """
-        return Image.open(BytesIO(data)).convert('RGB')
+        arr = np.frombuffer(data, np.uint8)
+        arr = arr.reshape(32, 32, 3)
+        return Image.fromarray(arr)
 
     def decode_class(self, data: bytes) -> np.int64:
         """Decode the sample class.
@@ -60,12 +49,11 @@ class StreamingImageNet1k(StreamingDataset):
     def __init__(self,
                  remote: str,
                  local: str,
-                 split: str,
+                 is_train: bool,
                  shuffle: bool,
-                 resize_size: int = -1,
-                 crop_size: int = 224,
                  batch_size: Optional[int] = None):
         # Build StreamingDataset
+        split = 'train' if is_train else 'val'
         decoders = {
             'x': self.decode_image,
             'y': self.decode_class,
@@ -76,31 +64,21 @@ class StreamingImageNet1k(StreamingDataset):
                          decoders=decoders,
                          batch_size=batch_size)
 
-        # Validation
-        if split not in ['train', 'val']:
-            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
-        if crop_size <= 0:
-            raise ValueError(f"crop_size must be positive.")
-
         # Define custom transforms
-        if split == "train":
-            # include fixed-size resize before RandomResizedCrop in training only
-            # if requested (by specifying a size > 0)
-            train_transforms: List[torch.nn.Module] = []
-            if resize_size > 0:
-                train_transforms.append(transforms.Resize(resize_size))
-            # always include RandomResizedCrop and RandomHorizontalFlip
-            train_transforms += [
-                transforms.RandomResizedCrop(crop_size, scale=(0.08, 1.0), ratio=(0.75, 4.0 / 3.0)),
+        channel_means = 0.4914, 0.4822, 0.4465
+        channel_stds = 0.247, 0.243, 0.261
+        if is_train:
+            self.transform = transforms.Compose([
+                transforms.RandomCrop(32, 4),
                 transforms.RandomHorizontalFlip(),
-            ]
-            self.transform = transforms.Compose(train_transforms)
+                transforms.ToTensor(),
+                transforms.Normalize(channel_means, channel_stds),
+            ])
         else:
-            val_transforms: List[torch.nn.Module] = []
-            if resize_size > 0:
-                val_transforms.append(transforms.Resize(resize_size))
-            val_transforms += [transforms.CenterCrop(crop_size)]
-            self.transform = transforms.Compose(val_transforms)
+            self.transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(channel_means, channel_stds),
+            ])
 
     def __getitem__(self, idx: int) -> Any:
         """Get the decoded and transformed (image, class) pair by ID.
