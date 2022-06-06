@@ -1,10 +1,11 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Base module for callbacks."""
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from composer.core.serializable import Serializable
 
@@ -22,7 +23,7 @@ class Callback(Serializable, abc.ABC):
     :class:`~.algorithm.Algorithm` in that they are run on specific events. Callbacks differ from
     :class:`~.algorithm.Algorithm` in that they do not modify the training of the model.  By convention, callbacks
     should not modify the :class:`~.state.State`. They are typically used to for non-essential recording functions such
-    as logging or timing. 
+    as logging or timing.
 
     Callbacks can be implemented in two ways:
 
@@ -34,7 +35,7 @@ class Callback(Serializable, abc.ABC):
 
             >>> class MyCallback(Callback):
             ...     def epoch_start(self, state: State, logger: Logger):
-            ...         print(f'Epoch: {int(state.timer.epoch)}')
+            ...         print(f'Epoch: {int(state.timestamp.epoch)}')
             >>> # construct trainer object with your callback
             >>> trainer = Trainer(
             ...     model=model,
@@ -48,10 +49,6 @@ class Callback(Serializable, abc.ABC):
             >>> # is triggered, like this:
             >>> _ = trainer.engine.run_event(Event.EPOCH_START)
             Epoch: 0
-
-        .. testcleanup::
-
-            trainer.engine.close()
 
     #.  Override :meth:`run_event` if you want a single method to handle all events.  If this method is overridden, then
         the individual methods corresponding to each event name (such as :meth:`epoch_start`) will no longer be
@@ -67,7 +64,7 @@ class Callback(Serializable, abc.ABC):
             >>> class MyCallback(Callback):
             ...     def run_event(self, event: Event, state: State, logger: Logger):
             ...         if event == Event.EPOCH_START:
-            ...             print(f'Epoch: {int(state.timer.epoch)}')
+            ...             print(f'Epoch: {int(state.timestamp.epoch)}')
             >>> # construct trainer object with your callback
             >>> trainer = Trainer(
             ...     model=model,
@@ -81,14 +78,15 @@ class Callback(Serializable, abc.ABC):
             >>> # is triggered, like this:
             >>> _ = trainer.engine.run_event(Event.EPOCH_START)
             Epoch: 0
-
-        .. testcleanup::
-
-            trainer.engine.close()
     """
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Stub signature for pyright
+        del args, kwargs  # unused
+        pass
+
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        """This method is called by the engine on each event.
+        """Called by the engine on each event.
 
         Args:
             event (Event): The event.
@@ -233,22 +231,22 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-           The following :class:`~.time.Timer` member variables are incremented immediately before the
+           The following :attr:`~.State.timestamp` member variables are incremented immediately before the
            :attr:`~.Event.BATCH_END` event.
 
-           +-----------------------------------+
-           | :attr:`.Timer.batch`              |
-           +-----------------------------------+
-           | :attr:`.Timer.batch_in_epoch`     |
-           +-----------------------------------+
-           | :attr:`.Timer.sample`             |
-           +-----------------------------------+
-           | :attr:`.Timer.sample_in_epoch`    |
-           +-----------------------------------+
-           | :attr:`.Timer.token`              |
-           +-----------------------------------+
-           | :attr:`.Timer.token_in_epoch`     |
-           +-----------------------------------+
+           +------------------------------------+
+           | :attr:`.Timestamp.batch`           |
+           +------------------------------------+
+           | :attr:`.Timestamp.batch_in_epoch`  |
+           +------------------------------------+
+           | :attr:`.Timestamp.sample`          |
+           +------------------------------------+
+           | :attr:`.Timestamp.sample_in_epoch` |
+           +------------------------------------+
+           | :attr:`.Timestamp.token`           |
+           +------------------------------------+
+           | :attr:`.Timestamp.token_in_epoch`  |
+           +------------------------------------+
 
         Args:
             state (State): The global state.
@@ -272,7 +270,7 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-            :class:`~.time.Timer` member variable :attr:`.Timer.epoch` is incremented immediately before
+            :attr:`~.State.timestamp` member variable :attr:`.Timestamp.epoch` is incremented immediately before
             :attr:`~.Event.EPOCH_END`.
 
         Args:
@@ -284,6 +282,66 @@ class Callback(Serializable, abc.ABC):
 
     def epoch_checkpoint(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`~.Event.EPOCH_CHECKPOINT` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_START` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_batch_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_BATCH_START` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_before_forward(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_BATCH_FORWARD` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_after_forward(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_AFTER_FORWARD` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_batch_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_BATCH_END` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def predict_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.PREDICT_END` event.
 
         Args:
             state (State): The global state.
@@ -352,6 +410,16 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
+    def fit_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`~.Event.FIT_END` event.
+
+        Args:
+            state (State): The global state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
     def close(self, state: State, logger: Logger) -> None:
         """Called whenever the trainer finishes training, even when there is an exception.
 
@@ -365,10 +433,9 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def post_close(self) -> None:
-        """This hook is called after :meth:`close` has been invoked for each callback. Very few callbacks should need to
-        implement :meth:`post_close`.
+        """Called after :meth:`close` has been invoked for each callback.
 
-        This callback can be used to back up any data that may have been written by other callbacks during
-        :meth:`close`.
+        Very few callbacks should need to implement :meth:`post_close`. This callback can be used to back up any data
+        that may have been written by other callbacks during :meth:`close`.
         """
         pass

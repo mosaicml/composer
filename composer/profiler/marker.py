@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Profiler Marker."""
 
@@ -38,7 +39,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -54,7 +56,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -115,12 +118,13 @@ class Marker:
     def start(self) -> None:
         """Record the start of a duration event.
 
-        To record the duration of an event, invoke :meth:`.Marker.start` followed by :meth:`.Marker.finish`\\:
+        To record the duration of an event, invoke :meth:`.Marker.start` followed by :meth:`.Marker.finish`.
 
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -142,11 +146,11 @@ class Marker:
             self._record_duration_event(
                 is_start=True,
                 wall_clock_time_ns=wall_clock_time,
-                timestamp=self.state.timer.get_timestamp(),
+                timestamp=self.state.timestamp,
             )
             if self.record_instant_on_start:
                 self._record_instant_event(
-                    timestamp=self.state.timer.get_timestamp(),
+                    timestamp=self.state.timestamp,
                     wall_clock_time_ns=wall_clock_time,
                 )
         self._started = True
@@ -163,13 +167,13 @@ class Marker:
         wall_clock_time = time.time_ns()
         self._record_duration_event(
             is_start=False,
-            timestamp=self.state.timer.get_timestamp(),
+            timestamp=self.state.timestamp,
             wall_clock_time_ns=wall_clock_time,
         )
         if self.record_instant_on_finish:
             self._record_instant_event(
                 wall_clock_time_ns=wall_clock_time,
-                timestamp=self.state.timer.get_timestamp(),
+                timestamp=self.state.timestamp,
             )
 
         self._started = False
@@ -182,7 +186,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -196,7 +201,7 @@ class Marker:
         if self.should_record(self.state):
             self._record_instant_event(
                 wall_clock_time_ns=time.time_ns(),
-                timestamp=self.state.timer.get_timestamp(),
+                timestamp=self.state.timestamp,
             )
 
     def counter(self, values: Dict[str, Union[float, int]]) -> None:
@@ -207,7 +212,8 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(state=state, schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler.bind_to_state(state)
 
         .. doctest::
 
@@ -221,7 +227,7 @@ class Marker:
             self._record_counter_event(
                 wall_clock_time_ns=time.time_ns(),
                 values=values,
-                timestamp=self.state.timer.get_timestamp(),
+                timestamp=self.state.timestamp,
             )
 
     def __enter__(self) -> Marker:

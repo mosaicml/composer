@@ -1,24 +1,67 @@
-pCloud = "colo-research-01"
+/* groovylint-disable DuplicateMapLiteral, DuplicateStringLiteral, NestedBlockDepth */
+
+// Cloud settings
+pCloud = 'colo-research-01' // name of the jenkins cloud to use
+
+// Git variables. These are populated during the "Prepare" stage
 gitUrl = null
 gitBranch = null
 gitCommit = null
-pTimeout = '1800' // in seconds
-dependenciesChanged = null
-pytorchDockerBuildMatrix = null
-isPathModified = null
-builds = []
-jenkinsShellJobName = "scratch/command2"
-numDaysOfBuildsToKeep = '7'
-jenkinsfileRepo = 'https://github.com/mosaicml/testing'
-gitCredentialsId = "9cf9add1-2cdd-414b-8160-94bd4ac4a13d"
-buildOutputFolder = "build/output"
-artifactsGlob = "$buildOutputFolder/**"
-junitGlob = "$buildOutputFolder/*.junit.xml"
-coverageGlob = "$buildOutputFolder/*.coverage.xml"
-condaBuildDockerImage = "continuumio/anaconda-pkg-build:2022.02.09-amd64"
+baseBranch = 'dev'  // the branch on which merge-commits should be pushed to dockerhub
+
+// Docker build settings
+pytorchDockerBuildMatrix = null // The pytorch docker build matrix
+didDockerChange = false
+dockerBuildCpuLimit = '4'
+dockerBuildMemLimit = '30Gi'
+dockerBuildTimeout = '7200'  // timeout for docker builds, in seconds. Builds from scratch can be slow.
 // must use the kaniko debug image, as Jenkins needs shell access
 // see https://github.com/GoogleContainerTools/kaniko#debug-image
-kanikoDockerImage = "gcr.io/kaniko-project/executor:v1.7.0-debug"
+kanikoDockerImage = 'gcr.io/kaniko-project/executor:v1.7.0-debug' // Docker image for kaniko docker builds
+stagingDockerRepo = 'mosaicml/jenkins-staging'  // The repo where staging images are pushed
+cacheRepo = 'mosaicml/docker-cache'  // The repo where docker image layers are cached
+
+// Pytest settings
+pytestTimeout = '1800' // timeout to run pytest, in seconds
+pytestCpuTestCpuLimit = '4'
+pytestCpuTestMemLimit = '20Gi' // memory limit for ram and ephemeral storage
+pytestGpuTestNumGpus = 2
+pytestGpuTestCpuLimit = '15'
+pytestGpuTestMemLimit = '30Gi' // memory limit for ram and ephemeral storage
+// Tags to run GPU image tests on when not building docker.
+// If building docker, then GPU tests will be run across the entire matrix.
+pytestGpuImageTagsToTest = [
+    'mosaicml/pytorch:latest',
+    'mosaicml/pytorch_vision:latest',
+]
+
+// Lint settings
+lintImage = 'mosaicml/pytorch:latest_cpu'
+lintCpuLimit = '2'
+lintMemLimit = '7Gi'
+pLintTimeout = '1800' // timeout to run lint + doctests, in seconds
+
+// Conda settings
+dependenciesChanged = false // Whether meta.yaml or setup.py have changed, (if so, rebuild conda)
+condaCpuLimit = '4'
+condaMemLimit = '20Gi' // memory limit for ram and ephemeral storage
+condaBuildDockerImage = 'continuumio/anaconda-pkg-build:2022.02.09-amd64'  // Docker image for conda builds
+condaTimeout = '3600' // timeout for conda builds, in seconds
+
+// Jenkins settings
+numDaysOfBuildsToKeep = '7' // number of days to keep builds (so Jenkins doesn't crash)
+jenkinsShellJobName = 'scratch/command2' // The jenkins job name used to spawn sub-jobs
+gitCredentialsId = '9cf9add1-2cdd-414b-8160-94bd4ac4a13d' // Jenkins credential ID to use for git clones
+
+// Artifact setting
+buildOutputFolder = 'build/output' // Folder where build artifacts are stored
+artifactsGlob = "$buildOutputFolder/**" // Files matching this glob will be archived by Jenkins
+junitGlob = "$buildOutputFolder/*.junit.xml" // Files matching this glob will be presented Junit test reports
+coverageGlob = "$buildOutputFolder/*.coverage.xml" // Files matching this glob will be presented Junit coverage reports
+
+// Spawned builds
+builds = [] // List of spawned sub-jobs
+
 
 properties(
     [
@@ -28,31 +71,95 @@ properties(
     ]
 )
 
-def cloneJenkinsfilesRepo() {
-    // Clone the remote jenkins file in WORKSPACE_TMP
-    dir ("$WORKSPACE_TMP") {
-        def jenkinsfileRepoTargetDir = 'jenkinsfiles'
-        checkout([
-            $class: 'GitSCM',
-            branches: [[name: 'main']],
-            doGenerateSubmoduleConfigurations: false,
-            extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: jenkinsfileRepoTargetDir]],
-            submoduleCfg: [],
-            changelog: false,
-            userRemoteConfigs: [[url: jenkinsfileRepo, credentialsId: gitCredentialsId]]
-        ])
-        return "$WORKSPACE_TMP/$jenkinsfileRepoTargetDir"
+@NonCPS
+Boolean isPathModified(...prefixes) {
+    // returns whether any file in the PR (or commit if it's a merge commit)
+    // starts with any specified prefix
+    def changedFiles = []
+
+    // Adapted from https://stackoverflow.com/questions/50437626/how-to-get-list-of-all-modified-files-in-pipeline-jenkins
+    currentBuild.changeSets.each { entries ->
+        entries.each { entry ->
+            entry.affectedFiles.each { file ->
+                changedFiles << file.path
+            }
+        }
+    }
+    if (env.CHANGE_ID) {
+        // it's a PR, so look at all files in the PR rather than just
+        // the most recent commit
+        changedFiles = pullRequest.files.collect { file -> file.filename }
+    }
+    for (changedFile in changedFiles) {
+        for (prefix in prefixes) {
+            if (changedFile.startsWith(prefix)) {
+                return true
+            }
+        }
+    }
+    return false
+}
+
+def getDockerBuildMatrix(String buildConfigYamlPath, String buildContext, String dockerfile) {
+    /*
+    Generates a build matrix from the given yaml file
+    For each entry in the matrix, it returns a tuple of
+    (
+        (str) base kaniko command,
+        (str) destinations. To push the image to these destinations, append this string to the base kaniko command.
+        (str) the staging image to where the base kaniko command always pushes
+        (list) a list of (key, value) pairs of build args
+    )
+    */
+
+    def buildMatrix = readYaml(file: buildConfigYamlPath)
+
+    return buildMatrix.collect { buildArgs ->
+
+        def cliArgsList = []
+        def tags = []
+
+        buildArgs.each { key, val ->
+            if (key == 'TAGS') {
+                val.each { tag ->
+                    tags << tag
+                }
+                return
+            }
+            if (key == 'TARGET') {
+                cliArgsList << "--target '$val'"
+                return
+            }
+            cliArgsList << "--build-arg '$key=$val'"
+        }
+        String cliArgs = cliArgsList.join(' ')
+        String stagingTag = UUID.randomUUID()
+        cliArgs = "$cliArgs --dockerfile $dockerfile --context $buildContext"
+        cliArgs = "$cliArgs --destination ${stagingDockerRepo}:${stagingTag}"
+        String destinations = ""
+        for (tag in tags) {
+            destinations = "$destinations --destination $tag"
+        }
+
+        if (cliArgs.contains(cacheRepo)) {
+            error("The kaniko args should not ever attempt to push images to the cache repo, ${cacheRepo}")
+        }
+
+        String kanikoCommand = "/kaniko/executor --cache=true --cache-repo=${cacheRepo} ${cliArgs} --cleanup"
+        String stagingImage = "${stagingDockerRepo}:${stagingTag}"
+
+        return [kanikoCommand, destinations, stagingImage, buildArgs]
     }
 }
 
-def trackBuild(Map buildArgs) {
+void trackBuild(Map buildArgs) {
     // 1. Run a build() command, but manually echo a link to the spawned job, since it may not show up
     //    in blue ocean. See https://issues.jenkins.io/browse/JENKINS-60995.
     // 2. Add the build to the `builds` variable
     buildArgs['propagate'] = false
     def builtJob = build(buildArgs)
     builds << builtJob
-    if (builtJob.result == "SUCCESS") {
+    if (builtJob.result == 'SUCCESS') {
         echo "Job ${builtJob.fullDisplayName} was successful. See ${builtJob.absoluteUrl} for details."
     }
     else {
@@ -60,52 +167,93 @@ def trackBuild(Map buildArgs) {
     }
 }
 
-def getDockerImageName(baseImage, pythonVersion, gpu) {
-    def pytorchVersion = pythonVersion == "3.9" ? "1.10.0" : "1.9.1"
-    def cudaVersion = "cpu"
-    if (gpu) {
-        cudaVersion = pythonVersion == "3.9" ? "cu113" : "cu111"
-
-    }
-    return "${baseImage}:${pytorchVersion}_${cudaVersion}-python${pythonVersion}-ubuntu20.04"
-}
-
-lintImage = getDockerImageName("mosaicml/pytorch", "3.9", false)
-visionImage = getDockerImageName("mosaicml/pytorch_vision", "3.9", true)
-
-def runLint(pDockerImage) {
+void runLint(String pDockerImage) {
     trackBuild(
         job: jenkinsShellJobName,
         parameters: [
             string(name: 'P_CLOUD', value: pCloud),
             string(name: 'P_GIT_REPO', value: gitUrl),
             string(name: 'P_GIT_COMMIT', value: gitCommit),
-            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '7Gi'),
+            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: lintMemLimit),
             string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
-            string(name: 'P_TIMEOUT', value: pTimeout),
-            string(name: 'P_CPU_LIMIT', value: "2"),
-            string(name: 'P_MEM_LIMIT', value: "4Gi"),
-            string(name: 'P_COMMAND', value: "./.ci/lint_doctests.sh")
+            string(name: 'P_TIMEOUT', value: pLintTimeout),
+            string(name: 'P_CPU_LIMIT', value: lintCpuLimit),
+            string(name: 'P_MEM_LIMIT', value: lintMemLimit), // must include the ephemeral storage limit
+            string(name: 'P_COMMAND', value: './.ci/lint_doctests.sh'),
+            string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
+            string(name: 'P_JUNIT_GLOB', value: junitGlob),
+            string(name: 'P_COVERAGE_GLOB', value: coverageGlob),
         ]
     )
 }
 
-def runPytest(pDockerImage, markers, extraDeps, isGpu) {
-    // pDockerImage (str): Base docker image to use.
-    // extraDeps (str): The pip extra deps to install -- e.g. pip install mosaicml[$extraDeps].
-    // markers (str): Pyetst markers
-    // isGpu (bool): Whether the test requires gpus
-    def nGpus = "0"
-    def memLimit = "4Gi"
-    def cpuLimit = "2"
+void scheduleJob(jobs, String image, buildArgs) {
+    // jobs: The list of jobs. Modified in-place.
+    // buildArgs: The build args matrix
 
-    if (isGpu) {
-        nGpus = "2"
-        cpuLimit = "16" // 8 cpu per gpu
-        memLimit = "15Gi"  // 7.5Gb per gpu
+    String markers = 'not daily and not remote'
+    Boolean isLintImage = false
+    Boolean isVisionImage = false
+    Boolean isGpu = false
+    String tag = ''
+    buildArgs.each { key, val ->
+        if (key == 'CUDA_VERSION') {
+            if (val != 'cpu') {
+                isGpu = true
+            }
+        }
+        if (key == 'TARGET' && val == 'vision_stage') {
+            isVisionImage = true
+        }
+        if (key == 'TAGS') {
+            tag = val[0]
+            val.each { tagName ->
+                isLintImage = isLintImage || tagName == lintImage
+            }
+        }
+    }
+    String extraDeps = 'all'
+
+    if (isVisionImage) {
+        markers = "$markers and vision"
+    }
+    else {
+        markers = "$markers and not vision"
     }
 
-    def name = "$pDockerImage: markers='$markers'; extraDeps=$extraDeps"
+    if (isGpu) {
+        markers = "$markers and gpu"
+    }
+    else {
+        markers = "$markers and not gpu"
+    }
+
+    jobs << [
+        "Pytest - ${tag}" : { -> runPytest(image, markers, extraDeps, isGpu) }
+    ]
+    if (isLintImage) {
+        // and run lint and a dev install on this image
+        jobs << [
+            'Pytest - extraDeps=dev': { -> runPytest(image, markers, 'dev', isGpu) },
+            'Lint': { -> runLint(image) },
+        ]
+    }
+}
+
+void runPytest(String pDockerImage, String markers, String extraDeps, Boolean isGpu) {
+    // pDockerImage (str): Base docker image to use.
+    // extraDeps (str): The pip extra deps to install -- e.g. "pip install "mosaicml[$extraDeps]".
+    // markers (str): Pyetst markers
+    // isGpu (Boolean): Whether the test requires gpus
+    String nGpus = '0'
+    String cpuLimit = pytestCpuTestCpuLimit
+    String memLimit = pytestCpuTestMemLimit
+
+    if (isGpu) {
+        nGpus = pytestGpuTestNumGpus
+        cpuLimit = pytestGpuTestCpuLimit
+        memLimit = pytestGpuTestMemLimit
+    }
 
     trackBuild(
         job: jenkinsShellJobName,
@@ -116,9 +264,9 @@ def runPytest(pDockerImage, markers, extraDeps, isGpu) {
             string(name: 'P_DOCKER_IMAGE', value: pDockerImage),
             string(name: 'P_CPU_LIMIT', value: cpuLimit),
             string(name: 'P_MEM_LIMIT', value: memLimit),
-            string(name: 'P_TIMEOUT', value: pTimeout),
+            string(name: 'P_TIMEOUT', value: pytestTimeout),
             string(name: 'P_N_GPUS', value: nGpus),
-            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
+            string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: memLimit),
             text(name: 'P_COMMAND', value: "./.ci/test.sh '$extraDeps' '$markers'"),
             string(name: 'P_ARTIFACTS_GLOB', value: artifactsGlob),
             string(name: 'P_JUNIT_GLOB', value: junitGlob),
@@ -128,12 +276,16 @@ def runPytest(pDockerImage, markers, extraDeps, isGpu) {
 }
 
 stage('Prepare') {
-    node (pCloud) {
-        // Automatically cancel old builds
+    node(pCloud) {
+        // Automatically cancel old builds only on PR builds
         // From https://stackoverflow.com/questions/40760716/jenkins-abort-running-build-if-new-one-is-started
-        def buildNumber = env.BUILD_NUMBER as int
-        if (buildNumber > 1) milestone(buildNumber - 1)
-        milestone(buildNumber)
+        if (env.CHANGE_ID) {  // if it is a PR build
+            int buildNumber = env.BUILD_NUMBER as int
+            if (buildNumber > 1) {
+                milestone(buildNumber - 1)
+            }
+            milestone(buildNumber)
+        }
 
         def loadedSCM = checkout scm
 
@@ -150,38 +302,44 @@ stage('Prepare') {
         echo "gitBranch: $gitBranch"
         echo "gitCommit: $gitCommit"
 
-        def jenkinsfileWorkspace = cloneJenkinsfilesRepo()
+        didDockerChange = isPathModified('docker/pytorch/')
 
-        def getDockerBuildMatrix = load "$jenkinsfileWorkspace/utils/getDockerBuildMatrix.groovy"
+        String dockerfile = 'Dockerfile'
+        String buildContext = './docker/pytorch'
+        String buildMatrix = './docker/pytorch/build_matrix.yaml'
+        pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile)
 
-        isPathModified = load "$jenkinsfileWorkspace/utils/isPathModified.groovy"
-
-        if (isPathModified("docker/pytorch/")) {
-            def shouldPush = gitBranch == "dev" || gitBranch == "main"
-            def dockerfile = 'Dockerfile'
-            def buildContext = './docker/pytorch'
-            def buildMatrix = './docker/pytorch/build_matrix.sh'
-            pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile, shouldPush)
-        }
         // Keep track of whether dependencies changed, in which case a conda build should be tested
-        dependenciesChanged = isPathModified("setup.py") || isPathModified("meta.yaml")
+        dependenciesChanged = isPathModified('setup.py') || isPathModified('meta.yaml')
     }
 }
 
 stage('Build') {
     def jobs = [:]
-    def isMergeCommit = true
+    Boolean isMergeCommit = true
     if (env.CHANGE_ID) {
         isMergeCommit = false
     }
-    if (pytorchDockerBuildMatrix) {
-        // If changing docker, build the docker images first
-        // Then, run pytest in the newly-built image
-        pytorchDockerBuildMatrix.each { entry ->
-            def command = entry[0]  // command is the command to run
-            def stagingImage = entry[1]  // stagingImage is where the built docker image is pushed
-            def buildConfigListOfTuples = entry[2]  // buildConfigListOfTuples is a list of (key, value) pairs of the build args from the matrix
-            jobs << [ "$buildConfigListOfTuples": { -> 
+
+    pytorchDockerBuildMatrix.each { entry ->
+        // Extract the values from the buildMatrix
+        String kanikoCommand = entry[0]  // kanikoCommand is the command to run
+        String destinations = entry[1]  // The destinations to append to the kanikoCommand to push the image
+        String stagingImage = entry[2]  // stagingImage is where the built docker image is always pushed
+        // buildArgs contains the entry from the build matrix. It has the format [{key: key, value: value}, ...].
+        def buildArgs = entry[3]
+
+        if (didDockerChange) {
+            // If changing docker, build the docker images first
+            // Then, run pytest in the newly-built image
+
+            Boolean shouldPushToDestinations = isMergeCommit && gitBranch == baseBranch
+
+            if (shouldPushToDestinations) {
+                kanikoCommand = "$kanikoCommand $destinations"
+            }
+
+            jobs << [ "$buildArgs": { ->
                 trackBuild(
                     job: jenkinsShellJobName,
                     parameters: [
@@ -189,121 +347,40 @@ stage('Build') {
                         string(name: 'P_GIT_REPO', value: gitUrl),
                         string(name: 'P_GIT_COMMIT', value: gitCommit),
                         string(name: 'P_DOCKER_IMAGE', value: kanikoDockerImage),
-                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
-                        text(name: 'P_COMMAND', value: command),
-                        string(name: 'P_TIMEOUT', value: pTimeout),
-                        string(name: 'P_CPU_LIMIT', value: '4'),
-                        string(name: 'P_MEM_LIMIT', value: '15Gi'),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: dockerBuildMemLimit),
+                        text(name: 'P_COMMAND', value: kanikoCommand),
+                        string(name: 'P_TIMEOUT', value: dockerBuildTimeout),
+                        string(name: 'P_CPU_LIMIT', value: dockerBuildCpuLimit),
+                        string(name: 'P_MEM_LIMIT', value: dockerBuildMemLimit),
+                        booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
-                if (isMergeCommit) {
-                    // no need to run tests again
-                    return
-                }
-                def markers = "not notebooks and not gpu and not vision"
-                def isLintImage = false
-                def isVisionImage = false
-                def isGpuImage = false
-                def tag = null
-                buildConfigListOfTuples.each { item ->
-                    def key = item[0]
-                    def val = item[1]
-
-                    if (key == 'CUDA_VERSION') {
-                        if (val != 'cpu') {
-                            markers = "not notebooks and gpu and not vision"
-                            isGpuImage = true
-                        }
-                    }
-                    if (key == 'TAG') {
-                        tag = val
-                        // there could be multiple tags
-                        isLintImage = isLintImage || tag == lintImage
-                        isVisionImage = isVisionImage || tag == visionImage
-                    }
-                
-                }
-                def extraDeps = 'all'
-
-                if (isVisionImage) {
-                    markers = "not notebooks and vision"
-                }
-
-                def subJobs = [
-                    "Pytest - ${tag}" : { -> runPytest(stagingImage, markers, extraDeps, isGpuImage) }
-                ]
-                if (isLintImage) {
-                    // and run lint and a dev install on this image
-                    subJobs << [
-                        "Pytest - extraDeps=dev": { -> runPytest(stagingImage, markers, 'dev', false) },
-                        "Lint": { -> runLint(stagingImage) },
-                    ]
-                }
+                def subJobs = [:]
+                scheduleJob(subJobs, stagingImage, buildArgs)
                 subJobs.failFast = true
                 parallel(subJobs)
             }]
         }
-    }
-    else if (!isMergeCommit) {
-        // if not rebuilding the docker image, but it's not a merge commit,
-        // just run these checks on the latest images. No need to re-run the
-        // tests on merge commits, as the PR must have passed these checks already
-        // to have been merged.
-        jobs << [
-            'Python 3.7': { ->
-                runPytest(
-                    getDockerImageName("mosaicml/pytorch", "3.7", false),
-                    "not notebooks and not gpu and not vision", // markers
-                    'all', // extraDeps
-                    false, // gpu
-                )
-            },
-            'Python 3.8': { ->
-                runPytest(
-                    getDockerImageName("mosaicml/pytorch", "3.8", false),
-                    "not notebooks and not gpu and not vision", // markers
-                    'all', // extraDeps
-                    false, // gpu
-                )
-            },
-            'Python 3.9': { ->
-                runPytest(
-                    getDockerImageName("mosaicml/pytorch", "3.9", false),
-                    "not notebooks and not gpu and not vision", // markers
-                    'all', // extraDeps
-                    false, // gpu
-                )
-            },
-            'Python 3.7 - GPU': { ->
-                runPytest(
-                    getDockerImageName("mosaicml/pytorch", "3.7", true),
-                    "not notebooks and gpu and not vision", // markers
-                    'all', // extraDeps
-                    true, // gpu
-                )
-            },
-            'Python 3.7 - Vision': { ->
-                runPytest(
-                    visionImage,
-                    "not notebooks and vision",
-                    'all', // extraDeps
-                    true, // gpu
-                )
-            },
-            'Lint': { -> runLint(lintImage) },
-            'Python 3.7 - extraDeps=dev': { ->
-                runPytest(
-                    getDockerImageName("mosaicml/pytorch", "3.7", false),
-                    "not notebooks and not gpu and not vision", // markers
-                    "dev", // extraDeps
-                    false, // gpu
-                )
-            },
-        ]
+        else {
+            // If not rebuilding the docker image, then run CPU tests acorss all images,
+            // and run GPU tests only on the "latest" image
+            Boolean isCpuImage = buildArgs['CUDA_VERSION'] == 'cpu'
+            Boolean shouldRunGpuTests = false
+
+            buildArgs['TAGS'].each { tag ->
+                if (pytestGpuImageTagsToTest.contains(tag)) {
+                    shouldRunGpuTests = true
+                }
+            }
+
+            if (isCpuImage || shouldRunGpuTests) {
+                String existingImageTag = buildArgs['TAGS'][0]
+                scheduleJob(jobs, existingImageTag, buildArgs)
+            }
+        }
     }
 
-    
-    if (!isMergeCommit && dependenciesChanged) {
+    if (dependenciesChanged) {
         // regardless of whether the docker image changed, rebuild the conda package
         // if the dependencies changed
         jobs << [
@@ -314,12 +391,12 @@ stage('Build') {
                         string(name: 'P_CLOUD', value: pCloud),
                         string(name: 'P_GIT_REPO', value: gitUrl),
                         string(name: 'P_GIT_COMMIT', value: gitCommit),
-                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: '32Gi'),
+                        string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: condaMemLimit),
                         string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
-                        string(name: 'P_TIMEOUT', value: '3600'), // Conda builds take longer
-                        string(name: 'P_CPU_LIMIT', value: "4"),
-                        string(name: 'P_MEM_LIMIT', value: "8Gi"),
-                        string(name: 'P_COMMAND', value: "./.ci/build_conda.sh")
+                        string(name: 'P_TIMEOUT', value: condaTimeout), // Conda builds take longer
+                        string(name: 'P_CPU_LIMIT', value: condaCpuLimit),
+                        string(name: 'P_MEM_LIMIT', value: condaMemLimit),  // must include the ephemeral storage limit
+                        string(name: 'P_COMMAND', value: './.ci/build_conda.sh')
                     ]
                 )
             }
@@ -331,7 +408,7 @@ stage('Build') {
     }
     finally {
         stage('Merge Artifacts') {
-            node (pCloud) {
+            node(pCloud) {
                 checkout scm  // checking out the SCM so the coverage report can load the source
                 builds.each { item ->
                     copyArtifacts(
@@ -345,7 +422,7 @@ stage('Build') {
                 sh "mkdir -p $buildOutputFolder"
 
                 archiveArtifacts(artifacts: artifactsGlob, fingerprint: true, allowEmptyArchive: true)
-                junit(allowEmptyResults: true, testResults: junitGlob)
+                junit(allowEmptyResults: true, testResults: junitGlob, checksName: 'Tests', keepLongStdio: true)
                 publishCoverage(
                     adapters: [cobertura(path: coverageGlob, mergeToOneReport: true)],
                     calculateDiffForChangeRequests: true,

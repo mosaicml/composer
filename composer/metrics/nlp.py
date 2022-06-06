@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
 from typing import Mapping, Union
@@ -83,7 +84,6 @@ class LanguageCrossEntropy(Metric):
                 either the Tensor or a Mapping type that contains the loss or model logits.
             target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
-
         assert isinstance(output, Tensor)
         output = output.view(-1, self.vocab_size)
         target = target.view(-1)
@@ -177,7 +177,6 @@ class HFCrossEntropy(Metric):
                 either the Tensor or a Mapping type that contains the loss or model logits.
             target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
-
         # if logit modification algorithms aren't on, we take the loss directly from the model output
         if isinstance(output, Mapping) and 'loss' in output:
             loss = output['loss']

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 
@@ -10,18 +11,15 @@ from packaging import version
 import composer
 from composer.core import Precision
 from composer.datasets.hparams import SyntheticHparamsMixin
-from composer.trainer import TrainerHparams
-from composer.trainer.devices import GPUDeviceHparams
+from composer.trainer.trainer_hparams import TrainerHparams
 
 
 def run_and_measure_memory(precision: Precision) -> int:
     hparams_f = os.path.join(os.path.dirname(composer.__file__), "yamls", "models", "resnet56_cifar10_synthetic.yaml")
     hparams = TrainerHparams.create(f=hparams_f, cli_args=False)
     hparams.train_subset_num_batches = 1
-    hparams.validate_every_n_batches = -1
-    hparams.validate_every_n_epochs = -1
+    hparams.eval_interval = "0ep"
     assert isinstance(hparams, TrainerHparams)
-    assert isinstance(hparams.device, GPUDeviceHparams)
     hparams.precision = precision
     hparams.dataloader.num_workers = 0
     hparams.dataloader.persistent_workers = False
@@ -41,7 +39,7 @@ def run_and_measure_memory(precision: Precision) -> int:
 @pytest.mark.gpu
 @pytest.mark.timeout(5)
 @pytest.mark.parametrize("precision", [Precision.AMP, Precision.BF16])
-def test_precision_memory(precision):
+def test_precision_memory(precision: Precision):
     if version.parse(torch.__version__) < version.parse("1.10"):
         pytest.skip("Test required torch >= 1.10")
     memory_full = run_and_measure_memory(Precision.FP32)

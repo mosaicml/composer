@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The CIFAR ResNet torch module.
 
@@ -157,13 +158,13 @@ class ResNet9(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
             BasicBlock(inplanes=256, planes=256, stride=1),
-            nn.MaxPool2d(kernel_size=2, stride=2),
         )
 
-        self.fc = nn.Linear(in_features=1024, out_features=num_classes, bias=True)
+        self.fc = nn.Linear(in_features=256, out_features=num_classes, bias=True)
 
     def forward(self, x):
         out = self.body(x)
-        out = out.view(-1, out.shape[1] * out.shape[2] * out.shape[3])
+        out = F.avg_pool2d(out, out.size()[3])
+        out = out.view(out.size(0), -1)
         out = self.fc(out)
         return out

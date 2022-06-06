@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 # To keep the typing organized for this file, see iter_helpers.pyi
 # All typing annotations are in there
@@ -10,7 +11,7 @@ from collections.abc import Sequence
 
 
 def map_collection(collection, map_fn):
-    """Apply ``map_fn`` on each element in ``collection``.
+    """Applies ``map_fn`` on each element in ``collection``.
 
     * If ``collection`` is a tuple or list of elements, ``map_fn`` is applied on each element,
       and a tuple or list, respectively, containing mapped values is returned.
@@ -53,7 +54,7 @@ def ensure_tuple(x):
         tuple: A tuple of ``x``.
     """
     if x is None:
-        return tuple()
+        return ()
     if isinstance(x, (str, bytes, bytearray)):
         return (x,)
     if isinstance(x, Sequence):

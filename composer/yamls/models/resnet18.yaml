@@ -14,7 +14,7 @@ val_dataset:
     datadir: /datasets/ImageNet
     shuffle: true
     drop_last: true
-optimizer:
+optimizers:
   decoupled_sgdw:
     lr: 2.048
     momentum: 0.875
@@ -35,14 +35,10 @@ max_duration: 90ep
 train_batch_size: 2048
 eval_batch_size: 1000
 seed: 17
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
-validate_every_n_epochs: 1
 grad_accum: 1
-precision: amp

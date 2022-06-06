@@ -8,7 +8,7 @@ Link to Code: [https://github.com/mosaicml/composer/tree/main/composer/models/un
 
 ## Overview
 
-Unet is an example of architecture used in image segmentation. The example we are using is for medical brain tumor data.
+UNet is an architecture used in image segmentation. The example we are using is for medical brain tumor data.
 
 ## Attribution
 
@@ -19,7 +19,7 @@ We are using the NVDA DLE examples version in
 
 ## Architecture
 
-The figure below shows a 3D version of the UNet architecture. Quoting the DLE examples, U-Net is composed of a contractive and an expanding path, that aims at building a bottleneck in its centremost part through a combination of convolution, instance norm and leaky relu operations. After this bottleneck, the image is reconstructed through a combination of convolutions and upsampling. Skip connections are added with the goal of helping the backward flow of gradients in order to improve training.
+The figure below shows a 3D version of the UNet architecture. Quoting the DLE examples, U-Net is composed of a contractive and an expanding path that aims at building a bottleneck in its centermost part through a combination of convolution, instance norm, and leaky relu operations. After this bottleneck, the image is reconstructed through a combination of convolutions and upsampling. Skip connections are added with the goal of helping the backward flow of gradients in order to improve training.
 
 ![unet3d.png](https://storage.googleapis.com/docs.mosaicml.com/images/models/unet3d.png)
 

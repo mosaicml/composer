@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helper utilities for configuring deterministic training to ensure reproducibility.
 
@@ -17,7 +18,7 @@
 
         warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
 
-        MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
+        MyModel = Model
 
     .. doctest::
 
@@ -38,7 +39,6 @@
 
     .. testcleanup::
 
-        trainer.engine.close()
         warnings.resetwarnings()
 
 Attributes:
@@ -94,7 +94,6 @@ def configure_deterministic_mode():
 
         .. testcleanup::
 
-            trainer.engine.close()
             warnings.resetwarnings()
 
         However, to configure deterministic mode for operations before the trainer is initialized, manually invoke this
@@ -145,10 +144,6 @@ def seed_all(seed: int):
         .. doctest::
 
             >>> trainer = Trainer(seed=42)
-        
-        .. testcleanup::
-
-            trainer.engine.close()
 
         However, to configure the random seed for operations before the trainer is initialized, manually invoke this
         function at the beginning of your training script.
@@ -172,7 +167,6 @@ def get_rng_state() -> List[Dict[str, Any]]:
     Returns:
         List[Dict[str, Any]]: A list of RNG State Dicts, indexed by global rank.
     """
-
     rng_state = {
         "python": random.getstate(),
         "numpy": np.random.get_state(),

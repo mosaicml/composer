@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helper functions to perform augmentations on a :class:`PIL.Image.Image`.
 
@@ -75,6 +76,7 @@ def _float_parameter(level: float, maxval: float):
       level (float): Level of the operation that will be between [0, 10].
       maxval (float): Maximum value that the operation can have. This will be scaled to
           level/10.
+
     Returns:
       float: The result from scaling ``maxval`` according to ``level``.
     """
@@ -87,8 +89,10 @@ def _sample_level(n: float):
 
 
 def _symmetric_sample(level: float):
-    """Helper function to sample from a distribution over the domain [0.1, 10] with median == 1 and uniform probability
-    of x | 0.1 ≤ x ≤ 1, and x | 1 ≤ x ≤ 10.
+    """Helper function to sample from a symmetric distribution.
+
+    The distribution over the domain [0.1, 10] with median == 1 and uniform probability of x | 0.1 ≤ x ≤ 1,
+    and x | 1 ≤ x ≤ 10.
 
     Used for sampling transforms that can range from intensity 0 to infinity, and for which an intensity of 1 == no
     change.
@@ -105,7 +109,8 @@ def autocontrast(pil_img: Image.Image, level: float = 0.0):
     .. seealso:: :func:`PIL.ImageOps.autocontrast`.
 
     Args:
-        pil_img (Image.Image): The image
+        pil_img (Image.Image): The image.
+        level (float): The intensity.
     """
     del level  # unused
     return ImageOps.autocontrast(pil_img)
@@ -117,7 +122,8 @@ def equalize(pil_img: Image.Image, level: float):
     .. seealso:: :func:`PIL.ImageOps.equalize`.
 
     Args:
-        pil_img (Image.Image): The image
+        pil_img (Image.Image): The image.
+        level (float): The intensity.
     """
     del level  # unused
     return ImageOps.equalize(pil_img)

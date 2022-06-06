@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Base class for algorithms that improve model's quality or efficiency."""
 
@@ -35,10 +36,13 @@ class Algorithm(Serializable, ABC):
       +----------------+-------------------------------------------------------------------------------+
     """
 
+    def __init__(self, *args, **kwargs):  # Stub signature for PyRight
+        del args, kwargs  # unused
+        pass
+
     @property
     def find_unused_parameters(self) -> bool:
-        """Return True to indicate that the effect of this algorithm may cause some model parameters to be unused.
-        Defaults to False.
+        """Indicates whether this algorithm may cause some model parameters to be unused. Defaults to False.
 
         For example, it is used to tell :class:`torch.nn.parallel.DistributedDataParallel` (DDP) that some parameters
         will be frozen during training and hence it should not expect gradients from them. All algorithms which do any
@@ -61,11 +65,9 @@ class Algorithm(Serializable, ABC):
 
     @abstractmethod
     def match(self, event: Event, state: State) -> bool:
-        """Determines whether this algorithm should run given the current :class:`~.event.Event` and
-        :class:`~.state.State`.
+        """Determines whether this algorithm should run given the current :class:`~.event.Event` and :class:`~.state.State`.
 
         Examples:
-
         To only run on a specific event (e.g., on :attr:`~.Event.BEFORE_LOSS`), override match as shown below:
 
         >>> class MyAlgorithm:
@@ -78,7 +80,7 @@ class Algorithm(Serializable, ABC):
 
         >>> class MyAlgorithm:
         ...     def match(self, event, state):
-        ...        return state.timer.epoch > 30
+        ...        return state.timestamp.epoch > 30
         >>> MyAlgorithm().match(Event.BEFORE_LOSS, state)
         False
 
@@ -87,6 +89,7 @@ class Algorithm(Serializable, ABC):
         Args:
             event (Event): The current event.
             state (State): The current state.
+
         Returns:
             bool: True if this algorithm should run now.
         """
@@ -103,6 +106,7 @@ class Algorithm(Serializable, ABC):
             event (Event): The current event.
             state (State): The current state.
             logger (Logger): A logger to use for logging algorithm-specific metrics.
+
         Returns:
             int or None: exit code that will be stored in :class:`~.engine.Trace` and made accessible for debugging.
         """

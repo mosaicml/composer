@@ -37,7 +37,7 @@ Save Interval
 
 By default, checkpoints are saved every epoch, but this interval can be configured using the ``save_interval`` argument.
 The ``save_interval`` can be an integer (interpreted as a number of epochs), a time string (see the
-:doc:`Time Guide </trainer/time>` for more information), or a function that takes 
+:doc:`Time Guide </trainer/time>` for more information), or a function that takes
 (:class:`~.State`, :class:`~.Event`) and returns whether a checkpoint should be saved.
 
 For example:
@@ -45,7 +45,7 @@ For example:
 *   ``save_interval=1`` to save every epoch (the default).
 *   ``save_interval="10ep"`` to save every 10 epochs.
 *   ``save_interval="500ba"`` to save every 500 batches/steps.
-*   ``save_interval=lambda state, event: state.timer.epoch > 50 and event == Event.EPOCH_CHECKPOINT``
+*   ``save_interval=lambda state, event: state.timestamp.epoch > 50 and event == Event.EPOCH_CHECKPOINT``
     to save every epoch, starting after the 50th epoch.
 
 Putting this together, here's how to save checkpoints:
@@ -83,7 +83,7 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
-    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timer', 'rank_zero_seed']
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'current_metrics']
 
 Resume training
 ---------------
@@ -155,12 +155,14 @@ state from the checkpoint are not compatible with these new objects.
     +-----------------------+-------------------------------------------------------------+
     | scaler                | The gradient scaler in use for mixed precision training.    |
     +-----------------------+-------------------------------------------------------------+
-    | timer                 | The timer that tracks training loop progress.               |
+    | timestamp             | The timestamp that tracks training loop progress.           |
     +-----------------------+-------------------------------------------------------------+
     | rank_zero_seed        | The seed of the rank zero process.                          |
     +-----------------------+-------------------------------------------------------------+
+    | current_metrics       | The current metrics.                                        |
+    +-----------------------+-------------------------------------------------------------+
 
-    All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use either the defaults 
+    All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use either the defaults
     or what is passed in when reconstructing the trainer.
 
 
@@ -187,7 +189,7 @@ Saving Multiple Checkpoint Types
 --------------------------------
 
 To save multiple checkpoint types, such as full checkpoints and weights-only checkpoints, the
-:class:`~.CheckpointSaver` can be passed directly into the ``callbacks`` argument of the trainer. 
+:class:`~.CheckpointSaver` can be passed directly into the ``callbacks`` argument of the trainer.
 Each :class:`~.CheckpointSaver` can have its own save folder, interval, and other parameters.
 
 When configuring checkpoints via the ``callbacks``, it is not necessary to specify the ``save_folder``
@@ -264,7 +266,7 @@ Parameters with different names will ignored.
         max_duration="10ep",
         load_path="./path/to/checkpoints/ep50.pt",
         load_weights_only=True,
-        load_strict=False,
+        load_strict_model_weights=False,
     )
 
     ft_trainer.fit()
@@ -300,7 +302,7 @@ Behind the scenes, the :class:`.ObjectStoreLogger` uses :doc:`Apache Libcloud <l
     object_store_logger = ObjectStoreLogger(
         provider="s3",  # The Apache Libcloud provider name
         container="my_bucket",  # The name of the cloud container (i.e. bucket) to use.
-        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments 
+        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments
             'key': 'provider_key',  # The cloud provider key.
             'secret': '*******',  # The cloud provider secret.
             # Any additional arguments required for the cloud provider.
@@ -331,7 +333,7 @@ Once you've configured your object store logger per above, all that's left is to
     object_store_logger = ObjectStoreLogger(
         provider="s3",  # The Apache Libcloud provider name
         container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
-        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments 
+        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments
             'key': 'provider_key',  # The cloud provider key.
             'secret': '*******',  # The cloud provider secret.
             # Any additional arguments required for the cloud provider.
@@ -359,18 +361,18 @@ Loading from Object Store
 -------------------------
 
 Checkpoints saved to an object store can also be loaded in the same way as files saved on disk. Provide the
-:class:`.ObjectStore` to the trainer's ``load_object_store`` argument.  The ``load_path`` argument
+:class:`.LibcloudObjectStore` to the trainer's ``load_object_store`` argument.  The ``load_path`` argument
 should be the path to the checkpoint file *within the container/bucket*.
 
 .. testcode::
 
-    from composer.utils.object_store import ObjectStore
+    from composer.utils.libcloud_object_store import LibcloudObjectStore
     from composer.trainer import Trainer
 
-    object_store = ObjectStore(
+    object_store = LibcloudObjectStore(
         provider="s3",  # The Apache Libcloud provider name
         container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
-        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments 
+        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments
             'key': 'provider_key',  # The cloud provider key.
             'secret': '*******',  # The cloud provider secret.
             # Any additional arguments required for the cloud provider.

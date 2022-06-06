@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Optimizers with weight decay decoupled from the learning rate.
 
@@ -56,7 +57,6 @@ class DecoupledSGDW(SGD):
             dampening (float): Dampening factor for momentum update
             nesterov (bool): Enables Nesterov momentum updates
         """
-
         for i, param in enumerate(params):
 
             d_p = d_p_list[i]
@@ -187,7 +187,6 @@ class DecoupledAdamW(AdamW):
             weight_decay (float): Factor for decoupled weight decay
             eps (float): Term added to the denominator to improve numerical stability.
         """
-
         for i, param in enumerate(params):
             grad = grads[i]
             exp_avg = exp_avgs[i]

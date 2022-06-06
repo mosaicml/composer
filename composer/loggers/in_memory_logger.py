@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Logs metrics to dictionary objects that persist in memory throughout training.
 
@@ -14,7 +15,7 @@ import numpy as np
 from torch import Tensor
 
 from composer.core.state import State
-from composer.core.time import Timestamp
+from composer.core.time import Time, Timestamp
 from composer.loggers.logger import LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 
@@ -22,8 +23,9 @@ __all__ = ["InMemoryLogger"]
 
 
 class InMemoryLogger(LoggerDestination):
-    """Logs metrics to dictionary objects that persist in memory throughout training. Useful for collecting and plotting
-    data inside notebooks.
+    """Logs metrics to dictionary objects that persist in memory throughout training.
+
+    Useful for collecting and plotting data inside notebooks.
 
     Example usage:
         .. testcode::
@@ -45,12 +47,8 @@ class InMemoryLogger(LoggerDestination):
             # which index in trainer.logger.destinations contains your desired logger.
             logged_data = trainer.logger.destinations[0].data
 
-        .. testcleanup::
-
-            trainer.engine.close()
-
     Args:
-        log_level (str or LogLevel, optional):
+        log_level (str | LogLevel, optional):
             :class:`~.logger.LogLevel` (i.e. unit of resolution) at
             which to record. Defaults to
             :attr:`~.LogLevel.BATCH`, which records
@@ -74,7 +72,7 @@ class InMemoryLogger(LoggerDestination):
         if log_level > self.log_level:
             # the logged metric is more verbose than what we want to record.
             return
-        timestamp = state.timer.get_timestamp()
+        timestamp = state.timestamp
         copied_data = copy.deepcopy(data)
         for k, v in copied_data.items():
             if k not in self.data:
@@ -119,7 +117,6 @@ class InMemoryLogger(LoggerDestination):
                 plt.xlabel("Batch")
                 plt.ylabel("Validation Accuracy")
         """
-
         # Check that desired metric is in present data
         if metric not in self.data.keys():
             raise ValueError(f"Invalid value for argument `metric`: {metric}. Requested "
@@ -131,8 +128,8 @@ class InMemoryLogger(LoggerDestination):
             timestamp, _, metric_value = datapoint
             timeseries.setdefault(metric, []).append(metric_value)
             # Iterate through time units and add them all!
-            for field in timestamp._fields:
-                time_value = getattr(timestamp, field).value
+            for field, time in timestamp.get_state().items():
+                time_value = time.value if isinstance(time, Time) else time.total_seconds()
                 timeseries.setdefault(field, []).append(time_value)
         # Convert to numpy arrays
         for k, v in timeseries.items():

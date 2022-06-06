@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Performance profiling tools.
 
@@ -14,13 +15,10 @@ The metrics gathered include:
 
 See the :doc:`Profiling Guide </trainer/performance_tutorials/profiling>` for additional information.
 """
-from composer.profiler.dataloader_profiler import DataLoaderProfiler
 from composer.profiler.json_trace_handler import JSONTraceHandler
 from composer.profiler.marker import Marker
 from composer.profiler.profiler import Profiler
 from composer.profiler.profiler_action import ProfilerAction
-from composer.profiler.profiler_hparams import (CyclicProfilerScheduleHparams, JSONTraceHparams, ProfileScheduleHparams,
-                                                TraceHandlerHparams)
 from composer.profiler.profiler_schedule import cyclic_schedule
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
@@ -34,11 +32,6 @@ __all__ = [
     "TraceHandler",
     "cyclic_schedule",
     "JSONTraceHandler",
-    "CyclicProfilerScheduleHparams",
-    "ProfileScheduleHparams",
-    "JSONTraceHparams",
-    "TraceHandlerHparams",
-    "DataLoaderProfiler",
     "SystemProfiler",
     "TorchProfiler",
 ]

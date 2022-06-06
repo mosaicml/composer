@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Log artifacts to an object store."""
 
@@ -27,7 +28,8 @@ from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import format_name_with_dist
-from composer.utils.object_store import ObjectStore
+from composer.utils.file_helpers import get_file
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +43,7 @@ def _always_log(state: State, log_level: LogLevel, artifact_name: str):
 
 
 class ObjectStoreLogger(LoggerDestination):
-    """Logger destination that uploads artifacts to an object store.
+    r"""Logger destination that uploads artifacts to an object store.
 
     This logger destination handles calls to :meth:`~composer.loggers.logger.Logger.file_artifact`
     and uploads files to an object store, such as AWS S3 or Google Cloud Storage.
@@ -57,16 +59,12 @@ class ObjectStoreLogger(LoggerDestination):
                 'region': 'ap-northeast-1',
             },
         )
-        
+
         # Construct the trainer using this logger
         trainer = Trainer(
             ...,
             loggers=[object_store_logger],
         )
-
-    .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
-
-        trainer.engine.close()
 
     .. note::
 
@@ -81,7 +79,7 @@ class ObjectStoreLogger(LoggerDestination):
             always occurs in the background.
 
         *   Provide a RAM disk path for the ``upload_staging_folder`` parameter. Copying files to stage on RAM will be
-            faster than writing to disk. However, there must have sufficient excess RAM, or :exc:`MemoryError`\\s may
+            faster than writing to disk. However, there must have sufficient excess RAM, or :exc:`MemoryError`\s may
             be raised.
 
     Args:
@@ -109,7 +107,7 @@ class ObjectStoreLogger(LoggerDestination):
         provider_kwargs (Dict[str, Any], optional):  Keyword arguments to pass into the constructor
             for the specified provider. These arguments would usually include the cloud region
             and credentials.
-            
+
             Common keys are:
 
             * ``key`` (str): API key or username to be used (required).
@@ -186,7 +184,7 @@ class ObjectStoreLogger(LoggerDestination):
                 # Shut down the uploader
                 object_store_logger._check_workers()
                 object_store_logger.post_close()
-           
+
             Assuming that the process's rank is ``0``, the object store would store the contents of
             ``'path/to/file.txt'`` in an object named ``'rank0/bar.txt'``.
 
@@ -263,6 +261,9 @@ class ObjectStoreLogger(LoggerDestination):
                     "container": self.container,
                     "provider_kwargs": self.provider_kwargs,
                 },
+                # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status
+                # Setting daemon status prevents the process from hanging if close was never called (e.g. in doctests)
+                daemon=True,
             )
             worker.start()
             self._workers.append(worker)
@@ -294,6 +295,38 @@ class ObjectStoreLogger(LoggerDestination):
         object_name = self._object_name(artifact_name)
         self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
 
+    def log_symlink_artifact(self, state: State, log_level: LogLevel, existing_artifact_name: str,
+                             symlink_artifact_name: str, overwrite: bool):
+        # Object stores do not natively support symlinks, so we emulate symlinks by adding a .symlink file to the
+        # object store, which is a text file containing the name of the object it is pointing to.
+        # Only symlink if we're logging artifact to begin with
+        if not self.should_log_artifact(state, log_level, existing_artifact_name):
+            return
+        copied_path = os.path.join(self._upload_staging_folder, str(uuid.uuid4()))
+        os.makedirs(self._upload_staging_folder, exist_ok=True)
+        # Write artifact name into file to emulate symlink
+        with open(copied_path, 'w') as f:
+            f.write(existing_artifact_name)
+        # Add .symlink extension so we can identify as emulated symlink when downloading
+        object_name = self._object_name(symlink_artifact_name) + ".symlink"
+        self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
+
+    def get_file_artifact(
+        self,
+        artifact_name: str,
+        destination: str,
+        chunk_size: int = 2**20,
+        progress_bar: bool = True,
+    ):
+        object_store = LibcloudObjectStore(provider=self.provider,
+                                           container=self.container,
+                                           provider_kwargs=self.provider_kwargs)
+        get_file(path=artifact_name,
+                 destination=destination,
+                 object_store=object_store,
+                 chunk_size=chunk_size,
+                 progress_bar=progress_bar)
+
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
         if self._finished is not None:
@@ -302,6 +335,8 @@ class ObjectStoreLogger(LoggerDestination):
             worker.join()
         if self._tempdir is not None:
             self._tempdir.cleanup()
+        self._tempdir = None
+        self._finished = None
         self._workers.clear()
 
     def get_uri_for_artifact(self, artifact_name: str) -> str:
@@ -339,7 +374,7 @@ def _validate_credentials(
 ) -> None:
     # Validates the credentails by attempting to touch a file in the bucket
     # raises a LibcloudError if there was a credentials failure.
-    object_store = ObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
+    object_store = LibcloudObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
     object_store.upload_object_via_stream(
         obj=b"credentials_validated_successfully",
         object_name=object_name_to_test,
@@ -353,13 +388,12 @@ def _upload_worker(
     container: str,
     provider_kwargs: Optional[Dict[str, Any]],
 ):
-    """A long-running function to handle uploading files to the object store specified by (``provider``, ``container``,
-    ``provider_kwargs``).
+    """A long-running function to handle uploading files to the object store.
 
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.
     """
-    object_store = ObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
+    object_store = LibcloudObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
     while True:
         try:
             file_path_to_upload, object_name, overwrite = file_queue.get(block=True, timeout=0.5)

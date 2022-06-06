@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import logging
 import os
@@ -7,6 +8,7 @@ from typing import List, Optional
 
 import pytest
 import torch
+import tqdm.std
 
 import composer
 from composer.utils import dist, reproducibility
@@ -20,9 +22,8 @@ WORLD_SIZE_OPTIONS = (1, 2)
 # default timout threshold is 2 seconds for determinign long and short
 DEFAULT_TIMEOUT = 2.0
 
-# Enforce use of deterministic kernels
-# see composer.utils.reproducibility.configure_deterministic_mode
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+# Enforce deterministic mode before any tests start.
+reproducibility.configure_deterministic_mode()
 
 # during the pytest refactor transition, this flag
 # indicates whether to include the deprecated fixtures.
@@ -32,6 +33,7 @@ _include_deprecated_fixtures = True
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
     "tests.fixtures.new_fixtures",
+    "tests.fixtures.synthetic_hf_state",
 ]
 
 if _include_deprecated_fixtures:
@@ -145,15 +147,30 @@ def rank_zero_seed(request: pytest.FixtureRequest) -> int:
 
 
 @pytest.fixture(autouse=True)
-def seed_all(rank_zero_seed: int):
-    """Set the random seed before each test to ensure consistent test results, which and limit flakiness due to random
-    initializations."""
+def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
+    """Monkeypatch reproducibility get_random_seed to always return the rank zero seed, and set the random seed before
+    each test to the rank local seed."""
+    monkeypatch.setattr(reproducibility, "get_random_seed", lambda: rank_zero_seed)
     reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
 
 
 @pytest.fixture(autouse=True)
-def chdir_to_tmpdir(tmpdir: pathlib.Path):
-    os.chdir(tmpdir)
+def chdir_to_tmp_path(tmp_path: pathlib.Path):
+    os.chdir(tmp_path)
+
+
+@pytest.fixture(autouse=True, scope='session')
+def disable_tqdm_bars():
+    # Disable tqdm progress bars globally in tests
+    original_tqdm_init = tqdm.std.tqdm.__init__
+
+    def new_tqdm_init(*args, **kwargs):
+        if "disable" not in kwargs:
+            kwargs["disable"] = True
+        return original_tqdm_init(*args, **kwargs)
+
+    # Not using pytest monkeypatch as it is a function-scoped fixture
+    tqdm.std.tqdm.__init__ = new_tqdm_init
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

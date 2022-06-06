@@ -12,7 +12,7 @@ MARKERS="$2"
 if [ -z "${EXTRA_DEPS}" ]; then
     pip install .
 else
-    pip install .[${EXTRA_DEPS}]
+    pip install ".[${EXTRA_DEPS}]"
 fi
 
 # Clean and make the output directory
@@ -34,7 +34,7 @@ trap cleanup EXIT
 make test \
     PYTEST="coverage run -m pytest" \
     DURATION=all \
-    EXTRA_ARGS="--junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_nproc0.junit.xml -v -m '$MARKERS'"
+    EXTRA_ARGS="--codeblocks --junitxml ${BUILD_DIR}/build${BUILD_NUMBER}_nproc0.junit.xml -v -m '$MARKERS'"
 
 RANK_ARG='\$${RANK}' # escape RANK from the makefile and the makefile shell command
 make test-dist \

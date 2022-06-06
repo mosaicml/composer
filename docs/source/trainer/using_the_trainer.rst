@@ -187,10 +187,6 @@ argument.
     # points of the training loop
     trainer.fit()
 
-.. testcleanup::
-
-    trainer.engine.close()
-
 We handle inserting algorithms into the training loop and in the right order.
 
 .. seealso::
@@ -296,7 +292,7 @@ the ``torch.distributed`` setup for you.
 
 Access the Composer launcher via the ``composer`` command line program.
 Specify the number of GPUs you'd like to use  with the ``-n`` flag
-along with the file containing your training script. 
+along with the file containing your training script.
 Use ``composer --help`` to see a full list of configurable options.
 
 .. code:: bash
@@ -351,7 +347,7 @@ DeepSpeed docs `here <https://www.deepspeed.ai/docs/config-json/>`__.
             "fp16": {"enabled": True},
     })
 
-Providing an empty dictionary to deepspeed is also valid. The deepspeed
+Providing an empty dictionary to DeepSpeed is also valid. The DeepSpeed
 defaults will be used and other fields (such as precision) will be inferred
 from the trainer.
 
@@ -461,6 +457,34 @@ points during training and (2) load them back to resume training later.
 
     The :doc:`checkpointing` guide.
 
+Gradient Accumulation
+~~~~~~~~~~~~~~~~~~~~~
+
+Composer supports gradient accumulation, which allows training arbitrary
+logical batch sizes on any hardware by breaking the batch into ``grad_accum``
+different microbatches.
+
+.. code:: python
+
+    from composer import Trainer
+
+    trainer = Trainer(
+        ...,
+        grad_accum=2,
+    )
+
+If ``grad_accum=auto``, Composer will try to automatically determine the
+smallest ``grad_accum`` which the current hardware supports. In order to support automatic
+gradient accumulation, Composer initially sets ``grad_accum=1``. During the training process,
+if a Cuda Out of Memory Exception is encountered, indicating the current batch size is too
+large for the hardware, Composer catches this exception and continues training after doubling
+``grad_accum``. As a secondary benefit, automatic gradient accumulation is able to dynamically
+adjust throughout the training process. For example, when using ``ProgressiveResizing``, input
+size increases throughout training. Composer automatically increases ``grad_accum`` only when
+required, such as when a Cuda OOM is encountered due to larger images, allowing for faster
+training at the start until image sizes are scaled up. Note that this feature is experimental
+and may not work with all algorithms.
+
 Reproducibility
 ~~~~~~~~~~~~~~~
 
@@ -489,7 +513,7 @@ determinism we recommend calling :func:`~composer.utils.reproducibility.seed_all
 
     warnings.filterwarnings(action="ignore", message="Deterministic mode is activated.")
 
-    MyModel = functools.partial(SimpleBatchPairModel, num_channels, num_classes)
+    MyModel = Model
 
 .. testcode::
 

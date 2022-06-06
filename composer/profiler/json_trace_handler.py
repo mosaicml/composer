@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Outputs profiling data in JSON trace format."""
 
@@ -27,9 +28,11 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, F
 __all__ = ["JSONTraceHandler"]
 
 
-class JSONTraceHandler(TraceHandler):
-    __doc__ = f"""Records trace events in `JSON trace format <https://\\
-    docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_.
+class JSONTraceHandler(TraceHandler):  # noqa: D101
+    __doc__ = f"""Records trace events in Chrome JSON trace format.
+
+    See `this document <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_
+    for more information.
 
     Traces are output to ``output_directory``.  Traces can be visualized using the Chrome Trace Viewer.
     To view in a Google Chrome browser, navigate to ``chrome://tracing`` and load the JSON trace file.
@@ -257,7 +260,7 @@ class JSONTraceHandler(TraceHandler):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         assert state.profiler is not None
-        timestamp = state.timer.get_timestamp()
+        timestamp = state.timestamp
         trace_folder = format_name_with_dist(self.folder, run_name=logger.run_name)
         if self._save_at_batch_end:
             # no longer active, but was previously active.

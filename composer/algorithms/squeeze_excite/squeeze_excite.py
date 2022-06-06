@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
@@ -161,7 +162,7 @@ class SqueezeExcite(Algorithm):
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Apply the Squeeze-and-Excitation layer replacement.
+        """Applies the Squeeze-and-Excitation layer replacement.
 
         Args:
             event (Event): the current event

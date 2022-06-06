@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Engine is a coordinator for running algorithms and resolving ordering conflicts among them for composition.
 
@@ -60,8 +61,10 @@ will emit a series of traces:
 
 from __future__ import annotations
 
+import atexit
 import contextlib
 import logging
+import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import ContextManager, Dict, Optional, Sequence, Union, cast
@@ -83,6 +86,41 @@ __all__ = ["Trace", "Engine", "Traces"]
 Traces = Dict[str, "Trace"]
 
 _ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
+_EVENTS_WHERE_DATALOADER_IS_SET = [e for e in Event if e != Event.INIT]
+_EVENTS_WHERE_MAX_DURATION_IS_SET = [
+    Event.FIT_START,
+    Event.EPOCH_START,
+    Event.BATCH_START,
+    Event.AFTER_DATALOADER,
+    Event.BEFORE_TRAIN_BATCH,
+    Event.BEFORE_FORWARD,
+    Event.AFTER_FORWARD,
+    Event.BEFORE_LOSS,
+    Event.AFTER_LOSS,
+    Event.BEFORE_BACKWARD,
+    Event.AFTER_BACKWARD,
+    Event.AFTER_TRAIN_BATCH,
+    Event.BATCH_END,
+    Event.BATCH_CHECKPOINT,
+    Event.EPOCH_END,
+    Event.EPOCH_CHECKPOINT,
+]
+
+# Track whether atexit triggered _close(), which indicates whether the python process is shutting down
+# If so, do not run close() again via __del__(), as Python machinery (e.g. the ability to do conditional
+# imports) are destroyed between close() and __del__().
+# Using a global variable instead of an instance variable as _close() is not bound to the instance
+_did_atexit_run = False
+
+
+def _set_atexit_ran():
+    global _did_atexit_run
+    _did_atexit_run = True
+
+
+# Since atexit calls hooks in LIFO order, this hook will always be invoked after all atexit-triggered
+# _close() calls are invoked
+atexit.register(_set_atexit_ran)
 
 
 @dataclass
@@ -90,8 +128,8 @@ class Trace():
     """Record of an algorithm's execution.
 
     Attributes:
-        exit_code (int or None): Optional return value from an algorithm. Default: None.
-        order (int or None): Order in which the algorithm was executed
+        exit_code (int | None): Optional return value from an algorithm. Default: None.
+        order (int | None): Order in which the algorithm was executed
                              in the list of algorithms. None means algorithm was not run.
         run (bool): Whether the algorithm was run. Default: False
     """
@@ -109,6 +147,11 @@ def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
     return OrderedDict([(f'{algo}/{event}', Trace()) for algo in algorithms])
 
 
+# Track which callbacks are already open, so it is possible to error and instruct the user to call
+# previous_trainer.close() if necessary before attempting to reuse a callback
+_OPEN_CALLBACKS = weakref.WeakSet()
+
+
 class Engine():
     """Coordinator for running algorithms and resolving ordering conflicts among them for composition.
 
@@ -121,6 +164,8 @@ class Engine():
     def __init__(self, state: State, logger: Logger):
         self.logger = logger
         self.state = state
+        self._is_closed = False
+        atexit.register(self._close, state, logger)
 
     def run_event(
         self,
@@ -153,13 +198,18 @@ class Engine():
 
 
         Args:
-            event (Event or str): The current :class:`~.event.Event`. It can be the enum member values or a
+            event (Event | str): The current :class:`~.event.Event`. It can be the enum member values or a
                 string with the event value.
+
         Returns:
             traces (Traces): Ordered dictionary of trace for each algorithm.
         """
         duration_marker = None
         event = Event(event)
+
+        if self._is_closed:
+            raise RuntimeError(("The engine was already closed and therefore cannot be used again. "
+                                "To fix, please create a new Engine (or Trainer)"))
 
         if self.state.profiler is not None:
             name = f"event/{event.canonical_name}"
@@ -173,6 +223,12 @@ class Engine():
 
         if event.is_after_event and duration_marker is not None:
             duration_marker.finish()
+
+        if event in _EVENTS_WHERE_DATALOADER_IS_SET:
+            assert self.state.dataloader is not None, f"The trainer should have set state.dataloader for event {event}."
+
+        if event in _EVENTS_WHERE_MAX_DURATION_IS_SET:
+            assert self.state.max_duration is not None, f"The trainer should have set state.max_duration for event {event}."
 
         if event == Event.INIT:
             # For the INIT event, run the callbacks first to initialize the loggers
@@ -279,6 +335,19 @@ class Engine():
         """
         event = Event(event)
 
+        if event == Event.INIT:
+            # Some callbacks may be open from a previous training run
+            # If so, error and instruct the user that they must call `trainer.close()`
+            # so callbacks can clean up and reset their state properly
+            for cb in self.state.callbacks:
+                # If it's not in the dictionary, then the callback is new, so it's closed by definition
+                if cb in _OPEN_CALLBACKS:
+                    raise RuntimeError(
+                        ("Cannot create a new trainer with an open callback or logger from a previous trainer. "
+                         "To fix, call trainer.close() before creating this new trainer to ensure that all "
+                         "callbacks or loggers shut down properly."))
+                _OPEN_CALLBACKS.add(cb)
+
         for cb in self.state.callbacks:
             marker = None
             if self.state.profiler is not None:
@@ -291,19 +360,37 @@ class Engine():
             with ctx:
                 cb.run_event(event, self.state, self.logger)
 
-    def close(self) -> None:
-        """Invokes :meth:`~.Callback.close` and :meth:`~.Callback.post_close` for each callback.
+    def __del__(self):
+        global _did_atexit_run
+        if _did_atexit_run or self._is_closed:
+            # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
+            return
+        self.close()
 
-        :meth:`~.Callback.close` is invoked for each callback. For all callbacks where :meth:`~.Callback.close` did not
-        raise an exception, then :meth:`~.Callback.post_close` is invoked.
+    def close(self) -> None:
+        """Shutdown the engine.
+
+        As part of the shutdown procedure, :meth:`~.Callback.close` and :meth:`~.Callback.post_close` is invoked
+        for each callback. Note that :meth:`~.Callback.post_close` is invoked only for callbacks that did not raise
+        an exception during :meth:`~.Callback.close`.
 
         This method does not re-raise any exceptions from :meth:`~.Callback.close` and :meth:`~.Callback.post_close`.
-        Instead, these exceptions are logged to the :class:`~.logger.Logger`.
+        Instead, these exceptions are logged as errors.
         """
+        self._close(self.state, self.logger)
+        # The self._is_closed flag would not be set if `_close` is called via atexit
+        # However, in these cases, the engine would never be used again, as Python is shutting
+        # down. It is only required to set the flag if the user manually calls `close()` and still holds
+        # a reference to the engine.
+        self._is_closed = True
+
+    @staticmethod
+    def _close(state: State, logger: Logger):
+        """The actual shutdown logic, as a static method, so the underlying engine can still be garbage collected."""
         callback_to_has_exception: Dict[Callback, bool] = {}
-        for callback in self.state.callbacks:
+        for callback in state.callbacks:
             try:
-                callback.close(self.state, self.logger)
+                callback.close(state, logger)
             except Exception as e:
                 log.error(
                     f"Error running {callback.__class__.__name__}.close(). Skipping {callback.__class__.__name__}.post_close().",
@@ -313,9 +400,11 @@ class Engine():
             else:
                 callback_to_has_exception[callback] = False
 
-        for callback in self.state.callbacks:
+        for callback in state.callbacks:
             if callback_to_has_exception[callback] is False:
                 try:
                     callback.post_close()
                 except Exception as e:
                     log.error(f"Error running {callback.__class__.__name__}.post_close().", exc_info=e, stack_info=True)
+                else:
+                    _OPEN_CALLBACKS.discard(callback)

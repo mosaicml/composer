@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
@@ -190,7 +191,6 @@ class StochasticDepth(Algorithm):
     @property
     def find_unused_parameters(self) -> bool:
         """DDP parameter to notify that parameters may not have gradients if it is dropped during the forward pass."""
-
         return (self.stochastic_method == "block")
 
     def match(self, event: Event, state: State) -> bool:
@@ -232,8 +232,10 @@ class StochasticDepth(Algorithm):
             logger.data_epoch({'stochastic_depth/num_stochastic_layers': num_stochastic_layers})
 
         elif event == Event.BATCH_START:
-            if state.get_elapsed_duration() < self.drop_warmup:
-                current_drop_rate = float(state.get_elapsed_duration() / self.drop_warmup) * self.drop_rate
+            elapsed_duration = state.get_elapsed_duration()
+            assert elapsed_duration is not None, "elapsed duration is set on BATCH_START"
+            if elapsed_duration < self.drop_warmup:
+                current_drop_rate = float(elapsed_duration / self.drop_warmup) * self.drop_rate
                 _update_drop_rate(state.model, stochastic_layer, current_drop_rate, self.drop_distribution)
             else:
                 current_drop_rate = self.drop_rate

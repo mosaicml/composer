@@ -1,11 +1,10 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
-
-from __future__ import annotations
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import logging
+import math
 from typing import Optional, Sequence, Union
 
-import numpy as np
 import torch
 from torch.optim import Optimizer
 
@@ -25,14 +24,14 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
 
     Ghost batch normalization modules split their input into chunks of
     ``ghost_batch_size`` samples and run batch normalization on each chunk
-    separately. Dim 0 is assumed to be the sample axis.
+    separately. ``dim=0`` is assumed to be the sample axis.
 
     Args:
-        model (torch.nn.Module): the model to modify in-place
+        model (:class:`torch.nn.Module`): the model to modify in-place
         ghost_batch_size (int, optional): size of sub-batches to normalize over. Default: ``32``.
-        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
+        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`], optional):
             Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
-            constructed with ``model.parameters()`` must be specified here so
+            constructed with ``model.parameters()`` must be specified here so that
             they will optimize the correct parameters.
 
             If the optimizer(s) are constructed *after* calling this function,
@@ -63,11 +62,12 @@ def apply_ghost_batchnorm(model: torch.nn.Module,
 
 
 class GhostBatchNorm(Algorithm):
-    """Replaces batch normalization modules with `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`_ modules
+    """Replaces batch normalization modules with
+    `Ghost Batch Normalization <https://arxiv.org/abs/1705.08741>`_ modules
     that simulate the effect of using a smaller batch size.
 
     Works by spliting input into chunks of ``ghost_batch_size`` samples and
-    running batch normalization on each chunk separately. Dim 0 is assumed to
+    running batch normalization on each chunk separately. ``dim=0`` is assumed to
     be the sample axis.
 
     Runs on :attr:`~composer.core.event.Event.INIT`.
@@ -83,8 +83,8 @@ class GhostBatchNorm(Algorithm):
         """Runs on :attr:`~composer.core.event.Event.INIT`.
 
         Args:
-            event (Event): The current event.
-            state (State): The current state.
+            event (:class:`Event`): The current event.
+            state (:class:`State`): The current state.
 
         Returns:
             bool: True if this algorithm should run
@@ -132,7 +132,7 @@ class _GhostBatchNorm(torch.nn.Module):
     """`Ghost batch normalization <https://arxiv.org/abs/1705.08741>`_ layer.
 
     Works by spliting input into chunks of ``ghost_batch_size`` samples and
-    running batch normalization on each chunk separately. Dim 0 is assumed to
+    running batch normalization on each chunk separately. ``dim=0`` is assumed to
     be the sample axis.
 
     See also `torch.nn.BatchNorm1d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html>`_,
@@ -140,7 +140,7 @@ class _GhostBatchNorm(torch.nn.Module):
     `torch.nn.BatchNorm3d <https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm3d.html>`_.
 
     Args:
-        base_batchnorm: A batch normalization module to be applied to each chunk
+        base_batchnorm (:class:`torch.nn.modules.batchnorm._BatchNorm`): A batch normalization module to be applied to each chunk
         ghost_batch_size (int, optional): the size of the chunks passed into the underlying
             batch normalization. Default: ``32``.
 
@@ -156,34 +156,43 @@ class _GhostBatchNorm(torch.nn.Module):
         self.ghost_batch_size = ghost_batch_size
         self.batchnorm = base_batchnorm
 
-    def _has_momentum(self) -> bool:
-        return hasattr(self.batchnorm, 'momentum') and self.batchnorm.momentum is not None
-
     def forward(self, input: torch.Tensor) -> torch.Tensor:  # type: ignore
         batch_size = input.shape[0]
+
         if batch_size < self.ghost_batch_size:
             raise ValueError(f"Worker batch size {batch_size} < ghost_batch_size {self.ghost_batch_size}")
 
-        nchunks = int(np.ceil(batch_size / self.ghost_batch_size))
-        has_momentum = self._has_momentum()
-        if has_momentum:
+        nchunks: int = int(math.ceil(batch_size / self.ghost_batch_size))
+        has_momentum = self.batchnorm.momentum is not None
+        original_momentum: float = self.batchnorm.momentum
+
+        if self.training and has_momentum:
             # applying the same batchnorm multiple times greatly increases
             # the variance of the moving average statistics; reduce the
             # exponential moving average constant proportionally
-            # to partially compensate for this
-            original_momentum = self.batchnorm.momentum
-            self.batchnorm.momentum = float(original_momentum) / nchunks  # type: ignore
+            # to compensate.
+            self._scale_momentum(nchunks)
+
         normalized_chunks = [self.batchnorm(chunk) for chunk in input.chunk(nchunks, 0)]
-        if has_momentum:
-            self.batchnorm.momentum = original_momentum  # type: ignore
+
+        if self.training and has_momentum:
+            self._unscale_momentum(original_momentum)
 
         return torch.cat(normalized_chunks, dim=0)
 
     @staticmethod
-    def from_batchnorm(module: torch.nn.Module, ghost_batch_size: int) -> _GhostBatchNorm:
+    def from_batchnorm(module: torch.nn.Module, ghost_batch_size: int) -> "_GhostBatchNorm":
         assert isinstance(module, _TORCH_BATCHNORM_BASE_CLASS), "Module is not a BatchNorm subclass!"
         bn_type = _corresponding_ghost_batchnorm_type(module)
         return bn_type(ghost_batch_size=ghost_batch_size, base_batchnorm=module)
+
+    @torch.jit.unused
+    def _scale_momentum(self, nchunks: int):
+        self.batchnorm.momentum = float(self.batchnorm.momentum) / nchunks
+
+    @torch.jit.unused
+    def _unscale_momentum(self, original_momentum: float):
+        self.batchnorm.momentum = original_momentum
 
 
 class GhostBatchNorm1d(_GhostBatchNorm):

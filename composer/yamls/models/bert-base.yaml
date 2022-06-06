@@ -12,26 +12,32 @@ train_dataset:
     use_masked_lm: true
     mlm_probability: 0.15
     max_seq_length: 128
-val_dataset:
-  lm:
-    split: validation
-    datadir:
-      - /datasets/wikipedia_saved_bert_128
-      - /datasets/bookcorpus_saved_bert_128
-    tokenizer_name: bert-base-uncased
-    seed: 19
-    shuffle: true
-    drop_last: false
-    subsample_ratio: 0.02
-    use_masked_lm: true
-    mlm_probability: 0.15
-    max_seq_length: 128
+evaluators:
+  - evaluator:
+      label: bert-base
+      eval_dataset:
+        lm:
+          split: validation
+          datadir:
+            - /datasets/wikipedia_saved_bert_128
+            - /datasets/bookcorpus_saved_bert_128
+          tokenizer_name: bert-base-uncased
+          seed: 19
+          shuffle: true
+          drop_last: false
+          subsample_ratio: 0.02
+          use_masked_lm: true
+          mlm_probability: 0.15
+          max_seq_length: 128
+      metric_names:
+        - LanguageCrossEntropy
+        - MaskedAccuracy
 model:
   bert:
     use_pretrained: false
     tokenizer_name: bert-base-uncased
     pretrained_model_name: bert-base-uncased
-optimizer:
+optimizers:
   decoupled_adamw:
     lr: 5.0e-4
     betas:
@@ -42,12 +48,10 @@ optimizer:
 schedulers:
   - linear_decay_with_warmup:
       t_warmup: 0.06dur
-max_duration: 7ep # Baseline is 256M samples, 7 epochs is ~280M samples
+max_duration: 256_000_000
 train_batch_size: 4000
 eval_batch_size: 2000
 seed: 19
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   persistent_workers: true
@@ -55,7 +59,4 @@ dataloader:
   timeout: 0
   prefetch_factor: 2
 grad_accum: 2
-precision: amp
-grad_clip_norm: None
-validate_every_n_batches: 1000
-validate_every_n_epochs: 1
+eval_interval: 1000ba

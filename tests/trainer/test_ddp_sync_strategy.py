@@ -1,17 +1,15 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import pytest
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torchmetrics import MetricCollection
-from torchmetrics.classification.accuracy import Accuracy
 
-from composer.core import Evaluator, State
-from composer.core.types import DataLoader
-from composer.trainer.ddp import _ddp_sync_context, _prepare_ddp_module
+from composer.core import State
+from composer.trainer.ddp import ddp_sync_context, prepare_ddp_module
 from composer.utils import dist
 
 
@@ -48,28 +46,28 @@ class MinimalConditionalModel(nn.Module):
     pytest.param('forced_sync', ([-1, None, None], [-1, -1, None], [-1.5, -1.5, None]), id='forced_sync'),
 ])
 @pytest.mark.world_size(2)
-def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional[float]],
-                           dummy_train_dataloader: DataLoader, dummy_val_dataloader: DataLoader, rank_zero_seed: int):
+def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[List[Optional[float]]],
+                           dummy_train_dataloader: Iterable, rank_zero_seed: int):
     original_model = MinimalConditionalModel()
     # ddp = DDP(backend="gloo", find_unused_parameters=True, sync_strategy=ddp_sync_strategy, timeout=5.)
     optimizer = torch.optim.SGD(original_model.parameters(), 0.1)
-    metric_coll = MetricCollection([Accuracy()])
-    evaluators = [Evaluator(label="dummy_label", dataloader=dummy_val_dataloader, metrics=metric_coll)]
-    state = State(model=original_model,
-                  rank_zero_seed=rank_zero_seed,
-                  optimizers=optimizer,
-                  grad_accum=2,
-                  max_duration="1ep",
-                  train_dataloader=dummy_train_dataloader,
-                  evaluators=evaluators,
-                  precision='fp32')
+    state = State(
+        model=original_model,
+        rank_zero_seed=rank_zero_seed,
+        optimizers=optimizer,
+        grad_accum=2,
+        max_duration="1ep",
+        dataloader=dummy_train_dataloader,
+        dataloader_label="train",
+        precision='fp32',
+    )
 
     batches = [[(1, Tensor([1])), (1, Tensor([2]))], [(2, Tensor([1])), (2, Tensor([2]))]]
-    state.model = _prepare_ddp_module(state.model, find_unused_parameters=True)
+    state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
     optimizer.zero_grad()
 
     for microbatch_idx in range(2):
-        with _ddp_sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
+        with ddp_sync_context(state, microbatch_idx == 1, sync_strategy=ddp_sync_strategy):
             input, target = batches[microbatch_idx][dist.get_local_rank()]
 
             output = state.model.forward(input)
@@ -79,10 +77,10 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[Optional
 
             if dist.get_global_rank() == 0:
                 grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
-                for expected, actual in zip(expected_grads[microbatch_idx], grads):  # type: ignore
+                for expected, actual in zip(expected_grads[microbatch_idx], grads):
                     assert expected == actual
 
     if dist.get_global_rank() == 0:
         grads = [p.grad.item() if p.grad else None for p in original_model.parameters()]
-        for expected, actual in zip(expected_grads[-1], grads):  # type: ignore
+        for expected, actual in zip(expected_grads[-1], grads):
             assert expected == actual

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Dataset Hyperparameter classes."""
 
@@ -7,7 +8,7 @@ from __future__ import annotations
 import abc
 import textwrap
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Iterable, Optional, Union
 
 try:
     import custom_inherit
@@ -20,7 +21,7 @@ else:
 import yahp as hp
 
 from composer.core import DataSpec
-from composer.core.types import DataLoader, MemoryFormat
+from composer.core.types import MemoryFormat
 from composer.datasets.dataloader import DataLoaderHparams
 
 __all__ = ["SyntheticHparamsMixin", "DatasetHparams"]
@@ -77,7 +78,7 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
     datadir: Optional[str] = hp.optional("The path to the data directory", default=None)
 
     @abc.abstractmethod
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> Union[DataLoader, DataSpec]:
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> Union[Iterable, DataSpec]:
         """Creates a :class:`~.core.types.DataLoader` or
         :class:`~.core.data_spec.DataSpec` for this dataset.
 
@@ -88,21 +89,7 @@ class DatasetHparams(hp.Hparams, abc.ABC, metaclass=metaclass):
                 the dataloader.
 
         Returns:
-            DataLoader or DataSpec: The :class:`~core.types.DataLoader`, or if the dataloader yields batches of custom
-                types, a :class:`~core.data_spec.DataSpec`.
+            Iterable | DataSpec: An iterable that yields batches, or if the dataset yields batches that need custom
+            processing, a :class:`~core.data_spec.DataSpec`.
         """
         pass
-
-
-@dataclass
-class WebDatasetHparams(DatasetHparams, abc.ABC, metaclass=metaclass):
-    """Abstract base class for hyperparameters to initialize a webdataset.
-
-    Args:
-        webdataset_cache_dir (str): WebDataset cache directory.
-        webdataset_cache_verbose (str): WebDataset cache verbosity.
-    """
-
-    webdataset_cache_dir: str = hp.optional('WebDataset cache directory', default='/tmp/webdataset_cache/')
-    webdataset_cache_verbose: bool = hp.optional('WebDataset cache verbosity', default=False)
-    shuffle_buffer: int = hp.optional('WebDataset shuffle buffer size per worker', default=256)

@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Monitor learning rate during training."""
 from composer.core import Callback, State
@@ -13,8 +14,7 @@ class LRMonitor(Callback):
     This callback iterates over all optimizers and their parameter groups to log learning rate under the
     ``lr-{OPTIMIZER_NAME}/group{GROUP_NUMBER}`` key.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer.callbacks import LRMonitor
@@ -27,10 +27,6 @@ class LRMonitor(Callback):
         ...     max_duration="1ep",
         ...     callbacks=[LRMonitor()],
         ... )
-    
-    .. testcleanup::
-
-        trainer.engine.close()
 
     The learning rate is logged by the :class:`~composer.loggers.logger.Logger` to the following key as described
     below.
@@ -45,7 +41,7 @@ class LRMonitor(Callback):
     """
 
     def __init__(self) -> None:
-        super().__init__()
+        pass
 
     def batch_end(self, state: State, logger: Logger):
         assert state.optimizers is not None, "optimizers must be defined"

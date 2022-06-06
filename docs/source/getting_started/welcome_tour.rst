@@ -110,12 +110,12 @@ simple:
 
     class MixUp(Algorithm):
         def match(self, event: Event, state: State) -> bool:
-            """Determine whether the algorithm should run on a given event."""
+            """Determines whether the algorithm should run on a given event."""
             return event in [Event.AFTER_DATALOADER, Event.AFTER_LOSS]
 
         def apply(self, event: Event, state: State, logger: Logger) -> None:
             """Run the algorithm by modifying the State."""
-            input, target = state.batch_pair
+            input, target = state.batch
 
             if event == Event.AFTER_DATALOADER:
                 new_input, self.permuted_target, self.mixing = mixup_batch(input, target, alpha=0.2)

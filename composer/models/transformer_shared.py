@@ -1,4 +1,5 @@
-# Copyright 2021 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The ComposerModel base interface for Transformers."""
 
@@ -81,7 +82,7 @@ class ComposerTransformer(ComposerModel):
         raise NotImplementedError("A model-specific loss function must be written.")
 
     def forward(self, batch: Batch) -> Mapping:
-        """Runs the forward pass of the model.
+        """Run the forward pass of the model.
 
         Args:
             batch (~composer.core.types.Batch): A dictionary of Dict[str, Tensor] of inputs that the

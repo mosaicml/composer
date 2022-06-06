@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from itertools import product
 
 import pytest
@@ -20,7 +23,11 @@ def generate_parameter_configs(keys, num_replicas=1):
 
     config_combinations = []
     for combo in product(*[config_options[i] for i in keys]):
-        config_combinations.append([dict(zip(keys, combo)) for _ in range(num_replicas)])
+        config = dict(zip(keys, combo))
+        if "tokenizer_family" in keys:
+            config['drop_last'] = False
+            config['use_masked_lm'] = config['tokenizer_family'] == 'bert'
+        config_combinations.append([config for _ in range(num_replicas)])
     return config_combinations
 
 
@@ -68,7 +75,7 @@ def tokenized_dataset(tokenizer, dataset, config):
     dataset = dataset.map(lambda inp: tokenizer(
         text=inp[config['column_names'][0]], padding="max_length", max_length=max_length, truncation=True),
                           batched=True,
-                          num_proc=1,
+                          num_proc=None,
                           keep_in_memory=True)
     return dataset
 
@@ -86,7 +93,8 @@ def test_tokenizer_specific_properties(tokenizer, tokenized_dataset, config):
     x = tokenized_dataset['input_ids'][0]
     max_length = config['chars_per_sample'] * 2
     assert len(x) == max_length
-
+    assert config['use_masked_lm'] == (config['tokenizer_family'] == 'bert')
+    assert ~config['drop_last']
     # add some tokenizer-specific tests
     if config['tokenizer_family'] == "bert":
         assert x[0] == tokenizer.cls_token_id

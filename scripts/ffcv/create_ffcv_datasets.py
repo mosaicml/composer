@@ -1,19 +1,23 @@
-import json
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+"""Helper utilities to create FFCV datasets."""
+
 import logging
 import os
-import subprocess
 import sys
 import textwrap
 from argparse import ArgumentParser
 
 from torch.utils.data import Subset
 from torchvision.datasets import CIFAR10, ImageFolder
-from composer.core.types import Dataset
+
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 
 log = logging.getLogger(__name__)
 
-def get_parser():
+
+def _get_parser():
     parser = ArgumentParser(description="Utility for converting datasets to ffcv format.")
 
     parser.add_argument("--dataset",
@@ -26,7 +30,7 @@ def get_parser():
                         type=str,
                         default="s3://mosaicml-internal-dataset-cifar10",
                         help=textwrap.dedent("""\
-                                WebDataset to use. Default: s3://mosaicml-internal-dataset-cifar10"""))
+                                Streaming dataset to use. Default: s3://mosaicml-internal-dataset-cifar10"""))
     parser.add_argument("--split",
                         type=str,
                         default="train",
@@ -79,8 +83,8 @@ def get_parser():
     return parser
 
 
-def parse_args():
-    parser = get_parser()
+def _parse_args():
+    parser = _get_parser()
 
     args = parser.parse_args()
 
@@ -98,9 +102,9 @@ def parse_args():
     return args
 
 
-def main():
+def _main():
 
-    args = parse_args()
+    args = _parse_args()
 
     ds = None
     remote_location = None
@@ -129,4 +133,4 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(_main())
