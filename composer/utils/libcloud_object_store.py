@@ -7,6 +7,7 @@ import sys
 import tempfile
 import uuid
 from typing import Any, Dict, Iterator, Optional, Union
+from composer.utils.object_store import ObjectStore
 
 from libcloud.storage.providers import get_driver
 from libcloud.storage.types import ObjectDoesNotExistError
@@ -14,7 +15,7 @@ from libcloud.storage.types import ObjectDoesNotExistError
 __all__ = ["LibcloudObjectStore"]
 
 
-class LibcloudObjectStore:
+class LibcloudObjectStore(ObjectStore):
     """Utility for uploading to and downloading from object (blob) stores, such as Amazon S3.
 
     .. rubric:: Example
