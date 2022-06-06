@@ -3,14 +3,14 @@
 
 """Abstract class for utilities that upload to and download from object stores."""
 
-from typing import Iterator, Union
 import abc
+from typing import Iterator, Union
 
 __all__ = ["ObjectStore"]
 
 
 class ObjectStore(abc.ABC):
-    """Abstract class for implementing object stores, such as LibcloudObjectStore and S3ObjectStore"""
+    """Abstract class for implementing object stores, such as LibcloudObjectStore and S3ObjectStore."""
 
     def upload_object(self, file_path: str, object_name: str):
         """Upload an object currently located on a disk.
@@ -36,7 +36,7 @@ class ObjectStore(abc.ABC):
         destination_path: str,
     ):
         """Download an object to the specified destination path.
-        
+
         Args:
             object_name (str): The name of the object to download.
             destination_path (str): Full path to a file or a directory where the incoming file will be saved.
@@ -48,7 +48,7 @@ class ObjectStore(abc.ABC):
 
         Args:
             object_name (str): Object name
-        
+
         Returns:
             Iterator[bytes]: The object, as a byte stream.
         """

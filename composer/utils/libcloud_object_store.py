@@ -7,10 +7,11 @@ import sys
 import tempfile
 import uuid
 from typing import Any, Dict, Iterator, Optional, Union
-from composer.utils.object_store import ObjectStore
 
 from libcloud.storage.providers import get_driver
 from libcloud.storage.types import ObjectDoesNotExistError
+
+from composer.utils.object_store import ObjectStore
 
 __all__ = ["LibcloudObjectStore"]
 
