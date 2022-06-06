@@ -7,13 +7,13 @@ The most widely used dataset for Image Classification algorithms. Please refer t
 Dataset <http://image-net.org/>`_ for more details.
 """
 
-from io import BytesIO
-import numpy as np
 import os
-from PIL import Image
+from io import BytesIO
 from typing import Any, List, Optional
 
+import numpy as np
 import torch
+from PIL import Image
 from torchvision import transforms
 
 from composer.datasets.streaming import StreamingDataset

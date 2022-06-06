@@ -1,8 +1,8 @@
-import numpy as np
 import os
-from PIL import Image
 from typing import Any, Optional
 
+import numpy as np
+from PIL import Image
 from torchvision import transforms
 
 from composer.datasets.streaming import StreamingDataset

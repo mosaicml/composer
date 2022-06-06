@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from typing import List
 
 import torch
-from torch.utils.data import DataLoader
 import yahp as hp
+from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
