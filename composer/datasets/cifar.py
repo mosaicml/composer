@@ -20,7 +20,7 @@ class StreamingCIFAR10(StreamingDataset):
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         local (str): Local filesystem directory where dataset is cached during operation.
-        is_train (bool): Whether is training split.
+        split (str): The dataset split to use, either 'train' or 'val'.
         shuffle (bool): Whether to shuffle the samples in this dataset.
         batch_size (Optional[int]): Hint batch_size that will be used on each device's DataLoader. Default: ``None``.
     """
@@ -49,9 +49,8 @@ class StreamingCIFAR10(StreamingDataset):
         """
         return np.frombuffer(data, np.int64)[0]
 
-    def __init__(self, remote: str, local: str, is_train: bool, shuffle: bool, batch_size: Optional[int] = None):
+    def __init__(self, remote: str, local: str, split: str, shuffle: bool, batch_size: Optional[int] = None):
         # Build StreamingDataset
-        split = 'train' if is_train else 'val'
         decoders = {
             'x': self.decode_image,
             'y': self.decode_class,
@@ -65,7 +64,7 @@ class StreamingCIFAR10(StreamingDataset):
         # Define custom transforms
         channel_means = 0.4914, 0.4822, 0.4465
         channel_stds = 0.247, 0.243, 0.261
-        if is_train:
+        if split == 'train':
             self.transform = transforms.Compose([
                 transforms.RandomCrop(32, 4),
                 transforms.RandomHorizontalFlip(),

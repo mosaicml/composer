@@ -185,7 +185,12 @@ class StreamingCIFAR10Hparams(DatasetHparams):
                              default='/tmp/mds-cache/mds-cifar10/')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
-        dataset = StreamingCIFAR10(self.remote, self.local, self.is_train, self.shuffle, batch_size)
+        split = 'train' if self.is_train else 'val'
+        dataset = StreamingCIFAR10(remote=self.remote,
+                                   local=self.local,
+                                   split=split,
+                                   shuffle=self.shuffle,
+                                   batch_size=batch_size)
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=None,
