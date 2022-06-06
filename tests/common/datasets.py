@@ -12,9 +12,10 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.datasets import VisionDataset
 
-from composer.datasets import GLUEHparams, LMDatasetHparams
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.glue_hparams import GLUEHparams
+from composer.datasets.lm_dataset_hparams import LMDatasetHparams
+from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.models import ModelHparams
 from composer.models.transformer_hparams import TransformerHparams
 from tests.common.models import model_hparams_to_tokenizer_family

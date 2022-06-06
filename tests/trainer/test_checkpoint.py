@@ -20,7 +20,8 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit, ensure_time
-from composer.datasets import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.dataset_hparams import DatasetHparams
+from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.loggers import ObjectStoreLogger
 from composer.optim import CosineAnnealingScheduler
 from composer.optim.optimizer_hparams_registry import AdamWHparams
