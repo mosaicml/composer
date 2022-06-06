@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
@@ -20,6 +21,8 @@ from typing import Any, Dict, List
 
 import psutil
 
+import composer
+
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
 log = logging.getLogger(__name__)
@@ -27,6 +30,8 @@ log = logging.getLogger(__name__)
 
 def _get_parser():
     parser = ArgumentParser(description="Utility for launching distributed machine learning jobs.")
+
+    parser.add_argument("--version", action="version", version=f'composer {composer.__version__}')
 
     required_args = parser.add_argument_group("required arguments")
 
