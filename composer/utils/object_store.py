@@ -19,7 +19,7 @@ class ObjectStore(abc.ABC):
             file_path (str): Path the the object on disk
             object_name (str): Object name (where object will be stored in the container)
         """
-        raise NotImplementedException(f"{type(self).__name__}.upload_object is not implemented")
+        raise NotImplementedError(f"{type(self).__name__}.upload_object is not implemented")
 
     def upload_object_via_stream(self, obj: Union[bytes, Iterator[bytes]], object_name: str):
         """Upload an object.
@@ -28,8 +28,7 @@ class ObjectStore(abc.ABC):
             obj (bytes | Iterator[bytes]): The object
             object_name (str): Object name (i.e. where the object will be stored in the container)
         """
-
-        raise NotImplementedException(f"{type(self).__name__}.upload_object_via_stream is not implemented")   
+        raise NotImplementedError(f"{type(self).__name__}.upload_object_via_stream is not implemented")   
 
     def get_object_size(self, object_name: str) -> int:
         """Get the size of an object, in bytes.
@@ -40,7 +39,7 @@ class ObjectStore(abc.ABC):
         Returns:
             int: The object size, in bytes.
         """
-        raise NotImplementedException(f"{type(self).__name__}.get_object_size is not implemented")
+        raise NotImplementedError(f"{type(self).__name__}.get_object_size is not implemented")
 
     def download_object(
         self,
@@ -58,7 +57,7 @@ class ObjectStore(abc.ABC):
             overwrite_existing (bool, optional): Whether to overwrite an existing file at ``destination_path``, if it exists.
                 (default: ``False``)
         """
-        raise NotImplementedException(f"{type(self).__name__}.download_object is not implemented")
+        raise NotImplementedError(f"{type(self).__name__}.download_object is not implemented")
 
     def download_object_as_stream(self, object_name: str, chunk_size: Optional[int] = None):
         """Return a iterator which yields object data.
@@ -70,4 +69,4 @@ class ObjectStore(abc.ABC):
         Returns:
             Iterator[bytes]: The object, as a byte stream.
         """
-        raise NotImplementedException(f"{type(self).__name__}.download_object_as_stream is not implemented")
+        raise NotImplementedError(f"{type(self).__name__}.download_object_as_stream is not implemented")
