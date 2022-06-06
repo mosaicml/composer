@@ -1043,7 +1043,7 @@ class Trainer:
             for save_arg in [save_folder, save_latest_filename, save_latest_artifact_name]:
                 for _, field_name, _, _ in string.Formatter().parse(save_arg):
                     if field_name == "run_name":
-                        raise ValueError("run_name must be specified so autoresume knows which run to load from.")
+                        raise ValueError("Since the `{save_arg}` contains the {{run_name}} variable, the `run_name` argument must be specified to determine the checkpoint path and load the checkpoint.")
             # Set run_name to a dummy value so we can still call format_name_with_dist
             run_name = "dummy_run_name"
         assert run_name is not None
