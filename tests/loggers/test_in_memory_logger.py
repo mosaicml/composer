@@ -11,7 +11,7 @@ from composer.loggers import InMemoryLogger, Logger, LogLevel
 
 def test_in_memory_logger(dummy_state: State):
     in_memory_logger = InMemoryLogger(LogLevel.EPOCH)
-    logger = Logger(dummy_state, destinations=[in_memory_logger], run_name="run_name")
+    logger = Logger(dummy_state, destinations=[in_memory_logger])
     logger.data_batch({"batch": "should_be_ignored"})
     logger.data_epoch({"epoch": "should_be_recorded"})
     dummy_state.timestamp = dummy_state.timestamp.to_next_batch(samples=1, tokens=1)

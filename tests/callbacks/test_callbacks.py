@@ -29,7 +29,7 @@ def test_callbacks_map_to_events():
 @pytest.mark.parametrize('event', list(Event))
 def test_run_event_callbacks(event: Event, dummy_state: State):
     callback = EventCounterCallback()
-    logger = Logger(dummy_state, run_name="run_name")
+    logger = Logger(dummy_state)
     dummy_state.callbacks = [callback]
     engine = Engine(state=dummy_state, logger=logger)
 
@@ -58,7 +58,7 @@ class TestCallbacks:
         dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
         dummy_state.profiler.bind_to_state(dummy_state)
 
-        logger = Logger(dummy_state, run_name="run_name")
+        logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
         engine.run_event(Event.INIT)  # always runs just once per engine
@@ -76,7 +76,7 @@ class TestCallbacks:
         dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
         dummy_state.profiler.bind_to_state(dummy_state)
 
-        logger = Logger(dummy_state, run_name="run_name")
+        logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
         engine.run_event(Event.INIT)  # always runs just once per engine
@@ -90,7 +90,7 @@ class TestCallbacks:
         dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
         dummy_state.profiler.bind_to_state(dummy_state)
 
-        logger = Logger(dummy_state, run_name="run_name")
+        logger = Logger(dummy_state)
         engine = Engine(state=dummy_state, logger=logger)
 
         engine.run_event(Event.INIT)

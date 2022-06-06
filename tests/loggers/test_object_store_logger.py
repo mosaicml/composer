@@ -44,7 +44,7 @@ def object_store_test_helper(tmp_path: pathlib.Path,
     destination = hparams.initialize_object()
     if should_filter:
         destination.should_log_artifact = my_filter_func
-    logger = Logger(dummy_state, run_name="run_name", destinations=[destination])
+    logger = Logger(dummy_state, destinations=[destination])
     artifact_name = "artifact_name"
     symlink_artifact_name = "latest_artifact"
     destination.run_event(Event.INIT, dummy_state, logger)

@@ -163,6 +163,7 @@ class State(Serializable):
             ``0``.
         profiler (Profiler): The profiler (if profiling is enabled), or ``None`` if not profiling.
         rank_zero_seed (int): The seed of the rank zero process.
+        run_name (str): The name for this training run.
         scaler (torch.cuda.amp.GradScaler): The gradient scaler if using mixed-precision training, or
             ``None`` if not using mixed-precision training.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
@@ -189,6 +190,8 @@ class State(Serializable):
             | rank_zero_seed        | The seed of the rank zero process.                          |
             +-----------------------+-------------------------------------------------------------+
             | current_metrics       | The current metrics.                                        |
+            +-----------------------+-------------------------------------------------------------+
+            | run_name              | The run name for training.                                  |
             +-----------------------+-------------------------------------------------------------+
 
         timestamp (Timestamp): The current training timestamp.

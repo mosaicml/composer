@@ -33,7 +33,7 @@ def minimal_state(rank_zero_seed: int):
 @pytest.fixture
 def empty_logger(minimal_state: State) -> Logger:
     """Logger without any output configured."""
-    return Logger(state=minimal_state, destinations=[], run_name="run_name")
+    return Logger(state=minimal_state, destinations=[])
 
 
 @pytest.fixture(autouse=True)

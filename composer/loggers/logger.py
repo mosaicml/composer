@@ -65,22 +65,18 @@ class Logger:
         state (State): The training state.
         destinations (LoggerDestination | Sequence[LoggerDestination], optional):
             The logger destinations, to where logging data will be sent. (default: ``None``)
-        run_name (str): The name for this training run.
 
     Attributes:
         destinations (Sequence[LoggerDestination]):
             A sequence of :class:`~.LoggerDestination` to where logging calls will be sent.
-        run_name (str): The ``run_name``.
     """
 
     def __init__(
         self,
         state: State,
-        run_name: str,
         destinations: Optional[Union[LoggerDestination, Sequence[LoggerDestination]]] = None,
     ):
         self.destinations = ensure_tuple(destinations)
-        self.run_name = run_name
         self._state = state
 
     def data(self, log_level: Union[str, int, LogLevel], data: Dict[str, Any]) -> None:
@@ -118,13 +114,13 @@ class Logger:
                 (default: ``False``)
         """
         log_level = LogLevel(log_level)
-        file_path = format_name_with_dist(format_str=str(file_path), run_name=self.run_name)
+        file_path = format_name_with_dist(format_str=str(file_path), run_name=self._state.run_name)
         file_path = pathlib.Path(file_path)
         for destination in self.destinations:
             destination.log_file_artifact(
                 state=self._state,
                 log_level=log_level,
-                artifact_name=format_name_with_dist(format_str=artifact_name, run_name=self.run_name),
+                artifact_name=format_name_with_dist(format_str=artifact_name, run_name=self._state.run_name),
                 file_path=file_path,
                 overwrite=overwrite,
             )
@@ -154,8 +150,10 @@ class Logger:
             destination.log_symlink_artifact(
                 state=self._state,
                 log_level=log_level,
-                existing_artifact_name=format_name_with_dist(format_str=existing_artifact_name, run_name=self.run_name),
-                symlink_artifact_name=format_name_with_dist(format_str=symlink_artifact_name, run_name=self.run_name),
+                existing_artifact_name=format_name_with_dist(format_str=existing_artifact_name,
+                                                             run_name=self._state.run_name),
+                symlink_artifact_name=format_name_with_dist(format_str=symlink_artifact_name,
+                                                            run_name=self._state.run_name),
                 overwrite=overwrite,
             )
 

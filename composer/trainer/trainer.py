@@ -11,7 +11,6 @@ import itertools
 import logging
 import os
 import pathlib
-import string
 import time
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
@@ -206,6 +205,18 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
+def _get_run_name(run_name: Optional[str]) -> str:
+    generated_run_name = run_name
+    if generated_run_name is None:
+        # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
+        generated_run_name = str(int(time.time())) + "-" + coolname.generate_slug(2)
+        run_name_list = [generated_run_name]
+        # ensure all ranks have the same experiment name
+        dist.broadcast_object_list(run_name_list)
+        generated_run_name = run_name_list[0]
+    return generated_run_name
+
+
 class Trainer:
     """Train models with Composer algorithms.
 
@@ -392,7 +403,7 @@ class Trainer:
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
         run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
-            :doc:`coolname <coolname:index>`.
+            :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
@@ -753,14 +764,7 @@ class Trainer:
         grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Run Name
-        generated_run_name = run_name
-        if generated_run_name is None:
-            # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
-            generated_run_name = str(int(time.time())) + "-" + coolname.generate_slug(2)
-            run_name_list = [generated_run_name]
-            # ensure all ranks have the same experiment name
-            dist.broadcast_object_list(run_name_list)
-            generated_run_name = run_name_list[0]
+        generated_run_name = _get_run_name(run_name=run_name)
 
         # Create the State
         self.state = State(rank_zero_seed=rank_zero_seed,
@@ -797,7 +801,7 @@ class Trainer:
                 ))
 
         # Logger
-        self.logger = Logger(state=self.state, destinations=loggers, run_name=generated_run_name)
+        self.logger = Logger(state=self.state, destinations=loggers)
 
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
@@ -955,13 +959,8 @@ class Trainer:
                                               strict_model_weights=load_strict_model_weights,
                                               chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
-            # If using autoresume, use loaded run_name
-            if autoresume and run_name is not None:
-                self.logger.run_name = self.state.run_name
-                log.info(f"Using loaded run_name {self.state.run_name} from checkpoint.")
-            # Otherwise, discard loaded run_name and use new one
-            else:
-                self.state.run_name = generated_run_name
+            # Always override run_name. In the future, we'll use the loaded name and not require run_name
+            self.state.run_name = generated_run_name
             log.info(f"Setting seed to {self.state.seed}")
             reproducibility.seed_all(self.state.seed)
 
@@ -1038,15 +1037,8 @@ class Trainer:
         if save_latest_filename is None:
             raise ValueError(
                 "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
-        # Check run_name is provided if necessary
         if run_name is None:
-            for save_arg in [save_folder, save_latest_filename, save_latest_artifact_name]:
-                for _, field_name, _, _ in string.Formatter().parse(save_arg):
-                    if field_name == "run_name":
-                        raise ValueError("Since the `{save_arg}` contains the {{run_name}} variable, the `run_name` argument must be specified to determine the checkpoint path and load the checkpoint.")
-            # Set run_name to a dummy value so we can still call format_name_with_dist
-            run_name = "dummy_run_name"
-        assert run_name is not None
+            raise ValueError("run_name must be specified so autoresume knows which run to load from.")
         save_latest_filename = format_name_with_dist(save_latest_filename, run_name)
         save_folder = format_name_with_dist(save_folder, run_name)
         save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, run_name)

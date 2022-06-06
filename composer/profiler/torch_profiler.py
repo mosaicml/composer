@@ -81,7 +81,7 @@ class TorchProfiler(Callback):  # noqa: D101
 
             Consider the following scenario, where:
 
-            *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``.
+            *   The :attr:`~.state.run_name` is ``'awesome-training-run'``.
             *   The default ``trace_folder='{{run_name}}/torch_traces'`` is used.
             *   The default ``name='rank{{rank}}.{{batch}}.pt.trace.json'`` is used.
             *   The current epoch count is ``1``.
@@ -173,7 +173,7 @@ class TorchProfiler(Callback):  # noqa: D101
             raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
                                 f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
 
-        folder_name = format_name_with_dist(self.folder, logger.run_name)
+        folder_name = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder_name, exist_ok=True)
         if not self.overwrite:
             ensure_folder_is_empty(folder_name)
@@ -202,7 +202,7 @@ class TorchProfiler(Callback):  # noqa: D101
 
             trace_file_name = os.path.join(
                 folder_name,
-                format_name_with_dist_and_time(self.filename, run_name=logger.run_name, timestamp=timestamp),
+                format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=timestamp),
             )
             trace_file_dirname = os.path.dirname(trace_file_name)
             if trace_file_dirname:
@@ -211,7 +211,7 @@ class TorchProfiler(Callback):  # noqa: D101
             state.profiler.record_chrome_json_trace_file(trace_file_name)
             if self.artifact_name is not None:
                 trace_artifact_name = format_name_with_dist_and_time(self.artifact_name,
-                                                                     run_name=logger.run_name,
+                                                                     run_name=state.run_name,
                                                                      timestamp=timestamp)
                 trace_artifact_name = trace_artifact_name.lstrip('/')
                 logger.file_artifact(LogLevel.BATCH,
