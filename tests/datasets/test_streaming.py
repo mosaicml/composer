@@ -7,8 +7,6 @@ import pathlib
 import shutil
 import time
 from typing import Any, Callable, Dict, List, Tuple
-from composer.utils import object_store
-from composer.utils.object_store import ObjectStore
 from composer.utils.s3_object_store import S3ObjectStore
 
 import numpy as np

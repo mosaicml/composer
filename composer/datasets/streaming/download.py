@@ -6,7 +6,6 @@
 
 import os
 import shutil
-import textwrap
 import time
 from typing import Optional
 from urllib.parse import urlparse
@@ -44,7 +43,7 @@ def dispatch_download(remote, local, timeout: float, object_store: Optional[Obje
 
     if remote.startswith('s3://'):
         if object_store is None:
-            raise ValueError("ObjectStore is 'None' can't dowload from S3 link.")
+            raise ValueError("ObjectStore is 'None' - to download from an S3 link, use an S3OjbectStore object.")
         obj = urlparse(remote)
         if obj.scheme != 's3':
             raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
