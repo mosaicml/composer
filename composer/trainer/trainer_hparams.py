@@ -220,7 +220,7 @@ class TrainerHparams(hp.Hparams):
         load_strict_model_weights (bool, optional): See :class:`.Trainer`.
         load_chunk_size (int, optional): See :class:`.Trainer`.
         load_progress_bar (bool, optional): See :class:`.Trainer`.
-        load_ignore_keys (List[List[str]] | (Dict) -> None, optional): See :class:`.Trainer`.
+        load_ignore_keys (List[str] | (Dict) -> None, optional): See :class:`.Trainer`.
 
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
