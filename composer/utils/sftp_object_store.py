@@ -6,7 +6,7 @@ import os
 import sys
 import tempfile
 import uuid
-import paramiko
+from paramiko import RSAKey, SFTPClient, Transport
 from typing import Any, Dict, Iterator, Optional, Union
 
 
@@ -17,17 +17,33 @@ class SFTPObjectStore:
     """Utility for uploading to and downloading to a server via SFTP
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, host: str, port: int, username: str, key_file_path: str):
+        try:
+            key = RSAKey.from_private_key_file(key_file_path)
+            transport = Transport(sock=(host, port))
+            #host key verification?
+            transport.connect(None, username=username, pkey=key)
+
+            self.client = SFTPClient.from_transport(transport)
+            
+
+        except Exception as e:
+            if self.client is not None:
+                self.client.close()
+            if transport is not None:
+                transport.close()
+            
+    def close(self):
+        if self.client is not None:
+                self.client.close()
+            if transport is not None:
+                transport.close()
 
     def __init__(self, provider: str, container: str, provider_kwargs: Optional[Dict[str, Any]] = None) -> None:
-        provider_cls = get_driver(provider)
-        if provider_kwargs is None:
-            provider_kwargs = {}
-        self._provider = provider_cls(**provider_kwargs)
-        self._container = self._provider.get_container(container)
+        pass
     
     def _create_client(self, host, port, username, password, keyfilepath, keyfiletype):
+        pass
         
 
     def upload_object(self,
