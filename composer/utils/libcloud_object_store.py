@@ -5,7 +5,6 @@
 import os
 import sys
 import tempfile
-import time
 import uuid
 from typing import Any, Dict, Iterator, Optional, Union
 
@@ -206,14 +205,14 @@ class LibcloudObjectStore:
 
         obj = self._get_object(object_name)
         # Download first to a tempfile, and then rename, in case if the file gets corrupted in transit
-        tmp_filepath = destination_path + f".{time.time()}.tmp"
+        tmp_filepath = destination_path + f".{uuid.uuid4()}.tmp"
         try:
             self._provider.download_object(
                 obj=obj,
                 destination_path=tmp_filepath,
             )
         except:
-            # The download failed for some reason. Make a best-effort attempt to remote the temporary file.
+            # The download failed for some reason. Make a best-effort attempt to remove the temporary file.
             try:
                 os.remove(tmp_filepath)
             except OSError:
