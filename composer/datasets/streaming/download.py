@@ -8,34 +8,12 @@ import os
 import shutil
 import textwrap
 import time
+from typing import Optional
 from urllib.parse import urlparse
 
+from composer.utils.object_store import ObjectStore
+
 __all__ = ["download_or_wait"]
-
-
-def download_from_s3(remote: str, local: str, timeout: float) -> None:
-    """Download a file from remote to local.
-    Args:
-        remote (str): Remote path (S3).
-        local (str): Local path (local filesystem).
-        timeout (float): How long to wait for shard to download before raising an exception.
-    """
-    try:
-        import boto3
-        from botocore.config import Config
-    except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without streaming support. To use streaming with Composer, run: `pip install mosaicml
-            [streaming]` if using pip or `conda install -c conda-forge monai` if using Anaconda""")) from e
-
-    obj = urlparse(remote)
-    if obj.scheme != 's3':
-        raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
-
-    config = Config(read_timeout=timeout)
-    s3 = boto3.client('s3', config=config)
-    s3.download_file(obj.netloc, obj.path[1:], local)
 
 
 def download_from_local(remote: str, local: str) -> None:
@@ -51,7 +29,7 @@ def download_from_local(remote: str, local: str) -> None:
     os.rename(local_tmp, local)
 
 
-def dispatch_download(remote, local, timeout: float):
+def dispatch_download(remote, local, timeout: float, object_store: Optional[ObjectStore] = None):
     """Use the correct download handler to download the file
     Args:
         remote (str): Remote path (local filesystem).
@@ -65,12 +43,17 @@ def dispatch_download(remote, local, timeout: float):
     os.makedirs(local_dir, exist_ok=True)
 
     if remote.startswith('s3://'):
-        download_from_s3(remote, local, timeout)
+        if object_store is None:
+            raise ValueError("ObjectStore is 'None' can't dowload from S3 link.")
+        obj = urlparse(remote)
+        if obj.scheme != 's3':
+            raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
+        object_store.download_object(bucket=obj.netloc, object_name=obj.path[1:], destination_path=local)
     else:
         download_from_local(remote, local)
 
 
-def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: int = 2, timeout: float = 60) -> None:
+def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: int = 2, timeout: float = 60, object_store: Optional[ObjectStore] = None) -> None:
     """Downloads a file from remote to local, or waits for it to be downloaded. Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
     Args:
         remote (str): Remote path (S3 or local filesystem).
@@ -90,7 +73,7 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
                         raise TimeoutError(f"Waited longer than {timeout}s for other worker to download {local}.")
                     time.sleep(0.25)
             else:
-                dispatch_download(remote, local, timeout=timeout)
+                dispatch_download(remote, local, timeout=timeout, object_store=object_store)
             break
         except Exception as e:  # Retry for all causes of failure.
             error_msgs.append(e)

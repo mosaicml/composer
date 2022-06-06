@@ -11,6 +11,7 @@ import os
 import textwrap
 from dataclasses import dataclass
 from typing import List, Optional
+from composer.utils.object_store import ObjectStore
 
 import numpy as np
 import torch
@@ -212,7 +213,8 @@ class StreamingImageNet1k(StreamingImageClassDataset):
                  shuffle: bool,
                  resize_size: int = -1,
                  crop_size: int = 224,
-                 batch_size: Optional[int] = None):
+                 batch_size: Optional[int] = None,
+                 object_store: Optional[ObjectStore] = None):
 
         # Validation
         if split not in ['train', 'val']:
@@ -245,7 +247,8 @@ class StreamingImageNet1k(StreamingImageClassDataset):
                          local=os.path.join(local, split),
                          shuffle=shuffle,
                          transform=transform,
-                         batch_size=batch_size)
+                         batch_size=batch_size,
+                         object_store=object_store)
 
 
 @dataclass

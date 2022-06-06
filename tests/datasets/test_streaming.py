@@ -7,6 +7,9 @@ import pathlib
 import shutil
 import time
 from typing import Any, Callable, Dict, List, Tuple
+from composer.utils import object_store
+from composer.utils.object_store import ObjectStore
+from composer.utils.s3_object_store import S3ObjectStore
 
 import numpy as np
 import pytest
@@ -75,8 +78,10 @@ def test_reader(remote_local: Tuple[str, str], batch_size: int, share_remote_loc
         local = remote
     write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
+    object_store = S3ObjectStore()
+
     # Build StreamingDataset
-    dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size)
+    dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size, object_store=object_store)
 
     # Test basic sample order
     rcvd_samples = 0
@@ -116,7 +121,9 @@ def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, t
     shutil.copy(os.path.join(remote, "index.mds"), os.path.join(local, "index.mds.tmp"))
     shutil.copy(os.path.join(remote, "000003.mds"), os.path.join(local, "000003.mds.tmp"))
     time.sleep(created_ago)
-    dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders, timeout=timeout)
+    object_store = S3ObjectStore()
+
+    dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders, timeout=timeout, object_store=object_store)
 
     # Iterate over dataset and make sure there are no TimeoutErrors
     for _ in dataset:
@@ -139,8 +146,9 @@ def test_reader_getitem(remote_local: Tuple[str, str], share_remote_local: bool)
         local = remote
     write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
+    object_store = S3ObjectStore()
     # Build StreamingDataset
-    dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders)
+    dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders, object_store=object_store)
 
     # Test retrieving random sample
     _ = dataset[17]
@@ -169,8 +177,9 @@ def test_dataloader_single_device(remote_local: Tuple[str, str], batch_size: int
     remote, local = remote_local
     write_synthetic_streaming_dataset(dirname=remote, samples=samples, shard_size_limit=shard_size_limit)
 
+    object_store = S3ObjectStore()
     # Build StreamingDataset
-    dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size)
+    dataset = StreamingDataset(remote=remote, local=local, shuffle=shuffle, decoders=decoders, batch_size=batch_size, object_store=object_store)
 
     # Build DataLoader
     dataloader = DataLoader(dataset=dataset,
@@ -264,11 +273,13 @@ def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int,
     dist.barrier()
 
     # Build StreamingDataset
+    object_store = S3ObjectStore()
     dataset = StreamingDataset(remote=remote,
                                local=node_local,
                                shuffle=shuffle,
                                decoders=decoders,
-                               batch_size=device_batch_size)
+                               batch_size=device_batch_size,
+                               object_store=object_store)
 
     # Build DataLoader
     dataloader = DataLoader(dataset=dataset,

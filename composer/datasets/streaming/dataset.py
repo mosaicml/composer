@@ -10,6 +10,7 @@ from io import BytesIO
 from threading import Lock, Thread
 from time import sleep
 from typing import Any, Callable, Dict, Iterator, Optional, Tuple
+from composer.utils.object_store import ObjectStore
 
 import numpy as np
 from PIL import Image
@@ -89,7 +90,8 @@ class StreamingDataset(IterableDataset):
                  decoders: Dict[str, Callable[[bytes], Any]],
                  max_retries: int = 2,
                  timeout: float = 60,
-                 batch_size: Optional[int] = None) -> None:
+                 batch_size: Optional[int] = None,
+                 object_store: Optional[ObjectStore] = None) -> None:
 
         self.remote = remote
         self.local = local
@@ -98,6 +100,7 @@ class StreamingDataset(IterableDataset):
         self.max_retries = max_retries
         self.timeout = timeout
         self.batch_size = batch_size
+        self.object_store = object_store
 
         # Load the index file containing the shard metadata
         # This file contains the shard and offset in bytes of each sample (for direct access).
@@ -126,7 +129,7 @@ class StreamingDataset(IterableDataset):
         """
         remote = os.path.join(self.remote, basename)
         local = os.path.join(self.local, basename)
-        download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout)
+        download_or_wait(remote=remote, local=local, wait=wait, max_retries=self.max_retries, timeout=self.timeout, object_store=self.object_store)
         return local
 
     def _insert_shard_samples(self, shard: int, part_min_id: int, part_max_id: int) -> None:

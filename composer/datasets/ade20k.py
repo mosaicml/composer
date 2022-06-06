@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from math import ceil
 from typing import Any, Optional, Tuple, Union
+from composer.utils.object_store import ObjectStore
 
 import numpy as np
 import torch
@@ -426,7 +427,8 @@ class StreamingADE20k(StreamingDataset):
                  min_resize_scale: float = 0.5,
                  max_resize_scale: float = 2.0,
                  final_size: int = 512,
-                 batch_size: Optional[int] = None):
+                 batch_size: Optional[int] = None,
+                 object_store: Optional[ObjectStore] = None):
 
         # Validation
         if split not in ['train', 'val']:
@@ -451,7 +453,8 @@ class StreamingADE20k(StreamingDataset):
                          local=os.path.join(local, split),
                          shuffle=shuffle,
                          decoders=decoders,
-                         batch_size=batch_size)
+                         batch_size=batch_size,
+                         object_store=object_store)
 
         # Define custom transforms
         if split == 'train':
