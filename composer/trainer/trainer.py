@@ -491,22 +491,23 @@ class Trainer:
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
-        load_ignore_keys (List[List[str]] | (Dict) -> None, optional): A list of paths for the ``state_dict``,
+        load_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
-            of strings specifying the keys to index into ``state_dict``. If a prefix is provided, all children are also
-            ignored.
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator.
+            If a prefix is provided, all children are also ignored (as demonstrated in Example 2). See :mod:`composer.core.state`
+            for the structure of state_dict.
 
-            Example 1: `load_ignore_model_keys = [["state", "model", "classifier", "weights"], "state", "model", "classifier", "bias"]]`
-            would ignore the corresponding weights and biases of the classifier.
+            Example 1: `load_ignore_model_keys = ["state/model/layer1/weights", "state/model/layer1/bias"]` would ignore
+            layer 1 weights and bias.
 
-            Example 2: In the above example, if these were the only parameters for the classifier, alternatively
-            `load_ignore_model_keys = [["state", "model", "classifier"]]` would have the same effect.
+            Example 2: `load_ignore_model_keys = ["state/model/layer1"]` would ignore layer1, which would have the same
+            effect as the previous example if `weights` and `bias` were the only parameters in layer`.
 
-            Example 3: `load_ignore_model_keys = [["state", "rank_zero_seed"], ["rng"]]` would reset all randomness when
+            Example 3: `load_ignore_model_keys = ["state/rank_zero_seed", "rng"]` would reset all randomness when
             loading the checkpoint.
 
-            If a callable, it should take one argument which is the state_dict. See :mod:`composer.core.state` for the
-            structure of state_dict). The callable is free to arbitrarily modify the state_dict before it is loaded.
+            If a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify
+            the state_dict before it is loaded.
 
             (default: ``None``)
 

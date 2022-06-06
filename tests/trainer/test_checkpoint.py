@@ -144,35 +144,50 @@ def test_ignore_params():
     base_dict = {
         'state': {
             'run_name': 'my_first_run',
-            'timestep': 7
-        },
-        'seed': 0,
-        'model': {
-            'classifier': {
-                'weights': 5,
-                'bias': 3
+            'timestep': 7,
+            'model': {
+                'layer1': {
+                    'weights': 6,
+                    'bias': 2
+                },
+                'layer2': {
+                    'weights': 7,
+                    'bias': 1
+                },
+                'classifier': {
+                    'weights': 5,
+                    'bias': 3
+                }
             }
-        }
+        },
+        'rng': 0,
     }
 
     # Remove classifier params
     new_dict = copy.deepcopy(base_dict)
-    del base_dict['model']["classifier"]["weights"]
-    del base_dict['model']["classifier"]["bias"]
-    filter_params = [["model", "classifier", "weights"], ["model", "classifier", "bias"]]
+    del base_dict["state"]['model']["classifier"]["weights"]
+    del base_dict["state"]['model']["classifier"]["bias"]
+    filter_params = ["state/model/classifier/weights", "state/model/classifier/bias"]
     glob_filter(filter_params)(new_dict)
     assert base_dict == new_dict
 
     # Remove classifier
-    del base_dict["model"]["classifier"]
-    filter_classifier = [["model", "classifier"]]
+    del base_dict["state"]["model"]["classifier"]
+    filter_classifier = ["state/model/classifier"]
     glob_filter(filter_classifier)(new_dict)
     assert base_dict == new_dict
 
     # Remove timestep
     del base_dict['state']['timestep']
-    filter_timestep = [["state", "timestep"]]
+    filter_timestep = ["state/timestep"]
     glob_filter(filter_timestep)(new_dict)
+    assert base_dict == new_dict
+
+    # Remove all weights using *
+    del base_dict["state"]["model"]["layer1"]["weights"]
+    del base_dict["state"]["model"]["layer2"]["weights"]
+    filter_weights = ["state/model/*/weights"]
+    glob_filter(filter_weights)(new_dict)
     assert base_dict == new_dict
 
 

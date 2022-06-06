@@ -74,7 +74,7 @@ def load_checkpoint(
     strict_model_weights: bool = False,
     chunk_size: int = 1_048_576,
     progress_bar: bool = True,
-    ignore_keys: Optional[Union[List[List[str]], Callable[[Dict], None]]] = None,
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -126,22 +126,23 @@ def load_checkpoint(
             Ignored if the checkpoint is a local file path. (default: ``1_048_576`` bytes (1 MB))
         progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``True``)
-        ignore_keys (List[List[str]] | (Dict) -> None, optional): A list of paths for the ``state_dict``,
+        ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
-            of strings specifying the keys to index into ``state_dict``. If a prefix is provided, all children are also
-            ignored.
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator.
+            If a prefix is provided, all children are also ignored (as demonstrated in Example 2). See :mod:`composer.core.state`
+            for the structure of state_dict.
 
-            Example 1: `load_ignore_model_keys = [["state", "model", "classifier", "weights"], "state", "model", "classifier", "bias"]]`
-            would ignore the corresponding weights and biases of the classifier.
+            Example 1: `load_ignore_model_keys = ["state/model/layer1/weights", "state/model/layer1/bias"]` would ignore
+            layer 1 weights and bias.
 
-            Example 2: In the above example, if these were the only parameters for the classifier, alternatively
-            `load_ignore_model_keys = [["state", "model", "classifier"]]` would have the same effect.
+            Example 2: `load_ignore_model_keys = ["state/model/layer1"]` would ignore layer1, which would have the same
+            effect as the previous example if `weights` and `bias` were the only parameters in layer`.
 
-            Example 3: `load_ignore_model_keys = [["state", "rank_zero_seed"], ["rng"]]` would reset all randomness when
+            Example 3: `load_ignore_model_keys = ["state/rank_zero_seed", "rng"]` would reset all randomness when
             loading the checkpoint.
 
-            If a callable, it should take one argument which is the state_dict. See :mod:`composer.core.state` for the
-            structure of state_dict). The callable is free to arbitrarily modify the state_dict before it is loaded.
+            If a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify
+            the state_dict before it is loaded.
 
             (default: ``None``)
 
@@ -276,15 +277,26 @@ def _download_checkpoint(
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
 
 
-def glob_filter(exclude_globs: List[List[str]]) -> Callable[[Dict], None]:
+def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
     """Provides a function which deletes all subparts of a dictionary based on a list of paths."""
 
     def filter_func(state_dict: Dict) -> None:
+
+        def recur_filter_func(state_dict: Dict, exclude_glob: List[str]):
+            # End of path, delete key in state_dict
+            if len(exclude_glob) == 1:
+                del state_dict[exclude_glob[0]]
+            # Wildcard, descend down all keys
+            elif exclude_glob[0] == "*":
+                for key in state_dict.keys():
+                    recur_filter_func(state_dict[key], exclude_glob[1:])
+            # Step down through path
+            else:
+                recur_filter_func(state_dict[exclude_glob[0]], exclude_glob[1:])
+
+        # Loop through all paths to exclude
         for exclude_glob in exclude_globs:
-            temp_dict = state_dict
-            for step in exclude_glob[:-1]:
-                temp_dict = temp_dict[step]
-            del temp_dict[exclude_glob[-1]]
+            recur_filter_func(state_dict, exclude_glob.split('/'))
 
     return filter_func
 
@@ -296,7 +308,7 @@ def _restore_checkpoint(
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     strict_model_weights: bool,
-    ignore_keys: Optional[Union[List[List[str]], Callable[[Dict], None]]],
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
