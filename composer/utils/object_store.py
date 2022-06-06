@@ -4,7 +4,7 @@
 """Abstract class for utilities that upload to and download from object stores."""
 
 import abc
-from typing import Iterator, Union
+from typing import Iterator, Optional, Union
 
 __all__ = ["ObjectStore"]
 
@@ -47,6 +47,7 @@ class ObjectStore(abc.ABC):
         object_name: str,
         destination_path: str,
         chunk_size: Optional[int] = None,
+        overwrite_existing: bool = False,
     ):
         """Download an object to the specified destination path.
 
@@ -54,6 +55,8 @@ class ObjectStore(abc.ABC):
             object_name (str): The name of the object to download.
             destination_path (str): Full path to a file or a directory where the incoming file will be saved.
             chunk_size (Optional[int], optional): Optional chunk size (in bytes).
+            overwrite_existing (bool, optional): Whether to overwrite an existing file at ``destination_path``, if it exists.
+                (default: ``False``)
         """
         raise NotImplementedException(f"{type(self).__name__}.download_object is not implemented")
 
