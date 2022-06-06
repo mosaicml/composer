@@ -8,78 +8,95 @@ Implemented as a wrapper using :class:`.ComposerTrainer`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Optional
 
-from torch import Tensor
-from torchmetrics import Metric, MetricCollection
-
-from composer.metrics.nlp import Perplexity
-from composer.models.transformer_shared import ComposerTransformer
+from composer.metrics.nlp import Perplexity, HFCrossEntropy
+from composer.models.huggingface import HuggingFaceModel
+from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     import transformers
 
-    from composer.core.types import Batch
-
-__all__ = ["GPT2Model"]
+__all__ = ["create_gpt2"]
 
 
-class GPT2Model(ComposerTransformer):
-    """Implements :class:`~composer.models.transformer_shared.ComposerTransformer` to wrap `Hugging Face GPT-2
+def create_gpt2(use_pretrained: Optional[bool] = False,
+                model_config: Optional[dict] = None,
+                gradient_checkpointing: Optional[bool] = False):
+    """Implements :class:`~composer.models.huggingface.HuggingFaceModel` to wrap `Hugging Face GPT-2
     transformers <https://huggingface.co/docs/transformers/master/en/model_doc/gpt2#overview>`_. Logs training and
     validation perplexity.
 
     From `Language Models are Unsupervised Multitask Learners <https://d4mucfpksywv.cloudfront.net/better-language-models/language-models.pdf>`_ (Radford et al, 2018).
 
     Args:
-        module (transformers.GPT2Model): The model to wrap with this module.
-        config (transformers.GPT2Config): The config for the model.
-        tokenizer (transformers.GPT2Tokenizer): The tokenizer used for this model. Necessary to process model inputs.
-        gradient_checkpointing (bool, optional): Use gradient checkpointing. default: ``False``.
+
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
+        use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
+        model_config (dict): A dictionary providing a HuggingFace model configuration.
+            default model_config:
+            {
+              "_name_or_path": "gpt2",
+              "activation_function": "gelu_new",
+              "architectures": [
+                "GPT2LMHeadModel"
+              ],
+              "attn_pdrop": 0.1,
+              "bos_token_id": 50256,
+              "embd_pdrop": 0.1,
+              "eos_token_id": 50256,
+              "initializer_range": 0.02,
+              "layer_norm_epsilon": 1e-05,
+              "model_type": "gpt2",
+              "n_ctx": 1024,
+              "n_embd": 768,
+              "n_head": 12,
+              "n_inner": null,
+              "n_layer": 12,
+              "n_positions": 1024,
+              "reorder_and_upcast_attn": false,
+              "resid_pdrop": 0.1,
+              "scale_attn_by_inverse_layer_idx": false,
+              "scale_attn_weights": true,
+              "summary_activation": null,
+              "summary_first_dropout": 0.1,
+              "summary_proj_to_labels": true,
+              "summary_type": "cls_index",
+              "summary_use_proj": true,
+              "task_specific_params": {
+                "text-generation": {
+                  "do_sample": true,
+                  "max_length": 50
+                }
+              },
+              "transformers_version": "4.16.0",
+              "use_cache": true,
+              "vocab_size": 50257
+            }
 
     To create a GPT-2 model for language modeling pretraining:
 
     .. testcode::
 
-        from composer.models import GPT2Model
-        import transformers
+        from composer.models import create_gpt2
 
-        config = transformers.GPT2Config()
-        hf_model = transformers.GPT2LMHeadModel(config=config) # gpt2-small model from huggingface
-        tokenizer = transformers.GPT2Tokenizer.from_pretrained("gpt2")
-        model = GPT2Model(module=hf_model, config=config, tokenizer=tokenizer)
+        composer_model = create_gpt2()
     """
+    try:
+        import transformers
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
-    def __init__(self,
-                 module: transformers.GPT2Model,
-                 config: transformers.GPT2Config,
-                 tokenizer: Optional[transformers.GPT2Tokenizer] = None,
-                 gradient_checkpointing: bool = False) -> None:
+    model_name = 'gpt2'
 
-        if tokenizer is None:
-            model_inputs = {"input_ids", "attention_mask"}
-        else:
-            model_inputs = set(tokenizer.model_input_names)
+    if use_pretrained:
+        model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name, **model_config)
 
-        super().__init__(
-            module=module,  #type: ignore (thirdparty)
-            config=config,
-            model_inputs=model_inputs,
-            gradient_checkpointing=gradient_checkpointing)
+    else:
+        config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
+        model = transformers.AutoModelForCausalLM.from_config(config)  # type: ignore (thirdparty)
 
-        # If we ever have algorithms that modify the loss function, then this might be a bit inefficient
-        #  because it'll compute the expensive softmax operation twice.
-        # Instead, we should consider figuring out how to leverage self.train_loss and return the e^self.train_loss.
-        # Of course, this also depends on the implementation details of algorithms.
-        self.train_perplexity = Perplexity()
-        self.val_perplexity = Perplexity()
+    if gradient_checkpointing:
+        model.gradient_checkpointing_enable()  # type: ignore
 
-    def loss(self, outputs: Mapping, batch: Batch) -> Union[Tensor, Sequence[Tensor]]:
-        if outputs.get('loss', None) is not None:
-            return outputs['loss']
-        else:
-            raise NotImplementedError('Calculating loss directly not supported yet.')
-
-    def metrics(self, train: bool = False) -> Union[Metric, MetricCollection]:
-        return MetricCollection([self.train_loss, self.train_perplexity]) if train else MetricCollection(
-            [self.val_loss, self.val_perplexity])
+    return HuggingFaceModel(model=model, metrics=[HFCrossEntropy(), Perplexity()])

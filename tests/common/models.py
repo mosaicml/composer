@@ -15,9 +15,8 @@ from composer.models.bert.bert_hparams import BERTForClassificationHparams, BERT
 from composer.models.deeplabv3.deeplabv3_hparams import DeepLabV3Hparams
 from composer.models.gpt2.gpt2_hparams import GPT2Hparams
 from composer.models.model_hparams import ModelHparams
-from composer.models.transformer_hparams import TransformerHparams
 
-model_hparams_to_tokenizer_family: Dict[Type[TransformerHparams], str] = {
+model_hparams_to_tokenizer_family: Dict[Type[ModelHparams], str] = {
     GPT2Hparams: "gpt2",
     BERTForClassificationHparams: "bert",
     BERTHparams: "bert"
@@ -122,10 +121,7 @@ class SimpleConvModelHparams(ModelHparams):
 
 def configure_model_hparams_for_synthetic(model_hparams: ModelHparams) -> None:
     # configure Transformer-based models for synthetic testing
-    if isinstance(model_hparams, TransformerHparams):
-        if type(model_hparams) not in model_hparams_to_tokenizer_family:
-            raise ValueError(f"Model {type(model_hparams)} is currently not supported for synthetic testing!")
-
+    if type(model_hparams)  in model_hparams_to_tokenizer_family:
         tokenizer_family = model_hparams_to_tokenizer_family[type(model_hparams)]
 
         # force a non-pretrained model
