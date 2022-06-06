@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import os
 from typing import Any, Optional
 
@@ -46,12 +49,7 @@ class StreamingCIFAR10(StreamingDataset):
         """
         return np.frombuffer(data, np.int64)[0]
 
-    def __init__(self,
-                 remote: str,
-                 local: str,
-                 is_train: bool,
-                 shuffle: bool,
-                 batch_size: Optional[int] = None):
+    def __init__(self, remote: str, local: str, is_train: bool, shuffle: bool, batch_size: Optional[int] = None):
         # Build StreamingDataset
         split = 'train' if is_train else 'val'
         decoders = {
