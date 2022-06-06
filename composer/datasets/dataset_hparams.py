@@ -1,23 +1,22 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Common settings across both the training and eval datasets.
-
-These settings are dataset independent.
-"""
+"""Dataloader and Dataset Hyperparameter classes."""
 
 from __future__ import annotations
 
+import abc
 import logging
 import textwrap
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional, Union
 
 import torch
 import torch.distributed
 import torch.utils.data
 import yahp as hp
 
+from composer.core.data_spec import DataSpec
 from composer.core.types import Dataset
 
 log = logging.getLogger(__name__)
@@ -105,3 +104,44 @@ class DataLoaderHparams(hp.Hparams):
             prefetch_factor=self.prefetch_factor,
             persistent_workers=self.persistent_workers,
         )
+
+
+@dataclass
+class DatasetHparams(hp.Hparams, abc.ABC):
+    """Abstract base class for hyperparameters to initialize a dataset.
+
+    Args:
+        datadir (str): The path to the data directory.
+        is_train (bool): Whether to load the training data or validation data. Default:
+            ``True``.
+        drop_last (bool): If the number of samples is not divisible by the batch size,
+            whether to drop the last batch or pad the last batch with zeros. Default:
+            ``True``.
+        shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
+    """
+
+    is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
+    drop_last: bool = hp.optional(textwrap.dedent("""\
+        If the number of samples is not divisible by the batch size,
+        whether to drop the last batch (the default) or pad the last batch with zeros."""),
+                                  default=True)
+    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch. Defaults to True.", default=True)
+
+    datadir: Optional[str] = hp.optional("The path to the data directory", default=None)
+
+    @abc.abstractmethod
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> Union[Iterable, DataSpec]:
+        """Creates a :class:`~.core.types.DataLoader` or
+        :class:`~.core.data_spec.DataSpec` for this dataset.
+
+        Args:
+            batch_size (int): The size of the batch the dataloader should yield. This
+                batch size is device-specific and already incorporates the world size.
+            dataloader_hparams (DataLoaderHparams): The dataset-independent hparams for
+                the dataloader.
+
+        Returns:
+            Iterable | DataSpec: An iterable that yields batches, or if the dataset yields batches that need custom
+            processing, a :class:`~core.data_spec.DataSpec`.
+        """
+        pass

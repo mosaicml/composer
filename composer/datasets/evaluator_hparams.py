@@ -1,8 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Specifies an instance of an :class:`~.evaluator.Evaluator`, which wraps a dataloader to include metrics that apply to
-a specific dataset."""
+"""Hyperparameters for the :class:`~.evaluator.Evaluator`."""
 
 from __future__ import annotations
 
@@ -16,9 +15,8 @@ import yahp as hp
 from torchmetrics import Metric, MetricCollection
 
 from composer.core.evaluator import Evaluator
-from composer.datasets import DataLoaderHparams
-from composer.datasets.dataset_registry import get_dataset_registry
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.dataset_hparams_registry import dataset_registry
 from composer.models.base import ComposerModel
 
 log = logging.getLogger(__name__)
@@ -42,8 +40,8 @@ class EvaluatorHparams(hp.Hparams):
             metric returned by :meth:`~.ComposerModel.metrics` If
             ``None``, uses all metrics in the model. Default: ``None``.
     """
-    hparams_registry = {  # type: ignore
-        "eval_dataset": get_dataset_registry(),
+    hparams_registry = {
+        "eval_dataset": dataset_registry,
     }
 
     label: str = hp.auto(Evaluator, "label")
