@@ -10,6 +10,7 @@ import pytest
 import composer
 
 
+@pytest.mark.daily
 @pytest.mark.parametrize("args", [
     ["composer", "--version"],
     [sys.executable, "-m", "composer", "--version"],

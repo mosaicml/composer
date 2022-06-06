@@ -29,7 +29,6 @@ log = logging.getLogger(__name__)
 
 
 def _get_parser():
-    # from composer import __version__
     parser = ArgumentParser(description="Utility for launching distributed machine learning jobs.")
 
     parser.add_argument("--version", action="version", version=f'composer {composer.__version__}')
