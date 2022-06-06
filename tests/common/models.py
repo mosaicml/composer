@@ -121,16 +121,14 @@ class SimpleConvModelHparams(ModelHparams):
 
 def configure_model_hparams_for_synthetic(model_hparams: ModelHparams) -> None:
     # configure Transformer-based models for synthetic testing
-    if type(model_hparams)  in model_hparams_to_tokenizer_family:
+    if type(model_hparams) in model_hparams_to_tokenizer_family:
         tokenizer_family = model_hparams_to_tokenizer_family[type(model_hparams)]
 
         # force a non-pretrained model
         model_hparams.use_pretrained = False
-        model_hparams.pretrained_model_name = None
 
         # generate tokenizers and synthetic models
         tokenizer = generate_synthetic_tokenizer(tokenizer_family=tokenizer_family)
-        model_hparams.tokenizer_name = None
         model_hparams.model_config = generate_dummy_model_config(type(model_hparams), tokenizer)
 
     # configure DeepLabV3 models for synthetic testing

@@ -35,7 +35,6 @@ evaluators:
 model:
   bert:
     use_pretrained: false
-    pretrained_model_name: bert-base-uncased
 optimizers:
   decoupled_adamw:
     lr: 5.0e-4

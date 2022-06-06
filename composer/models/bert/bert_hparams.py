@@ -5,11 +5,12 @@
 :class:`.BERTModel`."""
 
 from dataclasses import dataclass
+from typing import Dict, Optional
 
 import yahp as hp
 
-from composer.models import ModelHparams
 from composer.core.types import JSON
+from composer.models.model_hparams import ModelHparams
 
 __all__ = ["BERTForClassificationHparams", "BERTHparams"]
 
@@ -23,12 +24,14 @@ class BERTHparams(ModelHparams):
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
     """
-    model_config: Dict[str, JSON] = hp.optional(doc="A dictionary providing a HuggingFace model configuration.",
-                                                default_factory=dict)
-    use_pretrained: bool = hp.optional("Whether to initialize the model with the pretrained weights.", default=False)
-    gradient_checkpointing: bool = hp.optional("Whether to enable gradient checkpointing.", default=False)
+    model_config: Optional[Dict[str,
+                                JSON]] = hp.optional(doc="A dictionary providing a HuggingFace model configuration.",
+                                                     default_factory=dict)
+    use_pretrained: Optional[bool] = hp.optional("Whether to initialize the model with the pretrained weights.",
+                                                 default=False)
+    gradient_checkpointing: Optional[bool] = hp.optional("Whether to enable gradient checkpointing.", default=False)
 
-    def initialize_object(self) -> "ComposerTransformer":
+    def initialize_object(self):
         from composer.models.bert.model import create_bert_mlm
         return create_bert_mlm(
             model_config=self.model_config,  # type: ignore (thirdparty)
@@ -47,13 +50,15 @@ class BERTForClassificationHparams(ModelHparams):
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
     """
-    num_labels: int = hp.optional(doc="The number of possible labels for the task.", default=2)
-    model_config: Dict[str, JSON] = hp.optional(doc="A dictionary providing a HuggingFace model configuration.",
-                                                default_factory=dict)
-    use_pretrained: bool = hp.optional("Whether to initialize the model with the pretrained weights.", default=False)
-    gradient_checkpointing: bool = hp.optional("Whether to enable gradient checkpointing.", default=False)
+    num_labels: Optional[int] = hp.optional(doc="The number of possible labels for the task.", default=2)
+    model_config: Optional[Dict[str,
+                                JSON]] = hp.optional(doc="A dictionary providing a HuggingFace model configuration.",
+                                                     default_factory=dict)
+    use_pretrained: Optional[bool] = hp.optional("Whether to initialize the model with the pretrained weights.",
+                                                 default=False)
+    gradient_checkpointing: Optional[bool] = hp.optional("Whether to enable gradient checkpointing.", default=False)
 
-    def initialize_object(self) -> "ComposerTransformer":
+    def initialize_object(self):
         from composer.models.bert.model import create_bert_classification
         return create_bert_classification(
             num_labels=self.num_labels,

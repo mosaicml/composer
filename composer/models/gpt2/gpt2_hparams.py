@@ -4,13 +4,12 @@
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.GPT2Model`."""
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 
 import yahp as hp
 
-from composer.models import ModelHparams
 from composer.core.types import JSON
-
+from composer.models.model_hparams import ModelHparams
 
 __all__ = ["GPT2Hparams"]
 
@@ -24,9 +23,12 @@ class GPT2Hparams(ModelHparams):
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
     """
-    model_config: Dict[str, JSON] = hp.optional(doc="A dictionary providing a HuggingFace model configuration.", default_factory=dict)
-    use_pretrained: bool = hp.optional("Whether to initialize the model with the pretrained weights.", default=False)
-    gradient_checkpointing: bool = hp.optional("Whether to enable gradient checkpointing.", default=False)
+    model_config: Optional[Dict[str,
+                                JSON]] = hp.optional(doc="A dictionary providing a HuggingFace model configuration.",
+                                                     default_factory=dict)
+    use_pretrained: Optional[bool] = hp.optional("Whether to initialize the model with the pretrained weights.",
+                                                 default=False)
+    gradient_checkpointing: Optional[bool] = hp.optional("Whether to enable gradient checkpointing.", default=False)
 
     def initialize_object(self):
         from composer.models.gpt2.model import create_gpt2

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from torchmetrics import MeanSquaredError
 from torchmetrics.classification.accuracy import Accuracy
@@ -15,10 +15,6 @@ from torchmetrics.regression.spearman import SpearmanCorrCoef
 from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
 from composer.models.huggingface import HuggingFaceModel
 from composer.utils.import_helpers import MissingConditionalImportError
-
-
-if TYPE_CHECKING:
-    import transformers
 
 __all__ = ["create_bert_mlm", "create_bert_classification"]
 
@@ -75,9 +71,13 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
 
+    if not model_config:
+        model_config = {}
     model_name = 'bert-base-uncased'
+
     if use_pretrained:
-        model = transformers.AutoModelForMaskedLM.from_pretrained(pretrained_model_name_or_path=model_name, **model_config)
+        model = transformers.AutoModelForMaskedLM.from_pretrained(pretrained_model_name_or_path=model_name,
+                                                                  **model_config)
 
     else:
         config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
@@ -86,15 +86,17 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
 
-    metrics = [LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
-               MaskedAccuracy(ignore_index=-100)]
+    metrics = [
+        LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
+        MaskedAccuracy(ignore_index=-100)
+    ]
     return HuggingFaceModel(model=model, metrics=metrics)
 
 
 def create_bert_classification(num_labels: Optional[int] = 2,
-                              use_pretrained: Optional[bool] = False,
-                              model_config: Optional[dict] = None,
-                              gradient_checkpointing: Optional[bool] = False):
+                               use_pretrained: Optional[bool] = False,
+                               model_config: Optional[dict] = None,
+                               gradient_checkpointing: Optional[bool] = False):
     """BERT classification model based on |:hugging_face:| Transformers.
 
     For more information, see `Transformers <https://huggingface.co/transformers/>`_.
@@ -161,8 +163,8 @@ def create_bert_classification(num_labels: Optional[int] = 2,
     model_name = 'bert-base-uncased'
 
     if use_pretrained:
-        model = transformers.AutoModelForSequenceClassification.from_pretrained(pretrained_model_name_or_path=model_name,
-                                                                                **model_config)
+        model = transformers.AutoModelForSequenceClassification.from_pretrained(
+            pretrained_model_name_or_path=model_name, **model_config)
     else:
         config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
         model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
@@ -170,9 +172,11 @@ def create_bert_classification(num_labels: Optional[int] = 2,
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
 
-    metrics = [Accuracy(),
-               MeanSquaredError(),
-               SpearmanCorrCoef(),
-               BinaryF1Score(),
-               MatthewsCorrCoef(num_classes=model.config.num_labels)]
+    metrics = [
+        Accuracy(),
+        MeanSquaredError(),
+        SpearmanCorrCoef(),
+        BinaryF1Score(),
+        MatthewsCorrCoef(num_classes=model.config.num_labels)
+    ]
     return HuggingFaceModel(model=model, metrics=metrics)

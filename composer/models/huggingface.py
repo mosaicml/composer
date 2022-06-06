@@ -42,6 +42,7 @@ class HuggingFaceModel(ComposerModel):
     def __init__(self, model: transformers.PreTrainedModel, metrics: Optional[List[Metric]] = None) -> None:
         super().__init__()
         self.model = model
+        self.config = model.config
 
         self.train_metrics = None
         self.valid_metrics = None

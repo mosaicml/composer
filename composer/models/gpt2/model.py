@@ -8,14 +8,11 @@ Implemented as a wrapper using :class:`.ComposerTrainer`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
-from composer.metrics.nlp import Perplexity, HFCrossEntropy
+from composer.metrics.nlp import HFCrossEntropy, Perplexity
 from composer.models.huggingface import HuggingFaceModel
 from composer.utils.import_helpers import MissingConditionalImportError
-
-if TYPE_CHECKING:
-    import transformers
 
 __all__ = ["create_gpt2"]
 
@@ -86,11 +83,13 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
         import transformers
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
-
+    if not model_config:
+        model_config = {}
     model_name = 'gpt2'
 
     if use_pretrained:
-        model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name, **model_config)
+        model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name,
+                                                                  **model_config)
 
     else:
         config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
