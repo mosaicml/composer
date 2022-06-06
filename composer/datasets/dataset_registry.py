@@ -6,7 +6,7 @@
 from composer.datasets.ade20k import ADE20kDatasetHparams, StreamingADE20kHparams
 from composer.datasets.brats import BratsDatasetHparams
 from composer.datasets.c4 import C4DatasetHparams
-from composer.datasets.cifar import CIFAR10DatasetHparams
+from composer.datasets.cifar import CIFAR10DatasetHparams, StreamingCIFAR10Hparams
 from composer.datasets.coco import COCODatasetHparams, StreamingCOCOHparams
 from composer.datasets.glue import GLUEHparams
 from composer.datasets.imagenet import ImagenetDatasetHparams, StreamingImageNet1kHparams
@@ -20,6 +20,7 @@ registry = {
     "imagenet": ImagenetDatasetHparams,
     "streaming_imagenet1k": StreamingImageNet1kHparams,
     "cifar10": CIFAR10DatasetHparams,
+    "streaming_cifar10": StreamingCIFAR10Hparams,
     "mnist": MNISTDatasetHparams,
     "lm": LMDatasetHparams,
     "glue": GLUEHparams,

@@ -8,10 +8,13 @@ The CIFAR datasets are a collection of labeled 32x32 colour images. Please refer
 """
 
 import logging
+import numpy as np
 import os
+from PIL import Image
 import textwrap
 from dataclasses import dataclass
-from typing import List
+from torch.utils.data import DataLoader
+from typing import Any, List
 
 import torch
 import yahp as hp
@@ -21,10 +24,11 @@ from torchvision.datasets import CIFAR10
 from composer.datasets.dataloader import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.streaming import StreamingImageClassDataset
 from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.utils import dist
 
-__all__ = ["CIFAR10DatasetHparams"]
+__all__ = ["CIFAR10DatasetHparams", "StreamingCIFAR10Hparams"]
 
 log = logging.getLogger(__name__)
 
@@ -165,4 +169,53 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         return dataloader_hparams.initialize_object(dataset,
                                                     batch_size=batch_size,
                                                     sampler=sampler,
+                                                    drop_last=self.drop_last)
+
+
+class StreamingCIFAR(StreamingImageClassDataset):
+    """Streaming CIFAR."""
+
+    def decode_image(self, data: bytes) -> Any:
+        arr = np.frombuffer(data, np.uint8)
+        arr = arr.reshape(32, 32, 3)
+        return Image.fromarray(arr)
+
+
+@dataclass
+class StreamingCIFAR10Hparams(DatasetHparams):
+    """Streaming CIFAR10 hyperparameters.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+    """
+
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-cifar10/mds/1/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-cifar10/')
+
+    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
+        channel_means = 0.4914, 0.4822, 0.4465
+        channel_stds = 0.247, 0.243, 0.261
+        if self.is_train:
+            split = 'train'
+            transform = transforms.Compose([
+                transforms.RandomCrop(32, 4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(channel_means, channel_stds),
+            ])
+        else:
+            split = 'val'
+            transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(channel_means, channel_stds),
+            ])
+        remote = os.path.join(self.remote, split)
+        local = os.path.join(self.local, split)
+        dataset = StreamingCIFAR(remote, local, self.shuffle, transform, batch_size)
+        return dataloader_hparams.initialize_object(dataset,
+                                                    batch_size=batch_size,
+                                                    sampler=None,
                                                     drop_last=self.drop_last)
