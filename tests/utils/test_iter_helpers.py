@@ -33,4 +33,4 @@ def test_obj_to_tuple(x):
 
 @pytest.mark.parametrize("x", iter([b'test1', b'test2', b'test3']))
 def test_iter_to_stream(x):
-    assert b"".join(x) == iter_to_stream(x)
+    assert b"".join(x) == iter_to_stream(x).read()
