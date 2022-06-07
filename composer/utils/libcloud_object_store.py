@@ -11,10 +11,12 @@ from typing import Any, Dict, Iterator, Optional, Union
 from libcloud.storage.providers import get_driver
 from libcloud.storage.types import ObjectDoesNotExistError
 
+from composer.utils.object_store import ObjectStore
+
 __all__ = ["LibcloudObjectStore"]
 
 
-class LibcloudObjectStore:
+class LibcloudObjectStore(ObjectStore):
     """Utility for uploading to and downloading from object (blob) stores, such as Amazon S3.
 
     .. rubric:: Example
