@@ -81,7 +81,7 @@ class TorchProfiler(Callback):  # noqa: D101
 
             Consider the following scenario, where:
 
-            *   The :attr:`~.state.run_name` is ``'awesome-training-run'``.
+            *   The :attr:`~.State.run_name` is ``'awesome-training-run'``.
             *   The default ``trace_folder='{{run_name}}/torch_traces'`` is used.
             *   The default ``name='rank{{rank}}.{{batch}}.pt.trace.json'`` is used.
             *   The current epoch count is ``1``.
