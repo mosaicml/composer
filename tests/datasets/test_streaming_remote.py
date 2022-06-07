@@ -174,7 +174,7 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
     for epoch in range(3):
         rcvd_samples = 0
         last_marker = 0
-        marker_interval = 1000
+        marker_interval = len(dataset) // 20
         epoch_start = time.time()
         for _, batch in enumerate(loader):
             if isinstance(batch, Tensor):
