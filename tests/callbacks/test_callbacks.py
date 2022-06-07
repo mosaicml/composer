@@ -38,7 +38,7 @@ def test_run_event_callbacks(event: Event, dummy_state: State):
     assert callback.event_to_num_calls[event] == 1
 
 
-@pytest.mark.parametrize('cb_cls', get_cbs_and_marks())
+@pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
 class TestCallbacks:
 
     @classmethod
@@ -105,7 +105,7 @@ class TestCallbacks:
         engine.close()
 
 
-@pytest.mark.parametrize('cb_cls', get_cbs_and_marks())
+@pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
 @pytest.mark.parametrize('grad_accum', [1, 2])
 @pytest.mark.filterwarnings(r'ignore:The profiler is enabled:UserWarning')
 class TestCallbackTrains:
