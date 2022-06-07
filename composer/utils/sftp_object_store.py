@@ -6,8 +6,10 @@ import os
 import sys
 import tempfile
 import uuid
-from paramiko import RSAKey, SFTPClient, Transport
-from typing import Any, Dict, Iterator, Optional, Union
+import io
+import warnings
+from paramiko import SSHClient, SFTPAttributes
+from typing import IO, Any, Dict, Iterator, Optional, Union
 
 
 __all__ = ["SFTPObjectStore"]
@@ -17,35 +19,47 @@ class SFTPObjectStore:
     """Utility for uploading to and downloading to a server via SFTP
     """
 
-    def __init__(self, host: str, port: int, username: str, key_file_path: str):
-        self.client = self._create_client
-        try:
-            key = RSAKey.from_private_key_file(key_file_path)
-            self.transport = Transport(sock=(host, port))
-            #host key verification?
-            self.transport.connect(None, username=username, pkey=key)
+    def __init__(self, host: str, port: int = 22, username: Optional[str] = None, key_file_path: Optional[str] = None):
+        self.ssh_client = SSHClient()
 
-            self.client = SFTPClient.from_transport(self.transport)
+        # add AutoAddPolicy
+        if key_file_path is None:
+            self.ssh_client.load_system_host_keys()
+        else:
+            try:
+                self.ssh_client.load_system_host_keys(key_file_path)
+            except IOError:
+                warnings.warn("Host keys could not be read from {key_file_path}. Attempting to read keys from known hosts.")
+                self.ssh_client.load_system_host_keys()
+            
+        # implement some retries here
+        self.ssh_client.connect(host, port, username)
 
-        except Exception as e:
-            self.close_client()
+        self.sftp_client = self.ssh_client.open_sftp()
+
             
     def close_client(self):
-        if self.client is not None:
-            self.client.close()
-            if self.transport is not None:
-                self.transport.close()
+        self.ssh_client.close()
         
 
     def upload_object(self,
                       file_path: str,
-                      object_name: str,
-                      verify_hash: bool = True,
-                      extra: Optional[Dict] = None,
-                      headers: Optional[Dict[str, str]] = None):
+                      object_name: str):
         """Upload an object currently located on a disk.
         """
-        pass
+        # add verification and retries/rename
+        tmp_path = object_name + f".{uuid.uuid4()}.tmp"
+        
+        object_size = os.stat(file_path).st_size
+        attributes = (SFTPAttributes) (self.sftp_client.put(local_path=file_path, remotepath=tmp_path, confirm=True))
+        uploaded_bytes = attributes.st_size
+
+        if uploaded_bytes != object_size:
+            self.sftp_client.remove(tmp_path)
+            raise Exception("File sizes don't match uploading error")
+        else:
+            self.sftp_client.rename(tmp_path, object_name)
+
 
     def upload_object_via_stream(self,
                                  obj: Union[bytes, Iterator[bytes]],
@@ -54,7 +68,9 @@ class SFTPObjectStore:
                                  headers: Optional[Dict[str, str]] = None):
         """Upload an object.
         """
-        pass
+        f_obj = io.BytesIO(obj)
+        self.sftp_client.putfo()
+
 
     def download_object(self,
                         object_name: str,
@@ -64,17 +80,28 @@ class SFTPObjectStore:
 
         Args:
             object_name (str): The name of the object to download.
-
             destination_path (str): Full path to a file or a directory where the incoming file will be saved.
-
-            overwrite_existing (bool, optional): Set to ``True`` to overwrite an existing file. (default: ``False``)
-            delete_on_failure (bool, optional): Set to ``True`` to delete a partially downloaded file if
-                the download was not successful (hash mismatch / file size). (default: ``True``)
         """
-        self.client.get(object_name, destination_path)
+        # add verification and retries
+        tmp_path = destination_path + f".{uuid.uuid4()}.tmp"
+
+        object_size = self.sftp_client.stat(object_name).st_size
+        
+        self.sftp_client.get(remotepath=object_name, local_path=tmp_path)
+
+        downloaded_bytes = os.stat(tmp_path).st_size
+
+        if object_size != downloaded_bytes:
+            os.remove(tmp_path)
+            raise Exception
+        else:
+            os.replace(tmp_path, destination_path)
+
+
 
     def download_object_as_stream(self, object_name: str, chunk_size: Optional[int] = None):
         """Return a iterator which yields object data.
         """
-        pass
-        # 
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = os.path.join(tmpdir, )
+        self.getfo()
