@@ -177,18 +177,19 @@ class StreamingCIFAR10Hparams(DatasetHparams):
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
         local (str): Local filesystem directory where dataset is cached during operation.
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
                               default='s3://mosaicml-internal-dataset-cifar10/mds/1/')
     local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
                              default='/tmp/mds-cache/mds-cifar10/')
+    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val']", default='train')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
-        split = 'train' if self.is_train else 'val'
         dataset = StreamingCIFAR10(remote=self.remote,
                                    local=self.local,
-                                   split=split,
+                                   split=self.split,
                                    shuffle=self.shuffle,
                                    batch_size=batch_size)
         return dataloader_hparams.initialize_object(dataset,

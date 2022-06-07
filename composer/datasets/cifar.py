@@ -61,6 +61,10 @@ class StreamingCIFAR10(StreamingDataset):
                          decoders=decoders,
                          batch_size=batch_size)
 
+        # Validation
+        if split not in ['train', 'val']:
+            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
+
         # Define custom transforms
         channel_means = 0.4914, 0.4822, 0.4465
         channel_stds = 0.247, 0.243, 0.261
