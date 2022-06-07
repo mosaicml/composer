@@ -9,7 +9,7 @@ import tarfile
 import tempfile
 import textwrap
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pytest
 import torch
@@ -139,7 +139,16 @@ def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, che
 
 
 @pytest.mark.timeout(5)
-def test_ignore_params():
+@pytest.mark.parametrize("remove_field_paths, filter_params",
+                         [[[["state", "model", "classifier", "weights"], ["state", "model", "classifier", "bias"]],
+                           ["state/model/classifier/weights", "state/model/classifier/bias"]],
+                          [[["state", "model", "classifier", "weights"], ["state", "model", "classifier", "bias"]],
+                           ["state/model/classifier/*"]], [[["state", "timestep"]], ["state/timestep"]],
+                          [[["state", "model", "classifier", "weights"], ["state", "model", "layer1", "weights"],
+                            ["state", "model", "layer2", "weights"]], ["state/model/*/weights"]],
+                          [[["state", "model", "layer1", "weights"], ["state", "model", "layer2", "weights"]],
+                           ["state/model/layer*/weights"]]])
+def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[str]):
     # Set up base dictionary
     base_dict = {
         'state': {
@@ -165,29 +174,13 @@ def test_ignore_params():
 
     # Remove classifier params
     new_dict = copy.deepcopy(base_dict)
-    del base_dict["state"]['model']["classifier"]["weights"]
-    del base_dict["state"]['model']["classifier"]["bias"]
-    filter_params = ["state/model/classifier/weights", "state/model/classifier/bias"]
+    for remove_field_path in remove_field_paths:
+        temp_dict = base_dict
+        for step in remove_field_path[:-1]:
+            temp_dict = temp_dict[step]
+        del temp_dict[remove_field_path[-1]]
+
     glob_filter(filter_params)(new_dict)
-    assert base_dict == new_dict
-
-    # Remove classifier
-    del base_dict["state"]["model"]["classifier"]
-    filter_classifier = ["state/model/classifier"]
-    glob_filter(filter_classifier)(new_dict)
-    assert base_dict == new_dict
-
-    # Remove timestep
-    del base_dict['state']['timestep']
-    filter_timestep = ["state/timestep"]
-    glob_filter(filter_timestep)(new_dict)
-    assert base_dict == new_dict
-
-    # Remove all weights using *
-    del base_dict["state"]["model"]["layer1"]["weights"]
-    del base_dict["state"]["model"]["layer2"]["weights"]
-    filter_weights = ["state/model/*/weights"]
-    glob_filter(filter_weights)(new_dict)
     assert base_dict == new_dict
 
 

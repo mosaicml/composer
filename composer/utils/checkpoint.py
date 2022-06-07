@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import contextlib
+import fnmatch
 import logging
 import os
 import pathlib
@@ -129,16 +130,16 @@ def load_checkpoint(
         ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
             of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator (as PyTorch
-            uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2). 
+            uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
             See :mod:`composer.core.state` for the structure of state_dict.
 
             Example 1: `ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]` would ignore
             layer 1 weights and bias.
 
-            Example 2: `ignore_keys = ["state/model"]` would ignore the entire model, which would have the same
+            Example 2: `ignore_keys = ["state/model/*"]` would ignore the entire model, which would have the same
             effect as the previous example if there was only 1 layer.
 
-            Example 3: `ignore_keys = ["state/model/*"]` would also ignore the entire model using wildcard syntax.
+            Example 3: `ignore_keys = ["state/model/layer*.weights"]` would ignore all weights in the model.
 
             Example 4: `ignore_keys = ["state/rank_zero_seed", "rng"]` would reset all randomness when
             loading the checkpoint.
@@ -284,21 +285,48 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
 
     def filter_func(state_dict: Dict) -> None:
 
-        def recur_filter_func(state_dict: Dict, exclude_glob: List[str]):
+        def flatten_state_dict(state_dict: Any, paths: List[str], existing_path: str):
+            """Recursively convert a dictionary into a set of paths corresponding to different
+            series of keys to index into the dictionary. A path terminates at either a value which
+            is not type Dict or an empty Dict.
+            """
+            # Store path when we reach end, which is either non-Dict or empty Dict
+            if not isinstance(state_dict, Dict) or len(state_dict.keys()) == 0:
+                # Remove leading /
+                paths.append(existing_path.lstrip('/'))
+            # Descend down all keys
+            else:
+                for key in state_dict.keys():
+                    flatten_state_dict(state_dict[key], paths, f"{existing_path}/{key}")
+
+        # Flatten dictionary into paths
+        paths = []
+        flatten_state_dict(state_dict, paths, '/')
+        print(paths)
+
+        filtered_paths = []
+        for exclude_glob in exclude_globs:
+            filtered_paths_from_glob = fnmatch.filter(paths, exclude_glob)
+            if len(filtered_paths_from_glob) == 0:
+                log.warning(
+                    f"No parts from loaded checkpoint state_dict were ignored by load_ignore_key {exclude_glob}")
+            filtered_paths.extend(filtered_paths_from_glob)
+        filtered_paths = list(set(filtered_paths))
+        filtered_paths_str = " ".join(filtered_paths)
+        if len(filtered_paths_str) > 0:
+            log.info(f"Ignoring the following paths from the loaded checkpoint state_dict: {filtered_paths_str}")
+
+        def remove_path(state_dict: Dict, exclude_glob: List[str]):
             # End of path, delete key in state_dict
             if len(exclude_glob) == 1:
                 del state_dict[exclude_glob[0]]
-            # Wildcard, descend down all keys
-            elif exclude_glob[0] == "*":
-                for key in state_dict.keys():
-                    recur_filter_func(state_dict[key], exclude_glob[1:])
-            # Step down through path
+            # Otherwise, recurse down the path
             else:
-                recur_filter_func(state_dict[exclude_glob[0]], exclude_glob[1:])
+                remove_path(state_dict[exclude_glob[0]], exclude_glob[1:])
 
         # Loop through all paths to exclude
-        for exclude_glob in exclude_globs:
-            recur_filter_func(state_dict, exclude_glob.split('/'))
+        for filtered_path in filtered_paths:
+            remove_path(state_dict, filtered_path.split('/'))
 
     return filter_func
 

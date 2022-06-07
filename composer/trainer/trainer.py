@@ -494,16 +494,16 @@ class Trainer:
         load_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
             of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator (as PyTorch
-            uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2). 
+            uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
             See :mod:`composer.core.state` for the structure of state_dict.
 
             Example 1: `load_ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]` would ignore
             layer 1 weights and bias.
 
-            Example 2: `load_ignore_keys = ["state/model"]` would ignore the entire model, which would have the same
+            Example 2: `load_ignore_keys = ["state/model/*"]` would ignore the entire model, which would have the same
             effect as the previous example if there was only 1 layer.
 
-            Example 3: `load_ignore_keys = ["state/model/*"]` would also ignore the entire model using wildcard syntax.
+            Example 3: `load_ignore_keys = ["state/model/layer*.weights"]` would ignore all weights in the model.
 
             Example 4: `load_ignore_keys = ["state/rank_zero_seed", "rng"]` would reset all randomness when
             loading the checkpoint.
