@@ -119,7 +119,7 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
     num_workers = 8
     drop_last = False
     persistent_workers = True
-    collate_fn = pil_image_collate if name in ["ade20k", "imagenet1k", "cifar10"] else None
+    collate_fn = pil_image_collate if name in ["ade20k", "imagenet1k"] else None
 
     # Build StreamingDataset
     ds_build_start = time.time()
