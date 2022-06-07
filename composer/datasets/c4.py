@@ -9,16 +9,12 @@ This dataset is a colossal, cleaned version of Common Crawl's web crawl corpus a
 import copy
 import logging
 import os
-from dataclasses import dataclass
 from functools import partial
 from itertools import chain, cycle
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from torch.utils.data import IterableDataset, get_worker_info
 
-from composer.core import DataSpec
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams
 from composer.datasets.streaming import StreamingDataset
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError

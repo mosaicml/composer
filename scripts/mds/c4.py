@@ -9,7 +9,8 @@ from itertools import islice
 from typing import Any, Dict, Iterable, List, Tuple
 
 import datasets
-from datasets import IterableDataset
+import torch
+from datasets import Dataset
 
 from composer.datasets.streaming import StreamingDatasetWriter
 
@@ -22,32 +23,40 @@ def parse_args() -> Namespace:
     args.add_argument('--tqdm', type=int, default=1)
     return args.parse_args()
 
-def get(split: str) -> IterableDataset:
+def get(split: str) -> Dataset:
     """Collect the samples for this dataset split.
 
     Args:
         split (str): Split name.
 
     Returns:
-        A HF IterableDataset.
+        A HF Dataset.
     """
-    return datasets.load_dataset(path="c4", name="en", split=split, streaming=True)
+    return datasets.load_dataset(path="c4", name="en", split=split)
 
 
-def each(samples: IterableDataset) -> Iterable[Dict[str, bytes]]:
+def each(dataset: Dataset) -> Iterable[Dict[str, bytes]]:
     """Generator over each dataset sample.
 
     Args:
-        samples (list): List of samples of (uid, image_filename, annotation_filename).
+        samples (Dataset): A HF Dataset locally downloaded.
 
     Yields:
         Sample dicts.
     """
-    for sample in samples:
-        yield {
-            key: value.encode("utf-8")
-            for key, value in sample.items()
-        }
+    num_workers = 64
+    batch_size = 512
+    prefetch_factor = max(1, 2 * batch_size // num_workers)
+
+    loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=batch_size, num_workers=num_workers, prefetch_factor=prefetch_factor)
+    for batch in loader:
+        keys = list(batch.keys())
+        current_bs = len(batch[keys[0]])
+        for ix in range(current_bs):
+            yield {
+                key: batch_values[ix].encode("utf-8")
+                for key, batch_values in batch.items()
+            }
 
 
 def main(args: Namespace) -> None:
@@ -62,14 +71,14 @@ def main(args: Namespace) -> None:
         ("train", "train", 364868892),
         ("validation", "val", 364608),
     ]:
-        # Get samples
-        samples = get(split=split)
+        # Get dataset
+        dataset = get(split=split)
 
         # Write samples
         with StreamingDatasetWriter(dirname=os.path.join(args.out_root, split_new_name),
                                     fields=fields,
                                     shard_size_limit=args.shard_size_limit) as out:
-            out.write_samples(samples=each(samples), use_tqdm=bool(args.tqdm), total=expected_num_samples)
+            out.write_samples(samples=each(dataset), use_tqdm=bool(args.tqdm), total=expected_num_samples)
 
 
 if __name__ == '__main__':

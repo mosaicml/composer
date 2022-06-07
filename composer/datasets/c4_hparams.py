@@ -9,6 +9,7 @@ from typing import Optional
 import yahp as hp
 from torch.utils.data import DataLoader
 
+from composer.core.data_spec import DataSpec
 from composer.datasets.c4 import C4Dataset, StreamingC4
 from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -24,12 +25,12 @@ class StreamingC4Hparams(DatasetHparams):
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-c4/mds/1/```
+            Default: ``'s3://mosaicml-internal-dataset-c4/mds/1/'``
         local (str): Local filesystem directory where dataset is cached during operation.
-            Default: ``'/tmp/mds-cache/mds-c4/```
-        split (str): What split of the dataset to use. Either ``'train'`` or ``'val'``. Default: ``None``.
-        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default: ``None``.
-        max_seq_len (int): The max sequence length of each token sample. Default: ``None``.
+            Default: ``'/tmp/mds-cache/mds-c4/'``
+        split (str): What split of the dataset to use. Either ``'train'`` or ``'val'``. Default: ``'train'``.
+        tokenizer_name (str): The name of the HuggingFace tokenizer to preprocess text with. Default: ``'bert-base-uncased'``.
+        max_seq_len (int): The max sequence length of each token sample. Default: ``512``.
         group_method (str): How to group text samples into token samples. Currently only `truncate` is supported.
         mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
         mlm_probability (float): If ``mlm=True``, the probability that tokens are masked. Default: ``0.15``.
@@ -39,9 +40,9 @@ class StreamingC4Hparams(DatasetHparams):
                               default="s3://mosaicml-internal-dataset-c4/mds/1/")
     local: str = hp.optional("Local filesystem directory where dataset is cached during operation",
                              default="/tmp/mds-cache/mds-c4/")
-    split: str = hp.optional("What split of the dataset to use. Either `train` or `val`.", default=None)
-    tokenizer_name: str = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.", default=None)
-    max_seq_len: int = hp.optional("The max sequence length of each token sample.", default=None)
+    split: str = hp.optional("What split of the dataset to use. Either `train` or `val`.", default="train")
+    tokenizer_name: str = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.", default="bert-base-uncased")
+    max_seq_len: int = hp.optional("The max sequence length of each token sample.", default=512)
     group_method: str = hp.optional(
         "How to group text samples into token samples. Currently only `truncate` is supported.", default="truncate")
     mlm: bool = hp.optional("Whether or not to use masked language modeling.", default=False)
