@@ -133,15 +133,15 @@ def load_checkpoint(
             uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
             See :mod:`composer.core.state` for the structure of state_dict.
 
-            Example 1: `ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]` would ignore
+            Example 1: ``ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]`` would ignore
             layer 1 weights and bias.
 
-            Example 2: `ignore_keys = ["state/model/*"]` would ignore the entire model, which would have the same
+            Example 2: ``ignore_keys = ["state/model/*"]`` would ignore the entire model, which would have the same
             effect as the previous example if there was only 1 layer.
 
-            Example 3: `ignore_keys = ["state/model/layer*.weights"]` would ignore all weights in the model.
+            Example 3: ``ignore_keys = ["state/model/layer*.weights"]`` would ignore all weights in the model.
 
-            Example 4: `ignore_keys = ["state/rank_zero_seed", "rng"]` would reset all randomness when
+            Example 4: ``ignore_keys = ["state/rank_zero_seed", "rng"]`` would reset all randomness when
             loading the checkpoint.
 
             If a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify
