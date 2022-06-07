@@ -28,7 +28,7 @@ class ObjectStore(abc.ABC):
             obj (bytes | Iterator[bytes]): The object
             object_name (str): Object name (i.e. where the object will be stored in the container)
         """
-        raise NotImplementedError(f"{type(self).__name__}.upload_object_via_stream is not implemented")   
+        raise NotImplementedError(f"{type(self).__name__}.upload_object_via_stream is not implemented")
 
     def get_object_size(self, object_name: str) -> int:
         """Get the size of an object, in bytes.
