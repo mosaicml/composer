@@ -7,7 +7,6 @@ from typing import Type
 import pytest
 import torch
 from torch.utils.data import DataLoader
-from wandb.sdk.data_types.base_types.wb_value import WBValue
 
 from composer.core.callback import Callback
 from composer.loggers import InMemoryLogger
@@ -19,6 +18,8 @@ from tests.common import RandomClassificationDataset, SimpleModel
 @pytest.mark.parametrize("callback_cls", get_cbs_and_marks(callbacks=True))
 def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
     """Test that all logged data is json serializable, which is a requirement to use wandb."""
+    pytest.importorskip("wandb", reason="wandb is optional")
+    from wandb.sdk.data_types.base_types.wb_value import WBValue
     callback_kwargs = get_cb_kwargs(callback_cls)
     callback = callback_cls(**callback_kwargs)
     logger = InMemoryLogger()  # using an in memory logger to manually validate json serializability
