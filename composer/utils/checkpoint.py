@@ -285,10 +285,7 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
     def filter_func(state_dict: Dict) -> None:
 
         def flatten_state_dict(state_dict: Any, paths: List[str], existing_path: str):
-            """Recursively convert a dictionary into a set of paths corresponding to different
-            series of keys to index into the dictionary. A path terminates at either a value which
-            is not type Dict or an empty Dict.
-            """
+            """Recursively convert a dictionary into a set of paths."""
             # Store path when we reach end, which is either non-Dict or empty Dict
             if not isinstance(state_dict, Dict) or len(state_dict.keys()) == 0:
                 # Remove leading /
