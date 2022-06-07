@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import torch
 
-from composer.utils import ensure_tuple
+from composer.utils import ensure_tuple, iter_to_stream
 
 
 def test_none_to_tuple():
@@ -30,3 +30,7 @@ def test_dict_to_tuple(x):
 @pytest.mark.parametrize("x", [torch.arange(3), np.arange(3)])
 def test_obj_to_tuple(x):
     assert ensure_tuple(x) == (x,)
+
+@pytest.mark.parametrize("x", iter([b'test1', b'test2', b'test3']))
+def test_iter_to_stream(x):
+    assert b"".join(x) == iter_to_stream(x)

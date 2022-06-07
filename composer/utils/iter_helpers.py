@@ -94,6 +94,8 @@ def iterate_with_pbar(iterator, progress_bar=None):
 
 def iter_to_stream(iterator: Iterator[bytes], buffer_size: int =io.DEFAULT_BUFFER_SIZE) -> io.BufferedReader:
     """Function to convert iterator of bytes into a file-like binary stream object.
+
+    Original implementation found `here <https://stackoverflow.com/questions/6657820/how-to-convert-an-iterable-to-a-stream/20260030#20260030>`_.
     
     Args:
         iterator (Iterator[bytes]): An iterator over bytes objects
