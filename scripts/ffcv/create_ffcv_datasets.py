@@ -17,10 +17,10 @@ from PIL import Image
 from torch.utils.data import Subset
 from torchvision import transforms
 from torchvision.datasets import CIFAR10, ImageFolder
+from tqdm import tqdm
 
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 from composer.datasets.streaming import StreamingDataset
-from composer.datasets.utils import pil_image_collate
 
 log = logging.getLogger(__name__)
 
@@ -129,15 +129,19 @@ def cache_streaming(dataset, num_workers=64):
     if "LOCAL_WORLD_SIZE" not in os.environ:
         os.environ["LOCAL_WORLD_SIZE"] = "1"
 
+    def _null_collate_fn(batch):
+        return None
+
     dl = torch.utils.data.DataLoader(dataset,
                                      batch_size=512,
                                      num_workers=num_workers,
                                      pin_memory=False,
                                      drop_last=False,
-                                     collate_fn=pil_image_collate)
+                                     collate_fn=_null_collate_fn)
 
     # empty loop to download and cache the dataset
-    for _ in dl:
+    print("download and cache dataset")
+    for _ in tqdm(dl):
         pass
 
 
