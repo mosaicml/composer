@@ -156,8 +156,7 @@ class GradientClipping(Algorithm):
         return event == Event.AFTER_TRAIN_BATCH
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        # If Deepspeed is enabled and clipping_type is norm, set the clipping through
-        # deepspeed.
+        # deepspeed only supports norm clipping
         if state.is_model_deepspeed:
             if self.clipping_type == 'norm':
                 state.model._config.gradient_clipping = self.clipping_threshold
