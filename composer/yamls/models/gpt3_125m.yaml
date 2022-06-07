@@ -52,7 +52,7 @@ model:
       transformers_version: 4.16.2
       use_cache: true
       vocab_size: 50257
-optimizer:
+optimizers:
   decoupled_adamw:
     lr: 6.0e-4
     betas:
@@ -68,17 +68,14 @@ train_batch_size: 256 # 0.5e6 tok ~= 256[bs] * 2048[msl]
 grad_accum: 8 # 256[bs] / 8[devices] / 4[per_gpu_microbatch_size] = 8[ga], assuming 8xA100-40GB
 eval_batch_size: 32 # 32[bs] / 8[devices] = 4[per_gpu_microbatch_size], assuming 8xA100-40GB
 seed: 17
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   persistent_workers: true
   num_workers: 1
   timeout: 0
   prefetch_factor: 2
-deepspeed:
+deepspeed_config:
   zero_optimization:
     stage: 0
-precision: fp16
 grad_clip_norm: 1.0
 eval_interval: 1000ba

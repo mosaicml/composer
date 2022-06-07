@@ -12,10 +12,9 @@ from composer.core import Precision, State
 from composer.core.types import PyTorchScheduler
 from composer.datasets import DataLoaderHparams, DatasetHparams
 from composer.models import ModelHparams
-from composer.optim import AdamHparams, ExponentialSchedulerHparams
-from composer.trainer import TrainerHparams
-from composer.trainer.devices import CPUDeviceHparams
-from composer.trainer.trainer_hparams import dataset_registry, model_registry
+from composer.optim import ExponentialScheduler
+from composer.optim.optimizer_hparams_registry import AdamHparams
+from composer.trainer.trainer_hparams import TrainerHparams, dataset_registry, model_registry
 from tests.common import RandomClassificationDatasetHparams, SimpleModel, SimpleModelHparams
 
 
@@ -92,8 +91,17 @@ def dummy_scheduler(dummy_optimizer: Optimizer):
 
 
 @pytest.fixture()
-def dummy_state(dummy_model: SimpleModel, dummy_train_dataloader: Iterable, dummy_optimizer: Optimizer,
-                dummy_scheduler: PyTorchScheduler, rank_zero_seed: int) -> State:
+def dummy_state(
+    dummy_model: SimpleModel,
+    dummy_train_dataloader: Iterable,
+    dummy_optimizer: Optimizer,
+    dummy_scheduler: PyTorchScheduler,
+    rank_zero_seed: int,
+    request: pytest.FixtureRequest,
+) -> State:
+    if request.node.get_closest_marker('gpu') is not None:
+        # If using `dummy_state`, then not using the trainer, so move the model to the correct device
+        dummy_model = dummy_model.cuda()
     state = State(
         model=dummy_model,
         precision=Precision.FP32,
@@ -148,8 +156,8 @@ def composer_trainer_hparams(
 ) -> TrainerHparams:
     return TrainerHparams(
         algorithms=[],
-        optimizer=AdamHparams(),
-        schedulers=[ExponentialSchedulerHparams(gamma=0.9)],
+        optimizers=AdamHparams(),
+        schedulers=[ExponentialScheduler(gamma=0.9)],
         max_duration="2ep",
         precision=Precision.FP32,
         train_batch_size=dummy_train_batch_size,
@@ -162,7 +170,6 @@ def composer_trainer_hparams(
             pin_memory=False,
             timeout=0.0,
         ),
-        device=CPUDeviceHparams(),
         model=dummy_model_hparams,
         val_dataset=dummy_val_dataset_hparams,
         train_dataset=dummy_train_dataset_hparams,

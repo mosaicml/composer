@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 """This file provides the canonical settings (dataset, model, algorithms, arguments)
 for each algorithm to be tested. This can be used throughout the codebase for
 functional tests, serialization tests, etc.
@@ -5,8 +8,19 @@ functional tests, serialization tests, etc.
 Each algorithm is keyed based on its name in the algorithm registry.
 """
 
-from composer.algorithms import algorithm_registry
+from typing import Any, Dict, Optional, Type
+
+import pytest
+from torch.utils.data import Dataset
+
+import composer
+from composer import Algorithm
+from composer.algorithms import (AGC, EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
+                                 Factorize, GhostBatchNorm, LabelSmoothing, LayerFreezing, MixUp, NoOpModel,
+                                 ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
+                                 StochasticDepth)
 from composer.models import ComposerResNet
+from composer.models.base import ComposerModel
 from tests import common
 
 simple_vision_settings = {
@@ -20,7 +34,7 @@ simple_vision_pil_settings = {
     'dataset': (common.RandomImageDataset, {
         'is_PIL': True
     }),
-    'kwargs': {}
+    'kwargs': {},
 }
 
 simple_resnet_settings = {
@@ -31,32 +45,39 @@ simple_resnet_settings = {
     'dataset': (common.RandomImageDataset, {
         'shape': (3, 224, 224),
     }),
+    'kwargs': {},
 }
 
-_settings = {
-    'agc': simple_vision_settings,
-    'alibi': None,  # NLP settings needed
-    'augmix': None,  # requires PIL dataset to test
-    'blurpool': {
+_settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
+    AGC: simple_vision_settings,
+    Alibi: None,  # NLP settings needed
+    AugMix: simple_vision_settings,
+    BlurPool: {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
         'kwargs': {
             'min_channels': 0,
         },
     },
-    'channels_last': simple_vision_settings,
-    'colout': simple_vision_settings,
-    'cutmix': {
+    ChannelsLast: simple_vision_settings,
+    ColOut: simple_vision_settings,
+    CutMix: {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
         'kwargs': {
             'num_classes': 2
         }
     },
-    'cutout': simple_vision_settings,
-    'ema': simple_vision_settings,
-    'factorize': simple_resnet_settings,
-    'ghost_batchnorm': {
+    CutOut: simple_vision_settings,
+    EMA: {
+        'model': common.SimpleConvModel,
+        'dataset': common.RandomImageDataset,
+        'kwargs': {
+            'half_life': "1ba",
+        },
+    },
+    Factorize: simple_resnet_settings,
+    GhostBatchNorm: {
         'model': (ComposerResNet, {
             'model_name': 'resnet18',
             'num_classes': 2
@@ -68,16 +89,17 @@ _settings = {
             'ghost_batch_size': 2,
         }
     },
-    'label_smoothing': simple_vision_settings,
-    'layer_freezing': simple_vision_settings,
-    'mixup': simple_vision_settings,
-    'progressive_resizing': simple_vision_settings,
-    'randaugment': None,  # requires PIL dataset to test
-    'sam': simple_vision_settings,
-    'selective_backprop': simple_vision_settings,
-    'seq_length_warmup': None,  # NLP settings needed
-    'squeeze_excite': simple_resnet_settings,
-    'stochastic_depth': {
+    LabelSmoothing: simple_vision_settings,
+    LayerFreezing: simple_vision_settings,
+    MixUp: simple_vision_settings,
+    ProgressiveResizing: simple_vision_settings,
+    RandAugment: simple_vision_settings,
+    NoOpModel: simple_vision_settings,
+    SAM: simple_vision_settings,
+    SelectiveBackprop: simple_vision_settings,
+    SeqLengthWarmup: None,  # NLP settings needed
+    SqueezeExcite: simple_resnet_settings,
+    StochasticDepth: {
         'model': (ComposerResNet, {
             'model_name': 'resnet50',
             'num_classes': 2
@@ -90,10 +112,11 @@ _settings = {
             'target_layer_name': 'ResNetBottleneck',
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
-            'use_same_gpu_seed': False
+            'drop_warmup': "0.0dur",
+            'use_same_gpu_seed': False,
         }
     },
-    'swa': {
+    SWA: {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
         'kwargs': {
@@ -102,37 +125,73 @@ _settings = {
             'update_interval': '1ep',
             'schedule_swa_lr': True,
         }
-    }
+    },
 }
 
 
-def get_settings(name: str):
-    """For a given algorithm name, creates the canonical setting
-    (algorithm, model, dataset) for testing.
+def _get_alg_settings(alg_cls: Type[Algorithm]):
+    if alg_cls not in _settings or _settings[alg_cls] is None:
+        raise ValueError(f"Algorithm {alg_cls.__name__} not in the settings dictionary.")
+    settings = _settings[alg_cls]
+    assert settings is not None
+    return settings
 
-    Returns ``None`` if no settings provided.
+
+def get_alg_kwargs(alg_cls: Type[Algorithm]) -> Dict[str, Any]:
+    """Return the kwargs for an algorithm."""
+    return _get_alg_settings(alg_cls)['kwargs']
+
+
+def get_alg_model(alg_cls: Type[Algorithm]) -> ComposerModel:
+    """Return an instance of the model for an algorithm."""
+    settings = _get_alg_settings(alg_cls)['model']
+    if isinstance(settings, tuple):
+        (cls, kwargs) = settings
+    else:
+        (cls, kwargs) = (settings, {})
+    return cls(**kwargs)
+
+
+def get_alg_dataset(alg_cls: Type[Algorithm]) -> Dataset:
+    """Return an instance of the dataset for an algorithm."""
+    settings = _get_alg_settings(alg_cls)['dataset']
+    if isinstance(settings, tuple):
+        (cls, kwargs) = settings
+    else:
+        (cls, kwargs) = (settings, {})
+    return cls(**kwargs)
+
+
+def get_algs_with_marks():
+    """Returns a list of algorithms appropriate markers for a subsequent call to pytest.mark.parameterize.
+    It applies markers as appropriate (e.g. XFAIL for algs missing config)
+    It reads from the algorithm registry
+
+    E.g. @pytest.mark.parametrize("alg_class", get_algs_with_marks())
     """
-    if name not in _settings:
-        raise ValueError(f'No settings for {name} found, please add.')
+    ans = []
+    for alg_cls in common.get_module_subclasses(composer.algorithms, Algorithm):
+        marks = []
+        settings = _settings[alg_cls]
 
-    setting = _settings[name]
-    if setting is None:
-        return None
+        if alg_cls in (CutMix, MixUp, LabelSmoothing):
+            # see: https://github.com/mosaicml/composer/issues/362
+            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
 
-    result = {}
-    for key in ('model', 'dataset'):
-        if isinstance(setting[key], tuple):
-            (obj, kwargs) = setting[key]
-        else:
-            (obj, kwargs) = (setting[key], {})
+        if alg_cls == SWA:
+            # TODO(matthew): Fix
+            marks.append(
+                pytest.mark.filterwarnings(
+                    r'ignore:Detected call of `lr_scheduler.step\(\)` before `optimizer.step\(\)`:UserWarning'))
 
-        # create the object
-        result[key] = obj(**kwargs)
+        if alg_cls == MixUp:
+            # TODO(Landen): Fix
+            marks.append(
+                pytest.mark.filterwarnings(r"ignore:Some targets have less than 1 total probability:UserWarning"))
 
-    # create algorithm
-    kwargs = setting.get('kwargs', {})
-    hparams = algorithm_registry.get_algorithm_registry()[name]
-    result['algorithm'] = hparams(**kwargs).initialize_object()
-    result['algorithm_kwargs'] = kwargs
+        if settings is None:
+            marks.append(pytest.mark.xfail(reason=f"Algorithm {alg_cls.__name__} is missing settings."))
 
-    return result
+        ans.append(pytest.param(alg_cls, marks=marks, id=alg_cls.__name__))
+
+    return ans

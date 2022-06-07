@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from __future__ import annotations
 
 import typing
@@ -6,8 +9,9 @@ from typing import TYPE_CHECKING, Callable, Type
 import pytest
 
 from composer.datasets.dataloader import DataLoaderHparams
-from composer.trainer import EvalHparams, ExperimentHparams, FitHparams, Trainer, TrainerHparams
-from composer.trainer.trainer_hparams import EvalKwargs, FitKwargs
+from composer.trainer import Trainer
+from composer.trainer.trainer_hparams import (EvalHparams, EvalKwargs, ExperimentHparams, FitHparams, FitKwargs,
+                                              TrainerHparams)
 from tests.common import SimpleModelHparams
 from tests.common.datasets import RandomClassificationDatasetHparams
 

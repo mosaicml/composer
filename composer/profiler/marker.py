@@ -118,7 +118,7 @@ class Marker:
     def start(self) -> None:
         """Record the start of a duration event.
 
-        To record the duration of an event, invoke :meth:`.Marker.start` followed by :meth:`.Marker.finish`\\:
+        To record the duration of an event, invoke :meth:`.Marker.start` followed by :meth:`.Marker.finish`.
 
         .. testsetup::
 

@@ -25,7 +25,7 @@ def test_blurmaxpool_shapes(pool_args):
 
     X = torch.randn(n, c, sz[0], sz[1])
 
-    layer_args = dict(kernel_size=kernel_size, stride=stride, dilation=1)
+    layer_args = {"kernel_size": kernel_size, "stride": stride, "dilation": 1}
     blurpool_layer = blurpool.BlurMaxPool2d(**layer_args)
     maxpool_layer = torch.nn.MaxPool2d(**layer_args)
 
@@ -39,7 +39,7 @@ def test_blurconv2d_shapes(pool_args, blur_first):
 
     X = torch.randn(n, c, sz[0], sz[1])
 
-    layer_args = dict(kernel_size=kernel_size, stride=stride, dilation=1, in_channels=c, out_channels=(c + 1))
+    layer_args = {"kernel_size": kernel_size, "stride": stride, "dilation": 1, "in_channels": c, "out_channels": c + 1}
     blurconv2d_layer = blurpool.BlurConv2d(**layer_args, blur_first=blur_first)
     conv2d_layer = torch.nn.Conv2d(**layer_args)
 

@@ -77,7 +77,7 @@ For max pooling, it replaces `torch.nn.MaxPool2d` instances with instances of a 
 
 🚧 Implementation Note
 >
-> Blurpool does not replace strided convolutions with fewer than `min_channels` input channels, which by default is set to `16`. This is a heuristic used to avoid blurpooling the network's input. Doing so is undesirable since it amounts to downsampling the input by more than the amount specified in the preprocessing pipeline. 
+> Blurpool does not replace strided convolutions with fewer than `min_channels` input channels, which by default is set to `16`. This is a heuristic used to avoid blurpooling the network's input. Doing so is undesirable since it amounts to downsampling the input by more than the amount specified in the preprocessing pipeline.
 
 ## Suggested Hyperparameters
 

@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import glob
 import os
 import textwrap
@@ -7,8 +10,7 @@ from testbook import testbook
 
 import composer
 
-NB_PATH = '../notebooks/up_and_running_with_composer.ipynb'
-nb_root = os.path.join(os.path.dirname(composer.__file__), '..', 'notebooks')
+nb_root = os.path.join(os.path.dirname(composer.__file__), '..', 'examples')
 
 NOTEBOOKS = [
     os.path.join(nb_root, nb) \
@@ -42,7 +44,7 @@ def _assert_tags_correct(tb):
 
 
 @pytest.mark.timeout(120)
-@pytest.mark.notebooks
+@pytest.mark.daily
 def test_notebook(tb):
     _assert_tags_correct(tb)
 

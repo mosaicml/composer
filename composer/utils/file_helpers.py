@@ -16,7 +16,7 @@ import tqdm
 from composer.core.time import Time, Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
-from composer.utils.object_store import ObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 if TYPE_CHECKING:
     from composer.loggers import LoggerDestination
@@ -69,9 +69,11 @@ def ensure_folder_is_empty(folder_name: Union[str, pathlib.Path]):
 
 
 def ensure_folder_has_no_conflicting_files(folder_name: Union[str, pathlib.Path], filename: str, timestamp: Timestamp):
-    """Ensure that the given folder does not have any files conflicting with the ``filename`` format string. If any
-    filename is formatted with a timestamp where the epoch, batch, sample, or token counts are after ``timestamp``, a
-    ``FileExistsError`` will be raised. ``filename`` and occurs later than ``timestamp``, raise a ``FileExistsError``.
+    """Ensure that the given folder does not have any files conflicting with the ``filename`` format string.
+
+    If any filename is formatted with a timestamp where the epoch, batch, sample, or token counts are after
+    ``timestamp``, a ``FileExistsError`` will be raised.
+    If ``filename`` and occurs later than ``timestamp``, raise a ``FileExistsError``.
 
     Args:
         folder_name (str | pathlib.Path): The folder to inspect.
@@ -154,7 +156,7 @@ FORMAT_NAME_WITH_DIST_TABLE = """
 """
 
 
-def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: object):
+def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: object):  # noqa: D103
     formatted_str = format_str.format(
         run_name=run_name,
         rank=dist.get_global_rank(),
@@ -246,7 +248,12 @@ FORMAT_NAME_WITH_DIST_AND_TIME_TABLE = """
 """
 
 
-def format_name_with_dist_and_time(format_str: str, run_name: str, timestamp: Timestamp, **extra_format_kwargs: object):
+def format_name_with_dist_and_time(
+    format_str: str,
+    run_name: str,
+    timestamp: Timestamp,
+    **extra_format_kwargs: object,
+):  # noqa: D103
     formatted_str = format_str.format(
         run_name=run_name,
         rank=dist.get_global_rank(),
@@ -299,7 +306,7 @@ Args:
 def get_file(
     path: str,
     destination: str,
-    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+    object_store: Optional[Union[LibcloudObjectStore, LoggerDestination]] = None,
     chunk_size: int = 2**20,
     progress_bar: bool = True,
 ):
@@ -321,10 +328,10 @@ def get_file(
             If ``path`` is a local filepath, then a symlink to ``path`` at ``destination`` will be created.
             Otherwise, ``path`` will be downloaded to a file at ``destination``.
 
-        object_store (ObjectStore, optional): An :class:`~.ObjectStore`, if ``path`` is located inside
+        object_store (LibcloudObjectStore, optional): An :class:`~.LibcloudObjectStore`, if ``path`` is located inside
             an object store (i.e. AWS S3 or Google Cloud Storage). (default: ``None``)
 
-            This :class:`~.ObjectStore` instance will be used to retreive the file. The ``path`` parameter
+            This :class:`~.LibcloudObjectStore` instance will be used to retreive the file. The ``path`` parameter
             should be set to the object name within the object store.
 
             Set this parameter to ``None`` (the default) if ``path`` is a URL or a local file.
@@ -339,8 +346,8 @@ def get_file(
             be raised.
     """
     if object_store is not None:
-        if isinstance(object_store, ObjectStore):
-            # Type ObjectStore
+        if isinstance(object_store, LibcloudObjectStore):
+            # Type LibcloudObjectStore
             try:
                 total_size_in_bytes = object_store.get_object_size(path)
             except Exception as e:

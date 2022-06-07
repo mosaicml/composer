@@ -1,3 +1,8 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+"""ADE20K streaming dataset conversion scripts."""
+
 import os
 import random
 from argparse import ArgumentParser, Namespace
@@ -28,7 +33,6 @@ def get(in_root: str, split: str, shuffle: bool) -> List[Tuple[str, str, str]]:
     Returns:
         List of samples of (uid, image_filename, annotation_filename).
     """
-
     # Get uids
     image_glob_pattern = f'{in_root}/images/{split}/ADE_{split}_*.jpg'
     images = sorted(glob(image_glob_pattern))

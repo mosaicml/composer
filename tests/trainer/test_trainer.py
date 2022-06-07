@@ -6,7 +6,6 @@ import contextlib
 import copy
 import datetime
 import os
-import pathlib
 import time
 from typing import List, Optional, Union
 
@@ -16,11 +15,9 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 
-from composer import Trainer
-from composer.algorithms import CutOut, LabelSmoothing, algorithm_registry
+from composer import Callback, Evaluator, Trainer
+from composer.algorithms import CutOut, LabelSmoothing
 from composer.callbacks import LRMonitor
-from composer.core.callback import Callback
-from composer.core.evaluator import Evaluator
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
@@ -32,10 +29,7 @@ from composer.loggers.logger import Logger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
-from composer.trainer.trainer_hparams import callback_registry, logger_registry
 from composer.utils import dist
-from composer.utils.object_store import ObjectStoreHparams
-from tests.algorithms.algorithm_settings import get_settings
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 from tests.common.events import EventCounterCallback
@@ -734,7 +728,7 @@ class TestTrainerInitOrFit:
 
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
-@pytest.mark.timeout(15)  # higher timeout as each model is trained twice
+@pytest.mark.timeout(15)  # higher timeout since each model is trained twice
 class TestTrainerEquivalence():
 
     default_threshold = {'atol': 0, 'rtol': 0}
@@ -864,7 +858,7 @@ class AssertDataAugmented(Callback):
         if state.grad_accum != 1:
             raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
         batch_idx = state.timestamp.batch_in_epoch.value
-        batch_size = state.batch_num_samples
+        batch_size = len(state.batch[0])
         original_batch = self.dataset[batch_idx:batch_idx + batch_size]
         original_outputs = state.model(original_batch)
 
@@ -905,161 +899,6 @@ class TestTrainerEvents():
         trainer = Trainer(**config)
         with pytest.raises(AssertionError):
             trainer.fit()
-
-
-@pytest.mark.timeout(15)
-class TestTrainerAssets:
-    """The below is a catch-all test that runs the Trainer with each algorithm, callback, and loggers. Success is
-    defined as a successful training run.
-
-    This should eventually be replaced by functional
-    tests for each object, in situ of our trainer.
-
-    We use the hparams_registry associated with our
-    config management to retrieve the objects to test.
-    """
-
-    @pytest.fixture(params=[1, 2], ids=['ga-1', 'ga-2'])
-    def config(self, rank_zero_seed: int, request):
-        grad_accum = request.param
-
-        return {
-            'model': SimpleConvModel(),
-            'train_dataloader': DataLoader(
-                dataset=RandomImageDataset(size=16),
-                batch_size=4,
-            ),
-            'eval_dataloader': DataLoader(
-                dataset=RandomImageDataset(size=16),
-                batch_size=4,
-            ),
-            'max_duration': '2ep',
-            'loggers': [],  # no progress bar
-            'seed': rank_zero_seed,
-            'grad_accum': grad_accum,
-        }
-
-    # Note: Not all algorithms, callbacks, and loggers are compatible
-    #       with the above configuration. The fixtures below filter and
-    #       create the objects to test.
-
-    @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
-    def callback(self, request):
-        name, hparams = request.param
-
-        if name == 'mlperf':
-            pytest.skip('mlperf callback tested separately.')
-
-        if name == 'early_stopper' or name == 'threshold_stopper':
-            pytest.skip('early_stopper and threshold_stopper callback tested separately.')
-
-        callback = hparams().initialize_object()
-
-        return callback
-
-    @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
-    def logger(self, request, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-
-        name, hparams = request.param
-
-        remote_dir = str(tmp_path / "remote_dir")
-        os.makedirs(remote_dir)
-        local_dir = str(tmp_path / "local_dir")
-        os.makedirs(local_dir)
-        monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
-        provider_hparams = ObjectStoreHparams(
-            provider='local',
-            key_environ="OBJECT_STORE_KEY",
-            container=".",
-        )
-
-        required_args = {}
-        if name == 'wandb':
-            pytest.importorskip('wandb', reason='Required wandb')
-        if name == 'object_store':
-            required_args['object_store_hparams'] = provider_hparams
-            required_args['use_procs'] = False
-
-        if name == 'object_store_logger':
-            monkeypatch.setenv("KEY_ENVIRON", str(tmp_path))
-
-            logger = hparams(
-                provider='local',
-                container='.',
-                key_environ="KEY_ENVIRON",
-            ).initialize_object()
-        else:
-            logger = hparams(**required_args).initialize_object()
-
-        return logger
-
-    """
-    Tests that training completes.
-    """
-
-    def test_callbacks(self, config, callback):
-        config['callbacks'] = [callback]
-        trainer = Trainer(**config)
-        trainer.fit()
-
-    @pytest.mark.filterwarnings(
-        r"ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning")
-    def test_loggers(self, config, logger):
-        config['loggers'] = [logger]
-        trainer = Trainer(**config)
-        trainer.fit()
-
-    """
-    Tests that training with multiple fits complete.
-    Note: future functional tests should test for
-    idempotency (e.g functionally)
-    """
-
-    def test_callbacks_multiple_calls(self, config, callback):
-        config['callbacks'] = [callback]
-        trainer = Trainer(**config)
-        self._test_multiple_fits(trainer)
-
-    @pytest.mark.filterwarnings("ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning"
-                               )
-    def test_loggers_multiple_calls(self, config, logger):
-        config['loggers'] = [logger]
-        trainer = Trainer(**config)
-        self._test_multiple_fits(trainer)
-
-    def _test_multiple_fits(self, trainer):
-        trainer.fit()
-        trainer.state.max_duration *= 2
-        trainer.fit()
-
-
-class TestTrainerAlgorithms:
-
-    @pytest.mark.parametrize("name", algorithm_registry.list_algorithms())
-    @pytest.mark.timeout(5)
-    @device('gpu')
-    def test_algorithm_trains(self, name: str, device: str):
-        if name in ('no_op_model', 'scale_schedule'):
-            pytest.skip('stub algorithms')
-
-        if name in ('cutmix, mixup, label_smoothing'):
-            # see: https://github.com/mosaicml/composer/issues/362
-            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
-
-        setting = get_settings(name)
-        if setting is None:
-            pytest.xfail('No setting provided in algorithm_settings.')
-
-        trainer = Trainer(
-            model=setting['model'],
-            train_dataloader=DataLoader(dataset=setting['dataset'], batch_size=4),
-            max_duration='2ep',
-            device=device,
-        )
-        trainer.fit()
-
-        # fit again for another epoch
-        trainer.fit(duration='1ep')
 
 
 @pytest.mark.vision

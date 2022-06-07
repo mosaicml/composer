@@ -55,7 +55,7 @@ model:
       transformers_version: 4.11.0.dev0
       use_cache: true
       vocab_size: 50257
-optimizer:
+optimizers:
   adamw:
     lr: 1.5e-3
     betas:
@@ -70,15 +70,12 @@ max_duration: 1ep
 train_batch_size: 512
 eval_batch_size: 16 # use micro_bs_per_gpu = 2 to accomodate 10GB limit
 seed: 17
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   persistent_workers: true
   num_workers: 8
   timeout: 0
   prefetch_factor: 2
-precision: amp
 grad_clip_norm: 1.0
 grad_accum: 11
 eval_interval: 1000ba

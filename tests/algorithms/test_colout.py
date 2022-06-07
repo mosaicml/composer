@@ -10,7 +10,7 @@ import torch
 from PIL import Image
 from torch.utils.data import DataLoader
 
-from composer.algorithms import ColOut, ColOutHparams
+from composer.algorithms import ColOut
 from composer.algorithms.colout.colout import ColOutTransform, colout_batch
 from composer.core import Event, State
 from composer.loggers import Logger
@@ -257,7 +257,7 @@ class TestColOutAlgorithm:
     @pytest.mark.parametrize("batch", [True])
     def test_apply_batch(self, fake_image_batch: torch.Tensor, colout_algorithm: ColOut, minimal_state: State,
                          empty_logger: Logger):
-        """Apply the algorithm to a fake batch."""
+        """Applies the algorithm to a fake batch."""
         p_row = colout_algorithm.p_row
         p_col = colout_algorithm.p_col
 
@@ -270,7 +270,7 @@ class TestColOutAlgorithm:
     @pytest.mark.parametrize("batch", [True])
     def test_apply_batch_pair(self, fake_image_batch: torch.Tensor, colout_algorithm: ColOut, minimal_state: State,
                               empty_logger: Logger):
-        """Apply batch ColOut to 2-tuple of images."""
+        """Applies batch ColOut to 2-tuple of images."""
         p_row = colout_algorithm.p_row
         p_col = colout_algorithm.p_col
 
@@ -299,12 +299,6 @@ class TestColOutAlgorithm:
         assert isinstance(new_image, Image.Image)
 
         verify_shape_image(original_image, new_image, p_row, p_col)
-
-
-def test_colout_hparams():
-    hparams = ColOutHparams()
-    algorithm = hparams.initialize_object()
-    assert isinstance(algorithm, ColOut)
 
 
 @pytest.mark.parametrize("p_row,p_col", [(1.5, 0.15), (0.15, 1.5)])

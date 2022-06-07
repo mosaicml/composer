@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Callable, Union
 
 import pytest
@@ -9,10 +12,10 @@ from composer.core.evaluator import Evaluator, evaluate_periodically
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.datasets.evaluator import EvaluatorHparams
-from composer.trainer import Trainer, TrainerHparams
+from composer.trainer import Trainer
+from composer.trainer.trainer_hparams import TrainerHparams
 from tests.common import EventCounterCallback, RandomClassificationDataset, SimpleModel
 from tests.common.datasets import RandomClassificationDatasetHparams
-from tests.common.events import EventCounterCallbackHparams
 
 
 def test_trainer_eval_only():
@@ -195,7 +198,7 @@ def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
         ),
     ]
     composer_trainer_hparams.val_dataset = None
-    composer_trainer_hparams.callbacks = [EventCounterCallbackHparams()]
+    composer_trainer_hparams.callbacks = [EventCounterCallback()]
     composer_trainer_hparams.max_duration = "2ep"
     trainer = composer_trainer_hparams.initialize_object()
 

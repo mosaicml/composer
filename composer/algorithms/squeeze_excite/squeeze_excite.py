@@ -162,7 +162,7 @@ class SqueezeExcite(Algorithm):
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Apply the Squeeze-and-Excitation layer replacement.
+        """Applies the Squeeze-and-Excitation layer replacement.
 
         Args:
             event (Event): the current event
