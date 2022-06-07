@@ -8,14 +8,18 @@ import os
 import sys
 import textwrap
 from argparse import ArgumentParser
+from io import BytesIO
+from typing import Tuple
 
+import numpy as np
 import torch
+from PIL import Image
 from torch.utils.data import Subset
 from torchvision import transforms
 from torchvision.datasets import CIFAR10, ImageFolder
 
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.streaming import StreamingImageClassDataset
+from composer.datasets.streaming import StreamingDataset
 from composer.datasets.utils import pil_image_collate
 
 log = logging.getLogger(__name__)
@@ -117,18 +121,12 @@ def _parse_args():
     return args
 
 
-def cache_streaming(remote, local, num_workers=64):
+def cache_streaming(dataset, num_workers=64):
     """A function to iterate over all the samples in the dataset to cache it locally."""
     if "LOCAL_WORLD_SIZE" not in os.environ:
         os.environ["LOCAL_WORLD_SIZE"] = "1"
 
-    ds = StreamingImageClassDataset(remote=remote,
-                                    local=local,
-                                    shuffle=True,
-                                    transform=transforms.CenterCrop(224),
-                                    batch_size=512)
-
-    dl = torch.utils.data.DataLoader(ds,
+    dl = torch.utils.data.DataLoader(dataset,
                                      batch_size=512,
                                      num_workers=num_workers,
                                      pin_memory=False,
@@ -138,6 +136,20 @@ def cache_streaming(remote, local, num_workers=64):
     # empty loop to download and cache the dataset
     for _ in dl:
         pass
+
+
+class PILImageClassStreamingDataset(StreamingDataset):
+    """
+        A subclass of StreamingDataset that asserts and returns samples that are
+        tuples (PIL.Image, np.int64).
+        Intended to enforce sample types for pipelines that expect the tuple format (image, class)
+    """
+    def __getitem__(self, idx: int) -> Tuple[Image.Image, np.int64]:
+        obj = super().__getitem__(idx)
+        assert 'x', 'y' in obj.keys()
+        assert isinstance(obj['x'], Image.Image)
+        assert isinstance(obj['y'], np.int64)
+        return (obj['x'], obj['y'])
 
 
 def _main():
@@ -158,10 +170,28 @@ def _main():
     else:
         remote = os.path.join(args.remote, args.split)
         local = os.path.join(args.local, args.split)
-        cache_streaming(remote=remote, local=local, num_workers=args.num_workers)
-        ds = StreamingImageClassDataset(remote=remote, local=local, shuffle=False, batch_size=1)
 
-    write_ffcv_dataset(dataset=ds,
+        # Build a simple StreamingDataset that reads in the raw images, no processing
+        # Differet datasets are created + encoded differently, so that's why we need different decoders
+        if args.dataset == 'cifar':
+            def _decode_image(data):
+                arr = np.frombuffer(data, np.uint8)
+                arr = arr.reshape(32, 32, 3)
+                return Image.fromarray(arr)
+            def _decode_class(data):
+                return np.frombuffer(data, dtype=np.int64)[0]
+        elif args.dataset == 'imagenet':
+            def _decode_image(data):
+                return Image.open(BytesIO(data)).convert('RGB')
+            def _decode_class(data):
+                return np.frombuffer(data, dtype=np.int64)[0]
+        decoders = {'x': _decode_image, 'y': _decode_class}
+        dataset = PILImageClassStreamingDataset(remote=remote, local=local, decoders=decoders, shuffle=False)
+
+        # Iterate over the dataset and cache it, so it can be used for random access
+        cache_streaming(dataset=dataset, num_workers=args.num_workers)
+
+        write_ffcv_dataset(dataset=dataset,
                        write_path=args.write_path,
                        max_resolution=args.max_resolution,
                        num_workers=args.num_workers,
