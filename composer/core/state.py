@@ -77,6 +77,7 @@ class State(Serializable):
         model (torch.nn.Module): The model, typically as a subclass of :class:`~.ComposerModel`.
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
+        run_name (str): The name for this training run.
         grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch
             size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         train_dataloader (types.DataLoader, optional): Dataloader used for training
@@ -162,6 +163,7 @@ class State(Serializable):
             ``0``.
         profiler (Profiler): The profiler (if profiling is enabled), or ``None`` if not profiling.
         rank_zero_seed (int): The seed of the rank zero process.
+        run_name (str): The name for this training run.
         scaler (torch.cuda.amp.GradScaler): The gradient scaler if using mixed-precision training, or
             ``None`` if not using mixed-precision training.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
@@ -189,6 +191,8 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | current_metrics       | The current metrics.                                        |
             +-----------------------+-------------------------------------------------------------+
+            | run_name              | The run name for training.                                  |
+            +-----------------------+-------------------------------------------------------------+
 
         timestamp (Timestamp): The current training timestamp.
         train_dataloader (Iterable): The training dataloader. (May be ``None`` if not training.)
@@ -201,6 +205,9 @@ class State(Serializable):
 
         # determinism
         rank_zero_seed: int,
+
+        # run_name
+        run_name: str,
 
         # stopping conditions
         max_duration: Optional[Union[str, Time[int]]] = None,
@@ -233,6 +240,7 @@ class State(Serializable):
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
+        self.run_name = run_name
         self.grad_accum = grad_accum
         self._dataloader_len = None
         self._dataloader = None
@@ -282,6 +290,7 @@ class State(Serializable):
             "timestamp",
             "rank_zero_seed",
             "current_metrics",
+            "run_name",
         ]
 
         self.current_metrics: Dict[str, Dict[str, Any]] = {}

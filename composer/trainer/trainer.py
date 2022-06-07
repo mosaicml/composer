@@ -11,9 +11,11 @@ import itertools
 import logging
 import os
 import pathlib
+import time
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
+import coolname
 import torch
 import torch.distributed
 import torch.utils.data
@@ -203,6 +205,18 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
+def _get_run_name(run_name: Optional[str]) -> str:
+    generated_run_name = run_name
+    if generated_run_name is None:
+        # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
+        generated_run_name = str(int(time.time())) + "-" + coolname.generate_slug(2)
+        run_name_list = [generated_run_name]
+        # ensure all ranks have the same experiment name
+        dist.broadcast_object_list(run_name_list)
+        generated_run_name = run_name_list[0]
+    return generated_run_name
+
+
 class Trainer:
     """Train models with Composer algorithms.
 
@@ -388,9 +402,8 @@ class Trainer:
         loggers (LoggerDestination | Sequence[LoggerDestination], optional): The destinations to log training information to.
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        run_name (str, optional): A name for this training run. If not specified, one will be generated automatically.
-
-            .. seealso:: :class:`~composer.loggers.logger.Logger` for a description of the run name.
+        run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
+            :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
@@ -750,16 +763,18 @@ class Trainer:
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
 
+        # Run Name
+        run_name = _get_run_name(run_name=run_name)
+
         # Create the State
-        self.state = State(
-            rank_zero_seed=rank_zero_seed,
-            algorithms=algorithms,
-            model=model,
-            callbacks=callbacks,
-            grad_accum=grad_accum,
-            precision=precision,
-            optimizers=optimizers,
-        )
+        self.state = State(rank_zero_seed=rank_zero_seed,
+                           algorithms=algorithms,
+                           model=model,
+                           callbacks=callbacks,
+                           grad_accum=grad_accum,
+                           precision=precision,
+                           optimizers=optimizers,
+                           run_name=run_name)
 
         # Profiler
         if profiler is not None:
@@ -786,7 +801,7 @@ class Trainer:
                 ))
 
         # Logger
-        self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
+        self.logger = Logger(state=self.state, destinations=loggers)
 
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
@@ -944,6 +959,9 @@ class Trainer:
                                               strict_model_weights=load_strict_model_weights,
                                               chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
+            # Always override run_name so it is consistent with what was used for Event.INIT. In the future, we'll use the loaded name
+            # and not require run_name
+            self.state.run_name = run_name
             log.info(f"Setting seed to {self.state.seed}")
             reproducibility.seed_all(self.state.seed)
 
@@ -1022,16 +1040,18 @@ class Trainer:
                 "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
         if run_name is None:
             raise ValueError("run_name must be specified so autoresume knows which run to load from.")
-        latest_filename_formatted = format_name_with_dist(save_latest_filename, run_name)
-        latest_checkpoint_path = os.path.join(save_folder, latest_filename_formatted)
+        save_latest_filename = format_name_with_dist(save_latest_filename, run_name)
+        save_folder = format_name_with_dist(save_folder, run_name)
+        save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, run_name)
+        latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
         # If latest checkpoint is not saved locally, try to fetch from loggers
-        if not os.path.exists(latest_checkpoint_path) and save_latest_artifact_name is not None:
+        if not os.path.exists(latest_checkpoint_path):
             # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
             os.makedirs(save_folder, exist_ok=True)
             for logger in loggers:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                    logger.get_file_artifact(artifact_name=format_name_with_dist(save_latest_artifact_name, run_name),
+                    logger.get_file_artifact(artifact_name=save_latest_artifact_name,
                                              destination=latest_checkpoint_path,
                                              chunk_size=load_chunk_size,
                                              progress_bar=load_progress_bar)
@@ -2058,4 +2078,4 @@ class Trainer:
         Returns:
             List[pathlib.Path]: See :func:`.save_checkpoint`.
         """
-        return save_checkpoint(state=self.state, logger=self.logger, filename=name, weights_only=weights_only)
+        return save_checkpoint(state=self.state, filename=name, weights_only=weights_only)

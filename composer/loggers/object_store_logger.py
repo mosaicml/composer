@@ -138,7 +138,7 @@ class ObjectStoreLogger(LoggerDestination):
             | ``{artifact_name}``    | The name of the artifact being logged.                |
             +------------------------+-------------------------------------------------------+
             | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`.Logger.run_name`.                             |
+            |                        | :attr:`.State.run_name`.                              |
             +------------------------+-------------------------------------------------------+
             | ``{rank}``             | The global rank, as returned by                       |
             |                        | :func:`~composer.utils.dist.get_global_rank`.         |
@@ -243,11 +243,11 @@ class ObjectStoreLogger(LoggerDestination):
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
+        del logger  # unused
         if self._finished is not None:
             raise RuntimeError("The ObjectStoreLogger is already initialized.")
         self._finished = self._finished_cls()
-        self._run_name = logger.run_name
+        self._run_name = state.run_name
         object_name_to_test = self._object_name(".credentials_validated_successfully")
         _validate_credentials(self.provider, self.container, self.provider_kwargs, object_name_to_test)
         assert len(self._workers) == 0, "workers should be empty if self._finished was None"
