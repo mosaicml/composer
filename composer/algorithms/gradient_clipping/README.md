@@ -11,7 +11,27 @@ Gradient Clipping
 |*Need a picture.*|-->
 
 ## How to Use
-Gradient Clipping
+Gradient Clipping is a technique used to stabilize the training of neural networks. It was
+originally invented to solve the problem of vanishing and exploding gradients in [training](https://www.fit.vut.cz/study/phd-thesis/283/.en) [recurrent neural networks](https://arxiv.org/abs/1211.5063), but it has shown to be useful for [transformers](https://arxiv.org/abs/1909.05858v2) and [convolutional](https://arxiv.org/abs/1512.00567v3) [neural networks](https://arxiv.org/abs/2102.06171) as well.
+Gradient clipping usually involves clipping the extreme values of the gradients or gradient norms of a model during training to be under
+a certain threshold. The gradient clipping operation gets executed after gradients are computed (after `loss.backward()`), but before the weights of the network are updated (`optim.step()`).
+
+The three supported types of gradient clipping can be controlled using the `clipping_type` argument and they are:
+* value: Constrains all gradients to be between [-`clipping_threshold`, `clipping_threshold`]. Usage:
+```python
+cf.apply_gradient_clipping(model.parameters(),clipping_type='value',clipping_threshold=clipping_threshold)
+```
+* norm: Multiplies all gradients by min(1, `clipping_threshold` / L2_norm(`gradients`)). Usage:
+
+```python
+cf.apply_gradient_clipping(model.parameters(),clipping_type='norm',clipping_threshold=clipping_threshold)
+```
+* adaptive: Clips all gradients based on the gradient norm to parameter norm ratio. Usage: 
+
+```python
+cf.apply_gradient_clipping(model.parameters(),clipping_type='adaptive',clipping_threshold=clipping_threshold)
+```
+
 ### Functional Interface
 
 ```python
@@ -91,7 +111,7 @@ On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradient
 ## Suggested Hyperparameters
 ### Norm-based gradient clipping
 The [original authors, R. Pascanu](https://arxiv.org/abs/1211.5063) of this type of clipping used gradient clipping with recurrent neural networks. They recommend monitoring the average gradient norm of your model's gradients over many iterations as a heuristic to help
-figure out a value for the `clipping_theshold`. 
+figure out a value for the `clipping_threshold`. 
 
 For computer vision, the authors of the famous [Inception convolutional neura network architecture](https://arxiv.org/abs/1512.00567v3) used a `clipping_threshold` of 2.0, which they claim helped stabilize their training.
 
