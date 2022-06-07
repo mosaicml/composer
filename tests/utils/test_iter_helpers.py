@@ -31,7 +31,7 @@ def test_dict_to_tuple(x):
 def test_obj_to_tuple(x):
     assert ensure_tuple(x) == (x,)
 
-@pytest.mark.parametrize("x", [b'test1', b'test2', b'test3'])
+@pytest.mark.parametrize("x", [list(b'test1', b'test2', b'test3')])
 def test_iter_to_stream(x):
     iter1 = iter(x)
     iter2 = iter(x)
