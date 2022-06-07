@@ -764,7 +764,7 @@ class Trainer:
         grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Run Name
-        generated_run_name = _get_run_name(run_name=run_name)
+        run_name = _get_run_name(run_name=run_name)
 
         # Create the State
         self.state = State(rank_zero_seed=rank_zero_seed,
@@ -774,7 +774,7 @@ class Trainer:
                            grad_accum=grad_accum,
                            precision=precision,
                            optimizers=optimizers,
-                           run_name=generated_run_name)
+                           run_name=run_name)
 
         # Profiler
         if profiler is not None:
@@ -959,8 +959,8 @@ class Trainer:
                                               strict_model_weights=load_strict_model_weights,
                                               chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
-            # Always override run_name. In the future, we'll use the loaded name and not require run_name
-            self.state.run_name = generated_run_name
+            # Always override run_name so it is consistent with what was used for Event.INIT. In the future, we'll use the loaded name and not require run_name
+            self.state.run_name = run_name
             log.info(f"Setting seed to {self.state.seed}")
             reproducibility.seed_all(self.state.seed)
 
