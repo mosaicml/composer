@@ -165,7 +165,6 @@ class GradientClipping(Algorithm):
             else:
                 raise NotImplementedError(f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'")
 
-        # If Deepspeed is not enabled apply gradient clipping as normal.
         apply_gradient_clipping(parameters=state.model.parameters(),
                                 clipping_type=self.clipping_type,
                                 clipping_threshold=self.clipping_threshold)
