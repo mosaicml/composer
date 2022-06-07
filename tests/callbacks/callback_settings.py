@@ -10,7 +10,7 @@ import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer import Callback
-from composer.callbacks import EarlyStopper, MemoryMonitor, ThresholdStopper
+from composer.callbacks import EarlyStopper, MemoryMonitor, SpeedMonitor, ThresholdStopper
 from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.loggers import ObjectStoreLogger, WandBLogger
@@ -55,6 +55,9 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
     MLPerfCallback: {
         'root_folder': '.',
         'index': 0,
+    },
+    SpeedMonitor: {
+        'window_size': 1,
     },
     ObjectStoreLoggerHparams: {
         'object_store_hparams': {
@@ -106,7 +109,7 @@ def _to_pytest_param(impl):
         return pytest.param(impl, marks=marks)
 
 
-def get_cbs_and_marks():
+def get_cbs_and_marks(callbacks: bool = False, loggers: bool = False, profilers: bool = False):
     """Returns a list of :class:`pytest.mark.param` objects for all :class:`.Callback`.
     The callbacks are correctly annotated with ``skipif`` marks for optional dependencies
     and ``filterwarning`` marks for any warnings that might be emitted and are safe to ignore
@@ -116,18 +119,22 @@ def get_cbs_and_marks():
         import pytest
         from tests.callbacks.callback_settings import get_cbs_and_marks, get_cb_kwargs
 
-        @pytest.mark.parametrize("cb_cls",get_cbs_and_marks())
+        @pytest.mark.parametrize("cb_cls",get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
         def test_something(cb_cls: Type[Callback]):
             cb_kwargs = get_cb_kwargs(cb_cls)
             cb = cb_cls(**cb_kwargs)
             assert isinstance(cb, Callback)
     """
-    implementations = [
-        *get_module_subclasses(composer.callbacks, Callback),
-        *get_module_subclasses(composer.loggers, LoggerDestination),
-        *get_module_subclasses(composer.profiler, Callback),
-    ]
+    implementations = []
+    if callbacks:
+        implementations.extend(get_module_subclasses(composer.callbacks, Callback))
+    if loggers:
+        implementations.extend(get_module_subclasses(composer.loggers, LoggerDestination))
+    if profilers:
+        implementations.extend(get_module_subclasses(composer.profiler, Callback))
     ans = [_to_pytest_param(impl) for impl in implementations]
+    if not len(ans):
+        raise ValueError("callbacks, loggers, or profilers must be True")
     return ans
 
 

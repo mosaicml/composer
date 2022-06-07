@@ -9,10 +9,14 @@ import sys
 import textwrap
 from argparse import ArgumentParser
 
+import torch
 from torch.utils.data import Subset
+from torchvision import transforms
 from torchvision.datasets import CIFAR10, ImageFolder
 
 from composer.datasets.ffcv_utils import write_ffcv_dataset
+from composer.datasets.streaming import StreamingImageClassDataset
+from composer.datasets.utils import pil_image_collate
 
 log = logging.getLogger(__name__)
 
@@ -22,15 +26,22 @@ def _get_parser():
 
     parser.add_argument("--dataset",
                         type=str,
-                        default="cifar",
+                        default="imagenet",
                         choices=["cifar", "imagenet"],
                         help=textwrap.dedent("""\
                                 Dataset to use. Default: cifar"""))
     parser.add_argument("--remote",
                         type=str,
-                        default="s3://mosaicml-internal-dataset-cifar10",
+                        default="s3://mosaicml-internal-dataset-imagenet1k/mds/1/",
                         help=textwrap.dedent("""\
-                                Streaming dataset to use. Default: s3://mosaicml-internal-dataset-cifar10"""))
+                                Remote directory (S3 or local filesystem) where dataset is stored. Default: s3://mosaicml-internal-dataset-imagenet1k/mds/1/"""
+                                            ))
+    parser.add_argument("--local",
+                        type=str,
+                        default="/tmp/mds-cache/mds-imagenet1k/",
+                        help=textwrap.dedent("""\
+                                Local filesystem directory where dataset is cached during operation. Default:
+                                /tmp/mds-cache/mds-imagenet1k/"""))
     parser.add_argument("--split",
                         type=str,
                         default="train",
@@ -99,7 +110,34 @@ def _parse_args():
     if args.write_path is None:
         args.write_path = f"/tmp/{args.dataset}_{args.split}.ffcv"
 
+    if os.path.exists(args.write_path):
+        log.error(f"Destination already exists: {args.write_path}")
+        sys.exit(-1)
+
     return args
+
+
+def cache_streaming(remote, local, num_workers=64):
+    """A function to iterate over all the samples in the dataset to cache it locally."""
+    if "LOCAL_WORLD_SIZE" not in os.environ:
+        os.environ["LOCAL_WORLD_SIZE"] = "1"
+
+    ds = StreamingImageClassDataset(remote=remote,
+                                    local=local,
+                                    shuffle=True,
+                                    transform=transforms.CenterCrop(224),
+                                    batch_size=512)
+
+    dl = torch.utils.data.DataLoader(ds,
+                                     batch_size=512,
+                                     num_workers=num_workers,
+                                     pin_memory=False,
+                                     drop_last=False,
+                                     collate_fn=pil_image_collate)
+
+    # empty loop to download and cache the dataset
+    for _ in dl:
+        pass
 
 
 def _main():
@@ -107,7 +145,6 @@ def _main():
     args = _parse_args()
 
     ds = None
-    remote_location = None
     if args.datadir is not None:
         if args.dataset == 'cifar':
             ds = CIFAR10(root=args.datadir, train=(args.split == 'train'), download=args.download)
@@ -119,10 +156,12 @@ def _main():
         if args.subset > 0:
             ds = Subset(ds, range(args.subset))
     else:
-        remote_location = os.path.join(args.remote, args.split)
+        remote = os.path.join(args.remote, args.split)
+        local = os.path.join(args.local, args.split)
+        cache_streaming(remote=remote, local=local, num_workers=args.num_workers)
+        ds = StreamingImageClassDataset(remote=remote, local=local, shuffle=False, batch_size=1)
 
     write_ffcv_dataset(dataset=ds,
-                       remote=remote_location,
                        write_path=args.write_path,
                        max_resolution=args.max_resolution,
                        num_workers=args.num_workers,

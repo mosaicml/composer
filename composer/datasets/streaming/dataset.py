@@ -14,7 +14,6 @@ from typing import Any, Callable, Dict, Iterator, Optional, Tuple
 import numpy as np
 from PIL import Image
 from torch.utils.data import IterableDataset
-from torchvision import transforms
 
 from composer.datasets.streaming.download import download_or_wait
 from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_sample_dict, get_index_basename,
@@ -388,7 +387,7 @@ class StreamingImageClassDataset(StreamingDataset):
                          max_retries=max_retries,
                          timeout=timeout,
                          batch_size=batch_size)
-        self.transform = transform or transforms.ToTensor()
+        self.transform = transform
 
     def __getitem__(self, idx: int) -> Tuple[Any, Any]:
         """Get the decoded and transformed (image, class) pair by ID.
@@ -401,6 +400,6 @@ class StreamingImageClassDataset(StreamingDataset):
         """
         obj = super().__getitem__(idx)
         x = obj['x']
-        x = self.transform(x)
+        x = self.transform(x) if self.transform else x
         y = obj['y']
         return x, y

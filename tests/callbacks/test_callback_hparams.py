@@ -28,7 +28,7 @@ def test_callback_hparams_is_constructable(
     assert_yaml_loads(constructor, yaml_dict=yaml_dict, expected=expected)
 
 
-@pytest.mark.parametrize('cb_cls', get_cbs_and_marks())
+@pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
 def test_callback_in_registry(cb_cls: Type[Callback]):
     # All callbacks, except for the ObjectStoreLogger and profiling callbacks, should appear in the registry
     # The ObjectStoreLogger has its own hparams class, and the profiling callbacks should not be instantiated

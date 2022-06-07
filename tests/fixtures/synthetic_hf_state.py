@@ -6,7 +6,8 @@ from typing import Tuple
 import pytest
 
 from composer.core.state import State
-from composer.datasets import DataLoaderHparams, LMDatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams
+from composer.datasets.lm_dataset_hparams import LMDatasetHparams
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.models import BERTHparams, GPT2Hparams, TransformerHparams
 from tests.common.models import generate_dummy_model_config
@@ -73,6 +74,7 @@ def synthetic_hf_state_maker(config) -> Tuple:
     state = State(
         model=model,
         rank_zero_seed=0,
+        run_name="run_name",
         dataloader=dataloader,
         dataloader_label="train",
         max_duration='1ep',

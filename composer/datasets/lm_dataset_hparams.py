@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generic dataset class for self-supervised training of autoregressive and masked language models."""
+"""Generic hyperparameters for self-supervised training of autoregressive and masked language models."""
 
 import logging
 import tempfile
@@ -12,8 +12,8 @@ from typing import List, Optional, cast
 import yahp as hp
 from torch.utils.data import DataLoader, Dataset
 
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.utils import MissingConditionalImportError, dist
 

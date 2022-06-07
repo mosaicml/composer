@@ -9,7 +9,7 @@ import tarfile
 import tempfile
 import textwrap
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 import torch
@@ -20,7 +20,8 @@ from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.time import Time, TimeUnit, ensure_time
-from composer.datasets import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.dataset_hparams import DatasetHparams
+from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.loggers import ObjectStoreLogger
 from composer.optim import CosineAnnealingScheduler
 from composer.optim.optimizer_hparams_registry import AdamWHparams
@@ -54,7 +55,7 @@ class DummyStatefulCallback(Callback):
 def assert_weights_equivalent(original_trainer_hparams: TrainerHparams,
                               new_trainer_hparams: TrainerHparams,
                               overwrite_load_path=True,
-                              save_overwrite=True) -> None:
+                              save_overwrite=True) -> Tuple[Trainer, Trainer]:
     """
     Strategy: get the weights from a new trainer
     Then assert that they are equivalent to the weights from the original model.
@@ -75,6 +76,8 @@ def assert_weights_equivalent(original_trainer_hparams: TrainerHparams,
 
     for p1, p2 in zip(original_weights, recovered_weights):
         assert (p1.data == p2.data).all()
+
+    return original_trainer, new_trainer
 
 
 def _load_checkpoint(checkpoint_dir: str, filename: str):
@@ -111,6 +114,11 @@ def assert_checkpoints_equivalent(
         del checkpoint_b['state']['timestamp']['Timestamp']['total_wct']
         del checkpoint_b['state']['timestamp']['Timestamp']['epoch_wct']
         del checkpoint_b['state']['timestamp']['Timestamp']['batch_wct']
+
+        # Remove run_name, since it's a function of time
+        del checkpoint_a['state']['run_name']
+        del checkpoint_b['state']['run_name']
+
         deep_compare(checkpoint_a, checkpoint_b)
 
         if 'model' not in checkpoint_a['state']:
@@ -306,13 +314,50 @@ def test_autoresume(
     # This should be ignored with autoresume
     second_trainer_hparams.load_path = middle_checkpoint
 
-    # pass in the two trainers, verify that the weights are the same
-    assert_weights_equivalent(
-        original_trainer_hparams=composer_trainer_hparams,
-        new_trainer_hparams=second_trainer_hparams,
-        overwrite_load_path=False,
-        save_overwrite=False,
-    )
+    # pass in the two trainers, verify that the weights are the same and run_name is same
+    trainer, second_trainer = assert_weights_equivalent(original_trainer_hparams=composer_trainer_hparams,
+                                                        new_trainer_hparams=second_trainer_hparams,
+                                                        overwrite_load_path=False,
+                                                        save_overwrite=False)
+    assert trainer.state.run_name == second_trainer.state.run_name
+
+
+@pytest.mark.timeout(90)
+@device('cpu', 'gpu')
+def test_different_run_names(
+    device: Device,
+    composer_trainer_hparams: TrainerHparams,
+):
+    """strategy:
+    - train two epochs and save checkpoints
+    - load checkpoint with two different hparams and verify run_names are different as
+        run_name should only be loaded from checkpoint if using autoresume
+    """
+    del device
+    if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
+        pytest.skip("Checkpointing tests require synthetic data")
+        return
+    if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
+        pytest.skip("Checkpointing tests require synthetic data")
+        return
+    # Train original checkpoints
+    checkpoint_a_folder = "first"
+    final_checkpoint = "ep2.pt"
+    composer_trainer_hparams = get_two_epoch_composer_hparams(composer_trainer_hparams, checkpoint_a_folder)
+    composer_trainer_hparams.save_overwrite = True
+    composer_trainer_hparams.load_weights_only = False
+    composer_trainer_hparams.load_strict_model_weights = False
+    _test_checkpoint_trainer(composer_trainer_hparams)
+    composer_trainer_hparams.load_path = os.path.join(checkpoint_a_folder, final_checkpoint)
+
+    # Create new trainer and change seed for new run_name generation
+    second_trainer_hparams = copy.deepcopy(composer_trainer_hparams)
+    second_trainer_hparams.seed = 2
+
+    trainer_a = composer_trainer_hparams.initialize_object()
+    trainer_b = second_trainer_hparams.initialize_object()
+
+    assert trainer_a.state.run_name != trainer_b.state.run_name
 
 
 @pytest.mark.timeout(90)
@@ -331,6 +376,7 @@ def test_save_overwrite(
     - create a new trainer from the `save_interval` checkpoint, but with a new optimizer and scheduler.
     - assert that the model weights are the original model, even though the optimizer and scheduler are different.
     """
+    del device
     if not isinstance(composer_trainer_hparams.train_dataset, SyntheticHparamsMixin):
         pytest.skip("Checkpointing tests require synthetic data")
         return
