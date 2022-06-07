@@ -494,7 +494,7 @@ class Trainer:
         load_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
             of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator.
-            If a prefix is provided, all children are also ignored (as demonstrated in Example 2). See :mod:`composer.core.state`
+            If a prefix is provided, all children are also ignored (see Example 2). See :mod:`composer.core.state`
             for the structure of state_dict.
 
             Example 1: `load_ignore_model_keys = ["state/model/layer1/weights", "state/model/layer1/bias"]` would ignore
