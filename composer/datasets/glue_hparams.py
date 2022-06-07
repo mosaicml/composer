@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""GLUE (General Language Understanding Evaluation) dataset (Wang et al, 2019).
+"""GLUE (General Language Understanding Evaluation) dataset hyperparameters (Wang et al, 2019).
 
 The GLUE benchmark datasets consist of nine sentence- or sentence-pair language
 understanding tasks designed to cover a diverse range of dataset sizes, text genres, and
@@ -24,8 +24,8 @@ import yahp as hp
 from torch.utils.data import DataLoader
 
 from composer.core.types import Dataset
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.utils import MissingConditionalImportError, dist
 

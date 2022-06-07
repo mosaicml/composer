@@ -10,7 +10,7 @@ from packaging import version
 
 import composer
 from composer.core import Precision
-from composer.datasets.hparams import SyntheticHparamsMixin
+from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.trainer.trainer_hparams import TrainerHparams
 
 

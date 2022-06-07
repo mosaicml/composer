@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""CIFAR image classification dataset.
+"""CIFAR image classification dataset hyperparameters.
 
 The CIFAR datasets are a collection of labeled 32x32 colour images. Please refer to the `CIFAR dataset
 <https://www.cs.toronto.edu/~kriz/cifar.html>`_ for more details.
@@ -18,10 +18,10 @@ import yahp as hp
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
-from composer.datasets.dataloader import DataLoaderHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin
 from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.utils import dist
 
 __all__ = ["CIFAR10DatasetHparams"]
