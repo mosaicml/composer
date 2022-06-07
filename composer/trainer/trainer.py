@@ -871,8 +871,8 @@ class Trainer:
         if grad_clip_norm > 0:
             warnings.warn(
                 DeprecationWarning(
-                    (f"Using the 'grad_clip_norm' field in Trainer is deprecated. PLease use"
-                     "the GradientClipping Algorithm in composer/algorithms/gradient_clipping")))
+                    (f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
+                     "the GradientClipping Algorithm in composer.algorithms.gradient_clipping.")))
         
         self._grad_clip_norm = grad_clip_norm
 
