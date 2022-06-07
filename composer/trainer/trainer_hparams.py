@@ -22,9 +22,9 @@ from composer.algorithms.algorithm_hparams_registry import algorithm_registry
 from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.core import Algorithm, Callback, DataSpec, Evaluator, Event, Precision, State, Time
 from composer.core.types import JSON, PyTorchScheduler
-from composer.datasets import DataLoaderHparams, DatasetHparams
-from composer.datasets.dataset_registry import get_dataset_registry
-from composer.datasets.evaluator import EvaluatorHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.dataset_hparams_registry import dataset_registry
+from composer.datasets.evaluator_hparams import EvaluatorHparams
 from composer.loggers import LoggerDestination, LogLevel
 from composer.loggers.logger_hparams_registry import logger_registry
 from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
@@ -67,8 +67,6 @@ model_registry = {
     "timm": TimmHparams,
     "vit_small_patch16": ViTSmallPatch16Hparams
 }
-
-dataset_registry = get_dataset_registry()
 
 
 def _initialize_dataloader(
@@ -824,7 +822,7 @@ class ExperimentHparams(hp.Hparams):
 
         from tests.common import SimpleModelHparams, RandomClassificationDatasetHparams
 
-        from composer.datasets import DataLoaderHparams
+        from composer.datasets.dataset_hparams import DataLoaderHparams
         from composer.trainer.trainer_hparams import ExperimentHparams, FitHparams, EvalHparams, TrainerHparams
 
         trainer_hparams = TrainerHparams(

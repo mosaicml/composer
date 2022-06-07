@@ -11,7 +11,7 @@ from composer.core import Event
 from composer.core.evaluator import Evaluator, evaluate_periodically
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
-from composer.datasets.evaluator import EvaluatorHparams
+from composer.datasets.evaluator_hparams import EvaluatorHparams
 from composer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from tests.common import EventCounterCallback, RandomClassificationDataset, SimpleModel
