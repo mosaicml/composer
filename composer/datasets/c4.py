@@ -8,17 +8,92 @@ This dataset is a colossal, cleaned version of Common Crawl's web crawl corpus a
 """
 import copy
 import logging
+import os
+from dataclasses import dataclass
 from functools import partial
 from itertools import chain, cycle
+from typing import Any, Dict, Optional, Tuple
 
 from torch.utils.data import IterableDataset, get_worker_info
 
+from composer.core import DataSpec
+from composer.datasets.dataloader import DataLoaderHparams
+from composer.datasets.hparams import DatasetHparams
+from composer.datasets.streaming import StreamingDataset
 from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
-__all__ = ["C4Dataset"]
+__all__ = ["C4Dataset", "StreamingC4"]
+
+
+class StreamingC4(StreamingDataset):
+    """TBD
+    """
+
+    def _decode(self, data: bytes) -> str:
+        return data.decode('utf-8')
+
+    def _tokenize(self, text_sample):
+        if self.group_method == "truncate":
+            truncation = True
+            padding = 'max_length'
+            max_length = self.max_seq_len
+        else:
+            truncation = False
+            padding = False
+            max_length = None
+        return self.tokenizer(text_sample["text"], truncation=truncation, padding=padding, max_length=max_length)
+
+    def __init__(self,
+                 remote: str,
+                 local: str,
+                 split: str,
+                 shuffle: bool,
+                 tokenizer_name: str,
+                 max_seq_len: int,
+                 group_method: str = "truncate",
+                 batch_size: Optional[int] = None):
+
+        # HF Transformers is needed to build the tokenizer
+        try:
+            import transformers
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+
+        # Validation
+        if split not in ['train', 'val']:
+            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
+        if group_method not in ['truncate']:
+            raise ValueError(f"Only group_method='truncate' is supported at this time.")
+
+        # Build StreamingDataset
+        decoders = {
+            'text': self._decode,
+            'timestamp': self._decode,
+            'url': self._decode,
+        }
+        super().__init__(remote=os.path.join(remote, split),
+                         local=os.path.join(local, split),
+                         shuffle=shuffle,
+                         decoders=decoders,
+                         batch_size=batch_size)
+        self.tokenizer_name = tokenizer_name
+        self.max_seq_len = max_seq_len
+        self.group_method = group_method
+
+        # Build tokenizer
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)
+        if self.tokenizer.pad_token is None:
+            # Some tokenizers (e.g. GPT2 tokenizer) have no padding token which causes bugs
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        text_sample = super().__getitem__(idx)
+        token_sample = self._tokenize(text_sample)
+        # Skip any token grouping, currently only supporting group_method='truncate'
+        return token_sample
 
 
 class C4Dataset(IterableDataset):

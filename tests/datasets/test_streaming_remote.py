@@ -6,9 +6,13 @@ import time
 from typing import Optional, Tuple
 
 import pytest
+from torch import Tensor
 from torch.utils.data import DataLoader
+from transformers import DataCollatorForLanguageModeling
+from transformers.tokenization_utils_base import BatchEncoding
 
 from composer.datasets.ade20k import StreamingADE20k
+from composer.datasets.c4 import StreamingC4
 from composer.datasets.cifar import StreamingCIFAR10
 from composer.datasets.coco import StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
@@ -26,6 +30,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
                 "val": 2000,
             },
             "class": StreamingADE20k,
+            "kwargs": {},
         },
         "imagenet1k": {
             "remote": "s3://mosaicml-internal-dataset-imagenet1k/mds/1/",
@@ -33,7 +38,8 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
                 "train": 1281167,
                 "val": 50000,
             },
-            "class": StreamingImageNet1k
+            "class": StreamingImageNet1k,
+            "kwargs": {},
         },
         "coco": {
             "remote": "s3://mosaicml-internal-dataset-coco/mds/1/",
@@ -41,7 +47,17 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
                 "train": 117266,
                 "val": 4952,
             },
-            "class": StreamingCOCO
+            "class": StreamingCOCO,
+            "kwargs": {},
+        },
+        "c4": {
+            "remote": "s3://mosaicml-internal-dataset-c4/mds/1/",
+            "num_samples": {
+                "train": 364868892,
+                "val": 364608,
+            },
+            "class": StreamingC4,
+            "kwargs": {"tokenizer_name": "bert-base-uncased", "max_seq_len": 512},
         },
         "cifar10": {
             "remote": "s3://mosaicml-internal-dataset-cifar10/mds/1/",
@@ -58,7 +74,8 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
     d = dataset_map[name]
     expected_samples = d["num_samples"][split]
     remote = d["remote"]
-    dataset = d["class"](remote=remote, local=local, split=split, shuffle=shuffle, batch_size=batch_size)
+    kwargs = d["kwargs"]
+    dataset = d["class"](remote=remote, local=local, split=split, shuffle=shuffle, batch_size=batch_size, **kwargs)
     return (expected_samples, dataset)
 
 
@@ -109,6 +126,7 @@ def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str)
     "imagenet1k",
     "coco",
     "cifar10",
+    "c4",
 ])
 @pytest.mark.parametrize("split", ["val"])
 def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: str) -> None:
@@ -119,7 +137,6 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
     num_workers = 8
     drop_last = False
     persistent_workers = True
-    collate_fn = pil_image_collate if name in ["ade20k", "imagenet1k"] else None
 
     # Build StreamingDataset
     ds_build_start = time.time()
@@ -132,6 +149,14 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
     ds_build_dur = ds_build_end - ds_build_start
     print("Built dataset")
 
+    # Get collate_fn if needed
+    collate_fn = None
+    if name in ["ade20k", "imagenet1k"]:
+        collate_fn = pil_image_collate
+    elif name in ["c4"]:
+        collate_fn = DataCollatorForLanguageModeling(tokenizer=dataset.tokenizer,
+                                                                  mlm=True,
+                                                                  mlm_probability=0.15)
     # Build DataLoader
     loader_build_start = time.time()
     loader = DataLoader(dataset=dataset,
@@ -148,10 +173,21 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
 
     for epoch in range(3):
         rcvd_samples = 0
+        last_marker = 0
+        marker_interval = 1000
         epoch_start = time.time()
         for _, batch in enumerate(loader):
-            n_samples = batch[0].shape[0]
+            if isinstance(batch, Tensor):
+                n_samples = batch[0].shape[0]
+            elif isinstance(batch, (dict, BatchEncoding)):
+                first_key = list(batch.keys())[0]
+                n_samples = batch[first_key].shape[0]
+            else:
+                raise ValueError(f"Unsure how to count n_samples for batch of type {type(batch)}")
             rcvd_samples += n_samples
+            if rcvd_samples - last_marker > marker_interval:
+                print(f"samples read: {rcvd_samples}")
+                last_marker = rcvd_samples
         epoch_end = time.time()
         epoch_dur = epoch_end - epoch_start
         samples_per_sec = rcvd_samples / epoch_dur
