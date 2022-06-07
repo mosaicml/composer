@@ -965,11 +965,11 @@ class TestFFCVDataloaders:
 
 
 @pytest.mark.world_size(2)
-def test_logger_run_name():
+def test_state_run_name():
     # seeding with the global rank to ensure that each rank has a different seed
     reproducibility.seed_all(dist.get_global_rank())
 
-    run_name = _get_run_name()
+    run_name = _get_run_name(None)
     # The run name should be the same on every rank -- it is set via a distributed reduction
     # Manually verify that all ranks have the same run name
     run_names = dist.all_gather_object(run_name)
