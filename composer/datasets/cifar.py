@@ -1,6 +1,12 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""CIFAR image classification dataset.
+
+The CIFAR datasets are a collection of labeled 32x32 colour images. Please refer to the `CIFAR dataset
+<https://www.cs.toronto.edu/~kriz/cifar.html>`_ for more details.
+"""
+
 import os
 from typing import Any, Optional
 
