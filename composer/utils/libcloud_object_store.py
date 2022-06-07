@@ -11,10 +11,12 @@ from typing import Any, Dict, Iterator, Optional, Union
 from libcloud.storage.providers import get_driver
 from libcloud.storage.types import ObjectDoesNotExistError
 
+from composer.utils.object_store import ObjectStore
+
 __all__ = ["LibcloudObjectStore"]
 
 
-class LibcloudObjectStore:
+class LibcloudObjectStore(ObjectStore):
     """Utility for uploading to and downloading from object (blob) stores, such as Amazon S3.
 
     .. rubric:: Example
@@ -183,29 +185,47 @@ class LibcloudObjectStore:
         """
         return self._get_object(object_name).size
 
-    def download_object(self,
-                        object_name: str,
-                        destination_path: str,
-                        overwrite_existing: bool = False,
-                        delete_on_failure: bool = True):
+    def download_object(
+        self,
+        object_name: str,
+        destination_path: str,
+        overwrite_existing: bool = False,
+    ):
         """Download an object to the specified destination path.
 
         .. seealso:: :meth:`libcloud.storage.base.StorageDriver.download_object`.
 
         Args:
             object_name (str): The name of the object to download.
-
             destination_path (str): Full path to a file or a directory where the incoming file will be saved.
-
             overwrite_existing (bool, optional): Set to ``True`` to overwrite an existing file. (default: ``False``)
-            delete_on_failure (bool, optional): Set to ``True`` to delete a partially downloaded file if
-                the download was not successful (hash mismatch / file size). (default: ``True``)
         """
+        if os.path.exists(destination_path) and not overwrite_existing:
+            # If the file already exits, short-circuit and skip the download
+            raise FileExistsError(
+                f"destination_path {destination_path} exists and overwrite_existing was set to False.")
+
         obj = self._get_object(object_name)
-        self._provider.download_object(obj=obj,
-                                       destination_path=destination_path,
-                                       overwrite_existing=overwrite_existing,
-                                       delete_on_failure=delete_on_failure)
+        # Download first to a tempfile, and then rename, in case if the file gets corrupted in transit
+        tmp_filepath = destination_path + f".{uuid.uuid4()}.tmp"
+        try:
+            self._provider.download_object(
+                obj=obj,
+                destination_path=tmp_filepath,
+            )
+        except:
+            # The download failed for some reason. Make a best-effort attempt to remove the temporary file.
+            try:
+                os.remove(tmp_filepath)
+            except OSError:
+                pass
+            raise
+
+        # The download was successful.
+        if overwrite_existing:
+            os.replace(tmp_filepath, destination_path)
+        else:
+            os.rename(tmp_filepath, destination_path)
 
     def download_object_as_stream(self, object_name: str, chunk_size: Optional[int] = None):
         """Return a iterator which yields object data.

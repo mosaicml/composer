@@ -17,8 +17,9 @@ import composer.core.types as types
 from composer import Callback, Event
 from composer.core import State
 from composer.core.data_spec import DataSpec
-from composer.datasets import DataLoaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.loggers import Logger
 from composer.models.model_hparams import ModelHparams
 from composer.trainer.trainer import Trainer

@@ -22,8 +22,9 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
-from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
+from composer.datasets.imagenet_hparams import ImagenetDatasetHparams
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
 from composer.models.base import ComposerModel

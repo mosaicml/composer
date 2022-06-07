@@ -13,8 +13,7 @@ from composer.algorithms import ChannelsLast
 from composer.core import DataSpec, Precision, State
 from composer.core import state as state_module
 from composer.core.types import Batch
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from tests.common import SimpleModel, assert_state_equivalent
 
 
