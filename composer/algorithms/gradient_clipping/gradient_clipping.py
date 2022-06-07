@@ -171,7 +171,6 @@ class GradientClipping(Algorithm):
                                 clipping_threshold=self.clipping_threshold)
 
 
-# Factored this to a function to enable easier testing.
 def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipping_threshold: float = 0.01):
     """Clips all gradients in model based on ratio of gradient norms to parameter norms.
 
