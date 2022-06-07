@@ -26,7 +26,7 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.utils import dist
 
-__all__ = ["CIFAR10DatasetHparams"]
+__all__ = ["CIFAR10DatasetHparams", "StreamingCIFAR10Hparams"]
 
 log = logging.getLogger(__name__)
 
@@ -176,8 +176,10 @@ class StreamingCIFAR10Hparams(DatasetHparams):
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+            Default: ``'s3://mosaicml-internal-dataset-cifar10/mds/1/'``
         local (str): Local filesystem directory where dataset is cached during operation.
-        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train```.
+            Default: ``'/tmp/mds-cache/mds-cifar10/'``
+        split (str): The dataset split to use, either 'train' or 'val'. Default: ``'train'``.
     """
 
     remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
