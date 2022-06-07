@@ -123,8 +123,9 @@ class SpeedMonitor(Callback):
         self.batch_num_samples_buffer.append(batch_num_samples)
 
         # Log the throughput
-        throughput = sum(self.batch_num_samples_buffer) / sum(self.batch_wct_buffer)
-        logger.data_batch({'samples/step': throughput})
+        if len(self.batch_num_samples_buffer) == self.window_size:
+            throughput = sum(self.batch_num_samples_buffer) / sum(self.batch_wct_buffer)
+            logger.data_batch({'samples/step': throughput})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
