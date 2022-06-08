@@ -1,0 +1,66 @@
+train_dataset:
+  streaming_c4:
+    remote: s3://mosaicml-internal-dataset-c4/mds/1/
+    local: /tmp/mds-cache/mds-c4-2/
+    split: train
+    shuffle: false
+    tokenizer_name: bert-base-uncased
+    max_seq_len: 128
+    group_method: truncate
+    mlm: true
+    mlm_probability: 0.15
+evaluators:
+  evaluator:
+    label: bert_pre_training
+    eval_dataset:
+      streaming_c4:
+        remote: s3://mosaicml-internal-dataset-c4/mds/1/
+        local: /tmp/mds-cache/mds-c4-2/
+        split: val
+        shuffle: false
+        tokenizer_name: bert-base-uncased
+        max_seq_len: 128
+        group_method: truncate
+        mlm: true
+        mlm_probability: 0.15
+    metric_names:
+      - LanguageCrossEntropy
+      - MaskedAccuracy
+model:
+  bert:
+    use_pretrained: false
+    tokenizer_name: bert-base-uncased
+    pretrained_model_name: bert-base-uncased
+optimizers:
+  decoupled_adamw:
+    lr: 5.0e-4
+    betas:
+      - 0.9
+      - 0.98
+    eps: 1.0e-06
+    weight_decay: 1.0e-5
+schedulers:
+  - linear_decay_with_warmup:
+      t_warmup: 0.06dur
+      alpha_f: 0.02
+callbacks:
+  - speed_monitor:
+      window_size: 500
+  - lr_monitor: {}
+max_duration: 1ep  # Baseline is 256M samples, 7 epochs is ~280M samples
+train_batch_size: 4000
+eval_batch_size: 2000
+seed: 3407
+device:
+  gpu: {}
+dataloader:
+  pin_memory: true
+  persistent_workers: true
+  num_workers: 8
+  timeout: 0
+  prefetch_factor: 2
+grad_accum: auto
+precision: amp
+grad_clip_norm: 1.0
+eval_interval: 3500ba
+
