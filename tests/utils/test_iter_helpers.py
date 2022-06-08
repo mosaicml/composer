@@ -39,4 +39,4 @@ def test_iter_to_stream():
     x = [b'1234', b'56789', b'abcd']
     iter1 = iter(x)
     iter2 = iter(x)
-    assert b"".join(iter1) == io.BufferedReader(IteratorFileStream(iter2)).read()
+    assert b"".join(iter1) == io.BufferedReader(IteratorFileStream(iter2), buffer_size=io.DEFAULT_BUFFER_SIZE).read()
