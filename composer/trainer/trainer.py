@@ -607,7 +607,10 @@ class Trainer:
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1`` for no gradient
-            clipping. (default: ``-1``). Deprecated. Please use composer.algorithms.GradientClipping.
+            clipping. (default: ``-1``). 
+            
+            .. deprecated:: 0.8
+               Deprecated. Please use composer.algorithms.GradientClipping.
         profiler (Profiler, optional): The profiler, if profiling should be enabled. (default: ``None``)
 
             .. seealso::
