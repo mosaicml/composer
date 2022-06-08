@@ -6,13 +6,11 @@
 
 import math
 import os
-from io import BytesIO
 from threading import Lock, Thread
 from time import sleep
-from typing import Any, Callable, Dict, Iterator, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, Optional
 
 import numpy as np
-from PIL import Image
 from torch.utils.data import IterableDataset
 
 from composer.datasets.streaming.download import download_or_wait
@@ -21,7 +19,7 @@ from composer.datasets.streaming.format import (StreamingDatasetIndex, bytes_to_
 from composer.datasets.streaming.world import get_world
 from composer.utils import dist
 
-__all__ = ['StreamingDataset', 'StreamingImageClassDataset']
+__all__ = ['StreamingDataset']
 
 
 class StreamingDataset(IterableDataset):
@@ -328,78 +326,3 @@ class StreamingDataset(IterableDataset):
 
         for idx in self._iter_ids():
             yield self[idx]
-
-
-class StreamingImageClassDataset(StreamingDataset):
-    """A streaming image classification dataset, for (img, class) pairs.
-
-       This is a subclass of :class:`StreamingDataset`.
-
-    Args:
-        remote (str): Download shards from this remote S3 path or directory.
-        local (str): Download shards to this local filesystem directory for reuse.
-        shuffle (bool): Whether to shuffle the samples. Note that if `shuffle=False`, the sample order is deterministic but dependent on the DataLoader's `num_workers`.
-        transform (Optional[Callable]): Optional input data transform for data augmentation, etc.
-        max_retries (int): Number of download re-attempts before giving up. Default: 2.
-        timeout (float): How long to wait for shard to download before raising an exception. Default: 60 sec.
-        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
-                                    Worker indices will be constructed so that there is at most 1 incomplete batch at the end of each epoch.
-    """
-
-    def decode_image(self, data: bytes) -> Image.Image:
-        """Decode the sample image.
-
-        Args:
-            data (bytes): The raw bytes.
-
-        Returns:
-            Image: PIL image encoded by the bytes.
-        """
-        return Image.open(BytesIO(data)).convert('RGB')
-
-    def decode_class(self, data: bytes) -> np.int64:
-        """Decode the sample class.
-
-        Args:
-            data (bytes): The raw bytes.
-
-        Returns:
-            np.int64: The class encoded by the bytes.
-        """
-        return np.frombuffer(data, np.int64)[0]
-
-    def __init__(self,
-                 remote: str,
-                 local: str,
-                 shuffle: bool,
-                 transform: Optional[Callable] = None,
-                 max_retries: int = 2,
-                 timeout: float = 60,
-                 batch_size: Optional[int] = None) -> None:
-        decoders = {
-            'x': self.decode_image,
-            'y': self.decode_class,
-        }
-        super().__init__(remote=remote,
-                         local=local,
-                         shuffle=shuffle,
-                         decoders=decoders,
-                         max_retries=max_retries,
-                         timeout=timeout,
-                         batch_size=batch_size)
-        self.transform = transform
-
-    def __getitem__(self, idx: int) -> Tuple[Any, Any]:
-        """Get the decoded and transformed (image, class) pair by ID.
-
-        Args:
-            idx (int): Sample ID.
-
-        Returns:
-            Tuple[Any, Any]: Pair of (x, y) for this sample.
-        """
-        obj = super().__getitem__(idx)
-        x = obj['x']
-        x = self.transform(x) if self.transform else x
-        y = obj['y']
-        return x, y

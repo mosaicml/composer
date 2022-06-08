@@ -9,6 +9,7 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.datasets.ade20k import StreamingADE20k
+from composer.datasets.cifar import StreamingCIFAR10
 from composer.datasets.coco import StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
@@ -42,6 +43,14 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
             },
             "class": StreamingCOCO
         },
+        "cifar10": {
+            "remote": "s3://mosaicml-internal-dataset-cifar10/mds/1/",
+            "num_samples": {
+                "train": 50000,
+                "val": 10000,
+            },
+            "class": StreamingCIFAR10
+        },
     }
     if name not in dataset_map and split not in dataset_map[name]["num_samples"][split]:
         raise ValueError("Could not load dataset with name={name} and split={split}")
@@ -60,6 +69,7 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
     "ade20k",
     "imagenet1k",
     "coco",
+    "cifar10",
 ])
 @pytest.mark.parametrize("split", ["val"])
 def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str) -> None:
@@ -98,6 +108,7 @@ def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str)
     "ade20k",
     "imagenet1k",
     "coco",
+    "cifar10",
 ])
 @pytest.mark.parametrize("split", ["val"])
 def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: str) -> None:
