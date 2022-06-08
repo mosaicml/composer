@@ -184,13 +184,14 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
         marker_interval = len(dataset) // 20
         epoch_start = time.time()
         for _, batch in enumerate(loader):
-            if isinstance(batch, list):
+            if isinstance(batch, (list, tuple)):
                 n_samples = batch[0].shape[0]
             elif isinstance(batch, dict):
                 first_key = list(batch.keys())[0]
                 n_samples = batch[first_key].shape[0]
             elif isinstance(batch, BatchEncoding):
-                n_samples = batch.n_sequences
+                first_key = list(batch.data.keys())[0]
+                n_samples = batch.data[first_key].shape[0]
             else:
                 raise ValueError(f"Unsure how to count n_samples for batch of type {type(batch)}")
             assert isinstance(n_samples, int)
