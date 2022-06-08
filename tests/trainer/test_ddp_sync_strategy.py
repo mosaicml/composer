@@ -54,6 +54,7 @@ def test_ddp_sync_strategy(ddp_sync_strategy: str, expected_grads: List[List[Opt
     state = State(
         model=original_model,
         rank_zero_seed=rank_zero_seed,
+        run_name="run_name",
         optimizers=optimizer,
         grad_accum=2,
         max_duration="1ep",

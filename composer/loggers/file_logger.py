@@ -45,7 +45,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
 
             trainer.engine.close()
 
-            path = os.path.join(trainer.logger.run_name, "logs-rank0.txt")
+            path = os.path.join(trainer.state.run_name, "logs-rank0.txt")
             try:
                 os.remove(file_logger.filename)
             except FileNotFoundError as e:
@@ -219,9 +219,9 @@ class FileLogger(LoggerDestination):  # noqa: D101
         )
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
+        del logger  # unused
         self._is_newline = True
-        self._run_name = logger.run_name
+        self._run_name = state.run_name
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
         file_dirname = os.path.dirname(self.filename)
