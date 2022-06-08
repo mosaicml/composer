@@ -3,11 +3,14 @@
 
 """Utility for uploading to and downloading from cloud object stores."""
 import io
+import os
 import sys
-from typing import Any, Dict, Iterator, Optional, Union
 import uuid
+from typing import Any, Dict, Iterator, Optional, Union
+
 import boto3
 from botocore.config import Config
+
 from composer.utils.iter_helpers import IteratorFileStream
 from composer.utils.object_store import ObjectStore
 
@@ -69,7 +72,14 @@ class S3ObjectStore(ObjectStore):
                         bucket: Optional[str] = None):
         """Download an object to the specified destination path."""
 
-        self.client.download_file(Bucket=bucket, Key=object_name, Filename=destination_path)
+        tmp_path = object_name + f".{uuid.uuid4()}.tmp"
+        try:
+            self.client.download_file(Bucket=bucket, Key=tmp_path, Filename=destination_path)
+        except:
+            raise Exception # custom exception to be be implemented later
+        else:
+            os.replace(tmp_path, destination_path)
+
 
     def download_object_as_stream(self, object_name: str, bucket: Optional[str] = None, chunk_size: Optional[int] = None):
         """Return a iterator which yields object data.
