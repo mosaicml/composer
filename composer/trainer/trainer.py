@@ -761,7 +761,11 @@ class Trainer:
                 DeprecationWarning(
                     (f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
                      "the GradientClipping Algorithm in composer.algorithms.gradient_clipping.")))
-            algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
+            if any([isinstance(algo, GradientClipping) for algo in algorithms]):
+                warnings.warn(RuntimeWarning(f"The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}"))
+            else:
+                algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
+
         
 
         # Create the State
