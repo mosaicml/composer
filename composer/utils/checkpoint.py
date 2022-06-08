@@ -18,9 +18,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import torch
 
 from composer.utils import dist, reproducibility
-from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, GetFileNotFoundException,
-                                         format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.libcloud_object_store import LibcloudObjectStore
+from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist_and_time, get_file,
+                                         is_tar)
+from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.core.state import State
@@ -68,7 +68,7 @@ def _get_write_mode(name: str) -> str:
 def load_checkpoint(
     path: str,
     state: State,
-    object_store: Optional[Union[LibcloudObjectStore, LoggerDestination]] = None,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
     chunk_size: int = 1_048_576,
@@ -111,9 +111,9 @@ def load_checkpoint(
             correct state.
 
         state (State): The :class:`~composer.core.state.State` to load the checkpoint into.
-        object_store (Union[LibcloudObjectStore, LoggerDestination], optional): If the ``path`` is in an object store
+        object_store (Union[ObjectStore, LoggerDestination], optional): If the ``path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
-            :class:`~.LibcloudObjectStore` or :class:`~.LoggerDestination` which will be used
+            :class:`~.ObjectStore` or :class:`~.LoggerDestination` which will be used
             to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
             (default: ``None``)
         load_weights_only (bool, optional): Whether or not to only restore the model weights from the checkpoint without
@@ -170,7 +170,7 @@ def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
 def _download_checkpoint(
     path: str,
     node_checkpoint_folder: str,
-    object_store: Optional[Union[LibcloudObjectStore, LoggerDestination]],
+    object_store: Optional[Union[ObjectStore, LoggerDestination]],
     chunk_size: int,
     progress_bar: bool,
 ) -> Tuple[str, Optional[str], bool]:
@@ -228,7 +228,7 @@ def _download_checkpoint(
                          object_store=object_store,
                          chunk_size=chunk_size,
                          progress_bar=progress_bar)
-            except GetFileNotFoundException:
+            except FileNotFoundError:
                 # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
                 # (e.g. when not using deepspeed)
                 pass

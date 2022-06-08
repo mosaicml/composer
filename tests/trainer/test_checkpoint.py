@@ -31,7 +31,8 @@ from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, is_tar
 from composer.utils.iter_helpers import ensure_tuple
-from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
+from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
+from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
                           configure_model_hparams_for_synthetic, deep_compare, device)
 
@@ -236,13 +237,16 @@ def test_autoresume(
         os.makedirs(remote_dir, exist_ok=True)
         for hparams in [composer_trainer_hparams, second_trainer_hparams]:
             object_store_logger = ObjectStoreLogger(
-                provider="local",
-                container='.',
+                object_store_cls=LibcloudObjectStore,
+                object_store_kwargs={
+                    "provider": "local",
+                    "container": '.',
+                    "provider_kwargs": {
+                        'key': remote_dir,
+                    },
+                },
                 num_concurrent_uploads=1,
                 use_procs=use_procs,
-                provider_kwargs={
-                    'key': remote_dir,
-                },
                 upload_staging_folder=str(tmp_path / "staging_folder"),
             )
             hparams.loggers = [object_store_logger]
@@ -406,10 +410,13 @@ def test_checkpoint_with_object_store_logger(
     second_trainer_hparams_logger = copy.deepcopy(composer_trainer_hparams)
     for hparams in [composer_trainer_hparams, second_trainer_hparams_logger]:
         object_store_logger = ObjectStoreLogger(
-            provider=provider,
-            container=container,
-            provider_kwargs={
-                'key': remote_dir,
+            object_store_cls=LibcloudObjectStore,
+            object_store_kwargs={
+                "provider": provider,
+                "container": container,
+                "provider_kwargs": {
+                    'key': remote_dir,
+                },
             },
             num_concurrent_uploads=1,
             use_procs=False,

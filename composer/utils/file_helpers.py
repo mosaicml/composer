@@ -16,13 +16,12 @@ import tqdm
 from composer.core.time import Time, Timestamp
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_pbar
-from composer.utils.libcloud_object_store import LibcloudObjectStore
+from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.loggers import LoggerDestination
 
 __all__ = [
-    'GetFileNotFoundException',
     'get_file',
     'ensure_folder_is_empty',
     'ensure_folder_has_no_conflicting_files',
@@ -30,11 +29,6 @@ __all__ = [
     'format_name_with_dist_and_time',
     'is_tar',
 ]
-
-
-class GetFileNotFoundException(RuntimeError):
-    """Exception if :meth:`get_file` failed due to a not found error."""
-    pass
 
 
 def is_tar(name: Union[str, pathlib.Path]) -> bool:
@@ -306,7 +300,7 @@ Args:
 def get_file(
     path: str,
     destination: str,
-    object_store: Optional[Union[LibcloudObjectStore, LoggerDestination]] = None,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     chunk_size: int = 2**20,
     progress_bar: bool = True,
 ):
@@ -328,10 +322,10 @@ def get_file(
             If ``path`` is a local filepath, then a symlink to ``path`` at ``destination`` will be created.
             Otherwise, ``path`` will be downloaded to a file at ``destination``.
 
-        object_store (LibcloudObjectStore, optional): An :class:`~.LibcloudObjectStore`, if ``path`` is located inside
+        object_store (ObjectStore, optional): An :class:`~.ObjectStore`, if ``path`` is located inside
             an object store (i.e. AWS S3 or Google Cloud Storage). (default: ``None``)
 
-            This :class:`~.LibcloudObjectStore` instance will be used to retreive the file. The ``path`` parameter
+            This :class:`~.ObjectStore` instance will be used to retrieve the file. The ``path`` parameter
             should be set to the object name within the object store.
 
             Set this parameter to ``None`` (the default) if ``path`` is a URL or a local file.
@@ -342,19 +336,11 @@ def get_file(
             (default: ``True``)
 
     Raises:
-        GetFileNotFoundException: If the ``path`` does not exist, a ``GetFileNotFoundException`` exception will
-            be raised.
+        FileNotFoundError: If the ``path`` does not exist.
     """
     if object_store is not None:
-        if isinstance(object_store, LibcloudObjectStore):
-            # Type LibcloudObjectStore
-            try:
-                total_size_in_bytes = object_store.get_object_size(path)
-            except Exception as e:
-                if "ObjectDoesNotExistError" in str(e):
-                    raise GetFileNotFoundException(
-                        f"Object name {path} not found in object store {object_store}") from e
-                raise
+        if isinstance(object_store, ObjectStore):
+            total_size_in_bytes = object_store.get_object_size(path)
             _write_to_file_with_pbar(
                 destination=destination,
                 total_size=total_size_in_bytes,
@@ -377,7 +363,7 @@ def get_file(
                 r.raise_for_status()
             except requests.exceptions.HTTPError as e:
                 if r.status_code == 404:
-                    raise GetFileNotFoundException(f"URL {path} not found") from e
+                    raise FileNotFoundError(f"URL {path} not found") from e
                 raise e
             total_size_in_bytes = r.headers.get('content-length')
             if total_size_in_bytes is not None:
@@ -393,7 +379,7 @@ def get_file(
 
     # It's a local filepath
     if not os.path.exists(path):
-        raise GetFileNotFoundException(f"Local path {path} does not exist")
+        raise FileNotFoundError(f"Local path {path} does not exist")
     os.symlink(os.path.abspath(path), destination)
 
 

@@ -32,7 +32,6 @@ requirements:
     - yahp ==0.1.1
     - requests >=2.26.0,<3
     - numpy ==1.21.5
-    - apache-libcloud >=3.3.1,<4
     - psutil >=5.8.0,<6
     - coolname >=1.1.0,<2
     - py-cpuinfo>=8.0.0
@@ -45,6 +44,7 @@ requirements:
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
+    - apache-libcloud >=3.3.1,<4
 
 test:
   requires:
@@ -67,6 +67,7 @@ test:
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
     - cpuonly >=2.0,<3
+    - apache-libcloud >=3.3.1,<4
   files:
     - "**/composer/**"
     - "**/tests/**"

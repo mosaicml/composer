@@ -40,11 +40,10 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery, reproducibility
+from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery,
+                            reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
-from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -455,8 +454,8 @@ class Trainer:
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (Union[LibcloudObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
-            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.LibcloudObjectStore` or
+        load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
+            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
             :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
             (default: ``None``)
@@ -677,7 +676,7 @@ class Trainer:
 
         # Load Checkpoint
         load_path: Optional[str] = None,
-        load_object_store: Optional[Union[LibcloudObjectStore, LoggerDestination]] = None,
+        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict_model_weights: bool = False,
         load_chunk_size: int = 1_048_576,
@@ -1056,7 +1055,7 @@ class Trainer:
                                              chunk_size=load_chunk_size,
                                              progress_bar=load_progress_bar)
                     break
-                except (NotImplementedError, GetFileNotFoundException):
+                except (NotImplementedError, FileNotFoundError):
                     # Ignore errors caused by no checkpoint saved with logger
                     pass
         # Require all ranks to have local checkpoint if we wish to restore from it
