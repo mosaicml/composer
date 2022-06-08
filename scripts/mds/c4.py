@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""C4 streaming dataset conversion scripts."""
+
 import os
 import random
 from argparse import ArgumentParser, Namespace
@@ -22,6 +24,7 @@ def parse_args() -> Namespace:
     args.add_argument('--shard_size_limit', type=int, default=1 << 27)
     args.add_argument('--tqdm', type=int, default=1)
     return args.parse_args()
+
 
 def get(split: str) -> Dataset:
     """Collect the samples for this dataset split.
@@ -48,15 +51,15 @@ def each(dataset: Dataset) -> Iterable[Dict[str, bytes]]:
     batch_size = 512
     prefetch_factor = max(1, 2 * batch_size // num_workers)
 
-    loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=batch_size, num_workers=num_workers, prefetch_factor=prefetch_factor)
+    loader = torch.utils.data.DataLoader(dataset=dataset,
+                                         batch_size=batch_size,
+                                         num_workers=num_workers,
+                                         prefetch_factor=prefetch_factor)
     for batch in loader:
         keys = list(batch.keys())
         current_bs = len(batch[keys[0]])
         for ix in range(current_bs):
-            yield {
-                key: batch_values[ix].encode("utf-8")
-                for key, batch_values in batch.items()
-            }
+            yield {key: batch_values[ix].encode("utf-8") for key, batch_values in batch.items()}
 
 
 def main(args: Namespace) -> None:

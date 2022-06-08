@@ -25,7 +25,18 @@ __all__ = ["C4Dataset", "StreamingC4"]
 
 
 class StreamingC4(StreamingDataset):
-    """TBD
+    """
+    Implementation of the C4 (Colossal Cleaned CommonCrawl) dataset using StreamingDataset.
+
+    Args:
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+        split (str): The dataset split to use, either 'train' or 'val'.
+        shuffle (bool): Whether to shuffle the samples in this dataset.
+        tokenizer_name (str): The name of the HuggingFace tokenizer to use to tokenize samples.
+        max_seq_len (int): The max sequence length of each token sample.
+        group_method (str): How to group text samples into token samples. Currently only supporting ``'truncate'``.
+        batch_size (Optional[int]): Hint batch_size that will be used on each device's DataLoader. Default: ``None``.
     """
 
     def _decode(self, data: bytes) -> str:

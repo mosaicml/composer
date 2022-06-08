@@ -6,10 +6,7 @@ import time
 from typing import Optional, Tuple
 
 import pytest
-from torch import Tensor
 from torch.utils.data import DataLoader
-from transformers import DataCollatorForLanguageModeling
-from transformers.tokenization_utils_base import BatchEncoding
 
 from composer.datasets.ade20k import StreamingADE20k
 from composer.datasets.c4 import StreamingC4
@@ -57,7 +54,10 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
                 "val": 364608,
             },
             "class": StreamingC4,
-            "kwargs": {"tokenizer_name": "bert-base-uncased", "max_seq_len": 512},
+            "kwargs": {
+                "tokenizer_name": "bert-base-uncased",
+                "max_seq_len": 512
+            },
         },
         "cifar10": {
             "remote": "s3://mosaicml-internal-dataset-cifar10/mds/1/",
@@ -131,6 +131,10 @@ def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str)
 ])
 @pytest.mark.parametrize("split", ["val"])
 def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: str) -> None:
+    # Transformers imports required for batch collating
+    pytest.importorskip("transformers")
+    from transformers import DataCollatorForLanguageModeling
+    from transformers.tokenization_utils_base import BatchEncoding
 
     # Data loading info
     shuffle = True
@@ -155,9 +159,11 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
     if name in ["ade20k", "imagenet1k"]:
         collate_fn = pil_image_collate
     elif name in ["c4"]:
-        collate_fn = DataCollatorForLanguageModeling(tokenizer=dataset.tokenizer,
-                                                                  mlm=True,
-                                                                  mlm_probability=0.15)
+        if isinstance(dataset, StreamingC4):
+            collate_fn = DataCollatorForLanguageModeling(tokenizer=dataset.tokenizer, mlm=True, mlm_probability=0.15)
+        else:
+            raise ValueError("Expected dataset to be instance of StreamingC4")
+
     # Build DataLoader
     loader_build_start = time.time()
     loader = DataLoader(dataset=dataset,
@@ -178,13 +184,16 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
         marker_interval = len(dataset) // 20
         epoch_start = time.time()
         for _, batch in enumerate(loader):
-            if isinstance(batch, (list, Tensor)):
+            if isinstance(batch, list):
                 n_samples = batch[0].shape[0]
-            elif isinstance(batch, (dict, BatchEncoding)):
+            elif isinstance(batch, dict):
                 first_key = list(batch.keys())[0]
                 n_samples = batch[first_key].shape[0]
+            elif isinstance(batch, BatchEncoding):
+                n_samples = batch.n_sequences
             else:
                 raise ValueError(f"Unsure how to count n_samples for batch of type {type(batch)}")
+            assert isinstance(n_samples, int)
             rcvd_samples += n_samples
             if rcvd_samples - last_marker > marker_interval:
                 print(f"samples read: {rcvd_samples}")

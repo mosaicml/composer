@@ -41,7 +41,8 @@ class StreamingC4Hparams(DatasetHparams):
     local: str = hp.optional("Local filesystem directory where dataset is cached during operation",
                              default="/tmp/mds-cache/mds-c4/")
     split: str = hp.optional("What split of the dataset to use. Either `train` or `val`.", default="train")
-    tokenizer_name: str = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.", default="bert-base-uncased")
+    tokenizer_name: str = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.",
+                                      default="bert-base-uncased")
     max_seq_len: int = hp.optional("The max sequence length of each token sample.", default=512)
     group_method: str = hp.optional(
         "How to group text samples into token samples. Currently only `truncate` is supported.", default="truncate")
