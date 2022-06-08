@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""C4 (Colossal Cleaned CommonCrawl) dataset.
+"""C4 (Colossal Cleaned Common Crawl) dataset.
 
 This dataset is a colossal, cleaned version of Common Crawl's web crawl corpus and it is based on the `Common Crawl
 <https://commoncrawl.org>`_ dataset.
@@ -26,7 +26,7 @@ __all__ = ["C4Dataset", "StreamingC4"]
 
 class StreamingC4(StreamingDataset):
     """
-    Implementation of the C4 (Colossal Cleaned CommonCrawl) dataset using StreamingDataset.
+    Implementation of the C4 (Colossal Cleaned Common Crawl) dataset using StreamingDataset.
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
@@ -105,7 +105,7 @@ class StreamingC4(StreamingDataset):
 
 class C4Dataset(IterableDataset):
     """Builds a streaming, sharded, sized :class:`torch.utils.data.IterableDataset` for the C4 (Colossal Cleaned
-    CommonCrawl) dataset. Used for pretraining autoregressive or masked language models. Text samples are streamed
+    Common Crawl) dataset. Used for pretraining autoregressive or masked language models. Text samples are streamed
     directly from the cloud using HuggingFace's C4 Dataset with streaming backend (See
     https://huggingface.co/datasets/c4 for more details). The text samples are then shuffled, tokenized, and grouped on-
     the-fly.

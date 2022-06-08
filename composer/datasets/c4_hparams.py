@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""C4 (Colossal Cleaned CommonCrawl) dataset hyperparameters."""
+"""C4 (Colossal Cleaned Common Crawl) dataset hyperparameters."""
 import logging
 from dataclasses import dataclass
 from typing import Optional
@@ -16,12 +16,12 @@ from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
-__all__ = ["C4DatasetHparams"]
+__all__ = ["C4DatasetHparams", "StreamingC4Hparams"]
 
 
 @dataclass
 class StreamingC4Hparams(DatasetHparams):
-    """Builds a :class:`.DataSpec` for the StreamingC4 (Colossal Cleaned CommonCrawl) dataset.
+    """Builds a :class:`.DataSpec` for the StreamingC4 (Colossal Cleaned Common Crawl) dataset.
 
     Args:
         remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
@@ -94,7 +94,7 @@ class StreamingC4Hparams(DatasetHparams):
 
 @dataclass
 class C4DatasetHparams(DatasetHparams):
-    """Builds a :class:`.DataSpec` for the C4 (Colossal Cleaned CommonCrawl) dataset.
+    """Builds a :class:`.DataSpec` for the C4 (Colossal Cleaned Common Crawl) dataset.
 
     Args:
         split (str): What split of the dataset to use. Either ``'train'`` or ``'validation'``. Default: ``None``.
