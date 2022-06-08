@@ -9,7 +9,6 @@
 import contextlib
 import io
 from collections.abc import Sequence
-from typing import Iterable
 
 
 def map_collection(collection, map_fn):
