@@ -12,8 +12,7 @@ __all__ = ["S3ObjectStore"]
 
 
 class S3ObjectStore(ObjectStore):
-    """Utility for uploading to and downloading from Amazon S3.
-    """
+    """Utility for uploading to and downloading from Amazon S3."""
 
     def __init__(self, 
             bucket: Optional[str] = None,
@@ -28,21 +27,15 @@ class S3ObjectStore(ObjectStore):
                       file_path: str,
                       object_name: str,
                       bucket: Optional[str] = None,
-                      verify_hash: bool = True,
-                      extra: Optional[Dict] = None,
-                      headers: Optional[Dict[str, str]] = None):
+                      extra: Optional[Dict] = None):
         """Upload an object currently located on a disk.
 
         Args:
             file_path (str): Path to the object on disk.
             object_name (str): Object name (i.e. where the object will be stored in the container.)
-            verify_hash (bool, optional): Whether to verify hashes (default: ``True``)
             extra (Optional[Dict], optional): Extra attributes to pass to the underlying provider driver.
                 (default: ``None``, which is equivalent to an empty dictionary)
-            headers (Optional[Dict[str, str]], optional): Additional request headers, such as CORS headers.
-                (defaults: ``None``, which is equivalent to an empty dictionary)
         """
-        del headers, verify_hash # used in the libcloud interface
 
         if bucket is None:
             if self.bucket is None:
@@ -55,20 +48,15 @@ class S3ObjectStore(ObjectStore):
                                  obj: Union[bytes, Iterator[bytes]],
                                  object_name: str,
                                  bucket: Optional[str] = None,
-                                 extra: Optional[Dict] = None,
-                                 headers: Optional[Dict[str, str]] = None):
+                                 extra: Optional[Dict] = None):
         """Upload an object.
 
         Args:
             obj (bytes | Iterator[bytes]): The object.
             object_name (str): Object name (i.e. where the object will be stored in the container.)
-            verify_hash (bool, optional): Whether to verify hashes (default: ``True``)
             extra (Optional[Dict], optional): Extra attributes to pass to the underlying provider driver.
                 (default: ``None``)
-            headers (Optional[Dict[str, str]], optional): Additional request headers, such as CORS headers.
-                (defaults: ``None``)
         """
-        del headers
 
         if bucket is None:
             if self.bucket is None:
@@ -89,9 +77,7 @@ class S3ObjectStore(ObjectStore):
     def download_object(self,
                         object_name: str,
                         destination_path: str,
-                        bucket: Optional[str] = None,
-                        overwrite_existing: bool = False,
-                        delete_on_failure: bool = True):
+                        bucket: Optional[str] = None):
         """Download an object to the specified destination path.
         """
 
