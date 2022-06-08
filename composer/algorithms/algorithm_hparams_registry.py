@@ -38,6 +38,7 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'cutout': CutOut,
     'ema': EMA,
     'factorize': Factorize,
+    'fused_layernorm': FusedLayerNorm,
     'ghost_batchnorm': GhostBatchNorm,
     'label_smoothing': LabelSmoothing,
     'layer_freezing': LayerFreezing,

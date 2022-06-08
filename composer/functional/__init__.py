@@ -25,6 +25,7 @@ from composer.algorithms.cutmix import cutmix_batch
 from composer.algorithms.cutout import cutout_batch
 from composer.algorithms.ema import compute_ema
 from composer.algorithms.factorize import apply_factorization
+from composer.algorithms.fused_layernorm import apply_fused_layernorm
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import apply_ghost_batchnorm
 from composer.algorithms.label_smoothing import smooth_labels
 from composer.algorithms.layer_freezing import freeze_layers
@@ -48,6 +49,7 @@ __all__ = [
     "cutmix_batch",
     "cutout_batch",
     "apply_factorization",
+    "apply_fused_layernorm",
     "apply_ghost_batchnorm",
     "smooth_labels",
     "freeze_layers",
