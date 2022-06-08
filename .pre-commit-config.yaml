@@ -94,4 +94,12 @@ repos:
       - id: nbstripout
         types:
           - "jupyter"
+        args:
+          - --extra-keys
+          - >
+            metadata.colab metadata.interpreter metadata.accelerator
+            metadata.kernelspec metadata.language_info metadata.file_extension metadata.mimetype
+            cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter metadata.pygments_lexer
+            metadata.version
+
 exclude: .ci\/release_tests\/.*
