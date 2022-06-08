@@ -20,8 +20,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from composer.core.state import State
 from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import ObjectStore, format_name_with_dist, get_file, retry
-from composer.utils.object_store.object_store import ObjectStoreTransientError
+from composer.utils import ObjectStore, ObjectStoreTransientError, dist, format_name_with_dist, get_file, retry
 
 log = logging.getLogger(__name__)
 
@@ -219,8 +218,9 @@ class ObjectStoreLogger(LoggerDestination):
         object_name_to_test = self._object_name(".credentials_validated_successfully")
         object_store = _build_object_store(self.object_store_cls, self.object_store_kwargs)
 
-        retry(ObjectStoreTransientError,
-              self.num_attempts)(lambda: _validate_credentials(object_store, object_name_to_test))()
+        if dist.get_global_rank() == 0:
+            retry(ObjectStoreTransientError,
+                  self.num_attempts)(lambda: _validate_credentials(object_store, object_name_to_test))()
         assert len(self._workers) == 0, "workers should be empty if self._finished was None"
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
