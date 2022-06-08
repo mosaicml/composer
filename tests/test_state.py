@@ -25,6 +25,7 @@ def get_dummy_state():
     model = SimpleModel()
     optimizers = torch.optim.Adadelta(model.parameters())
     state = State(model=model,
+                  run_name=f"{random.randint(0, 100)}",
                   grad_accum=random.randint(0, 100),
                   rank_zero_seed=random.randint(0, 100),
                   precision=Precision.AMP,

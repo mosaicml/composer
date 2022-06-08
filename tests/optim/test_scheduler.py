@@ -25,6 +25,7 @@ STEPS_PER_EPOCH = 1000
 def dummy_schedulers_state(dummy_model: torch.nn.Module, rank_zero_seed: int):
     state = State(
         model=dummy_model,
+        run_name="run_name",
         rank_zero_seed=rank_zero_seed,
         max_duration=MAX_DURATION,
     )

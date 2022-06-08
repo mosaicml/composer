@@ -25,7 +25,6 @@ from composer.utils.libcloud_object_store import LibcloudObjectStore
 if TYPE_CHECKING:
     from composer.core.state import State
     from composer.loggers import LoggerDestination
-    from composer.loggers.logger import Logger
 
 log = logging.getLogger(__name__)
 
@@ -295,7 +294,6 @@ def _restore_checkpoint(
 
 def save_checkpoint(
     state: State,
-    logger: Logger,
     filename: str = "ep{epoch}-ba{batch}-rank{rank}",
     *,
     weights_only: bool = False,
@@ -307,7 +305,7 @@ def save_checkpoint(
     if weights_only and not state.is_model_deepspeed:
         state_dict['state'] = {"model": state_dict['state']['model']}
 
-    checkpoint_filepath = format_name_with_dist_and_time(filename, logger.run_name, state.timestamp)
+    checkpoint_filepath = format_name_with_dist_and_time(filename, state.run_name, state.timestamp)
     if state.is_model_deepspeed and not is_tar(checkpoint_filepath):
         # Deepspeed requires tarballs; appending `.tar`
         checkpoint_filepath += ".tar"

@@ -158,7 +158,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             Consider the following scenario where:
 
-            *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``
+            *   The :attr:`~.State.run_name` is ``'awesome-training-run'``
             *   The default ``folder='{{run_name}}/checkpoints'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
             *   The current epoch count is ``1``.
@@ -198,7 +198,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             Consider the following scenario, where:
 
-            *   The :attr:`~.Logger.run_name` is 'awesome-training-run'
+            *   The :attr:`~.State.run_name` is 'awesome-training-run'
             *   The default ``folder='{{run_name}}/checkpoints'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
             *   The default ``latest_filename='latest-rank{{rank}}'`` is used.
@@ -315,15 +315,16 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.weights_only = weights_only
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
-        folder = format_name_with_dist(self.folder, logger.run_name)
+        del logger  # unused
+        folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
     def fit_start(self, state: State, logger: Logger) -> None:
+        del logger  # unused
         # Verify safety with self.overwrite. Note that this has to be done at fit_start as opposed to init since it requires state.timestamp
         # from any checkpoints which are loaded, and checkpoint loading happens after Event.INIT.
         if not self.overwrite:
-            folder = format_name_with_dist(self.folder, logger.run_name)
+            folder = format_name_with_dist(self.folder, state.run_name)
             ensure_folder_has_no_conflicting_files(folder, self.filename, state.timestamp)
         # Ensure no rank proceeds (and potentially attempts to write to the folder), until all ranks have validated that the folder is safe.
         dist.barrier()
@@ -349,17 +350,14 @@ class CheckpointSaver(Callback):  # noqa: D101
             self._save_checkpoint(state, logger, log_level)
 
     def _save_checkpoint(self, state: State, logger: Logger, log_level: LogLevel):
-        checkpoint_filepath = os.path.join(format_name_with_dist(self.folder, logger.run_name), self.filename)
-        checkpoint_filepaths = checkpoint.save_checkpoint(state,
-                                                          logger,
-                                                          checkpoint_filepath,
-                                                          weights_only=self.weights_only)
+        checkpoint_filepath = os.path.join(format_name_with_dist(self.folder, state.run_name), self.filename)
+        checkpoint_filepaths = checkpoint.save_checkpoint(state, checkpoint_filepath, weights_only=self.weights_only)
 
         if dist.get_global_rank() < len(checkpoint_filepaths):
             # Log the checkpoint as an artifact
             checkpoint_filepath = checkpoint_filepaths[dist.get_global_rank()]
             if self.artifact_name is not None:
-                artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
+                artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name,
                                                                state.timestamp).lstrip("/")
                 if state.is_model_deepspeed and not is_tar(artifact_name):
                     # Deepspeed requires tarballs; appending `.tar`
@@ -370,12 +368,12 @@ class CheckpointSaver(Callback):  # noqa: D101
                                      overwrite=self.overwrite)
 
             if self.latest_filename is not None:
-                formatted_folder_path = format_name_with_dist(self.folder, logger.run_name)
+                formatted_folder_path = format_name_with_dist(self.folder, state.run_name)
                 symlink_name = os.path.join(
                     formatted_folder_path,
                     format_name_with_dist_and_time(
                         self.latest_filename,
-                        logger.run_name,
+                        state.run_name,
                         state.timestamp,
                     ).lstrip("/"),
                 )
@@ -392,9 +390,9 @@ class CheckpointSaver(Callback):  # noqa: D101
                 relative_checkpoint_path = os.path.relpath(checkpoint_filepath, formatted_folder_path)
                 os.symlink(relative_checkpoint_path, symlink_name)
                 if self.artifact_name is not None and self.latest_artifact_name is not None:
-                    symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, logger.run_name,
+                    symlink_artifact_name = format_name_with_dist_and_time(self.latest_artifact_name, state.run_name,
                                                                            state.timestamp).lstrip("/")
-                    artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name,
+                    artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name,
                                                                    state.timestamp).lstrip("/")
                     # Always overwrite for symlinks since we use the same filename for latest
                     logger.symlink_artifact(log_level=log_level,
