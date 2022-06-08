@@ -9,7 +9,6 @@
 import contextlib
 import io
 from collections.abc import Sequence
-from typing import Iterator
 
 
 def map_collection(collection, map_fn):
@@ -102,17 +101,17 @@ class IteratorFileStream(io.RawIOBase):
         A usage example `f = io.BufferedReader(IteratorFileStream(iterator), buffer_size=buffer_size)`
 
     Args:
-        iterator (Iterator[bytes]): An iterator over bytes objects
+        iterator: An iterator over bytes objects
     """
 
-    def __init__(self, iterator: Iterator[bytes]):
+    def __init__(self, iterator):
         self.leftover = None
         self.iterator = iterator
 
     def readinto(self, b):
         try:
             l = len(b)  # max bytes to read
-            chunk = self.leftover or next(self.iterator)
+            chunk = next(self.iterator) if self.leftover is None else self.leftover
             output, self.leftover = chunk[:l], chunk[l:]
             b[:len(output)] = output
             return len(output)
