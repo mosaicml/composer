@@ -1,5 +1,5 @@
 {
     "image": "mosaicml/pytorch_vision:latest",
-    "remoteUser": "root",
-    "postCreateCommand": "pip install --user -e .[all] && pre-commit install"
+    "remoteUser": "mosaicml",
+    "postCreateCommand": "pip install -e .[all] && pre-commit install"
 }
