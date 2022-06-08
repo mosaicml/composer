@@ -56,6 +56,7 @@ class SFTPObjectStore:
 
         if uploaded_bytes != object_size:
             self.sftp_client.remove(tmp_path)
+            # Replace with custom exception later
             raise Exception("File sizes don't match uploading error")
         else:
             self.sftp_client.rename(tmp_path, object_name)
@@ -68,8 +69,9 @@ class SFTPObjectStore:
                                  headers: Optional[Dict[str, str]] = None):
         """Upload an object.
         """
-        f_obj = io.BytesIO(obj)
-        self.sftp_client.putfo()
+        obj = iter(obj)
+        file_obj = 
+        self.sftp_client.putfo(obj, )
 
 
     def download_object(self,
