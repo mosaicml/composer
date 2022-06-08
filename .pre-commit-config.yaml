@@ -95,6 +95,7 @@ repos:
         types:
           - "jupyter"
         args:
+          # Strip all the metadata that vscode or colab may add to a notebook
           - --extra-keys
           - >
             metadata.colab metadata.interpreter metadata.accelerator
