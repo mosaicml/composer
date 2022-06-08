@@ -324,19 +324,23 @@ class StreamingDataset(IterableDataset):
         """Get whether all shards have been downloaded."""
         return bool(self.has_all_shm.buf[0])
 
+    def _wait_and_step_epoch(self) -> None:
+        """Wait for all workers to get the current epoch, then increment it."""
+        sleep(0.5)
+        epoch = np.frombuffer(self.next_epoch_shm.buf, np.int64)
+        self.next_epoch_shm.buf[:] = np.int64(epoch + 1).tobytes()
+
     def _step_epoch(self) -> int:
         """Get what epoch this is, incrementing the counter if we are the first worker.
 
         Returns:
             int: Epoch.
         """
-        epoch = int(np.frombuffer(self.next_epoch_shm.buf, np.int64))
         if self.world.is_local_leader:
             info = get_worker_info()
             if info is None or info.id == 0:
-                sleep(1)
-                self.next_epoch_shm.buf[:] = np.int64(epoch + 1).tobytes()
-        return epoch
+                Thread(target=self._wait_and_step_epoch, daemon=True).start()
+        return int(np.frombuffer(self.next_epoch_shm.buf, np.int64))
 
     def _shards_to_samples(self, shards: NDArray[np.int64]) -> NDArray[np.int64]:
         """Get the samples of the given shards according to the index.
@@ -372,17 +376,16 @@ class StreamingDataset(IterableDataset):
             todo_ids.extend(my_ids)
             todo_ids.reverse()
 
-    def _poll_for_shards(self, my_ids: NDArray[np.int64], lock: Lock, todo_ids: List[int]) -> None:
+    def _poll_for_shards(self, is_id_mine: NDArray[np.uint8], lock: Lock, todo_ids: List[int],
+                         old_has_shard: NDArray[np.uint8]) -> None:
         """Poll shared memory for newly downloaded shards, adding our samples of those shards.
 
         Args:
-            my_ids (NDArray[np.int64]): Sample IDs of our partition across all shards.
+            is_id_mine (NDArray[np.uint8]): Whether each sample ID is in our partition.
             lock (Lock): Lock for modifying `todo_ids`.
             todo_ids (List[int]): List of downloaded our-partition sample IDs remaining to use this epoch.
+            old_has_shard (NDArray[np.uint8]): Whether each shard is already downloaded.
         """
-        is_id_mine = np.zeros(self.index.total_samples, np.uint8)
-        is_id_mine[my_ids] = 1
-        old_has_shard = np.zeros(self.index.num_shards, np.uint8)
         while True:
             has_shard = np.frombuffer(self.has_shard_shm.buf, np.uint8).copy()
             new_shards = np.argwhere(has_shard - old_has_shard).flatten()
@@ -418,9 +421,14 @@ class StreamingDataset(IterableDataset):
                 np.random.shuffle(my_ids)
             yield from my_ids
         else:
+            is_id_mine = np.zeros(self.index.total_samples, np.uint8)
+            is_id_mine[my_ids] = 1
             lock = Lock()
             todo_ids = []
-            Thread(target=self._poll_for_shards, args=(my_ids, lock, todo_ids)).start()
+            has_shard = np.frombuffer(self.has_shard_shm.buf, np.uint8).copy()
+            new_shards = np.argwhere(has_shard).flatten()
+            self._add_shards(is_id_mine, lock, todo_ids, new_shards)
+            Thread(target=self._poll_for_shards, args=(is_id_mine, lock, todo_ids, has_shard)).start()
 
             while True:
                 with lock:
