@@ -1,6 +1,6 @@
 import collections.abc
 import io
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, TypeVar, Union, overload
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, TypeVar, Union, overload
 
 import tqdm
 
@@ -44,7 +44,7 @@ def iterate_with_pbar(iterator: Iterator[TSized], progress_bar: Optional[tqdm.tq
 
 
 class IteratorFileStream(io.RawIOBase):
-    def __init__(self, iterator: Iterable[bytes]):
+    def __init__(self, iterator):
         ...
 
     def readinto(self, b) -> int:

@@ -102,10 +102,10 @@ class IteratorFileStream(io.RawIOBase):
         A usage example ``f = io.BufferedReader(IteratorFileStream(iterator), buffer_size=buffer_size)``
 
     Args:
-        iterator (Iterable[bytes]): An iterator over bytes objects
+        iterator: An iterator over bytes objects
     """
 
-    def __init__(self, iterator: Iterable[bytes]):
+    def __init__(self, iterator):
         self.leftover = None
         self.iterator = iterator
 
