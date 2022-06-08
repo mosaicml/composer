@@ -112,7 +112,10 @@ class IteratorFileStream(io.RawIOBase):
     def readinto(self, b):
         try:
             l = len(b)  # max bytes to read
-            chunk = next(self.iterator) if self.leftover is None else self.leftover
+            if self.leftover:
+                chunk = self.leftover
+            else:
+                chunk = next(self.iterator)
             output, self.leftover = chunk[:l], chunk[l:]
             b[:len(output)] = output
             return len(output)
