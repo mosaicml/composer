@@ -24,10 +24,8 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
         import boto3
         from botocore.config import Config
     except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without streaming support. To use streaming with Composer, run: `pip install mosaicml
-            [streaming]` if using pip or `conda install -c conda-forge monai` if using Anaconda""")) from e
+        raise MissingConditionalImportError(extra_deps_group="streaming", conda_package="boto3") from e
+
 
     obj = urlparse(remote)
     if obj.scheme != 's3':
@@ -35,7 +33,33 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
 
     config = Config(read_timeout=timeout)
     s3 = boto3.client('s3', config=config)
-    s3.download_file(obj.netloc, obj.path[1:], local)
+    s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
+
+
+def download_from_sftp(remote: str, local: str) -> None:
+    """Download a file from remote to local.
+    Args:
+        remote (str): Remote path (SFTP).
+        local (str): Local path (local filesystem).
+    """
+    try:
+        from paramiko import RSAKey, SFTPClient, Transport
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group="streaming", conda_package="paramiko") from e
+
+    obj = urlparse(remote)
+    if obj.scheme != 'sftp':
+        raise ValueError(f"Expected obj.scheme to be 'sftp', got {obj.scheme} for remote={remote}")
+
+    private_key_path = os.environ["STREAMING_DATASET_SSH_FILE"]
+    username = os.environ["STREAMING_DATASET_SSH_USERNAME"]
+    pkey = RSAKey.from_private_key_file(private_key_path)
+    transport = Transport(sock=(obj.netloc, 22))
+    transport.connect(username=username, pkey=pkey)
+    connection = SFTPClient.from_transport(transport)
+    connection.get(obj.path, local)
+    connection.close()
+    transport.close()
 
 
 def download_from_local(remote: str, local: str) -> None:
@@ -66,6 +90,8 @@ def dispatch_download(remote, local, timeout: float):
 
     if remote.startswith('s3://'):
         download_from_s3(remote, local, timeout)
+    elif remote.startswith('sftp://'):
+        download_from_sftp(remote, local)
     else:
         download_from_local(remote, local)
 

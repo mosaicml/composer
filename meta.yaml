@@ -43,6 +43,8 @@ requirements:
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
     - apache-libcloud >=3.5.1,<4
+    - paramiko>=2.11.0,<3
+
 test:
   requires:
     - fasteners ==0.17.3,<0.18
@@ -64,6 +66,7 @@ test:
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
     - apache-libcloud>=3.5.1,<4
+    - paramiko>=2.11.0,<3
     - cpuonly >=2.0,<3
     - moto >=3.1.12,<3.2
   files:
