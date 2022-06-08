@@ -93,7 +93,7 @@ On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradient
 4. Clamp the `clip_coeff` to be less than or equal to 1.0
 5. Multiply all the gradients by the `clip_coeff`.
 
-#### clipping_type='value'
+#### `clipping_type='value'`
 Value-based gradient clipping is implemented as follows:
 On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradients:
 1. Any gradients that are greater than `clipping_threshold` are set to `clipping_threshold` and
