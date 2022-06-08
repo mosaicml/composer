@@ -3,9 +3,12 @@
 
 """Utility for uploading to and downloading from cloud object stores."""
 import io
+import sys
 from typing import Any, Dict, Iterator, Optional, Union
+import uuid
 import boto3
 from botocore.config import Config
+from composer.utils.iter_helpers import IteratorFileStream
 from composer.utils.object_store import ObjectStore
 
 __all__ = ["S3ObjectStore"]
@@ -36,13 +39,10 @@ class S3ObjectStore(ObjectStore):
             extra (Optional[Dict], optional): Extra attributes to pass to the underlying provider driver.
                 (default: ``None``, which is equivalent to an empty dictionary)
         """
-
-        if bucket is None:
-            if self.bucket is None:
-                raise ValueError("No S3 bucket specified")
-            bucket = self.bucket
-
-        self.client.upload_file(Filename=file_path, Bucket=bucket, Key=object_name, ExtraArgs=extra)
+        try:
+            self.client.upload_file(Filename=file_path, Bucket=bucket, Key=object_name, ExtraArgs=extra)
+        except:
+            raise Exception("Custom exception implemented later")
 
     def upload_object_via_stream(self,
                                  obj: Union[bytes, Iterator[bytes]],
@@ -57,34 +57,17 @@ class S3ObjectStore(ObjectStore):
             extra (Optional[Dict], optional): Extra attributes to pass to the underlying provider driver.
                 (default: ``None``)
         """
-
-        if bucket is None:
-            if self.bucket is None:
-                raise ValueError("No S3 bucket specified")
-            bucket = self.bucket
+        if isinstance(obj, bytes):
+            obj = iter(i.to_bytes(1, sys.byteorder) for i in obj)
+        file_obj = io.BufferedReader(IteratorFileStream(obj))
         
-        # add handling for other bytes-like types
-        if not isinstance(obj, bytes):
-            raise NotImplementedError("S3ObjectStore.upload_object_via_stream only takes a bytes object.")
-        
-        obj = io.BytesIO(obj)
-
-        # if isinstance(obj, bytes):
-        #     obj = iter(i.to_bytes(1, sys.byteorder) for i in obj)
-        
-        self.client.upload_fileobj(obj, Bucket=bucket, Key=object_name, ExtraArgs=extra)
+        self.client.upload_fileobj(file_obj, Bucket=bucket, Key=object_name, ExtraArgs=extra)
 
     def download_object(self,
                         object_name: str,
                         destination_path: str,
                         bucket: Optional[str] = None):
-        """Download an object to the specified destination path.
-        """
-
-        if bucket is None:
-            if self.bucket is None:
-                raise ValueError("No S3 bucket specified")
-            bucket = self.bucket
+        """Download an object to the specified destination path."""
 
         self.client.download_file(Bucket=bucket, Key=object_name, Filename=destination_path)
 
@@ -98,11 +81,6 @@ class S3ObjectStore(ObjectStore):
         Returns:
             Iterator[bytes]: The object, as a byte stream.
         """
-
-        if bucket is None:
-            if self.bucket is None:
-                raise ValueError("No S3 bucket specified")
-            bucket = self.bucket
         
         obj = io.BytesIO()
         self.client.download_fileobj(Bucket=bucket, Key=object_name, Fileobj=obj)
