@@ -27,15 +27,21 @@ def _to_pytest_param(filepath: str):
     if notebook_name == "ffcv_dataloaders":
         marks.append(pytest.mark.vision)
 
+    if notebook_name == "huggingface_models":
+        marks.append(pytest.mark.xfail("bug in notebook -- see https://mosaicml.atlassian.net/browse/CO-497"))
+
     return pytest.param(filepath, marks=marks)
 
 
 def patch_notebooks():
     import itertools
+    import multiprocessing
 
     from torch.utils.data import DataLoader
 
     from composer import Trainer
+
+    multiprocessing.cpu_count = lambda: 2
 
     original_fit = Trainer.fit
 
