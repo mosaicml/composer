@@ -70,7 +70,7 @@ from composer.algorithms import GradientClipping
 from composer.trainer import Trainer
 
 clipping_type = 'norm' # can also be 'adaptive' or 'value'
-gc = GradientClipping(clipping_type=clipping_type, clipping_threshold = 0.1)
+gc = GradientClipping(clipping_type=clipping_type, clipping_threshold=0.1)
 
 trainer = Trainer(
     model=model,
