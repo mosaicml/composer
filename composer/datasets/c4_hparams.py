@@ -33,7 +33,7 @@ class StreamingC4Hparams(DatasetHparams):
         max_seq_len (int): The max sequence length of each token sample. Default: ``512``.
         group_method (str): How to group text samples into token samples. Currently only `truncate` is supported.
         mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
-        mlm_probability (float): If ``mlm=True``, the probability that tokens are masked. Default: ``0.15``.
+        mlm_probability (float): If ``mlm==True``, the probability that tokens are masked. Default: ``0.15``.
     """
 
     remote: str = hp.optional("Remote directory (S3 or local filesystem) where dataset is stored",
@@ -47,7 +47,7 @@ class StreamingC4Hparams(DatasetHparams):
     group_method: str = hp.optional(
         "How to group text samples into token samples. Currently only `truncate` is supported.", default="truncate")
     mlm: bool = hp.optional("Whether or not to use masked language modeling.", default=False)
-    mlm_probability: float = hp.optional("If `mlm=True`, the probability that tokens are masked.", default=0.15)
+    mlm_probability: float = hp.optional("If `mlm==True`, the probability that tokens are masked.", default=0.15)
 
     def validate(self):
         if self.split not in ["train", "val"]:
@@ -105,7 +105,7 @@ class C4DatasetHparams(DatasetHparams):
         group_method (str): How to group text samples into token samples. Either `truncate` or `concat`.
             Default: ``None``.
         mlm (bool): Whether or not to use masked language modeling. Default: ``False``.
-        mlm_probability (float): If ``mlm=True``, the probability that tokens are masked. Default: ``0.15``.
+        mlm_probability (float): If ``mlm==True``, the probability that tokens are masked. Default: ``0.15``.
         shuffle (bool): Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with
             deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle
             buffers. Default: ``False``.
@@ -127,7 +127,7 @@ class C4DatasetHparams(DatasetHparams):
     group_method: Optional[str] = hp.optional(
         "How to group text samples into token samples. Either `truncate` or `concat`.", default=None)
     mlm: bool = hp.optional("Whether or not to use masked language modeling.", default=False)
-    mlm_probability: float = hp.optional("If `mlm=True`, the probability that tokens are masked.", default=0.15)
+    mlm_probability: float = hp.optional("If `mlm==True`, the probability that tokens are masked.", default=0.15)
     shuffle: bool = hp.optional(
         "Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle buffers.",
         default=True)

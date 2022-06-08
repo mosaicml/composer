@@ -58,8 +58,8 @@ def each(dataset: Dataset) -> Iterable[Dict[str, bytes]]:
     for batch in loader:
         keys = list(batch.keys())
         current_bs = len(batch[keys[0]])
-        for ix in range(current_bs):
-            yield {key: batch_values[ix].encode("utf-8") for key, batch_values in batch.items()}
+        for idx in range(current_bs):
+            yield {key: batch_values[idx].encode("utf-8") for key, batch_values in batch.items()}
 
 
 def main(args: Namespace) -> None:
