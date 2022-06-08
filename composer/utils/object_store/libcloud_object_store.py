@@ -12,8 +12,7 @@ from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
 
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.object_store import ObjectStore
-from composer.utils.object_store.object_store import ObjectStoreTransientError
+from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
 __all__ = ["LibcloudObjectStore"]
 
