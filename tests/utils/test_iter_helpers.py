@@ -34,7 +34,6 @@ def test_obj_to_tuple(x):
     assert ensure_tuple(x) == (x,)
 
 
-@pytest.mark.parametrize()
 def test_iter_to_stream():
     x = [b'1234', b'56789', b'abcd']
     iter1 = iter(x)
