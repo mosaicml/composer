@@ -51,16 +51,21 @@ def download_from_sftp(remote: str, local: str) -> None:
     if obj.scheme != 'sftp':
         raise ValueError(f"Expected obj.scheme to be 'sftp', got {obj.scheme} for remote={remote}")
 
+    local_tmp = local + ".tmp"
+    if os.path.exists(local_tmp):
+        os.remove(local_tmp)
+    
     private_key_path = os.environ["STREAMING_DATASET_SSH_FILE"]
     username = os.environ["STREAMING_DATASET_SSH_USERNAME"]
     pkey = RSAKey.from_private_key_file(private_key_path)
     transport = Transport(sock=(obj.netloc, 22))
     transport.connect(username=username, pkey=pkey)
     connection = SFTPClient.from_transport(transport)
-    connection.get(obj.path, local)
+    connection.get(obj.path, local_tmp)
     connection.close()
     transport.close()
 
+    os.rename(local_tmp, local)
 
 def download_from_local(remote: str, local: str) -> None:
     """Download a file from remote to local.
