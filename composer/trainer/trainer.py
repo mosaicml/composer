@@ -43,6 +43,7 @@ from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.libcloud_object_store import LibcloudObjectStore
+from composer.algorithms import GradientClipping
 
 log = logging.getLogger(__name__)
 
@@ -753,6 +754,16 @@ class Trainer:
         self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
         grad_accum = _get_initial_grad_accum(grad_accum)
 
+        # Grad Clip Norm
+        if grad_clip_norm > 0:
+
+            warnings.warn(
+                DeprecationWarning(
+                    (f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
+                     "the GradientClipping Algorithm in composer.algorithms.gradient_clipping.")))
+            algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
+        
+
         # Create the State
         self.state = State(
             rank_zero_seed=rank_zero_seed,
@@ -870,15 +881,6 @@ class Trainer:
                 raise ValueError("Specifying `eval_interval` without an `eval_dataloader` has no effect.")
         self.state.evaluators = evaluators
 
-        # Grad Clip Norm
-        if grad_clip_norm > 0:
-            warnings.warn(
-                DeprecationWarning(
-                    (f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
-                     "the GradientClipping Algorithm in composer.algorithms.gradient_clipping.")))
-        
-        self._grad_clip_norm = grad_clip_norm
-
         # Some algorithms require specific settings
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, ensure_tuple(algorithms)))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, ensure_tuple(algorithms)))
@@ -896,8 +898,7 @@ class Trainer:
                 ) from e
             deepspeed_config = _parse_deepspeed_config(
                 deepspeed_config,
-                state=self.state,
-                grad_clip_norm=self._grad_clip_norm,
+                state=self.state
             )
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
@@ -1083,9 +1084,6 @@ class Trainer:
         # Numerics
         grad_accum: Optional[Union[int, str]] = None,
         precision: Optional[Union[str, Precision]] = None,
-
-        # Grad Clipping
-        grad_clip_norm: Optional[float] = None,
     ):
         """Train the model.
 
@@ -1284,16 +1282,6 @@ class Trainer:
         if grad_accum is not None:
             self.adaptive_gradient_accumulation = _is_adaptive_grad_accum(grad_accum, device=self._device)
             self.state.grad_accum = _get_initial_grad_accum(grad_accum)
-
-        # Grad Clip Norm
-        if grad_clip_norm is not None:
-            warnings.warn(
-                DeprecationWarning(
-                    (f"Using the 'grad_clip_norm' field in fit() is deprecated. PLease use"
-                     "the GradientClipping Algorithm in composer/algorithms/gradient_clipping")))
-            if self.deepspeed_enabled:
-                raise ValueError("Changing the grad_clip_norm when using DeepSpeed is not supported.")
-            self._grad_clip_norm = grad_clip_norm
 
         # Precision
         if precision is not None:
@@ -1698,13 +1686,6 @@ class Trainer:
             if use_grad_scaling:
                 for optimizer in ensure_tuple(self.state.optimizers):
                     self.state.scaler.unscale_(optimizer)
-
-            # clip gradients if the magnitude is too large
-            if not self.deepspeed_enabled and self._grad_clip_norm >= 0:
-                torch.nn.utils.clip_grad_norm_(
-                    parameters=self.state.model.parameters(),
-                    max_norm=self._grad_clip_norm,
-                )
 
             self.engine.run_event(Event.AFTER_TRAIN_BATCH)
 
