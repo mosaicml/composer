@@ -65,7 +65,8 @@ def get_dataset(name: str, local: str, split: str, shuffle: bool,
                 "train": 50000,
                 "val": 10000,
             },
-            "class": StreamingCIFAR10
+            "class": StreamingCIFAR10,
+            "kwargs": {},
         },
     }
     if name not in dataset_map and split not in dataset_map[name]["num_samples"][split]:
@@ -177,7 +178,7 @@ def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: s
         marker_interval = len(dataset) // 20
         epoch_start = time.time()
         for _, batch in enumerate(loader):
-            if isinstance(batch, Tensor):
+            if isinstance(batch, (list, Tensor)):
                 n_samples = batch[0].shape[0]
             elif isinstance(batch, (dict, BatchEncoding)):
                 first_key = list(batch.keys())[0]
