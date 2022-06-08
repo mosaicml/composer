@@ -99,7 +99,7 @@ class IteratorFileStream(io.RawIOBase):
 
     .. note
 
-        A usage example `f = io.BufferedReader(IteratorFileStream(iterator), buffer_size=buffer_size)`
+        A usage example ``f = io.BufferedReader(IteratorFileStream(iterator), buffer_size=buffer_size)``
 
     Args:
         iterator (Iterable[bytes]): An iterator over bytes objects
