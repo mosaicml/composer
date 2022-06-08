@@ -1,11 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import io
+
 import numpy as np
 import pytest
 import torch
 
-from composer.utils import ensure_tuple, iter_to_stream
+from composer.utils import IteratorFileStream, ensure_tuple
 
 
 def test_none_to_tuple():
@@ -32,8 +34,9 @@ def test_obj_to_tuple(x):
     assert ensure_tuple(x) == (x,)
 
 
-@pytest.mark.parametrize("x", [[b'test1', b'test2', b'test3']])
-def test_iter_to_stream(x):
+@pytest.mark.parametrize()
+def test_iter_to_stream():
+    x = [b'1234', b'56789', b'abcd']
     iter1 = iter(x)
     iter2 = iter(x)
-    assert b"".join(iter1) == iter_to_stream(iter2).read()
+    assert b"".join(iter1) == io.BufferedReader(IteratorFileStream(iter2)).read()

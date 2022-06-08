@@ -7,8 +7,8 @@
 
 """Utilities for iterating over collections."""
 import contextlib
-from collections.abc import Sequence
 import io
+from collections.abc import Sequence
 from typing import Iterator
 
 
@@ -92,35 +92,32 @@ def iterate_with_pbar(iterator, progress_bar=None):
                 pb.update(len(x))
 
 
-def iter_to_stream(iterator: Iterator[bytes], buffer_size: int = io.DEFAULT_BUFFER_SIZE) -> io.BufferedReader:
-    """Function to convert iterator of bytes into a file-like binary stream object.
+class IteratorFileStream(io.RawIOBase):
+    """Class used to convert iterator of bytes into a file-like binary stream object.
 
     Original implementation found `here <https://stackoverflow.com/questions/6657820/how-to-convert-an-iterable-to-a-stream/20260030#20260030>`_.
-    
+
+    .. note
+
+        A usage example `f = io.BufferedReader(IteratorFileStream(iterator), buffer_size=buffer_size)`
+
     Args:
         iterator (Iterator[bytes]): An iterator over bytes objects
-        buffer_size (int): Buffer length of the stream
-    
-    Returns:
-        io.BufferedReader: A buffered binary stream.
     """
 
-    class BytesToStream(io.RawIOBase):
+    def __init__(self, iterator: Iterator[bytes]):
+        self.leftover = None
+        self.iterator = iterator
 
-        def __init__(self):
-            self.leftover = None
+    def readinto(self, b):
+        try:
+            l = len(b)  # max bytes to read
+            chunk = self.leftover or next(self.iterator)
+            output, self.leftover = chunk[:l], chunk[l:]
+            b[:len(output)] = output
+            return len(output)
+        except StopIteration:
+            return 0  #EOF
 
-        def readinto(self, b):
-            try:
-                l = len(b)  # max bytes to read
-                chunk = self.leftover or next(iterator)
-                output, self.leftover = chunk[:l], chunk[l:]
-                b[:len(output)] = output
-                return len(output)
-            except StopIteration:
-                return 0  #EOF
-
-        def readable(self):
-            return True
-
-    return io.BufferedReader(BytesToStream(), buffer_size=buffer_size)
+    def readable(self):
+        return True
