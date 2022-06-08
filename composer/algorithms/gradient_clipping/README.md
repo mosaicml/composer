@@ -84,7 +84,7 @@ trainer.fit()
 
 ### Implementation Details
 
-#### clipping_type='norm'
+#### `clipping_type='norm'`
 Norm-based gradient clipping is implemented as follows:
 On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradients:
 1. Compute the parameter's gradients and concatenate all parameters' gradients into one big vector
