@@ -54,7 +54,7 @@ def download_from_sftp(remote: str, local: str) -> None:
     local_tmp = local + ".tmp"
     if os.path.exists(local_tmp):
         os.remove(local_tmp)
-    
+
     private_key_path = os.environ["STREAMING_DATASET_SSH_FILE"]
     username = os.environ["STREAMING_DATASET_SSH_USERNAME"]
     pkey = RSAKey.from_private_key_file(private_key_path)
@@ -110,7 +110,6 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
         max_retries (int, default 2): Number of download re-attempts before giving up.
         timeout (float, default 60): How long to wait for file to download before raising an exception.
     """
-    last_error = None
     error_msgs = []
     for _ in range(1 + max_retries):
         try:
@@ -127,5 +126,6 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
             error_msgs.append(e)
             last_error = e
             continue
-    if last_error:
-        raise RuntimeError(f'Failed to download {remote} -> {local}. Got errors:\n{error_msgs}') from last_error
+    if len(error_msgs):
+        print (f"Failed to download {remote} -> {local}. Got errors:\n{error_msgs}")
+        os._exit(1)
