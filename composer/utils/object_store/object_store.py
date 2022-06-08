@@ -65,12 +65,19 @@ class ObjectStore(abc.ABC):
         """Returns the URI for ``object_name``."""
         raise NotImplementedError(f"{type(self).__name__}.get_uri is not implemented")
 
-    def upload_object(self, file_path: str, object_name: str):
+    def upload_object(
+        self,
+        file_path: str,
+        object_name: str,
+    ):
         """Upload an object currently located on a disk.
 
         Args:
             file_path (str): Path the the object on disk
             object_name (str): Object name (where object will be stored in the container)
+
+        Raises:
+            ObjectStoreTransientError: If there was a transient connection issue with uploading the object.
         """
         raise NotImplementedError(f"{type(self).__name__}.upload_object is not implemented")
 
@@ -80,6 +87,9 @@ class ObjectStore(abc.ABC):
         Args:
             obj (bytes | Iterator[bytes]): The object
             object_name (str): Object name (i.e. where the object will be stored in the container)
+
+        Raises:
+            ObjectStoreTransientError: If there was a transient connection issue with uploading the object.
         """
         raise NotImplementedError(f"{type(self).__name__}.upload_object_via_stream is not implemented")
 
