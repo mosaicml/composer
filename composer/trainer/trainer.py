@@ -40,11 +40,10 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery, reproducibility
+from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery,
+                            reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
-from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -455,8 +454,8 @@ class Trainer:
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (Union[LibcloudObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
-            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.LibcloudObjectStore` or
+        load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
+            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
             :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
             (default: ``None``)
@@ -500,8 +499,6 @@ class Trainer:
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict_model_weights (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
             Ignored if ``load_path`` is ``None``. (default: ``False``)
-        load_chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
-            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
@@ -677,10 +674,9 @@ class Trainer:
 
         # Load Checkpoint
         load_path: Optional[str] = None,
-        load_object_store: Optional[Union[LibcloudObjectStore, LoggerDestination]] = None,
+        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict_model_weights: bool = False,
-        load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
 
         # Save Checkpoint
@@ -939,7 +935,6 @@ class Trainer:
                 run_name=run_name,
                 save_latest_artifact_name=save_latest_artifact_name,
                 loggers=loggers,
-                load_chunk_size=load_chunk_size,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
             if latest_checkpoint_path:
@@ -957,7 +952,6 @@ class Trainer:
                                               object_store=load_object_store,
                                               load_weights_only=load_weights_only,
                                               strict_model_weights=load_strict_model_weights,
-                                              chunk_size=load_chunk_size,
                                               progress_bar=load_progress_bar)
             # Always override run_name so it is consistent with what was used for Event.INIT. In the future, we'll use the loaded name
             # and not require run_name
@@ -1020,7 +1014,6 @@ class Trainer:
         run_name: Optional[str],
         save_latest_artifact_name: str,
         loggers: List[LoggerDestination],
-        load_chunk_size: int,
         load_progress_bar: bool,
     ):
         """Determines the load path when using autoresume.
@@ -1053,10 +1046,9 @@ class Trainer:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                     logger.get_file_artifact(artifact_name=save_latest_artifact_name,
                                              destination=latest_checkpoint_path,
-                                             chunk_size=load_chunk_size,
                                              progress_bar=load_progress_bar)
                     break
-                except (NotImplementedError, GetFileNotFoundException):
+                except (NotImplementedError, FileNotFoundError):
                     # Ignore errors caused by no checkpoint saved with logger
                     pass
         # Require all ranks to have local checkpoint if we wish to restore from it

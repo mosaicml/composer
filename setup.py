@@ -74,7 +74,6 @@ install_requires = [
     "yahp==0.1.1",
     "requests>=2.26.0,<3",
     "numpy>=1.21.5,<2",
-    "apache-libcloud>=3.3.1,<4",
     "psutil>=5.8.0,<6",
     "coolname>=1.1.0,<2",
     "py-cpuinfo>=8.0.0",
@@ -162,6 +161,10 @@ extra_deps["mlperf"] = [
 
 extra_deps["streaming"] = [
     "boto3>=1.21.45,<2",
+]
+
+extra_deps["libcloud"] = [
+    "apache-libcloud>=3.3.1,<4",
 ]
 
 extra_deps["onnx"] = [

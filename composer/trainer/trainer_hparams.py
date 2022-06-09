@@ -40,7 +40,7 @@ from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
-from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
+from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -208,7 +208,7 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: The :mod:`logging` module in Python.
 
         load_path (str, optional): See :class:`.Trainer`.
-        load_object_store (LibcloudObjectStore, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
+        load_object_store (ObjectStoreHparams, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
             ``load_object_store`` should not be provided since there can only be one location to load from.
         load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for
             ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects. Both
@@ -216,7 +216,6 @@ class TrainerHparams(hp.Hparams):
             to load from.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_strict_model_weights (bool, optional): See :class:`.Trainer`.
-        load_chunk_size (int, optional): See :class:`.Trainer`.
         load_progress_bar (bool, optional): See :class:`.Trainer`.
 
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -263,6 +262,7 @@ class TrainerHparams(hp.Hparams):
         "val_dataset": dataset_registry,
         "callbacks": callback_registry,
         "device": device_registry,
+        "load_object_store": object_store_registry,
     }
 
     model: ModelHparams = hp.auto(Trainer, "model")
@@ -313,7 +313,7 @@ class TrainerHparams(hp.Hparams):
 
     # Load Checkpoint
     load_path: Optional[str] = hp.auto(Trainer, "load_path")
-    load_object_store: Optional[LibcloudObjectStoreHparams] = hp.optional(
+    load_object_store: Optional[ObjectStoreHparams] = hp.optional(
         doc=(("If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for "
               "connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, "
               "leave blank. This parameter has no effect if `load_path` is not specified.")),
@@ -325,8 +325,6 @@ class TrainerHparams(hp.Hparams):
         default=None)
     load_weights_only: bool = hp.auto(Trainer, "load_weights_only")
     load_strict_model_weights: bool = hp.auto(Trainer, "load_strict_model_weights")
-
-    load_chunk_size: int = hp.auto(Trainer, "load_chunk_size")
     load_progress_bar: bool = hp.auto(Trainer, "load_progress_bar")
 
     # Save Checkpoint
@@ -502,7 +500,6 @@ class TrainerHparams(hp.Hparams):
             load_object_store=load_object_store,
             load_weights_only=self.load_weights_only,
             load_strict_model_weights=self.load_strict_model_weights,
-            load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
 
             # Checkpoint Saving

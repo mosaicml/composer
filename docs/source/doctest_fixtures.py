@@ -178,25 +178,26 @@ _original_objectStoreLogger_init = ObjectStoreLogger.__init__
 
 def _new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
-    kwargs.update(
-        use_procs=False,
-        num_concurrent_uploads=1,
-        provider='local',
-        container='.',
-        provider_kwargs={
-            'key': os.path.abspath("./object_store"),
-        },
-    )
+    kwargs.update(use_procs=False,
+                  num_concurrent_uploads=1,
+                  object_store_cls=LibcloudObjectStore,
+                  object_store_kwargs={
+                      "provider": 'local',
+                      "container": '.',
+                      "provider_kwargs": {
+                          'key': os.path.abspath("./object_store"),
+                      },
+                  })
     _original_objectStoreLogger_init(self, **kwargs)
 
 
 ObjectStoreLogger.__init__ = _new_objectStoreLogger_init  # type: ignore
 
 # Patch ObjectStore __init__ function to replace arguments while preserving type
-_original_objectStore_init = LibcloudObjectStore.__init__
+_original_libcloudObjectStore_init = LibcloudObjectStore.__init__
 
 
-def _new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
+def _new_libcloudObjectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
     os.makedirs("./object_store", exist_ok=True)
     kwargs.update(
         provider='local',
@@ -205,7 +206,7 @@ def _new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
             'key': os.path.abspath("./object_store"),
         },
     )
-    _original_objectStore_init(self, **kwargs)
+    _original_libcloudObjectStore_init(self, **kwargs)
 
 
-LibcloudObjectStore.__init__ = _new_objectStore_init  # type: ignore
+LibcloudObjectStore.__init__ = _new_libcloudObjectStore_init  # type: ignore
