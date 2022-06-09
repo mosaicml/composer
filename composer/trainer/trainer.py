@@ -1197,12 +1197,6 @@ class Trainer:
             eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
             grad_accum (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
-            grad_clip_norm (float, optional): See :class:`.Trainer`. Deprecated. Please use composer.algorithms.GradientClipping
-
-                .. note::
-
-                    If using DeepSpeed, it is not possible to change the ``grad_clip_norm``. Instead, it must
-                    be specified when constructing the Trainer.
         """
         # Train Dataloader
         if train_dataloader is not None:
