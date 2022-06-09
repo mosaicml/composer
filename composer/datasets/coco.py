@@ -10,7 +10,6 @@ import json
 import os
 from io import BytesIO
 from typing import Any, Callable, Optional, Sequence
-from composer.utils.object_store import ObjectStore
 
 import numpy as np
 import torch
@@ -167,7 +166,7 @@ class StreamingCOCO(StreamingDataset):
         arr = np.frombuffer(data, np.int64)
         return torch.tensor(arr)
 
-    def __init__(self, remote: str, local: str, split: str, shuffle: bool, batch_size: Optional[int] = None, object_store: Optional[ObjectStore] = None) -> None:
+    def __init__(self, remote: str, local: str, split: str, shuffle: bool, batch_size: Optional[int] = None) -> None:
 
         # Validation
         if split not in ['train', 'val']:
@@ -186,8 +185,7 @@ class StreamingCOCO(StreamingDataset):
                          local=os.path.join(local, split),
                          shuffle=shuffle,
                          decoders=decoders,
-                         batch_size=batch_size,
-                         object_store=object_store)
+                         batch_size=batch_size)
 
         # Define custom transforms
         dboxes = dboxes300_coco()

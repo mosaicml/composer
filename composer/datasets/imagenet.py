@@ -10,7 +10,6 @@ Dataset <http://image-net.org/>`_ for more details.
 import os
 from io import BytesIO
 from typing import Any, List, Optional
-from composer.utils.object_store import ObjectStore
 
 import numpy as np
 import torch
@@ -65,8 +64,7 @@ class StreamingImageNet1k(StreamingDataset):
                  shuffle: bool,
                  resize_size: int = -1,
                  crop_size: int = 224,
-                 batch_size: Optional[int] = None,
-                 object_store: Optional[ObjectStore] = None):
+                 batch_size: Optional[int] = None):
         # Build StreamingDataset
         decoders = {
             'x': self.decode_image,
