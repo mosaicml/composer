@@ -4,7 +4,8 @@
 """Abstract class for utilities that upload to and download from object stores."""
 
 import abc
-from typing import Callable, Optional
+import pathlib
+from typing import Callable, Optional, Union
 
 __all__ = ["ObjectStore", "ObjectStoreTransientError"]
 
@@ -68,14 +69,14 @@ class ObjectStore(abc.ABC):
     def upload_object(
         self,
         object_name: str,
-        filename: str,
+        filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         """Upload an object currently located on a disk.
 
         Args:
             object_name (str): Object name (where object will be stored in the container)
-            filename (str): Path the the object on disk
+            filename (str | pathlib.Path): Path the the object on disk
             callback ((int, int) -> None, optional): If specified, the callback is periodically called with the number of bytes
                 uploaded and the total size of the object being uploaded.
 
@@ -103,7 +104,7 @@ class ObjectStore(abc.ABC):
     def download_object(
         self,
         object_name: str,
-        filename: str,
+        filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ):
@@ -111,7 +112,7 @@ class ObjectStore(abc.ABC):
 
         Args:
             object_name (str): The name of the object to download.
-            filename (str): Full path to a file or a directory where the incoming file will be saved.
+            filename (str | pathlib.Path): Full path to a file or a directory where the incoming file will be saved.
             overwrite (bool, optional): Whether to overwrite an existing file at ``filename``, if it exists.
                 (default: ``False``)
             callback ((int) -> None, optional): If specified, the callback is periodically called with the number of bytes already

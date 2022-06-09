@@ -4,9 +4,10 @@
 """Utility for uploading to and downloading from cloud object stores."""
 import io
 import os
+import pathlib
 import tempfile
 import uuid
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
@@ -99,7 +100,7 @@ class LibcloudObjectStore(ObjectStore):
     def upload_object(
         self,
         object_name: str,
-        filename: str,
+        filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         with open(filename, "rb") as f:
@@ -171,7 +172,7 @@ class LibcloudObjectStore(ObjectStore):
     def download_object(
         self,
         object_name: str,
-        filename: str,
+        filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ):
@@ -181,7 +182,7 @@ class LibcloudObjectStore(ObjectStore):
 
         obj = self._get_object(object_name)
         # Download first to a tempfile, and then rename, in case if the file gets corrupted in transit
-        tmp_filepath = filename + f".{uuid.uuid4()}.tmp"
+        tmp_filepath = str(filename) + f".{uuid.uuid4()}.tmp"
         try:
             with open(tmp_filepath, "wb+") as f:
                 stream = self._provider.download_object_as_stream(obj, chunk_size=self.chunk_size)

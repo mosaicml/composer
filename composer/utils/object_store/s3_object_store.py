@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import uuid
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -110,7 +111,7 @@ class S3ObjectStore(ObjectStore):
     def upload_object(
         self,
         object_name: str,
-        filepath: str,
+        filepath: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         file_size = os.path.getsize(filepath)
@@ -124,13 +125,13 @@ class S3ObjectStore(ObjectStore):
     def download_object(
         self,
         object_name: str,
-        filepath: str,
+        filepath: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         if os.path.exists(filepath):
             raise FileExistsError(f"The file at {filepath} already exists")
-        tmp_path = filepath + f".{uuid.uuid4()}.tmp"
+        tmp_path = str(filepath) + f".{uuid.uuid4()}.tmp"
         if callback is None:
             cb_wrapper = None
         else:
