@@ -124,7 +124,7 @@ class StreamingDataset(IterableDataset):
             has_shard = self._list_shards()
         elif self.world.is_leader:
             has_shard = self._list_shards()
-            broadcast(self.world.socks, self.world.ng_all, has_shard.tobytes())
+            broadcast(self.world.socks, self.world.ng_local_leaders, has_shard.tobytes())
         else:
             data = recv(self.world.sock)
             has_shard = np.frombuffer(data, np.uint8)
@@ -189,9 +189,6 @@ class StreamingDataset(IterableDataset):
         """Distribute already-downloaded shards to all nodes.
 
         Only called by local leaders.
-
-        Returns:
-            NDArray[np.uint8]: Shard download statuses.
         """
         if self.world.is_leader:
             shards_this_node = self._list_shards()
