@@ -47,12 +47,17 @@ def dispatch_download(remote, local, timeout: float, object_store: Optional[Obje
         obj = urlparse(remote)
         if obj.scheme != 's3':
             raise ValueError(f"Expected obj.scheme to be 's3', got {obj.scheme} for remote={remote}")
-        object_store.download_object(bucket=obj.netloc, object_name=obj.path[1:], destination_path=local)
+        object_store.download_object(object_name=obj.path[1:], filename=local)
     else:
         download_from_local(remote, local)
 
 
-def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: int = 2, timeout: float = 60, object_store: Optional[ObjectStore] = None) -> None:
+def download_or_wait(remote: str,
+                     local: str,
+                     wait: bool = False,
+                     max_retries: int = 2,
+                     timeout: float = 60,
+                     object_store: Optional[ObjectStore] = None) -> None:
     """Downloads a file from remote to local, or waits for it to be downloaded. Does not do any thread safety checks, so we assume the calling function is using ``wait`` correctly.
     Args:
         remote (str): Remote path (S3 or local filesystem).

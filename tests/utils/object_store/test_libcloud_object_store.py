@@ -7,7 +7,6 @@ import pathlib
 import pytest
 
 from composer.utils.object_store import LibcloudObjectStore
-from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 
 
 @pytest.fixture
@@ -22,18 +21,6 @@ def local_dir(tmp_path: pathlib.Path):
     local_dir = tmp_path / "local_dir"
     os.makedirs(local_dir)
     return local_dir
-
-
-def test_libcloud_object_store_hparams(remote_dir: pathlib.Path, local_dir: pathlib.Path,
-                                       monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
-    provider_hparams = LibcloudObjectStoreHparams(
-        provider='local',
-        key_environ="OBJECT_STORE_KEY",
-        container=".",
-    )
-    provider = provider_hparams.initialize_object()
-    assert isinstance(provider, LibcloudObjectStore)
 
 
 def _get_provider(remote_dir: pathlib.Path, chunk_size: int = 1024 * 1024):

@@ -344,7 +344,7 @@ def get_file(
             total_size_in_bytes = object_store.get_object_size(path)
             object_store.download_object(
                 object_name=path,
-                destination_path=destination,
+                filename=destination,
                 callback=_get_callback(f"Downloading {path}") if progress_bar else None,
                 overwrite=overwrite,
             )

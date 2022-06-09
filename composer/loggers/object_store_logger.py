@@ -353,8 +353,8 @@ def _validate_credentials(
     with tempfile.NamedTemporaryFile("wb") as f:
         f.write(b"credentials_validated_successfully")
         object_store.upload_object(
-            file_path=f.name,
             object_name=object_name_to_test,
+            filename=f.name,
         )
 
 
@@ -390,7 +390,9 @@ def _upload_worker(
                 # Exceptions will be detected on the next batch_end or epoch_end event
                 raise FileExistsError(f"Object {uri} already exists, but allow_overwrite was set to False.")
         log.info("Uploading file %s to %s", file_path_to_upload, uri)
-        retry(ObjectStoreTransientError, num_attempts=num_attempts)(
-            lambda: object_store.upload_object(file_path=file_path_to_upload, object_name=object_name))()
+        retry(ObjectStoreTransientError, num_attempts=num_attempts)(lambda: object_store.upload_object(
+            object_name=object_name,
+            filename=file_path_to_upload,
+        ))()
         os.remove(file_path_to_upload)
         file_queue.task_done()
