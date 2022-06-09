@@ -4,7 +4,7 @@
 """Abstract class for utilities that upload to and download from object stores."""
 
 import abc
-from typing import Iterator, Optional, Union
+from typing import Callable, Optional
 
 __all__ = ["ObjectStore", "ObjectStoreTransientError"]
 
@@ -69,29 +69,21 @@ class ObjectStore(abc.ABC):
         self,
         file_path: str,
         object_name: str,
+        callback: Optional[Callable[[int, int], None]] = None,
     ):
         """Upload an object currently located on a disk.
 
         Args:
             file_path (str): Path the the object on disk
             object_name (str): Object name (where object will be stored in the container)
+            callback ((int, int) -> None, optional): If specified, the callback is periodically called with the number of bytes
+                uploaded and the total size of the object being uploaded.
 
         Raises:
             ObjectStoreTransientError: If there was a transient connection issue with uploading the object.
         """
+        del file_path, object_name, callback  # unused
         raise NotImplementedError(f"{type(self).__name__}.upload_object is not implemented")
-
-    def upload_object_via_stream(self, obj: Union[bytes, Iterator[bytes]], object_name: str):
-        """Upload an object.
-
-        Args:
-            obj (bytes | Iterator[bytes]): The object
-            object_name (str): Object name (i.e. where the object will be stored in the container)
-
-        Raises:
-            ObjectStoreTransientError: If there was a transient connection issue with uploading the object.
-        """
-        raise NotImplementedError(f"{type(self).__name__}.upload_object_via_stream is not implemented")
 
     def get_object_size(self, object_name: str) -> int:
         """Get the size of an object, in bytes.
@@ -112,36 +104,22 @@ class ObjectStore(abc.ABC):
         self,
         object_name: str,
         destination_path: str,
-        chunk_size: Optional[int] = None,
-        overwrite_existing: bool = False,
+        overwrite: bool = False,
+        callback: Optional[Callable[[int, int], None]] = None,
     ):
         """Download an object to the specified destination path.
 
         Args:
             object_name (str): The name of the object to download.
             destination_path (str): Full path to a file or a directory where the incoming file will be saved.
-            chunk_size (Optional[int], optional): Optional chunk size (in bytes).
-            overwrite_existing (bool, optional): Whether to overwrite an existing file at ``destination_path``, if it exists.
+            overwrite (bool, optional): Whether to overwrite an existing file at ``destination_path``, if it exists.
                 (default: ``False``)
+            callback ((int) -> None, optional): If specified, the callback is periodically called with the number of bytes already
+                downloaded and the total size of the object.
 
         Raises:
             FileNotFoundError: If the file was not found in the object store.
             ObjectStoreTransientError: If there was a transient connection issue with downloading the object.
         """
+        del object_name, destination_path, overwrite, callback  # unused
         raise NotImplementedError(f"{type(self).__name__}.download_object is not implemented")
-
-    def download_object_as_stream(self, object_name: str, chunk_size: Optional[int] = None):
-        """Return a iterator which yields object data.
-
-        Args:
-            object_name (str): Object name.
-            chunk_size (Optional[int], optional): Optional chunk size (in bytes).
-
-        Returns:
-            Iterator[bytes]: The object, as a byte stream.
-
-        Raises:
-            FileNotFoundError: If the file was not found in the object store.
-            ObjectStoreTransientError: If there was a transient connection issue with downloading the object.
-        """
-        raise NotImplementedError(f"{type(self).__name__}.download_object_as_stream is not implemented")

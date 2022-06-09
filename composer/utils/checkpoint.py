@@ -71,7 +71,6 @@ def load_checkpoint(
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
-    chunk_size: int = 1_048_576,
     progress_bar: bool = True,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
@@ -120,8 +119,6 @@ def load_checkpoint(
             restoring the associated state. (default: ``False``)
         strict_model_weights (bool, optional): Whether or not to force that the checkpointed weights must exactly
             match the model weights. (default: ``False``)
-        chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
-            Ignored if the checkpoint is a local file path. (default: ``1_048_576`` bytes (1 MB))
         progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``True``)
 
@@ -138,7 +135,6 @@ def load_checkpoint(
                 path=path,
                 node_checkpoint_folder=node_checkpoint_folder,
                 object_store=object_store,
-                chunk_size=chunk_size,
                 progress_bar=progress_bar,
             )
             rng_state_dicts = _restore_checkpoint(
@@ -171,7 +167,6 @@ def _download_checkpoint(
     path: str,
     node_checkpoint_folder: str,
     object_store: Optional[Union[ObjectStore, LoggerDestination]],
-    chunk_size: int,
     progress_bar: bool,
 ) -> Tuple[str, Optional[str], bool]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
@@ -205,7 +200,6 @@ def _download_checkpoint(
             get_file(destination=rank_zero_checkpoint_filepath,
                      path=path,
                      object_store=object_store,
-                     chunk_size=chunk_size,
                      progress_bar=progress_bar)
             if extracted_checkpoint_folder is not None:
                 try:
@@ -226,7 +220,6 @@ def _download_checkpoint(
                 get_file(destination=rank_n_checkpoint_filepath,
                          path=_format_path_with_current_rank(path),
                          object_store=object_store,
-                         chunk_size=chunk_size,
                          progress_bar=progress_bar)
             except FileNotFoundError:
                 # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints

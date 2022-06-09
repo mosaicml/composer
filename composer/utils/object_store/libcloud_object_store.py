@@ -2,16 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Utility for uploading to and downloading from cloud object stores."""
+import io
 import os
-import sys
 import tempfile
 import uuid
-from typing import Any, Dict, Iterator, Optional, Union
+from typing import Any, Callable, Dict, Optional
 
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
 
 from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils.iter_helpers import IteratorWithCallback
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
 __all__ = ["LibcloudObjectStore"]
@@ -75,7 +76,11 @@ class LibcloudObjectStore(ObjectStore):
             .. seealso:: :class:`libcloud.storage.base.StorageDriver`
     """
 
-    def __init__(self, provider: str, container: str, provider_kwargs: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self,
+                 provider: str,
+                 container: str,
+                 chunk_size: int = 1_024 * 1_024,
+                 provider_kwargs: Optional[Dict[str, Any]] = None) -> None:
         try:
             from libcloud.storage.providers import get_driver
         except ImportError as e:
@@ -83,6 +88,7 @@ class LibcloudObjectStore(ObjectStore):
         provider_cls = get_driver(provider)
         if provider_kwargs is None:
             provider_kwargs = {}
+        self.chunk_size = chunk_size
         self._provider_name = provider
         self._provider = provider_cls(**provider_kwargs)
         self._container = self._provider.get_container(container)
@@ -90,34 +96,22 @@ class LibcloudObjectStore(ObjectStore):
     def get_uri(self, object_name: str):
         return f"{self._provider_name}://{self._container.name}/{object_name}"
 
-    def upload_object(self,
-                      file_path: str,
-                      object_name: str,
-                      verify_hash: bool = True,
-                      extra: Optional[Dict] = None,
-                      headers: Optional[Dict[str, str]] = None):
-        """Upload an object currently located on a disk.
-
-        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.upload_object`.
-
-        Args:
-            file_path (str): Path to the object on disk.
-            object_name (str): Object name (i.e. where the object will be stored in the container.)
-            verify_hash (bool, optional): Whether to verify hashes (default: ``True``)
-            extra (Optional[Dict], optional): Extra attributes to pass to the underlying provider driver.
-                (default: ``None``, which is equivalent to an empty dictionary)
-            headers (Optional[Dict[str, str]], optional): Additional request headers, such as CORS headers.
-                (defaults: ``None``, which is equivalent to an empty dictionary)
-        """
-        try:
-            self._provider.upload_object(file_path=file_path,
-                                         container=self._container,
-                                         object_name=object_name,
-                                         extra=extra,
-                                         verify_hash=verify_hash,
-                                         headers=headers)
-        except Exception as e:
-            self._ensure_transient_errors_are_wrapped(e)
+    def upload_object(
+        self,
+        file_path: str,
+        object_name: str,
+        callback: Optional[Callable[[int, int], None]] = None,
+    ):
+        with open(file_path, "rb") as f:
+            stream = IteratorWithCallback(_file_to_iterator(f, self.chunk_size), os.fstat(f.fileno()).st_size, callback)
+            try:
+                self._provider.upload_object_via_stream(
+                    stream,
+                    container=self._container,
+                    object_name=object_name,
+                )
+            except Exception as e:
+                self._ensure_transient_errors_are_wrapped(e)
 
     def _ensure_transient_errors_are_wrapped(self, exc: Exception):
         from libcloud.common.types import LibcloudError
@@ -130,35 +124,6 @@ class LibcloudObjectStore(ObjectStore):
                     raise exc
             raise ObjectStoreTransientError() from exc
         raise exc
-
-    def upload_object_via_stream(self,
-                                 obj: Union[bytes, Iterator[bytes]],
-                                 object_name: str,
-                                 extra: Optional[Dict] = None,
-                                 headers: Optional[Dict[str, str]] = None):
-        """Upload an object.
-
-        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.upload_object_via_stream`.
-
-        Args:
-            obj (bytes | Iterator[bytes]): The object.
-            object_name (str): Object name (i.e. where the object will be stored in the container.)
-            verify_hash (bool, optional): Whether to verify hashes (default: ``True``)
-            extra (Optional[Dict], optional): Extra attributes to pass to the underlying provider driver.
-                (default: ``None``)
-            headers (Optional[Dict[str, str]], optional): Additional request headers, such as CORS headers.
-                (defaults: ``None``)
-        """
-        if isinstance(obj, bytes):
-            obj = iter(i.to_bytes(1, sys.byteorder) for i in obj)
-        try:
-            self._provider.upload_object_via_stream(iterator=obj,
-                                                    container=self._container,
-                                                    object_name=object_name,
-                                                    extra=extra,
-                                                    headers=headers)
-        except Exception as e:
-            self._ensure_transient_errors_are_wrapped(e)
 
     def _get_object(self, object_name: str):
         """Get object from object store.
@@ -189,10 +154,10 @@ class LibcloudObjectStore(ObjectStore):
             # Download symlink object to temporary folder
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmppath = os.path.join(tmpdir, str(uuid.uuid4()))
-                self._provider.download_object(obj=obj,
-                                               destination_path=tmppath,
-                                               overwrite_existing=True,
-                                               delete_on_failure=True)
+                try:
+                    self._provider.download_object(obj=obj, destination_path=tmppath, delete_on_failure=True)
+                except Exception as e:
+                    self._ensure_transient_errors_are_wrapped(e)
                 # Read object name in symlink and recurse
                 with open(tmppath) as f:
                     symlinked_object_name = f.read()
@@ -200,44 +165,32 @@ class LibcloudObjectStore(ObjectStore):
         return obj
 
     def get_object_size(self, object_name: str) -> int:
-        """Get the size of an object, in bytes.
-
-        Args:
-            object_name (str): The name of the object.
-
-        Returns:
-            int: The object size, in bytes.
-        """
         return self._get_object(object_name).size
 
     def download_object(
         self,
         object_name: str,
         destination_path: str,
-        overwrite_existing: bool = False,
+        overwrite: bool = False,
+        callback: Optional[Callable[[int, int], None]] = None,
     ):
-        """Download an object to the specified destination path.
-
-        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.download_object`.
-
-        Args:
-            object_name (str): The name of the object to download.
-            destination_path (str): Full path to a file or a directory where the incoming file will be saved.
-            overwrite_existing (bool, optional): Set to ``True`` to overwrite an existing file. (default: ``False``)
-        """
-        if os.path.exists(destination_path) and not overwrite_existing:
+        if os.path.exists(destination_path) and not overwrite:
             # If the file already exits, short-circuit and skip the download
-            raise FileExistsError(
-                f"destination_path {destination_path} exists and overwrite_existing was set to False.")
+            raise FileExistsError(f"destination_path {destination_path} exists and overwrite was set to False.")
 
         obj = self._get_object(object_name)
         # Download first to a tempfile, and then rename, in case if the file gets corrupted in transit
         tmp_filepath = destination_path + f".{uuid.uuid4()}.tmp"
         try:
-            self._provider.download_object(
-                obj=obj,
-                destination_path=tmp_filepath,
-            )
+            with open(tmp_filepath, "wb+") as f:
+                stream = self._provider.download_object_as_stream(obj, chunk_size=self.chunk_size)
+                stream_with_cb = IteratorWithCallback(stream, obj.size, callback)
+                while True:
+                    try:
+                        b = next(stream_with_cb)
+                    except StopIteration:
+                        break
+                    f.write(b)
         except Exception as e:
             # The download failed for some reason. Make a best-effort attempt to remove the temporary file.
             try:
@@ -247,25 +200,15 @@ class LibcloudObjectStore(ObjectStore):
             self._ensure_transient_errors_are_wrapped(e)
 
         # The download was successful.
-        if overwrite_existing:
+        if overwrite:
             os.replace(tmp_filepath, destination_path)
         else:
             os.rename(tmp_filepath, destination_path)
 
-    def download_object_as_stream(self, object_name: str, chunk_size: Optional[int] = None):
-        """Return a iterator which yields object data.
 
-        .. seealso:: :meth:`libcloud.storage.base.StorageDriver.download_object_as_stream`.
-
-        Args:
-            object_name (str): Object name.
-            chunk_size (Optional[int], optional): Optional chunk size (in bytes).
-
-        Returns:
-            Iterator[bytes]: The object, as a byte stream.
-        """
-        obj = self._get_object(object_name)
-        try:
-            return self._provider.download_object_as_stream(obj, chunk_size=chunk_size)
-        except Exception as e:
-            self._ensure_transient_errors_are_wrapped(e)
+def _file_to_iterator(f: io.IOBase, chunk_size: int):
+    while True:
+        byte = f.read(chunk_size)
+        if byte == b'':
+            break
+        yield byte

@@ -216,7 +216,6 @@ class TrainerHparams(hp.Hparams):
             to load from.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_strict_model_weights (bool, optional): See :class:`.Trainer`.
-        load_chunk_size (int, optional): See :class:`.Trainer`.
         load_progress_bar (bool, optional): See :class:`.Trainer`.
 
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -326,8 +325,6 @@ class TrainerHparams(hp.Hparams):
         default=None)
     load_weights_only: bool = hp.auto(Trainer, "load_weights_only")
     load_strict_model_weights: bool = hp.auto(Trainer, "load_strict_model_weights")
-
-    load_chunk_size: int = hp.auto(Trainer, "load_chunk_size")
     load_progress_bar: bool = hp.auto(Trainer, "load_progress_bar")
 
     # Save Checkpoint
@@ -503,7 +500,6 @@ class TrainerHparams(hp.Hparams):
             load_object_store=load_object_store,
             load_weights_only=self.load_weights_only,
             load_strict_model_weights=self.load_strict_model_weights,
-            load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
 
             # Checkpoint Saving

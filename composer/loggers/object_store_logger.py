@@ -293,15 +293,17 @@ class ObjectStoreLogger(LoggerDestination):
         self,
         artifact_name: str,
         destination: str,
-        chunk_size: int = 2**20,
+        overwrite: bool = False,
         progress_bar: bool = True,
     ):
         object_store = _build_object_store(self.object_store_cls, self.object_store_kwargs)
-        get_file(path=artifact_name,
-                 destination=destination,
-                 object_store=object_store,
-                 chunk_size=chunk_size,
-                 progress_bar=progress_bar)
+        get_file(
+            path=artifact_name,
+            destination=destination,
+            object_store=object_store,
+            overwrite=overwrite,
+            progress_bar=progress_bar,
+        )
 
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
@@ -348,10 +350,12 @@ def _validate_credentials(
 ) -> None:
     # Validates the credentials by attempting to touch a file in the bucket
     # raises an error if there was a credentials failure.
-    object_store.upload_object_via_stream(
-        obj=b"credentials_validated_successfully",
-        object_name=object_name_to_test,
-    )
+    with tempfile.NamedTemporaryFile("wb") as f:
+        f.write(b"credentials_validated_successfully")
+        object_store.upload_object(
+            file_path=f.name,
+            object_name=object_name_to_test,
+        )
 
 
 def _upload_worker(

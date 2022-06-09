@@ -1,0 +1,94 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+import os
+import pathlib
+
+import pytest
+
+from composer.utils.object_store import LibcloudObjectStore
+from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
+
+
+@pytest.fixture
+def remote_dir(tmp_path: pathlib.Path):
+    remote_dir = tmp_path / "remote_dir"
+    os.makedirs(remote_dir)
+    return remote_dir
+
+
+@pytest.fixture
+def local_dir(tmp_path: pathlib.Path):
+    local_dir = tmp_path / "local_dir"
+    os.makedirs(local_dir)
+    return local_dir
+
+
+def test_libcloud_object_store_hparams(remote_dir: pathlib.Path, local_dir: pathlib.Path,
+                                       monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
+    provider_hparams = LibcloudObjectStoreHparams(
+        provider='local',
+        key_environ="OBJECT_STORE_KEY",
+        container=".",
+    )
+    provider = provider_hparams.initialize_object()
+    assert isinstance(provider, LibcloudObjectStore)
+
+
+def _get_provider(remote_dir: pathlib.Path, chunk_size: int = 1024 * 1024):
+    return LibcloudObjectStore(
+        provider='local',
+        container=".",
+        provider_kwargs={
+            'key': str(remote_dir),
+        },
+        chunk_size=chunk_size,
+    )
+
+
+def test_libcloud_object_store(remote_dir: pathlib.Path, local_dir: pathlib.Path):
+    provider = _get_provider(remote_dir)
+    local_file_path = os.path.join(local_dir, "dummy_file")
+    with open(local_file_path, "w+") as f:
+        f.write("Hello, world!")
+
+    provider.upload_object(local_file_path, "upload_object")
+    assert provider.get_uri("upload_object") == "local://./upload_object"
+    local_file_path_download = os.path.join(local_dir, "dummy_file_downloaded")
+    provider.download_object("upload_object", local_file_path_download)
+    with open(local_file_path_download, "r") as f:
+        assert f.read() == "Hello, world!"
+
+
+@pytest.mark.parametrize("chunk_size", [100, 128])
+def test_libcloud_object_store_callback(remote_dir: pathlib.Path, local_dir: pathlib.Path, chunk_size: int):
+    provider = _get_provider(remote_dir, chunk_size=chunk_size)
+    local_file_path = os.path.join(local_dir, "dummy_file")
+    total_len = 1024
+    with open(local_file_path, "w+") as f:
+        f.write("H" * total_len)
+
+    num_calls = 0
+    total_bytes_written = 0
+
+    def cb(bytes_written, total_bytes):
+        nonlocal num_calls, total_bytes_written
+        assert total_bytes == total_len
+        num_calls += 1
+        total_bytes_written = bytes_written
+
+    provider.upload_object(local_file_path, "upload_object", callback=cb)
+    # the expected num calls should be 1 more than the ceiling division
+    expected_num_calls = (total_len - 1) // chunk_size + 1 + 1
+    assert num_calls == expected_num_calls
+    assert total_bytes_written == total_len
+
+    num_calls = 0
+    total_bytes_written = 0
+
+    local_file_path_download = os.path.join(local_dir, "dummy_file_downloaded")
+    provider.download_object("upload_object", local_file_path_download, callback=cb)
+
+    assert total_bytes_written == total_len
+    assert num_calls == expected_num_calls

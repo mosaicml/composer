@@ -8,14 +8,15 @@ from __future__ import annotations
 import os
 import pathlib
 import re
-from typing import TYPE_CHECKING, Iterator, Optional, Union
+import uuid
+from typing import TYPE_CHECKING, Optional, Union
 
 import requests
 import tqdm
 
 from composer.core.time import Time, Timestamp
 from composer.utils import dist
-from composer.utils.iter_helpers import iterate_with_pbar
+from composer.utils.iter_helpers import IteratorWithCallback
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -301,13 +302,13 @@ def get_file(
     path: str,
     destination: str,
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
-    chunk_size: int = 2**20,
+    overwrite: bool = False,
     progress_bar: bool = True,
 ):
     """Get a file from a local folder, URL, or object store.
 
     Args:
-        path (str): The path to the file to retreive.
+        path (str): The path to the file to retrieve.
 
             *   If ``object_store`` is specified, then the ``path`` should be the object name for the file to get.
                 Do not include the the cloud provider or bucket name.
@@ -330,7 +331,7 @@ def get_file(
 
             Set this parameter to ``None`` (the default) if ``path`` is a URL or a local file.
 
-        chunk_size (int, optional): Chunk size (in bytes). Ignored if ``path`` is a local file. (default: 1MB)
+        overwrite (bool): Whether to overwrite an existing file at ``destination``. (default: ``False``)
 
         progress_bar (bool, optional): Whether to show a progress bar. Ignored if ``path`` is a local file.
             (default: ``True``)
@@ -341,19 +342,20 @@ def get_file(
     if object_store is not None:
         if isinstance(object_store, ObjectStore):
             total_size_in_bytes = object_store.get_object_size(path)
-            _write_to_file_with_pbar(
-                destination=destination,
-                total_size=total_size_in_bytes,
-                iterator=object_store.download_object_as_stream(path, chunk_size=chunk_size),
-                progress_bar=progress_bar,
-                description=f"Downloading {path}",
+            object_store.download_object(
+                object_name=path,
+                destination_path=destination,
+                callback=_get_callback(f"Downloading {path}") if progress_bar else None,
+                overwrite=overwrite,
             )
         else:
             # Type LoggerDestination
-            object_store.get_file_artifact(artifact_name=path,
-                                           destination=destination,
-                                           chunk_size=chunk_size,
-                                           progress_bar=progress_bar)
+            object_store.get_file_artifact(
+                artifact_name=path,
+                destination=destination,
+                progress_bar=progress_bar,
+                overwrite=overwrite,
+            )
         return
 
     if path.lower().startswith("http://") or path.lower().startswith("https://"):
@@ -368,13 +370,26 @@ def get_file(
             total_size_in_bytes = r.headers.get('content-length')
             if total_size_in_bytes is not None:
                 total_size_in_bytes = int(total_size_in_bytes)
-            _write_to_file_with_pbar(
-                destination,
-                total_size=total_size_in_bytes,
-                iterator=r.iter_content(chunk_size),
-                progress_bar=progress_bar,
-                description=f"Downloading {path}",
-            )
+            else:
+                total_size_in_bytes = 0
+
+            tmp_path = destination + f".{uuid.uuid4()}.tmp"
+            try:
+                with open(tmp_path, "wb") as f:
+                    for data in IteratorWithCallback(
+                            r.iter_content(2**20),
+                            total_size_in_bytes,
+                            callback=_get_callback(f"Downloading {path}") if progress_bar else None,
+                    ):
+                        f.write(data)
+            except:
+                # The download failed for some reason. Make a best-effort attempt to remove the temporary file.
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            else:
+                os.rename(tmp_path, destination)
         return
 
     # It's a local filepath
@@ -383,20 +398,15 @@ def get_file(
     os.symlink(os.path.abspath(path), destination)
 
 
-def _write_to_file_with_pbar(
-    destination: str,
-    total_size: Optional[int],
-    iterator: Iterator[bytes],
-    progress_bar: bool,
-    description: str,
-):
-    """Write the contents of ``iterator`` to ``destination`` while showing a progress bar."""
-    if progress_bar:
-        if len(description) > 60:
-            description = description[:42] + "..." + description[-15:]
-        pbar = tqdm.tqdm(desc=description, total=total_size, unit='iB', unit_scale=True)
-    else:
-        pbar = None
-    with open(destination, "wb") as fp:
-        for chunk in iterate_with_pbar(iterator, pbar):
-            fp.write(chunk)
+def _get_callback(description: str):
+    if len(description) > 60:
+        description = description[:42] + "..." + description[-15:]
+    pbar = None
+
+    def callback(num_bytes: int, total_size: int):
+        nonlocal pbar
+        if num_bytes == 0 or pbar is None:
+            pbar = tqdm.tqdm(desc=description, total=total_size, unit='iB', unit_scale=True)
+        pbar.update(num_bytes)
+
+    return callback
