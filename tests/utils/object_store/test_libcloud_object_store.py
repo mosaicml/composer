@@ -7,7 +7,6 @@ import pathlib
 import pytest
 
 from composer.utils.object_store import LibcloudObjectStore
-from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 
 
 @pytest.fixture
@@ -22,18 +21,6 @@ def local_dir(tmp_path: pathlib.Path):
     local_dir = tmp_path / "local_dir"
     os.makedirs(local_dir)
     return local_dir
-
-
-def test_libcloud_object_store_hparams(remote_dir: pathlib.Path, local_dir: pathlib.Path,
-                                       monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("OBJECT_STORE_KEY", str(remote_dir))  # for the local option, the key is the path
-    provider_hparams = LibcloudObjectStoreHparams(
-        provider='local',
-        key_environ="OBJECT_STORE_KEY",
-        container=".",
-    )
-    provider = provider_hparams.initialize_object()
-    assert isinstance(provider, LibcloudObjectStore)
 
 
 def _get_provider(remote_dir: pathlib.Path, chunk_size: int = 1024 * 1024):
@@ -53,7 +40,7 @@ def test_libcloud_object_store(remote_dir: pathlib.Path, local_dir: pathlib.Path
     with open(local_file_path, "w+") as f:
         f.write("Hello, world!")
 
-    provider.upload_object(local_file_path, "upload_object")
+    provider.upload_object("upload_object", local_file_path)
     assert provider.get_uri("upload_object") == "local://./upload_object"
     local_file_path_download = os.path.join(local_dir, "dummy_file_downloaded")
     provider.download_object("upload_object", local_file_path_download)
@@ -78,7 +65,7 @@ def test_libcloud_object_store_callback(remote_dir: pathlib.Path, local_dir: pat
         num_calls += 1
         total_bytes_written = bytes_written
 
-    provider.upload_object(local_file_path, "upload_object", callback=cb)
+    provider.upload_object("upload_object", local_file_path, callback=cb)
     # the expected num calls should be 1 more than the ceiling division
     expected_num_calls = (total_len - 1) // chunk_size + 1 + 1
     assert num_calls == expected_num_calls

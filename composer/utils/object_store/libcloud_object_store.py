@@ -4,9 +4,10 @@
 """Utility for uploading to and downloading from cloud object stores."""
 import io
 import os
+import pathlib
 import tempfile
 import uuid
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
@@ -98,11 +99,11 @@ class LibcloudObjectStore(ObjectStore):
 
     def upload_object(
         self,
-        file_path: str,
         object_name: str,
+        filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ):
-        with open(file_path, "rb") as f:
+        with open(filename, "rb") as f:
             stream = iterate_with_callback(_file_to_iterator(f, self.chunk_size),
                                            os.fstat(f.fileno()).st_size, callback)
             try:
@@ -171,17 +172,17 @@ class LibcloudObjectStore(ObjectStore):
     def download_object(
         self,
         object_name: str,
-        destination_path: str,
+        filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ):
-        if os.path.exists(destination_path) and not overwrite:
+        if os.path.exists(filename) and not overwrite:
             # If the file already exits, short-circuit and skip the download
-            raise FileExistsError(f"destination_path {destination_path} exists and overwrite was set to False.")
+            raise FileExistsError(f"filename {filename} exists and overwrite was set to False.")
 
         obj = self._get_object(object_name)
         # Download first to a tempfile, and then rename, in case if the file gets corrupted in transit
-        tmp_filepath = destination_path + f".{uuid.uuid4()}.tmp"
+        tmp_filepath = str(filename) + f".{uuid.uuid4()}.tmp"
         try:
             with open(tmp_filepath, "wb+") as f:
                 stream = self._provider.download_object_as_stream(obj, chunk_size=self.chunk_size)
@@ -197,9 +198,9 @@ class LibcloudObjectStore(ObjectStore):
 
         # The download was successful.
         if overwrite:
-            os.replace(tmp_filepath, destination_path)
+            os.replace(tmp_filepath, filename)
         else:
-            os.rename(tmp_filepath, destination_path)
+            os.rename(tmp_filepath, filename)
 
 
 def _file_to_iterator(f: io.IOBase, chunk_size: int):
