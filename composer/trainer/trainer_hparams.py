@@ -617,7 +617,6 @@ class FitHparams(hp.Hparams):
         eval_subset_num_batches (int, optional): See :meth:`.Trainer.fit`.
         precision (Precision, optional): See :meth:`.Trainer.fit`.
         grad_accum (int, optional): See :meth:`.Trainer.fit`.
-        grad_clip_norm (float, optional): See :meth:`.Trainer.fit`.
     """
 
     hparams_registry = {
@@ -658,8 +657,6 @@ class FitHparams(hp.Hparams):
     precision: Optional[Precision] = hp.auto(Trainer.fit, "precision")
     grad_accum: Optional[Union[int, str]] = hp.auto(Trainer.fit, "grad_accum")
 
-    # Grad Clipping
-    grad_clip_norm: Optional[float] = hp.auto(Trainer.fit, "grad_clip_norm")
 
     def initialize_object(self, model: ComposerModel, dataloader_hparams: DataLoaderHparams) -> FitKwargs:
         """Construct a kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.fit`.
@@ -705,7 +702,6 @@ class FitHparams(hp.Hparams):
             "eval_interval": self.eval_interval,
             "grad_accum": self.grad_accum,
             "precision": self.precision,
-            "grad_clip_norm": self.grad_clip_norm,
         }
 
 
