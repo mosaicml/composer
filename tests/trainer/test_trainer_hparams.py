@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING, Callable, Type
 
 import pytest
 
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.trainer import EvalHparams, ExperimentHparams, FitHparams, Trainer, TrainerHparams
-from composer.trainer.trainer_hparams import EvalKwargs, FitKwargs
+from composer.datasets.dataset_hparams import DataLoaderHparams
+from composer.trainer import Trainer
+from composer.trainer.trainer_hparams import (EvalHparams, EvalKwargs, ExperimentHparams, FitHparams, FitKwargs,
+                                              TrainerHparams)
 from tests.common import SimpleModelHparams
 from tests.common.datasets import RandomClassificationDatasetHparams
 

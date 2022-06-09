@@ -36,7 +36,7 @@ pytestGpuImageTagsToTest = [
 ]
 
 // Lint settings
-lintImage = 'mosaicml/pytorch:latest_cpu'
+lintImage = 'mosaicml/pytorch_vision:latest_cpu'
 lintCpuLimit = '2'
 lintMemLimit = '7Gi'
 pLintTimeout = '1800' // timeout to run lint + doctests, in seconds
@@ -191,7 +191,7 @@ void scheduleJob(jobs, String image, buildArgs) {
     // jobs: The list of jobs. Modified in-place.
     // buildArgs: The build args matrix
 
-    String markers = 'not notebooks and not daily and not remote'
+    String markers = 'not daily and not remote'
     Boolean isLintImage = false
     Boolean isVisionImage = false
     Boolean isGpu = false

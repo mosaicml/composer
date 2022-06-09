@@ -23,13 +23,11 @@ from torch.optim.lr_scheduler import LambdaLR
 from composer.core import State, Time, TimeUnit
 from composer.core.types import PyTorchScheduler
 
-try:
-    from typing import Protocol
-except ImportError:
-    Protocol = object  # Protocol is not available in python 3.7
-
 if TYPE_CHECKING:
     from typing import Protocol
+else:
+    # subclasses of Protocol cannot be instantiated in Python 3.8
+    Protocol = object
 
 log = logging.getLogger(__name__)
 
@@ -166,7 +164,6 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
     Returns:
         compiled_scheduler (PyTorchScheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
     """
-
     optimizers = state.optimizers
     if len(optimizers) != 1:
         raise NotImplementedError("Providing functional schedulers is unsupported with multiple optimizers.")
@@ -382,7 +379,6 @@ def _cosine_anneal(x: float, min_y: float = 0.0, max_y: float = 1.0) -> float:
     Curve is cos(x) on domain [0, pi], stretched to the domain [0, 1] and range [min_y, max_y]. Additionally, param x is
     clipped to the interval [0, 1]
     """
-
     x = min(max(x, 0.0), 1.0)
     return min_y + (max_y - min_y) * (1 + math.cos(x * math.pi)) / 2
 

@@ -31,12 +31,9 @@ def assert_yaml_loads(
     yaml_dict = {} if yaml_dict is None else yaml_dict
     # ensure that yaml_dict is actually a dictionary of only json-serializable objects
     yaml_dict = yaml.safe_load(yaml.safe_dump(yaml_dict))
-    # TODO(ravi) remove the following line once auto-yahp is merged
-    assert isinstance(constructor, type) and issubclass(constructor, hp.Hparams)
-    # TODO(ravi) change the following line to using the `hp.create` syntax
-    instance = constructor.create(data=yaml_dict, cli_args=False)
+    instance = hp.create(constructor, yaml_dict, cli_args=False)
     if expected is not None:
-        if isinstance(expected, type):
+        if isinstance(expected, (type, tuple)):
             assert isinstance(instance, expected)
         else:
             assert instance == expected

@@ -77,6 +77,7 @@ class State(Serializable):
         model (torch.nn.Module): The model, typically as a subclass of :class:`~.ComposerModel`.
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
+        run_name (str): The name for this training run.
         grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch
             size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         train_dataloader (types.DataLoader, optional): Dataloader used for training
@@ -105,8 +106,6 @@ class State(Serializable):
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
-        batch_num_samples (int): The number of samples in the :attr:`batch`.
-        batch_num_tokens (int): The number of tokens in the :attr:`batch`.
         current_metrics (Dict[str, Dict[str, Any]]): The current computed metrics, organized by dataloader label
             and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
             the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
@@ -164,6 +163,7 @@ class State(Serializable):
             ``0``.
         profiler (Profiler): The profiler (if profiling is enabled), or ``None`` if not profiling.
         rank_zero_seed (int): The seed of the rank zero process.
+        run_name (str): The name for this training run.
         scaler (torch.cuda.amp.GradScaler): The gradient scaler if using mixed-precision training, or
             ``None`` if not using mixed-precision training.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
@@ -191,6 +191,8 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | current_metrics       | The current metrics.                                        |
             +-----------------------+-------------------------------------------------------------+
+            | run_name              | The run name for training.                                  |
+            +-----------------------+-------------------------------------------------------------+
 
         timestamp (Timestamp): The current training timestamp.
         train_dataloader (Iterable): The training dataloader. (May be ``None`` if not training.)
@@ -203,6 +205,9 @@ class State(Serializable):
 
         # determinism
         rank_zero_seed: int,
+
+        # run_name
+        run_name: str,
 
         # stopping conditions
         max_duration: Optional[Union[str, Time[int]]] = None,
@@ -235,6 +240,7 @@ class State(Serializable):
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
+        self.run_name = run_name
         self.grad_accum = grad_accum
         self._dataloader_len = None
         self._dataloader = None
@@ -266,8 +272,6 @@ class State(Serializable):
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
-        self.batch_num_samples = 0
-        self.batch_num_tokens = 0
         self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
@@ -286,6 +290,7 @@ class State(Serializable):
             "timestamp",
             "rank_zero_seed",
             "current_metrics",
+            "run_name",
         ]
 
         self.current_metrics: Dict[str, Dict[str, Any]] = {}
@@ -347,7 +352,7 @@ class State(Serializable):
         See batch_get in `utils/batch_helpers.py` for examples.
 
         Args:
-            key (str, int, or Callable): A key to index into the batch or a
+            key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a
                 user-specified function to do the extracting. A pair of callables is also
                 supported for cases where a get and set function pair are both passed
                 (like in Algorithms). The getter is assumed to be the first of the pair.
@@ -368,7 +373,7 @@ class State(Serializable):
         See batch_set in `utils/batch_helpers.py` for examples.
 
         Args:
-            key (str, int, or Callable): A key to index into the batch or a user-specified
+            key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a user-specified
                 function to do the setting. A pair of callables is also supported for
                 cases where a get and set function pair are both passed (like in
                 Algorithms). The setter is assumed to be the second of the pair.
@@ -457,7 +462,6 @@ class State(Serializable):
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
         """
-
         state = _ensure_backwards_compatible_checkpointing(state)
 
         for attribute_name, serialized_value in state.items():

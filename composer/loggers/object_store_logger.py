@@ -29,7 +29,7 @@ from composer.loggers.logger import Logger, LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import format_name_with_dist
 from composer.utils.file_helpers import get_file
-from composer.utils.object_store import ObjectStore
+from composer.utils.libcloud_object_store import LibcloudObjectStore
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def _always_log(state: State, log_level: LogLevel, artifact_name: str):
 
 
 class ObjectStoreLogger(LoggerDestination):
-    """Logger destination that uploads artifacts to an object store.
+    r"""Logger destination that uploads artifacts to an object store.
 
     This logger destination handles calls to :meth:`~composer.loggers.logger.Logger.file_artifact`
     and uploads files to an object store, such as AWS S3 or Google Cloud Storage.
@@ -66,10 +66,6 @@ class ObjectStoreLogger(LoggerDestination):
             loggers=[object_store_logger],
         )
 
-    .. testcleanup:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
-
-        trainer.engine.close()
-
     .. note::
 
         This callback blocks the training loop to copy each artifact where ``should_log_artifact`` returns ``True``, as
@@ -83,7 +79,7 @@ class ObjectStoreLogger(LoggerDestination):
             always occurs in the background.
 
         *   Provide a RAM disk path for the ``upload_staging_folder`` parameter. Copying files to stage on RAM will be
-            faster than writing to disk. However, there must have sufficient excess RAM, or :exc:`MemoryError`\\s may
+            faster than writing to disk. However, there must have sufficient excess RAM, or :exc:`MemoryError`\s may
             be raised.
 
     Args:
@@ -142,7 +138,7 @@ class ObjectStoreLogger(LoggerDestination):
             | ``{artifact_name}``    | The name of the artifact being logged.                |
             +------------------------+-------------------------------------------------------+
             | ``{run_name}``         | The name of the training run. See                     |
-            |                        | :attr:`.Logger.run_name`.                             |
+            |                        | :attr:`.State.run_name`.                              |
             +------------------------+-------------------------------------------------------+
             | ``{rank}``             | The global rank, as returned by                       |
             |                        | :func:`~composer.utils.dist.get_global_rank`.         |
@@ -247,11 +243,11 @@ class ObjectStoreLogger(LoggerDestination):
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
+        del logger  # unused
         if self._finished is not None:
             raise RuntimeError("The ObjectStoreLogger is already initialized.")
         self._finished = self._finished_cls()
-        self._run_name = logger.run_name
+        self._run_name = state.run_name
         object_name_to_test = self._object_name(".credentials_validated_successfully")
         _validate_credentials(self.provider, self.container, self.provider_kwargs, object_name_to_test)
         assert len(self._workers) == 0, "workers should be empty if self._finished was None"
@@ -301,8 +297,8 @@ class ObjectStoreLogger(LoggerDestination):
 
     def log_symlink_artifact(self, state: State, log_level: LogLevel, existing_artifact_name: str,
                              symlink_artifact_name: str, overwrite: bool):
-        """Object stores do not natively support symlinks, so we emulate symlinks by adding a .symlink file to the
-        object store, which is a text file containing the name of the object it is pointing to."""
+        # Object stores do not natively support symlinks, so we emulate symlinks by adding a .symlink file to the
+        # object store, which is a text file containing the name of the object it is pointing to.
         # Only symlink if we're logging artifact to begin with
         if not self.should_log_artifact(state, log_level, existing_artifact_name):
             return
@@ -322,9 +318,9 @@ class ObjectStoreLogger(LoggerDestination):
         chunk_size: int = 2**20,
         progress_bar: bool = True,
     ):
-        object_store = ObjectStore(provider=self.provider,
-                                   container=self.container,
-                                   provider_kwargs=self.provider_kwargs)
+        object_store = LibcloudObjectStore(provider=self.provider,
+                                           container=self.container,
+                                           provider_kwargs=self.provider_kwargs)
         get_file(path=artifact_name,
                  destination=destination,
                  object_store=object_store,
@@ -378,7 +374,7 @@ def _validate_credentials(
 ) -> None:
     # Validates the credentails by attempting to touch a file in the bucket
     # raises a LibcloudError if there was a credentials failure.
-    object_store = ObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
+    object_store = LibcloudObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
     object_store.upload_object_via_stream(
         obj=b"credentials_validated_successfully",
         object_name=object_name_to_test,
@@ -392,13 +388,12 @@ def _upload_worker(
     container: str,
     provider_kwargs: Optional[Dict[str, Any]],
 ):
-    """A long-running function to handle uploading files to the object store specified by (``provider``, ``container``,
-    ``provider_kwargs``).
+    """A long-running function to handle uploading files to the object store.
 
     The worker will continuously poll ``file_queue`` for files to upload. Once ``is_finished`` is set, the worker will
     exit once ``file_queue`` is empty.
     """
-    object_store = ObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
+    object_store = LibcloudObjectStore(provider=provider, container=container, provider_kwargs=provider_kwargs)
     while True:
         try:
             file_path_to_upload, object_name, overwrite = file_queue.get(block=True, timeout=0.5)

@@ -9,7 +9,7 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer import Callback, Event, State, Trainer
-from composer.loggers import FileLogger, FileLoggerHparams, Logger, LoggerDestination, LogLevel
+from composer.loggers import FileLogger, Logger, LoggerDestination, LogLevel
 from composer.utils.collect_env import disable_env_report
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
@@ -27,17 +27,17 @@ class FileArtifactLoggerTracker(LoggerDestination):
 
 
 @pytest.mark.parametrize("log_level", [LogLevel.EPOCH, LogLevel.BATCH])
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(30)
 def test_file_logger(dummy_state: State, log_level: LogLevel, tmp_path: pathlib.Path):
     log_file_name = os.path.join(tmp_path, "output.log")
-    log_destination = FileLoggerHparams(
+    log_destination = FileLogger(
         log_interval=3,
         log_level=log_level,
         filename=log_file_name,
         artifact_name="{run_name}/rank{rank}.log",
         buffer_size=1,
         flush_interval=1,
-    ).initialize_object()
+    )
     file_tracker_destination = FileArtifactLoggerTracker()
     logger = Logger(dummy_state, destinations=[log_destination, file_tracker_destination])
     log_destination.run_event(Event.INIT, dummy_state, logger)
@@ -105,11 +105,11 @@ def test_file_logger(dummy_state: State, log_level: LogLevel, tmp_path: pathlib.
 @pytest.mark.timeout(15)  # disk can be slow on Jenkins
 def test_file_logger_capture_stdout_stderr(dummy_state: State, tmp_path: pathlib.Path):
     log_file_name = os.path.join(tmp_path, "output.log")
-    log_destination = FileLoggerHparams(filename=log_file_name,
-                                        buffer_size=1,
-                                        flush_interval=1,
-                                        capture_stderr=True,
-                                        capture_stdout=True).initialize_object()
+    log_destination = FileLogger(filename=log_file_name,
+                                 buffer_size=1,
+                                 flush_interval=1,
+                                 capture_stderr=True,
+                                 capture_stdout=True)
     # capturing should start immediately
     print("Hello, stdout!\nExtra Line")
     print("Hello, stderr!\nExtra Line2", file=sys.stderr)

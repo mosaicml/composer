@@ -13,11 +13,9 @@ from composer.loggers import Logger
 
 
 class ThresholdStopper(Callback):
-    """This callback tracks a training or evaluation metric and halts training when the
-    metric value reaches a certain threshold.
+    """Halt training when a metric value reaches a certain threshold.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer.callbacks.threshold_stopper import ThresholdStopper

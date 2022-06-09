@@ -6,7 +6,6 @@ import contextlib
 import copy
 import datetime
 import os
-import pathlib
 import time
 from typing import List, Optional, Union
 
@@ -23,16 +22,16 @@ from composer.core.event import Event
 from composer.core.precision import Precision
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
-from composer.datasets import DataLoaderHparams, ImagenetDatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams
 from composer.datasets.ffcv_utils import write_ffcv_dataset
+from composer.datasets.imagenet_hparams import ImagenetDatasetHparams
 from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
-from composer.trainer.trainer_hparams import callback_registry, logger_registry
-from composer.utils import dist
-from composer.utils.object_store import ObjectStoreHparams
+from composer.trainer.trainer import _get_run_name
+from composer.utils import dist, reproducibility
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 from tests.common.events import EventCounterCallback
@@ -861,7 +860,7 @@ class AssertDataAugmented(Callback):
         if state.grad_accum != 1:
             raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
         batch_idx = state.timestamp.batch_in_epoch.value
-        batch_size = state.batch_num_samples
+        batch_size = len(state.batch[0])
         original_batch = self.dataset[batch_idx:batch_idx + batch_size]
         original_outputs = state.model(original_batch)
 
@@ -902,132 +901,6 @@ class TestTrainerEvents():
         trainer = Trainer(**config)
         with pytest.raises(AssertionError):
             trainer.fit()
-
-
-@pytest.mark.timeout(15)
-class TestTrainerAssets:
-    """The below is a catch-all test that runs the Trainer with each algorithm, callback, and loggers. Success is
-    defined as a successful training run.
-
-    This should eventually be replaced by functional
-    tests for each object, in situ of our trainer.
-
-    We use the hparams_registry associated with our
-    config management to retrieve the objects to test.
-    """
-
-    @pytest.fixture(params=[1, 2], ids=['ga-1', 'ga-2'])
-    def config(self, rank_zero_seed: int, request):
-        grad_accum = request.param
-
-        return {
-            'model': SimpleConvModel(),
-            'train_dataloader': DataLoader(
-                dataset=RandomImageDataset(size=16),
-                batch_size=4,
-            ),
-            'eval_dataloader': DataLoader(
-                dataset=RandomImageDataset(size=16),
-                batch_size=4,
-            ),
-            'max_duration': '2ep',
-            'loggers': [],  # no progress bar
-            'seed': rank_zero_seed,
-            'grad_accum': grad_accum,
-        }
-
-    # Note: Not all algorithms, callbacks, and loggers are compatible
-    #       with the above configuration. The fixtures below filter and
-    #       create the objects to test.
-
-    @pytest.fixture(params=callback_registry.items(), ids=tuple(callback_registry.keys()))
-    def callback(self, request):
-        name, hparams = request.param
-
-        if name == 'mlperf':
-            pytest.skip('mlperf callback tested separately.')
-
-        if name == 'early_stopper' or name == 'threshold_stopper':
-            pytest.skip('early_stopper and threshold_stopper callback tested separately.')
-
-        callback = hparams().initialize_object()
-
-        return callback
-
-    @pytest.fixture(params=logger_registry.items(), ids=tuple(logger_registry.keys()))
-    def logger(self, request, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
-
-        name, hparams = request.param
-
-        remote_dir = str(tmp_path / "remote_dir")
-        os.makedirs(remote_dir)
-        local_dir = str(tmp_path / "local_dir")
-        os.makedirs(local_dir)
-        monkeypatch.setenv("OBJECT_STORE_KEY", remote_dir)  # for the local option, the key is the path
-        provider_hparams = ObjectStoreHparams(
-            provider='local',
-            key_environ="OBJECT_STORE_KEY",
-            container=".",
-        )
-
-        required_args = {}
-        if name == 'wandb':
-            pytest.importorskip('wandb', reason='Required wandb')
-        if name == 'object_store':
-            required_args['object_store_hparams'] = provider_hparams
-            required_args['use_procs'] = False
-
-        if name == 'object_store_logger':
-            monkeypatch.setenv("KEY_ENVIRON", str(tmp_path))
-
-            logger = hparams(
-                provider='local',
-                container='.',
-                key_environ="KEY_ENVIRON",
-            ).initialize_object()
-        else:
-            logger = hparams(**required_args).initialize_object()
-
-        return logger
-
-    """
-    Tests that training completes.
-    """
-
-    def test_callbacks(self, config, callback):
-        config['callbacks'] = [callback]
-        trainer = Trainer(**config)
-        trainer.fit()
-
-    @pytest.mark.filterwarnings(
-        r"ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning")
-    def test_loggers(self, config, logger):
-        config['loggers'] = [logger]
-        trainer = Trainer(**config)
-        trainer.fit()
-
-    """
-    Tests that training with multiple fits complete.
-    Note: future functional tests should test for
-    idempotency (e.g functionally)
-    """
-
-    def test_callbacks_multiple_calls(self, config, callback):
-        config['callbacks'] = [callback]
-        trainer = Trainer(**config)
-        self._test_multiple_fits(trainer)
-
-    @pytest.mark.filterwarnings("ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning"
-                               )
-    def test_loggers_multiple_calls(self, config, logger):
-        config['loggers'] = [logger]
-        trainer = Trainer(**config)
-        self._test_multiple_fits(trainer)
-
-    def _test_multiple_fits(self, trainer):
-        trainer.fit()
-        trainer.state.max_duration *= 2
-        trainer.fit()
 
 
 @pytest.mark.vision
@@ -1089,3 +962,16 @@ class TestFFCVDataloaders:
         config['precision'] = precision
         trainer = Trainer(**config)
         trainer.fit()
+
+
+@pytest.mark.world_size(2)
+def test_state_run_name():
+    # seeding with the global rank to ensure that each rank has a different seed
+    reproducibility.seed_all(dist.get_global_rank())
+
+    run_name = _get_run_name(None)
+    # The run name should be the same on every rank -- it is set via a distributed reduction
+    # Manually verify that all ranks have the same run name
+    run_names = dist.all_gather_object(run_name)
+    assert len(run_names) == 2  # 2 ranks
+    assert all(run_name == run_names[0] for run_name in run_names)

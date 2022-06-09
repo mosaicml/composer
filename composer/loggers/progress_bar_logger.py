@@ -129,7 +129,8 @@ class ProgressBarLogger(LoggerDestination):
             elif stream.lower() == "stderr":
                 stream = sys.stderr
             else:
-                raise ValueError("Invalid stream option: Should be 'stdout', 'stderr', or a TextIO-like object.")
+                raise ValueError(
+                    f"Invalid stream option: Should be 'stdout', 'stderr', or a TextIO-like object; got {stream}")
         self.stream = stream
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]) -> None:

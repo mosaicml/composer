@@ -17,11 +17,11 @@ import composer.core.types as types
 from composer import Callback, Event
 from composer.core import State
 from composer.core.data_spec import DataSpec
-from composer.datasets import DataLoaderHparams, SyntheticBatchPairDataset, SyntheticHparamsMixin
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.synthetic import SyntheticBatchPairDataset
+from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.loggers import Logger
 from composer.models.model_hparams import ModelHparams
-from composer.trainer.devices import CPUDeviceHparams, DeviceHparams, GPUDeviceHparams
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import SimpleModel
@@ -120,16 +120,16 @@ class CheckBatch0(Callback):
 
 
 @pytest.mark.timeout(90)
-@pytest.mark.parametrize("device_hparams,deepspeed", [
-    pytest.param(CPUDeviceHparams(), False, id="cpu"),
-    pytest.param(GPUDeviceHparams(), False, id="gpu", marks=pytest.mark.gpu),
-    pytest.param(GPUDeviceHparams(), True, id="deepspeed", marks=pytest.mark.gpu),
+@pytest.mark.parametrize("device,deepspeed", [
+    pytest.param('cpu', False, id="cpu"),
+    pytest.param('gpu', False, id="gpu", marks=pytest.mark.gpu),
+    pytest.param('gpu', True, id="deepspeed", marks=pytest.mark.gpu),
 ])
 @pytest.mark.parametrize("world_size", [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
-def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams: ModelHparams, deepspeed: bool,
+def test_ddp(device: str, world_size: int, dummy_model_hparams: ModelHparams, deepspeed: bool,
              tmp_path: pathlib.Path) -> None:
     """test strategy for ddp: 1) Train a dummy model on two gps, for two epochs, using the tracked dataset. 2) The
     tracked dataset should record two -- and only two -- accesses for each sample -- one for each epoch If each sample
@@ -181,7 +181,7 @@ def test_ddp(device_hparams: DeviceHparams, world_size: int, dummy_model_hparams
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
                       eval_dataloader=val_dataloader,
-                      device=device_hparams.initialize_object(),
+                      device=device,
                       max_duration=f"{max_epochs}ep",
                       eval_interval="1ep",
                       eval_subset_num_batches=eval_subset_num_batches,

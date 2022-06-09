@@ -200,6 +200,7 @@ class Engine():
         Args:
             event (Event | str): The current :class:`~.event.Event`. It can be the enum member values or a
                 string with the event value.
+
         Returns:
             traces (Traces): Ordered dictionary of trace for each algorithm.
         """

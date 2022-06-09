@@ -83,7 +83,7 @@ The above code, when run, will produce the checkpoints below:
     >>> list(state_dict)
     ['state', 'rng']
     >>> list(state_dict['state'].keys())
-    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'current_metrics']
+    ['model', 'optimizers', 'schedulers', 'algorithms', 'callbacks', 'scaler', 'timestamp', 'rank_zero_seed', 'current_metrics', 'run_name']
 
 Resume training
 ---------------
@@ -160,6 +160,8 @@ state from the checkpoint are not compatible with these new objects.
     | rank_zero_seed        | The seed of the rank zero process.                          |
     +-----------------------+-------------------------------------------------------------+
     | current_metrics       | The current metrics.                                        |
+    +-----------------------+-------------------------------------------------------------+
+    | run_name              | The run name for training.                                  |
     +-----------------------+-------------------------------------------------------------+
 
     All other trainer arguments (e.g. ``max_duration`` or ``precision``) will use either the defaults
@@ -266,7 +268,7 @@ Parameters with different names will ignored.
         max_duration="10ep",
         load_path="./path/to/checkpoints/ep50.pt",
         load_weights_only=True,
-        load_strict=False,
+        load_strict_model_weights=False,
     )
 
     ft_trainer.fit()
@@ -361,15 +363,15 @@ Loading from Object Store
 -------------------------
 
 Checkpoints saved to an object store can also be loaded in the same way as files saved on disk. Provide the
-:class:`.ObjectStore` to the trainer's ``load_object_store`` argument.  The ``load_path`` argument
+:class:`.LibcloudObjectStore` to the trainer's ``load_object_store`` argument.  The ``load_path`` argument
 should be the path to the checkpoint file *within the container/bucket*.
 
 .. testcode::
 
-    from composer.utils.object_store import ObjectStore
+    from composer.utils.libcloud_object_store import LibcloudObjectStore
     from composer.trainer import Trainer
 
-    object_store = ObjectStore(
+    object_store = LibcloudObjectStore(
         provider="s3",  # The Apache Libcloud provider name
         container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
         provider_kwargs={  # The Apache Libcloud provider driver initialization arguments
