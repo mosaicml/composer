@@ -5,7 +5,7 @@ from typing import Dict, Type, Union
 
 import yahp as hp
 
-from composer.algorithms.agc import AGC
+from composer.algorithms.gradient_clipping import GradientClipping
 from composer.algorithms.alibi import Alibi
 from composer.algorithms.augmix import AugMix
 from composer.algorithms.blurpool import BlurPool
@@ -53,5 +53,5 @@ algorithm_registry: Dict[str, Union[Type[Algorithm], Type[hp.Hparams]]] = {
     'sam': SAM,
     'alibi': Alibi,
     'selective_backprop': SelectiveBackprop,
-    'agc': AGC,
+    'gradient_clipping': GradientClipping,
 }
