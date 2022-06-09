@@ -5,38 +5,36 @@
 
 from __future__ import annotations
 
+import collections.abc
 import functools
 import random
 import time
-from typing import TYPE_CHECKING, Callable, Sequence, Type, Union, overload
+from typing import Any, Callable, Sequence, Type, TypeVar, Union, cast, overload
 
-if TYPE_CHECKING:
-    from typing import ParamSpec, TypeVar
-
-    T = TypeVar("T")
-    P = ParamSpec("P")
+TCallable = TypeVar("TCallable", bound=Callable)
 
 __all__ = ["retry"]
 
 
 @overload
-def retry(exc_class: Callable[P, T]) -> Callable[P, T]:
-    # Use the decorator without parenthesis
+def retry(
+    exc_class: Union[Type[Exception], Sequence[Type[Exception]]] = ...,
+    num_attempts: int = ...,
+    initial_backoff: float = ...,
+    max_jitter: float = ...,
+) -> Callable[[TCallable], TCallable]:
     ...
 
 
 @overload
-def retry(
-    exc_class: Union[Type[Exception], Sequence[Type[Exception]]] = Exception,
-    num_attempts: int = ...,
-    initial_backoff: float = ...,
-    max_jitter: float = ...,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+def retry(exc_class: TCallable) -> TCallable:
+    # Use the decorator without parenthesis
     ...
 
 
-def retry(
-    exc_class: Union[Callable, Type[Exception], Sequence[Type[Exception]]] = Exception,
+# error: Type "(TCallable@retry) -> TCallable@retry" cannot be assigned to type "(func: Never) -> Never"
+def retry(  # type: ignore
+    exc_class: Union[TCallable, Type[Exception], Sequence[Type[Exception]]] = Exception,
     num_attempts: int = 3,
     initial_backoff: float = 1.0,
     max_jitter: float = 0.5,
@@ -79,10 +77,10 @@ def retry(
     if num_attempts < 1:
         raise ValueError("num_attempts must be at leats 1")
 
-    def wrapped_func(func: Callable[P, T]) -> Callable[P, T]:
+    def wrapped_func(func: TCallable) -> TCallable:
 
         @functools.wraps(func)
-        def new_func(*args: P.args, **kwargs: P.kwargs):
+        def new_func(*args: Any, **kwargs: Any):
             i = 0
             while True:
                 try:
@@ -94,11 +92,12 @@ def retry(
                         time.sleep(initial_backoff * 2**i + random.random() * max_jitter)
                         i += 1
 
-        return new_func
+        return cast(TCallable, new_func)
 
-    if not isinstance(exc_class, Sequence) and not (isinstance(exc_class, type) and issubclass(exc_class, Exception)):
+    if not isinstance(exc_class, collections.abc.Sequence) and not (isinstance(exc_class, type) and
+                                                                    issubclass(exc_class, Exception)):
         # Using the decorator without (), like @retry_with_backoff
-        func = exc_class
+        func = cast(TCallable, exc_class)
         exc_class = Exception
 
         return wrapped_func(func)
