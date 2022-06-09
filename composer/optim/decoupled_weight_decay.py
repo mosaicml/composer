@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Optimizers with weight decay decoupled from the learning rate.
 
@@ -10,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import List, Tuple
+from typing import Iterable, List, Tuple
 
 import torch
 from torch.optim import SGD, AdamW
@@ -41,8 +42,9 @@ class DecoupledSGDW(SGD):
     """
 
     @staticmethod
-    def sgdw(params: List[torch.Tensor], d_p_list: List[torch.Tensor], momentum_buffer_list: List[torch.Tensor], *,
-             weight_decay: float, momentum: float, lr: float, initial_lr: float, dampening: float, nesterov: bool):
+    def sgdw(params: Iterable[torch.nn.parameter.Parameter], d_p_list: List[torch.Tensor],
+             momentum_buffer_list: List[torch.Tensor], *, weight_decay: float, momentum: float, lr: float,
+             initial_lr: float, dampening: float, nesterov: bool):
         r"""Functional API that performs SGDW algorithm computation.
 
         Args:
@@ -56,7 +58,6 @@ class DecoupledSGDW(SGD):
             dampening (float): Dampening factor for momentum update
             nesterov (bool): Enables Nesterov momentum updates
         """
-
         for i, param in enumerate(params):
 
             d_p = d_p_list[i]
@@ -187,7 +188,6 @@ class DecoupledAdamW(AdamW):
             weight_decay (float): Factor for decoupled weight decay
             eps (float): Term added to the denominator to improve numerical stability.
         """
-
         for i, param in enumerate(params):
             grad = grads[i]
             exp_avg = exp_avgs[i]

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helper functions for auto-generating tables from metadata."""
 import importlib
@@ -9,6 +10,7 @@ import tempfile
 
 def list_dirs(folder):
     """Lists all dirs for a given folder.
+
     Args:
         folder (str): The folder to list dirs for.
     """
@@ -18,12 +20,12 @@ def list_dirs(folder):
 
 def assert_attributes_exist(name, module_dict, attributes):
     """Assert that module has the provided attributes.
+
     Args:
         name (str): The class name.
         module_dict (dict): The dict form of the class.
         attributes (list): The attributes to check for.
     """
-
     for attribute in attributes:
         assert attribute in module_dict, \
         f"{name} should define {attribute} in its __init__.py file."
@@ -31,11 +33,14 @@ def assert_attributes_exist(name, module_dict, attributes):
 
 def get_metadata(names, attributes, module_basepath):
     """Returns a nested dict of metadata with names as keys.
+
     Checks that all attributes exist in module given by module_basepath.name.
+
     Args:
         names (str): The module names.
         attributes (list): The attributes to check for.
         module_basepath (str): The import path of the module.
+
     Example::
         >>> get_metadata(
                 names=['blurpool', 'label_smoothing'],
@@ -77,13 +82,16 @@ def get_metadata(names, attributes, module_basepath):
 
 def build_markdown_table(header, metadata, sorted_keys, row_format):
     """Builds a markdown table, formatting `row_format` with the `metadata`.
+
     Entries in the table are ordered by `sorted_keys`.
+
     Args:
         header (list): list of header strings
         metadata (dict): nested dict of metadata
         sorted_keys (list): order of rows in table
         row_format (list): list of length(header). Elements are either a string
-                           or a single-argument callable that returns a string.
+            or a single-argument callable that returns a string.
+
     Returns:
         table_md (list): table in markdown format
     """
@@ -108,6 +116,7 @@ def _print_row(row):
 
 def index_tag_in_lines(lines, tag):
     """Returns line number where tag is found.
+
     Args:
         lines (list): List of lines to check.
         tag (str): Tag to find.
@@ -120,10 +129,12 @@ def index_tag_in_lines(lines, tag):
 
 def update_table_in_file(table, source_file):
     """Updates the table content based on a source file.
+
     Given a `source file`, updates the table. Searches
     the file for 'Table Start' and 'Table End' tags, and replaces
     the content between those tags.
     The original file is retained with the `.bkp` suffix.
+
     Args:
         table (list): list of strings
         source_file (path): path to source file

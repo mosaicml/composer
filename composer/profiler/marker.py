@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Profiler Marker."""
 
@@ -117,7 +118,7 @@ class Marker:
     def start(self) -> None:
         """Record the start of a duration event.
 
-        To record the duration of an event, invoke :meth:`.Marker.start` followed by :meth:`.Marker.finish`\\:
+        To record the duration of an event, invoke :meth:`.Marker.start` followed by :meth:`.Marker.finish`.
 
         .. testsetup::
 

@@ -1,4 +1,7 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+import datetime
 
 import pytest
 
@@ -74,7 +77,8 @@ def test_timestamp_update():
 
 def test_timestamp_to_next_batch_epoch():
     timestamp = Timestamp()
-    timestamp = timestamp.to_next_batch(10, 20)
+    # Step batch 0, epoch 0
+    timestamp = timestamp.to_next_batch(10, 20, datetime.timedelta(seconds=5))
     assert timestamp.batch == 1
     assert timestamp.batch_in_epoch == 1
     assert timestamp.batch_in_epoch == 1
@@ -82,8 +86,25 @@ def test_timestamp_to_next_batch_epoch():
     assert timestamp.sample_in_epoch == 10
     assert timestamp.token == 20
     assert timestamp.token_in_epoch == 20
+    assert timestamp.total_wct == datetime.timedelta(seconds=5)
+    assert timestamp.epoch_wct == datetime.timedelta(seconds=5)
+    assert timestamp.batch_wct == datetime.timedelta(seconds=5)
+
+    # Finish epoch 0
     timestamp = timestamp.to_next_epoch()
-    timestamp = timestamp.to_next_batch(5)
+    assert timestamp.epoch == 1
+    assert timestamp.batch == 1
+    assert timestamp.batch_in_epoch == 0
+    assert timestamp.sample == 10
+    assert timestamp.sample_in_epoch == 0
+    assert timestamp.token == 20
+    assert timestamp.token_in_epoch == 0
+    assert timestamp.total_wct == datetime.timedelta(seconds=5)
+    assert timestamp.epoch_wct == datetime.timedelta(seconds=0)
+    assert timestamp.batch_wct == datetime.timedelta(seconds=0)
+
+    # Step a batch 0 in epoch 1
+    timestamp = timestamp.to_next_batch(5, 0, datetime.timedelta(seconds=10))
     assert timestamp.epoch == 1
     assert timestamp.batch == 2
     assert timestamp.batch_in_epoch == 1
@@ -91,8 +112,35 @@ def test_timestamp_to_next_batch_epoch():
     assert timestamp.sample_in_epoch == 5
     assert timestamp.token == 20
     assert timestamp.token_in_epoch == 0
+    assert timestamp.total_wct == datetime.timedelta(seconds=15)
+    assert timestamp.epoch_wct == datetime.timedelta(seconds=10)
+    assert timestamp.batch_wct == datetime.timedelta(seconds=10)
+
+    # Step batch 1 in epoch 0
+    timestamp = timestamp.to_next_batch(5, 1, datetime.timedelta(seconds=10))
+    assert timestamp.epoch == 1
+    assert timestamp.batch == 3
+    assert timestamp.batch_in_epoch == 2
+    assert timestamp.sample == 20
+    assert timestamp.sample_in_epoch == 10
+    assert timestamp.token == 21
+    assert timestamp.token_in_epoch == 1
+    assert timestamp.total_wct == datetime.timedelta(seconds=25)
+    assert timestamp.epoch_wct == datetime.timedelta(seconds=20)
+    assert timestamp.batch_wct == datetime.timedelta(seconds=10)
 
 
 def test_timestamp_repr():
     timestamp = Timestamp()
     assert timestamp == eval(repr(timestamp))
+
+
+@pytest.mark.parametrize("time_string", ["1.5ep", "2.1ba", "3.2sp", "3.4tok"])
+def test_timestep_bad_strings(time_string: str):
+    with pytest.raises(TypeError):
+        Time.from_timestring(time_string)
+
+
+@pytest.mark.parametrize("time_string", ["0.5dur", "2.0ep", "3.000ba", "030.0sp"])
+def test_timestep_valid_strings(time_string: str):
+    Time.from_timestring(time_string)

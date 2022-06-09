@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Modify model architectures.
 
@@ -17,8 +18,7 @@ Attributes:
             module (torch.nn.Module): Source module
             module_index (int): The i-th instance of module class.
 
-        Returns:
-            Optional[torch.nn.Module]: The replacement module, or ``None`` to indicate no modification.
+        Returns: Optional[torch.nn.Module]: The replacement module, or ``None`` to indicate no modification.
 """
 import collections
 import itertools
@@ -55,7 +55,7 @@ def _add_children_recursive(
         children_to_parents_and_names[child].append((module, name))
 
 
-# adapted from https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/module_inject/replace_module.py#L408
+# adapted from https://github.com/microsoft/DeepSpeed/blob/b8ff4825aae4bced15a29a4298cb3e59098df999/deepspeed/module_inject/replace_module.py#L699
 def replace_module_classes(
     module: torch.nn.Module,
     policies: Mapping[Type[torch.nn.Module], ReplacementFunction],
@@ -237,8 +237,9 @@ def count_module_instances(module: torch.nn.Module, module_class: Union[Type[tor
 
 
 def _tensor_in(tensor: torch.Tensor, iterable: Iterable[torch.Tensor]):
-    """Returns whether `tensor is element` for any element in `iterable` This function is necessary because `tensor in
-    iterable` does not work reliably for `Tensor`s.
+    """Returns whether ``tensor is element`` for any element in ``iterable``.
+
+    This function is necessary because ``tensor in iterable`` does not work reliably for :class:`.Tensor` objects.
 
     See https://discuss.pytorch.org/t/how-to-judge-a-tensor-is-in-a-list/15998/4
     for further discussion.
@@ -247,7 +248,8 @@ def _tensor_in(tensor: torch.Tensor, iterable: Iterable[torch.Tensor]):
 
 
 def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: Optimizer) -> int:
-    """Returns the index of the optimizer ``param_group`` containing ``param``
+    """Returns the index of the optimizer ``param_group`` containing ``param``.
+
     Optimizers store their parameters within an iterable of ``dict``s called
     :attr:`~torch.optim.Optimizer.param_groups`.
     By default, there is only one group in :attr:`~torch.optim.Optimizer.param_groups`
@@ -277,19 +279,19 @@ def _find_param_in_optimizer(param: torch.nn.parameter.Parameter, optimizer: Opt
 def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter],
                                new_params: Iterable[torch.nn.parameter.Parameter],
                                optimizers: Union[Optimizer, Sequence[Optimizer]]) -> None:
-    """Remove ``old_params`` from the ``optimizers`` and insert ``new_params``.
+    r"""Remove ``old_params`` from the ``optimizers`` and insert ``new_params``.
 
     Newly added parameters will be added to the same :attr:`~torch.optim.Optimizer.param_group` as the removed
     parameters. A :class:`RuntimeError` will be raised if ``old_params`` is split across multiple parameter groups.
 
     This function differs from :meth:`replace_params_in_optimizer` in that ``len(old_params)`` need not equal
-    ``len(new_params)``. However, this function does not support replacing parameters accross multiple optimizer
+    ``len(new_params)``. However, this function does not support replacing parameters across multiple optimizer
     groups.
 
     .. warning::
 
         Dynamically removing parameters from a :class:`~torch.optim.Optimizer` and adding parameters
-        to an existing :attr:`~torch.optim.Optimizer.param_group`\\s are not officially supported, so this
+        to an existing :attr:`~torch.optim.Optimizer.param_group`\s are not officially supported, so this
         function may fail when PyTorch is updated. The
         `recommended practice <https://github.com/pytorch/pytorch/issues/1489#issuecomment-355301737>`_ is
         to instead recreate the optimizer when the parameter set changes

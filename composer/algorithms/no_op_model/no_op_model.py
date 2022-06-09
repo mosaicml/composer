@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """NoOpModel algorithm and class."""
 
@@ -64,6 +65,10 @@ class NoOpModelClass(ComposerModel):
 
 class NoOpModel(Algorithm):
     """Runs on :attr:`Event.INIT` and replaces the model with a dummy model of type NoOpModelClass."""
+
+    def __init__(self):
+        # No arguments
+        pass
 
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT

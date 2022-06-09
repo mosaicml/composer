@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """BraTS (Brain Tumor Segmentation) dataset.
 
@@ -9,68 +10,25 @@ details about this dataset.
 import glob
 import os
 import random
-from dataclasses import dataclass
 
 import numpy as np
 import torch
 import torch.utils.data
 import torchvision
-import yahp as hp
 
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams
-from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
 
 PATCH_SIZE = [1, 192, 160]
 
-__all__ = ["BratsDatasetHparams"]
+__all__ = ["PytTrain", "PytVal"]
 
 
-def _my_collate(batch):
-    """Custom collate function to handle images with different depths."""
-    data = [item[0] for item in batch]
-    target = [item[1] for item in batch]
-
-    return [torch.Tensor(data), torch.Tensor(target)]
-
-
-@dataclass
-class BratsDatasetHparams(DatasetHparams):
-    """Defines an instance of the BraTS dataset for image segmentation.
-
-    Args:
-        oversampling (float): The oversampling ratio to use. Default: ``0.33``.
-    """
-
-    oversampling: float = hp.optional("oversampling", default=0.33)
-
-    def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
-
-        oversampling = self.oversampling
-
-        if self.datadir is None:
-            raise ValueError("datadir must be specified.")
-        x_train, y_train, x_val, y_val = get_data_split(self.datadir)
-        dataset = PytTrain(x_train, y_train, oversampling) if self.is_train else PytVal(x_val, y_val)
-        collate_fn = None if self.is_train else _my_collate
-        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
-
-        return dataloader_hparams.initialize_object(
-            dataset=dataset,
-            batch_size=batch_size,
-            sampler=sampler,
-            drop_last=self.drop_last,
-            collate_fn=collate_fn,
-        )
-
-
-def coin_flip(prob):
+def _coin_flip(prob):
     return random.random() < prob
 
 
-def random_augmentation(probability, augmented, original):
-    condition = coin_flip(probability)
+def _random_augmentation(probability, augmented, original):
+    condition = _coin_flip(probability)
     neg_condition = condition ^ True
     return condition * augmented + neg_condition * original
 
@@ -145,7 +103,7 @@ class Noise(object):
         std = np.random.uniform(0.0, oversampling)
         noise = np.random.normal(0, scale=std, size=img.shape)
         img_noised = img + noise
-        img = random_augmentation(0.15, img_noised, img)
+        img = _random_augmentation(0.15, img_noised, img)
 
         return {'image': img, 'label': lbl}
 
@@ -157,7 +115,7 @@ class Blur(object):
 
         transf = torchvision.transforms.GaussianBlur(kernel_size=3, sigma=(0.5, 1.5))
         img_blured = transf(torch.Tensor(img)).numpy()
-        img = random_augmentation(0.15, img_blured, img)
+        img = _random_augmentation(0.15, img_blured, img)
 
         return {'image': img, 'label': lbl}
 
@@ -166,7 +124,7 @@ class Brightness(object):
 
     def __call__(self, data):
         img, lbl = data["image"], data["label"]
-        brightness_scale = random_augmentation(0.15, np.random.uniform(0.7, 1.3), 1.0)
+        brightness_scale = _random_augmentation(0.15, np.random.uniform(0.7, 1.3), 1.0)
         img = img * brightness_scale
 
         return {'image': img, 'label': lbl}
@@ -177,7 +135,7 @@ class Contrast(object):
     def __call__(self, data):
         img, lbl = data["image"], data["label"]
         min_, max_ = np.min(img), np.max(img)
-        scale = random_augmentation(0.15, np.random.uniform(0.65, 1.5), 1.0)
+        scale = _random_augmentation(0.15, np.random.uniform(0.65, 1.5), 1.0)
 
         img = torch.clamp(torch.Tensor(img * scale), min_, max_).numpy()
         return {'image': img, 'label': lbl}

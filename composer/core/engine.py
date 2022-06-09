@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Engine is a coordinator for running algorithms and resolving ordering conflicts among them for composition.
 
@@ -63,6 +64,7 @@ from __future__ import annotations
 import atexit
 import contextlib
 import logging
+import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import ContextManager, Dict, Optional, Sequence, Union, cast
@@ -145,6 +147,11 @@ def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
     return OrderedDict([(f'{algo}/{event}', Trace()) for algo in algorithms])
 
 
+# Track which callbacks are already open, so it is possible to error and instruct the user to call
+# previous_trainer.close() if necessary before attempting to reuse a callback
+_OPEN_CALLBACKS = weakref.WeakSet()
+
+
 class Engine():
     """Coordinator for running algorithms and resolving ordering conflicts among them for composition.
 
@@ -193,6 +200,7 @@ class Engine():
         Args:
             event (Event | str): The current :class:`~.event.Event`. It can be the enum member values or a
                 string with the event value.
+
         Returns:
             traces (Traces): Ordered dictionary of trace for each algorithm.
         """
@@ -327,6 +335,19 @@ class Engine():
         """
         event = Event(event)
 
+        if event == Event.INIT:
+            # Some callbacks may be open from a previous training run
+            # If so, error and instruct the user that they must call `trainer.close()`
+            # so callbacks can clean up and reset their state properly
+            for cb in self.state.callbacks:
+                # If it's not in the dictionary, then the callback is new, so it's closed by definition
+                if cb in _OPEN_CALLBACKS:
+                    raise RuntimeError(
+                        ("Cannot create a new trainer with an open callback or logger from a previous trainer. "
+                         "To fix, call trainer.close() before creating this new trainer to ensure that all "
+                         "callbacks or loggers shut down properly."))
+                _OPEN_CALLBACKS.add(cb)
+
         for cb in self.state.callbacks:
             marker = None
             if self.state.profiler is not None:
@@ -341,15 +362,13 @@ class Engine():
 
     def __del__(self):
         global _did_atexit_run
-        if _did_atexit_run:
-            # Do not attempt to shutdown again, since close() already ran via __atexit__
-            # In this case, close() is no longer idempotent, since Python machenry (such as the ability to do
-            # conditional imports) has already been destroyed
+        if _did_atexit_run or self._is_closed:
+            # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
             return
         self.close()
 
     def close(self) -> None:
-        """Shutdown the enginge.
+        """Shutdown the engine.
 
         As part of the shutdown procedure, :meth:`~.Callback.close` and :meth:`~.Callback.post_close` is invoked
         for each callback. Note that :meth:`~.Callback.post_close` is invoked only for callbacks that did not raise
@@ -387,3 +406,5 @@ class Engine():
                     callback.post_close()
                 except Exception as e:
                     log.error(f"Error running {callback.__class__.__name__}.post_close().", exc_info=e, stack_info=True)
+                else:
+                    _OPEN_CALLBACKS.discard(callback)

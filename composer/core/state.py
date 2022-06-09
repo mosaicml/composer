@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """The state of the trainer."""
 from __future__ import annotations
@@ -6,7 +7,7 @@ from __future__ import annotations
 import collections.abc
 import logging
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn.modules.utils
@@ -16,7 +17,7 @@ from torch.optim import Optimizer
 from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.utils import dist, ensure_tuple
+from composer.utils import batch_get, batch_set, dist, ensure_tuple
 
 if TYPE_CHECKING:
     import deepspeed
@@ -76,6 +77,7 @@ class State(Serializable):
         model (torch.nn.Module): The model, typically as a subclass of :class:`~.ComposerModel`.
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
+        run_name (str): The name for this training run.
         grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch
             size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
         train_dataloader (types.DataLoader, optional): Dataloader used for training
@@ -104,8 +106,6 @@ class State(Serializable):
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
             microbatch between :attr:`.Event.BATCH_START` and :attr:`.Event.BATCH_END`.
-        batch_num_samples (int): The number of samples in the :attr:`batch`.
-        batch_num_tokens (int): The number of tokens in the :attr:`batch`.
         current_metrics (Dict[str, Dict[str, Any]]): The current computed metrics, organized by dataloader label
             and then by metric name. The train dataloader is labeled ``'train'``. If not using an :class:`.Evaluator`,
             the eval dataloader is labeled ``'eval'``. Otherwise, the evaluator label is used.
@@ -143,7 +143,9 @@ class State(Serializable):
             >>> trainer.fit()
             >>> trainer.state.current_metrics
             {'train': {'Accuracy': tensor(...)}, 'eval1': {'Accuracy': tensor(...)}, 'eval2': {'Accuracy': tensor(...)}}
-
+        eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
+            before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
+            ``0``.
         grad_accum (int): The number of gradient accumulation steps per batch.
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
@@ -156,8 +158,12 @@ class State(Serializable):
 
         outputs (torch.Tensor | Sequence[torch.Tensor]): The most recently computed output from the model's forward
             pass.
+        predict_timestamp (Timestamp): The timestamp for the current prediction dataloader. This timestamp is reset
+            before the dataloader is used. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
+            ``0``.
         profiler (Profiler): The profiler (if profiling is enabled), or ``None`` if not profiling.
         rank_zero_seed (int): The seed of the rank zero process.
+        run_name (str): The name for this training run.
         scaler (torch.cuda.amp.GradScaler): The gradient scaler if using mixed-precision training, or
             ``None`` if not using mixed-precision training.
         serialized_attributes (List[str]): The names of the attribute which are serialized in a checkpoint.
@@ -185,22 +191,12 @@ class State(Serializable):
             +-----------------------+-------------------------------------------------------------+
             | current_metrics       | The current metrics.                                        |
             +-----------------------+-------------------------------------------------------------+
+            | run_name              | The run name for training.                                  |
+            +-----------------------+-------------------------------------------------------------+
 
         timestamp (Timestamp): The current training timestamp.
         train_dataloader (Iterable): The training dataloader. (May be ``None`` if not training.)
     """
-
-    _dataloader: Optional[Iterable]
-    _dataloader_label: Optional[str]
-    _dataloader_len: Optional[Time[int]]
-    _max_duration: Optional[Time[int]]
-
-    batch: types.Batch
-    batch_num_samples: int
-    batch_num_tokens: int
-    loss: Union[torch.Tensor, Sequence[torch.Tensor]]
-    outputs: Union[torch.Tensor, Sequence[torch.Tensor]]
-    _schedulers: List[types.PyTorchScheduler]
 
     def __init__(
         self,
@@ -209,6 +205,9 @@ class State(Serializable):
 
         # determinism
         rank_zero_seed: int,
+
+        # run_name
+        run_name: str,
 
         # stopping conditions
         max_duration: Optional[Union[str, Time[int]]] = None,
@@ -241,15 +240,21 @@ class State(Serializable):
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
+        self.run_name = run_name
         self.grad_accum = grad_accum
         self._dataloader_len = None
+        self._dataloader = None
+        self._dataloader_label = None
         self.set_dataloader(dataloader, dataloader_label, dataloader_len)
+        self._max_duration = None
         self.max_duration = max_duration
 
         self.train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
 
         self.timestamp = Timestamp()
+        self.eval_timestamp = Timestamp()
+        self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
 
         if optimizers is None:
@@ -264,6 +269,11 @@ class State(Serializable):
         self._callbacks = list(ensure_tuple(callbacks))
 
         self.profiler: Optional[Profiler] = None
+
+        # Set defaults for transient variables (to make pyright happy)
+        self.batch: Any = None
+        self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
+        self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
         # All other attributes will not be serialized.
@@ -280,6 +290,7 @@ class State(Serializable):
             "timestamp",
             "rank_zero_seed",
             "current_metrics",
+            "run_name",
         ]
 
         self.current_metrics: Dict[str, Dict[str, Any]] = {}
@@ -334,6 +345,45 @@ class State(Serializable):
     @schedulers.setter
     def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
+
+    def batch_get_item(self, key: Union[str, int, Callable, Any]) -> Any:
+        """Gets element from batch either specified by key or user-specified function.
+
+        See batch_get in `utils/batch_helpers.py` for examples.
+
+        Args:
+            key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a
+                user-specified function to do the extracting. A pair of callables is also
+                supported for cases where a get and set function pair are both passed
+                (like in Algorithms). The getter is assumed to be the first of the pair.
+
+
+        Returns:
+            The part of the batch specified by the key. This could be any type
+                depending on what the batch is composed of.
+        """
+        return batch_get(self.batch, key)
+
+    def batch_set_item(self, key: Union[str, int, Callable, Any], value: Any):
+        """Sets the element specified by the key of the set_fn to the specified value.
+
+        This is not an in-place operation, as for tuple-typed batches, a new batch object
+        must be created to modify them.
+
+        See batch_set in `utils/batch_helpers.py` for examples.
+
+        Args:
+            key (str | int | Tuple[Callable, Callable] | Any, optional): A key to index into the batch or a user-specified
+                function to do the setting. A pair of callables is also supported for
+                cases where a get and set function pair are both passed (like in
+                Algorithms). The setter is assumed to be the second of the pair.
+            value (Any): The value that batch[key] or batch.key gets set to or that the
+                user-defined set function sets a part of the batch to.
+
+        Returns:
+            batch (Any): The updated batch with value set at key.
+        """
+        self.batch = batch_set(self.batch, key=key, value=value)
 
     @property
     def callbacks(self):
@@ -412,7 +462,6 @@ class State(Serializable):
             strict (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
                 ``self.model``. Defaults to False.
         """
-
         state = _ensure_backwards_compatible_checkpointing(state)
 
         for attribute_name, serialized_value in state.items():
@@ -449,7 +498,7 @@ class State(Serializable):
     @property
     def dataloader_label(self):
         """The dataloader label for the active dataloader.
-        
+
         By default, the training dataloader is called ``'train'``. The evaluator dataloader
         is called ``'eval'``, or when multiple evaluators are used, the name of the evaluator.
         However, the dataloader label can be explicitely specified in :meth:`.Trainer.fit`

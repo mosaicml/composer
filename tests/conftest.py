@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 import logging
 import os
@@ -7,6 +8,7 @@ from typing import List, Optional
 
 import pytest
 import torch
+import tqdm.std
 
 import composer
 from composer.utils import dist, reproducibility
@@ -31,6 +33,7 @@ _include_deprecated_fixtures = True
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
     "tests.fixtures.new_fixtures",
+    "tests.fixtures.synthetic_hf_state",
 ]
 
 if _include_deprecated_fixtures:
@@ -152,8 +155,22 @@ def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture(autouse=True)
-def chdir_to_tmpdir(tmpdir: pathlib.Path):
-    os.chdir(tmpdir)
+def chdir_to_tmp_path(tmp_path: pathlib.Path):
+    os.chdir(tmp_path)
+
+
+@pytest.fixture(autouse=True, scope='session')
+def disable_tqdm_bars():
+    # Disable tqdm progress bars globally in tests
+    original_tqdm_init = tqdm.std.tqdm.__init__
+
+    def new_tqdm_init(*args, **kwargs):
+        if "disable" not in kwargs:
+            kwargs["disable"] = True
+        return original_tqdm_init(*args, **kwargs)
+
+    # Not using pytest monkeypatch as it is a function-scoped fixture
+    tqdm.std.tqdm.__init__ = new_tqdm_init
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

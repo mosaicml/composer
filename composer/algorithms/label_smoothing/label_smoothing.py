@@ -1,10 +1,11 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core Label Smoothing classes and functions."""
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Callable, Optional, Tuple, Union
 
 import torch
 
@@ -68,6 +69,10 @@ class LabelSmoothing(Algorithm):
             ``smoothing=0`` means no label smoothing, and
             ``smoothing=1`` means maximal smoothing (targets are ignored).
             Default: ``0.1``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
+            is the target. Default: ``1``.
 
     Example:
         .. testcode::
@@ -84,15 +89,20 @@ class LabelSmoothing(Algorithm):
             )
     """
 
-    def __init__(self, smoothing: float = 0.1):
+    def __init__(
+        self,
+        smoothing: float = 0.1,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
         self.smoothing = smoothing
         self.original_labels = torch.Tensor()
+        self.target_key = target_key
 
     def match(self, event: Event, state: State) -> bool:
         return event in [Event.BEFORE_LOSS, Event.AFTER_LOSS]
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        input, labels = state.batch
+        labels = state.batch_get_item(self.target_key)
 
         if event == Event.BEFORE_LOSS:
             assert isinstance(state.outputs, torch.Tensor), "Multiple tensors not supported yet"
@@ -104,7 +114,7 @@ class LabelSmoothing(Algorithm):
                 labels,
                 smoothing=self.smoothing,
             )
-            state.batch = (input, smoothed_labels)
+            state.batch_set_item(self.target_key, smoothed_labels)
         elif event == Event.AFTER_LOSS:
             # restore the target to the non-smoothed version
-            state.batch = (input, self.original_labels)
+            state.batch_set_item(self.target_key, self.original_labels)

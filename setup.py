@@ -1,4 +1,7 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+"""Composer package setup."""
 
 import os
 import site
@@ -16,6 +19,7 @@ _IS_VIRTUALENV = "VIRTUAL_ENV" in os.environ
 
 # From https://stackoverflow.com/questions/51292333/how-to-tell-from-setup-py-if-the-module-is-being-installed-in-editable-mode
 class develop(develop_orig):
+    """Override the ``develop`` class to error if attempting an editable install as root."""
 
     def run(self):
         if _IS_ROOT and (not _IS_VIRTUALENV) and (not _IS_USER):
@@ -33,6 +37,7 @@ site.ENABLE_USER_SITE = _IS_USER
 
 
 def package_files(prefix: str, directory: str, extension: str):
+    """Get all the files to package."""
     # from https://stackoverflow.com/a/36693250
     paths = []
     for (path, _, filenames) in os.walk(os.path.join(prefix, directory)):
@@ -66,7 +71,7 @@ install_requires = [
     "torch_optimizer>=0.1.0,<0.2",
     "torchvision>=0.10.0",  # torchvision has strict pytorch requirements
     "torch>=1.9,<2",
-    "yahp==0.1.0",
+    "yahp==0.1.1",
     "requests>=2.26.0,<3",
     "numpy>=1.21.5,<2",
     "apache-libcloud>=3.3.1,<4",
@@ -111,9 +116,12 @@ extra_deps["dev"] = [
     "myst-parser==0.16.1",
     "sphinx_panels==0.6.0",
     "sphinxcontrib-images==0.9.4",
-    # need webdataset to run pyright. Including here to pass pyright.
-    # TODO Remove once https://github.com/mosaicml/composer/issues/771 is fixed.
-    "webdataset==0.1.103",
+    "pytest_codeblocks==0.15.0",
+    "traitlets==5.1.1",  # required by testbook. Version 5.2.2 has an import bug, so pinning to 5.1.1, which worked previously.
+    "nbsphinx==0.8.8",
+    "pandoc==2.2",
+    "pypandoc==1.8.1",
+    "GitPython==3.1.27",
 ]
 
 extra_deps["deepspeed"] = [
@@ -121,7 +129,7 @@ extra_deps["deepspeed"] = [
 ]
 
 extra_deps["wandb"] = [
-    "wandb>=0.12.10,<0.13",
+    "wandb>=0.12.17,<0.13",
 ]
 
 extra_deps["unet"] = [
@@ -146,12 +154,6 @@ extra_deps["nlp"] = [
     "datasets>=1.14,<2",
 ]
 
-extra_deps["webdataset"] = [
-    # PyPI does not permit git dependencies. See https://github.com/mosaicml/composer/issues/771
-    # "webdataset @ git+https://github.com/mosaicml/webdataset.git@dev"
-    "wurlitzer>=3.0.2,<4",
-]
-
 extra_deps["mlperf"] = [
     # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218
     # "mlperf_logging @ git+https://github.com/mlperf/logging.git",
@@ -160,6 +162,11 @@ extra_deps["mlperf"] = [
 
 extra_deps["streaming"] = [
     "boto3>=1.21.45,<2",
+]
+
+extra_deps["onnx"] = [
+    "onnx>=1.11.0,<2",
+    "onnxruntime>=1.11.0,<2",
 ]
 
 extra_deps["all"] = set(dep for deps in extra_deps.values() for dep in deps)
@@ -174,7 +181,7 @@ if package_name != "mosaicml":
     print(f"`Building composer as `{package_name}`)", file=sys.stderr)
 
 setup(name=package_name,
-      version="0.6.0",
+      version="0.7.0",
       author="MosaicML",
       author_email="team@mosaicml.com",
       description="Composer provides well-engineered implementations of efficient training methods to give "
@@ -186,7 +193,7 @@ setup(name=package_name,
       package_data={
           "composer": composer_data_files,
       },
-      packages=setuptools.find_packages(exclude=["docker*", "notebooks*", "scripts*", "tests*"]),
+      packages=setuptools.find_packages(exclude=["docker*", "examples*", "scripts*", "tests*"]),
       classifiers=[
           "Programming Language :: Python :: 3",
           "Programming Language :: Python :: 3.7",

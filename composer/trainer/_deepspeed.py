@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helpers for the `DeepSpeed <https://www.deepspeed.ai>`_ integration with Composer."""
 
@@ -96,10 +97,6 @@ def _add_precision_config(config: Dict[str, Any], state: State):
         fp16_config = config["fp16"]
         assert isinstance(fp16_config, dict)
 
-        # For equivalence with the non-DeepSpeed defaults of the Mosaic trainer.
-        fp16_config.setdefault("initial_scale_power", 16)
-        fp16_config.setdefault("loss_scale_window", 2000)
-
 
 def _add_other_config(config: Dict[str, Any], grad_clip_norm: float):
     if "gradient_clipping" in config:
@@ -151,7 +148,6 @@ def _parse_deepspeed_config(
             to the trainer.
         RuntimeError: If the batch size of the train dataloader in the provided state is not set.
     """
-
     new_config = copy.deepcopy(config)
     _add_batch_config(new_config, state)
     _ensure_no_optim_in_config(new_config)
@@ -181,7 +177,6 @@ def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Ba
     Returns:
         Batch: The batch with it's precision adjusted to the specified precision.
     """
-
     if precision != Precision.FP16:
         return batch
 

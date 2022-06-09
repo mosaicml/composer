@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Outputs profiling data in JSON trace format."""
 
@@ -27,9 +28,11 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, F
 __all__ = ["JSONTraceHandler"]
 
 
-class JSONTraceHandler(TraceHandler):
-    __doc__ = f"""Records trace events in `JSON trace format <https://\\
-    docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_.
+class JSONTraceHandler(TraceHandler):  # noqa: D101
+    __doc__ = f"""Records trace events in Chrome JSON trace format.
+
+    See `this document <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_
+    for more information.
 
     Traces are output to ``output_directory``.  Traces can be visualized using the Chrome Trace Viewer.
     To view in a Google Chrome browser, navigate to ``chrome://tracing`` and load the JSON trace file.
@@ -57,7 +60,7 @@ class JSONTraceHandler(TraceHandler):
 
             Consider the following scenario, where:
 
-            *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``
+            *   The :attr:`~.State.run_name` is ``'awesome-training-run'``
             *   The default ``trace_folder='{{run_name}}/traces'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}.json'`` is used.
             *   The current epoch count is ``1``.
@@ -165,8 +168,8 @@ class JSONTraceHandler(TraceHandler):
         self._save_at_batch_end = False
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
-        trace_folder = format_name_with_dist(self.folder, run_name=logger.run_name)
+        del logger  # unused
+        trace_folder = format_name_with_dist(self.folder, run_name=state.run_name)
 
         os.makedirs(trace_folder, exist_ok=True)
         if not self.overwrite:
@@ -176,7 +179,7 @@ class JSONTraceHandler(TraceHandler):
         if self.merged_trace_filename is not None:
             merged_trace_filename = os.path.join(
                 trace_folder,
-                format_name_with_dist(self.merged_trace_filename, logger.run_name),
+                format_name_with_dist(self.merged_trace_filename, state.run_name),
             )
             merged_trace_dirname = os.path.dirname(merged_trace_filename)
             if merged_trace_dirname:
@@ -185,6 +188,7 @@ class JSONTraceHandler(TraceHandler):
         dist.barrier()
 
     def batch_start(self, state: State, logger: Logger) -> None:
+        del logger  # unusued
         if state.profiler is None:
             raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
                                 f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
@@ -258,13 +262,13 @@ class JSONTraceHandler(TraceHandler):
     def batch_end(self, state: State, logger: Logger) -> None:
         assert state.profiler is not None
         timestamp = state.timestamp
-        trace_folder = format_name_with_dist(self.folder, run_name=logger.run_name)
+        trace_folder = format_name_with_dist(self.folder, run_name=state.run_name)
         if self._save_at_batch_end:
             # no longer active, but was previously active.
             # Epty the queue and save the trace file
             trace_filename = os.path.join(
                 trace_folder,
-                format_name_with_dist_and_time(self.filename, logger.run_name, timestamp),
+                format_name_with_dist_and_time(self.filename, state.run_name, timestamp),
             )
             trace_dirname = os.path.dirname(trace_filename)
             if trace_dirname:
@@ -284,7 +288,7 @@ class JSONTraceHandler(TraceHandler):
                 f.write('\n]\n')
 
             if self.artifact_name is not None:
-                artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name, timestamp)
+                artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name, timestamp)
                 logger.file_artifact(LogLevel.BATCH,
                                      artifact_name=artifact_name,
                                      file_path=trace_filename,
@@ -305,7 +309,7 @@ class JSONTraceHandler(TraceHandler):
                     trace_folder,
                     format_name_with_dist(
                         self.merged_trace_filename,
-                        logger.run_name,
+                        state.run_name,
                     ),
                 )
                 merged_trace_dirname = os.path.dirname(merged_trace_filename)
@@ -324,7 +328,7 @@ class JSONTraceHandler(TraceHandler):
                 if self.merged_trace_artifact_name is not None:
                     merged_trace_artifact_name = format_name_with_dist(
                         self.merged_trace_artifact_name,
-                        logger.run_name,
+                        state.run_name,
                     )
                     logger.file_artifact(
                         LogLevel.BATCH,

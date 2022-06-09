@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """ChannelsLast algorithm."""
 
@@ -49,6 +50,10 @@ class ChannelsLast(Algorithm):
                 optimizers=[optimizer]
             )
     """
+
+    def __init__(self):
+        # ChannelsLast takes no arguments
+        pass
 
     def match(self, event: Event, state: State) -> bool:
         del state  # unused

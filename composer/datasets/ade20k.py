@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """ADE20K Semantic segmentation and scene parsing dataset.
 
@@ -7,26 +8,23 @@ dataset.
 """
 
 import os
-from dataclasses import dataclass
+from io import BytesIO
 from math import ceil
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
-import yahp as hp
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from composer.core import DataSpec
-from composer.datasets.hparams import DatasetHparams, SyntheticHparamsMixin, WebDatasetHparams
-from composer.datasets.imagenet import IMAGENET_CHANNEL_MEAN, IMAGENET_CHANNEL_STD
-from composer.datasets.synthetic import SyntheticBatchPairDataset
-from composer.datasets.utils import NormalizationFn, pil_image_collate
-from composer.utils import dist
+from composer.datasets.streaming import StreamingDataset
 
-__all__ = ["ADE20k", "ADE20kDatasetHparams", "ADE20kWebDatasetHparams"]
+__all__ = ["ADE20k", "StreamingADE20k"]
+
+IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
+IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
 
 class RandomResizePair(torch.nn.Module):
@@ -55,7 +53,7 @@ class RandomResizePair(torch.nn.Module):
         return resized_image, resized_target
 
 
-# Based on: https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L584
+# Based on: https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L584
 class RandomCropPair(torch.nn.Module):
     """Crop the image and target at a randomly sampled position.
 
@@ -148,7 +146,7 @@ class PhotometricDistoration(torch.nn.Module):
     """Applies a combination of brightness, contrast, saturation, and hue jitters with random intensity.
 
     This is a less severe form of PyTorch's ColorJitter used by the mmsegmentation library here:
-    https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+    https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
 
     Args:
         brightness (float): max and min to jitter brightness.
@@ -276,169 +274,75 @@ class ADE20k(Dataset):
         return len(self.image_files)
 
 
-@dataclass
-class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
-    """Defines an instance of the ADE20k dataset for semantic segmentation from a local disk.
+class StreamingADE20k(StreamingDataset):
+    """
+    Implementation of the ADE20k dataset using StreamingDataset.
 
     Args:
-        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train```.
+        remote (str): Remote directory (S3 or local filesystem) where dataset is stored.
+        local (str): Local filesystem directory where dataset is cached during operation.
+        split (str): The dataset split to use, either 'train' or 'val'.
+        shuffle (bool): Whether to shuffle the samples in this dataset.
         base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
         min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
         max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
         final_size (int): the final size of the image and target. Default: ``512``.
-        ignore_background (bool): if true, ignore the background class when calculating the training loss.
-            Default: ``true``.
+        batch_size (Optional[int]): Hint the batch_size that will be used on each device's DataLoader. Default: ``None``.
     """
 
-    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
-    base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
-    min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)
-    max_resize_scale: float = hp.optional("Maximum value that the image and target can be scaled", default=2.0)
-    final_size: int = hp.optional("Final size of the image and target", default=512)
-    ignore_background: bool = hp.optional("If true, ignore the background class in training loss", default=True)
+    def decode_uid(self, data: bytes) -> str:
+        return data.decode('utf-8')
 
-    def validate(self):
-        if self.datadir is None and not self.use_synthetic:
-            raise ValueError("datadir must specify the path to the ADE20k dataset.")
+    def decode_image(self, data: bytes) -> Image.Image:
+        return Image.open(BytesIO(data))
 
-        if self.split not in ['train', 'val', 'test']:
-            raise ValueError(f"split value {self.split} must be one of ['train', 'val', 'test'].")
+    def decode_annotation(self, data: bytes) -> Image.Image:
+        return Image.open(BytesIO(data))
 
-        if self.base_size <= 0:
-            raise ValueError("base_size cannot be zero or negative.")
+    def __init__(self,
+                 remote: str,
+                 local: str,
+                 split: str,
+                 shuffle: bool,
+                 base_size: int = 512,
+                 min_resize_scale: float = 0.5,
+                 max_resize_scale: float = 2.0,
+                 final_size: int = 512,
+                 batch_size: Optional[int] = None):
 
-        if self.min_resize_scale <= 0:
-            raise ValueError("min_resize_scale cannot be zero or negative")
-
-        if self.max_resize_scale < self.min_resize_scale:
+        # Validation
+        if split not in ['train', 'val']:
+            raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
+        if base_size <= 0:
+            raise ValueError("base_size must be positive.")
+        if min_resize_scale <= 0:
+            raise ValueError("min_resize_scale must be positive")
+        if max_resize_scale <= 0:
+            raise ValueError("max_resize_scale must be positive")
+        if max_resize_scale < min_resize_scale:
             raise ValueError("max_resize_scale cannot be less than min_resize_scale")
+        if final_size <= 0:
+            raise ValueError("final_size must be positive")
 
-    def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
-        self.validate()
+        # Build StreamingDataset
+        decoders = {
+            'image': self.decode_image,
+            'annotation': self.decode_annotation,
+        }
+        super().__init__(remote=os.path.join(remote, split),
+                         local=os.path.join(local, split),
+                         shuffle=shuffle,
+                         decoders=decoders,
+                         batch_size=batch_size)
 
-        if self.use_synthetic:
-            if self.split == 'train':
-                total_dataset_size = 20_206
-            elif self.split == 'val':
-                total_dataset_size = 2_000
-            else:
-                total_dataset_size = 3_352
-
-            dataset = SyntheticBatchPairDataset(
-                total_dataset_size=total_dataset_size,
-                data_shape=[3, self.final_size, self.final_size],
-                label_shape=[self.final_size, self.final_size],
-                num_classes=150,
-                num_unique_samples_to_create=self.synthetic_num_unique_samples,
-                device=self.synthetic_device,
-                memory_format=self.synthetic_memory_format,
-            )
-            collate_fn = None
-            device_transform_fn = None
-
-        else:
-            # Define data transformations based on data split
-            if self.split == 'train':
-                both_transforms = torch.nn.Sequential(
-                    RandomResizePair(min_scale=self.min_resize_scale,
-                                     max_scale=self.max_resize_scale,
-                                     base_size=(self.base_size, self.base_size)),
-                    RandomCropPair(
-                        crop_size=(self.final_size, self.final_size),
-                        class_max_percent=0.75,
-                        num_retry=10,
-                    ),
-                    RandomHFlipPair(),
-                )
-
-                # Photometric distoration values come from mmsegmentation:
-                # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
-                r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
-                image_transforms = torch.nn.Sequential(
-                    PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                    PadToSize(size=(self.final_size, self.final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
-
-                target_transforms = PadToSize(size=(self.final_size, self.final_size), fill=0)
-            else:
-                both_transforms = None
-                image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
-                                                     interpolation=TF.InterpolationMode.BILINEAR)
-                target_transforms = transforms.Resize(size=(self.final_size, self.final_size),
-                                                      interpolation=TF.InterpolationMode.NEAREST)
-            collate_fn = pil_image_collate
-            device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
-                                                  std=IMAGENET_CHANNEL_STD,
-                                                  ignore_background=self.ignore_background)
-
-            # Add check to avoid type ignore below
-            if self.datadir is None:
-                raise ValueError("datadir must specify the path to the ADE20k dataset.")
-
-            dataset = ADE20k(datadir=self.datadir,
-                             split=self.split,
-                             both_transforms=both_transforms,
-                             image_transforms=image_transforms,
-                             target_transforms=target_transforms)
-        sampler = dist.get_sampler(dataset, drop_last=self.drop_last, shuffle=self.shuffle)
-        return DataSpec(dataloader=dataloader_hparams.initialize_object(dataset=dataset,
-                                                                        batch_size=batch_size,
-                                                                        sampler=sampler,
-                                                                        collate_fn=collate_fn,
-                                                                        drop_last=self.drop_last),
-                        device_transforms=device_transform_fn)
-
-
-@dataclass
-class ADE20kWebDatasetHparams(WebDatasetHparams):
-    """Defines an instance of the ADE20k dataset for semantic segmentation from a remote blob store.
-
-    Args:
-        remote (str): S3 bucket or root directory where dataset is stored.
-            Default: ``'s3://mosaicml-internal-dataset-ade20k'``
-        name (str): Key used to determine where dataset is cached on local filesystem. Default: ``'ade20k'``
-        split (str): the dataset split to use either 'train', 'val', or 'test'. Default: ``'train'``.
-        base_size (int): initial size of the image and target before other augmentations. Default: ``512``.
-        min_resize_scale (float): the minimum value the samples can be rescaled. Default: ``0.5``.
-        max_resize_scale (float): the maximum value the samples can be rescaled. Default: ``2.0``.
-        final_size (int): the final size of the image and target. Default: ``512``.
-        ignore_background (bool): if true, ignore the background class when calculating the training loss.
-            Default: ``True``.
-    """
-
-    remote: str = hp.optional('WebDataset S3 bucket name', default='s3://mosaicml-internal-dataset-ade20k-3')
-    name: str = hp.optional('WebDataset local cache name', default='ade20k')
-    split: str = hp.optional("Which split of the dataset to use. Either ['train', 'val', 'test']", default='train')
-    base_size: int = hp.optional("Initial size of the image and target before other augmentations", default=512)
-    min_resize_scale: float = hp.optional("Minimum value that the image and target can be scaled", default=0.5)
-    max_resize_scale: float = hp.optional("Maximum value that the image and target can be scaled", default=2.0)
-    final_size: int = hp.optional("Final size of the image and target", default=512)
-    ignore_background: bool = hp.optional("If true, ignore the background class in training loss", default=True)
-
-    def validate(self):
-        if self.split not in ['train', 'val', 'test']:
-            raise ValueError(f"split value {self.split} must be one of ['train', 'val', 'test'].")
-
-        if self.base_size <= 0:
-            raise ValueError("base_size cannot be zero or negative.")
-
-        if self.min_resize_scale <= 0:
-            raise ValueError("min_resize_scale cannot be zero or negative")
-
-        if self.max_resize_scale < self.min_resize_scale:
-            raise ValueError("max_resize_scale cannot be less than min_resize_scale")
-
-    def initialize_object(self, batch_size, dataloader_hparams) -> DataSpec:
-        from composer.datasets.webdataset_utils import load_webdataset
-
-        self.validate()
-        # Define data transformations based on data split
-        if self.split == 'train':
-            both_transforms = torch.nn.Sequential(
-                RandomResizePair(min_scale=self.min_resize_scale,
-                                 max_scale=self.max_resize_scale,
-                                 base_size=(self.base_size, self.base_size)),
+        # Define custom transforms
+        if split == 'train':
+            self.both_transform = torch.nn.Sequential(
+                RandomResizePair(min_scale=min_resize_scale,
+                                 max_scale=max_resize_scale,
+                                 base_size=(base_size, base_size)),
                 RandomCropPair(
-                    crop_size=(self.final_size, self.final_size),
+                    crop_size=(final_size, final_size),
                     class_max_percent=0.75,
                     num_retry=10,
                 ),
@@ -446,50 +350,28 @@ class ADE20kWebDatasetHparams(WebDatasetHparams):
             )
 
             # Photometric distoration values come from mmsegmentation:
-            # https://github.com/open-mmlab/mmsegmentation/blob/master/mmseg/datasets/pipelines/transforms.py#L837
+            # https://github.com/open-mmlab/mmsegmentation/blob/aa50358c71fe9c4cccdd2abe42433bdf702e757b/mmseg/datasets/pipelines/transforms.py#L861
             r_mean, g_mean, b_mean = IMAGENET_CHANNEL_MEAN
-            image_transforms = torch.nn.Sequential(
+            self.image_transform = torch.nn.Sequential(
                 PhotometricDistoration(brightness=32. / 255, contrast=0.5, saturation=0.5, hue=18. / 255),
-                PadToSize(size=(self.final_size, self.final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
+                PadToSize(size=(final_size, final_size), fill=(int(r_mean), int(g_mean), int(b_mean))))
 
-            target_transforms = transforms.Compose([
-                PadToSize(size=(self.final_size, self.final_size), fill=0),
-                transforms.Grayscale(),
-            ])
+            self.annotation_transform = PadToSize(size=(final_size, final_size), fill=0)
         else:
-            both_transforms = None
-            image_transforms = transforms.Resize(size=(self.final_size, self.final_size),
-                                                 interpolation=TF.InterpolationMode.BILINEAR)
-            target_transforms = transforms.Compose([
-                transforms.Resize(size=(self.final_size, self.final_size), interpolation=TF.InterpolationMode.NEAREST),
-                transforms.Grayscale(),
-            ])
+            self.both_transform = None
+            self.image_transform = transforms.Resize(size=(final_size, final_size),
+                                                     interpolation=TF.InterpolationMode.BILINEAR)
+            self.annotation_transform = transforms.Resize(size=(final_size, final_size),
+                                                          interpolation=TF.InterpolationMode.NEAREST)
 
-        def map_fn(args):
-            x, y = args
-            if both_transforms:
-                x, y = both_transforms((x, y))
-            if image_transforms:
-                x = image_transforms(x)
-            if target_transforms:
-                y = target_transforms(y)
-            return x, y
-
-        preprocess = lambda dataset: dataset.decode('pil').to_tuple('scene.jpg', 'annotation.png').map(map_fn)
-        dataset = load_webdataset(self.remote, self.name, self.split, self.webdataset_cache_dir,
-                                  self.webdataset_cache_verbose, self.shuffle, self.shuffle_buffer, preprocess,
-                                  dist.get_world_size(), dataloader_hparams.num_workers, batch_size, self.drop_last)
-
-        collate_fn = pil_image_collate
-        device_transform_fn = NormalizationFn(mean=IMAGENET_CHANNEL_MEAN,
-                                              std=IMAGENET_CHANNEL_STD,
-                                              ignore_background=self.ignore_background)
-
-        return DataSpec(dataloader=dataloader_hparams.initialize_object(
-            dataset=dataset,
-            batch_size=batch_size,
-            sampler=None,
-            drop_last=self.drop_last,
-            collate_fn=collate_fn,
-        ),
-                        device_transforms=device_transform_fn)
+    def __getitem__(self, idx: int) -> Tuple[Any, Any]:
+        obj = super().__getitem__(idx)
+        x = obj['image']
+        y = obj['annotation']
+        if self.both_transform:
+            x, y = self.both_transform((x, y))
+        if self.image_transform:
+            x = self.image_transform(x)
+        if self.annotation_transform:
+            y = self.annotation_transform(y)
+        return x, y

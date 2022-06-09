@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """General `YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for Base ComposerModels."""
 
@@ -34,8 +35,8 @@ class ModelHparams(hp.Hparams, ABC):
 
     @abstractmethod
     def initialize_object(self) -> ComposerModel:
-        """Invoked by the :meth:`~composer.trainer.trainer_hparams.TrainerHparams.initialize_object` to construct a
-        :class:`.ComposerModel`.
+        """
+        Construct a :class:`.ComposerModel`.
 
         Returns:
             ComposerModel: The constructed :class:`.ComposerModel`

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Core ColOut classes and functions."""
 
@@ -7,7 +8,7 @@ from __future__ import annotations
 import logging
 import textwrap
 import weakref
-from typing import Tuple, TypeVar, Union
+from typing import Any, Callable, Tuple, TypeVar, Union
 
 import torch
 import torch.utils.data
@@ -186,13 +187,25 @@ class ColOut(Algorithm):
         batch (bool, optional): Run ColOut at the batch level. Default: ``True``.
         resize_target (bool | str, optional): Whether to resize the target in addition to the input. If set to 'auto', resizing
             the target will be based on if the target has the same spatial dimensions as the input. Default: ``auto``.
+        input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair.  The default is 0, which corresponds to any sequence, where the first element
+            is the input. Default: ``0``.
+        target_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the target
+            from the batch. Can also be a pair of get and set functions, where the getter
+            is assumed to be first in the pair. The default is 1, which corresponds to any sequence, where the second element
+            is the target. Default: ``1``.
     """
 
-    def __init__(self,
-                 p_row: float = 0.15,
-                 p_col: float = 0.15,
-                 batch: bool = True,
-                 resize_target: Union[bool, str] = 'auto'):
+    def __init__(
+        self,
+        p_row: float = 0.15,
+        p_col: float = 0.15,
+        batch: bool = True,
+        resize_target: Union[bool, str] = 'auto',
+        input_key: Union[str, int, Tuple[Callable, Callable], Any] = 0,
+        target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
+    ):
         if not (0 <= p_col <= 1):
             raise ValueError("p_col must be between 0 and 1")
 
@@ -210,6 +223,7 @@ class ColOut(Algorithm):
         self.batch = batch
         self.resize_target = resize_target
         self._transformed_datasets = weakref.WeakSet()
+        self.input_key, self.target_key = input_key, target_key
 
     def match(self, event: Event, state: State) -> bool:
         if self.batch:
@@ -239,7 +253,7 @@ class ColOut(Algorithm):
 
     def _apply_batch(self, state: State) -> None:
         """Transform a batch of images using the ColOut augmentation."""
-        inputs, target = state.batch
+        inputs, target = state.batch_get_item(key=self.input_key), state.batch_get_item(key=self.target_key)
         assert isinstance(inputs, Tensor) and isinstance(target, Tensor), \
             "Inputs and target must be of type torch.Tensor for batch-wise ColOut"
 
@@ -249,9 +263,12 @@ class ColOut(Algorithm):
 
         # colout_result will be a tuple if the targets are resized and a single object otherwise
         if resize_target:
-            state.batch = colout_result
+            new_input, new_target = colout_result
+            state.batch_set_item(self.input_key, new_input)
+            state.batch_set_item(self.target_key, new_target)
         else:
-            state.batch = (colout_result, target)
+            new_input = colout_result
+            state.batch_set_item(self.input_key, new_input)
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         if self.batch:

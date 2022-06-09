@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from collections import defaultdict
 from typing import Optional, Union
@@ -61,7 +62,6 @@ class ClosureGradScaler(GradScaler):
         Always called before the optimizer step. Checks if the optimizer can handle AMP closures (currently only
         Composer's SAM optimizer) If so, it passes an AMP-modified closure to the optimizer.
         """
-
         closure = kwargs["closure"]
 
         def _amp_closure(**kwargs):

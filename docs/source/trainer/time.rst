@@ -2,7 +2,7 @@
 ==================
 
 We use the |Time| class to represent and track time throughout
-the training loop. We track several time-related quantities 
+the training loop. We track several time-related quantities
 (epochs, batches, samples, and tokens) throughout training and
 represent them as elements of the |TimeUnit| enum class. Values
 can be provided as a string:
@@ -91,7 +91,7 @@ To convert between samples and epochs, we infer the number of samples per epoch
 from ``len(dataloader.dataset)`` if the property is available. If not, we assume
 the dataset is unsized.
 
-``num_samples`` can also be provided directly to the :class:`.DataSpec` to override 
+``num_samples`` can also be provided directly to the :class:`.DataSpec` to override
 this default behavior.
 
 .. code:: python

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 # type: ignore
 from typing import Optional
@@ -26,11 +27,11 @@ def _padding_for_filt_2d_same(filt: torch.Tensor):
         raise IndexError(f"Filter must have odd height; got {h}")
     if w % 2 == 0:
         raise IndexError(f"Filter must have odd width; got {w}")
-    return (h // 2, w // 2)
+    return int(torch.div(h, 2)), int(torch.div(w, 2))
 
 
 def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.Tensor] = None) -> torch.Tensor:
-    """Apply a spatial low-pass filter.
+    """Applies a spatial low-pass filter.
 
     Args:
         input (:class:`torch.Tensor`): a 4d tensor of shape NCHW

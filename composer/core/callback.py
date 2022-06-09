@@ -1,10 +1,11 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Base module for callbacks."""
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from composer.core.serializable import Serializable
 
@@ -22,7 +23,7 @@ class Callback(Serializable, abc.ABC):
     :class:`~.algorithm.Algorithm` in that they are run on specific events. Callbacks differ from
     :class:`~.algorithm.Algorithm` in that they do not modify the training of the model.  By convention, callbacks
     should not modify the :class:`~.state.State`. They are typically used to for non-essential recording functions such
-    as logging or timing. 
+    as logging or timing.
 
     Callbacks can be implemented in two ways:
 
@@ -48,10 +49,6 @@ class Callback(Serializable, abc.ABC):
             >>> # is triggered, like this:
             >>> _ = trainer.engine.run_event(Event.EPOCH_START)
             Epoch: 0
-
-        .. testcleanup::
-
-            trainer.engine.close()
 
     #.  Override :meth:`run_event` if you want a single method to handle all events.  If this method is overridden, then
         the individual methods corresponding to each event name (such as :meth:`epoch_start`) will no longer be
@@ -81,14 +78,15 @@ class Callback(Serializable, abc.ABC):
             >>> # is triggered, like this:
             >>> _ = trainer.engine.run_event(Event.EPOCH_START)
             Epoch: 0
-
-        .. testcleanup::
-
-            trainer.engine.close()
     """
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Stub signature for pyright
+        del args, kwargs  # unused
+        pass
+
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        """This method is called by the engine on each event.
+        """Called by the engine on each event.
 
         Args:
             event (Event): The event.
@@ -435,10 +433,9 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def post_close(self) -> None:
-        """This hook is called after :meth:`close` has been invoked for each callback. Very few callbacks should need to
-        implement :meth:`post_close`.
+        """Called after :meth:`close` has been invoked for each callback.
 
-        This callback can be used to back up any data that may have been written by other callbacks during
-        :meth:`close`.
+        Very few callbacks should need to implement :meth:`post_close`. This callback can be used to back up any data
+        that may have been written by other callbacks during :meth:`close`.
         """
         pass

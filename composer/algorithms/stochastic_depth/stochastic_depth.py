@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
@@ -190,7 +191,6 @@ class StochasticDepth(Algorithm):
     @property
     def find_unused_parameters(self) -> bool:
         """DDP parameter to notify that parameters may not have gradients if it is dropped during the forward pass."""
-
         return (self.stochastic_method == "block")
 
     def match(self, event: Event, state: State) -> bool:

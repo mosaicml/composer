@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Entrypoint that runs the Composer trainer on a provided YAML hparams file.
 
@@ -18,37 +19,40 @@ import warnings
 from typing import Type
 
 from composer.loggers.logger import LogLevel
-from composer.loggers.logger_hparams import WandBLoggerHparams
-from composer.trainer import TrainerHparams
+from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist
 
 
-def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
+def _warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
     return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
 
 
-def main() -> None:
-    warnings.formatwarning = warning_on_one_line
+def _main() -> None:
+    warnings.formatwarning = _warning_on_one_line
 
     if len(sys.argv) == 1:
         sys.argv = [sys.argv[0], "--help"]
 
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
 
-    # if using wandb, store the config inside the wandb run
-    for logger_hparams in hparams.loggers:
-        if isinstance(logger_hparams, WandBLoggerHparams):
-            logger_hparams.config = hparams.to_dict()
-
     trainer = hparams.initialize_object()
+
+    # if using wandb, store the config inside the wandb run
+    try:
+        import wandb
+    except ImportError:
+        pass
+    else:
+        if wandb.run is not None:
+            wandb.config.update(hparams.to_dict())
 
     # Only log the config once, since it should be the same on all ranks.
     if dist.get_global_rank() == 0:
         with tempfile.NamedTemporaryFile(mode="x+") as f:
             f.write(hparams.to_yaml())
             trainer.logger.file_artifact(LogLevel.FIT,
-                                         artifact_name=f"{trainer.logger.run_name}/hparams.yaml",
+                                         artifact_name=f"{trainer.state.run_name}/hparams.yaml",
                                          file_path=f.name,
                                          overwrite=True)
 
@@ -63,4 +67,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    _main()

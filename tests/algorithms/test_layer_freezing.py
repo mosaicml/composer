@@ -1,11 +1,12 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 from copy import deepcopy
 from unittest.mock import Mock
 
 import torch
 
-from composer.algorithms import LayerFreezing, LayerFreezingHparams
+from composer.algorithms import LayerFreezing
 from composer.core import Event, Precision, State, Timestamp
 from composer.loggers import Logger
 from tests.common import SimpleConvModel
@@ -17,6 +18,7 @@ def _generate_state(epoch: int, max_epochs: int):
 
     state = State(model=model,
                   rank_zero_seed=0,
+                  run_name="run_name",
                   optimizers=torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),
                   precision=Precision.FP32,
                   dataloader=Mock(__len__=lambda x: 100),
@@ -68,10 +70,3 @@ def test_freeze_layers_with_freeze(empty_logger: Logger):
     expected_param_groups[0]['params'] = []
 
     _assert_param_groups_equal(expected_param_groups, updated_param_groups)
-
-
-def test_layer_freezing_hparams():
-    hparams = LayerFreezingHparams(freeze_start=0.05, freeze_level=1.0)
-    algorithm = hparams.initialize_object()
-
-    assert isinstance(algorithm, LayerFreezing)

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """SAM algorithm and optimizer class."""
 
@@ -31,7 +32,7 @@ class SAMOptimizer(torch.optim.Optimizer):
         self.global_step = 0
         self.interval = interval
         self._step_supports_amp_closure = True  # Flag for Composer trainer
-        defaults = dict(rho=rho, epsilon=epsilon, **kwargs)
+        defaults = {"rho": rho, "epsilon": epsilon, **kwargs}
         super(SAMOptimizer, self).__init__(self.base_optimizer.param_groups, defaults)
 
     @torch.no_grad()

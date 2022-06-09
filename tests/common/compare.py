@@ -1,13 +1,17 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
+import datetime
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import torch
 
+from composer import Time
+
 
 def deep_compare(item1: Any, item2: Any, atol: float = 0.0, rtol: float = 0.0):
-    """Compare two items recursively. Supports dicts, lists, tuples, tensors, and numpy arrays.
+    """Compare two items recursively. Supports dicts, lists, tuples, tensors, numpy arrays, Composer Time objects, and callables.
 
     Args:
         item1 (Any): The first item
@@ -22,7 +26,7 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
     if item1 is None:
         assert item2 is None, f"{path} differs: {item1} != {item2}"
         return
-    if isinstance(item1, (str, float, int, bool)):
+    if isinstance(item1, (str, float, int, bool, Time, datetime.timedelta)):
         assert type(item1) == type(item2)
         assert item1 == item2, f"{path} differs: {item1} != {item2}"
         return
@@ -42,6 +46,7 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         assert isinstance(item2, type(item1)), f"{path} differs: {item1} != {item2}"
         _check_list_recursively(item1, item2, path, atol=atol, rtol=rtol)
         return
+
     raise NotImplementedError(f"Unsupported item type: {type(item1)}")
 
 

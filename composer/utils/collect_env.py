@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Helpers to gather system information for debugging and bug reporting.
 
@@ -110,7 +111,7 @@ def get_host_processor_name() -> str:
 
 
 def get_host_processor_cores() -> int:
-    """Determine the number of physical host processor cores."""
+    """Determines the number of physical host processor cores."""
     return psutil.cpu_count(logical=False)
 
 
@@ -125,7 +126,7 @@ def get_accel_model_name() -> str:
 
 
 def get_local_world_size() -> int:
-    """Determine the number of accelerators per node."""
+    """Determines the number of accelerators per node."""
     return dist.get_local_world_size() if cuda_available() else 0
 
 
@@ -139,7 +140,7 @@ COMPOSER_OPEN_ISSUE_URL = "https://github.com/mosaicml/composer/issues/new/choos
 
 
 def _exc_report(exc_type) -> None:
-    """Produces exception report (exception message + environment report)
+    """Produces exception report (exception message + environment report).
 
     Args:
         exc_type (Exception): Type of exception.
@@ -202,14 +203,14 @@ def configure_excepthook() -> None:
     """Collect and print system information when :func:`sys.excepthook` is called.
 
     The custom exception handler causes an exception message to be printed when :func:`sys.excepthook`
-    is called.  The exception message provides the user with information on the nature of the exception 
+    is called.  The exception message provides the user with information on the nature of the exception
     and directs the user to file GitHub issues as appropriate.
 
     By default, the custom exception handler also generates an environment report users can attach to
-    bug reports.  Environment report generation can be optionally enabled/disabled by using the 
+    bug reports.  Environment report generation can be optionally enabled/disabled by using the
     :func:`enable_env_report` and :func:`disable_env_report` helper functions, respectively.
 
-    Additioanlly, the custom exceptionhook checks if the user is running from an IPython session and 
+    Additioanlly, the custom exceptionhook checks if the user is running from an IPython session and
     sets up the custom exception handler accordingly.
 
     To override the default :func:`sys.excepthook` with the custom except hook:
@@ -226,10 +227,9 @@ def configure_excepthook() -> None:
     .. doctest:: composer.utils.collect_env.configure_excepthook
 
         >>> configure_excepthook()
-        >>> sys.excepthook 
+        >>> sys.excepthook
         <function _custom_exception_handler at ...>
     """
-
     global _EXCEPTHOOK_REGISTERED
     # Needs to be indempotent across multiple trainers, don't register if we've already registered
     if not _EXCEPTHOOK_REGISTERED:
@@ -267,7 +267,6 @@ CUDA Device Count: {cuda_device_count}
 # Get Composer environment info
 def get_composer_env() -> str:
     """Query Composer pertinent system information."""
-
     mutable_dict = ComposerEnv(
         composer_version=get_composer_version(),
         host_processor_model_name=get_host_processor_name(),
@@ -286,7 +285,6 @@ def print_env(file: Optional[TextIO] = None) -> None:
     """Generate system information report.
 
     Example:
-
     .. code-block:: python
 
         from composer.utils.collect_env import print_env
@@ -350,7 +348,7 @@ def print_env(file: Optional[TextIO] = None) -> None:
 
         Composer information
         --------------------
-        Composer version: 0.6.0
+        Composer version: 0.7.0
         Host processor model name: AMD EPYC 7502 32-Core Processor
         Host processor core count: 64
         Number of nodes: 1
@@ -362,7 +360,6 @@ def print_env(file: Optional[TextIO] = None) -> None:
     Args:
         file (TextIO, optional): File handle, `sys.stdout` or `sys.stderr`. Defaults to `sys.stdout`.
     """
-
     # Set stdout during runtime if no output file is specified
     if file is None:
         file = sys.stdout

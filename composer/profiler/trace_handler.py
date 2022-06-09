@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Profiler Trace Handler."""
 
@@ -89,8 +90,10 @@ class TraceHandler(Callback, abc.ABC):
         pass
 
     def process_chrome_json_trace_file(self, filepath: pathlib.Path) -> None:
-        """Invoked when there are events in `Chrome JSON format <https://\\
-        docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_ to record.
+        """Invoked when there are events in Chrome JSON format to record.
+
+        See `this document <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_
+        for more information.
 
         Args:
             filepath (pathlib.Path): The filepath to a Chrome JSON trace file.

@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Specifications for operating and training on data."""
 from __future__ import annotations
@@ -48,8 +49,9 @@ def _split_mapping(m, num_microbatches: int):
 
 
 def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
-    """Splits batch into `num_microbatches` chunks for gradient accumulation. Works with tensors, dictionaries of
-    tensors, (x, y) tuples, and lists where batch is the 2nd dimension.
+    """Splits batch into `num_microbatches` chunks for gradient accumulation.
+
+    Works with tensors, dictionaries of tensors, (x, y) tuples, and lists where batch is the 2nd dimension.
 
     Args:
         batch: output from the dataloader.
@@ -91,7 +93,7 @@ class DataSpec:
 
     .. doctest::
 
-       >>> # In this case, we apply NormalizationFn 
+       >>> # In this case, we apply NormalizationFn
        >>> # Construct DataSpec as shown below to apply this transformation
        >>> from composer.datasets.utils import NormalizationFn
        >>> CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
@@ -108,10 +110,6 @@ class DataSpec:
        ...     optimizers=optimizer,
        ...     max_duration="1ep",
        ... )
-
-    .. testcleanup::
-
-        trainer.engine.close()
 
     Args:
         dataloader (Iterable): The dataloader, which can be any iterable that yields batches.
@@ -130,7 +128,7 @@ class DataSpec:
 
         split_batch ((Batch, int) -> Sequence[Batch], optional): Function called by the :class:`~.trainer.Trainer` to
             split a batch (the first parameter) into the number of microbatches specified (the second parameter). If the
-            ``dataloader`` yields batches not of type torch.Tensor, Mapping, Tuple, or List, then this function must 
+            ``dataloader`` yields batches not of type torch.Tensor, Mapping, Tuple, or List, then this function must
             be specified.
 
         get_num_samples_in_batch ((Batch) -> int, optional): Function that is called by the :class:`~.trainer.Trainer`
@@ -215,11 +213,11 @@ class DataSpec:
 
 
 def ensure_data_spec(dataloader: Union[DataSpec, Iterable, dict]) -> DataSpec:
-    """Ensures that the ``dataloader`` is a :class:`.DataSpec`
-    
+    """Ensures that the ``dataloader`` is a :class:`.DataSpec`.
+
     Args:
         dataloader (DataSpec | Iterable | dict): A DataSpec, DataLoader, or Dict of DataSpec kwargs.
-        
+
     Returns:
         DataSpec: A DataSpec
     """

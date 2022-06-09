@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """A wrapper for a dataloader to include metrics that apply to a specific dataset."""
 
@@ -17,12 +18,14 @@ from composer.core.time import Time, TimeUnit
 __all__ = ["Evaluator", "evaluate_periodically", "ensure_evaluator"]
 
 
-def evaluate_periodically(eval_interval: Union[str, Time, int]):
+def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end: bool = True):
     """Helper function to generate an evaluation interval callable.
 
     Args:
         eval_interval (str | Time | int): A :class:`.Time` instance or time string, or integer in epochs,
             representing how often to evaluate. Set to ``0`` to disable evaluation.
+        eval_at_fit_end (bool): Whether to evaluate at the end of training, regardless of `eval_interval`.
+            Default: True
     Returns:
         (State, Event) -> bool: A callable for the ``eval_interval`` argument of an :class:`.Evaluator`.
     """
@@ -34,14 +37,26 @@ def evaluate_periodically(eval_interval: Union[str, Time, int]):
     if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
         raise ValueError("The `eval_interval` must have units of EPOCH or BATCH, or be a function.")
 
+    last_batch_seen = -1
+
     def should_eval(state: State, event: Event):
         if int(eval_interval) <= 0:
             return False
+        nonlocal last_batch_seen  # required to use the last_batch_seen from the outer function scope
 
-        if eval_interval.unit == TimeUnit.EPOCH:
-            return int(state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END
-        if eval_interval.unit == TimeUnit.BATCH:
-            return int(state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END
+        # if requested, evaluate at the end of training, as long as the length of training is specified.
+        if eval_at_fit_end and event == Event.FIT_END and state.timestamp.batch != last_batch_seen:
+            return True
+
+        if eval_interval.unit == TimeUnit.EPOCH and int(
+                state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END:
+            last_batch_seen = state.timestamp.batch
+            return True
+
+        if eval_interval.unit == TimeUnit.BATCH and int(
+                state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END:
+            last_batch_seen = state.timestamp.batch
+            return True
 
         return False
 
@@ -65,11 +80,6 @@ class Evaluator:
        ...     max_duration="1ep",
        ... )
 
-    .. testcleanup::
-
-        trainer.engine.close()
-
-
     Args:
         label (str): Name of the Evaluator
         dataloader (DataSpec | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec` for evaluation,
@@ -92,12 +102,13 @@ class Evaluator:
 
             Set to ``0`` to disable evaluation.
 
-            If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool 
+            If a callable, it should take two arguments (:class:`.State`, :class:`.Event`) and return a bool
             representing whether the evaluator should be invoked. The event will be either :attr:`.Event.BATCH_END`
             or :attr:`.Event.EPOCH_END`.
-    """
 
-    _eval_interval: Optional[Callable[[State, Event], bool]]
+            When specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't
+            evenly divide the training duration.
+    """
 
     def __init__(
         self,
@@ -119,6 +130,7 @@ class Evaluator:
             self.metrics = metrics
 
         self.subset_num_batches = subset_num_batches
+        self._eval_interval = None
         self.eval_interval = eval_interval
 
     @property

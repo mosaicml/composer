@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Stateless learning rate schedulers.
 
@@ -22,13 +23,11 @@ from torch.optim.lr_scheduler import LambdaLR
 from composer.core import State, Time, TimeUnit
 from composer.core.types import PyTorchScheduler
 
-try:
-    from typing import Protocol
-except ImportError:
-    Protocol = object  # Protocol is not available in python 3.7
-
 if TYPE_CHECKING:
     from typing import Protocol
+else:
+    # subclasses of Protocol cannot be instantiated in Python 3.8
+    Protocol = object
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ __all__ = [
     "ComposerScheduler", "compile_composer_scheduler", "StepScheduler", "MultiStepScheduler", "ConstantScheduler",
     "LinearScheduler", "ExponentialScheduler", "CosineAnnealingScheduler", "CosineAnnealingWarmRestartsScheduler",
     "PolynomialScheduler", "MultiStepWithWarmupScheduler", "LinearWithWarmupScheduler",
-    "CosineAnnealingWithWarmupScheduler"
+    "CosineAnnealingWithWarmupScheduler", "PolynomialWithWarmupScheduler"
 ]
 
 
@@ -107,7 +106,7 @@ class ComposerScheduler(Protocol):
         .. note::
             It is possible to use multiple schedulers, in which case their effects will stack multiplicatively.
 
-        The ``ssr`` param indicates that the schedule should be "stretched" accordingly. In symbolic terms, where 
+        The ``ssr`` param indicates that the schedule should be "stretched" accordingly. In symbolic terms, where
         :math:`\alpha_\sigma(t)` represents the scheduler output at time :math:`t` using scale schedule ratio
         :math:`\sigma`:
 
@@ -165,7 +164,6 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
     Returns:
         compiled_scheduler (PyTorchScheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
     """
-
     optimizers = state.optimizers
     if len(optimizers) != 1:
         raise NotImplementedError("Providing functional schedulers is unsupported with multiple optimizers.")
@@ -208,7 +206,7 @@ class StepScheduler(ComposerScheduler):
 
     Where :math:`\rho` represents the time between changes to the learning rate (the step size), and
     :math:`\gamma` represents the multiplicative decay factor.
-    
+
     Args:
         step_size (str | Time): Time between changes to the learning rate.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
@@ -241,7 +239,7 @@ class MultiStepScheduler(ComposerScheduler):
 
     Where :math:`x` represents the amount of milestones that have been reached, and :math:`\gamma` represents the
     multiplicative decay factor.
-    
+
     Args:
         milestones (List[str | Time]): Times at which the learning rate should change.
         gamma (float): Multiplicative decay factor. Default = ``0.1``.
@@ -277,7 +275,7 @@ class ConstantScheduler(ComposerScheduler):
 
     Where :math:`\alpha` represents the learning rate multiplier to maintain while this scheduler is active, and
     :math:`t_{max}` represents the duration of this scheduler.
-    
+
     Args:
         alpha (float): Learning rate multiplier to maintain while this scheduler is active. Default = ``1.0``.
         t_max (str | Time): Duration of this scheduler. Default = ``"1dur"``.
@@ -305,7 +303,7 @@ class LinearScheduler(ComposerScheduler):
     .. warning::
         Note that the defaults for this scheduler differ from the defaults for
         :class:`~torch.optim.lr_scheduler.LinearLR`. The PyTorch scheduler, by default, linearly increases the learning
-        rate multiplier from 1.0 / 3 to 1.0, whereas this implementation, by default, linearly decreases the multiplier 
+        rate multiplier from 1.0 / 3 to 1.0, whereas this implementation, by default, linearly decreases the multiplier
         rom 1.0 to 0.0.
 
     Linearly adjusts the learning rate multiplier from ``alpha_i`` to ``alpha_f`` over ``t_{max}`` time.
@@ -319,10 +317,10 @@ class LinearScheduler(ComposerScheduler):
 
     .. math::
         \tau = t / t_{max}
-    
+
     Where :math:`\alpha_i` represents the initial learning rate multiplier, :math:`\alpha_f` represents
     the learning rate multiplier to decay to, and :math:`t_{max}` represents the duration of this scheduler.
-    
+
     Args:
         alpha_i (float): Initial learning rate multiplier. Default = ``1.0``.
         alpha_f (float): Final learning rate multiplier. Default = ``0.0``.
@@ -358,7 +356,7 @@ class ExponentialScheduler(ComposerScheduler):
         \alpha(t) = \gamma ^ {t / \rho}
 
     Where :math:`\rho` represents the decay period, and :math:`\gamma` represents the multiplicative decay factor.
-    
+
     Args:
         decay_period (str | Time): Decay period. Default = ``"1ep"``.
         gamma (float): Multiplicative decay factor.
@@ -381,7 +379,6 @@ def _cosine_anneal(x: float, min_y: float = 0.0, max_y: float = 1.0) -> float:
     Curve is cos(x) on domain [0, pi], stretched to the domain [0, 1] and range [min_y, max_y]. Additionally, param x is
     clipped to the interval [0, 1]
     """
-
     x = min(max(x, 0.0), 1.0)
     return min_y + (max_y - min_y) * (1 + math.cos(x * math.pi)) / 2
 
@@ -401,10 +398,10 @@ class CosineAnnealingScheduler(ComposerScheduler):
 
     .. math::
         \tau = t / t_{max}
-    
+
     Where :math:`t_{max}`
     represents the duration of this scheduler, and :math:`\alpha_f` represents the learning rate multiplier to decay to.
-    
+
     Args:
         t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
@@ -441,11 +438,11 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
 
     .. math::
         \tau_i = (t - \sum_{j=0}^{i-1} t_0 t_{mult}^j) / (t_0 t_{mult}^i)
-    
+
     Where :math:`t_0`
     represents the period of the first cycle, :math:`t_{mult}` represents the multiplier for the duration of successive
     cycles, and :math:`\alpha_f` represents the learning rate multiplier to decay to.
-    
+
     Args:
         t_0 (str | Time): The period of the first cycle.
         t_mult (float): The multiplier for the duration of successive cycles. Default = ``1.0``.
@@ -489,7 +486,7 @@ class PolynomialScheduler(ComposerScheduler):
 
     .. math::
         \tau = t / t_{max}
-    
+
     Where :math:`\kappa`
     represents the exponent to be used for the proportionality relationship, :math:`t_{max}` represents the duration of
     this scheduler, and :math:`\alpha_f` represents the learning rate multiplier to decay to.
@@ -582,7 +579,7 @@ class LinearWithWarmupScheduler(ComposerScheduler):
     Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 
     .. math::
-        \alpha(t) = \begin{cases}    
+        \alpha(t) = \begin{cases}
             t / t_{warmup}, & \text{if } t < t_{warmup} \\
             \alpha_i + (alpha_f - \alpha_i) \times \tau_w & \text{otherwise}
         \end{cases}
@@ -591,7 +588,7 @@ class LinearWithWarmupScheduler(ComposerScheduler):
 
     .. math::
         \tau_w = (t - t_{warmup}) / t_{max}
-    
+
     Where :math:`t_{warmup}` represents the warmup time, :math:`\alpha_i` represents the initial learning rate multiplier,
     and :math:`\alpha_f` represents the learning rate multiplier to decay to, and :math:`t_{max}` represents the duration
     of this scheduler.
@@ -649,7 +646,7 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
     Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 
     .. math::
-        \alpha(t) = \begin{cases}    
+        \alpha(t) = \begin{cases}
             t / t_{warmup}, & \text{if } t < t_{warmup} \\
             \alpha_f + (1 - \alpha_f) \times \frac{1}{2} (1 + \cos(\pi \times \tau_w)) & \text{otherwise}
         \end{cases}
@@ -658,7 +655,7 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
 
     .. math::
        \tau_w = (t - t_{warmup}) / t_{max}
-    
+
     Where :math:`t_{warmup}` represents the warmup time, :math:`t_{max}` represents the duration of this scheduler, and
     :math:`\alpha_f` represents the learning rate multiplier to decay to.
 
@@ -666,7 +663,7 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
         the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "pace" will be
         slightly distorted from what would otherwise be expected.
-    
+
     Args:
         t_warmup (str | Time): Warmup time.
         t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
@@ -696,3 +693,70 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value
 
         return _cosine_anneal(x=frac_of_total, min_y=self.alpha_f)
+
+
+class PolynomialWithWarmupScheduler(ComposerScheduler):
+    r"""Decays the learning rate according to a power of the fraction of training time left, with an initial warmup.
+
+    .. seealso::
+        This scheduler is based on :class:`~.PolynomialScheduler`, with an added warmup.
+
+    Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
+
+    .. math::
+        \alpha(t) = \begin{cases}
+            t / t_{warmup}, & \text{if } t < t_{warmup} \\
+            \alpha_f + (1 - \alpha_f) \times (1 - \tau_w) ^ {\kappa} & \text{otherwise}
+        \end{cases}
+
+    Given :math:`\tau_w`, the fraction of post-warmup time elpased (clipped to the interval :math:`[0, 1]`), as:
+
+    .. math::
+       \tau_w = (t - t_{warmup}) / t_{max}
+
+    Where :math:`\kappa` represents the exponent to be used for the proportionality relationship,
+    :math:`t_{warmup}` represents the warmup time, :math:`t_{max}` represents the duration of this scheduler, and
+    :math:`\alpha_f` represents the learning rate multiplier to decay to.
+
+    .. warning::
+        Initial warmup time is **not** scaled according to any provided scale schedule ratio! However, the duration of
+        the scheduler is still scaled accordingly. To achieve this, after warmup, the scheduler's "pace" will be
+        slightly distorted from what would otherwise be expected.
+
+    Args:
+        t_warmup (str | Time): Warmup time.
+        power (float): The exponent to be used for the proportionality relationship. Default = ``2.0``.
+        t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
+        alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
+    """
+
+    def __init__(self,
+                 t_warmup: Union[str, Time],
+                 power: float = 2.0,
+                 t_max: Union[str, Time] = "1dur",
+                 alpha_f: float = 0.0):
+        self.t_warmup = t_warmup
+        self.power = power
+        self.t_max = t_max
+        self.alpha_f = alpha_f
+        self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
+
+    def __call__(self, state: State, ssr: float = 1.0):
+        t_warmup = _convert_time(self.t_warmup, state)
+        if t_warmup.value == 0:
+            warnings.warn(
+                textwrap.dedent("""\
+                The warmup duration is 0. If you specified warmup as a fraction of total
+                training duration, take note that the warmup duration is calculated in the
+                same unit as the trainer's max_duration parameter."""))
+
+        if state.timestamp < t_warmup:
+            return self.warmup_scheduler(state)
+
+        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        current_time = state.timestamp.get(t_warmup.unit)
+        frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value
+
+        coeff = (1 - frac_of_total)**self.power
+        current_factor = self.alpha_f + coeff * (1.0 - self.alpha_f)
+        return current_factor

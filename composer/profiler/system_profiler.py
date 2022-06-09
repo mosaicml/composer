@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Profiler to record system level metrics."""
 
@@ -76,7 +77,7 @@ class SystemProfiler(Callback):
         if self.profile_cpu:
             psutil.cpu_percent()  # spin it once to clear the default 0.0 value on the first call
 
-        while not self.finished_event.isSet():
+        while not self.finished_event.is_set():
             if self.profile_cpu:
                 cpu_percent = psutil.cpu_percent()
                 profiler.marker(name="cpu", categories=["cpu"]).counter({"cpu_percent": cpu_percent})

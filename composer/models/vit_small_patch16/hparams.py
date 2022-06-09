@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.ViTSmallPatch16`."""
 
@@ -34,9 +35,10 @@ class ViTSmallPatch16Hparams(ModelHparams):
 
     def validate(self):
         try:
-            import vit_pytorch  # type: ignore
+            import vit_pytorch
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group="vit", conda_package="vit_pytorch>=0.27") from e
+        del vit_pytorch  # unused
 
     def initialize_object(self):
         from composer.models import ViTSmallPatch16

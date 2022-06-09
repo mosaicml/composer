@@ -1,4 +1,5 @@
-# Copyright 2022 MosaicML. All Rights Reserved.
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
 
 """Logs to a file."""
 
@@ -18,7 +19,7 @@ from composer.utils.file_helpers import FORMAT_NAME_WITH_DIST_TABLE, format_name
 __all__ = ["FileLogger"]
 
 
-class FileLogger(LoggerDestination):
+class FileLogger(LoggerDestination):  # noqa: D101
     __doc__ = f"""Log data to a file.
 
     Example usage:
@@ -44,7 +45,7 @@ class FileLogger(LoggerDestination):
 
             trainer.engine.close()
 
-            path = os.path.join(trainer.logger.run_name, "logs-rank0.txt")
+            path = os.path.join(trainer.state.run_name, "logs-rank0.txt")
             try:
                 os.remove(file_logger.filename)
             except FileNotFoundError as e:
@@ -80,7 +81,7 @@ class FileLogger(LoggerDestination):
             Default: `'{{run_name}}/logs-rank{{rank}}.txt'`
 
         artifact_name (str, optional): Format string for the logfile's artifact name.
-        
+
             The logfile will be periodically logged (according to the ``flush_interval``) as a file artifact.
             The artifact name will be determined by this format string.
 
@@ -112,6 +113,7 @@ class FileLogger(LoggerDestination):
             :attr:`~.LogLevel.EPOCH`, then the logfile will be flushed every n epochs.  If
             the ``log_level`` is :attr:`~.LogLevel.BATCH`, then the logfile will be
             flushed every n batches. Default: ``100``.
+        overwrite (bool, optional): Whether to overwrite an existing logfile. (default: ``False``)
     """
 
     def __init__(
@@ -217,9 +219,9 @@ class FileLogger(LoggerDestination):
         )
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
+        del logger  # unused
         self._is_newline = True
-        self._run_name = logger.run_name
+        self._run_name = state.run_name
         if self.file is not None:
             raise RuntimeError("The file logger is already initialized")
         file_dirname = os.path.dirname(self.filename)
