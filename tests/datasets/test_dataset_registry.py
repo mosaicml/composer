@@ -9,9 +9,9 @@ from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.datasets.dataset_hparams_registry import (ADE20kDatasetHparams, BratsDatasetHparams, C4DatasetHparams,
                                                         CIFAR10DatasetHparams, COCODatasetHparams, GLUEHparams,
                                                         ImagenetDatasetHparams, LMDatasetHparams, MNISTDatasetHparams,
-                                                        StreamingADE20kHparams, StreamingCIFAR10Hparams,
-                                                        StreamingCOCOHparams, StreamingImageNet1kHparams,
-                                                        dataset_registry)
+                                                        StreamingADE20kHparams, StreamingC4Hparams,
+                                                        StreamingCIFAR10Hparams, StreamingCOCOHparams,
+                                                        StreamingImageNet1kHparams, dataset_registry)
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 
 # for testing, we provide values for required hparams fields
@@ -74,6 +74,8 @@ default_required_fields: Dict[Type[DatasetHparams], Callable[[], DatasetHparams]
             tokenizer_name="gpt2",
             group_method="concat",
         ),
+    StreamingC4Hparams:
+        lambda: StreamingC4Hparams(split="val"),
 }
 
 

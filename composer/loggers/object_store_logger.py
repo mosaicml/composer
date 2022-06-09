@@ -42,7 +42,8 @@ class ObjectStoreLogger(LoggerDestination):
     r"""Logger destination that uploads artifacts to an object store.
 
     This logger destination handles calls to :meth:`~composer.loggers.logger.Logger.file_artifact`
-    and uploads files to :class:`.ObjectStore`, such as AWS S3 or Google Cloud Storage.
+    and uploads files to :class:`.ObjectStore`, such as AWS S3 or Google Cloud Storage. To minimize the training
+    loop performance hit, it supports background uploads.
 
     .. testcode:: composer.loggers.object_store_logger.ObjectStoreLogger.__init__
 
@@ -86,7 +87,15 @@ class ObjectStoreLogger(LoggerDestination):
 
     Args:
         object_store_cls (Type[ObjectStore]): The object store class.
+
+            As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
+            its own :class:`.ObjectStore` instance from ``object_store_cls`` and ``object_store_kwargs``.
+
         object_store_kwargs (Dict[str, Any]): The keyword arguments to construct ``object_store_cls``.
+
+            As individual :class:`.ObjectStore` instances are not necessarily thread safe, each worker will construct
+            its own :class:`.ObjectStore` instance from ``object_store_cls`` and ``object_store_kwargs``.
+
         should_log_artifact ((State, LogLevel, str) -> bool, optional): A function to filter which artifacts
             are uploaded.
 
@@ -208,6 +217,15 @@ class ObjectStoreLogger(LoggerDestination):
             self._proc_class = threading.Thread
         self._finished: Optional[Union[multiprocessing._EventType, threading.Event]] = None
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
+        # the object store instance for the main thread. Deferring the construction of the object_store to first use.
+        self._object_store = None
+
+    @property
+    def object_store(self) -> ObjectStore:
+        """The :class:`.ObjectStore` instance for the main thread."""
+        if self._object_store is None:
+            self._object_store = _build_object_store(self.object_store_cls, self.object_store_kwargs)
+        return self._object_store
 
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
@@ -216,11 +234,10 @@ class ObjectStoreLogger(LoggerDestination):
         self._finished = self._finished_cls()
         self._run_name = state.run_name
         object_name_to_test = self._object_name(".credentials_validated_successfully")
-        object_store = _build_object_store(self.object_store_cls, self.object_store_kwargs)
 
         if dist.get_global_rank() == 0:
             retry(ObjectStoreTransientError,
-                  self.num_attempts)(lambda: _validate_credentials(object_store, object_name_to_test))()
+                  self.num_attempts)(lambda: _validate_credentials(self.object_store, object_name_to_test))()
         assert len(self._workers) == 0, "workers should be empty if self._finished was None"
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
@@ -296,14 +313,11 @@ class ObjectStoreLogger(LoggerDestination):
         overwrite: bool = False,
         progress_bar: bool = True,
     ):
-        object_store = _build_object_store(self.object_store_cls, self.object_store_kwargs)
-        get_file(
-            path=artifact_name,
-            destination=destination,
-            object_store=object_store,
-            overwrite=overwrite,
-            progress_bar=progress_bar,
-        )
+        get_file(path=artifact_name,
+                 destination=destination,
+                 object_store=self.object_store,
+                 overwrite=overwrite,
+                 progress_bar=progress_bar)
 
     def post_close(self):
         # Cleaning up on post_close to ensure that all artifacts are uploaded
@@ -327,8 +341,7 @@ class ObjectStoreLogger(LoggerDestination):
             str: The uri corresponding to the uploaded location of the artifact.
         """
         obj_name = self._object_name(artifact_name)
-        object_store = _build_object_store(self.object_store_cls, self.object_store_kwargs)
-        return object_store.get_uri(obj_name.lstrip("/"))
+        return self.object_store.get_uri(obj_name.lstrip("/"))
 
     def _object_name(self, artifact_name: str):
         """Format the ``artifact_name`` according to the ``object_name_string``."""
