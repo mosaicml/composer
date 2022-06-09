@@ -60,7 +60,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
 
             Consider the following scenario, where:
 
-            *   The :attr:`~.Logger.run_name` is ``'awesome-training-run'``
+            *   The :attr:`~.State.run_name` is ``'awesome-training-run'``
             *   The default ``trace_folder='{{run_name}}/traces'`` is used.
             *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}.json'`` is used.
             *   The current epoch count is ``1``.
@@ -168,8 +168,8 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         self._save_at_batch_end = False
 
     def init(self, state: State, logger: Logger) -> None:
-        del state  # unused
-        trace_folder = format_name_with_dist(self.folder, run_name=logger.run_name)
+        del logger  # unused
+        trace_folder = format_name_with_dist(self.folder, run_name=state.run_name)
 
         os.makedirs(trace_folder, exist_ok=True)
         if not self.overwrite:
@@ -179,7 +179,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         if self.merged_trace_filename is not None:
             merged_trace_filename = os.path.join(
                 trace_folder,
-                format_name_with_dist(self.merged_trace_filename, logger.run_name),
+                format_name_with_dist(self.merged_trace_filename, state.run_name),
             )
             merged_trace_dirname = os.path.dirname(merged_trace_filename)
             if merged_trace_dirname:
@@ -188,6 +188,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
         dist.barrier()
 
     def batch_start(self, state: State, logger: Logger) -> None:
+        del logger  # unusued
         if state.profiler is None:
             raise RuntimeError(("The Composer Profiler was not enabled, which is required to use the "
                                 f"{type(self).__name__}. To enable, set the `prof_schedule` argument of the Trainer."))
@@ -261,13 +262,13 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
     def batch_end(self, state: State, logger: Logger) -> None:
         assert state.profiler is not None
         timestamp = state.timestamp
-        trace_folder = format_name_with_dist(self.folder, run_name=logger.run_name)
+        trace_folder = format_name_with_dist(self.folder, run_name=state.run_name)
         if self._save_at_batch_end:
             # no longer active, but was previously active.
             # Epty the queue and save the trace file
             trace_filename = os.path.join(
                 trace_folder,
-                format_name_with_dist_and_time(self.filename, logger.run_name, timestamp),
+                format_name_with_dist_and_time(self.filename, state.run_name, timestamp),
             )
             trace_dirname = os.path.dirname(trace_filename)
             if trace_dirname:
@@ -287,7 +288,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                 f.write('\n]\n')
 
             if self.artifact_name is not None:
-                artifact_name = format_name_with_dist_and_time(self.artifact_name, logger.run_name, timestamp)
+                artifact_name = format_name_with_dist_and_time(self.artifact_name, state.run_name, timestamp)
                 logger.file_artifact(LogLevel.BATCH,
                                      artifact_name=artifact_name,
                                      file_path=trace_filename,
@@ -308,7 +309,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                     trace_folder,
                     format_name_with_dist(
                         self.merged_trace_filename,
-                        logger.run_name,
+                        state.run_name,
                     ),
                 )
                 merged_trace_dirname = os.path.dirname(merged_trace_filename)
@@ -327,7 +328,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                 if self.merged_trace_artifact_name is not None:
                     merged_trace_artifact_name = format_name_with_dist(
                         self.merged_trace_artifact_name,
-                        logger.run_name,
+                        state.run_name,
                     )
                     logger.file_artifact(
                         LogLevel.BATCH,

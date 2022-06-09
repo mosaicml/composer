@@ -31,7 +31,7 @@ class WandBLogger(LoggerDestination):
         project (str, optional): WandB project name.
         group (str, optional): WandB group name.
         name (str, optional): WandB run name.
-            If not specified, the :attr:`.Logger.run_name` will be used.
+            If not specified, the :attr:`.State.run_name` will be used.
         entity (str, optional): WandB entity name.
         tags (List[str], optional): WandB tags.
         log_artifacts (bool, optional): Whether to log
@@ -124,11 +124,11 @@ class WandBLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         import wandb
-        del state  # unused
+        del logger  # unused
 
         # Use the logger run name if the name is not set.
         if "name" not in self._init_kwargs or self._init_kwargs["name"] is None:
-            self._init_kwargs["name"] = logger.run_name
+            self._init_kwargs["name"] = state.run_name
 
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:

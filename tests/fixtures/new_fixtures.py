@@ -22,6 +22,7 @@ def minimal_state(rank_zero_seed: int):
     """
     return State(
         model=SimpleModel(),
+        run_name="minimal_run_name",
         rank_zero_seed=rank_zero_seed,
         max_duration='100ep',
         dataloader=DataLoader(RandomClassificationDataset()),

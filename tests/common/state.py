@@ -30,5 +30,9 @@ def assert_state_equivalent(state1: State, state2: State):
     _del_wct_timestamp_fields(state_dict_1['timestamp'])
     _del_wct_timestamp_fields(state_dict_2['timestamp'])
 
+    # Remove run_name since we use timestamp as part of name
+    del state_dict_1['run_name']
+    del state_dict_2['run_name']
+
     # Compare the state dicts
     deep_compare(state_dict_1, state_dict_2, atol=atol, rtol=rtol)

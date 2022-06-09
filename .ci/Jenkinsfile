@@ -36,7 +36,7 @@ pytestGpuImageTagsToTest = [
 ]
 
 // Lint settings
-lintImage = 'mosaicml/pytorch:latest_cpu'
+lintImage = 'mosaicml/pytorch_vision:latest_cpu'
 lintCpuLimit = '2'
 lintMemLimit = '7Gi'
 pLintTimeout = '1800' // timeout to run lint + doctests, in seconds
