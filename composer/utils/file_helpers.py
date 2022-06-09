@@ -16,7 +16,7 @@ import tqdm
 
 from composer.core.time import Time, Timestamp
 from composer.utils import dist
-from composer.utils.iter_helpers import IteratorWithCallback
+from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -376,7 +376,7 @@ def get_file(
             tmp_path = destination + f".{uuid.uuid4()}.tmp"
             try:
                 with open(tmp_path, "wb") as f:
-                    for data in IteratorWithCallback(
+                    for data in iterate_with_callback(
                             r.iter_content(2**20),
                             total_size_in_bytes,
                             callback=_get_callback(f"Downloading {path}") if progress_bar else None,

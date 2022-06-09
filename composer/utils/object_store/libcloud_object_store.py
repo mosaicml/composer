@@ -12,7 +12,7 @@ from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
 
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.iter_helpers import IteratorWithCallback
+from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
 __all__ = ["LibcloudObjectStore"]
@@ -103,7 +103,8 @@ class LibcloudObjectStore(ObjectStore):
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         with open(file_path, "rb") as f:
-            stream = IteratorWithCallback(_file_to_iterator(f, self.chunk_size), os.fstat(f.fileno()).st_size, callback)
+            stream = iterate_with_callback(_file_to_iterator(f, self.chunk_size),
+                                           os.fstat(f.fileno()).st_size, callback)
             try:
                 self._provider.upload_object_via_stream(
                     stream,
@@ -184,13 +185,8 @@ class LibcloudObjectStore(ObjectStore):
         try:
             with open(tmp_filepath, "wb+") as f:
                 stream = self._provider.download_object_as_stream(obj, chunk_size=self.chunk_size)
-                stream_with_cb = IteratorWithCallback(stream, obj.size, callback)
-                while True:
-                    try:
-                        b = next(stream_with_cb)
-                    except StopIteration:
-                        break
-                    f.write(b)
+                for chunk in iterate_with_callback(stream, obj.size, callback):
+                    f.write(chunk)
         except Exception as e:
             # The download failed for some reason. Make a best-effort attempt to remove the temporary file.
             try:

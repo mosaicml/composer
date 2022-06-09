@@ -98,7 +98,7 @@ class IteratorFileStream(io.RawIOBase):
         return True
 
 
-class IteratorWithCallback:
+def iterate_with_callback(iterator, total_len, callback=None):
     """Invoke ``callback`` after each chunk is yielded from ``iterator``.
 
     Args:
@@ -109,37 +109,14 @@ class IteratorWithCallback:
 
             It is called with the cumulative size of all chunks yielded thus far and the ``total_len``.
     """
+    current_len = 0
 
-    def __init__(
-        self,
-        iterator,
-        total_len,
-        callback=None,
-    ) -> None:
-        self.iterator = iterator
-        self.callback = callback
-        self.total_len = total_len
-        self.current_len = 0
+    if callback is not None:
+        # Call the callback for any initialization
+        callback(current_len, total_len)
 
+    for chunk in iterator:
+        current_len += len(chunk)
+        yield chunk
         if callback is not None:
-            # Call the callback for any initialization
-            callback(self.current_len, total_len)
-
-    def __next__(self):
-        if self.callback is None:
-            return next(self.iterator)
-        ran_callback = False
-        if self.current_len > 0:
-            self.callback(self.current_len, self.total_len)
-            ran_callback = True
-        try:
-            chunk = next(self.iterator)
-        except StopIteration:
-            if not ran_callback:
-                self.callback(self.current_len, self.total_len)
-            raise
-        self.current_len += len(chunk)
-        return chunk
-
-    def __iter__(self):
-        return self
+            callback(current_len, total_len)
