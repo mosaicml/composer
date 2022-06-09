@@ -6,15 +6,12 @@
 from __future__ import annotations
 
 import logging
-from sqlite3 import NotSupportedError
 from typing import Iterable, Optional, Union
 
 import torch
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
-from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
@@ -145,11 +142,6 @@ class GradientClipping(Algorithm):
     def __init__(self, clipping_type: str, clipping_threshold: float):
         self.clipping_type = clipping_type
         self.clipping_threshold = clipping_threshold
-        try:
-            import deepspeed
-            self.deep_speed_imported = True
-        except ImportError:
-            self.deep_speed_imported = False
 
     def match(self, event: Event, state: State) -> bool:
         """Run on ``Event.AFTER_TRAIN_BATCH``."""
