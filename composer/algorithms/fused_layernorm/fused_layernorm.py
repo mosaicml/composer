@@ -11,13 +11,12 @@ from typing import Optional, Sequence, Union
 import torch
 
 try:
-    from apex.normalization.fused_layer_norm import FusedLayerNorm
+    from apex.normalization.fused_layer_norm import FusedLayerNorm as APEXFusedLayerNorm
 except ImportError as e:
     raise ImportError(
         "https://github.com/NVIDIA/apex is not installed, and therefore the Fused LayerNorm algorithm cannot be applied."
     ) from e
 
-from composer.algorithms import AlgorithmHparams
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.utils import module_surgery
@@ -51,7 +50,7 @@ def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.
     layernorm_eps = layernorm_eps[0]
 
     # prepare the replacement policy and perform replacement
-    policy = {torch.nn.LayerNorm: lambda x, module_index: FusedLayerNorm(normalized_shape=d_embed, eps=layernorm_eps)}
+    policy = {torch.nn.LayerNorm: lambda x, module_index: APEXFusedLayerNorm(normalized_shape=d_embed, eps=layernorm_eps)}
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     log.info(f"Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.")
 

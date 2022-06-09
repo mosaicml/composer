@@ -15,6 +15,7 @@ from composer.algorithms.cutmix import CutMix
 from composer.algorithms.cutout import CutOut
 from composer.algorithms.ema import EMA
 from composer.algorithms.factorize import Factorize
+from composer.algorithms.fused_layernorm import FusedLayerNorm 
 from composer.algorithms.ghost_batchnorm import GhostBatchNorm
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
