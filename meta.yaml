@@ -44,7 +44,6 @@ requirements:
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
-    - apache-libcloud >=3.5.1,<4
 
 test:
   requires:
@@ -67,7 +66,6 @@ test:
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
     - cpuonly >=2.0,<3
-    - apache-libcloud >=3.5.1,<4
   files:
     - "**/composer/**"
     - "**/tests/**"
@@ -78,8 +76,8 @@ test:
     - composer
     - tests
   commands:
-    # deepspeed is not available on conda, and timm has a conda version conflict
-    - pip install 'deepspeed>=0.5.5' 'timm>=0.5.4'
+    # deepspeed is not available on conda, and timm has a conda version conflict, and libcloud slows down version solving
+    - pip install 'deepspeed>=0.5.5' 'timm>=0.5.4' 'apache-libcloud>=3.5.1,<4'
     - make test DURATION=all EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
     - make test-dist DURATION=all WORLD_SIZE=2 EXTRA_ARGS="-v -m 'not gpu and not vision and not daily and not remote'"
 
