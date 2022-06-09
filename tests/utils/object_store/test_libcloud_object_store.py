@@ -34,20 +34,6 @@ def _get_provider(remote_dir: pathlib.Path, chunk_size: int = 1024 * 1024):
     )
 
 
-def test_libcloud_object_store(remote_dir: pathlib.Path, local_dir: pathlib.Path):
-    provider = _get_provider(remote_dir)
-    local_file_path = os.path.join(local_dir, "dummy_file")
-    with open(local_file_path, "w+") as f:
-        f.write("Hello, world!")
-
-    provider.upload_object("upload_object", local_file_path)
-    assert provider.get_uri("upload_object") == "local://./upload_object"
-    local_file_path_download = os.path.join(local_dir, "dummy_file_downloaded")
-    provider.download_object("upload_object", local_file_path_download)
-    with open(local_file_path_download, "r") as f:
-        assert f.read() == "Hello, world!"
-
-
 @pytest.mark.parametrize("chunk_size", [100, 128])
 def test_libcloud_object_store_callback(remote_dir: pathlib.Path, local_dir: pathlib.Path, chunk_size: int):
     provider = _get_provider(remote_dir, chunk_size=chunk_size)

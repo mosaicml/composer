@@ -61,9 +61,20 @@ class ObjectStoreTransientError(RuntimeError):
 class ObjectStore(abc.ABC):
     """Abstract class for implementing object stores, such as LibcloudObjectStore and S3ObjectStore."""
 
-    @abc.abstractmethod
     def get_uri(self, object_name: str) -> str:
-        """Returns the URI for ``object_name``."""
+        """Returns the URI for ``object_name``.
+
+        .. note::
+
+            This function does not check that ``object_name`` is in the object store.
+            It computes the URI statically.
+
+        Args:
+            object_name (str): The object name.
+
+        Returns:
+            str: The URI for ``object_name`` in the object store.
+        """
         raise NotImplementedError(f"{type(self).__name__}.get_uri is not implemented")
 
     def upload_object(
@@ -71,7 +82,7 @@ class ObjectStore(abc.ABC):
         object_name: str,
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
-    ):
+    ) -> None:
         """Upload an object currently located on a disk.
 
         Args:
@@ -107,7 +118,7 @@ class ObjectStore(abc.ABC):
         filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
-    ):
+    ) -> None:
         """Download an object to the specified destination path.
 
         Args:

@@ -111,27 +111,27 @@ class S3ObjectStore(ObjectStore):
     def upload_object(
         self,
         object_name: str,
-        filepath: Union[str, pathlib.Path],
+        filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
     ):
-        file_size = os.path.getsize(filepath)
+        file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
         self.client.upload_file(Bucket=self.bucket,
                                 Key=object_name,
-                                Filename=filepath,
+                                Filename=filename,
                                 Callback=cb_wrapper,
                                 Config=self.transfer_config)
 
     def download_object(
         self,
         object_name: str,
-        filepath: Union[str, pathlib.Path],
+        filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ):
-        if os.path.exists(filepath):
-            raise FileExistsError(f"The file at {filepath} already exists")
-        tmp_path = str(filepath) + f".{uuid.uuid4()}.tmp"
+        if os.path.exists(filename):
+            raise FileExistsError(f"The file at {filename} already exists")
+        tmp_path = str(filename) + f".{uuid.uuid4()}.tmp"
         if callback is None:
             cb_wrapper = None
         else:
@@ -156,6 +156,6 @@ class S3ObjectStore(ObjectStore):
             raise
         else:
             if overwrite:
-                os.replace(tmp_path, filepath)
+                os.replace(tmp_path, filename)
             else:
-                os.rename(tmp_path, filepath)
+                os.rename(tmp_path, filename)
