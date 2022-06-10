@@ -105,6 +105,7 @@ def dummy_state(
         dummy_model = dummy_model.cuda()
     state = State(
         model=dummy_model,
+        run_name="dummy_run_name",
         precision=Precision.FP32,
         grad_accum=1,
         rank_zero_seed=rank_zero_seed,

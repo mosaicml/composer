@@ -8,15 +8,19 @@ import os
 import sys
 import textwrap
 from argparse import ArgumentParser
+from io import BytesIO
+from typing import Tuple
 
+import numpy as np
 import torch
+from PIL import Image
 from torch.utils.data import Subset
 from torchvision import transforms
 from torchvision.datasets import CIFAR10, ImageFolder
+from tqdm import tqdm
 
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.streaming import StreamingImageClassDataset
-from composer.datasets.utils import pil_image_collate
+from composer.datasets.streaming import StreamingDataset
 
 log = logging.getLogger(__name__)
 
@@ -26,22 +30,20 @@ def _get_parser():
 
     parser.add_argument("--dataset",
                         type=str,
-                        default="imagenet",
-                        choices=["cifar", "imagenet"],
+                        default="cifar10",
+                        choices=["cifar10", "imagenet1k"],
                         help=textwrap.dedent("""\
-                                Dataset to use. Default: cifar"""))
+                                Dataset to use. Default: cifar10"""))
     parser.add_argument("--remote",
                         type=str,
-                        default="s3://mosaicml-internal-dataset-imagenet1k/mds/1/",
+                        default=None,
                         help=textwrap.dedent("""\
-                                Remote directory (S3 or local filesystem) where dataset is stored. Default: s3://mosaicml-internal-dataset-imagenet1k/mds/1/"""
-                                            ))
+                                Remote directory (S3 or local filesystem) where dataset is stored. Default: None"""))
     parser.add_argument("--local",
                         type=str,
-                        default="/tmp/mds-cache/mds-imagenet1k/",
+                        default=None,
                         help=textwrap.dedent("""\
-                                Local filesystem directory where dataset is cached during operation. Default:
-                                /tmp/mds-cache/mds-imagenet1k/"""))
+                                Local filesystem directory where dataset is cached during operation. Default: None"""))
     parser.add_argument("--split",
                         type=str,
                         default="train",
@@ -102,6 +104,11 @@ def _parse_args():
     if args.datadir is not None:
         log.info(f"Will read from local directory: {args.datadir}.")
     else:
+        if args.remote is None:
+            args.remote = f"s3://mosaicml-internal-dataset-{args.dataset}/mds/1/"
+        if args.local is None:
+            args.local = f"/tmp/mds-cache/mds-{args.dataset}/"
+
         if args.remote.startswith('s3://'):
             log.info(f"Will read from remote: {args.remote}.")
         else:
@@ -117,27 +124,39 @@ def _parse_args():
     return args
 
 
-def cache_streaming(remote, local, num_workers=64):
+def cache_streaming(dataset, num_workers=64):
     """A function to iterate over all the samples in the dataset to cache it locally."""
     if "LOCAL_WORLD_SIZE" not in os.environ:
         os.environ["LOCAL_WORLD_SIZE"] = "1"
 
-    ds = StreamingImageClassDataset(remote=remote,
-                                    local=local,
-                                    shuffle=True,
-                                    transform=transforms.CenterCrop(224),
-                                    batch_size=512)
+    def _null_collate_fn(batch):
+        return None
 
-    dl = torch.utils.data.DataLoader(ds,
+    dl = torch.utils.data.DataLoader(dataset,
                                      batch_size=512,
                                      num_workers=num_workers,
                                      pin_memory=False,
                                      drop_last=False,
-                                     collate_fn=pil_image_collate)
+                                     collate_fn=_null_collate_fn)
 
     # empty loop to download and cache the dataset
-    for _ in dl:
+    print("download and cache dataset")
+    for _ in tqdm(dl):
         pass
+
+
+class PILImageClassStreamingDataset(StreamingDataset):
+    """A subclass of StreamingDataset that asserts and returns tuples (PIL.Image, np.int64).
+
+    Intended to enforce sample types for pipelines that expect the tuple format (image, class).
+    """
+
+    def __getitem__(self, idx: int) -> Tuple[Image.Image, np.int64]:
+        obj = super().__getitem__(idx)
+        assert 'x', 'y' in obj.keys()
+        assert isinstance(obj['x'], Image.Image)
+        assert isinstance(obj['y'], np.int64)
+        return (obj['x'], obj['y'])
 
 
 def _main():
@@ -146,9 +165,9 @@ def _main():
 
     ds = None
     if args.datadir is not None:
-        if args.dataset == 'cifar':
+        if args.dataset == 'cifar10':
             ds = CIFAR10(root=args.datadir, train=(args.split == 'train'), download=args.download)
-        elif args.dataset == 'imagenet':
+        elif args.dataset == 'imagenet1k':
             ds = ImageFolder(os.path.join(args.datadir, args.split))
         else:
             raise ValueError(f'Unsupported dataset: {args.dataset}. Checkout the list of supported datasets with -h')
@@ -158,17 +177,40 @@ def _main():
     else:
         remote = os.path.join(args.remote, args.split)
         local = os.path.join(args.local, args.split)
-        cache_streaming(remote=remote, local=local, num_workers=args.num_workers)
-        ds = StreamingImageClassDataset(remote=remote, local=local, shuffle=False, batch_size=1)
 
-    write_ffcv_dataset(dataset=ds,
-                       write_path=args.write_path,
-                       max_resolution=args.max_resolution,
-                       num_workers=args.num_workers,
-                       write_mode=args.write_mode,
-                       compress_probability=args.compress_probability,
-                       jpeg_quality=args.jpeg_quality,
-                       chunk_size=args.chunk_size)
+        # Build a simple StreamingDataset that reads in the raw images, no processing
+        # Differet datasets are created + encoded differently, so that's why we need different decoders
+        if args.dataset == 'cifar10':
+
+            def _decode_image(data):
+                arr = np.frombuffer(data, np.uint8)
+                arr = arr.reshape(32, 32, 3)
+                return Image.fromarray(arr)
+
+            def _decode_class(data):
+                return np.frombuffer(data, dtype=np.int64)[0]
+        elif args.dataset == 'imagenet1k':
+
+            def _decode_image(data):
+                return Image.open(BytesIO(data)).convert('RGB')
+
+            def _decode_class(data):
+                return np.frombuffer(data, dtype=np.int64)[0]
+
+        decoders = {'x': _decode_image, 'y': _decode_class}
+        dataset = PILImageClassStreamingDataset(remote=remote, local=local, decoders=decoders, shuffle=False)
+
+        # Iterate over the dataset and cache it, so it can be used for random access
+        cache_streaming(dataset=dataset, num_workers=args.num_workers)
+
+        write_ffcv_dataset(dataset=dataset,
+                           write_path=args.write_path,
+                           max_resolution=args.max_resolution,
+                           num_workers=args.num_workers,
+                           write_mode=args.write_mode,
+                           compress_probability=args.compress_probability,
+                           jpeg_quality=args.jpeg_quality,
+                           chunk_size=args.chunk_size)
 
 
 if __name__ == '__main__':

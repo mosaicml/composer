@@ -65,16 +65,15 @@ while True:
         long_description = long_description[:start] + long_description[end + len(end_tag):]
 
 install_requires = [
-    "pyyaml>=5.4.1,<6",
+    "pyyaml>=6.0,<7",
     "tqdm>=4.62.3,<5",
     "torchmetrics>=0.7.0,<0.8",
     "torch_optimizer>=0.1.0,<0.2",
     "torchvision>=0.10.0",  # torchvision has strict pytorch requirements
     "torch>=1.9,<2",
-    "yahp==0.1.1",
+    "yahp>=0.1.1,<0.2",
     "requests>=2.26.0,<3",
     "numpy>=1.21.5,<2",
-    "apache-libcloud>=3.3.1,<4",
     "psutil>=5.8.0,<6",
     "coolname>=1.1.0,<2",
     "py-cpuinfo>=8.0.0",
@@ -122,6 +121,7 @@ extra_deps["dev"] = [
     "pandoc==2.2",
     "pypandoc==1.8.1",
     "GitPython==3.1.27",
+    "moto[s3]>=3.1.12,<3.2",
 ]
 
 extra_deps["deepspeed"] = [
@@ -162,6 +162,10 @@ extra_deps["mlperf"] = [
 
 extra_deps["streaming"] = [
     "boto3>=1.21.45,<2",
+]
+
+extra_deps["libcloud"] = [
+    "apache-libcloud>=3.3.1,<4",
 ]
 
 extra_deps["onnx"] = [

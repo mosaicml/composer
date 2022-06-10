@@ -17,6 +17,7 @@ from composer.loggers import ObjectStoreLogger, WandBLogger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams, logger_registry
 from composer.loggers.progress_bar_logger import ProgressBarLogger
+from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common import get_module_subclasses
 
 try:
@@ -33,15 +34,25 @@ try:
 except ImportError:
     _MLPERF_INSTALLED = False
 
+try:
+    import libcloud
+    _LIBCLOUD_INSTALLED = True
+    del libcloud  # unused
+except ImportError:
+    _LIBCLOUD_INSTALLED = False
+
 _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],] = {
     ObjectStoreLogger: {
+        'object_store_cls': LibcloudObjectStore,
+        'object_store_kwargs': {
+            'provider': 'local',
+            'container': '.',
+            'provider_kwargs': {
+                'key': '.',
+            },
+        },
         'use_procs': False,
         'num_concurrent_uploads': 1,
-        'provider': 'local',
-        'container': '.',
-        'provider_kwargs': {
-            'key': '.',
-        },
     },
     ThresholdStopper: {
         'monitor': 'Accuracy',
@@ -61,9 +72,11 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
     },
     ObjectStoreLoggerHparams: {
         'object_store_hparams': {
-            'provider': 'local',
-            'container': '.',
-            'key_environ': 'KEY_ENVIRON',
+            'libcloud': {
+                "provider": 'local',
+                "container": '.',
+                "key_environ": 'KEY_ENVIRON',
+            },
         },
         'use_procs': False,
         'num_concurrent_uploads': 1,
@@ -74,7 +87,8 @@ _callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkD
     ObjectStoreLogger: [
         pytest.mark.filterwarnings(
             # post_close might not be called if being used outside of the trainer
-            r'ignore:Implicitly cleaning up:ResourceWarning')
+            r'ignore:Implicitly cleaning up:ResourceWarning'),
+        pytest.mark.skipif(not _LIBCLOUD_INSTALLED, reason="Libcloud is optional")
     ],
     MemoryMonitor: [
         pytest.mark.filterwarnings(
@@ -148,13 +162,13 @@ def get_cb_hparams_and_marks():
     This function is meant to be used like this::
 
         import pytest
-        from tests.common.hparams import assert_yaml_loads
+        from tests.common.hparams import construct_from_yaml
         from tests.callbacks.callback_settings import get_cb_hparams_and_marks, get_cb_kwargs
 
         @pytest.mark.parametrize("constructor",get_cb_hparams_and_marks())
         def test_something(constructor: Callable, yaml_dict: Dict[str, Any]):
             yaml_dict = get_cb_kwargs(constructor)
-            assert_yaml_loads(constructor, yaml_dict=yaml_dict)
+            construct_from_yaml(constructor, yaml_dict=yaml_dict)
     """
     implementations = [
         *callback_registry.values(),

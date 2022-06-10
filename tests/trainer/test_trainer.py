@@ -30,7 +30,8 @@ from composer.loggers.logger import Logger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
-from composer.utils import dist
+from composer.trainer.trainer import _get_run_name
+from composer.utils import dist, reproducibility
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
 from tests.common.events import EventCounterCallback
@@ -961,3 +962,16 @@ class TestFFCVDataloaders:
         config['precision'] = precision
         trainer = Trainer(**config)
         trainer.fit()
+
+
+@pytest.mark.world_size(2)
+def test_state_run_name():
+    # seeding with the global rank to ensure that each rank has a different seed
+    reproducibility.seed_all(dist.get_global_rank())
+
+    run_name = _get_run_name(None)
+    # The run name should be the same on every rank -- it is set via a distributed reduction
+    # Manually verify that all ranks have the same run name
+    run_names = dist.all_gather_object(run_name)
+    assert len(run_names) == 2  # 2 ranks
+    assert all(run_name == run_names[0] for run_name in run_names)
