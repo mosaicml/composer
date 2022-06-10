@@ -28,7 +28,7 @@ conda config --set channel_priority strict
 
 # Install dependencies
 echo "Installing build dependencies"
-conda install -y conda-build conda-verify anaconda-client
+conda install -y conda-build conda-verify anaconda-client conda==4.12.0
 
 # Build (without uploading) composer
 # Conda-build invokes pytest automatically, and runs all non-gpu tests
