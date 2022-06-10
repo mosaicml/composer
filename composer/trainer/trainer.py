@@ -499,8 +499,6 @@ class Trainer:
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict_model_weights (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
             Ignored if ``load_path`` is ``None``. (default: ``False``)
-        load_chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
-            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
         load_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
@@ -701,7 +699,6 @@ class Trainer:
         load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict_model_weights: bool = False,
-        load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 
@@ -961,7 +958,6 @@ class Trainer:
                 run_name=run_name,
                 save_latest_artifact_name=save_latest_artifact_name,
                 loggers=loggers,
-                load_chunk_size=load_chunk_size,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
             if latest_checkpoint_path:
@@ -974,14 +970,15 @@ class Trainer:
                 )
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
-            self._rng_state = load_checkpoint(state=self.state,
-                                              path=load_path,
-                                              object_store=load_object_store,
-                                              load_weights_only=load_weights_only,
-                                              strict_model_weights=load_strict_model_weights,
-                                              chunk_size=load_chunk_size,
-                                              progress_bar=load_progress_bar,
-                                              ignore_keys=load_ignore_keys)
+            self._rng_state = load_checkpoint(
+                state=self.state,
+                path=load_path,
+                object_store=load_object_store,
+                load_weights_only=load_weights_only,
+                strict_model_weights=load_strict_model_weights,
+                progress_bar=load_progress_bar,
+                ignore_keys=load_ignore_keys,
+            )
             # Always override run_name so it is consistent with what was used for Event.INIT. In the future, we'll use the loaded name
             # and not require run_name
             self.state.run_name = run_name
@@ -1043,7 +1040,6 @@ class Trainer:
         run_name: Optional[str],
         save_latest_artifact_name: str,
         loggers: List[LoggerDestination],
-        load_chunk_size: int,
         load_progress_bar: bool,
     ):
         """Determines the load path when using autoresume.
@@ -1076,7 +1072,6 @@ class Trainer:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
                     logger.get_file_artifact(artifact_name=save_latest_artifact_name,
                                              destination=latest_checkpoint_path,
-                                             chunk_size=load_chunk_size,
                                              progress_bar=load_progress_bar)
                     break
                 except (NotImplementedError, FileNotFoundError):

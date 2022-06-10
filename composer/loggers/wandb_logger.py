@@ -9,7 +9,6 @@ import atexit
 import os
 import pathlib
 import re
-import shutil
 import sys
 import tempfile
 import warnings
@@ -178,11 +177,11 @@ class WandBLogger(LoggerDestination):
         self,
         artifact_name: str,
         destination: str,
-        chunk_size: int = 2**20,
+        overwrite: bool = False,
         progress_bar: bool = True,
     ):
         # Note: Wandb doesn't support progress bars for downloading
-        del chunk_size, progress_bar
+        del progress_bar
         import wandb
 
         artifact = wandb.use_artifact(artifact_name)
@@ -196,7 +195,10 @@ class WandBLogger(LoggerDestination):
                     "Found more than one file in artifact. We assume the checkpoint is the only file in the artifact.")
             artifact_name = artifact_names[0]
             artifact_path = os.path.join(artifact_folder, artifact_name)
-            shutil.move(artifact_path, destination)
+            if overwrite:
+                os.replace(artifact_path, destination)
+            else:
+                os.rename(artifact_path, destination)
 
     def post_close(self) -> None:
         import wandb

@@ -162,13 +162,13 @@ def get_cb_hparams_and_marks():
     This function is meant to be used like this::
 
         import pytest
-        from tests.common.hparams import assert_yaml_loads
+        from tests.common.hparams import construct_from_yaml
         from tests.callbacks.callback_settings import get_cb_hparams_and_marks, get_cb_kwargs
 
         @pytest.mark.parametrize("constructor",get_cb_hparams_and_marks())
         def test_something(constructor: Callable, yaml_dict: Dict[str, Any]):
             yaml_dict = get_cb_kwargs(constructor)
-            assert_yaml_loads(constructor, yaml_dict=yaml_dict)
+            construct_from_yaml(constructor, yaml_dict=yaml_dict)
     """
     implementations = [
         *callback_registry.values(),

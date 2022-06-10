@@ -10,7 +10,7 @@ from composer.algorithms.algorithm_hparams_registry import algorithm_registry
 from composer.core import Algorithm
 from tests.algorithms.algorithm_settings import get_alg_kwargs, get_algs_with_marks
 from tests.common import get_module_subclasses
-from tests.common.hparams import assert_in_registry, assert_yaml_loads
+from tests.common.hparams import assert_in_registry, construct_from_yaml
 
 
 @pytest.mark.parametrize("alg_cls", get_algs_with_marks())
@@ -28,4 +28,4 @@ def test_algs_load_from_yaml(alg_cls: Type[Algorithm]):
     kwargs = get_alg_kwargs(alg_cls)
     if kwargs is None:
         pytest.xfail(f"Missing settings for algorithm {alg_cls.__name__}")
-    assert_yaml_loads(alg_cls, kwargs, expected=alg_cls)
+    assert isinstance(construct_from_yaml(alg_cls, kwargs), alg_cls)

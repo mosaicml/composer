@@ -116,6 +116,7 @@ def test_reader_after_crash(remote_local: Tuple[str, str], created_ago: float, t
     shutil.copy(os.path.join(remote, "index.mds"), os.path.join(local, "index.mds.tmp"))
     shutil.copy(os.path.join(remote, "000003.mds"), os.path.join(local, "000003.mds.tmp"))
     time.sleep(created_ago)
+
     dataset = StreamingDataset(remote=remote, local=local, shuffle=False, decoders=decoders, timeout=timeout)
 
     # Iterate over dataset and make sure there are no TimeoutErrors
@@ -264,11 +265,13 @@ def test_dataloader_multi_device(remote_local: Tuple[str, str], batch_size: int,
     dist.barrier()
 
     # Build StreamingDataset
-    dataset = StreamingDataset(remote=remote,
-                               local=node_local,
-                               shuffle=shuffle,
-                               decoders=decoders,
-                               batch_size=device_batch_size)
+    dataset = StreamingDataset(
+        remote=remote,
+        local=node_local,
+        shuffle=shuffle,
+        decoders=decoders,
+        batch_size=device_batch_size,
+    )
 
     # Build DataLoader
     dataloader = DataLoader(dataset=dataset,

@@ -310,13 +310,13 @@ class ObjectStoreLogger(LoggerDestination):
         self,
         artifact_name: str,
         destination: str,
-        chunk_size: int = 2**20,
+        overwrite: bool = False,
         progress_bar: bool = True,
     ):
         get_file(path=artifact_name,
                  destination=destination,
                  object_store=self.object_store,
-                 chunk_size=chunk_size,
+                 overwrite=overwrite,
                  progress_bar=progress_bar)
 
     def post_close(self):
@@ -363,10 +363,12 @@ def _validate_credentials(
 ) -> None:
     # Validates the credentials by attempting to touch a file in the bucket
     # raises an error if there was a credentials failure.
-    object_store.upload_object_via_stream(
-        obj=b"credentials_validated_successfully",
-        object_name=object_name_to_test,
-    )
+    with tempfile.NamedTemporaryFile("wb") as f:
+        f.write(b"credentials_validated_successfully")
+        object_store.upload_object(
+            object_name=object_name_to_test,
+            filename=f.name,
+        )
 
 
 def _upload_worker(
@@ -401,7 +403,9 @@ def _upload_worker(
                 # Exceptions will be detected on the next batch_end or epoch_end event
                 raise FileExistsError(f"Object {uri} already exists, but allow_overwrite was set to False.")
         log.info("Uploading file %s to %s", file_path_to_upload, uri)
-        retry(ObjectStoreTransientError, num_attempts=num_attempts)(
-            lambda: object_store.upload_object(file_path=file_path_to_upload, object_name=object_name))()
+        retry(ObjectStoreTransientError, num_attempts=num_attempts)(lambda: object_store.upload_object(
+            object_name=object_name,
+            filename=file_path_to_upload,
+        ))()
         os.remove(file_path_to_upload)
         file_queue.task_done()
