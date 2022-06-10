@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from composer import Algorithm, Trainer
 from composer.algorithms import SAM, BlurPool, Factorize, LayerFreezing, SqueezeExcite, StochasticDepth
-from tests.algorithms.algorithm_settings import get_alg_dataset, get_alg_kwargs, get_alg_model, get_algs_with_marks
+from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwargs, get_alg_model, get_algs_with_marks
 from tests.common import deep_compare
 
 
@@ -49,7 +49,7 @@ def test_algorithm_resumption(
     # train model once, saving checkpoints every epoch
     trainer1 = Trainer(
         model=model,
-        train_dataloader=DataLoader(dataset=get_alg_dataset(alg_cls), batch_size=4),
+        train_dataloader=get_alg_dataloader(alg_cls),
         optimizers=optimizer,
         schedulers=scheduler,
         save_folder=folder1,
@@ -66,7 +66,7 @@ def test_algorithm_resumption(
 
     trainer2 = Trainer(
         model=copied_model,
-        train_dataloader=DataLoader(dataset=get_alg_dataset(alg_cls), batch_size=4),
+        train_dataloader=get_alg_dataloader(alg_cls),
         load_path=os.path.join(folder1, 'ep1-rank{rank}'),
         load_weights_only=False,
         load_strict_model_weights=False,
