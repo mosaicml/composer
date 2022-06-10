@@ -19,8 +19,6 @@ requirements:
     - python >=3.7
     - setuptools
     - git
-  build:
-    - git
   run:
     - python >=3.7,<4
     - pyyaml >=6.0,<7
