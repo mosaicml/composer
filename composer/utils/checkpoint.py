@@ -14,6 +14,7 @@ import shutil
 import tarfile
 import tempfile
 import textwrap
+import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -278,50 +279,70 @@ def _download_checkpoint(
 
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
 
+  
+def _flatten_keys(obj: Any, paths: List[str], existing_path: str):
+    """Recursively flatten the keys of a dictionary or list into a set of paths."""
+    # Store path when we reach end, which is either non-Dict or empty Dict
+    if isnstance(obj, list) and len(obj) > 0:
+        for i, elm in enumerate(obj):
+            _flatten_keys(elm, paths, f"{existing_path}/{i}")
+    elif isinstance(obj, dict) and len(obj) > 0:
+        for k, v in obj.items():
+            _flatten_keys(v, paths, f"{existing_path}/{k}")
+    else:
+        # Remove leading /
+        paths.append(existing_path.lstrip('/'))
+
+def _remove_paths(obj: Union[list, Dict[str, Any]], exclude_paths: List[List[str]]):   
+    # First determine the keys which will be recursed on and which will be removed entirely
+    # Group the `exclude_paths` by the key
+    keys_to_paths_to_recurse = {}
+    keys_to_remove = []
+    for exclude_path_parts in exclude_paths:'
+        key = exclude_path_parts[0]
+        if isinstance(obj, list):
+            key = int(key)
+        if len(path) == 1:
+            keys_to_remove.append(key)
+        else:
+            if key not in keys_to_paths_to_recurse:
+                keys_to_paths_to_recurse[key] = []
+            keys_to_paths_to_recurse.append(exclude_path_parts[1:])
+    
+    # Recurse first, so in the case of a list, the indexing is consistent
+    for key, paths_to_recurse in keys_to_paths_to_recurse.items():
+        _remove_paths(obj[key], paths_to_recurse)
+    
+    # Sort the keys in reverse order, so in the case of a list, the indexing is consistent
+    keys_to_remove.sort(reverse=True)
+    
+    # Remove the keys
+    for key in keys_to_remove:
+        del obj[key]
 
 def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
     """Provides a function which deletes all subparts of a dictionary based on a list of paths."""
 
     def filter_func(state_dict: Dict) -> None:
-
-        def flatten_state_dict(state_dict: Any, paths: List[str], existing_path: str):
-            """Recursively convert a dictionary into a set of paths."""
-            # Store path when we reach end, which is either non-Dict or empty Dict
-            if not isinstance(state_dict, Dict) or len(state_dict.keys()) == 0:
-                # Remove leading /
-                paths.append(existing_path.lstrip('/'))
-            # Descend down all keys
-            else:
-                for key in state_dict.keys():
-                    flatten_state_dict(state_dict[key], paths, f"{existing_path}/{key}")
-
         # Flatten dictionary into paths
         paths = []
-        flatten_state_dict(state_dict, paths, '/')
+        _flatten_keys(state_dict, paths, '/')
 
         filtered_paths = []
         for exclude_glob in exclude_globs:
             filtered_paths_from_glob = fnmatch.filter(paths, exclude_glob)
             if len(filtered_paths_from_glob) == 0:
-                log.warning(
+                warnings.warn(
                     f"No parts from loaded checkpoint state_dict were ignored by load_ignore_key {exclude_glob}")
             filtered_paths.extend(filtered_paths_from_glob)
         filtered_paths = list(set(filtered_paths))
-        filtered_paths_str = " ".join(filtered_paths)
+        filtered_paths_str = ", ".join(filtered_paths)
         if len(filtered_paths_str) > 0:
             log.info(f"Ignoring the following paths from the loaded checkpoint state_dict: {filtered_paths_str}")
 
-        def remove_path(state_dict: Dict, exclude_glob: List[str]):
-            # End of path, delete key in state_dict
-            if len(exclude_glob) == 1:
-                del state_dict[exclude_glob[0]]
-            # Otherwise, recurse down the path
-            else:
-                remove_path(state_dict[exclude_glob[0]], exclude_glob[1:])
-
         # Loop through all paths to exclude
-        for filtered_path in filtered_paths:
-            remove_path(state_dict, filtered_path.split('/'))
+        paths_to_remove = [path.split("/") for path in filtered_paths]
+        _remove_paths(state_dict, paths_to_remove)
 
     return filter_func
 
