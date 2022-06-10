@@ -298,7 +298,6 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
         # Flatten dictionary into paths
         paths = []
         flatten_state_dict(state_dict, paths, '/')
-        print(paths)
 
         filtered_paths = []
         for exclude_glob in exclude_globs:
