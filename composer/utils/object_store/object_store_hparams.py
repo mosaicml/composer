@@ -6,14 +6,15 @@
 import abc
 import dataclasses
 import os
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type
 
 import yahp as hp
 
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.s3_object_store import S3ObjectStore
 
-__all__ = ['ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'object_store_registry']
+__all__ = ['ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'S3ObjectStoreHparams', 'object_store_registry']
 
 
 @dataclasses.dataclass
@@ -172,6 +173,44 @@ class LibcloudObjectStoreHparams(ObjectStoreHparams):
         return init_kwargs
 
 
-object_store_registry: Dict[str, Union[Type[ObjectStore], Type[hp.Hparams]]] = {
+@dataclasses.dataclass
+class S3ObjectStoreHparams(ObjectStoreHparams):
+    """:class:`~.S3ObjectStore` hyperparameters.
+
+    The :class:`.S3ObjectStore` uses :mod:`boto3` to handle uploading files to and downloading files from
+    S3-Compatible object stores.
+
+    .. note::
+
+        To follow best security practices, credentials cannot be specified as part of the hyperparameters.
+        Instead, please ensure that credentials are in the environment, which will be read automatically.
+
+        See :ref:`guide to credentials <boto3:guide_credentials>` for more information.
+
+    Args:
+        bucket (str): See :class:`.S3ObjectStore`.
+        region_name (str, optional): See :class:`.S3ObjectStore`.
+        endpoint_url (str, optional): See :class:`.S3ObjectStore`.
+        client_config (dict, optional): See :class:`.S3ObjectStore`.
+        transfer_config (dict, optional): See :class:`.S3ObjectStore`.
+    """
+
+    bucket: str = hp.auto(S3ObjectStore, 'bucket')
+    region_name: Optional[str] = hp.auto(S3ObjectStore, 'region_name')
+    endpoint_url: Optional[str] = hp.auto(S3ObjectStore, 'endpoint_url')
+    # Not including the credentials as part of the hparams -- they should be specified through the default
+    # environment variables
+    client_config: Optional[Dict[Any, Any]] = hp.auto(S3ObjectStore, 'client_config')
+    transfer_config: Optional[Dict[Any, Any]] = hp.auto(S3ObjectStore, 'transfer_config')
+
+    def get_object_store_cls(self) -> Type[ObjectStore]:
+        return S3ObjectStore
+
+    def get_kwargs(self) -> Dict[str, Any]:
+        return dataclasses.asdict(self)
+
+
+object_store_registry: Dict[str, Type[ObjectStoreHparams]] = {
     'libcloud': LibcloudObjectStoreHparams,
+    's3': S3ObjectStoreHparams,
 }

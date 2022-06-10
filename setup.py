@@ -121,6 +121,7 @@ extra_deps['dev'] = [
     'pandoc==2.2',
     'pypandoc==1.8.1',
     'GitPython==3.1.27',
+    'moto[s3]>=3.1.12,<3.2',
 ]
 
 extra_deps['deepspeed'] = [

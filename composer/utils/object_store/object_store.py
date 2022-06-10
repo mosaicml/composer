@@ -61,9 +61,20 @@ class ObjectStoreTransientError(RuntimeError):
 class ObjectStore(abc.ABC):
     """Abstract class for implementing object stores, such as LibcloudObjectStore and S3ObjectStore."""
 
-    @abc.abstractmethod
     def get_uri(self, object_name: str) -> str:
-        """Returns the URI for ``object_name``."""
+        """Returns the URI for ``object_name``.
+
+        .. note::
+
+            This function does not check that ``object_name`` is in the object store.
+            It computes the URI statically.
+
+        Args:
+            object_name (str): The object name.
+
+        Returns:
+            str: The URI for ``object_name`` in the object store.
+        """
         raise NotImplementedError(f'{type(self).__name__}.get_uri is not implemented')
 
     def upload_object(
@@ -71,12 +82,12 @@ class ObjectStore(abc.ABC):
         object_name: str,
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
-    ):
+    ) -> None:
         """Upload an object currently located on a disk.
 
         Args:
             object_name (str): Object name (where object will be stored in the container)
-            filename (str): Path the the object on disk
+            filename (str | pathlib.Path): Path the the object on disk
             callback ((int, int) -> None, optional): If specified, the callback is periodically called with the number of bytes
                 uploaded and the total size of the object being uploaded.
 
@@ -107,12 +118,12 @@ class ObjectStore(abc.ABC):
         filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
-    ):
+    ) -> None:
         """Download an object to the specified destination path.
 
         Args:
             object_name (str): The name of the object to download.
-            filename (str): Full path to a file or a directory where the incoming file will be saved.
+            filename (str | pathlib.Path): Full path to a file or a directory where the incoming file will be saved.
             overwrite (bool, optional): Whether to overwrite an existing file at ``filename``, if it exists.
                 (default: ``False``)
             callback ((int) -> None, optional): If specified, the callback is periodically called with the number of bytes already
