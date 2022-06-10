@@ -129,7 +129,7 @@ class S3ObjectStore(ObjectStore):
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ):
-        if os.path.exists(filename):
+        if os.path.exists(filename) and not overwrite:
             raise FileExistsError(f"The file at {filename} already exists")
         tmp_path = str(filename) + f".{uuid.uuid4()}.tmp"
         if callback is None:

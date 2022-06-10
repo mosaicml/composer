@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import os
 import pathlib
 from typing import Generator
@@ -21,7 +22,7 @@ class MockCallback:
 
     def __call__(self, transferred: int, total: int):
         self.num_calls += 1
-        assert transferred >= self.transferred_bytes, "transferred should be monotonically increasing"
+        assert transferred == 0 or transferred >= self.transferred_bytes, "transferred should be monotonically increasing"
         self.transferred_bytes = transferred
         assert total == self.total_num_bytes
 
@@ -90,12 +91,17 @@ class TestObjectStore:
         with pytest.raises(FileNotFoundError):
             object_store.get_object_size("not found object")
 
-    def test_download(self, object_store: ObjectStore, dummy_obj: pathlib.Path, tmp_path: pathlib.Path):
+    @pytest.mark.parametrize("overwrite", [True, False])
+    def test_download(self, object_store: ObjectStore, dummy_obj: pathlib.Path, tmp_path: pathlib.Path,
+                      overwrite: bool):
         object_name = "tmpfile_object_name"
         object_store.upload_object(object_name, str(dummy_obj))
         filepath = str(tmp_path / "destination_path")
         cb = MockCallback(dummy_obj.stat().st_size)
         object_store.download_object(object_name, filepath, callback=cb)
+        ctx = contextlib.nullcontext() if overwrite else pytest.raises(FileExistsError)
+        with ctx:
+            object_store.download_object(object_name, filepath, callback=cb, overwrite=overwrite)
         cb.assert_all_data_transferred()
 
     def test_download_not_found(self, object_store: ObjectStore):
