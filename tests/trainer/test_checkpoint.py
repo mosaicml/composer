@@ -147,21 +147,55 @@ def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, che
 
 
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize("remove_field_paths, filter_params",
-                         [[[["state", "model", "classifier", "weights"], ["state", "model", "classifier", "bias"]],
-                           ["state/model/classifier/weights", "state/model/classifier/bias"]],
-                          [[["state", "model", "classifier", "weights"], ["state", "model", "classifier", "bias"]],
-                           ["state/model/classifier/*"]], [[["state", "timestep"]], ["state/timestep"]],
-                          [[["state", "model", "classifier", "weights"], ["state", "model", "layer1", "weights"],
-                            ["state", "model", "layer2", "weights"]], ["state/model/*/weights"]],
-                          [[["state", "model", "layer1", "weights"], ["state", "model", "layer2", "weights"]],
-                           ["state/model/layer*/weights"]]])
+@pytest.mark.parametrize(
+    "remove_field_paths,filter_params",
+    [
+        [[["state", "model", "classifier", "weights"], ["state", "model", "classifier", "bias"]],
+         ["state/model/classifier/weights", "state/model/classifier/bias"]],
+        [[
+            ["state", "model", "classifier", "weights"],
+            ["state", "model", "classifier", "bias"],
+        ], ["state/model/classifier/*"]],
+        [
+            [["state", "timestep"]],
+            ["state/timestep"],
+        ],
+        [
+            [["state", "list_element", 0]],
+            ["state/list_element/0"],
+        ],
+        [
+            [["state", "list_element", 0, "nested_list_element"]],
+            ["state/list_element/0/nested_list_element"],
+        ],
+        [
+            # Repeating the zero for the test case as removing a list index shifts everything
+            [["state", "list_element", 0], ["state", "list_element", 0]],
+            ["state/list_element/0", "state/list_element/1"],
+        ],
+        [
+            [
+                ["state", "model", "classifier", "weights"],
+                ["state", "model", "layer1", "weights"],
+                ["state", "model", "layer2", "weights"],
+            ],
+            ["state/model/*/weights"],
+        ],
+        [
+            [["state", "model", "layer1", "weights"], ["state", "model", "layer2", "weights"]],
+            ["state/model/layer*/weights"],
+        ],
+    ],
+)
 def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[str]):
     # Set up base dictionary
     base_dict = {
         'state': {
             'run_name': 'my_first_run',
             'timestep': 7,
+            'list_element': [{
+                'nested_list_element': 'hello'
+            }, 'world'],
             'model': {
                 'layer1': {
                     'weights': 6,

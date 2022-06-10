@@ -279,46 +279,47 @@ def _download_checkpoint(
 
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
 
-  
+
 def _flatten_keys(obj: Any, paths: List[str], existing_path: str):
     """Recursively flatten the keys of a dictionary or list into a set of paths."""
     # Store path when we reach end, which is either non-Dict or empty Dict
-    if isnstance(obj, list) and len(obj) > 0:
+    if isinstance(obj, list) and len(obj) > 0:
         for i, elm in enumerate(obj):
             _flatten_keys(elm, paths, f"{existing_path}/{i}")
     elif isinstance(obj, dict) and len(obj) > 0:
         for k, v in obj.items():
             _flatten_keys(v, paths, f"{existing_path}/{k}")
-    else:
-        # Remove leading /
-        paths.append(existing_path.lstrip('/'))
+    # Remove leading /
+    paths.append(existing_path.lstrip('/'))
 
-def _remove_paths(obj: Union[list, Dict[str, Any]], exclude_paths: List[List[str]]):   
+
+def _remove_paths(obj: Union[list, Dict[str, Any]], exclude_paths: List[List[str]]):
     # First determine the keys which will be recursed on and which will be removed entirely
     # Group the `exclude_paths` by the key
-    keys_to_paths_to_recurse = {}
+    keys_to_recurse = {}
     keys_to_remove = []
-    for exclude_path_parts in exclude_paths:'
+    for exclude_path_parts in exclude_paths:
         key = exclude_path_parts[0]
         if isinstance(obj, list):
             key = int(key)
-        if len(path) == 1:
+        if len(exclude_path_parts) == 1:
             keys_to_remove.append(key)
         else:
-            if key not in keys_to_paths_to_recurse:
-                keys_to_paths_to_recurse[key] = []
-            keys_to_paths_to_recurse.append(exclude_path_parts[1:])
-    
+            if key not in keys_to_recurse:
+                keys_to_recurse[key] = []
+            keys_to_recurse[key].append(exclude_path_parts[1:])
+
     # Recurse first, so in the case of a list, the indexing is consistent
-    for key, paths_to_recurse in keys_to_paths_to_recurse.items():
+    for key, paths_to_recurse in keys_to_recurse.items():
         _remove_paths(obj[key], paths_to_recurse)
-    
+
     # Sort the keys in reverse order, so in the case of a list, the indexing is consistent
     keys_to_remove.sort(reverse=True)
-    
+
     # Remove the keys
     for key in keys_to_remove:
         del obj[key]
+
 
 def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
     """Provides a function which deletes all subparts of a dictionary based on a list of paths."""
@@ -360,8 +361,6 @@ def _restore_checkpoint(
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = torch.load(composer_states_filepath, map_location='cpu')
     if ignore_keys:
-        if state.is_model_deepspeed:
-            raise ValueError("load_ignore_keys is not supported with DeepSpeed")
         # Filter provided list of key paths
         if not callable(ignore_keys):
             ignore_keys = glob_filter(ignore_keys)
