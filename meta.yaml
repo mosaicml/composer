@@ -64,6 +64,7 @@ test:
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
     - apache-libcloud>=3.5.1,<4
+    - cpuonly >=2.0,<3
   files:
     - "**/composer/**"
     - "**/tests/**"

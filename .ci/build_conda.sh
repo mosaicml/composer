@@ -14,6 +14,8 @@ yum install -y git make
 
 echo "Adding 'conda-forge' to the conda channels"
 conda config --add channels conda-forge
+echo "Adding 'pytorch' to the conda channels"
+conda config --add channels pytorch
 echo "Adding 'mosaicml' to the conda channels"
 conda config --add channels mosaicml
 echo "Adding 'defaults' to the conda channels"
