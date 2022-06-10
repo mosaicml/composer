@@ -113,13 +113,18 @@ class GradientClipping(Algorithm):
         clipping_type ('adaptive', 'norm', 'value'): String denoting which type of
             gradient clipping to do. The options are:
 
-            =============   ===========                             ========
-            clipping_type   description                             function
-            =============   ===========                             ========
-            'adaptive'      Clips all gradients based on            composer.algorithms.
-                             gradient norm:parameter norm            gradient_clipping.
-                             ratio.                                  gradient_clipping.
-                                                                    _apply_agc
+        .. list-table:: Title
+            :widths: 25 25 50
+            :header-rows: 1
+            * - clipping_type
+              - description
+              - function
+
+            * - 'adaptive'  
+              - Clips all gradients based on gradient norm:parameter norm ratio.             
+              - composer.algorithms.gradient_clipping.gradient_clipping._apply_agc
+
+
 
             'norm'          Clips gradient norm                     torch.nn.utils.
                                                                     clip_grad_norm_
