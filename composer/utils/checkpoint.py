@@ -337,7 +337,7 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
             filtered_paths.extend(filtered_paths_from_glob)
         filtered_paths = list(set(filtered_paths))
         filtered_paths_str = ", ".join(filtered_paths)
-        if len(filtered_paths_str) > 0:
+        if filtered_paths:
             log.info(f"Ignoring the following paths from the loaded checkpoint state_dict: {filtered_paths_str}")
 
         # Loop through all paths to exclude
