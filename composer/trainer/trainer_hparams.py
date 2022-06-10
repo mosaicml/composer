@@ -326,6 +326,7 @@ class TrainerHparams(hp.Hparams):
         default=None)
     load_weights_only: bool = hp.auto(Trainer, "load_weights_only")
     load_strict_model_weights: bool = hp.auto(Trainer, "load_strict_model_weights")
+    load_ignore_keys: Optional[List[str]] = hp.auto(Trainer, "load_ignore_keys")
 
     load_chunk_size: int = hp.auto(Trainer, "load_chunk_size")
     load_progress_bar: bool = hp.auto(Trainer, "load_progress_bar")
@@ -505,6 +506,7 @@ class TrainerHparams(hp.Hparams):
             load_strict_model_weights=self.load_strict_model_weights,
             load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
+            load_ignore_keys=self.load_ignore_keys,
 
             # Checkpoint Saving
             save_folder=self.save_folder,
