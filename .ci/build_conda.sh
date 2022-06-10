@@ -14,10 +14,6 @@ yum install -y git make
 
 echo "Adding 'conda-forge' to the conda channels"
 conda config --add channels conda-forge
-echo "Adding 'acaconda' to the conda channels"
-conda config --add channels anaconda
-echo "Adding 'pytorch' to the conda channels"
-conda config --add channels pytorch
 echo "Adding 'mosaicml' to the conda channels"
 conda config --add channels mosaicml
 echo "Adding 'defaults' to the conda channels"
@@ -28,7 +24,7 @@ conda config --set channel_priority strict
 
 # Install dependencies
 echo "Installing build dependencies"
-conda install -y conda-build conda-verify anaconda-client conda==4.12.0
+conda install -y conda-build conda-verify anaconda-client
 
 # Build (without uploading) composer
 # Conda-build invokes pytest automatically, and runs all non-gpu tests
