@@ -8,10 +8,9 @@ import pathlib
 import pytest
 
 from composer.core.time import Time, Timestamp, TimeUnit
-from composer.utils.file_helpers import (GetFileNotFoundException, ensure_folder_has_no_conflicting_files,
-                                         ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
-                                         get_file, is_tar)
-from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
+from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files, ensure_folder_is_empty,
+                                         format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar)
+from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 
 
 @pytest.mark.xfail(reason="Occassionally hits the timeout. Should refactor to use a local webserver.")
@@ -28,7 +27,7 @@ def test_get_file_uri(tmp_path: pathlib.Path):
 
 @pytest.mark.xfail(reason="Occassionally hits the timeout. Should refactor to use a local webserver.")
 def test_get_file_uri_not_found(tmp_path: pathlib.Path):
-    with pytest.raises(GetFileNotFoundException):
+    with pytest.raises(FileNotFoundError):
         get_file(
             path="https://www.mosaicml.com/notfounasdfjilasdfjlkasdljkasjdklfljkasdjfk",
             object_store=None,
@@ -102,7 +101,7 @@ def test_get_file_object_store_not_found(tmp_path: pathlib.Path, monkeypatch: py
         key_environ="OBJECT_STORE_KEY",
         container=".",
     ).initialize_object()
-    with pytest.raises(GetFileNotFoundException):
+    with pytest.raises(FileNotFoundError):
         get_file(
             path="checkpoint.txt",
             object_store=provider,
@@ -127,7 +126,7 @@ def test_get_file_local_path(tmp_path: pathlib.Path):
 
 
 def test_get_file_local_path_not_found():
-    with pytest.raises(GetFileNotFoundException):
+    with pytest.raises(FileNotFoundError):
         get_file(
             path="/path/does/not/exist",
             object_store=None,

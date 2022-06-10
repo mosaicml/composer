@@ -8,10 +8,11 @@ import tempfile
 import uuid
 from typing import Any, Dict, Iterator, Optional, Union
 
-from libcloud.storage.providers import get_driver
-from libcloud.storage.types import ObjectDoesNotExistError
+from requests.exceptions import ConnectionError
+from urllib3.exceptions import ProtocolError
 
-from composer.utils.object_store import ObjectStore
+from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
 __all__ = ["LibcloudObjectStore"]
 
@@ -33,7 +34,7 @@ class LibcloudObjectStore(ObjectStore):
     ...     }
     ... )
     >>> object_store
-    <composer.utils.libcloud_object_store.LibcloudObjectStore object at ...>
+    <composer.utils.object_store.libcloud_object_store.LibcloudObjectStore object at ...>
 
     Args:
         provider (str): Cloud provider to use. Valid options are:
@@ -75,21 +76,19 @@ class LibcloudObjectStore(ObjectStore):
     """
 
     def __init__(self, provider: str, container: str, provider_kwargs: Optional[Dict[str, Any]] = None) -> None:
+        try:
+            from libcloud.storage.providers import get_driver
+        except ImportError as e:
+            raise MissingConditionalImportError("libcloud", "apache-libcloud") from e
         provider_cls = get_driver(provider)
         if provider_kwargs is None:
             provider_kwargs = {}
+        self._provider_name = provider
         self._provider = provider_cls(**provider_kwargs)
         self._container = self._provider.get_container(container)
 
-    @property
-    def provider_name(self):
-        """The name of the cloud provider."""
-        return self._provider.name
-
-    @property
-    def container_name(self):
-        """The name of the object storage container."""
-        return self._container.name
+    def get_uri(self, object_name: str):
+        return f"{self._provider_name}://{self._container.name}/{object_name}"
 
     def upload_object(self,
                       file_path: str,
@@ -110,12 +109,27 @@ class LibcloudObjectStore(ObjectStore):
             headers (Optional[Dict[str, str]], optional): Additional request headers, such as CORS headers.
                 (defaults: ``None``, which is equivalent to an empty dictionary)
         """
-        self._provider.upload_object(file_path=file_path,
-                                     container=self._container,
-                                     object_name=object_name,
-                                     extra=extra,
-                                     verify_hash=verify_hash,
-                                     headers=headers)
+        try:
+            self._provider.upload_object(file_path=file_path,
+                                         container=self._container,
+                                         object_name=object_name,
+                                         extra=extra,
+                                         verify_hash=verify_hash,
+                                         headers=headers)
+        except Exception as e:
+            self._ensure_transient_errors_are_wrapped(e)
+
+    def _ensure_transient_errors_are_wrapped(self, exc: Exception):
+        from libcloud.common.types import LibcloudError
+        if isinstance(exc, (LibcloudError, ProtocolError, TimeoutError, ConnectionError)):
+            if isinstance(exc, LibcloudError):
+                # The S3 driver does not encode the error code in an easy-to-parse manner
+                # So first checking if the error code is non-transient
+                is_transient_error = any(x in str(exc) for x in ("408", "409", "425", "429", "500", "503", '504'))
+                if not is_transient_error:
+                    raise exc
+            raise ObjectStoreTransientError() from exc
+        raise exc
 
     def upload_object_via_stream(self,
                                  obj: Union[bytes, Iterator[bytes]],
@@ -137,11 +151,14 @@ class LibcloudObjectStore(ObjectStore):
         """
         if isinstance(obj, bytes):
             obj = iter(i.to_bytes(1, sys.byteorder) for i in obj)
-        self._provider.upload_object_via_stream(iterator=obj,
-                                                container=self._container,
-                                                object_name=object_name,
-                                                extra=extra,
-                                                headers=headers)
+        try:
+            self._provider.upload_object_via_stream(iterator=obj,
+                                                    container=self._container,
+                                                    object_name=object_name,
+                                                    extra=extra,
+                                                    headers=headers)
+        except Exception as e:
+            self._ensure_transient_errors_are_wrapped(e)
 
     def _get_object(self, object_name: str):
         """Get object from object store.
@@ -152,13 +169,21 @@ class LibcloudObjectStore(ObjectStore):
         Args:
             object_name (str): The name of the object.
         """
+        from libcloud.storage.types import ObjectDoesNotExistError
         obj = None
         try:
             obj = self._provider.get_object(self._container.name, object_name)
-        except ObjectDoesNotExistError:
+        except ObjectDoesNotExistError as e:
             # Object not found, check for potential symlink
-            object_name += ".symlink"
-            obj = self._provider.get_object(self._container.name, object_name)
+            try:
+                if not object_name.endswith(".symlink"):
+                    obj = self._provider.get_object(self._container.name, object_name + ".symlink")
+                else:
+                    raise e
+            except ObjectDoesNotExistError as e:
+                raise FileNotFoundError(f"Object not found: {self.get_uri(object_name)}") from e
+        except Exception as e:
+            self._ensure_transient_errors_are_wrapped(e)
         # Recursively trace any symlinks
         if obj.name.endswith(".symlink"):
             # Download symlink object to temporary folder
@@ -213,13 +238,13 @@ class LibcloudObjectStore(ObjectStore):
                 obj=obj,
                 destination_path=tmp_filepath,
             )
-        except:
+        except Exception as e:
             # The download failed for some reason. Make a best-effort attempt to remove the temporary file.
             try:
                 os.remove(tmp_filepath)
             except OSError:
                 pass
-            raise
+            self._ensure_transient_errors_are_wrapped(e)
 
         # The download was successful.
         if overwrite_existing:
@@ -240,4 +265,7 @@ class LibcloudObjectStore(ObjectStore):
             Iterator[bytes]: The object, as a byte stream.
         """
         obj = self._get_object(object_name)
-        return self._provider.download_object_as_stream(obj, chunk_size=chunk_size)
+        try:
+            return self._provider.download_object_as_stream(obj, chunk_size=chunk_size)
+        except Exception as e:
+            self._ensure_transient_errors_are_wrapped(e)

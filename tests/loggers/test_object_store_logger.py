@@ -11,7 +11,7 @@ from composer.core.event import Event
 from composer.core.state import State
 from composer.loggers import Logger, LogLevel
 from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams
-from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
+from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 
 
 def my_filter_func(state: State, log_level: LogLevel, artifact_name: str):
@@ -109,6 +109,10 @@ def object_store_test_helper(tmp_path: pathlib.Path,
         # Verify symlink is pointing to the artifact
         with open(symlink_artifact_name) as f:
             assert f.read() == artifact_name
+
+
+def test_object_store_logger(tmp_path: pathlib.Path, dummy_state: State, monkeypatch: pytest.MonkeyPatch):
+    object_store_test_helper(tmp_path=tmp_path, dummy_state=dummy_state, monkeypatch=monkeypatch, use_procs=False)
 
 
 @pytest.mark.timeout(15)

@@ -9,7 +9,8 @@ from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files,
                                          format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, iterate_with_pbar, map_collection
-from composer.utils.libcloud_object_store import LibcloudObjectStore
+from composer.utils.object_store import LibcloudObjectStore, ObjectStore, ObjectStoreTransientError
+from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
 __all__ = [
@@ -18,6 +19,8 @@ __all__ = [
     'map_collection',
     'IteratorFileStream',
     'get_file',
+    "ObjectStore",
+    "ObjectStoreTransientError",
     'LibcloudObjectStore',
     "MissingConditionalImportError",
     "import_object",
@@ -35,4 +38,5 @@ __all__ = [
     'disable_env_report',
     'enable_env_report',
     'print_env',
+    'retry',
 ]

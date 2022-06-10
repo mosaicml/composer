@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
+from composer.utils.object_store.object_store_hparams import LibcloudObjectStoreHparams
 
 
 def test_object_store_hparams(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
@@ -21,13 +21,12 @@ def test_object_store_hparams(tmp_path: pathlib.Path, monkeypatch: pytest.Monkey
         container=".",
     )
     provider = provider_hparams.initialize_object()
-    assert provider.provider_name == "Local Storage"
-    assert provider.container_name == "."
     local_file_path = os.path.join(local_dir, "dummy_file")
     with open(local_file_path, "w+") as f:
         f.write("Hello, world!")
 
     provider.upload_object(local_file_path, "upload_object")
+    assert provider.get_uri("upload_object") == "local://./upload_object"
     local_file_path_download = os.path.join(local_dir, "dummy_file_downloaded")
     provider.download_object("upload_object", local_file_path_download)
     with open(local_file_path_download, "r") as f:
