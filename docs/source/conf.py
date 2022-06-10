@@ -226,6 +226,8 @@ intersphinx_mapping = {
     'coolname': ('https://coolname.readthedocs.io/en/latest/', None),
     'datasets': ('https://huggingface.co/docs/datasets/master/en/', None),
     'transformers': ('https://huggingface.co/docs/transformers/master/en/', None),
+    'boto3': ('https://boto3.amazonaws.com/v1/documentation/api/latest/', None),
+    'botocore': ('https://botocore.amazonaws.com/v1/documentation/api/latest', None),
 }
 
 nitpicky = False  # warn on broken links
