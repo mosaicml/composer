@@ -42,7 +42,7 @@ requirements:
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
-    - apache-libcloud>=3.5.1,<4
+    - apache-libcloud >=3.5.1,<4
 test:
   requires:
     - fasteners ==0.17.3,<0.18
@@ -65,6 +65,7 @@ test:
     - boto3 >=1.21.45,<2
     - apache-libcloud>=3.5.1,<4
     - cpuonly >=2.0,<3
+    - moto >=3.1.12,<3.2
   files:
     - "**/composer/**"
     - "**/tests/**"
