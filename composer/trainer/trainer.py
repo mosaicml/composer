@@ -504,6 +504,28 @@ class Trainer:
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
+        load_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
+            which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator (as PyTorch
+            uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
+            See :mod:`composer.core.state` for the structure of state_dict.
+
+            Example 1: ``load_ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]`` would ignore
+            layer 1 weights and bias.
+
+            Example 2: ``load_ignore_keys = ["state/model/*"]`` would ignore the entire model, which would have the same
+            effect as the previous example if there was only 1 layer.
+
+            Example 3: ``load_ignore_keys = ["state/model/layer*.weights"]`` would ignore all weights in the model.
+
+            Example 4: ``load_ignore_keys = ["state/rank_zero_seed", "rng"]`` would reset all randomness when
+            loading the checkpoint.
+
+            If a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify
+            the state_dict before it is loaded.
+
+            (default: ``None``)
+
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. (default: ``None``)
 
@@ -682,6 +704,7 @@ class Trainer:
         load_strict_model_weights: bool = False,
         load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
+        load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
@@ -958,7 +981,8 @@ class Trainer:
                                               load_weights_only=load_weights_only,
                                               strict_model_weights=load_strict_model_weights,
                                               chunk_size=load_chunk_size,
-                                              progress_bar=load_progress_bar)
+                                              progress_bar=load_progress_bar,
+                                              ignore_keys=load_ignore_keys)
             # Always override run_name so it is consistent with what was used for Event.INIT. In the future, we'll use the loaded name
             # and not require run_name
             self.state.run_name = run_name

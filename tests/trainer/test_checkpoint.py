@@ -9,7 +9,7 @@ import tarfile
 import tempfile
 import textwrap
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 import torch
@@ -30,6 +30,7 @@ from composer.trainer.devices.device_cpu import DeviceCPU
 from composer.trainer.trainer import Trainer
 from composer.trainer.trainer_hparams import TrainerHparams
 from composer.utils import dist, is_tar
+from composer.utils.checkpoint import glob_filter
 from composer.utils.iter_helpers import ensure_tuple
 from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
 from tests.common import (EventCounterCallback, configure_dataset_hparams_for_synthetic,
@@ -143,6 +144,86 @@ def get_two_epoch_composer_hparams(composer_trainer_hparams: TrainerHparams, che
     composer_trainer_hparams.seed = None
     composer_trainer_hparams.eval_interval = "1ba"
     return composer_trainer_hparams
+
+
+@pytest.mark.timeout(5)
+@pytest.mark.parametrize(
+    "remove_field_paths,filter_params",
+    [
+        [[["state", "model", "classifier", "weights"], ["state", "model", "classifier", "bias"]],
+         ["state/model/classifier/weights", "state/model/classifier/bias"]],
+        [[
+            ["state", "model", "classifier", "weights"],
+            ["state", "model", "classifier", "bias"],
+        ], ["state/model/classifier/*"]],
+        [
+            [["state", "timestep"]],
+            ["state/timestep"],
+        ],
+        [
+            [["state", "list_element", 0]],
+            ["state/list_element/0"],
+        ],
+        [
+            [["state", "list_element", 0, "nested_list_element"]],
+            ["state/list_element/0/nested_list_element"],
+        ],
+        [
+            # Repeating the zero for the test case as removing a list index shifts everything
+            [["state", "list_element", 0], ["state", "list_element", 0]],
+            ["state/list_element/0", "state/list_element/1"],
+        ],
+        [
+            [
+                ["state", "model", "classifier", "weights"],
+                ["state", "model", "layer1", "weights"],
+                ["state", "model", "layer2", "weights"],
+            ],
+            ["state/model/*/weights"],
+        ],
+        [
+            [["state", "model", "layer1", "weights"], ["state", "model", "layer2", "weights"]],
+            ["state/model/layer*/weights"],
+        ],
+    ],
+)
+def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[str]):
+    # Set up base dictionary
+    base_dict = {
+        'state': {
+            'run_name': 'my_first_run',
+            'timestep': 7,
+            'list_element': [{
+                'nested_list_element': 'hello'
+            }, 'world'],
+            'model': {
+                'layer1': {
+                    'weights': 6,
+                    'bias': 2
+                },
+                'layer2': {
+                    'weights': 7,
+                    'bias': 1
+                },
+                'classifier': {
+                    'weights': 5,
+                    'bias': 3
+                }
+            }
+        },
+        'rng': 0,
+    }
+
+    # Remove classifier params
+    new_dict = copy.deepcopy(base_dict)
+    for remove_field_path in remove_field_paths:
+        temp_dict = base_dict
+        for step in remove_field_path[:-1]:
+            temp_dict = temp_dict[step]
+        del temp_dict[remove_field_path[-1]]
+
+    glob_filter(filter_params)(new_dict)
+    assert base_dict == new_dict
 
 
 @pytest.mark.timeout(90)
