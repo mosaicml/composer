@@ -19,17 +19,23 @@ a certain threshold. The gradient clipping operation gets executed after gradien
 The three supported types of gradient clipping can be controlled using the `clipping_type` argument and they are:
 * value: Constrains all gradients to be between [-`clipping_threshold`, `clipping_threshold`]. Usage:
 ```python
-cf.apply_gradient_clipping(model.parameters(),clipping_type='value',clipping_threshold=clipping_threshold)
+cf.apply_gradient_clipping(model.parameters(),
+                           clipping_type='value',
+                           clipping_threshold=clipping_threshold)
 ```
 * norm: Multiplies all gradients by min(1, `clipping_threshold` / L2_norm(`gradients`)). Usage:
 
 ```python
-cf.apply_gradient_clipping(model.parameters(),clipping_type='norm',clipping_threshold=clipping_threshold)
+cf.apply_gradient_clipping(model.parameters(),
+                           clipping_type='norm',
+                           clipping_threshold=clipping_threshold)
 ```
 * adaptive: Clips all gradients based on the gradient norm to parameter norm ratio. Usage: 
 
 ```python
-cf.apply_gradient_clipping(model.parameters(),clipping_type='adaptive',clipping_threshold=clipping_threshold)
+cf.apply_gradient_clipping(model.parameters(),
+                           clipping_type='adaptive',
+                           clipping_threshold=clipping_threshold)
 ```
 
 ### Functional Interface
@@ -98,7 +104,7 @@ Value-based gradient clipping is implemented as follows:
 On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradients:
 1. Any gradients that are greater than `clipping_threshold` are set to `clipping_threshold` and
 any gradients less than -`clipping_threshold` are set to -`clipping_threshold`. See [here](https://pytorch.org/docs/stable/generated/torch.nn.utils.clip_grad_value_.html) for more details.
-#### clipping_type='adaptive'
+#### `clipping_type='adaptive'`
 
 Adaptive gradient clipping is implemented as follows:
 
@@ -144,5 +150,6 @@ TODO(eracah): fill in this section.
 
 [*High-Performance Large-Scale Image Recognition Without Normalization*](https://arxiv.org/abs/2102.06171) by Andrew Brock, Soham De, Samuel L. Smith, Karen Simonyan. Published in ICML 2021.
 [*On the difficulty of training recurrent neural networks*](https://arxiv.org/abs/1211.5063) by R. Pascanu, T. Mikolov, and Y. Bengio, 2012
-[*STATISTICAL LANGUAGE MODELS BASED ON NEURAL NETWORKS*](https://www.fit.vut.cz/study/phd-thesis/283/.en)
+[*Statistical language models based on neural networks*](https://www.fit.vut.cz/study/phd-thesis/283/.en)
+
 *The Composer implementation of this method and the accompanying documentation were produced by Evan Racah at MosaicML.*
