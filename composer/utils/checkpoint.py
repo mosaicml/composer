@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import contextlib
+import fnmatch
 import logging
 import os
 import pathlib
@@ -13,7 +14,8 @@ import shutil
 import tarfile
 import tempfile
 import textwrap
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+import warnings
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 
@@ -72,6 +74,7 @@ def load_checkpoint(
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
     progress_bar: bool = True,
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -121,6 +124,27 @@ def load_checkpoint(
             match the model weights. (default: ``False``)
         progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``True``)
+        ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
+            which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator (as PyTorch
+            uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
+            See :mod:`composer.core.state` for the structure of state_dict.
+
+            Example 1: ``ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]`` would ignore
+            layer 1 weights and bias.
+
+            Example 2: ``ignore_keys = ["state/model/*"]`` would ignore the entire model, which would have the same
+            effect as the previous example if there was only 1 layer.
+
+            Example 3: ``ignore_keys = ["state/model/layer*.weights"]`` would ignore all weights in the model.
+
+            Example 4: ``ignore_keys = ["state/rank_zero_seed", "rng"]`` would reset all randomness when
+            loading the checkpoint.
+
+            If a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify
+            the state_dict before it is loaded.
+
+            (default: ``None``)
 
     Returns:
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
@@ -144,6 +168,7 @@ def load_checkpoint(
                 extracted_checkpoint_folder,
                 load_weights_only=load_weights_only,
                 strict_model_weights=strict_model_weights,
+                ignore_keys=ignore_keys,
             )
         finally:
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
@@ -248,6 +273,74 @@ def _download_checkpoint(
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
 
 
+def _flatten_keys(obj: Any, paths: List[str], existing_path: str):
+    """Recursively flatten the keys of a dictionary or list into a set of paths."""
+    # Store path when we reach end, which is either non-Dict or empty Dict
+    if isinstance(obj, list) and len(obj) > 0:
+        for i, elm in enumerate(obj):
+            _flatten_keys(elm, paths, f"{existing_path}/{i}")
+    elif isinstance(obj, dict) and len(obj) > 0:
+        for k, v in obj.items():
+            _flatten_keys(v, paths, f"{existing_path}/{k}")
+    # Remove leading /
+    paths.append(existing_path.lstrip('/'))
+
+
+def _remove_paths(obj: Union[list, Dict[str, Any]], exclude_paths: List[List[str]]):
+    # First determine the keys which will be recursed on and which will be removed entirely
+    # Group the `exclude_paths` by the key
+    keys_to_recurse = {}
+    keys_to_remove = []
+    for exclude_path_parts in exclude_paths:
+        key = exclude_path_parts[0]
+        if isinstance(obj, list):
+            key = int(key)
+        if len(exclude_path_parts) == 1:
+            keys_to_remove.append(key)
+        else:
+            if key not in keys_to_recurse:
+                keys_to_recurse[key] = []
+            keys_to_recurse[key].append(exclude_path_parts[1:])
+
+    # Recurse first, so in the case of a list, the indexing is consistent
+    for key, paths_to_recurse in keys_to_recurse.items():
+        _remove_paths(obj[key], paths_to_recurse)
+
+    # Sort the keys in reverse order, so in the case of a list, the indexing is consistent
+    keys_to_remove.sort(reverse=True)
+
+    # Remove the keys
+    for key in keys_to_remove:
+        del obj[key]
+
+
+def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
+    """Provides a function which deletes all subparts of a dictionary based on a list of paths."""
+
+    def filter_func(state_dict: Dict) -> None:
+        # Flatten dictionary into paths
+        paths = []
+        _flatten_keys(state_dict, paths, '/')
+
+        filtered_paths = []
+        for exclude_glob in exclude_globs:
+            filtered_paths_from_glob = fnmatch.filter(paths, exclude_glob)
+            if len(filtered_paths_from_glob) == 0:
+                warnings.warn(
+                    f"No parts from loaded checkpoint state_dict were ignored by load_ignore_key {exclude_glob}")
+            filtered_paths.extend(filtered_paths_from_glob)
+        filtered_paths = list(set(filtered_paths))
+        filtered_paths_str = ", ".join(filtered_paths)
+        if filtered_paths:
+            log.info(f"Ignoring the following paths from the loaded checkpoint state_dict: {filtered_paths_str}")
+
+        # Loop through all paths to exclude
+        paths_to_remove = [path.split("/") for path in filtered_paths]
+        _remove_paths(state_dict, paths_to_remove)
+
+    return filter_func
+
+
 def _restore_checkpoint(
     state: State,
     composer_states_filepath: str,
@@ -255,10 +348,17 @@ def _restore_checkpoint(
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     strict_model_weights: bool,
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = torch.load(composer_states_filepath, map_location='cpu')
+    if ignore_keys:
+        # Filter provided list of key paths
+        if not callable(ignore_keys):
+            ignore_keys = glob_filter(ignore_keys)
+        # Call function to modify state_dict
+        ignore_keys(state_dict)
     log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
 
     if state.is_model_deepspeed:
