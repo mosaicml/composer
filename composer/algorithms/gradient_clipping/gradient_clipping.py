@@ -107,24 +107,24 @@ class GradientClipping(Algorithm):
                 algorithms=[gc],
                 optimizers=[optimizer]
             )
+
+    .. list-table:: Title
+    :widths: 25 25 50
+    :header-rows: 1
+
+        * - clipping_type
+        - description
+        - function
+
+        * - 'adaptive'  
+        - Clips all gradients based on gradient norm:parameter norm ratio.             
+        - composer.algorithms.gradient_clipping.gradient_clipping._apply_agc
+
     Args:
         parameters (torch.Tensor or Iterable[torch.Tensor]): The parameters to of the
             model for whose gradients we will clip
         clipping_type ('adaptive', 'norm', 'value'): String denoting which type of
             gradient clipping to do. The options are:
-
-            .. list-table:: Title
-                :widths: 25 25 50
-                :header-rows: 1
-
-                * - clipping_type
-                - description
-                - function
-
-                * - 'adaptive'  
-                - Clips all gradients based on gradient norm:parameter norm ratio.             
-                - composer.algorithms.gradient_clipping.gradient_clipping._apply_agc
-
 
 
         'norm'          Clips gradient norm                     torch.nn.utils.
