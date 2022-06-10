@@ -22,9 +22,9 @@ from composer.algorithms.algorithm_hparams_registry import algorithm_registry
 from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.core import Algorithm, Callback, DataSpec, Evaluator, Event, Precision, State, Time
 from composer.core.types import JSON, PyTorchScheduler
-from composer.datasets import DataLoaderHparams, DatasetHparams
-from composer.datasets.dataset_registry import get_dataset_registry
-from composer.datasets.evaluator import EvaluatorHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.dataset_hparams_registry import dataset_registry
+from composer.datasets.evaluator_hparams import EvaluatorHparams
 from composer.loggers import LoggerDestination, LogLevel
 from composer.loggers.logger_hparams_registry import logger_registry
 from composer.models import (BERTForClassificationHparams, BERTHparams, DeepLabV3Hparams, EfficientNetB0Hparams,
@@ -40,7 +40,7 @@ from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
 from composer.trainer.devices.device_hparams_registry import device_registry
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, reproducibility
-from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
+from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -67,8 +67,6 @@ model_registry = {
     "timm": TimmHparams,
     "vit_small_patch16": ViTSmallPatch16Hparams
 }
-
-dataset_registry = get_dataset_registry()
 
 
 def _initialize_dataloader(
@@ -210,7 +208,7 @@ class TrainerHparams(hp.Hparams):
             .. seealso:: The :mod:`logging` module in Python.
 
         load_path (str, optional): See :class:`.Trainer`.
-        load_object_store (LibcloudObjectStore, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
+        load_object_store (ObjectStoreHparams, optional): See :class:`.Trainer`. Both ``load_logger_destination`` and
             ``load_object_store`` should not be provided since there can only be one location to load from.
         load_logger_destination (LoggerDestination, optional): Used to specify a ``LoggerDestination`` for
             ``load_object_store`` in :class:`.Trainer` as Hparams doesn't support a Union type for those objects. Both
@@ -218,8 +216,8 @@ class TrainerHparams(hp.Hparams):
             to load from.
         load_weights_only (bool, optional): See :class:`.Trainer`.
         load_strict_model_weights (bool, optional): See :class:`.Trainer`.
-        load_chunk_size (int, optional): See :class:`.Trainer`.
         load_progress_bar (bool, optional): See :class:`.Trainer`.
+        load_ignore_keys (List[str] | (Dict) -> None, optional): See :class:`.Trainer`.
 
         save_folder (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
         save_filename (str, optional): See :class:`~composer.callbacks.checkpoint_saver.CheckpointSaver`.
@@ -265,6 +263,7 @@ class TrainerHparams(hp.Hparams):
         "val_dataset": dataset_registry,
         "callbacks": callback_registry,
         "device": device_registry,
+        "load_object_store": object_store_registry,
     }
 
     model: ModelHparams = hp.auto(Trainer, "model")
@@ -315,7 +314,7 @@ class TrainerHparams(hp.Hparams):
 
     # Load Checkpoint
     load_path: Optional[str] = hp.auto(Trainer, "load_path")
-    load_object_store: Optional[LibcloudObjectStoreHparams] = hp.optional(
+    load_object_store: Optional[ObjectStoreHparams] = hp.optional(
         doc=(("If the checkpoint is in an object store (i.e. AWS S3 or Google Cloud Storage), the parameters for "
               "connecting to the cloud provider object store. Otherwise, if the checkpoint is a local filepath, "
               "leave blank. This parameter has no effect if `load_path` is not specified.")),
@@ -327,8 +326,7 @@ class TrainerHparams(hp.Hparams):
         default=None)
     load_weights_only: bool = hp.auto(Trainer, "load_weights_only")
     load_strict_model_weights: bool = hp.auto(Trainer, "load_strict_model_weights")
-
-    load_chunk_size: int = hp.auto(Trainer, "load_chunk_size")
+    load_ignore_keys: Optional[List[str]] = hp.auto(Trainer, "load_ignore_keys")
     load_progress_bar: bool = hp.auto(Trainer, "load_progress_bar")
 
     # Save Checkpoint
@@ -504,8 +502,8 @@ class TrainerHparams(hp.Hparams):
             load_object_store=load_object_store,
             load_weights_only=self.load_weights_only,
             load_strict_model_weights=self.load_strict_model_weights,
-            load_chunk_size=self.load_chunk_size,
             load_progress_bar=self.load_progress_bar,
+            load_ignore_keys=self.load_ignore_keys,
 
             # Checkpoint Saving
             save_folder=self.save_folder,
@@ -817,7 +815,7 @@ class ExperimentHparams(hp.Hparams):
 
         from tests.common import SimpleModelHparams, RandomClassificationDatasetHparams
 
-        from composer.datasets import DataLoaderHparams
+        from composer.datasets.dataset_hparams import DataLoaderHparams
         from composer.trainer.trainer_hparams import ExperimentHparams, FitHparams, EvalHparams, TrainerHparams
 
         trainer_hparams = TrainerHparams(

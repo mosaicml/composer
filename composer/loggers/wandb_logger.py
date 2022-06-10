@@ -9,7 +9,6 @@ import atexit
 import os
 import pathlib
 import re
-import shutil
 import sys
 import tempfile
 import warnings
@@ -31,7 +30,7 @@ class WandBLogger(LoggerDestination):
         project (str, optional): WandB project name.
         group (str, optional): WandB group name.
         name (str, optional): WandB run name.
-            If not specified, the :attr:`.Logger.run_name` will be used.
+            If not specified, the :attr:`.State.run_name` will be used.
         entity (str, optional): WandB entity name.
         tags (List[str], optional): WandB tags.
         log_artifacts (bool, optional): Whether to log
@@ -124,11 +123,11 @@ class WandBLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         import wandb
-        del state  # unused
+        del logger  # unused
 
         # Use the logger run name if the name is not set.
         if "name" not in self._init_kwargs or self._init_kwargs["name"] is None:
-            self._init_kwargs["name"] = logger.run_name
+            self._init_kwargs["name"] = state.run_name
 
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
@@ -178,11 +177,11 @@ class WandBLogger(LoggerDestination):
         self,
         artifact_name: str,
         destination: str,
-        chunk_size: int = 2**20,
+        overwrite: bool = False,
         progress_bar: bool = True,
     ):
         # Note: Wandb doesn't support progress bars for downloading
-        del chunk_size, progress_bar
+        del progress_bar
         import wandb
 
         artifact = wandb.use_artifact(artifact_name)
@@ -196,7 +195,10 @@ class WandBLogger(LoggerDestination):
                     "Found more than one file in artifact. We assume the checkpoint is the only file in the artifact.")
             artifact_name = artifact_names[0]
             artifact_path = os.path.join(artifact_folder, artifact_name)
-            shutil.move(artifact_path, destination)
+            if overwrite:
+                os.replace(artifact_path, destination)
+            else:
+                os.rename(artifact_path, destination)
 
     def post_close(self) -> None:
         import wandb

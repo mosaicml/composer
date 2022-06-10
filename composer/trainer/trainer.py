@@ -11,9 +11,11 @@ import itertools
 import logging
 import os
 import pathlib
+import time
 import warnings
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
 
+import coolname
 import torch
 import torch.distributed
 import torch.utils.data
@@ -38,11 +40,10 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.ddp import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module
 from composer.trainer.devices import Device, DeviceCPU, DeviceGPU
-from composer.utils import dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery, reproducibility
+from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_dist, map_collection, module_surgery,
+                            reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
-from composer.utils.file_helpers import GetFileNotFoundException
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.libcloud_object_store import LibcloudObjectStore
 from composer.algorithms import GradientClipping
 
 log = logging.getLogger(__name__)
@@ -202,6 +203,18 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     else:
         ddp_sync_strategy = DDPSyncStrategy(ddp_sync_strategy)
     return ddp_sync_strategy
+
+
+def _get_run_name(run_name: Optional[str]) -> str:
+    generated_run_name = run_name
+    if generated_run_name is None:
+        # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
+        generated_run_name = str(int(time.time())) + "-" + coolname.generate_slug(2)
+        run_name_list = [generated_run_name]
+        # ensure all ranks have the same experiment name
+        dist.broadcast_object_list(run_name_list)
+        generated_run_name = run_name_list[0]
+    return generated_run_name
 
 
 class Trainer:
@@ -389,9 +402,8 @@ class Trainer:
         loggers (LoggerDestination | Sequence[LoggerDestination], optional): The destinations to log training information to.
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        run_name (str, optional): A name for this training run. If not specified, one will be generated automatically.
-
-            .. seealso:: :class:`~composer.loggers.logger.Logger` for a description of the run name.
+        run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
+            :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
         progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
         log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
 
@@ -443,8 +455,8 @@ class Trainer:
             correct state.
 
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
-        load_object_store (Union[LibcloudObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
-            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.LibcloudObjectStore` or
+        load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
+            object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
             :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Ignored if ``load_path`` is ``None``.
             (default: ``None``)
@@ -488,10 +500,30 @@ class Trainer:
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict_model_weights (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
             Ignored if ``load_path`` is ``None``. (default: ``False``)
-        load_chunk_size (int, optional): Chunk size (in bytes) to use when downloading checkpoints.
-            Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``1,048,675``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
+        load_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
+            which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator (as PyTorch
+            uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
+            See :mod:`composer.core.state` for the structure of state_dict.
+
+            Example 1: ``load_ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]`` would ignore
+            layer 1 weights and bias.
+
+            Example 2: ``load_ignore_keys = ["state/model/*"]`` would ignore the entire model, which would have the same
+            effect as the previous example if there was only 1 layer.
+
+            Example 3: ``load_ignore_keys = ["state/model/layer*.weights"]`` would ignore all weights in the model.
+
+            Example 4: ``load_ignore_keys = ["state/rank_zero_seed", "rng"]`` would reset all randomness when
+            loading the checkpoint.
+
+            If a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify
+            the state_dict before it is loaded.
+
+            (default: ``None``)
+
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. (default: ``None``)
 
@@ -668,11 +700,11 @@ class Trainer:
 
         # Load Checkpoint
         load_path: Optional[str] = None,
-        load_object_store: Optional[Union[LibcloudObjectStore, LoggerDestination]] = None,
+        load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
         load_strict_model_weights: bool = False,
-        load_chunk_size: int = 1_048_576,
         load_progress_bar: bool = True,
+        load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
@@ -770,18 +802,18 @@ class Trainer:
                 else:
                     algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm)]
 
-        
+        # Run Name
+        run_name = _get_run_name(run_name=run_name)
 
         # Create the State
-        self.state = State(
-            rank_zero_seed=rank_zero_seed,
-            algorithms=algorithms,
-            model=model,
-            callbacks=callbacks,
-            grad_accum=grad_accum,
-            precision=precision,
-            optimizers=optimizers,
-        )
+        self.state = State(rank_zero_seed=rank_zero_seed,
+                           algorithms=algorithms,
+                           model=model,
+                           callbacks=callbacks,
+                           grad_accum=grad_accum,
+                           precision=precision,
+                           optimizers=optimizers,
+                           run_name=run_name)
 
         # Profiler
         if profiler is not None:
@@ -808,7 +840,7 @@ class Trainer:
                 ))
 
         # Logger
-        self.logger = Logger(state=self.state, destinations=loggers, run_name=run_name)
+        self.logger = Logger(state=self.state, destinations=loggers)
 
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
@@ -942,7 +974,6 @@ class Trainer:
                 run_name=run_name,
                 save_latest_artifact_name=save_latest_artifact_name,
                 loggers=loggers,
-                load_chunk_size=load_chunk_size,
                 load_progress_bar=load_progress_bar)
             # Found latest checkpoint path, load that instead
             if latest_checkpoint_path:
@@ -955,13 +986,18 @@ class Trainer:
                 )
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
-            self._rng_state = load_checkpoint(state=self.state,
-                                              path=load_path,
-                                              object_store=load_object_store,
-                                              load_weights_only=load_weights_only,
-                                              strict_model_weights=load_strict_model_weights,
-                                              chunk_size=load_chunk_size,
-                                              progress_bar=load_progress_bar)
+            self._rng_state = load_checkpoint(
+                state=self.state,
+                path=load_path,
+                object_store=load_object_store,
+                load_weights_only=load_weights_only,
+                strict_model_weights=load_strict_model_weights,
+                progress_bar=load_progress_bar,
+                ignore_keys=load_ignore_keys,
+            )
+            # Always override run_name so it is consistent with what was used for Event.INIT. In the future, we'll use the loaded name
+            # and not require run_name
+            self.state.run_name = run_name
             log.info(f"Setting seed to {self.state.seed}")
             reproducibility.seed_all(self.state.seed)
 
@@ -1020,7 +1056,6 @@ class Trainer:
         run_name: Optional[str],
         save_latest_artifact_name: str,
         loggers: List[LoggerDestination],
-        load_chunk_size: int,
         load_progress_bar: bool,
     ):
         """Determines the load path when using autoresume.
@@ -1040,21 +1075,22 @@ class Trainer:
                 "save_latest_filename must be specified so autoresume knows where to load checkpoints from.")
         if run_name is None:
             raise ValueError("run_name must be specified so autoresume knows which run to load from.")
-        latest_filename_formatted = format_name_with_dist(save_latest_filename, run_name)
-        latest_checkpoint_path = os.path.join(save_folder, latest_filename_formatted)
+        save_latest_filename = format_name_with_dist(save_latest_filename, run_name)
+        save_folder = format_name_with_dist(save_folder, run_name)
+        save_latest_artifact_name = format_name_with_dist(save_latest_artifact_name, run_name)
+        latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
         # If latest checkpoint is not saved locally, try to fetch from loggers
-        if not os.path.exists(latest_checkpoint_path) and save_latest_artifact_name is not None:
+        if not os.path.exists(latest_checkpoint_path):
             # Make save folder in case it doesn't exist so latest checkpoint can be downloaded
             os.makedirs(save_folder, exist_ok=True)
             for logger in loggers:
                 try:
                     # Fetch from logger. If it succeeds, stop trying the rest of the loggers
-                    logger.get_file_artifact(artifact_name=format_name_with_dist(save_latest_artifact_name, run_name),
+                    logger.get_file_artifact(artifact_name=save_latest_artifact_name,
                                              destination=latest_checkpoint_path,
-                                             chunk_size=load_chunk_size,
                                              progress_bar=load_progress_bar)
                     break
-                except (NotImplementedError, GetFileNotFoundException):
+                except (NotImplementedError, FileNotFoundError):
                     # Ignore errors caused by no checkpoint saved with logger
                     pass
         # Require all ranks to have local checkpoint if we wish to restore from it
@@ -2054,4 +2090,4 @@ class Trainer:
         Returns:
             List[pathlib.Path]: See :func:`.save_checkpoint`.
         """
-        return save_checkpoint(state=self.state, logger=self.logger, filename=name, weights_only=weights_only)
+        return save_checkpoint(state=self.state, filename=name, weights_only=weights_only)

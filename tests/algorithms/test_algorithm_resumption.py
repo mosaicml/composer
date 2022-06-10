@@ -108,6 +108,11 @@ def _assert_checkpoints_equal(file1, file2):
     del checkpoint2['state']['timestamp']['Timestamp']['total_wct']
     del checkpoint2['state']['timestamp']['Timestamp']['epoch_wct']
     del checkpoint2['state']['timestamp']['Timestamp']['batch_wct']
+
+    # delete run_name since its time dependent
+    del checkpoint1['state']['run_name']
+    del checkpoint2['state']['run_name']
+
     deep_compare(checkpoint1['state'], checkpoint2['state'])
 
 
