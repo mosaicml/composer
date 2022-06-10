@@ -20,6 +20,9 @@ conda config --append channels anaconda
 echo "Adding 'conda-forge' to the conda channels"
 conda config --append channels conda-forge
 
+echo "Setting strict conda channel priority"
+conda config --set channel_priority strict
+
 # Install dependencies
 echo "Installing build dependencies"
 conda install -y conda-build conda-verify anaconda-client
