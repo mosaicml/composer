@@ -116,6 +116,7 @@ class GradientClipping(Algorithm):
             .. list-table:: Title
                 :widths: 25 25 50
                 :header-rows: 1
+
                 * - clipping_type
                 - description
                 - function
@@ -126,12 +127,12 @@ class GradientClipping(Algorithm):
 
 
 
-            'norm'          Clips gradient norm                     torch.nn.utils.
-                                                                    clip_grad_norm_
+        'norm'          Clips gradient norm                     torch.nn.utils.
+                                                                clip_grad_norm_
 
-            'value'         Clips gradient at specified value       torch.nn.utils.
-                                                                    clip_grad_value_
-            =============
+        'value'         Clips gradient at specified value       torch.nn.utils.
+                                                                clip_grad_value_
+
 
         clipping_threshold (float, optional): Specifies:
             * what value to clip the gradients to (for 'value')
