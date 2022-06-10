@@ -59,18 +59,38 @@ def make_synthetic_dataloader(dataset_config: dict):
     return dataloader
 
 
-def model_components(config):
+def make_synthetic_model(config):
     tokenizer = make_lm_tokenizer(config)
     model = make_dummy_lm(config['tokenizer_family'], config['chars_per_sample'], tokenizer)
-    dataloader = make_synthetic_dataloader(config)
-    return model, dataloader
+    return model
+
+
+def make_synthetic_bert_model():
+    config = make_dataset_configs(model_family=["bert"])[0]
+    return make_synthetic_model(config)
+
+
+def make_synthetic_bert_dataloader():
+    config = make_dataset_configs(model_family=["bert"])[0]
+    return make_synthetic_dataloader(config)
+
+
+def make_synthetic_gpt2_model():
+    config = make_dataset_configs(model_family=["gpt2"])[0]
+    return make_synthetic_model(config)
+
+
+def make_synthetic_gpt2_dataloader():
+    config = make_dataset_configs(model_family=["gpt2"])[0]
+    return make_synthetic_dataloader(config)
 
 
 def synthetic_hf_state_maker(config) -> Tuple:
     """
     An example state using synthetic HF transformer function which could used for testing purposes
     """
-    model, dataloader = model_components(config)
+    model = make_synthetic_model(config)
+    dataloader = make_synthetic_dataloader(config)
     state = State(
         model=model,
         rank_zero_seed=0,

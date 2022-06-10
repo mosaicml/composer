@@ -11,17 +11,31 @@ Each algorithm is keyed based on its name in the algorithm registry.
 from typing import Any, Dict, Optional, Type
 
 import pytest
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 
 import composer
 from composer import Algorithm
 from composer.algorithms import (AGC, EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, GhostBatchNorm, LabelSmoothing, LayerFreezing, MixUp, NoOpModel,
-                                 ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
-                                 StochasticDepth)
+                                 Factorize, FusedLayerNorm, GhostBatchNorm, LabelSmoothing, LayerFreezing, MixUp,
+                                 NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup,
+                                 SqueezeExcite, StochasticDepth)
 from composer.models import ComposerResNet
 from composer.models.base import ComposerModel
 from tests import common
+from tests.fixtures.synthetic_hf_state import (make_synthetic_bert_dataloader, make_synthetic_bert_model,
+                                               make_synthetic_gpt2_dataloader, make_synthetic_gpt2_model)
+
+simple_bert_settings = {
+    'model': make_synthetic_bert_model(),
+    'dataloader': make_synthetic_bert_dataloader(),
+    'kwargs': {},
+}
+
+simple_gpt2_settings = {
+    'model': make_synthetic_gpt2_model(),
+    'dataloader': make_synthetic_gpt2_dataloader(),
+    'kwargs': {},
+}
 
 simple_vision_settings = {
     'model': common.SimpleConvModel,
@@ -77,6 +91,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         },
     },
     Factorize: simple_resnet_settings,
+    FusedLayerNorm: simple_bert_settings,
     GhostBatchNorm: {
         'model': (ComposerResNet, {
             'model_name': 'resnet18',
@@ -145,6 +160,8 @@ def get_alg_kwargs(alg_cls: Type[Algorithm]) -> Dict[str, Any]:
 def get_alg_model(alg_cls: Type[Algorithm]) -> ComposerModel:
     """Return an instance of the model for an algorithm."""
     settings = _get_alg_settings(alg_cls)['model']
+    if isinstance(settings, ComposerModel):
+        return settings
     if isinstance(settings, tuple):
         (cls, kwargs) = settings
     else:
@@ -152,14 +169,21 @@ def get_alg_model(alg_cls: Type[Algorithm]) -> ComposerModel:
     return cls(**kwargs)
 
 
-def get_alg_dataset(alg_cls: Type[Algorithm]) -> Dataset:
+def get_alg_dataloader(alg_cls: Type[Algorithm]) -> Dataset:
     """Return an instance of the dataset for an algorithm."""
-    settings = _get_alg_settings(alg_cls)['dataset']
-    if isinstance(settings, tuple):
-        (cls, kwargs) = settings
+    settings = _get_alg_settings(alg_cls)
+    if 'dataloader' in settings:
+        return settings['dataloader']
+    elif 'dataset' in settings:
+        dataset_settings = settings['dataset']
+        if isinstance(dataset_settings, tuple):
+            (cls, kwargs) = dataset_settings
+        else:
+            (cls, kwargs) = (dataset_settings, {})
+        dataset = cls(**kwargs)
+        return DataLoader(dataset=dataset, batch_size=4)
     else:
-        (cls, kwargs) = (settings, {})
-    return cls(**kwargs)
+        raise ValueError(f"Neither dataset nor dataloader have been provided for algorithm {alg_cls}")
 
 
 def get_algs_with_marks():
