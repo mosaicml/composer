@@ -135,8 +135,11 @@ class GradientClipping(Algorithm):
 
 
         clipping_threshold (float, optional): Specifies:
+            
             * what value to clip the gradients to (for 'value')
+            
             * what values to clip the gradient norms to (for 'norm')
+            
             * threshold by which if grad_norm / weight_norm is greater than this threshold
                 then scale gradients by
                 this threshold * (weight_norm / grad_norm) (for 'adaptive')
