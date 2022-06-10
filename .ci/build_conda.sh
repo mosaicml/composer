@@ -11,14 +11,15 @@ set -euo pipefail
 yum install -y git make
 
 # Prepare the conda package
+
+echo "Adding 'conda-forge' to the conda channels"
+conda config --add channels conda-forge
+echo "Adding 'acaconda' to the conda channels"
+conda config --add channels anaconda
+echo "Adding 'pytorch' to the conda channels"
+conda config --add channels pytorch
 echo "Adding 'mosaicml' to the conda channels"
 conda config --add channels mosaicml
-echo "Adding 'pytorch' to the conda channels"
-conda config --append channels pytorch
-echo "Adding 'acaconda' to the conda channels"
-conda config --append channels anaconda
-echo "Adding 'conda-forge' to the conda channels"
-conda config --append channels conda-forge
 
 echo "Setting strict conda channel priority"
 conda config --set channel_priority strict
