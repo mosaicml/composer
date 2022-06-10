@@ -8,7 +8,7 @@ from composer.utils.collect_env import configure_excepthook, disable_env_report,
 from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files, ensure_folder_is_empty,
                                          format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
-from composer.utils.iter_helpers import ensure_tuple, iterate_with_pbar, map_collection
+from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, iterate_with_pbar, map_collection
 from composer.utils.libcloud_object_store import LibcloudObjectStore
 from composer.utils.string_enum import StringEnum
 
@@ -16,6 +16,7 @@ __all__ = [
     'ensure_tuple',
     'iterate_with_pbar',
     'map_collection',
+    'IteratorFileStream',
     'get_file',
     'LibcloudObjectStore',
     "MissingConditionalImportError",

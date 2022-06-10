@@ -69,6 +69,7 @@ class StreamingDatasetWriter(object):
             raise ValueError(f"shard_size_limit={shard_size_limit} must be positive.")
 
         self.dirname = dirname
+        os.makedirs(self.dirname, exist_ok=True)
         self.fields = fields
         self.shard_size_limit = shard_size_limit
 
@@ -83,7 +84,6 @@ class StreamingDatasetWriter(object):
 
     def _flush_shard(self) -> None:
         """Flush cached samples to a new dataset shard."""
-        os.makedirs(self.dirname, exist_ok=True)
         shard = len(self.samples_per_shard)
         basename = get_shard_basename(shard)
         filename = os.path.join(self.dirname, basename)
