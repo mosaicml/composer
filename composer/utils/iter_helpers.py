@@ -7,6 +7,7 @@
 
 """Utilities for iterating over collections."""
 import contextlib
+import io
 from collections.abc import Sequence
 
 
@@ -88,3 +89,37 @@ def iterate_with_pbar(iterator, progress_bar=None):
             yield x
             if pb is not None:
                 pb.update(len(x))
+
+
+class IteratorFileStream(io.RawIOBase):
+    """Class used to convert iterator of bytes into a file-like binary stream object.
+
+    Original implementation found `here <https://stackoverflow.com/questions/6657820/how-to-convert-an-iterable-to-a-stream/20260030#20260030>`_.
+
+    .. note
+
+        A usage example ``f = io.BufferedReader(IteratorFileStream(iterator), buffer_size=buffer_size)``
+
+    Args:
+        iterator: An iterator over bytes objects
+    """
+
+    def __init__(self, iterator):
+        self.leftover = None
+        self.iterator = iterator
+
+    def readinto(self, b):
+        try:
+            l = len(b)  # max bytes to read
+            if self.leftover:
+                chunk = self.leftover
+            else:
+                chunk = next(self.iterator)
+            output, self.leftover = chunk[:l], chunk[l:]
+            b[:len(output)] = output
+            return len(output)
+        except StopIteration:
+            return 0  #EOF
+
+    def readable(self):
+        return True

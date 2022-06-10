@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import List, Tuple
+from typing import Iterable, List, Tuple
 
 import torch
 from torch.optim import SGD, AdamW
@@ -42,8 +42,9 @@ class DecoupledSGDW(SGD):
     """
 
     @staticmethod
-    def sgdw(params: List[torch.Tensor], d_p_list: List[torch.Tensor], momentum_buffer_list: List[torch.Tensor], *,
-             weight_decay: float, momentum: float, lr: float, initial_lr: float, dampening: float, nesterov: bool):
+    def sgdw(params: Iterable[torch.nn.parameter.Parameter], d_p_list: List[torch.Tensor],
+             momentum_buffer_list: List[torch.Tensor], *, weight_decay: float, momentum: float, lr: float,
+             initial_lr: float, dampening: float, nesterov: bool):
         r"""Functional API that performs SGDW algorithm computation.
 
         Args:
