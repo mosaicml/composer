@@ -1173,7 +1173,7 @@ class Trainer:
                 If ``True``, the timestamp will be zeroed out, causing :class:`.ComposerScheduler` and
                 :class:`.Algorithm` instances to start from the beginning, as if it is a new training run. The model
                 will be trained for ``duration``, if specified, or for :attr:`.State.max_duration`, which would have
-                been provided when construting the :class:`.Trainer` or by a previous call to :meth:`.fit`.
+                been provided when constructing the :class:`.Trainer` or by a previous call to :meth:`.fit`.
 
                 .. note::
 
