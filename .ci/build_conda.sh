@@ -20,6 +20,8 @@ echo "Adding 'pytorch' to the conda channels"
 conda config --add channels pytorch
 echo "Adding 'mosaicml' to the conda channels"
 conda config --add channels mosaicml
+echo "Adding 'defaults' to the conda channels"
+conda config --add channels defaults
 
 echo "Setting strict conda channel priority"
 conda config --set channel_priority strict
