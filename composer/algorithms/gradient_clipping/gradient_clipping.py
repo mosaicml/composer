@@ -27,8 +27,8 @@ def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tenso
             model for whose gradients we will clip
         clipping_type ('adaptive', 'norm', 'value'): String denoting which type of
             gradient clipping to do. The options are: 'norm', which clips the gradient norm
-            and uses torch.nn.utils.clip_grad_norm_, 'value', which clips gradient at 
-            a specified value and uses torch.nn.utils.clip_grad_value_, and 'adaptive', 
+            and uses `torch.nn.utils.clip_grad_norm_`, 'value', which clips gradient at 
+            a specified value and uses `torch.nn.utils.clip_grad_value_`, and 'adaptive', 
             which clips all gradients based on gradient norm:parameter norm ratio using
             composer.algorithms.gradient_clipping.gradient_clipping._apply_agc.       
         clipping_threshold (float, optional): Specifies what value to clip the gradients 
@@ -97,8 +97,8 @@ class GradientClipping(Algorithm):
     Args:
         clipping_type ('adaptive', 'norm', 'value'): String denoting which type of
             gradient clipping to do. The options are: 'norm', which clips the gradient norm
-            and uses torch.nn.utils.clip_grad_norm_, 'value', which clips gradient at 
-            a specified value and uses torch.nn.utils.clip_grad_value_, and 'adaptive', 
+            and uses `torch.nn.utils.clip_grad_norm_`, 'value', which clips gradient at 
+            a specified value and uses `torch.nn.utils.clip_grad_value_`, and 'adaptive', 
             which clips all gradients based on gradient norm:parameter norm ratio using
             composer.algorithms.gradient_clipping.gradient_clipping._apply_agc.       
         clipping_threshold (float, optional): Specifies what value to clip the gradients 
