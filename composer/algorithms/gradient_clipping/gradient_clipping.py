@@ -135,8 +135,13 @@ class GradientClipping(Algorithm):
 def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipping_threshold: float = 0.01):
     """Clips all gradients in model based on ratio of gradient norms to parameter norms.
 
-    Gradients whose norms exceed weight_norm * clipping_threshold are scaled down by
-    (weight_norm / grad_norm) * clipping_threshold.
+    Gradients whose norms exceed 
+
+    .. math:: weight_norm * clipping_threshold 
+    
+    are scaled down by
+
+    .. math:: (weight_norm / grad_norm) * clipping_threshold.
 
     Args:
         weights (torch.Tensor): Tensor of weights (parameters) from the model.
