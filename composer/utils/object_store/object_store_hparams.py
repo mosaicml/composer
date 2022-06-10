@@ -138,19 +138,19 @@ class LibcloudObjectStoreHparams(ObjectStoreHparams):
 
     """
 
-    provider: str = hp.auto(LibcloudObjectStore, "provider")
-    container: str = hp.auto(LibcloudObjectStore, "container")
-    key_environ: Optional[str] = hp.optional(("The name of an environment variable containing "
-                                              "an API key or username to use to connect to the provider."),
+    provider: str = hp.auto(LibcloudObjectStore, 'provider')
+    container: str = hp.auto(LibcloudObjectStore, 'container')
+    key_environ: Optional[str] = hp.optional(('The name of an environment variable containing '
+                                              'an API key or username to use to connect to the provider.'),
                                              default=None)
-    secret_environ: Optional[str] = hp.optional(("The name of an environment variable containing "
-                                                 "an API secret or password to use to connect to the provider."),
+    secret_environ: Optional[str] = hp.optional(('The name of an environment variable containing '
+                                                 'an API secret or password to use to connect to the provider.'),
                                                 default=None)
-    region: Optional[str] = hp.optional("Cloud region to use", default=None)
-    host: Optional[str] = hp.optional("Override hostname for connections", default=None)
-    port: Optional[int] = hp.optional("Override port for connections", default=None)
+    region: Optional[str] = hp.optional('Cloud region to use', default=None)
+    host: Optional[str] = hp.optional('Override hostname for connections', default=None)
+    port: Optional[int] = hp.optional('Override port for connections', default=None)
     extra_init_kwargs: Dict[str, Any] = hp.optional(
-        "Extra keyword arguments to pass into the constructor for the specified provider.", default_factory=dict)
+        'Extra keyword arguments to pass into the constructor for the specified provider.', default_factory=dict)
 
     def get_object_store_cls(self) -> Type[ObjectStore]:
         return LibcloudObjectStore
@@ -161,12 +161,12 @@ class LibcloudObjectStoreHparams(ObjectStoreHparams):
             'container': self.container,
             'provider_kwargs': {},
         }
-        for key in ("host", "port", "region"):
+        for key in ('host', 'port', 'region'):
             kwarg = getattr(self, key)
             if getattr(self, key) is not None:
                 init_kwargs['provider_kwargs'][key] = kwarg
-        init_kwargs['provider_kwargs']["key"] = None if self.key_environ is None else os.environ[self.key_environ]
-        init_kwargs['provider_kwargs']["secret"] = None if self.secret_environ is None else os.environ[
+        init_kwargs['provider_kwargs']['key'] = None if self.key_environ is None else os.environ[self.key_environ]
+        init_kwargs['provider_kwargs']['secret'] = None if self.secret_environ is None else os.environ[
             self.secret_environ]
         init_kwargs.update(self.extra_init_kwargs)
         return init_kwargs

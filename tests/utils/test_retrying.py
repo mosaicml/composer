@@ -6,7 +6,7 @@ import pytest
 from composer.utils import retry
 
 
-@pytest.mark.parametrize("with_args", [True, False])
+@pytest.mark.parametrize('with_args', [True, False])
 def test_retry(with_args: bool):
     num_tries = 0
     return_after = 2
@@ -24,7 +24,7 @@ def test_retry(with_args: bool):
         nonlocal num_tries
         if num_tries < return_after:
             num_tries += 1
-            raise RuntimeError("Called too soon!")
+            raise RuntimeError('Called too soon!')
         return "Third time's a charm"
 
     assert flaky_function() == "Third time's a charm"

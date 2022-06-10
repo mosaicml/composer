@@ -19,8 +19,8 @@ except ImportError:
     _LIBCLOUD_AVAILABLE = False
 
 _object_store_marks = {
-    LibcloudObjectStore: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason="Missing dependency")],
-    LibcloudObjectStoreHparams: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason="Missing dependency")],
+    LibcloudObjectStore: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
+    LibcloudObjectStoreHparams: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
 }
 
 object_store_kwargs: Dict[Union[Type[ObjectStore], Type[ObjectStoreHparams]], Dict[str, Any]] = {
@@ -32,9 +32,9 @@ object_store_kwargs: Dict[Union[Type[ObjectStore], Type[ObjectStoreHparams]], Di
         },
     },
     LibcloudObjectStoreHparams: {
-        "provider": 'local',
-        "key_environ": "OBJECT_STORE_KEY",
-        "container": ".",
+        'provider': 'local',
+        'key_environ': 'OBJECT_STORE_KEY',
+        'container': '.',
     }
 }
 

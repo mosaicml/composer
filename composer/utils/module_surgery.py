@@ -35,8 +35,8 @@ from composer.utils.iter_helpers import ensure_tuple
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "ReplacementFunction", "replace_module_classes", "count_module_instances", "update_params_in_optimizer",
-    "replace_params_in_optimizer"
+    'ReplacementFunction', 'replace_module_classes', 'count_module_instances', 'update_params_in_optimizer',
+    'replace_params_in_optimizer'
 ]
 
 ReplacementFunction = Callable[[torch.nn.Module, int], Optional[torch.nn.Module]]
@@ -312,7 +312,7 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
             same parameter group, or if any of them are not found at all.
     """
     if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
+        raise NotImplementedError('Surgery with multiple optimizers is not yet supported.')
     opt = ensure_tuple(optimizers)[0]
 
     # diff the two sets of parameters to find what needs to be removed or added
@@ -337,11 +337,11 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
         old_group_idxs = [_find_param_in_optimizer(p, opt) for p in removed_params]
 
         if len(old_group_idxs) == 0:
-            raise RuntimeError("No parameters were removed, so unable to infer the group into which to add parameters.")
+            raise RuntimeError('No parameters were removed, so unable to infer the group into which to add parameters.')
 
         missing_param_groups = [x for x in old_group_idxs if x < 0]
         if len(missing_param_groups) > 0:
-            raise RuntimeError(f"Parameter groups {missing_param_groups} are not in the optimizer")
+            raise RuntimeError(f'Parameter groups {missing_param_groups} are not in the optimizer')
 
         if min(old_group_idxs) != max(old_group_idxs) and len(added_params):
             raise RuntimeError(
@@ -380,22 +380,22 @@ def replace_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Paramete
             if a param from ``old_params`` cannot be found.
     """
     if len(ensure_tuple(optimizers)) > 1:
-        raise NotImplementedError("Surgery with multiple optimizers is not yet supported.")
+        raise NotImplementedError('Surgery with multiple optimizers is not yet supported.')
 
     opt = ensure_tuple(optimizers)[0]
 
     param_to_idxs_map = {}
     for group_idx, param_group in enumerate(opt.param_groups):
-        param_list = param_group["params"]
+        param_list = param_group['params']
         for param_idx, param in enumerate(param_list):
             param_to_idxs_map[param] = (group_idx, param_idx)
 
     for old_param, new_param in itertools.zip_longest(old_params, new_params):
         if old_params is None or new_params is None:
-            raise RuntimeError("old_params and new_params have different lengths.")
+            raise RuntimeError('old_params and new_params have different lengths.')
 
         if not old_param in param_to_idxs_map:
-            raise RuntimeError(f"Parameter {old_param} is missing from the optimizer.")
+            raise RuntimeError(f'Parameter {old_param} is missing from the optimizer.')
 
         group_idx, param_idx = param_to_idxs_map[old_param]
-        opt.param_groups[group_idx]["params"][param_idx] = new_param
+        opt.param_groups[group_idx]['params'][param_idx] = new_param

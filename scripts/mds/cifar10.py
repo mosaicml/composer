@@ -74,10 +74,10 @@ def main(args: Namespace) -> None:
     fields = ['uid', 'x', 'y']
 
     for (split, expected_num_samples, shuffle) in [
-        ("train", 50000, True),
-        ("val", 10000, False),
+        ('train', 50000, True),
+        ('val', 10000, False),
     ]:
-        dataset = CIFAR10(root=args.in_root, train=(split == "train"), download=True)
+        dataset = CIFAR10(root=args.in_root, train=(split == 'train'), download=True)
         uids, images, classes = get(dataset=dataset, shuffle=shuffle)
         assert len(images) == expected_num_samples
 

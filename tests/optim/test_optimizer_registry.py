@@ -14,7 +14,7 @@ from tests.common.models import SimpleModel
 optimizer_hparam_classes = get_module_subclasses(composer.optim.optimizer_hparams_registry, OptimizerHparams)
 
 
-@pytest.mark.parametrize("optimizer_hparams_cls", optimizer_hparam_classes)
+@pytest.mark.parametrize('optimizer_hparams_cls', optimizer_hparam_classes)
 class TestOptimizerHparams:
 
     def test_optimizer_in_registry(self, optimizer_hparams_cls: Type[OptimizerHparams]):

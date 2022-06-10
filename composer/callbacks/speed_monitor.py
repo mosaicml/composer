@@ -11,7 +11,7 @@ from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
 
-__all__ = ["SpeedMonitor"]
+__all__ = ['SpeedMonitor']
 
 
 class SpeedMonitor(Callback):
@@ -78,31 +78,31 @@ class SpeedMonitor(Callback):
 
     def state_dict(self) -> Dict[str, Any]:
         return {
-            "epoch_start_num_samples": self.epoch_start_num_samples,
-            "epoch_start_wct": self.epoch_start_wct,
-            "batch_start_num_samples": self.batch_start_num_samples,
-            "batch_start_wct": self.batch_start_wct,
-            "batch_wct_buffer": self.batch_wct_buffer,
-            "batch_num_samples_buffer": self.batch_num_samples_buffer,
+            'epoch_start_num_samples': self.epoch_start_num_samples,
+            'epoch_start_wct': self.epoch_start_wct,
+            'batch_start_num_samples': self.batch_start_num_samples,
+            'batch_start_wct': self.batch_start_wct,
+            'batch_wct_buffer': self.batch_wct_buffer,
+            'batch_num_samples_buffer': self.batch_num_samples_buffer,
             # "window_wct": self.window_wct,
             # "window_num_samples": self.window_num_samples,
-            "total_eval_wct": self.total_eval_wct,
+            'total_eval_wct': self.total_eval_wct,
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.epoch_start_num_samples = state["epoch_start_num_samples"]
-        self.epoch_start_wct = state["epoch_start_wct"]
-        self.batch_start_num_samples = state["batch_start_num_samples"]
-        self.batch_start_wct = state["batch_start_wct"]
+        self.epoch_start_num_samples = state['epoch_start_num_samples']
+        self.epoch_start_wct = state['epoch_start_wct']
+        self.batch_start_num_samples = state['batch_start_num_samples']
+        self.batch_start_wct = state['batch_start_wct']
         self.batch_wct_buffer = deque(
-            [x for x in state["batch_wct_buffer"]],
+            [x for x in state['batch_wct_buffer']],
             maxlen=self.window_size,
         )
         self.batch_num_samples_buffer = deque(
-            [x for x in state["batch_num_samples_buffer"]],
+            [x for x in state['batch_num_samples_buffer']],
             maxlen=self.window_size,
         )
-        self.total_eval_wct = state["total_eval_wct"]
+        self.total_eval_wct = state['total_eval_wct']
 
     def epoch_start(self, state: State, logger: Logger):
         del logger  # unused
@@ -130,9 +130,9 @@ class SpeedMonitor(Callback):
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
         logger.data_batch({
-            "wall_clock/train": state.timestamp.total_wct.total_seconds(),
-            "wall_clock/val": self.total_eval_wct,
-            "wall_clock/total": (state.timestamp.total_wct.total_seconds() + self.total_eval_wct),
+            'wall_clock/train': state.timestamp.total_wct.total_seconds(),
+            'wall_clock/val': self.total_eval_wct,
+            'wall_clock/total': (state.timestamp.total_wct.total_seconds() + self.total_eval_wct),
         })
 
     def eval_end(self, state: State, logger: Logger):
@@ -145,5 +145,5 @@ class SpeedMonitor(Callback):
         train_examples_per_epoch = int(state.timestamp.sample) - self.epoch_start_num_samples
 
         logger.data_epoch({
-            "samples/epoch": train_examples_per_epoch / epoch_time_in_train,
+            'samples/epoch': train_examples_per_epoch / epoch_time_in_train,
         })

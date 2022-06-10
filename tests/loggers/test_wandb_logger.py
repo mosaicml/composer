@@ -15,10 +15,10 @@ from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
-@pytest.mark.parametrize("callback_cls", get_cbs_and_marks(callbacks=True))
+@pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
     """Test that all logged data is json serializable, which is a requirement to use wandb."""
-    pytest.importorskip("wandb", reason="wandb is optional")
+    pytest.importorskip('wandb', reason='wandb is optional')
     from wandb.sdk.data_types.base_types.wb_value import WBValue
     callback_kwargs = get_cb_kwargs(callback_cls)
     callback = callback_cls(**callback_kwargs)
@@ -27,7 +27,7 @@ def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
         model=SimpleModel(),
         train_dataloader=DataLoader(RandomClassificationDataset()),
         train_subset_num_batches=2,
-        max_duration="1ep",
+        max_duration='1ep',
         callbacks=callback,
         loggers=logger,
         compute_training_metrics=True,

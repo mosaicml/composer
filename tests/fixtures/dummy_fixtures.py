@@ -105,15 +105,15 @@ def dummy_state(
         dummy_model = dummy_model.cuda()
     state = State(
         model=dummy_model,
-        run_name="dummy_run_name",
+        run_name='dummy_run_name',
         precision=Precision.FP32,
         grad_accum=1,
         rank_zero_seed=rank_zero_seed,
         optimizers=dummy_optimizer,
-        max_duration="10ep",
+        max_duration='10ep',
     )
     state.schedulers = dummy_scheduler
-    state.set_dataloader(dummy_train_dataloader, "train")
+    state.set_dataloader(dummy_train_dataloader, 'train')
 
     return state
 
@@ -160,7 +160,7 @@ def composer_trainer_hparams(
         algorithms=[],
         optimizers=AdamHparams(),
         schedulers=[ExponentialScheduler(gamma=0.9)],
-        max_duration="2ep",
+        max_duration='2ep',
         precision=Precision.FP32,
         train_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,

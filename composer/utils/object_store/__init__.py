@@ -7,7 +7,7 @@ from composer.utils.object_store.libcloud_object_store import LibcloudObjectStor
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
 __all__ = [
-    "ObjectStore",
-    "ObjectStoreTransientError",
-    "LibcloudObjectStore",
+    'ObjectStore',
+    'ObjectStoreTransientError',
+    'LibcloudObjectStore',
 ]

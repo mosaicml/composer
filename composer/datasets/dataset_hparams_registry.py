@@ -17,21 +17,21 @@ from composer.datasets.imagenet_hparams import ImagenetDatasetHparams, Streaming
 from composer.datasets.lm_dataset_hparams import LMDatasetHparams
 from composer.datasets.mnist_hparams import MNISTDatasetHparams
 
-__all__ = ["dataset_registry"]
+__all__ = ['dataset_registry']
 
 dataset_registry = {
-    "ade20k": ADE20kDatasetHparams,
-    "streaming_ade20k": StreamingADE20kHparams,
-    "brats": BratsDatasetHparams,
-    "imagenet": ImagenetDatasetHparams,
-    "streaming_imagenet1k": StreamingImageNet1kHparams,
-    "cifar10": CIFAR10DatasetHparams,
-    "streaming_cifar10": StreamingCIFAR10Hparams,
-    "mnist": MNISTDatasetHparams,
-    "lm": LMDatasetHparams,
-    "glue": GLUEHparams,
-    "coco": COCODatasetHparams,
-    "streaming_coco": StreamingCOCOHparams,
-    "c4": C4DatasetHparams,
-    "streaming_c4": StreamingC4Hparams,
+    'ade20k': ADE20kDatasetHparams,
+    'streaming_ade20k': StreamingADE20kHparams,
+    'brats': BratsDatasetHparams,
+    'imagenet': ImagenetDatasetHparams,
+    'streaming_imagenet1k': StreamingImageNet1kHparams,
+    'cifar10': CIFAR10DatasetHparams,
+    'streaming_cifar10': StreamingCIFAR10Hparams,
+    'mnist': MNISTDatasetHparams,
+    'lm': LMDatasetHparams,
+    'glue': GLUEHparams,
+    'coco': COCODatasetHparams,
+    'streaming_coco': StreamingCOCOHparams,
+    'c4': C4DatasetHparams,
+    'streaming_c4': StreamingC4Hparams,
 }

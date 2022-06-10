@@ -25,7 +25,7 @@ def verify_shape_image(orig: Image.Image, new: Image.Image, p_row: float, p_col:
     H_t = int((1 - p_row) * H_o)
     W_t = int((1 - p_col) * W_o)
 
-    assert (H_n, W_n) == (H_t, W_t), f"Image shape mismatch: {(H_n, W_n)} != {(H_t, W_t)}"
+    assert (H_n, W_n) == (H_t, W_t), f'Image shape mismatch: {(H_n, W_n)} != {(H_t, W_t)}'
 
 
 def verify_shape_image_pair(orig_sample: Tuple[Image.Image, Image.Image], new_sample: Tuple[Image.Image, Image.Image],
@@ -36,8 +36,8 @@ def verify_shape_image_pair(orig_sample: Tuple[Image.Image, Image.Image], new_sa
     H_t = int((1 - p_row) * H_o)
     W_t = int((1 - p_col) * W_o)
 
-    assert new_sample[0].size == (H_t, W_t), f"Input Image shape mismatch: {new_sample[0].size} != {(H_t, W_t)}"
-    assert new_sample[1].size == (H_t, W_t), f"Target image shape mismatch: {new_sample[1].size} != {(H_t, W_t)}"
+    assert new_sample[0].size == (H_t, W_t), f'Input Image shape mismatch: {new_sample[0].size} != {(H_t, W_t)}'
+    assert new_sample[1].size == (H_t, W_t), f'Target image shape mismatch: {new_sample[1].size} != {(H_t, W_t)}'
 
 
 def verify_shape_tensor(orig: torch.Tensor, new: torch.Tensor, p_row: float, p_col: float) -> None:
@@ -47,7 +47,7 @@ def verify_shape_tensor(orig: torch.Tensor, new: torch.Tensor, p_row: float, p_c
     H_t = int((1 - p_row) * H_o)
     W_t = int((1 - p_col) * W_o)
 
-    assert new.shape == (C, H_t, W_t), f"Image tensor shape mismatch: {new.shape} != {(C, H_t, W_t)}"
+    assert new.shape == (C, H_t, W_t), f'Image tensor shape mismatch: {new.shape} != {(C, H_t, W_t)}'
 
 
 def verify_shape_tensor_pair(orig_sample: Tuple[torch.Tensor, torch.Tensor],
@@ -58,8 +58,8 @@ def verify_shape_tensor_pair(orig_sample: Tuple[torch.Tensor, torch.Tensor],
     H_t = int((1 - p_row) * H_o)
     W_t = int((1 - p_col) * W_o)
 
-    assert new_sample[0].shape == (C, H_t, W_t), f"Input shape mismatch: {new_sample[0].shape} != {(C, H_t, W_t)}"
-    assert new_sample[1].shape == (C, H_t, W_t), f"Target shape mismatch: {new_sample[0].shape} != {(C, H_t, W_t)}"
+    assert new_sample[0].shape == (C, H_t, W_t), f'Input shape mismatch: {new_sample[0].shape} != {(C, H_t, W_t)}'
+    assert new_sample[1].shape == (C, H_t, W_t), f'Target shape mismatch: {new_sample[0].shape} != {(C, H_t, W_t)}'
 
 
 def verify_shape_batch(orig: torch.Tensor, new: torch.Tensor, p_row: float, p_col: float) -> None:
@@ -69,7 +69,7 @@ def verify_shape_batch(orig: torch.Tensor, new: torch.Tensor, p_row: float, p_co
     H_t = int((1 - p_row) * H_o)
     W_t = int((1 - p_col) * W_o)
 
-    assert new.shape == (N, C, H_t, W_t), f"Image batch shape mismatch: {new.shape} != {(N, C, H_t, W_t)}"
+    assert new.shape == (N, C, H_t, W_t), f'Image batch shape mismatch: {new.shape} != {(N, C, H_t, W_t)}'
 
 
 def verify_shape_batch_pair(orig_sample: Tuple[torch.Tensor, torch.Tensor],
@@ -81,9 +81,9 @@ def verify_shape_batch_pair(orig_sample: Tuple[torch.Tensor, torch.Tensor],
     H_t = int((1 - p_row) * H_o)
     W_t = int((1 - p_col) * W_o)
 
-    assert new_sample[0].shape == (N, C, H_t, W_t), f"Input shape mismatch: {new_sample[0].shape} != {(N, C, H_t, W_t)}"
+    assert new_sample[0].shape == (N, C, H_t, W_t), f'Input shape mismatch: {new_sample[0].shape} != {(N, C, H_t, W_t)}'
     assert new_sample[1].shape == (N, C, H_t,
-                                   W_t), f"Target shape mismatch: {new_sample[1].shape} != {(N, C, H_t, W_t)}"
+                                   W_t), f'Target shape mismatch: {new_sample[1].shape} != {(N, C, H_t, W_t)}'
 
 
 @pytest.fixture(params=[False, True])
@@ -166,7 +166,7 @@ class TestColOutTransform:
         assert isinstance(new_sample, Tuple)
         verify_shape_image_pair(orig_sample, new_sample, p_row, p_col)
 
-    @pytest.mark.parametrize("W", [48])
+    @pytest.mark.parametrize('W', [48])
     def test_rectangular_image(self, fake_image: Image.Image, p_row: float, p_col: float):
         """Test application to a rectangular PIL image."""
         transform = ColOutTransform(p_row, p_col)
@@ -232,7 +232,7 @@ class TestColOutFunctional:
             new_batch[1], torch.Tensor)
         verify_shape_batch_pair(sample, new_batch, p_row, p_col)
 
-    @pytest.mark.parametrize("p_col", [0.05, 0.25])
+    @pytest.mark.parametrize('p_col', [0.05, 0.25])
     def test_rectangle_batch_drop_size(self, fake_image_batch: torch.Tensor, p_row: float, p_col: float):
         """Test that unequal values of p_row and p_col work properly."""
         colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
@@ -243,18 +243,18 @@ class TestColOutFunctional:
 
 class TestColOutAlgorithm:
 
-    @pytest.mark.parametrize("event,batch", [(Event.AFTER_DATALOADER, True), (Event.FIT_START, False)])
+    @pytest.mark.parametrize('event,batch', [(Event.AFTER_DATALOADER, True), (Event.FIT_START, False)])
     def test_match_correct(self, event: Event, colout_algorithm: ColOut, minimal_state: State):
         """Algo should match AFTER_DATALOADER if batch else FIT_START."""
         assert colout_algorithm.match(event, minimal_state)
 
-    @pytest.mark.parametrize("event,batch", [(Event.FIT_START, True), (Event.AFTER_DATALOADER, False),
+    @pytest.mark.parametrize('event,batch', [(Event.FIT_START, True), (Event.AFTER_DATALOADER, False),
                                              (Event.EPOCH_END, True)])
     def test_match_incorrect(self, event: Event, colout_algorithm: ColOut, minimal_state: State):
         """Algo should NOT match FIT_START if batch else AFTER_DATALOADER."""
         assert not colout_algorithm.match(event, minimal_state)
 
-    @pytest.mark.parametrize("batch", [True])
+    @pytest.mark.parametrize('batch', [True])
     def test_apply_batch(self, fake_image_batch: torch.Tensor, colout_algorithm: ColOut, minimal_state: State,
                          empty_logger: Logger):
         """Applies the algorithm to a fake batch."""
@@ -267,7 +267,7 @@ class TestColOutAlgorithm:
         verify_shape_batch(fake_image_batch, last_input, p_row, p_col)
         assert id(minimal_state.batch[1]) == id(last_target)  # Check that the target before and after are the same
 
-    @pytest.mark.parametrize("batch", [True])
+    @pytest.mark.parametrize('batch', [True])
     def test_apply_batch_pair(self, fake_image_batch: torch.Tensor, colout_algorithm: ColOut, minimal_state: State,
                               empty_logger: Logger):
         """Applies batch ColOut to 2-tuple of images."""
@@ -280,7 +280,7 @@ class TestColOutAlgorithm:
         new_sample = minimal_state.batch
         verify_shape_batch_pair(orig_sample, new_sample, p_row, p_col)
 
-    @pytest.mark.parametrize("batch", [False])
+    @pytest.mark.parametrize('batch', [False])
     def test_apply_sample(self, colout_algorithm: ColOut, minimal_state: State, empty_logger: Logger):
         """Test that augmentation is added to dataset and functioning properly."""
         p_row = colout_algorithm.p_row
@@ -292,7 +292,7 @@ class TestColOutAlgorithm:
         original_image, _ = dataset[0]
         assert isinstance(original_image, Image.Image)
 
-        minimal_state.set_dataloader(dataloader, "train")
+        minimal_state.set_dataloader(dataloader, 'train')
         colout_algorithm.apply(Event.FIT_START, minimal_state, empty_logger)
 
         new_image, _ = dataset[0]
@@ -301,7 +301,7 @@ class TestColOutAlgorithm:
         verify_shape_image(original_image, new_image, p_row, p_col)
 
 
-@pytest.mark.parametrize("p_row,p_col", [(1.5, 0.15), (0.15, 1.5)])
+@pytest.mark.parametrize('p_row,p_col', [(1.5, 0.15), (0.15, 1.5)])
 def test_invalid_hparams(p_row: float, p_col: float):
     """Test that invalid hyperparameters error.
 

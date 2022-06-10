@@ -35,7 +35,7 @@ def get(split: str) -> Dataset:
     Returns:
         A HF Dataset.
     """
-    return datasets.load_dataset(path="c4", name="en", split=split)
+    return datasets.load_dataset(path='c4', name='en', split=split)
 
 
 def each(dataset: Dataset) -> Iterable[Dict[str, bytes]]:
@@ -59,7 +59,7 @@ def each(dataset: Dataset) -> Iterable[Dict[str, bytes]]:
         keys = list(batch.keys())
         current_bs = len(batch[keys[0]])
         for idx in range(current_bs):
-            yield {key: batch_values[idx].encode("utf-8") for key, batch_values in batch.items()}
+            yield {key: batch_values[idx].encode('utf-8') for key, batch_values in batch.items()}
 
 
 def main(args: Namespace) -> None:
@@ -68,11 +68,11 @@ def main(args: Namespace) -> None:
     Args:
         args (Namespace): Commandline arguments.
     """
-    fields = ["text", "timestamp", "url"]
+    fields = ['text', 'timestamp', 'url']
 
     for (split, split_new_name, expected_num_samples) in [
-        ("train", "train", 364868892),
-        ("validation", "val", 364608),
+        ('train', 'train', 364868892),
+        ('validation', 'val', 364608),
     ]:
         # Get dataset
         dataset = get(split=split)

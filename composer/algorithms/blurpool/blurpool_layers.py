@@ -24,9 +24,9 @@ def _default_2d_filter():
 def _padding_for_filt_2d_same(filt: torch.Tensor):
     _, _, h, w = filt.shape
     if h % 2 == 0:
-        raise IndexError(f"Filter must have odd height; got {h}")
+        raise IndexError(f'Filter must have odd height; got {h}')
     if w % 2 == 0:
-        raise IndexError(f"Filter must have odd width; got {w}")
+        raise IndexError(f'Filter must have odd width; got {w}')
     return int(torch.div(h, 2)), int(torch.div(w, 2))
 
 

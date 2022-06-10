@@ -26,7 +26,7 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.utils import dist
 
-__all__ = ["CIFAR10DatasetHparams", "StreamingCIFAR10Hparams"]
+__all__ = ['CIFAR10DatasetHparams', 'StreamingCIFAR10Hparams']
 
 log = logging.getLogger(__name__)
 
@@ -44,12 +44,12 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         ffcv_write_dataset (std): Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist. Default:
         ``False``.
     """
-    download: bool = hp.optional("whether to download the dataset, if needed", default=True)
-    use_ffcv: bool = hp.optional("whether to use ffcv for faster dataloading", default=False)
+    download: bool = hp.optional('whether to download the dataset, if needed', default=True)
+    use_ffcv: bool = hp.optional('whether to use ffcv for faster dataloading', default=False)
     ffcv_dir: str = hp.optional(
         "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
-        default="/tmp")
-    ffcv_dest: str = hp.optional("<file>.ffcv file that has dataset samples", default="cifar_train.ffcv")
+        default='/tmp')
+    ffcv_dest: str = hp.optional('<file>.ffcv file that has dataset samples', default='cifar_train.ffcv')
     ffcv_write_dataset: bool = hp.optional("Whether to create dataset in FFCV format (<file>.ffcv) if it doesn't exist",
                                            default=False)
 
@@ -83,7 +83,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 if dist.get_local_rank() == 0:
                     if self.datadir is None:
                         raise ValueError(
-                            "datadir is required if use_synthetic is False and ffcv_write_dataset is True.")
+                            'datadir is required if use_synthetic is False and ffcv_write_dataset is True.')
                     ds = CIFAR10(
                         self.datadir,
                         train=self.is_train,
@@ -97,7 +97,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
             if not os.path.exists(dataset_filepath):
                 raise ValueError(
-                    f"Dataset file containing samples not found at {dataset_filepath}. Use ffcv_dir flag to point to a dir containing {dataset_filepath}."
+                    f'Dataset file containing samples not found at {dataset_filepath}. Use ffcv_dir flag to point to a dir containing {dataset_filepath}.'
                 )
 
             # Please note that this mean/std is different from the mean/std used for regular PyTorch dataloader as
@@ -138,7 +138,7 @@ class CIFAR10DatasetHparams(DatasetHparams, SyntheticHparamsMixin):
             )
         else:
             if self.datadir is None:
-                raise ValueError("datadir is required if use_synthetic is False")
+                raise ValueError('datadir is required if use_synthetic is False')
 
             cifar10_mean = 0.4914, 0.4822, 0.4465
             cifar10_std = 0.247, 0.243, 0.261
