@@ -49,7 +49,14 @@ simple_resnet_settings = {
 }
 
 _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
-    GradientClipping: simple_vision_settings,
+    GradientClipping: {
+        'model': common.SimpleConvModel,
+        'dataset': common.RandomImageDataset,
+        'kwargs': {
+            'clipping_type': 'norm',
+            'clipping_threshold': 0.1
+        },
+    },
     Alibi: None,  # NLP settings needed
     AugMix: simple_vision_settings,
     BlurPool: {

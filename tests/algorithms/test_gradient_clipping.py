@@ -3,7 +3,6 @@
 
 
 from unittest.mock import Mock
-from xml.dom import NotSupportedErr
 
 import pytest
 import torch

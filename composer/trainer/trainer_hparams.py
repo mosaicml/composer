@@ -589,9 +589,6 @@ class FitKwargs(TypedDict):
     grad_accum: Optional[Union[int, str]]
     precision: Optional[Union[str, Precision]]
 
-    # Grad Clipping
-    grad_clip_norm: Optional[float]
-
 
 @dataclasses.dataclass
 class FitHparams(hp.Hparams):
