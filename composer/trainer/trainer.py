@@ -24,6 +24,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric, MetricCollection
 
+from composer.algorithms import GradientClipping
 from composer.callbacks import CheckpointSaver
 from composer.core import (Algorithm, Callback, DataSpec, Engine, Evaluator, Event, Precision, State, Time, Timestamp,
                            ensure_data_spec, ensure_evaluator, ensure_time)
@@ -44,7 +45,6 @@ from composer.utils import (ObjectStore, dist, ensure_tuple, format_name_with_di
                             reproducibility)
 from composer.utils.checkpoint import load_checkpoint, save_checkpoint
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.algorithms import GradientClipping
 
 log = logging.getLogger(__name__)
 
@@ -640,8 +640,8 @@ class Trainer:
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
         grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1`` for no gradient
-            clipping. (default: ``-1``). 
-            
+            clipping. (default: ``-1``).
+
             .. deprecated:: 0.8
                Deprecated. Please use composer.algorithms.GradientClipping.
         profiler (Profiler, optional): The profiler, if profiling should be enabled. (default: ``None``)
@@ -790,12 +790,23 @@ class Trainer:
         if grad_clip_norm > 0:
 
             warnings.warn(
-                DeprecationWarning(
-                    (f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
-                     "the GradientClipping Algorithm in composer.algorithms.gradient_clipping.")))
+                DeprecationWarning((f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
+                                    "the GradientClipping Algorithm in composer.algorithms.gradient_clipping.")))
 
-            if algorithms is not None and any([isinstance(algo, GradientClipping) for algo in algorithms]):
-                warnings.warn(RuntimeWarning(f"The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}"))
+            print_warning = False
+            if algorithms is not None:
+                if isinstance(algorithms, Sequence):
+                    if any([isinstance(algo, GradientClipping) for algo in algorithms]):
+                        print_warning = True
+                elif isinstance(algorithms, GradientClipping):
+                    print_warning = True
+
+                if print_warning:
+                    warnings.warn(
+                        RuntimeWarning(
+                            f"The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}"
+                        ))
+
             else:
                 if algorithms is not None:
                     algorithms.append(GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm))
@@ -936,16 +947,11 @@ class Trainer:
                     conda_package="deepspeed>=0.5.5",
                     conda_channel=None,
                 ) from e
-            deepspeed_config = _parse_deepspeed_config(
-                deepspeed_config,
-                state=self.state
-            )
+            deepspeed_config = _parse_deepspeed_config(deepspeed_config, state=self.state)
             optimizer = ensure_tuple(self.state.optimizers)[0]
-            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
-                config=deepspeed_config,
-                model=self.state.model,
-                optimizer=optimizer,
-            )
+            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(config=deepspeed_config,
+                                                                                   model=self.state.model,
+                                                                                   optimizer=optimizer)
             # Since the DeepSpeed ZeRO optimizer does not inherit torch.optim.Optimizer, the schedulers must be
             # compiled and bound BEFORE DeepSpeed initialization. However, this is OK, as the the DeepSpeed Zero
             # optimizer uses the same underlying parameter groups as the original optimizer. See

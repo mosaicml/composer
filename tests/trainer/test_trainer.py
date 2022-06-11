@@ -100,7 +100,8 @@ class TestTrainerInit():
         parameters = trainer.state.optimizers[0].param_groups[0]["params"]
         target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
-    
+
+
 class TestTrainerInitOrFit:
     """Validate that certain parameters can be passed in on `Trainer.__init__()` or `Trainer.fit()`"""
 
@@ -455,15 +456,14 @@ class TestTrainerInitOrFit:
                 grad_clip_norm=grad_clip_norm,
             )
         init_trainer.fit()
-        algorithms = [] if grad_clip_norm <= 0 else [GradientClipping(clipping_type='norm',
-                                         clipping_threshold=grad_clip_norm)]
+        algorithms = [] if grad_clip_norm <= 0 else [
+            GradientClipping(clipping_type='norm', clipping_threshold=grad_clip_norm)
+        ]
         # Train again with the grad_clip_norm specified using an algorithm
-        algo_trainer = Trainer(
-            model=copied_model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-            algorithms=algorithms
-        )
+        algo_trainer = Trainer(model=copied_model,
+                               max_duration=max_duration,
+                               train_dataloader=train_dataloader,
+                               algorithms=algorithms)
         algo_trainer.fit()
 
         # Assert that the states are equivalent

@@ -652,7 +652,6 @@ class FitHparams(hp.Hparams):
     precision: Optional[Precision] = hp.auto(Trainer.fit, "precision")
     grad_accum: Optional[Union[int, str]] = hp.auto(Trainer.fit, "grad_accum")
 
-
     def initialize_object(self, model: ComposerModel, dataloader_hparams: DataLoaderHparams) -> FitKwargs:
         """Construct a kwargs dictionary that can be unpacked and passed into :meth:`.Trainer.fit`.
 

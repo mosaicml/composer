@@ -27,12 +27,12 @@ def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tenso
             model for whose gradients we will clip
         clipping_type ('adaptive', 'norm', 'value'): String denoting which type of
             gradient clipping to do. The options are: 'norm', which clips the gradient norm
-            and uses `torch.nn.utils.clip_grad_norm_`, 'value', which clips gradient at 
-            a specified value and uses `torch.nn.utils.clip_grad_value_`, and 'adaptive', 
+            and uses `torch.nn.utils.clip_grad_norm_`, 'value', which clips gradient at
+            a specified value and uses `torch.nn.utils.clip_grad_value_`, and 'adaptive',
             which clips all gradients based on gradient norm:parameter norm ratio using
-            composer.algorithms.gradient_clipping.gradient_clipping._apply_agc.       
-        clipping_threshold (float, optional): Specifies what value to clip the gradients 
-            to (for 'value'), what values to clip the gradient norms to (for 'norm'), and 
+            composer.algorithms.gradient_clipping.gradient_clipping._apply_agc.
+        clipping_threshold (float, optional): Specifies what value to clip the gradients
+            to (for 'value'), what values to clip the gradient norms to (for 'norm'), and
             threshold by which if grad_norm / weight_norm is greater than this threshold then
             scale gradients by this threshold * (weight_norm / grad_norm) (for 'adaptive').
     """
@@ -97,15 +97,15 @@ class GradientClipping(Algorithm):
     Args:
         clipping_type ('adaptive', 'norm', 'value'): String denoting which type of
             gradient clipping to do. The options are: 'norm', which clips the gradient norm
-            and uses `torch.nn.utils.clip_grad_norm_`, 'value', which clips gradient at 
-            a specified value and uses `torch.nn.utils.clip_grad_value_`, and 'adaptive', 
+            and uses `torch.nn.utils.clip_grad_norm_`, 'value', which clips gradient at
+            a specified value and uses `torch.nn.utils.clip_grad_value_`, and 'adaptive',
             which clips all gradients based on gradient norm:parameter norm ratio using
-            composer.algorithms.gradient_clipping.gradient_clipping._apply_agc.       
-        clipping_threshold (float, optional): Specifies what value to clip the gradients 
-            to (for 'value'), what values to clip the gradient norms to (for 'norm'), and 
+            composer.algorithms.gradient_clipping.gradient_clipping._apply_agc.
+        clipping_threshold (float, optional): Specifies what value to clip the gradients
+            to (for 'value'), what values to clip the gradient norms to (for 'norm'), and
             threshold by which if grad_norm / weight_norm is greater than this threshold then
             scale gradients by this threshold * (weight_norm / grad_norm) (for 'adaptive').
-    
+
     Raises:
         NotImplementedError: if deepspeed is enabled and clipping_type is not 'norm'.
     """
@@ -125,7 +125,8 @@ class GradientClipping(Algorithm):
                 state.optimizer.clip_grad = self.clipping_threshold
                 return
             else:
-                raise NotImplementedError(f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'")
+                raise NotImplementedError(
+                    f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'")
 
         apply_gradient_clipping(parameters=state.model.parameters(),
                                 clipping_type=self.clipping_type,
@@ -135,10 +136,10 @@ class GradientClipping(Algorithm):
 def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipping_threshold: float = 0.01):
     """Clips all gradients in model based on ratio of gradient norms to parameter norms.
 
-    Gradients whose norms exceed 
+    Gradients whose norms exceed
 
-    .. math:: weight_norm * clipping_threshold 
-    
+    .. math:: weight_norm * clipping_threshold
+
     are scaled down by
 
     .. math:: (weight_norm / grad_norm) * clipping_threshold.

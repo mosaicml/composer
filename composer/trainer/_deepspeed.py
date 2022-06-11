@@ -4,7 +4,6 @@
 """Helpers for the `DeepSpeed <https://www.deepspeed.ai>`_ integration with Composer."""
 
 import copy
-import warnings
 from typing import Any, Dict, cast
 
 import torch
@@ -98,29 +97,9 @@ def _add_precision_config(config: Dict[str, Any], state: State):
         assert isinstance(fp16_config, dict)
 
 
-def _add_other_config(config: Dict[str, Any], grad_clip_norm: float):
-    if "gradient_clipping" in config:
-        ds_grad_clip_norm = config["gradient_clipping"]
-        if ds_grad_clip_norm != grad_clip_norm:
-            raise ValueError(("Provided DeepSpeed configuration specifies grad clip norm="
-                              f"{ds_grad_clip_norm}, but the Mosaic trainer has been configured "
-                              f"with grad clip norm={grad_clip_norm}"))
-
-    if grad_clip_norm >= 0:
-        config["gradient_clipping"] = grad_clip_norm
-
-    if "zero_allow_untested_optimizer" in config and not config["zero_allow_untested_optimizer"]:
-        warnings.warn(("Provided DeepSpeed configuration specifies zero_allow_untested_optimizer=False. "
-                       "This causes DeepSpeed to reject certain Mosaic optimizers that are known to "
-                       "work well with DeepSpeed."))
-
-    config["zero_allow_untested_optimizer"] = True
-
-
 def _parse_deepspeed_config(
     config: Dict[str, Any],
     state: State,
-    grad_clip_norm: float,
 ) -> Dict[str, Any]:
     """Parses the provided DeepSpeed config for compatibility with the Mosaic trainer.
 
@@ -136,8 +115,6 @@ def _parse_deepspeed_config(
         config (Dict[str, Any]): The DeepSpeed config to use. Must follow the format specified
             in `DeepSpeed's documentation <https://www.deepspeed.ai/docs/config-json/>`_.
         state (State): The state of the trainer.
-        grad_clip_norm (float, optional): The norm to clip gradient magnitudes to. Set to ``-1``
-            for no gradient clipping. (default: ``-1.0``)
 
     Returns:
         Dict[str, Any]: The DeepSpeed config updated with values from the arguments passed to the
@@ -152,7 +129,6 @@ def _parse_deepspeed_config(
     _add_batch_config(new_config, state)
     _ensure_no_optim_in_config(new_config)
     _add_precision_config(new_config, state)
-    _add_other_config(new_config, grad_clip_norm)
     return new_config
 
 

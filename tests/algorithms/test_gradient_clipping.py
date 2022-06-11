@@ -1,7 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-
 from unittest.mock import Mock
 
 import pytest
@@ -147,8 +146,8 @@ def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(monkeypatch: p
         engine.run_event(Event.AFTER_TRAIN_BATCH)
 
 
-
 #### Tests Specific to AGC ######
+
 
 def test_apply_agc(simple_model_with_grads):
 

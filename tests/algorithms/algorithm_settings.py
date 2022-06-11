@@ -15,10 +15,10 @@ from torch.utils.data import Dataset
 
 import composer
 from composer import Algorithm
-from composer.algorithms import (GradientClipping, EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, GhostBatchNorm, LabelSmoothing, LayerFreezing, MixUp, NoOpModel,
-                                 ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
-                                 StochasticDepth)
+from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
+                                 Factorize, GhostBatchNorm, GradientClipping, LabelSmoothing, LayerFreezing, MixUp,
+                                 NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup,
+                                 SqueezeExcite, StochasticDepth)
 from composer.models import ComposerResNet
 from composer.models.base import ComposerModel
 from tests import common

@@ -16,7 +16,7 @@ originally invented to solve the problem of vanishing and exploding gradients in
 Gradient clipping usually consists of clipping the extreme values of a model's gradients (or the gradients' norms) to be under
 a certain threshold. The gradient clipping operation is executed after gradients are computed (after `loss.backward()`), but before the weights of the network are updated (`optim.step()`).
 
-The desired gradient clipping type can be controlled using the `clipping_type` argument. 
+The desired gradient clipping type can be controlled using the `clipping_type` argument.
 
 ### The Different Flavors of Gradient Clipping
 
@@ -42,10 +42,10 @@ cf.apply_gradient_clipping(model.parameters(),
                            clipping_threshold=clipping_threshold)
 ```
 #### Adaptive Gradient Clipping (AGC)
-Clips all gradients based on the gradient norm to parameter norm ratio by multiplying them by 
+Clips all gradients based on the gradient norm to parameter norm ratio by multiplying them by
 $\min(1, \lambda\frac{||W||}{||G||})$, where $\lambda$ is the `clipping_threshold`,
 $||G||$ is the norm of the gradients and $||W||$ is the norm of the weights.
-Usage: 
+Usage:
 
 ```python
 cf.apply_gradient_clipping(model.parameters(),
@@ -132,7 +132,7 @@ On `Event.AFTER_TRAIN_BATCH`, for every parameter in the model that has gradient
 ## Suggested Hyperparameters
 ### Norm-based gradient clipping
 The [original authors, R. Pascanu](https://arxiv.org/abs/1211.5063) of this type of clipping used gradient clipping with recurrent neural networks. They recommend monitoring the average gradient norm of your model's gradients over many iterations as a heuristic to help
-figure out a value for the `clipping_threshold`. 
+figure out a value for the `clipping_threshold`.
 
 For computer vision, the authors of the famous [Inception convolutional neural network architecture](https://arxiv.org/abs/1512.00567v3) used a `clipping_threshold` of 2.0, which they claim helped stabilize their training.
 
