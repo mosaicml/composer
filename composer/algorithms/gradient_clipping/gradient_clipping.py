@@ -15,7 +15,7 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["GradientClipping", "apply_gradient_clipping"]
+__all__ = ['GradientClipping', 'apply_gradient_clipping']
 
 
 def apply_gradient_clipping(parameters: Union[torch.Tensor, Iterable[torch.Tensor]], clipping_type: str,

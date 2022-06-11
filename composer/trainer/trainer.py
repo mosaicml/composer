@@ -791,7 +791,7 @@ class Trainer:
 
             warnings.warn(
                 DeprecationWarning((f"Using the 'grad_clip_norm' field in Trainer is deprecated. Please use"
-                                    "the GradientClipping Algorithm in composer.algorithms.gradient_clipping.")))
+                                    'the GradientClipping Algorithm in composer.algorithms.gradient_clipping.')))
 
             print_warning = False
             if algorithms is not None:
@@ -804,7 +804,7 @@ class Trainer:
                 if print_warning:
                     warnings.warn(
                         RuntimeWarning(
-                            f"The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}"
+                            f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
                         ))
 
             else:

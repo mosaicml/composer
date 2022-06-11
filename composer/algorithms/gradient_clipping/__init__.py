@@ -9,4 +9,4 @@ See the :doc:`Method Card </method_cards/gradient_clipping>` for more details.
 
 from composer.algorithms.gradient_clipping.gradient_clipping import GradientClipping, apply_gradient_clipping
 
-__all__ = ["GradientClipping", "apply_gradient_clipping"]
+__all__ = ['GradientClipping', 'apply_gradient_clipping']
