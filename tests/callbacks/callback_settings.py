@@ -73,9 +73,9 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
     ObjectStoreLoggerHparams: {
         'object_store_hparams': {
             'libcloud': {
-                "provider": 'local',
-                "container": '.',
-                "key_environ": 'KEY_ENVIRON',
+                'provider': 'local',
+                'container': '.',
+                'key_environ': 'KEY_ENVIRON',
             },
         },
         'use_procs': False,
@@ -88,20 +88,20 @@ _callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkD
         pytest.mark.filterwarnings(
             # post_close might not be called if being used outside of the trainer
             r'ignore:Implicitly cleaning up:ResourceWarning'),
-        pytest.mark.skipif(not _LIBCLOUD_INSTALLED, reason="Libcloud is optional")
+        pytest.mark.skipif(not _LIBCLOUD_INSTALLED, reason='Libcloud is optional')
     ],
     MemoryMonitor: [
         pytest.mark.filterwarnings(
             r'ignore:The memory monitor only works on CUDA devices, but the model is on cpu:UserWarning')
     ],
-    MLPerfCallback: [pytest.mark.skipif(not _MLPERF_INSTALLED, reason="MLPerf is optional")],
+    MLPerfCallback: [pytest.mark.skipif(not _MLPERF_INSTALLED, reason='MLPerf is optional')],
     WandBLogger: [
         pytest.mark.filterwarnings(r'ignore:unclosed file:ResourceWarning'),
-        pytest.mark.skipif(not _WANDB_INSTALLED, reason="Wandb is optional"),
+        pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional'),
     ],
     ProgressBarLogger: [
         pytest.mark.filterwarnings(
-            r"ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning")
+            r'ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning')
     ],
     ObjectStoreLoggerHparams: [
         pytest.mark.filterwarnings(
@@ -148,7 +148,7 @@ def get_cbs_and_marks(callbacks: bool = False, loggers: bool = False, profilers:
         implementations.extend(get_module_subclasses(composer.profiler, Callback))
     ans = [_to_pytest_param(impl) for impl in implementations]
     if not len(ans):
-        raise ValueError("callbacks, loggers, or profilers must be True")
+        raise ValueError('callbacks, loggers, or profilers must be True')
     return ans
 
 

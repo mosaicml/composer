@@ -36,7 +36,7 @@ def test_speed_monitor():
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomClassificationDataset()),
         eval_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration="1ep",
+        max_duration='1ep',
     )
     trainer.fit()
 

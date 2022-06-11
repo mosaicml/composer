@@ -5,7 +5,7 @@
 
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["ProfilerAction"]
+__all__ = ['ProfilerAction']
 
 
 class ProfilerAction(StringEnum):
@@ -17,7 +17,7 @@ class ProfilerAction(StringEnum):
         ACTIVE: Record all events to the trace.
         ACTIVE_AND_SAVE: Record all events and save the trace at the end of the batch.
     """
-    SKIP = "skip"
-    WARMUP = "warmup"
-    ACTIVE = "active"
-    ACTIVE_AND_SAVE = "active_and_save"
+    SKIP = 'skip'
+    WARMUP = 'warmup'
+    ACTIVE = 'active'
+    ACTIVE_AND_SAVE = 'active_and_save'

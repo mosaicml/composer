@@ -18,7 +18,7 @@ from torchvision.models.resnet import BasicBlock
 
 from composer.models import Initializer
 
-__all__ = ["ResNetCIFAR", "ResNet9"]
+__all__ = ['ResNetCIFAR', 'ResNet9']
 
 
 class ResNetCIFAR(nn.Module):
@@ -92,7 +92,7 @@ class ResNetCIFAR(nn.Module):
 
     @staticmethod
     def is_valid_model_name(model_name: str):
-        valid_model_names = [f"resnet_{layers}" for layers in (20, 56)]
+        valid_model_names = [f'resnet_{layers}' for layers in (20, 56)]
         return (model_name in valid_model_names)
 
     @staticmethod

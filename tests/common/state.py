@@ -19,7 +19,7 @@ def assert_state_equivalent(state1: State, state2: State):
     assert state1.is_model_deepspeed == state2.is_model_deepspeed
 
     # Using a loose tolerance for GPU states as GPU determinism does not work properly
-    is_gpu = next(state1.model.parameters()).device.type == "cuda"
+    is_gpu = next(state1.model.parameters()).device.type == 'cuda'
     atol = 0.1 if is_gpu else 0.0
     rtol = 0.1 if is_gpu else 0.0
 

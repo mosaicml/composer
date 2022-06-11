@@ -20,7 +20,7 @@ from composer.utils.import_helpers import MissingConditionalImportError
 
 PATCH_SIZE = [1, 192, 160]
 
-__all__ = ["PytTrain", "PytVal"]
+__all__ = ['PytTrain', 'PytVal']
 
 
 def _coin_flip(prob):
@@ -36,7 +36,7 @@ def _random_augmentation(probability, augmented, original):
 class Crop(object):
 
     def __call__(self, data, oversampling):
-        img, lbl = data["image"], data["label"]
+        img, lbl = data['image'], data['label']
 
         def randrange(max_range):
             return 0 if max_range == 0 else random.randrange(max_range)
@@ -99,7 +99,7 @@ class Crop(object):
 class Noise(object):
 
     def __call__(self, data, oversampling):
-        img, lbl = data["image"], data["label"]
+        img, lbl = data['image'], data['label']
         std = np.random.uniform(0.0, oversampling)
         noise = np.random.normal(0, scale=std, size=img.shape)
         img_noised = img + noise
@@ -111,7 +111,7 @@ class Noise(object):
 class Blur(object):
 
     def __call__(self, data):
-        img, lbl = data["image"], data["label"]
+        img, lbl = data['image'], data['label']
 
         transf = torchvision.transforms.GaussianBlur(kernel_size=3, sigma=(0.5, 1.5))
         img_blured = transf(torch.Tensor(img)).numpy()
@@ -123,7 +123,7 @@ class Blur(object):
 class Brightness(object):
 
     def __call__(self, data):
-        img, lbl = data["image"], data["label"]
+        img, lbl = data['image'], data['label']
         brightness_scale = _random_augmentation(0.15, np.random.uniform(0.7, 1.3), 1.0)
         img = img * brightness_scale
 
@@ -133,7 +133,7 @@ class Brightness(object):
 class Contrast(object):
 
     def __call__(self, data):
-        img, lbl = data["image"], data["label"]
+        img, lbl = data['image'], data['label']
         min_, max_ = np.min(img), np.max(img)
         scale = _random_augmentation(0.15, np.random.uniform(0.65, 1.5), 1.0)
 
@@ -144,7 +144,7 @@ class Contrast(object):
 class Flips(object):
 
     def __call__(self, data):
-        img, lbl = data["image"], data["label"]
+        img, lbl = data['image'], data['label']
         axes = [1, 2]
         prob = 1 / len(axes)
 
@@ -159,7 +159,7 @@ class Flips(object):
 class Transpose(object):
 
     def __call__(self, data):
-        img, lbl = data["image"], data["label"]
+        img, lbl = data['image'], data['label']
         img, lbl = img.transpose((1, 0, 2, 3)), lbl.transpose((1, 0, 2, 3))
 
         return {'image': img, 'label': lbl}
@@ -183,7 +183,7 @@ class PytTrain(torch.utils.data.Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
-        data = {"image": np.load(self.images[idx]), "label": np.load(self.labels[idx])}
+        data = {'image': np.load(self.images[idx]), 'label': np.load(self.labels[idx])}
         data = self.rand_crop(data, self.oversampling)
         data = self.flips(data)
         data = self.noise(data, self.oversampling)
@@ -192,7 +192,7 @@ class PytTrain(torch.utils.data.Dataset):
         data = self.contrast(data)
         data = self.transpose(data)
 
-        return data["image"], data["label"]
+        return data['image'], data['label']
 
 
 class PytVal(torch.utils.data.Dataset):
@@ -204,13 +204,13 @@ class PytVal(torch.utils.data.Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
-        data = {"image": np.load(self.images[idx]), "label": np.load(self.labels[idx])}
-        return data["image"], data["label"]
+        data = {'image': np.load(self.images[idx]), 'label': np.load(self.labels[idx])}
+        return data['image'], data['label']
 
 
 def load_data(path, files_pattern):
     data = sorted(glob.glob(os.path.join(path, files_pattern)))
-    assert len(data) > 0, f"Found no data at {path}"
+    assert len(data) > 0, f'Found no data at {path}'
     return data
 
 
@@ -222,13 +222,13 @@ def get_data_split(path: str):
     try:
         from sklearn.model_selection import KFold
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="unet",
-                                            conda_channel="conda-forge",
-                                            conda_package="scikit-learn") from e
+        raise MissingConditionalImportError(extra_deps_group='unet',
+                                            conda_channel='conda-forge',
+                                            conda_package='scikit-learn') from e
     kfold = KFold(n_splits=5, shuffle=True, random_state=0)
-    imgs = load_data(path, "*_x.npy")
-    lbls = load_data(path, "*_y.npy")
-    assert len(imgs) == len(lbls), f"Found {len(imgs)} volumes but {len(lbls)} corresponding masks"
+    imgs = load_data(path, '*_x.npy')
+    lbls = load_data(path, '*_y.npy')
+    assert len(imgs) == len(lbls), f'Found {len(imgs)} volumes but {len(lbls)} corresponding masks'
     train_imgs, train_lbls, val_imgs, val_lbls = [], [], [], []
 
     train_idx, val_idx = list(kfold.split(imgs))[0]

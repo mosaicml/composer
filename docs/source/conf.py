@@ -39,7 +39,7 @@ from pypandoc.pandoc_download import download_pandoc
 from sphinx.ext.autodoc import ClassDocumenter, _
 from sphinx.writers.html5 import HTML5Translator
 
-if not shutil.which("pandoc"):
+if not shutil.which('pandoc'):
     # Install pandoc if it is not installed.
     # Pandoc is required by nbconvert but it is not included in the pypandoc pip package
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -47,10 +47,10 @@ if not shutil.which("pandoc"):
         # similar on osx -- use /Applications instead of "~/Applications" = "/root/Applications"
         target_folder = None
         if os.getuid() == 0:
-            if sys.platform == "linux":
-                target_folder = "/bin"
-            elif sys.platform == "darwin":
-                target_folder = "/Applications/pandoc"
+            if sys.platform == 'linux':
+                target_folder = '/bin'
+            elif sys.platform == 'darwin':
+                target_folder = '/Applications/pandoc'
             # Not handling windows; nobody uses root on windows lol
 
         download_pandoc(version='2.18', download_folder=tmpdir, targetfolder=target_folder, delete_installer=True)
@@ -71,19 +71,19 @@ author = 'MosaicML'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "sphinx.ext.autodoc",
-    "sphinx.ext.autosummary",
-    "sphinx.ext.extlinks",
-    "sphinx.ext.coverage",
-    "sphinx.ext.napoleon",
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.extlinks',
+    'sphinx.ext.coverage',
+    'sphinx.ext.napoleon',
     'sphinxcontrib.katex',
-    "sphinx.ext.linkcode",
-    "sphinx.ext.intersphinx",
+    'sphinx.ext.linkcode',
+    'sphinx.ext.intersphinx',
     'sphinxemoji.sphinxemoji',
-    "sphinxext.opengraph",
-    "sphinx_copybutton",
-    "myst_parser",
-    "sphinxarg.ext",
+    'sphinxext.opengraph',
+    'sphinx_copybutton',
+    'myst_parser',
+    'sphinxarg.ext',
     'sphinx.ext.doctest',
     'sphinx_panels',
     'sphinxcontrib.images',
@@ -97,10 +97,10 @@ def _get_commit_sha() -> str:
     Returns:
         str: The git commit sha, as a string.
     """
-    repo_root = os.path.join(os.path.dirname(__file__), "..", "..")
+    repo_root = os.path.join(os.path.dirname(__file__), '..', '..')
     repo = Repo(repo_root)
     if repo.is_dirty():
-        warning_msg = "The git repo is dirty. The commit sha for source code links will be incorrect."
+        warning_msg = 'The git repo is dirty. The commit sha for source code links will be incorrect.'
         if os.environ.get('CI', '0') == '0':
             # If developing locally, warn.
             warnings.warn(warning_msg)
@@ -116,7 +116,7 @@ _COMMIT_SHA = _get_commit_sha()
 # Don't show notebook output in the docs
 nbsphinx_execute = 'never'
 
-notebook_path = "mosaicml/composer/blob/" + _COMMIT_SHA + "/{{ env.doc2path(env.docname, base=None) }}"
+notebook_path = 'mosaicml/composer/blob/' + _COMMIT_SHA + '/{{ env.doc2path(env.docname, base=None) }}'
 
 # Include an "Open in Colab" link at the beginning of all notebooks
 nbsphinx_prolog = f"""
@@ -146,7 +146,7 @@ napoleon_custom_sections = [('Returns', 'params_style')]
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "furo"
+html_theme = 'furo'
 
 # Make sure the target is unique
 autosectionlabel_prefix_document = True
@@ -158,7 +158,7 @@ autosummary_generate = True
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-html_title = " Composer"
+html_title = ' Composer'
 
 # Customize CSS
 html_css_files = ['css/custom.css']
@@ -169,15 +169,15 @@ html_js_files = [
 # Mosaic logo
 # html_logo = 'https://storage.googleapis.com/docs.mosaicml.com/images/logo-dark-bg.png'
 html_theme_options = {
-    "light_logo": "logo-light-mode.png",
-    "dark_logo": "logo-dark-mode.png",
-    "light_css_variables": {
-        "color-brand-primary": "#343434",
-        "color-brand-content": "#343434",
+    'light_logo': 'logo-light-mode.png',
+    'dark_logo': 'logo-dark-mode.png',
+    'light_css_variables': {
+        'color-brand-primary': '#343434',
+        'color-brand-content': '#343434',
     },
-    "dark_css_variables": {
-        "color-brand-primary": "#f9f9f9",
-        "color-brand-content": "#f9f9f9",
+    'dark_css_variables': {
+        'color-brand-primary': '#f9f9f9',
+        'color-brand-content': '#f9f9f9',
     },
 }
 
@@ -198,16 +198,16 @@ autodoc_default_options = {
 autodoc_inherit_docstrings = False
 
 # Monkeypatch some objects as to exclude their docstrings
-hp.Hparams.__doc__ = ""
-hp.Hparams.initialize_object.__doc__ = ""
-torch.nn.Module.forward.__doc__ = ""
+hp.Hparams.__doc__ = ''
+hp.Hparams.initialize_object.__doc__ = ''
+torch.nn.Module.forward.__doc__ = ''
 
 torch.nn.Module.forward.__doc__ = None
-pygments_style = "manni"
-pygments_dark_style = "monokai"
+pygments_style = 'manni'
+pygments_dark_style = 'monokai'
 
 html_permalinks = True
-html_permalinks_icon = "#"
+html_permalinks_icon = '#'
 
 images_config = {
     'download': False,
@@ -244,7 +244,7 @@ nitpick_ignore = [
 ]
 
 python_use_unqualified_type_names = True
-autodoc_typehints = "none"
+autodoc_typehints = 'none'
 
 
 def skip_redundant_namedtuple_attributes(
@@ -262,10 +262,10 @@ def skip_redundant_namedtuple_attributes(
     return None
 
 
-with open(os.path.join(os.path.dirname(__file__), "doctest_fixtures.py"), "r") as f:
+with open(os.path.join(os.path.dirname(__file__), 'doctest_fixtures.py'), 'r') as f:
     doctest_global_setup = f.read()
 
-with open(os.path.join(os.path.dirname(__file__), "doctest_cleanup.py"), "r") as f:
+with open(os.path.join(os.path.dirname(__file__), 'doctest_cleanup.py'), 'r') as f:
     doctest_global_cleanup = f.read()
 
 
@@ -282,33 +282,33 @@ def determine_sphinx_path(item: Union[Type[object], Type[BaseException], types.M
         sibling module(s), not any (grand)parents.
     """
     # Check to see if `item` is itself private
-    if item.__name__.startswith("_"):
+    if item.__name__.startswith('_'):
         public_name = item.__name__
-        while public_name.startswith("_"):
+        while public_name.startswith('_'):
             public_name = public_name[1:]
 
-        if item.__qualname__.startswith("composer"):
+        if item.__qualname__.startswith('composer'):
             log.warning(
                 textwrap.dedent(f"""\
                 {item.__qualname__} is private, so it should not be re-exported.
                 To fix, please make it public by renaming to {public_name}"""))
 
     # Find and import the most nested public module of the path
-    module_parts = module_name.split(".")
-    public_module_parts = filter(lambda x: not x.startswith("_"), module_parts)
-    public_module_name = ".".join(public_module_parts)
+    module_parts = module_name.split('.')
+    public_module_parts = filter(lambda x: not x.startswith('_'), module_parts)
+    public_module_name = '.'.join(public_module_parts)
     public_module = importlib.import_module(public_module_name)
 
     # See if item is imported in `public_module`
     for name, val in vars(public_module).items():
         if val is item:
             # Found the item re-imported in `public_module` as `name`
-            return f"{public_module_name}.{name}"
+            return f'{public_module_name}.{name}'
 
     # `item` was not found in `public_module`. Recursively search the parent module
-    parent_module_name = ".".join(public_module_name.split(".")[:-1])
-    if parent_module_name == "":
-        log.warning(f"{item.__name__} in {module_name} is not re-imported by any public parent or grandparent module.")
+    parent_module_name = '.'.join(public_module_name.split('.')[:-1])
+    if parent_module_name == '':
+        log.warning(f'{item.__name__} in {module_name} is not re-imported by any public parent or grandparent module.')
         return None
     return determine_sphinx_path(item, parent_module_name)
 
@@ -336,7 +336,7 @@ def add_module_summary_tables(
         # insert a stub docstring so it doesn't start with functions/exceptions/classes/attributes
         lines.append(name)
 
-    if what == "module":
+    if what == 'module':
 
         try:
             all_members = list(obj.__all__)
@@ -344,7 +344,7 @@ def add_module_summary_tables(
             all_members = list(vars(obj).keys())
 
         for item_name, val in vars(obj).items():
-            if item_name.startswith("_"):
+            if item_name.startswith('_'):
                 # Skip private members
                 continue
 
@@ -379,34 +379,34 @@ def add_module_summary_tables(
         hparams = [(n, c) for (n, c) in classes if issubclass(c, hp.Hparams)]
         classes = [(n, c) for (n, c) in classes if not issubclass(c, hp.Hparams)]
 
-        for category, category_name in ((functions, "Functions"), (classes, "Classes"), (hparams, "Hparams"),
-                                        (exceptions, "Exceptions")):
+        for category, category_name in ((functions, 'Functions'), (classes, 'Classes'), (hparams, 'Hparams'),
+                                        (exceptions, 'Exceptions')):
             sphinx_lines = []
             for item_name, item in category:
                 sphinx_path = determine_sphinx_path(item, item.__module__)
                 if sphinx_path is not None:
-                    sphinx_lines.append(f"      ~{sphinx_path}")
+                    sphinx_lines.append(f'      ~{sphinx_path}')
             if len(sphinx_lines) > 0:
-                lines.append("")
-                lines.append(f".. rubric:: {category_name}")
-                lines.append("")
+                lines.append('')
+                lines.append(f'.. rubric:: {category_name}')
+                lines.append('')
                 if category_name == 'Hparams':
-                    lines.append("These classes are used with :mod:`yahp` for ``YAML``-based configuration.")
-                    lines.append("")
-                lines.append(".. autosummary::")
-                lines.append("      :nosignatures:")
-                lines.append("")
+                    lines.append('These classes are used with :mod:`yahp` for ``YAML``-based configuration.')
+                    lines.append('')
+                lines.append('.. autosummary::')
+                lines.append('      :nosignatures:')
+                lines.append('')
                 lines.extend(sphinx_lines)
 
         if len(attributes) > 0:
             # Documenting attributes as a list instead of a summary table because
             # an attribute's summary docstring is the type's docstring, (e.g. the docstring for dict)
             # not the docstring for the attribute.
-            lines.append("")
-            lines.append(f".. rubric:: Attributes")
-            lines.append("")
+            lines.append('')
+            lines.append(f'.. rubric:: Attributes')
+            lines.append('')
             for item_name, item in attributes:
-                lines.append(f"* :attr:`~{name}.{item_name}`")
+                lines.append(f'* :attr:`~{name}.{item_name}`')
 
         if len(methods) > 0:
             # Documenting bound methods as a list instead of a summary table because
@@ -422,11 +422,11 @@ def add_module_summary_tables(
                 # Get the name of this method in the class
                 cls_method_name = item.__func__.__name__
                 if sphinx_cls_path is not None:
-                    sphinx_lines.append(f"* :meth:`~{sphinx_cls_path}.{cls_method_name}`")
+                    sphinx_lines.append(f'* :meth:`~{sphinx_cls_path}.{cls_method_name}`')
             if len(sphinx_lines) > 0:
-                lines.append("")
-                lines.append(f".. rubric:: Methods")
-                lines.append("")
+                lines.append('')
+                lines.append(f'.. rubric:: Methods')
+                lines.append('')
                 lines.extend(sphinx_lines)
 
 
@@ -462,7 +462,7 @@ def get_algorithms_metadata() -> Dict[str, Dict[str, str]]:
                 metadata[key] = value
 
     if not metadata:
-        raise ValueError(f"No metadata found, {root} not correctly configured.")
+        raise ValueError(f'No metadata found, {root} not correctly configured.')
     return metadata
 
 
@@ -504,13 +504,13 @@ ClassDocumenter.add_directive_header = _add_directive_header_no_object_base
 
 
 def _recursive_getattr(obj: Any, path: str):
-    parts = path.split(".")
+    parts = path.split('.')
     try:
         obj = getattr(obj, parts[0])
     except AttributeError:
         return None
-    path = ".".join(parts[1:])
-    if path == "":
+    path = '.'.join(parts[1:])
+    if path == '':
         return obj
     else:
         return _recursive_getattr(obj, path)
@@ -522,7 +522,7 @@ def _determine_lineno_of_attribute(module: types.ModuleType, attribute: str):
     # the expression was defined
     source = inspect.getsource(module)
     filename = inspect.getsourcefile(module)
-    assert filename is not None, f"filename for module {module} could not be found"
+    assert filename is not None, f'filename for module {module} could not be found'
     ast_tree = ast.parse(source, filename)
     for stmt in ast_tree.body:
         if isinstance(stmt, ast.Assign):
@@ -533,7 +533,7 @@ def _determine_lineno_of_attribute(module: types.ModuleType, attribute: str):
 
 def linkcode_resolve(domain: str, info: Dict[str, str]):
     """Adds links to the GitHub source code in the API Reference."""
-    assert domain == "py", f"unsupported domain: {domain}"
+    assert domain == 'py', f'unsupported domain: {domain}'
     module_name = info['module']
 
     # Get the object and determine the line number
@@ -553,12 +553,12 @@ def linkcode_resolve(domain: str, info: Dict[str, str]):
             # in _determine_lineno_of_attribute
             pass
     if lineno is None:
-        log.debug(f"Could not determine source line number for {module_name}.{obj_name_in_module}.")
+        log.debug(f'Could not determine source line number for {module_name}.{obj_name_in_module}.')
         return None
     # Format the link
-    filename = module_name.replace(".", "/")
+    filename = module_name.replace('.', '/')
     commit_sha = _COMMIT_SHA
-    return f"https://github.com/mosaicml/composer/blob/{commit_sha}/{filename}.py#L{lineno}"
+    return f'https://github.com/mosaicml/composer/blob/{commit_sha}/{filename}.py#L{lineno}'
 
 
 class PatchedHTMLTranslator(HTML5Translator):
@@ -575,8 +575,8 @@ class PatchedHTMLTranslator(HTML5Translator):
             # ---------------------------------------------------------
             # Customize behavior (open in new tab, secure linking site)
             if 'refid' not in node and (not any(node['refuri'].startswith(x)
-                                                for x in ("/", "https://docs.mosaicml.com", "#")) or
-                                        node['refuri'].startswith("https://docs.mosaicml.com/projects/yahp")):
+                                                for x in ('/', 'https://docs.mosaicml.com', '#')) or
+                                        node['refuri'].startswith('https://docs.mosaicml.com/projects/yahp')):
                 # If there's a refid, or the refuri starts with a non-external uri scheme, then it's an internal
                 # (hardcoded) link, so don't open that in a new tab
                 # Treat yahp links as external

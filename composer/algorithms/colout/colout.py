@@ -24,9 +24,9 @@ from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
-ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+ImgT = TypeVar('ImgT', torch.Tensor, PillowImage)
 
-__all__ = ["ColOut", "ColOutTransform", "colout_batch"]
+__all__ = ['ColOut', 'ColOutTransform', 'colout_batch']
 
 
 def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
@@ -61,7 +61,7 @@ def colout_batch(sample: Union[ImgT, Tuple[ImgT, ImgT]],
 
     sample = ensure_tuple(sample)
     if len(sample) > 2:
-        raise ValueError("sample must either be single object or a tuple with a max length of 2")
+        raise ValueError('sample must either be single object or a tuple with a max length of 2')
     input = sample[0]
 
     # Convert image to Tensor if needed
@@ -148,7 +148,7 @@ class ColOutTransform:
 
         sample = ensure_tuple(sample)
         if len(sample) > 2:
-            raise ValueError(f"Colout transform does not support sample tuple of length {len(sample)} > 2")
+            raise ValueError(f'Colout transform does not support sample tuple of length {len(sample)} > 2')
 
         return colout_batch(sample, p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
 
@@ -207,16 +207,16 @@ class ColOut(Algorithm):
         target_key: Union[str, int, Tuple[Callable, Callable], Any] = 1,
     ):
         if not (0 <= p_col <= 1):
-            raise ValueError("p_col must be between 0 and 1")
+            raise ValueError('p_col must be between 0 and 1')
 
         if not (0 <= p_row <= 1):
-            raise ValueError("p_row must be between 0 and 1")
+            raise ValueError('p_row must be between 0 and 1')
 
         if (not isinstance(resize_target, bool)) and (isinstance(resize_target, str) and resize_target != 'auto'):
-            raise ValueError(f"resize_target must be a boolean or ``auto``. Received: {resize_target}")
+            raise ValueError(f'resize_target must be a boolean or ``auto``. Received: {resize_target}')
 
         if resize_target is True and batch is False:
-            raise NotImplementedError(f"Resizing targets is not currently support with batch=``False``")
+            raise NotImplementedError(f'Resizing targets is not currently support with batch=``False``')
 
         self.p_row = p_row
         self.p_col = p_col
@@ -231,14 +231,14 @@ class ColOut(Algorithm):
         else:
             if event != Event.FIT_START:
                 return False
-            assert state.dataloader is not None, "dataloader should be defined on fit start"
+            assert state.dataloader is not None, 'dataloader should be defined on fit start'
             if not isinstance(state.dataloader, torch.utils.data.DataLoader):
-                raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
+                raise TypeError(f'{type(self).__name__} requires a PyTorch dataloader.')
             return state.dataloader.dataset not in self._transformed_datasets
 
     def _apply_sample(self, state: State) -> None:
         """Add the ColOut dataset transform to the dataloader."""
-        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "dataloader type checked on match()"
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), 'dataloader type checked on match()'
         dataset = state.dataloader.dataset
 
         transform = ColOutTransform(p_row=self.p_row, p_col=self.p_col, resize_target=self.resize_target)
@@ -255,7 +255,7 @@ class ColOut(Algorithm):
         """Transform a batch of images using the ColOut augmentation."""
         inputs, target = state.batch_get_item(key=self.input_key), state.batch_get_item(key=self.target_key)
         assert isinstance(inputs, Tensor) and isinstance(target, Tensor), \
-            "Inputs and target must be of type torch.Tensor for batch-wise ColOut"
+            'Inputs and target must be of type torch.Tensor for batch-wise ColOut'
 
         sample = (inputs, target)
         resize_target = _should_resize_target(sample, resize_target=self.resize_target)
@@ -285,7 +285,7 @@ def _should_resize_target(sample: Union[ImgT, Tuple[ImgT, ImgT]], resize_target:
 
     sample = ensure_tuple(sample)
     if len(sample) > 2:
-        raise ValueError("sample must either be single object or a tuple with a max length of 2")
+        raise ValueError('sample must either be single object or a tuple with a max length of 2')
     input = sample[0]
 
     if isinstance(resize_target, bool):

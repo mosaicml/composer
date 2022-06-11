@@ -5,7 +5,7 @@
 from composer.models.efficientnetb0.efficientnets import EfficientNet
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ["EfficientNetB0"]
+__all__ = ['EfficientNetB0']
 
 
 class EfficientNetB0(ComposerClassifier):
@@ -27,7 +27,7 @@ class EfficientNetB0(ComposerClassifier):
 
     def __init__(self, num_classes: int = 1000, drop_connect_rate: float = 0.2) -> None:
         model = EfficientNet.get_model_from_name(
-            "efficientnet-b0",
+            'efficientnet-b0',
             num_classes,
             drop_connect_rate,
         )

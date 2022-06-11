@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 
 from composer.models.model_hparams import ModelHparams
 
-__all__ = ["MnistClassifierHparams"]
+__all__ = ['MnistClassifierHparams']
 
 
 @dataclass

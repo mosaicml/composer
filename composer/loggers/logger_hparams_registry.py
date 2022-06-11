@@ -24,8 +24,8 @@ from composer.utils import import_object
 from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
 __all__ = [
-    "ObjectStoreLoggerHparams",
-    "logger_registry",
+    'ObjectStoreLoggerHparams',
+    'logger_registry',
 ]
 
 
@@ -55,14 +55,14 @@ class ObjectStoreLoggerHparams(hp.Hparams):
         'object_store_hparams': object_store_registry,
     }
 
-    object_store_hparams: ObjectStoreHparams = hp.required("Object store provider hparams.")
+    object_store_hparams: ObjectStoreHparams = hp.required('Object store provider hparams.')
     should_log_artifact: Optional[str] = hp.optional(
-        "Path to a filter function which returns whether an artifact should be logged.", default=None)
-    object_name: str = hp.auto(ObjectStoreLogger, "object_name")
-    num_concurrent_uploads: int = hp.auto(ObjectStoreLogger, "num_concurrent_uploads")
-    use_procs: bool = hp.auto(ObjectStoreLogger, "use_procs")
-    upload_staging_folder: Optional[str] = hp.auto(ObjectStoreLogger, "upload_staging_folder")
-    num_attempts: int = hp.auto(ObjectStoreLogger, "num_attempts")
+        'Path to a filter function which returns whether an artifact should be logged.', default=None)
+    object_name: str = hp.auto(ObjectStoreLogger, 'object_name')
+    num_concurrent_uploads: int = hp.auto(ObjectStoreLogger, 'num_concurrent_uploads')
+    use_procs: bool = hp.auto(ObjectStoreLogger, 'use_procs')
+    upload_staging_folder: Optional[str] = hp.auto(ObjectStoreLogger, 'upload_staging_folder')
+    num_attempts: int = hp.auto(ObjectStoreLogger, 'num_attempts')
 
     def initialize_object(self) -> ObjectStoreLogger:
         return ObjectStoreLogger(
@@ -79,9 +79,9 @@ class ObjectStoreLoggerHparams(hp.Hparams):
 
 
 logger_registry: Dict[str, Union[Type[LoggerDestination], Type[hp.Hparams]]] = {
-    "file": FileLogger,
-    "wandb": WandBLogger,
-    "progress_bar": ProgressBarLogger,
-    "in_memory": InMemoryLogger,
-    "object_store": ObjectStoreLoggerHparams,
+    'file': FileLogger,
+    'wandb': WandBLogger,
+    'progress_bar': ProgressBarLogger,
+    'in_memory': InMemoryLogger,
+    'object_store': ObjectStoreLoggerHparams,
 }

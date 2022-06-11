@@ -16,7 +16,7 @@ from torchvision import transforms
 
 from composer.datasets.streaming import StreamingDataset
 
-__all__ = ["StreamingCIFAR10"]
+__all__ = ['StreamingCIFAR10']
 
 
 class StreamingCIFAR10(StreamingDataset):

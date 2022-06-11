@@ -18,7 +18,7 @@ from composer.profiler.torch_profiler import TorchProfiler
 from composer.profiler.trace_handler import TraceHandler
 from composer.utils.iter_helpers import ensure_tuple
 
-__all__ = ["Profiler"]
+__all__ = ['Profiler']
 
 log = logging.getLogger(__name__)
 
@@ -92,8 +92,8 @@ class Profiler:
     """
 
     hparams_registry = {
-        "schedule": profiler_scheduler_registry,
-        "trace_handlers": trace_handler_registry,
+        'schedule': profiler_scheduler_registry,
+        'trace_handlers': trace_handler_registry,
     }
 
     def __init__(
@@ -244,7 +244,7 @@ class Profiler:
             Marker: Marker instance.
         """
         if self.state is None:
-            raise RuntimeError("Profiler.bind_to_state() must be invoked before the Profiler can be used.")
+            raise RuntimeError('Profiler.bind_to_state() must be invoked before the Profiler can be used.')
         if name not in self._names_to_markers:
 
             def should_record(state: State) -> bool:
