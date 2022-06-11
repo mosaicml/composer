@@ -27,6 +27,7 @@ the `clipping_threshold`.
 Usage:
 
 ```python
+import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
                            clipping_type='value',
                            clipping_threshold=clipping_threshold)
@@ -37,6 +38,7 @@ the `clipping_threshold` and $||G||$ is the total L2 norm of all gradients.
 Usage:
 
 ```python
+import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
                            clipping_type='norm',
                            clipping_threshold=clipping_threshold)
@@ -48,6 +50,7 @@ $||G||$ is the norm of the gradients and $||W||$ is the norm of the weights.
 Usage:
 
 ```python
+import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
                            clipping_type='adaptive',
                            clipping_threshold=clipping_threshold)
