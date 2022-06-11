@@ -14,4 +14,4 @@ See the :doc:`Method Card </method_cards/progressive_resizing>` for more details
 from composer.algorithms.progressive_resizing.progressive_resizing import ProgressiveResizing as ProgressiveResizing
 from composer.algorithms.progressive_resizing.progressive_resizing import resize_batch as resize_batch
 
-__all__ = ["ProgressiveResizing", "resize_batch"]
+__all__ = ['ProgressiveResizing', 'resize_batch']

@@ -11,9 +11,9 @@ import random
 import time
 from typing import Any, Callable, Sequence, Type, TypeVar, Union, cast, overload
 
-TCallable = TypeVar("TCallable", bound=Callable)
+TCallable = TypeVar('TCallable', bound=Callable)
 
-__all__ = ["retry"]
+__all__ = ['retry']
 
 
 @overload
@@ -75,7 +75,7 @@ def retry(  # type: ignore
             are calling the same underlying function.
     """
     if num_attempts < 1:
-        raise ValueError("num_attempts must be at leats 1")
+        raise ValueError('num_attempts must be at leats 1')
 
     def wrapped_func(func: TCallable) -> TCallable:
 

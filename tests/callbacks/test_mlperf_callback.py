@@ -24,7 +24,7 @@ def rank_zero() -> bool:
 
 @pytest.fixture(autouse=True)
 def importor_skip_mlperf_logging():
-    pytest.importorskip("mlperf_logging")
+    pytest.importorskip('mlperf_logging')
 
 
 class MockMLLogger:
@@ -142,7 +142,7 @@ class TestWithMLPerfChecker:
                     dataset=RandomClassificationDataset(),
                     shuffle=False,
                 ),
-                max_duration="3ep",
+                max_duration='3ep',
                 deterministic_mode=True,
                 progress_bar=False,
                 log_to_console=False,
@@ -162,17 +162,17 @@ class TestWithMLPerfChecker:
             print(msg.format(*args))
             raise ValueError('MLPerf checker failed, see logs.')
 
-        monkeypatch.setattr(logging, "error", fail_on_error)
+        monkeypatch.setattr(logging, 'error', fail_on_error)
 
         from mlperf_logging.package_checker.package_checker import check_training_package
 
         check_training_package(
             folder=directory,
-            usage="training",
-            ruleset="1.1.0",
+            usage='training',
+            ruleset='1.1.0',
             werror=True,
             quiet=False,
             rcp_bypass=False,
             rcp_bert_train_samples=False,
-            log_output="package_checker.log",
+            log_output='package_checker.log',
         )

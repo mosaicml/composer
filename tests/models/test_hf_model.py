@@ -7,7 +7,7 @@ import torch
 
 @pytest.mark.timeout(30)
 def test_hf_model_forward():
-    pytest.importorskip("transformers")
+    pytest.importorskip('transformers')
     import transformers
     from transformers.modeling_outputs import SequenceClassifierOutput
 
@@ -19,10 +19,10 @@ def test_hf_model_forward():
     token_type_ids = torch.zeros(size=(2, 32), dtype=torch.int64)
     attention_mask = torch.randint(low=0, high=1, size=(2, 32))
     batch = {
-        "input_ids": input_ids,
-        "labels": labels,
-        "token_type_ids": token_type_ids,
-        "attention_mask": attention_mask,
+        'input_ids': input_ids,
+        'labels': labels,
+        'token_type_ids': token_type_ids,
+        'attention_mask': attention_mask,
     }
 
     # non pretrained model to avoid a slow test that downloads the weights.

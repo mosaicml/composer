@@ -24,7 +24,7 @@ from composer.utils import ObjectStore, ObjectStoreTransientError, dist, format_
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ObjectStoreLogger"]
+__all__ = ['ObjectStoreLogger']
 
 
 def _always_log(state: State, log_level: LogLevel, artifact_name: str):
@@ -201,7 +201,7 @@ class ObjectStoreLogger(LoggerDestination):
             self._upload_staging_folder = upload_staging_folder
 
         if num_concurrent_uploads < 1:
-            raise ValueError("num_concurrent_uploads must be >= 1. Blocking uploads are not supported.")
+            raise ValueError('num_concurrent_uploads must be >= 1. Blocking uploads are not supported.')
         self._num_concurrent_uploads = num_concurrent_uploads
 
         if use_procs:
@@ -230,24 +230,24 @@ class ObjectStoreLogger(LoggerDestination):
     def init(self, state: State, logger: Logger) -> None:
         del logger  # unused
         if self._finished is not None:
-            raise RuntimeError("The ObjectStoreLogger is already initialized.")
+            raise RuntimeError('The ObjectStoreLogger is already initialized.')
         self._finished = self._finished_cls()
         self._run_name = state.run_name
-        object_name_to_test = self._object_name(".credentials_validated_successfully")
+        object_name_to_test = self._object_name('.credentials_validated_successfully')
 
         if dist.get_global_rank() == 0:
             retry(ObjectStoreTransientError,
                   self.num_attempts)(lambda: _validate_credentials(self.object_store, object_name_to_test))()
-        assert len(self._workers) == 0, "workers should be empty if self._finished was None"
+        assert len(self._workers) == 0, 'workers should be empty if self._finished was None'
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(
                 target=_upload_worker,
                 kwargs={
-                    "file_queue": self._file_upload_queue,
-                    "is_finished": self._finished,
-                    "object_store_cls": self.object_store_cls,
-                    "object_store_kwargs": self.object_store_kwargs,
-                    "num_attempts": self.num_attempts,
+                    'file_queue': self._file_upload_queue,
+                    'is_finished': self._finished,
+                    'object_store_cls': self.object_store_cls,
+                    'object_store_kwargs': self.object_store_kwargs,
+                    'num_attempts': self.num_attempts,
                 },
                 # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status
                 # Setting daemon status prevents the process from hanging if close was never called (e.g. in doctests)
@@ -271,7 +271,7 @@ class ObjectStoreLogger(LoggerDestination):
         #   b) allow_overwrite=False, but the file already exists,
         for worker in self._workers:
             if not worker.is_alive():
-                raise RuntimeError("Upload worker crashed. Please check the logs.")
+                raise RuntimeError('Upload worker crashed. Please check the logs.')
 
     def log_file_artifact(
         self,
@@ -303,7 +303,7 @@ class ObjectStoreLogger(LoggerDestination):
         with open(copied_path, 'w') as f:
             f.write(existing_artifact_name)
         # Add .symlink extension so we can identify as emulated symlink when downloading
-        object_name = self._object_name(symlink_artifact_name) + ".symlink"
+        object_name = self._object_name(symlink_artifact_name) + '.symlink'
         self._file_upload_queue.put_nowait((copied_path, object_name, overwrite))
 
     def get_file_artifact(
@@ -341,12 +341,12 @@ class ObjectStoreLogger(LoggerDestination):
             str: The uri corresponding to the uploaded location of the artifact.
         """
         obj_name = self._object_name(artifact_name)
-        return self.object_store.get_uri(obj_name.lstrip("/"))
+        return self.object_store.get_uri(obj_name.lstrip('/'))
 
     def _object_name(self, artifact_name: str):
         """Format the ``artifact_name`` according to the ``object_name_string``."""
         if self._run_name is None:
-            raise RuntimeError("The run name is not set. It should have been set on Event.INIT.")
+            raise RuntimeError('The run name is not set. It should have been set on Event.INIT.')
         key_name = format_name_with_dist(
             self.object_name,
             run_name=self._run_name,
@@ -363,8 +363,8 @@ def _validate_credentials(
 ) -> None:
     # Validates the credentials by attempting to touch a file in the bucket
     # raises an error if there was a credentials failure.
-    with tempfile.NamedTemporaryFile("wb") as f:
-        f.write(b"credentials_validated_successfully")
+    with tempfile.NamedTemporaryFile('wb') as f:
+        f.write(b'credentials_validated_successfully')
         object_store.upload_object(
             object_name=object_name_to_test,
             filename=f.name,
@@ -401,8 +401,8 @@ def _upload_worker(
                 pass
             else:
                 # Exceptions will be detected on the next batch_end or epoch_end event
-                raise FileExistsError(f"Object {uri} already exists, but allow_overwrite was set to False.")
-        log.info("Uploading file %s to %s", file_path_to_upload, uri)
+                raise FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
+        log.info('Uploading file %s to %s', file_path_to_upload, uri)
         retry(ObjectStoreTransientError, num_attempts=num_attempts)(lambda: object_store.upload_object(
             object_name=object_name,
             filename=file_path_to_upload,

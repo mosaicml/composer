@@ -92,7 +92,7 @@ def test_trainer_eval_timestamp():
     assert trainer.state.eval_timestamp.batch == trainer.state.eval_timestamp.batch_in_epoch
 
 
-@pytest.mark.parametrize("eval_at_fit_end", [
+@pytest.mark.parametrize('eval_at_fit_end', [
     True,
     False,
 ])
@@ -102,9 +102,9 @@ def test_eval_at_fit_end(eval_at_fit_end: bool):
     # Construct the trainer
     train_dataloader = DataLoader(dataset=RandomClassificationDataset())
     event_counter_callback = EventCounterCallback()
-    eval_interval = "2ep"
+    eval_interval = '2ep'
     evaluator = Evaluator(
-        label="eval",
+        label='eval',
         dataloader=DataLoader(dataset=RandomClassificationDataset()),
         metrics=torchmetrics.Accuracy(),
     )
@@ -136,19 +136,19 @@ def test_eval_at_fit_end(eval_at_fit_end: bool):
         assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_eval_batch_start_calls
 
 
-@pytest.mark.parametrize("eval_dataloader", [
+@pytest.mark.parametrize('eval_dataloader', [
     DataLoader(dataset=RandomClassificationDataset()),
     Evaluator(
-        label="eval",
+        label='eval',
         dataloader=DataLoader(dataset=RandomClassificationDataset()),
         metrics=torchmetrics.Accuracy(),
     ),
 ])
 @pytest.mark.parametrize(
-    "eval_interval",
+    'eval_interval',
     [  # multiple ways of specifying to evaluate once every epoch
         1,
-        "1ep",
+        '1ep',
         Time(1, TimeUnit.EPOCH),
         lambda state, event: event == Event.EPOCH_END,
     ])
@@ -182,24 +182,24 @@ def test_eval_params_init(
 def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
     """Test that `eval_interval` and `eval_subset_num_batches` work when specified via hparams."""
     # Create the trainer from hparams
-    composer_trainer_hparams.eval_interval = "2ep"
+    composer_trainer_hparams.eval_interval = '2ep'
     composer_trainer_hparams.eval_subset_num_batches = 2
     composer_trainer_hparams.evaluators = [
         EvaluatorHparams(
-            label="eval1",
+            label='eval1',
             eval_interval='3ep',  # will run, since eval_at_fit_end = True
             subset_num_batches=1,
             eval_dataset=RandomClassificationDatasetHparams(),
         ),
         EvaluatorHparams(
-            label="eval2",
+            label='eval2',
             eval_dataset=RandomClassificationDatasetHparams(),
             metric_names=['Accuracy'],
         ),
     ]
     composer_trainer_hparams.val_dataset = None
     composer_trainer_hparams.callbacks = [EventCounterCallback()]
-    composer_trainer_hparams.max_duration = "2ep"
+    composer_trainer_hparams.max_duration = '2ep'
     trainer = composer_trainer_hparams.initialize_object()
 
     # Validate that `subset_num_batches` was set correctly
@@ -211,8 +211,8 @@ def test_eval_hparams(composer_trainer_hparams: TrainerHparams):
 
     # Validate that `eval_interval` and `subset_num_batches` was set correctly for the evaluator that actually
     # ran
-    assert "eval1" in trainer.state.current_metrics
-    assert "eval2" in trainer.state.current_metrics
+    assert 'eval1' in trainer.state.current_metrics
+    assert 'eval2' in trainer.state.current_metrics
     event_counter_callback = None
     for callback in trainer.state.callbacks:
         if isinstance(callback, EventCounterCallback):
@@ -232,10 +232,10 @@ def test_eval_params_evaluator():
     eval_interval_batches = 1
     eval_subset_num_batches = 2
     eval_dataloader = Evaluator(
-        label="eval",
+        label='eval',
         dataloader=DataLoader(dataset=RandomClassificationDataset()),
         metrics=torchmetrics.Accuracy(),
-        eval_interval=f"{eval_interval_batches}ba",
+        eval_interval=f'{eval_interval_batches}ba',
         subset_num_batches=eval_subset_num_batches,
     )
     event_counter_callback = EventCounterCallback()

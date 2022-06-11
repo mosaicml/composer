@@ -33,22 +33,22 @@ scheduler_settings: Dict[Callable[..., ComposerScheduler], Dict[str, Any]] = {
         'power': 0.1,
     },
     PolynomialWithWarmupScheduler: {
-        't_warmup': "0ep",
+        't_warmup': '0ep',
     },
     MultiStepWithWarmupScheduler: {
         'milestones': [0],
-        't_warmup': "0ep",
+        't_warmup': '0ep',
     },
     LinearWithWarmupScheduler: {
-        't_warmup': "0ep",
+        't_warmup': '0ep',
     },
     CosineAnnealingWithWarmupScheduler: {
-        't_warmup': "0ep",
+        't_warmup': '0ep',
     },
 }
 
 
-@pytest.mark.parametrize("scheduler_cls", scheduler_classes)
+@pytest.mark.parametrize('scheduler_cls', scheduler_classes)
 class TestSchedulers:
 
     def test_scheduler_is_constructable(self, scheduler_cls: Callable[..., ComposerScheduler]):

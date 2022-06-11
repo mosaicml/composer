@@ -13,7 +13,7 @@ from torchmetrics.utilities.data import to_categorical
 
 from composer.loss import soft_cross_entropy
 
-__all__ = ["MIoU", "Dice", "CrossEntropy", "LossMetric"]
+__all__ = ['MIoU', 'Dice', 'CrossEntropy', 'LossMetric']
 
 
 class MIoU(Metric):
@@ -34,8 +34,8 @@ class MIoU(Metric):
         super().__init__(dist_sync_on_step=True)
         self.num_classes = num_classes
         self.ignore_index = ignore_index
-        self.add_state("total_intersect", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
-        self.add_state("total_union", default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx="sum")
+        self.add_state('total_intersect', default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx='sum')
+        self.add_state('total_union', default=torch.zeros(num_classes, dtype=torch.float64), dist_reduce_fx='sum')
 
     def update(self, logits: Tensor, targets: Tensor):
         """Update the state with new predictions and targets."""
@@ -71,8 +71,8 @@ class Dice(Metric):
 
     def __init__(self, num_classes: int):
         super().__init__(dist_sync_on_step=True)
-        self.add_state("n_updates", default=torch.zeros(1), dist_reduce_fx="sum")
-        self.add_state("dice", default=torch.zeros((num_classes,)), dist_reduce_fx="sum")
+        self.add_state('n_updates', default=torch.zeros(1), dist_reduce_fx='sum')
+        self.add_state('dice', default=torch.zeros((num_classes,)), dist_reduce_fx='sum')
 
     def update(self, preds: Tensor, targets: Tensor):
         """Update the state based on new predictions and targets."""
@@ -139,8 +139,8 @@ class CrossEntropy(Metric):
     def __init__(self, ignore_index: int = -100, dist_sync_on_step: bool = False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.ignore_index = ignore_index
-        self.add_state("sum_loss", default=torch.tensor(0.), dist_reduce_fx="sum")
-        self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total_batches', default=torch.tensor(0), dist_reduce_fx='sum')
 
     def update(self, preds: Tensor, targets: Tensor) -> None:
         """Update the state with new predictions and targets."""
@@ -169,8 +169,8 @@ class LossMetric(Metric):
     def __init__(self, loss_function: Callable, dist_sync_on_step: bool = False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.loss_function = loss_function
-        self.add_state("sum_loss", default=torch.tensor(0.), dist_reduce_fx="sum")
-        self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total_batches', default=torch.tensor(0), dist_reduce_fx='sum')
 
     def update(self, preds: Tensor, targets: Tensor) -> None:
         """Update the state with new predictions and targets."""

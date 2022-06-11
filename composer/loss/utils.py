@@ -11,7 +11,7 @@ from typing import Optional
 import torch
 from torch.nn import functional as F
 
-__all__ = ["infer_target_type", "ensure_targets_one_hot", "check_for_index_targets"]
+__all__ = ['infer_target_type', 'ensure_targets_one_hot', 'check_for_index_targets']
 
 
 def infer_target_type(input: torch.Tensor, targets: torch.Tensor) -> str:
@@ -52,7 +52,7 @@ def ensure_targets_one_hot(input: torch.Tensor,
         if num_classes is None:
             num_classes = input.shape[1]
         if targets.min() < 0:
-            warnings.warn("Negative label indices are being ignored in conversion to one-hot labels")
+            warnings.warn('Negative label indices are being ignored in conversion to one-hot labels')
             # Map all negative indicies to a class to drop.
             targets[targets < 0] = num_classes
             targets = F.one_hot(targets, num_classes=num_classes + 1)

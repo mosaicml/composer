@@ -16,7 +16,7 @@ def test_profiler_is_constructable_from_hparams(tmp_path: pathlib.Path):
         },
         'trace_handlers': {
             'json': {
-                'folder': str(tmp_path / "traces")
+                'folder': str(tmp_path / 'traces')
             }
         },
         'torch_prof_profile_memory': False,

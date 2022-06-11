@@ -47,7 +47,7 @@ from typing import NamedTuple, Optional, TextIO
 import cpuinfo
 import psutil
 
-__all__ = ["configure_excepthook", "disable_env_report", "enable_env_report", "print_env"]
+__all__ = ['configure_excepthook', 'disable_env_report', 'enable_env_report', 'print_env']
 
 # Check if PyTorch is installed
 try:
@@ -107,7 +107,7 @@ def get_composer_version() -> str:
 def get_host_processor_name() -> str:
     """Query the host processor name."""
     cpu_info = cpuinfo.get_cpu_info()
-    return str(cpu_info.get('brand_raw', "CPU"))
+    return str(cpu_info.get('brand_raw', 'CPU'))
 
 
 def get_host_processor_cores() -> int:
@@ -122,7 +122,7 @@ def get_node_world_size() -> int:
 
 def get_accel_model_name() -> str:
     """Query the accelerator name."""
-    return accel_device_name(None) if cuda_available() else "N/A"
+    return accel_device_name(None) if cuda_available() else 'N/A'
 
 
 def get_local_world_size() -> int:
@@ -136,7 +136,7 @@ def get_cuda_device_count() -> int:
 
 
 # Exception message and environment report
-COMPOSER_OPEN_ISSUE_URL = "https://github.com/mosaicml/composer/issues/new/choose"
+COMPOSER_OPEN_ISSUE_URL = 'https://github.com/mosaicml/composer/issues/new/choose'
 
 
 def _exc_report(exc_type) -> None:
@@ -145,25 +145,25 @@ def _exc_report(exc_type) -> None:
     Args:
         exc_type (Exception): Type of exception.
     """
-    EXCEPTION_MSG = f"Bugs can be reported at: {COMPOSER_OPEN_ISSUE_URL}\n"
+    EXCEPTION_MSG = f'Bugs can be reported at: {COMPOSER_OPEN_ISSUE_URL}\n'
 
     # Don't print exception report for KeyboardInterrupt
     if not issubclass(exc_type, KeyboardInterrupt):
         if issubclass(exc_type, AssertionError):
-            EXCEPTION_SEV_MSG = f"This is a Composer bug. Please submit a bug report.\n"
+            EXCEPTION_SEV_MSG = f'This is a Composer bug. Please submit a bug report.\n'
         elif issubclass(exc_type, RuntimeError):
-            EXCEPTION_SEV_MSG = f"This could be due to user error but is most likely a Composer bug.\n"
+            EXCEPTION_SEV_MSG = f'This could be due to user error but is most likely a Composer bug.\n'
         elif issubclass(exc_type, ValueError) or issubclass(exc_type, TypeError):
-            EXCEPTION_SEV_MSG = f"This was most likely due to user error but please submit a bug report if you suspect a Composer issue.\n"
+            EXCEPTION_SEV_MSG = f'This was most likely due to user error but please submit a bug report if you suspect a Composer issue.\n'
         else:
-            EXCEPTION_SEV_MSG = f"If you would like support debugging, submit a bug report or reach out to us on our community channels.\n"
+            EXCEPTION_SEV_MSG = f'If you would like support debugging, submit a bug report or reach out to us on our community channels.\n'
 
-        print("\n-------------------\n" + EXCEPTION_SEV_MSG + EXCEPTION_MSG, file=sys.stderr)
+        print('\n-------------------\n' + EXCEPTION_SEV_MSG + EXCEPTION_MSG, file=sys.stderr)
 
         # Only print environment report if enabled
         global _ENV_EXCEPTION_REPORT
         if _ENV_EXCEPTION_REPORT:
-            print("Please include details on how to reproduce the issue and attach the following environment report:\n")
+            print('Please include details on how to reproduce the issue and attach the following environment report:\n')
             print_env(sys.stderr)
         else:
             print(
@@ -366,33 +366,33 @@ def print_env(file: Optional[TextIO] = None) -> None:
 
     # Creation timestamp for report
     creation_time = time.strftime('%Y-%m-%d %H:%M:%S %Z', time.localtime(time.time()))
-    report_hdr = f"---------------------------------\n" + \
-                 f"System Environment Report        \n" + \
-                 f"Created: {creation_time}\n"          + \
-                 f"---------------------------------\n"
+    report_hdr = f'---------------------------------\n' + \
+                 f'System Environment Report        \n' + \
+                 f'Created: {creation_time}\n'          + \
+                 f'---------------------------------\n'
 
     # Torch section
     print(report_hdr, file=file)
-    print("PyTorch information", file=file)
-    print("-------------------", file=file)
+    print('PyTorch information', file=file)
+    print('-------------------', file=file)
     if TORCH_AVAILABLE:
         # Only print Torch system info if installed
-        print(get_torch_env() + "\n\n", file=file)
+        print(get_torch_env() + '\n\n', file=file)
     else:
-        print("Torch not installed", file=file)
+        print('Torch not installed', file=file)
 
-    print("Composer information", file=file)
-    print("--------------------", file=file)
+    print('Composer information', file=file)
+    print('--------------------', file=file)
     if COMPOSER_AVAILABLE:
         # Only print Composer system info if installed
-        print(get_composer_env() + "\n\n", file=file)
+        print(get_composer_env() + '\n\n', file=file)
     else:
-        print("Composer not installed", file=file)
+        print('Composer not installed', file=file)
 
 
 # Invoke as standalone CLI script
 def main() -> None:
-    print("Collecting system information...")
+    print('Collecting system information...')
     print_env()
 
 

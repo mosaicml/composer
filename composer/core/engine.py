@@ -78,12 +78,12 @@ from composer.profiler import ProfilerAction
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Trace", "Engine", "Traces"]
+__all__ = ['Trace', 'Engine', 'Traces']
 
 #: The default traces of an entire run is an OrderedDict.
 #: The keys are of format ``<algorithm_name>/<event>`` (e.g.,  ``Blurpool/INIT``) and values are an instance of
 #: :class:`Trace`.
-Traces = Dict[str, "Trace"]
+Traces = Dict[str, 'Trace']
 
 _ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
 _EVENTS_WHERE_DATALOADER_IS_SET = [e for e in Event if e != Event.INIT]
@@ -208,11 +208,11 @@ class Engine():
         event = Event(event)
 
         if self._is_closed:
-            raise RuntimeError(("The engine was already closed and therefore cannot be used again. "
-                                "To fix, please create a new Engine (or Trainer)"))
+            raise RuntimeError(('The engine was already closed and therefore cannot be used again. '
+                                'To fix, please create a new Engine (or Trainer)'))
 
         if self.state.profiler is not None:
-            name = f"event/{event.canonical_name}"
+            name = f'event/{event.canonical_name}'
             if (event.is_before_event or event.is_after_event):
                 # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
                 if event in _ALWAYS_RECORD_EVENTS:
@@ -225,10 +225,10 @@ class Engine():
             duration_marker.finish()
 
         if event in _EVENTS_WHERE_DATALOADER_IS_SET:
-            assert self.state.dataloader is not None, f"The trainer should have set state.dataloader for event {event}."
+            assert self.state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
 
         if event in _EVENTS_WHERE_MAX_DURATION_IS_SET:
-            assert self.state.max_duration is not None, f"The trainer should have set state.max_duration for event {event}."
+            assert self.state.max_duration is not None, f'The trainer should have set state.max_duration for event {event}.'
 
         if event == Event.INIT:
             # For the INIT event, run the callbacks first to initialize the loggers
@@ -258,7 +258,7 @@ class Engine():
         for order, algorithm in enumerate(algorithms_to_run):
             marker = None
             if self.state.profiler is not None:
-                marker = self.state.profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}",
+                marker = self.state.profiler.marker(f'algorithm/{algorithm.__class__.__name__}/event/{event.value}',
                                                     categories=[
                                                         event.value,
                                                         algorithm.__class__.__name__,
@@ -343,15 +343,15 @@ class Engine():
                 # If it's not in the dictionary, then the callback is new, so it's closed by definition
                 if cb in _OPEN_CALLBACKS:
                     raise RuntimeError(
-                        ("Cannot create a new trainer with an open callback or logger from a previous trainer. "
-                         "To fix, call trainer.close() before creating this new trainer to ensure that all "
-                         "callbacks or loggers shut down properly."))
+                        ('Cannot create a new trainer with an open callback or logger from a previous trainer. '
+                         'To fix, call trainer.close() before creating this new trainer to ensure that all '
+                         'callbacks or loggers shut down properly.'))
                 _OPEN_CALLBACKS.add(cb)
 
         for cb in self.state.callbacks:
             marker = None
             if self.state.profiler is not None:
-                marker = self.state.profiler.marker(f"callback/{cb.__class__.__name__}/event/{event.value}",
+                marker = self.state.profiler.marker(f'callback/{cb.__class__.__name__}/event/{event.value}',
                                                     categories=[
                                                         event.value,
                                                         cb.__class__.__name__,
@@ -393,7 +393,7 @@ class Engine():
                 callback.close(state, logger)
             except Exception as e:
                 log.error(
-                    f"Error running {callback.__class__.__name__}.close(). Skipping {callback.__class__.__name__}.post_close().",
+                    f'Error running {callback.__class__.__name__}.close(). Skipping {callback.__class__.__name__}.post_close().',
                     exc_info=e,
                     stack_info=True)
                 callback_to_has_exception[callback] = True
@@ -405,6 +405,6 @@ class Engine():
                 try:
                     callback.post_close()
                 except Exception as e:
-                    log.error(f"Error running {callback.__class__.__name__}.post_close().", exc_info=e, stack_info=True)
+                    log.error(f'Error running {callback.__class__.__name__}.post_close().', exc_info=e, stack_info=True)
                 else:
                     _OPEN_CALLBACKS.discard(callback)

@@ -33,25 +33,25 @@ from PIL import Image, ImageEnhance, ImageOps
 AugmentationFn = Callable[[Image.Image, float], Image.Image]
 
 __all__ = [
-    "AugmentationFn",
-    "autocontrast",
-    "equalize",
-    "posterize",
-    "rotate",
-    "solarize",
-    "shear_x",
-    "shear_y",
-    "translate_x",
-    "translate_y",
-    "color",
-    "color_original",
-    "contrast",
-    "contrast_original",
-    "brightness",
-    "brightness_original",
-    "sharpness",
-    "sharpness_original",
-    "augmentation_sets",
+    'AugmentationFn',
+    'autocontrast',
+    'equalize',
+    'posterize',
+    'rotate',
+    'solarize',
+    'shear_x',
+    'shear_y',
+    'translate_x',
+    'translate_y',
+    'color',
+    'color_original',
+    'contrast',
+    'contrast_original',
+    'brightness',
+    'brightness_original',
+    'sharpness',
+    'sharpness_original',
+    'augmentation_sets',
 ]
 
 
@@ -337,14 +337,14 @@ def sharpness_original(pil_img: Image.Image, level: float):
 
 
 augmentation_sets = {
-    "all": [
+    'all': [
         autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y, color,
         contrast, brightness, sharpness
     ],
     # Augmentations that don't overlap with ImageNet-C/CIFAR10-C test sets
-    "safe": [autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y],
+    'safe': [autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y],
     # Augmentations that use original implementations of color, contrast, brightness, and sharpness
-    "original": [
+    'original': [
         autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y, color_original,
         contrast_original, brightness_original, sharpness_original
     ],

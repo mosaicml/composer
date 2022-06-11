@@ -18,7 +18,7 @@ from torchvision import transforms
 
 from composer.datasets.streaming import StreamingDataset
 
-__all__ = ["StreamingImageNet1k"]
+__all__ = ['StreamingImageNet1k']
 
 
 class StreamingImageNet1k(StreamingDataset):
@@ -80,10 +80,10 @@ class StreamingImageNet1k(StreamingDataset):
         if split not in ['train', 'val']:
             raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
         if crop_size <= 0:
-            raise ValueError(f"crop_size must be positive.")
+            raise ValueError(f'crop_size must be positive.')
 
         # Define custom transforms
-        if split == "train":
+        if split == 'train':
             # include fixed-size resize before RandomResizedCrop in training only
             # if requested (by specifying a size > 0)
             train_transforms: List[torch.nn.Module] = []

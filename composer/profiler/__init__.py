@@ -26,12 +26,12 @@ from composer.profiler.trace_handler import TraceHandler
 
 # All needs to be defined properly for sphinx autosummary
 __all__ = [
-    "Marker",
-    "Profiler",
-    "ProfilerAction",
-    "TraceHandler",
-    "cyclic_schedule",
-    "JSONTraceHandler",
-    "SystemProfiler",
-    "TorchProfiler",
+    'Marker',
+    'Profiler',
+    'ProfilerAction',
+    'TraceHandler',
+    'cyclic_schedule',
+    'JSONTraceHandler',
+    'SystemProfiler',
+    'TorchProfiler',
 ]

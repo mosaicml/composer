@@ -29,7 +29,7 @@ def dummy_parameters():
     return parameters
 
 
-@pytest.mark.parametrize("optimizer_name", optimizer_registry.keys())
+@pytest.mark.parametrize('optimizer_name', optimizer_registry.keys())
 def test_optimizer_initialization(optimizer_name, dummy_parameters):
 
     # create the optimizer hparams object

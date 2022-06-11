@@ -12,7 +12,7 @@ T = TypeVar('T')
 def assert_in_registry(constructor: Callable, registry: Dict[str, Callable]):
     """Assert that the ``registry`` contains ``constructor``."""
     registry_entries = set(registry.values())
-    assert constructor in registry_entries, f"Constructor {constructor.__name__} is missing from the registry."
+    assert constructor in registry_entries, f'Constructor {constructor.__name__} is missing from the registry.'
 
 
 def construct_from_yaml(

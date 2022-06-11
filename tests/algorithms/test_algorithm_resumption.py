@@ -18,7 +18,7 @@ from tests.common import deep_compare
 
 @pytest.mark.timeout(30)
 @pytest.mark.gpu
-@pytest.mark.parametrize("alg_cls", get_algs_with_marks())
+@pytest.mark.parametrize('alg_cls', get_algs_with_marks())
 def test_algorithm_resumption(
     tmp_path: pathlib.Path,
     alg_cls: Type[Algorithm],
@@ -80,8 +80,8 @@ def test_algorithm_resumption(
 
     # check that the checkpoints are equal
     _assert_checkpoints_equal(
-        file1=os.path.join(folder1, "ep2-rank0"),
-        file2=os.path.join(folder2, "ep2-rank0"),
+        file1=os.path.join(folder1, 'ep2-rank0'),
+        file2=os.path.join(folder2, 'ep2-rank0'),
     )
 
     # check that different epoch checkpoints are _not_ equal
@@ -89,7 +89,7 @@ def test_algorithm_resumption(
     with pytest.raises(AssertionError):
         _assert_model_weights_equal(
             file1=os.path.join(folder1, 'ep1-rank0'),
-            file2=os.path.join(folder1, "ep2-rank0"),
+            file2=os.path.join(folder1, 'ep2-rank0'),
         )
 
 
