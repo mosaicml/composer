@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from composer import Algorithm, Trainer
 from composer.algorithms.layer_freezing.layer_freezing import LayerFreezing
-from tests.algorithms.algorithm_settings import get_alg_dataset, get_alg_kwargs, get_alg_model, get_algs_with_marks
+from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwargs, get_alg_model, get_algs_with_marks
 
 
 @pytest.mark.timeout(5)
@@ -17,7 +17,7 @@ from tests.algorithms.algorithm_settings import get_alg_dataset, get_alg_kwargs,
 def test_algorithm_trains(alg_cls: Type[Algorithm]):
     alg_kwargs = get_alg_kwargs(alg_cls)
     model = get_alg_model(alg_cls)
-    dataset = get_alg_dataset(alg_cls)
+    dataset = get_alg_dataloader(alg_cls)
     trainer = Trainer(
         model=model,
         train_dataloader=DataLoader(dataset=dataset, batch_size=4),
