@@ -23,6 +23,7 @@ def make_dataset_configs(model_family=['bert', 'gpt2']) -> list:
 
 
 def make_lm_tokenizer(config: dict):
+    pytest.importorskip("transformers")
     dataset = synthetic_hf_dataset_builder(num_samples=config['num_samples'],
                                            chars_per_sample=config['chars_per_sample'],
                                            column_names=config['column_names'])
@@ -31,6 +32,7 @@ def make_lm_tokenizer(config: dict):
 
 
 def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
+    pytest.importorskip("transformers")
     class_name = TransformerHparams
     if model_name == 'gpt2':
         class_name = GPT2Hparams
@@ -48,6 +50,7 @@ def make_synthetic_dataloader(dataset_config: dict):
     """
     creates a dataloader for synthetic sequence data
     """
+    pytest.importorskip("transformers")
     dataloader = LMDatasetHparams(use_synthetic=True,
                                   tokenizer_name=dataset_config['tokenizer_family'],
                                   use_masked_lm=dataset_config['use_masked_lm'],
