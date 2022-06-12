@@ -1,4 +1,4 @@
-# 🔆 Fused LayerNorm 
+# 🔆 Fused LayerNorm
 
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
@@ -40,7 +40,7 @@ def training_loop(model, train_loader):
 
 ```python
 from composer.trainer import Trainer
-from composer.algorithms import FusedLayerNorm 
+from composer.algorithms import FusedLayerNorm
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,

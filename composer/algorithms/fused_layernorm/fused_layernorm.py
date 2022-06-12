@@ -30,24 +30,24 @@ def from_LayerNorm(layer: torch.nn.LayerNorm, module_index: int) -> APEXFusedLay
 
 def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.Optimizer,
                                                                     Sequence[torch.optim.Optimizer]]) -> None:
-    """
-    Replaces all instances of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm.FusedLayerNorm <https://nvidia.github.io/apex/layernorm.html>`_.
+    """Replaces all instances of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm.FusedLayerNorm
+    <https://nvidia.github.io/apex/layernorm.html>`_.
 
     By fusing multiple kernel launches into one, this usually improves GPU utilization.
-
     """
     if not APEX_INSTALLED:
         raise ImportError(
-            "https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied.")
+            'https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied.')
 
     # prepare the replacement policy and perform replacement
     policy = {torch.nn.LayerNorm: from_LayerNorm}
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
-    log.info(f"Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.")
+    log.info(f'Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.')
 
 
 class FusedLayerNorm(Algorithm):
-    """Replaces all instances of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm.FusedLayerNorm <https://nvidia.github.io/apex/layernorm.html>`_.
+    """Replaces all instances of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm.FusedLayerNorm
+    <https://nvidia.github.io/apex/layernorm.html>`_.
 
     By fusing multiple kernel launches into one, this usually improves GPU utilization.
 
@@ -72,7 +72,7 @@ class FusedLayerNorm(Algorithm):
         # FusedLayerNorm takes no arguments
         if not APEX_INSTALLED:
             raise ImportError(
-                "https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied.")
+                'https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied.')
 
     def match(self, event: Event, state: State) -> bool:
         del state  # unused

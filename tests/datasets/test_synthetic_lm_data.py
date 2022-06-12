@@ -15,10 +15,10 @@ def generate_parameter_configs(keys, num_replicas=1, model_family=['bert', 'gpt2
     fixtures.
     """
     config_options = {
-        "tokenizer_family": model_family,
-        "chars_per_sample": [128],
-        "column_names": [['sentence'], ['sentence1', 'sentence2']],
-        "num_samples": [50]
+        'tokenizer_family': model_family,
+        'chars_per_sample': [128],
+        'column_names': [['sentence'], ['sentence1', 'sentence2']],
+        'num_samples': [50]
     }
 
     config_combinations = []

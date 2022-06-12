@@ -8,7 +8,6 @@ from typing import Type
 
 import pytest
 import torch
-from torch.utils.data import DataLoader
 
 from composer import Algorithm, Trainer
 from composer.algorithms import SAM, BlurPool, Factorize, LayerFreezing, SqueezeExcite, StochasticDepth

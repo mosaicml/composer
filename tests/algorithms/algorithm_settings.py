@@ -11,7 +11,7 @@ Each algorithm is keyed based on its name in the algorithm registry.
 from typing import Any, Dict, Optional, Type
 
 import pytest
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 import composer
 from composer import Algorithm
@@ -169,7 +169,7 @@ def get_alg_model(alg_cls: Type[Algorithm]) -> ComposerModel:
     return cls(**kwargs)
 
 
-def get_alg_dataloader(alg_cls: Type[Algorithm]) -> Dataset:
+def get_alg_dataloader(alg_cls: Type[Algorithm]) -> DataLoader:
     """Return an instance of the dataset for an algorithm."""
     settings = _get_alg_settings(alg_cls)
     if 'dataloader' in settings:
@@ -183,7 +183,7 @@ def get_alg_dataloader(alg_cls: Type[Algorithm]) -> Dataset:
         dataset = cls(**kwargs)
         return DataLoader(dataset=dataset, batch_size=4)
     else:
-        raise ValueError(f"Neither dataset nor dataloader have been provided for algorithm {alg_cls}")
+        raise ValueError(f'Neither dataset nor dataloader have been provided for algorithm {alg_cls}')
 
 
 def get_algs_with_marks():

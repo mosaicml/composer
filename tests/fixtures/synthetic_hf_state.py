@@ -23,7 +23,7 @@ def make_dataset_configs(model_family=['bert', 'gpt2']) -> list:
 
 
 def make_lm_tokenizer(config: dict):
-    pytest.importorskip("transformers")
+    pytest.importorskip('transformers')
     dataset = synthetic_hf_dataset_builder(num_samples=config['num_samples'],
                                            chars_per_sample=config['chars_per_sample'],
                                            column_names=config['column_names'])
@@ -32,7 +32,7 @@ def make_lm_tokenizer(config: dict):
 
 
 def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
-    pytest.importorskip("transformers")
+    pytest.importorskip('transformers')
     class_name = TransformerHparams
     if model_name == 'gpt2':
         class_name = GPT2Hparams
@@ -47,10 +47,8 @@ def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
 
 
 def make_synthetic_dataloader(dataset_config: dict):
-    """
-    creates a dataloader for synthetic sequence data
-    """
-    pytest.importorskip("transformers")
+    """creates a dataloader for synthetic sequence data."""
+    pytest.importorskip('transformers')
     dataloader = LMDatasetHparams(use_synthetic=True,
                                   tokenizer_name=dataset_config['tokenizer_family'],
                                   use_masked_lm=dataset_config['use_masked_lm'],
@@ -69,29 +67,27 @@ def make_synthetic_model(config):
 
 
 def make_synthetic_bert_model():
-    config = make_dataset_configs(model_family=["bert"])[0]
+    config = make_dataset_configs(model_family=['bert'])[0]
     return make_synthetic_model(config)
 
 
 def make_synthetic_bert_dataloader():
-    config = make_dataset_configs(model_family=["bert"])[0]
+    config = make_dataset_configs(model_family=['bert'])[0]
     return make_synthetic_dataloader(config)
 
 
 def make_synthetic_gpt2_model():
-    config = make_dataset_configs(model_family=["gpt2"])[0]
+    config = make_dataset_configs(model_family=['gpt2'])[0]
     return make_synthetic_model(config)
 
 
 def make_synthetic_gpt2_dataloader():
-    config = make_dataset_configs(model_family=["gpt2"])[0]
+    config = make_dataset_configs(model_family=['gpt2'])[0]
     return make_synthetic_dataloader(config)
 
 
 def synthetic_hf_state_maker(config) -> Tuple:
-    """
-    An example state using synthetic HF transformer function which could used for testing purposes
-    """
+    """An example state using synthetic HF transformer function which could used for testing purposes."""
     model = make_synthetic_model(config)
     dataloader = make_synthetic_dataloader(config)
     state = State(

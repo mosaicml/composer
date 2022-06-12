@@ -4,7 +4,6 @@
 from typing import Type
 
 import pytest
-from torch.utils.data import DataLoader
 
 from composer import Algorithm, Trainer
 from composer.algorithms.layer_freezing.layer_freezing import LayerFreezing
