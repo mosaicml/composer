@@ -240,14 +240,10 @@ def _update_drop_rate(module: torch.nn.Module, target_block: Type[torch.nn.Modul
     for child in module.children():
         if isinstance(child, target_block) and hasattr(child, 'drop_rate'):
             module_id += 1
-            if drop_distribution == 'uniform':
-                current_drop_rate = drop_rate
-            elif drop_distribution == 'linear':
-                print(module_id)
+            if drop_distribution == 'linear':
                 current_drop_rate = (module_id / module_count) * drop_rate  # type: ignore
             else:
-                raise ValueError(f'drop_distribution '{drop_distribution}' is'
-                                    f' not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}')
+                current_drop_rate = drop_rate
             child.drop_rate = torch.tensor(current_drop_rate)
         module_id = _update_drop_rate(child, target_block, drop_rate, drop_distribution, module_count, module_id)
     return module_id
