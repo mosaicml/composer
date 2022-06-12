@@ -12,16 +12,20 @@ import torch
 
 try:
     from apex.normalization.fused_layer_norm import FusedLayerNorm as APEXFusedLayerNorm
+    APEX_INSTALLED = True
 except ImportError as e:
-    raise ImportError(
-        "https://github.com/NVIDIA/apex is not installed, and therefore the Fused LayerNorm algorithm cannot be applied."
-    ) from e
+    APEX_INSTALLED = False
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
+
+
+def from_LayerNorm(layer: torch.nn.LayerNorm, module_index: int) -> APEXFusedLayerNorm:
+    """Defines a replacement policy from a `torch.nn.LayerNorm` to a `apex.normalization.fused_layer_norm`"""
+    return APEXFusedLayerNorm(normalized_shape=layer.normalized_shape, eps=layer.eps)
 
 
 def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.Optimizer,
@@ -32,25 +36,12 @@ def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.
     By fusing multiple kernel launches into one, this usually improves GPU utilization.
 
     """
-
-    # get new parameter values
-    d_embeds = []
-    layernorm_eps = []
-    for module_name, module_class in model.named_modules():
-        if isinstance(module_class, torch.nn.LayerNorm):
-            assert len(module_class.normalized_shape) == 1
-            d_embeds.append(module_class.normalized_shape[0])
-            layernorm_eps.append(module_class.eps)
-
-    # ensure that the model contains the same d_embed and layernorm.eps throughout
-    for l in [d_embeds, layernorm_eps]:
-        assert len(set(l)) == 1
-
-    d_embed = d_embeds[0]
-    layernorm_eps = layernorm_eps[0]
+    if not APEX_INSTALLED:
+        raise ImportError(
+            "https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied.")
 
     # prepare the replacement policy and perform replacement
-    policy = {torch.nn.LayerNorm: lambda x, module_index: APEXFusedLayerNorm(normalized_shape=d_embed, eps=layernorm_eps)}
+    policy = {torch.nn.LayerNorm: from_LayerNorm}
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     log.info(f"Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.")
 
@@ -79,7 +70,9 @@ class FusedLayerNorm(Algorithm):
 
     def __init__(self):
         # FusedLayerNorm takes no arguments
-        pass
+        if not APEX_INSTALLED:
+            raise ImportError(
+                "https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied.")
 
     def match(self, event: Event, state: State) -> bool:
         del state  # unused
