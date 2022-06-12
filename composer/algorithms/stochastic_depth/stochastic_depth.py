@@ -144,6 +144,7 @@ class StochasticDepth(Algorithm):
         if isinstance(drop_warmup, float):
             drop_warmup = Time(drop_warmup, TimeUnit.DURATION)
         self.drop_warmup = drop_warmup
+        self.num_stochastic_layers = 0 # Initial count of stochastic layers
         _validate_stochastic_hparams(stochastic_method=self.stochastic_method,
                                      target_layer_name=self.target_layer_name,
                                      drop_rate=self.drop_rate,
@@ -188,15 +189,19 @@ class StochasticDepth(Algorithm):
                                    stochastic_method=self.stochastic_method,
                                    drop_rate=self.drop_rate,
                                    drop_distribution=self.drop_distribution)
-            num_stochastic_layers = module_surgery.count_module_instances(state.model, target_block)
-            logger.data_epoch({'stochastic_depth/num_stochastic_layers': num_stochastic_layers})
+            self.num_stochastic_layers = module_surgery.count_module_instances(state.model, target_block)
+            logger.data_epoch({'stochastic_depth/num_stochastic_layers': self.num_stochastic_layers})
 
-        elif event == Event.BATCH_START:
+        elif event == Event.BATCH_START and self.num_stochastic_layers:
             elapsed_duration = state.get_elapsed_duration()
             assert elapsed_duration is not None, "elapsed duration is set on BATCH_START"
             if elapsed_duration < self.drop_warmup:
                 current_drop_rate = float(elapsed_duration / self.drop_warmup) * self.drop_rate
-                _update_drop_rate(state.model, target_block, current_drop_rate, self.drop_distribution)
+                _update_drop_rate(module=state.model,
+                                  target_block=target_block,
+                                  drop_rate=current_drop_rate,
+                                  drop_distribution=self.drop_distribution,
+                                  module_count=self.num_stochastic_layers)
             else:
                 current_drop_rate = self.drop_rate
             logger.data_batch({'stochastic_depth/drop_rate': current_drop_rate})
@@ -229,20 +234,20 @@ def _validate_stochastic_hparams(target_layer_name: str,
 
 
 def _update_drop_rate(module: torch.nn.Module, target_block: Type[torch.nn.Module], drop_rate: float,
-                      drop_distribution: str):
+                      drop_distribution: str, module_count: int, module_id: int = 0):
     """Recursively updates a module's drop_rate attributes with a new value."""
 
-    if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
-        return
-    else:
-        for child in module.children():
-            if isinstance(child, target_block) and hasattr(child, "drop_rate"):
-                if drop_distribution == 'uniform':
-                    current_drop_rate = drop_rate
-                elif drop_distribution == 'linear':
-                    current_drop_rate = ((child.module_id + 1) / child.module_count) * drop_rate  # type: ignore
-                else:
-                    raise ValueError(f"drop_distribution '{drop_distribution}' is"
-                                     f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
-                child.drop_rate = torch.tensor(current_drop_rate)
-            _update_drop_rate(child, target_block, drop_rate, drop_distribution)
+    for child in module.children():
+        if isinstance(child, target_block) and hasattr(child, "drop_rate"):
+            module_id += 1
+            if drop_distribution == 'uniform':
+                current_drop_rate = drop_rate
+            elif drop_distribution == 'linear':
+                print(module_id)
+                current_drop_rate = (module_id / module_count) * drop_rate  # type: ignore
+            else:
+                raise ValueError(f"drop_distribution '{drop_distribution}' is"
+                                    f" not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}")
+            child.drop_rate = torch.tensor(current_drop_rate)
+        module_id = _update_drop_rate(child, target_block, drop_rate, drop_distribution, module_count, module_id)
+    return module_id
