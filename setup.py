@@ -65,8 +65,8 @@ install_requires = [
     "tqdm>=4.62.3,<5",
     "torchmetrics>=0.7.0,<0.8",
     "torch_optimizer>=0.1.0,<0.2",
-    "torchvision>=0.10.0",  # torchvision has strict pytorch requirements
-    "torch>=1.9,<2",
+    #"torchvision>=0.10.0",  # torchvision has strict pytorch requirements
+    #"torch>=1.9,<2",
     "yahp==0.1.0",
     "requests>=2.26.0,<3",
     "numpy>=1.21.5,<2",
