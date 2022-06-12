@@ -2,12 +2,12 @@ import collections.abc
 import io
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, TypeVar, Union, overload
 
-import tqdm
-
 T = TypeVar("T")
 V = TypeVar("V")
 KT = TypeVar("KT")
+
 TSized = TypeVar("TSized", bound=collections.abc.Sized)
+
 
 
 @overload
@@ -39,10 +39,6 @@ def ensure_tuple(union_of_all_types: Union[T, Sequence[T], Dict[Any, T], None]) 
     ...
 
 
-def iterate_with_pbar(iterator: Iterator[TSized], progress_bar: Optional[tqdm.tqdm] = ...) -> Iterator[TSized]:
-    ...
-
-
 class IteratorFileStream(io.RawIOBase):
     def __init__(self, iterator):
         ...
@@ -52,3 +48,10 @@ class IteratorFileStream(io.RawIOBase):
 
     def readable(self) -> bool:
         ...
+
+def iterate_with_callback(
+    iterator: Iterator[TSized],
+    total_len: int,
+    callback: Optional[Callable[[int, int], None]] = ...,
+):
+    ...

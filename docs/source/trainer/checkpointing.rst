@@ -300,14 +300,18 @@ Behind the scenes, the :class:`.ObjectStoreLogger` uses :doc:`Apache Libcloud <l
 .. testcode::
 
     from composer.loggers import ObjectStoreLogger
+    from composer.utils import LibcloudObjectStore
 
     object_store_logger = ObjectStoreLogger(
-        provider="s3",  # The Apache Libcloud provider name
-        container="my_bucket",  # The name of the cloud container (i.e. bucket) to use.
-        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments
-            'key': 'provider_key',  # The cloud provider key.
-            'secret': '*******',  # The cloud provider secret.
-            # Any additional arguments required for the cloud provider.
+        object_store_cls=LibcloudObjectStore,
+        object_store_kwargs={
+            "provider": "s3",  # The Apache Libcloud provider name
+            "container": "my_bucket",  # The name of the cloud container (i.e. bucket) to use.
+            "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
+                'key': 'provider_key',  # The cloud provider key.
+                'secret': '*******',  # The cloud provider secret.
+                # Any additional arguments required for the cloud provider.
+            },
         },
     )
 
@@ -333,12 +337,15 @@ Once you've configured your object store logger per above, all that's left is to
     from composer.loggers import ObjectStoreLogger
 
     object_store_logger = ObjectStoreLogger(
-        provider="s3",  # The Apache Libcloud provider name
-        container="checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
-        provider_kwargs={  # The Apache Libcloud provider driver initialization arguments
-            'key': 'provider_key',  # The cloud provider key.
-            'secret': '*******',  # The cloud provider secret.
-            # Any additional arguments required for the cloud provider.
+        object_store_cls=LibcloudObjectStore,
+        object_store_kwargs={
+            "provider": "s3",  # The Apache Libcloud provider name
+            "container": "checkpoint-debugging",  # The name of the cloud container (i.e. bucket) to use.
+            "provider_kwargs": {  # The Apache Libcloud provider driver initialization arguments
+                'key': 'provider_key',  # The cloud provider key.
+                'secret': '*******',  # The cloud provider secret.
+                # Any additional arguments required for the cloud provider.
+            },
         },
     )
 
@@ -368,7 +375,7 @@ should be the path to the checkpoint file *within the container/bucket*.
 
 .. testcode::
 
-    from composer.utils.libcloud_object_store import LibcloudObjectStore
+    from composer.utils import LibcloudObjectStore
     from composer.trainer import Trainer
 
     object_store = LibcloudObjectStore(

@@ -16,7 +16,7 @@ from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
-__all__ = ["C4DatasetHparams", "StreamingC4Hparams"]
+__all__ = ['C4DatasetHparams', 'StreamingC4Hparams']
 
 
 @dataclass
@@ -36,27 +36,27 @@ class StreamingC4Hparams(DatasetHparams):
         mlm_probability (float): If ``mlm==True``, the probability that tokens are masked. Default: ``0.15``.
     """
 
-    remote: str = hp.optional("Remote directory (S3 or local filesystem) where dataset is stored",
-                              default="s3://mosaicml-internal-dataset-c4/mds/1/")
-    local: str = hp.optional("Local filesystem directory where dataset is cached during operation",
-                             default="/tmp/mds-cache/mds-c4/")
-    split: str = hp.optional("What split of the dataset to use. Either `train` or `val`.", default="train")
-    tokenizer_name: str = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.",
-                                      default="bert-base-uncased")
-    max_seq_len: int = hp.optional("The max sequence length of each token sample.", default=512)
+    remote: str = hp.optional('Remote directory (S3 or local filesystem) where dataset is stored',
+                              default='s3://mosaicml-internal-dataset-c4/mds/1/')
+    local: str = hp.optional('Local filesystem directory where dataset is cached during operation',
+                             default='/tmp/mds-cache/mds-c4/')
+    split: str = hp.optional('What split of the dataset to use. Either `train` or `val`.', default='train')
+    tokenizer_name: str = hp.optional('The name of the HuggingFace tokenizer to preprocess text with.',
+                                      default='bert-base-uncased')
+    max_seq_len: int = hp.optional('The max sequence length of each token sample.', default=512)
     group_method: str = hp.optional(
-        "How to group text samples into token samples. Currently only `truncate` is supported.", default="truncate")
-    mlm: bool = hp.optional("Whether or not to use masked language modeling.", default=False)
-    mlm_probability: float = hp.optional("If `mlm==True`, the probability that tokens are masked.", default=0.15)
+        'How to group text samples into token samples. Currently only `truncate` is supported.', default='truncate')
+    mlm: bool = hp.optional('Whether or not to use masked language modeling.', default=False)
+    mlm_probability: float = hp.optional('If `mlm==True`, the probability that tokens are masked.', default=0.15)
 
     def validate(self):
-        if self.split not in ["train", "val"]:
+        if self.split not in ['train', 'val']:
             raise ValueError(f"Unknown split: '{self.split}'")
         if self.tokenizer_name is None:
             raise ValueError(f"Must provide 'tokenizer_name'")
         if self.max_seq_len is None or self.max_seq_len <= 0:
             raise ValueError(f"Must provide 'max_seq_len' > 0")
-        if self.group_method not in ["truncate"]:
+        if self.group_method not in ['truncate']:
             raise ValueError(f"Unknown group_method: '{self.group_method}'. Currently only 'truncate' is supported.")
         if self.mlm and self.mlm_probability <= 0:
             raise ValueError("Must provide a positive 'mlm_probability' when using masked language modeling.")
@@ -65,7 +65,7 @@ class StreamingC4Hparams(DatasetHparams):
         try:
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
         # Get StreamingC4 dataset
         dataset = StreamingC4(remote=self.remote,
@@ -117,28 +117,28 @@ class C4DatasetHparams(DatasetHparams):
         DataLoader: A PyTorch :class:`~torch.utils.data.DataLoader` object.
     """
 
-    split: Optional[str] = hp.optional("What split of the dataset to use. Either `train` or `validation`.",
+    split: Optional[str] = hp.optional('What split of the dataset to use. Either `train` or `validation`.',
                                        default=None)
     num_samples: Optional[int] = hp.optional(
-        "The number of post-processed token samples, used to set epoch size of the IterableDataset.", default=None)
-    tokenizer_name: Optional[str] = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.",
+        'The number of post-processed token samples, used to set epoch size of the IterableDataset.', default=None)
+    tokenizer_name: Optional[str] = hp.optional('The name of the HuggingFace tokenizer to preprocess text with.',
                                                 default=None)
-    max_seq_len: Optional[int] = hp.optional("The max sequence length of each token sample.", default=None)
+    max_seq_len: Optional[int] = hp.optional('The max sequence length of each token sample.', default=None)
     group_method: Optional[str] = hp.optional(
-        "How to group text samples into token samples. Either `truncate` or `concat`.", default=None)
-    mlm: bool = hp.optional("Whether or not to use masked language modeling.", default=False)
-    mlm_probability: float = hp.optional("If `mlm==True`, the probability that tokens are masked.", default=0.15)
+        'How to group text samples into token samples. Either `truncate` or `concat`.', default=None)
+    mlm: bool = hp.optional('Whether or not to use masked language modeling.', default=False)
+    mlm_probability: float = hp.optional('If `mlm==True`, the probability that tokens are masked.', default=0.15)
     shuffle: bool = hp.optional(
-        "Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle buffers.",
+        'Whether to shuffle the samples in the dataset. Currently, shards are assigned and consumed with deterministic per-device shard order, but shuffling affects the order of samples via (per-device) shuffle buffers.',
         default=True)
     shuffle_buffer_size: int = hp.optional(
-        "If `shuffle=True`, samples are read into a buffer of this size (per-device), and randomly sampled from there to produce shuffled samples.",
+        'If `shuffle=True`, samples are read into a buffer of this size (per-device), and randomly sampled from there to produce shuffled samples.',
         default=10000)
-    seed: int = hp.optional("If `shuffle=True`, what seed to use for shuffling operations.", default=5)
-    drop_last: bool = hp.optional("Whether to drop the last samples for the last batch.", default=True)
+    seed: int = hp.optional('If `shuffle=True`, what seed to use for shuffling operations.', default=5)
+    drop_last: bool = hp.optional('Whether to drop the last samples for the last batch.', default=True)
 
     def validate(self):
-        if self.split not in ["train", "validation"]:
+        if self.split not in ['train', 'validation']:
             raise ValueError(f"Unknown split: '{self.split}'")
         if self.num_samples is None or self.num_samples <= 0:
             raise ValueError(f"Must provide 'num_samples' > 0")
@@ -146,7 +146,7 @@ class C4DatasetHparams(DatasetHparams):
             raise ValueError(f"Must provide 'tokenizer_name'")
         if self.max_seq_len is None or self.max_seq_len <= 0:
             raise ValueError(f"Must provide 'max_seq_len' > 0")
-        if self.group_method not in ["truncate", "concat"]:
+        if self.group_method not in ['truncate', 'concat']:
             raise ValueError(f"Unknown group_method: '{self.group_method}'. Must be 'truncate' or 'concat'")
         if self.mlm and self.mlm_probability <= 0:
             raise ValueError("Must provide a positive 'mlm_probability' when using masked language modeling.")
@@ -155,10 +155,10 @@ class C4DatasetHparams(DatasetHparams):
         try:
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
         if dataloader_hparams.num_workers > 1:
-            log.warning("C4 Dataset not compatible with num_workers > 1. Overwriting value to num_workers=1")
+            log.warning('C4 Dataset not compatible with num_workers > 1. Overwriting value to num_workers=1')
             dataloader_hparams.num_workers = 1
 
         # Get C4 dataset

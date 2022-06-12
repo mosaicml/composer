@@ -29,19 +29,19 @@ from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.datasets.synthetic_lm import generate_synthetic_tokenizer, synthetic_hf_dataset_builder
 from composer.utils import MissingConditionalImportError, dist
 
-__all__ = ["GLUEHparams"]
+__all__ = ['GLUEHparams']
 
 log = logging.getLogger(__name__)
 
 _task_to_keys = {
-    "cola": ("sentence", None),
-    "mnli": ("premise", "hypothesis"),
-    "mrpc": ("sentence1", "sentence2"),
-    "qnli": ("question", "sentence"),
-    "qqp": ("question1", "question2"),
-    "rte": ("sentence1", "sentence2"),
-    "sst2": ("sentence", None),
-    "stsb": ("sentence1", "sentence2"),
+    'cola': ('sentence', None),
+    'mnli': ('premise', 'hypothesis'),
+    'mrpc': ('sentence1', 'sentence2'),
+    'qnli': ('question', 'sentence'),
+    'qqp': ('question1', 'question2'),
+    'rte': ('sentence1', 'sentence2'),
+    'sst2': ('sentence', None),
+    'stsb': ('sentence1', 'sentence2'),
 }
 
 
@@ -65,27 +65,27 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
     """
 
     task: Optional[str] = hp.optional(
-        "The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B.", default=None)
-    tokenizer_name: Optional[str] = hp.optional("The name of the HuggingFace tokenizer to preprocess text with.",
+        'The GLUE task to train on, choose one from: CoLA, MNLI, MRPC, QNLI, QQP, RTE, SST-2, and STS-B.', default=None)
+    tokenizer_name: Optional[str] = hp.optional('The name of the HuggingFace tokenizer to preprocess text with.',
                                                 default=None)
     split: Optional[str] = hp.optional("Whether to use 'train', 'validation' or 'test' split.", default=None)
     max_seq_length: int = hp.optional(
         default=256, doc='Optionally, the ability to set a custom sequence length for the training dataset.')
     max_network_retries: int = hp.optional(default=10,
-                                           doc="Optionally, the number of times to retry HTTP requests if they fail.")
+                                           doc='Optionally, the number of times to retry HTTP requests if they fail.')
 
     def validate(self):
         if self.task not in _task_to_keys.keys():
             raise ValueError(f"The task must be a valid GLUE task, options are {' ,'.join(_task_to_keys.keys())}.")
 
         if (self.max_seq_length % 8) != 0:
-            log.warning("For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.")
+            log.warning('For best hardware acceleration, it is recommended that sequence lengths be multiples of 8.')
 
         if self.tokenizer_name is None:
-            raise ValueError("A tokenizer name must be specified to tokenize the dataset.")
+            raise ValueError('A tokenizer name must be specified to tokenize the dataset.')
 
         if self.split is None:
-            raise ValueError("A dataset split must be specified.")
+            raise ValueError('A dataset split must be specified.')
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> DataLoader:
         # TODO (Moin): I think this code is copied verbatim in a few different places. Move this into a function.
@@ -93,11 +93,11 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             import datasets
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
         self.validate()
-        assert self.task is not None, "checked in validate()"
-        assert self.tokenizer_name is not None, "checked in validate()"
+        assert self.task is not None, 'checked in validate()'
+        assert self.tokenizer_name is not None, 'checked in validate()'
 
         if self.use_synthetic:
             column_names = [i for i in _task_to_keys[self.task] if i is not None]
@@ -112,11 +112,11 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
         else:
             tokenizer = transformers.AutoTokenizer.from_pretrained(self.tokenizer_name)  #type: ignore (thirdparty)
 
-            log.info(f"Loading {self.task.upper()} on rank {dist.get_global_rank()}")
+            log.info(f'Loading {self.task.upper()} on rank {dist.get_global_rank()}')
             download_config = datasets.utils.DownloadConfig(max_retries=self.max_network_retries)
-            dataset = datasets.load_dataset("glue", self.task, split=self.split, download_config=download_config)
+            dataset = datasets.load_dataset('glue', self.task, split=self.split, download_config=download_config)
 
-        log.info(f"Starting tokenization step by preprocessing over {dataloader_hparams.num_workers} threads!")
+        log.info(f'Starting tokenization step by preprocessing over {dataloader_hparams.num_workers} threads!')
         text_column_names = _task_to_keys[self.task]
 
         def tokenize_function(inp):
@@ -127,12 +127,12 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             return tokenizer(
                 text=first_half,
                 text_pair=second_half,
-                padding="max_length",
+                padding='max_length',
                 max_length=self.max_seq_length,
                 truncation=True,
             )
 
-        columns_to_remove = ["idx"] + [i for i in text_column_names if i is not None]
+        columns_to_remove = ['idx'] + [i for i in text_column_names if i is not None]
 
         assert isinstance(dataset, datasets.Dataset)
         dataset = dataset.map(
@@ -141,7 +141,7 @@ class GLUEHparams(DatasetHparams, SyntheticHparamsMixin):
             num_proc=None if dataloader_hparams.num_workers == 0 else dataloader_hparams.num_workers,
             batch_size=1000,
             remove_columns=columns_to_remove,
-            new_fingerprint=f"{self.task}-{self.tokenizer_name}-tokenization-{self.split}",
+            new_fingerprint=f'{self.task}-{self.tokenizer_name}-tokenization-{self.split}',
             load_from_cache_file=True,
         )
 

@@ -11,4 +11,4 @@ See :class:`~composer.algorithms.StochasticDepth`, the sample-wise stochastic de
 from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepth as StochasticDepth
 from composer.algorithms.stochastic_depth.stochastic_depth import apply_stochastic_depth as apply_stochastic_depth
 
-__all__ = ["StochasticDepth", "apply_stochastic_depth"]
+__all__ = ['StochasticDepth', 'apply_stochastic_depth']

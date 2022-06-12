@@ -10,7 +10,7 @@ from torch.utils.data import get_worker_info
 
 from composer.utils import dist
 
-__all__ = ["World", "get_world"]
+__all__ = ['World', 'get_world']
 
 
 class World(NamedTuple):

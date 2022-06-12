@@ -13,7 +13,7 @@ from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 
 
-@pytest.mark.parametrize("world_size", [
+@pytest.mark.parametrize('world_size', [
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
@@ -31,7 +31,7 @@ def test_progress_bar_logger(monkeypatch: MonkeyPatch, world_size: int):
         is_train_to_mock_tqdms[is_train].append(mock_tqdm)
         return mock_tqdm
 
-    monkeypatch.setattr(auto, "tqdm", get_mock_tqdm)
+    monkeypatch.setattr(auto, 'tqdm', get_mock_tqdm)
 
     max_epochs = 2
     eval_epochs = 1
@@ -54,7 +54,7 @@ def test_progress_bar_logger(monkeypatch: MonkeyPatch, world_size: int):
     assert len(is_train_to_mock_tqdms[False]) == eval_epochs * max_epochs
     for mock_tqdm in is_train_to_mock_tqdms[True]:
         assert trainer.state.dataloader_len is not None
-        assert trainer.state.dataloader_label == "train"
+        assert trainer.state.dataloader_label == 'train'
         assert mock_tqdm.update.call_count == int(trainer.state.dataloader_len)
         mock_tqdm.close.assert_called_once()
     for mock_tqdm in is_train_to_mock_tqdms[False]:

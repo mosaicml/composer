@@ -36,21 +36,21 @@ from composer.models.classify_mnist import MNIST_Classifier
 model = MNIST_Classifier(num_classes=10)
 optimizer = SGD(model.parameters(), lr=0.01)
 train_dataloader = torch.utils.data.DataLoader(
-    dataset=MNIST("~/datasets", train=True, download=True, transform=ToTensor()),
+    dataset=MNIST('~/datasets', train=True, download=True, transform=ToTensor()),
     batch_size=2048,
 )
 eval_dataloader = torch.utils.data.DataLoader(
-    dataset=MNIST("~/datasets", train=True, download=True, transform=ToTensor()),
+    dataset=MNIST('~/datasets', train=True, download=True, transform=ToTensor()),
     batch_size=2048,
 )
 
 # When using `autoresume`, it is required to specify the `run_name` is required, so
 # Composer will know which training run to resume
-run_name = "my_autoresume_training_run"
+run_name = 'my_autoresume_training_run'
 
 trainer = Trainer(
     model=model,
-    max_duration="5ep",
+    max_duration='5ep',
     optimizers=optimizer,
 
     # Train Data Configuration
@@ -63,17 +63,17 @@ trainer = Trainer(
 
     # Checkpoint Configuration
     run_name=run_name,
-    save_folder="./my_autoresume_training_run",
-    save_interval="1ep",
+    save_folder='./my_autoresume_training_run',
+    save_interval='1ep',
 
     # Configure autoresume!
     autoresume=True,
 )
 
-print("Training!")
+print('Training!')
 
 # Train!
 trainer.fit()
 
 # Print the number of trained epochs (should always bee the `max_duration`, which is 5ep)
-print(f"\nNumber of epochs trained: {trainer.state.timestamp.epoch}")
+print(f'\nNumber of epochs trained: {trainer.state.timestamp.epoch}')

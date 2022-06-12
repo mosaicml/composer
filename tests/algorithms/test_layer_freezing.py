@@ -18,11 +18,11 @@ def _generate_state(epoch: int, max_epochs: int):
 
     state = State(model=model,
                   rank_zero_seed=0,
-                  run_name="run_name",
+                  run_name='run_name',
                   optimizers=torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.99),
                   precision=Precision.FP32,
                   dataloader=Mock(__len__=lambda x: 100),
-                  dataloader_label="train",
+                  dataloader_label='train',
                   grad_accum=1,
                   max_duration=f'{max_epochs}ep')
 

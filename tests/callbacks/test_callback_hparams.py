@@ -12,7 +12,7 @@ from composer.loggers import ObjectStoreLogger
 from composer.loggers.logger_hparams_registry import ObjectStoreLoggerHparams, logger_registry
 from composer.profiler import JSONTraceHandler, SystemProfiler, TorchProfiler, TraceHandler
 from tests.callbacks.callback_settings import get_cb_hparams_and_marks, get_cb_kwargs, get_cbs_and_marks
-from tests.common.hparams import assert_in_registry, assert_yaml_loads
+from tests.common.hparams import assert_in_registry, construct_from_yaml
 
 
 @pytest.mark.parametrize('constructor', get_cb_hparams_and_marks())
@@ -25,7 +25,7 @@ def test_callback_hparams_is_constructable(
     if constructor is ObjectStoreLoggerHparams:
         monkeypatch.setenv('KEY_ENVIRON', '.')
     expected = ObjectStoreLoggerHparams if constructor is ObjectStoreLoggerHparams else Callback
-    assert_yaml_loads(constructor, yaml_dict=yaml_dict, expected=expected)
+    assert isinstance(construct_from_yaml(constructor, yaml_dict=yaml_dict), expected)
 
 
 @pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
@@ -39,6 +39,6 @@ def test_callback_in_registry(cb_cls: Type[Callback]):
         item = cb_cls
     if cb_cls in [TorchProfiler, SystemProfiler, JSONTraceHandler, TraceHandler]:
         pytest.skip(
-            f"Callback {cb_cls.__name__} does not have a registry entry as it should not be constructed directly")
+            f'Callback {cb_cls.__name__} does not have a registry entry as it should not be constructed directly')
     joint_registry = {**callback_registry, **logger_registry}
     assert_in_registry(item, registry=joint_registry)

@@ -13,9 +13,9 @@ from torch.optim import Optimizer
 
 from composer.core.serializable import Serializable
 
-__all__ = ["Device", "T_nnModule"]
+__all__ = ['Device', 'T_nnModule']
 
-T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
+T_nnModule = TypeVar('T_nnModule', bound=torch.nn.Module)
 T_Batch = TypeVar('T_Batch')
 
 
@@ -29,7 +29,7 @@ class Device(Serializable, ABC):
             for details.
     """
 
-    dist_backend: str = ""
+    dist_backend: str = ''
 
     @abstractmethod
     def module_to_device(self, module: T_nnModule) -> T_nnModule:

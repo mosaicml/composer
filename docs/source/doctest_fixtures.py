@@ -55,7 +55,7 @@ from composer.utils import ensure_tuple as ensure_tuple
 
 # Need to insert the repo root at the beginning of the path, since there may be other modules named `tests`
 # Assuming that docs generation is running from the `docs` directory
-_docs_dir = os.path.abspath(".")
+_docs_dir = os.path.abspath('.')
 _repo_root = os.path.dirname(_docs_dir)
 if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
@@ -64,7 +64,7 @@ from tests.common import SimpleModel
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.TemporaryDirectory()
-cwd = os.path.abspath(".")
+cwd = os.path.abspath('.')
 os.chdir(tmpdir.name)
 
 num_channels = 3
@@ -110,13 +110,13 @@ eval_dataloader = torch.utils.data.DataLoader(
 state = State(
     rank_zero_seed=0,
     model=model,
-    run_name="run_name",
+    run_name='run_name',
     optimizers=optimizer,
     grad_accum=1,
     dataloader=train_dataloader,
-    dataloader_label="train",
-    max_duration="1ep",
-    precision="fp32",
+    dataloader_label='train',
+    max_duration='1ep',
+    precision='fp32',
 )
 
 logger = Logger(state)
@@ -133,7 +133,7 @@ logits = torch.randn(batch_size, num_classes)  # type: ignore
 y_example = torch.randint(num_classes, (batch_size,))  # type: ignore
 
 
-def loss_fun(output, target, reduction="none"):
+def loss_fun(output, target, reduction='none'):
     """Dummy loss function."""
     return torch.ones_like(target)
 
@@ -143,22 +143,22 @@ _original_trainer_init = Trainer.__init__
 
 
 def _new_trainer_init(self, fake_ellipses: None = None, **kwargs: Any):
-    if "model" not in kwargs:
-        kwargs["model"] = model
-    if "optimizers" not in kwargs:
-        kwargs["optimizers"] = torch.optim.SGD(kwargs["model"].parameters(), lr=0.01)
-    if "schedulers" not in kwargs:
-        kwargs["schedulers"] = ConstantScheduler()
-    if "max_duration" not in kwargs:
-        kwargs["max_duration"] = "1ep"
-    if "train_dataloader" not in kwargs:
-        kwargs["train_dataloader"] = train_dataloader
-    if "eval_dataloader" not in kwargs:
-        kwargs["eval_dataloader"] = eval_dataloader
-    if "progress_bar" not in kwargs:
-        kwargs["progress_bar"] = False  # hide tqdm logging
-    if "log_to_console" not in kwargs:
-        kwargs["log_to_console"] = False  # hide console logging
+    if 'model' not in kwargs:
+        kwargs['model'] = model
+    if 'optimizers' not in kwargs:
+        kwargs['optimizers'] = torch.optim.SGD(kwargs['model'].parameters(), lr=0.01)
+    if 'schedulers' not in kwargs:
+        kwargs['schedulers'] = ConstantScheduler()
+    if 'max_duration' not in kwargs:
+        kwargs['max_duration'] = '1ep'
+    if 'train_dataloader' not in kwargs:
+        kwargs['train_dataloader'] = train_dataloader
+    if 'eval_dataloader' not in kwargs:
+        kwargs['eval_dataloader'] = eval_dataloader
+    if 'progress_bar' not in kwargs:
+        kwargs['progress_bar'] = False  # hide tqdm logging
+    if 'log_to_console' not in kwargs:
+        kwargs['log_to_console'] = False  # hide console logging
     _original_trainer_init(self, **kwargs)
 
 
@@ -177,35 +177,36 @@ _original_objectStoreLogger_init = ObjectStoreLogger.__init__
 
 
 def _new_objectStoreLogger_init(self, fake_ellipses: None = None, **kwargs: Any):
-    os.makedirs("./object_store", exist_ok=True)
-    kwargs.update(
-        use_procs=False,
-        num_concurrent_uploads=1,
-        provider='local',
-        container='.',
-        provider_kwargs={
-            'key': os.path.abspath("./object_store"),
-        },
-    )
+    os.makedirs('./object_store', exist_ok=True)
+    kwargs.update(use_procs=False,
+                  num_concurrent_uploads=1,
+                  object_store_cls=LibcloudObjectStore,
+                  object_store_kwargs={
+                      'provider': 'local',
+                      'container': '.',
+                      'provider_kwargs': {
+                          'key': os.path.abspath('./object_store'),
+                      },
+                  })
     _original_objectStoreLogger_init(self, **kwargs)
 
 
 ObjectStoreLogger.__init__ = _new_objectStoreLogger_init  # type: ignore
 
 # Patch ObjectStore __init__ function to replace arguments while preserving type
-_original_objectStore_init = LibcloudObjectStore.__init__
+_original_libcloudObjectStore_init = LibcloudObjectStore.__init__
 
 
-def _new_objectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
-    os.makedirs("./object_store", exist_ok=True)
+def _new_libcloudObjectStore_init(self, fake_ellipses: None = None, **kwargs: Any):
+    os.makedirs('./object_store', exist_ok=True)
     kwargs.update(
         provider='local',
         container='.',
         provider_kwargs={
-            'key': os.path.abspath("./object_store"),
+            'key': os.path.abspath('./object_store'),
         },
     )
-    _original_objectStore_init(self, **kwargs)
+    _original_libcloudObjectStore_init(self, **kwargs)
 
 
-LibcloudObjectStore.__init__ = _new_objectStore_init  # type: ignore
+LibcloudObjectStore.__init__ = _new_libcloudObjectStore_init  # type: ignore

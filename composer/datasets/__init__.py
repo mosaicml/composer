@@ -13,7 +13,7 @@ from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDat
                                          SyntheticPILDataset)
 
 __all__ = [
-    "ADE20k", "StreamingADE20k", "PytTrain", "PytVal", "C4Dataset", "StreamingC4", "StreamingCIFAR10", "COCODetection",
-    "StreamingCOCO", "StreamingImageNet1k", "SyntheticBatchPairDataset", "SyntheticDataLabelType", "SyntheticDataType",
-    "SyntheticPILDataset"
+    'ADE20k', 'StreamingADE20k', 'PytTrain', 'PytVal', 'C4Dataset', 'StreamingC4', 'StreamingCIFAR10', 'COCODetection',
+    'StreamingCOCO', 'StreamingImageNet1k', 'SyntheticBatchPairDataset', 'SyntheticDataLabelType', 'SyntheticDataType',
+    'SyntheticPILDataset'
 ]

@@ -8,7 +8,7 @@ from typing import Callable
 from composer.core.state import State
 from composer.profiler.profiler_action import ProfilerAction
 
-__all__ = ["cyclic_schedule"]
+__all__ = ['cyclic_schedule']
 
 
 def cyclic_schedule(

@@ -6,7 +6,7 @@ from torchvision.models.resnet import Bottleneck
 
 
 def block_stochastic_bottleneck_forward(module: torch.nn.Module, drop_rate: torch.Tensor) -> torch.Tensor:
-    if not hasattr(module, "drop_rate"):
+    if not hasattr(module, 'drop_rate'):
         module.drop_rate = drop_rate
 
     def forward(self, x):
@@ -61,7 +61,7 @@ def _sample_drop(x: torch.Tensor, sample_drop_rate: float, is_training: bool):
 
 
 def sample_stochastic_bottleneck_forward(module: torch.nn.Module, drop_rate: torch.Tensor):
-    if not hasattr(module, "drop_rate"):
+    if not hasattr(module, 'drop_rate'):
         module.drop_rate = drop_rate
 
     def forward(self, x):

@@ -66,7 +66,7 @@ def dummy_maskrcnn_batch() -> List[Tuple[torch.Tensor, Dict[str, torch.Tensor]]]
 
 
 @device('cpu', 'gpu')
-@pytest.mark.parametrize("batch", [
+@pytest.mark.parametrize('batch', [
     dummy_tensor_batch(),
     dummy_tuple_batch(),
     dummy_tuple_batch_long(),
