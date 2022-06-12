@@ -17,10 +17,10 @@ from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwar
 def test_algorithm_trains(alg_cls: Type[Algorithm]):
     alg_kwargs = get_alg_kwargs(alg_cls)
     model = get_alg_model(alg_cls)
-    dataset = get_alg_dataloader(alg_cls)
+    dataloader = get_alg_dataloader(alg_cls)
     trainer = Trainer(
         model=model,
-        train_dataloader=DataLoader(dataset=dataset, batch_size=4),
+        train_dataloader=dataloader,
         max_duration='2ep',
         algorithms=alg_cls(**alg_kwargs),
     )
