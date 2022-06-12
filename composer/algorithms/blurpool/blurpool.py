@@ -172,8 +172,8 @@ def _log_surgery_result(model: torch.nn.Module):
     num_blurconv_layers = module_surgery.count_module_instances(model, BlurConv2d)
     if num_blurconv_layers == 0 and num_blurpool_layers == 0:
         warnings.warn(
-            NoEffectWarning("Applying BlurPool did not change any layers. "
-                            "No strided Conv2d or Pool2d layers were found."))
+            NoEffectWarning('Applying BlurPool did not change any layers. '
+                            'No strided Conv2d or Pool2d layers were found.'))
     log.info(f'Applied BlurPool to model {model.__class__.__name__}. '
              f'Model now has {num_blurpool_layers} BlurMaxPool2d '
              f'and {num_blurconv_layers} BlurConv2D layers.')

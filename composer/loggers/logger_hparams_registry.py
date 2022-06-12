@@ -21,11 +21,11 @@ from composer.loggers.object_store_logger import ObjectStoreLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import import_object
-from composer.utils.libcloud_object_store_hparams import LibcloudObjectStoreHparams
+from composer.utils.object_store.object_store_hparams import ObjectStoreHparams, object_store_registry
 
 __all__ = [
-    "ObjectStoreLoggerHparams",
-    "logger_registry",
+    'ObjectStoreLoggerHparams',
+    'logger_registry',
 ]
 
 
@@ -34,7 +34,7 @@ class ObjectStoreLoggerHparams(hp.Hparams):
     """Hyperparameters for the :class:`~.ObjectStoreLogger`.
 
     Args:
-        object_store_hparams (LibcloudObjectStoreHparams): The object store provider hparams.
+        object_store_hparams (ObjectStoreHparams): The object store provider hparams.
         should_log_artifact (str, optional): The path to a filter function which returns whether an artifact should be
             logged. The path should be of the format ``path.to.module:filter_function_name``.
 
@@ -50,32 +50,38 @@ class ObjectStoreLoggerHparams(hp.Hparams):
         upload_staging_folder (str, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
         use_procs (bool, optional): See :class:`~composer.loggers.object_store_logger.ObjectStoreLogger`.
     """
-    object_store_hparams: LibcloudObjectStoreHparams = hp.required("Object store provider hparams.")
+
+    hparams_registry = {
+        'object_store_hparams': object_store_registry,
+    }
+
+    object_store_hparams: ObjectStoreHparams = hp.required('Object store provider hparams.')
     should_log_artifact: Optional[str] = hp.optional(
-        "Path to a filter function which returns whether an artifact should be logged.", default=None)
-    object_name: str = hp.auto(ObjectStoreLogger, "object_name")
-    num_concurrent_uploads: int = hp.auto(ObjectStoreLogger, "num_concurrent_uploads")
-    use_procs: bool = hp.auto(ObjectStoreLogger, "use_procs")
-    upload_staging_folder: Optional[str] = hp.auto(ObjectStoreLogger, "upload_staging_folder")
+        'Path to a filter function which returns whether an artifact should be logged.', default=None)
+    object_name: str = hp.auto(ObjectStoreLogger, 'object_name')
+    num_concurrent_uploads: int = hp.auto(ObjectStoreLogger, 'num_concurrent_uploads')
+    use_procs: bool = hp.auto(ObjectStoreLogger, 'use_procs')
+    upload_staging_folder: Optional[str] = hp.auto(ObjectStoreLogger, 'upload_staging_folder')
+    num_attempts: int = hp.auto(ObjectStoreLogger, 'num_attempts')
 
     def initialize_object(self) -> ObjectStoreLogger:
         return ObjectStoreLogger(
-            provider=self.object_store_hparams.provider,
-            container=self.object_store_hparams.container,
-            provider_kwargs=self.object_store_hparams.get_provider_kwargs(),
+            object_store_cls=self.object_store_hparams.get_object_store_cls(),
+            object_store_kwargs=self.object_store_hparams.get_kwargs(),
             object_name=self.object_name,
             should_log_artifact=import_object(self.should_log_artifact)
             if self.should_log_artifact is not None else None,
             num_concurrent_uploads=self.num_concurrent_uploads,
             upload_staging_folder=self.upload_staging_folder,
             use_procs=self.use_procs,
+            num_attempts=self.num_attempts,
         )
 
 
 logger_registry: Dict[str, Union[Type[LoggerDestination], Type[hp.Hparams]]] = {
-    "file": FileLogger,
-    "wandb": WandBLogger,
-    "progress_bar": ProgressBarLogger,
-    "in_memory": InMemoryLogger,
-    "object_store": ObjectStoreLoggerHparams,
+    'file': FileLogger,
+    'wandb': WandBLogger,
+    'progress_bar': ProgressBarLogger,
+    'in_memory': InMemoryLogger,
+    'object_store': ObjectStoreLoggerHparams,
 }

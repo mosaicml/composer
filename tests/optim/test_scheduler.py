@@ -25,14 +25,15 @@ STEPS_PER_EPOCH = 1000
 def dummy_schedulers_state(dummy_model: torch.nn.Module, rank_zero_seed: int):
     state = State(
         model=dummy_model,
+        run_name='run_name',
         rank_zero_seed=rank_zero_seed,
         max_duration=MAX_DURATION,
     )
-    state.set_dataloader([None] * STEPS_PER_EPOCH, "train")
+    state.set_dataloader([None] * STEPS_PER_EPOCH, 'train')
     return state
 
 
-@pytest.mark.parametrize("scheduler,ssr,test_times,expected_lrs", [
+@pytest.mark.parametrize('scheduler,ssr,test_times,expected_lrs', [
     pytest.param(StepScheduler(step_size='10ba'), 1.0, ['5ba', '15ba', '35ba'], [1.0, 0.1, 0.001]),
     pytest.param(StepScheduler(step_size='0.002dur', gamma=0.8), 1.0, ['1000ba', '3000ba', '7000ba'],
                  [1.0, 0.8, 0.512]),
@@ -115,7 +116,7 @@ def test_scheduler_init(scheduler: ComposerScheduler, ssr: float, test_times: Li
 
 
 @pytest.mark.parametrize(
-    "scheduler,ssr,should_raise",
+    'scheduler,ssr,should_raise',
     [
         (StepScheduler(step_size='2ba'), 1.0, None),
         (StepScheduler(step_size='0.2dur', gamma=0.8), 0.5, None),

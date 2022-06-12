@@ -21,7 +21,7 @@ from composer.core.types import Dataset
 
 log = logging.getLogger(__name__)
 
-__all__ = ["DataLoaderHparams"]
+__all__ = ['DataLoaderHparams']
 
 
 @dataclass
@@ -64,7 +64,7 @@ class DataLoaderHparams(hp.Hparams):
             If ``num_workers = 0``, then the ``pin_memory`` must be ``False``."""),
                                    default=True)
     timeout: float = hp.optional(
-        "Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.", default=0.0)
+        'Timeout, in seconds, for collecting a batch from workers. Set to ``0`` for no timeout.', default=0.0)
 
     def initialize_object(
         self,
@@ -120,14 +120,14 @@ class DatasetHparams(hp.Hparams, abc.ABC):
         shuffle (bool): Whether to shuffle the dataset. Default: ``True``.
     """
 
-    is_train: bool = hp.optional("Whether to load the training data (the default) or validation data.", default=True)
+    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
     drop_last: bool = hp.optional(textwrap.dedent("""\
         If the number of samples is not divisible by the batch size,
         whether to drop the last batch (the default) or pad the last batch with zeros."""),
                                   default=True)
-    shuffle: bool = hp.optional("Whether to shuffle the dataset for each epoch. Defaults to True.", default=True)
+    shuffle: bool = hp.optional('Whether to shuffle the dataset for each epoch. Defaults to True.', default=True)
 
-    datadir: Optional[str] = hp.optional("The path to the data directory", default=None)
+    datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
 
     @abc.abstractmethod
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams) -> Union[Iterable, DataSpec]:

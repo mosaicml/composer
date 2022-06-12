@@ -32,10 +32,10 @@ else:
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "ComposerScheduler", "compile_composer_scheduler", "StepScheduler", "MultiStepScheduler", "ConstantScheduler",
-    "LinearScheduler", "ExponentialScheduler", "CosineAnnealingScheduler", "CosineAnnealingWarmRestartsScheduler",
-    "PolynomialScheduler", "MultiStepWithWarmupScheduler", "LinearWithWarmupScheduler",
-    "CosineAnnealingWithWarmupScheduler", "PolynomialWithWarmupScheduler"
+    'ComposerScheduler', 'compile_composer_scheduler', 'StepScheduler', 'MultiStepScheduler', 'ConstantScheduler',
+    'LinearScheduler', 'ExponentialScheduler', 'CosineAnnealingScheduler', 'CosineAnnealingWarmRestartsScheduler',
+    'PolynomialScheduler', 'MultiStepWithWarmupScheduler', 'LinearWithWarmupScheduler',
+    'CosineAnnealingWithWarmupScheduler', 'PolynomialWithWarmupScheduler'
 ]
 
 
@@ -129,11 +129,11 @@ def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: f
     if isinstance(time, str):
         time = Time.from_timestring(time)
 
-    assert state.max_duration is not None, "max_duration should be set whenever schedulers are invoked"
+    assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
 
     if time.unit == TimeUnit.DURATION:
         if state.dataloader_len is None:
-            raise RuntimeError("Cannot convert time, as state.dataloader_len is None.")
+            raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')
         if state.max_duration.unit == TimeUnit.EPOCH:
             return Time(int(time.value * int(state.dataloader_len) * state.max_duration.value), TimeUnit.BATCH)
         return Time(int(time.value * state.max_duration.value), state.max_duration.unit)
@@ -143,7 +143,7 @@ def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: f
         # e.g. if max_duration = 1ep, then any SSR would result in a new duration of 0.
         # so, convert the time into batches
         if state.dataloader_len is None:
-            raise RuntimeError("Cannot convert time, as state.dataloader_len is None.")
+            raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')
         time = Time(value=time.value * int(state.dataloader_len), unit=TimeUnit.BATCH)
 
     return Time(value=int(time.value * ssr), unit=time.unit)
@@ -166,7 +166,7 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
     """
     optimizers = state.optimizers
     if len(optimizers) != 1:
-        raise NotImplementedError("Providing functional schedulers is unsupported with multiple optimizers.")
+        raise NotImplementedError('Providing functional schedulers is unsupported with multiple optimizers.')
     optimizer = optimizers[0]
 
     scheduler_sig = inspect.signature(scheduler)
@@ -281,7 +281,7 @@ class ConstantScheduler(ComposerScheduler):
         t_max (str | Time): Duration of this scheduler. Default = ``"1dur"``.
     """
 
-    def __init__(self, alpha: float = 1.0, t_max: Union[str, Time] = "1dur") -> None:
+    def __init__(self, alpha: float = 1.0, t_max: Union[str, Time] = '1dur') -> None:
         self.alpha = alpha
         self.t_max = t_max
 
@@ -327,7 +327,7 @@ class LinearScheduler(ComposerScheduler):
         t_max (str | Time): The duration of this scheduler. Default = ``"1dur"``.
     """
 
-    def __init__(self, alpha_i: float = 1.0, alpha_f: float = 0.0, t_max: Union[str, Time] = "1dur"):
+    def __init__(self, alpha_i: float = 1.0, alpha_f: float = 0.0, t_max: Union[str, Time] = '1dur'):
         self.alpha_i = alpha_i
         self.alpha_f = alpha_f
         self.t_max = Time.from_timestring(t_max) if isinstance(t_max, str) else t_max
@@ -362,7 +362,7 @@ class ExponentialScheduler(ComposerScheduler):
         gamma (float): Multiplicative decay factor.
     """
 
-    def __init__(self, gamma: float, decay_period: Union[str, Time] = "1ep"):
+    def __init__(self, gamma: float, decay_period: Union[str, Time] = '1ep'):
         self.gamma = gamma
         self.decay_period = decay_period
 
@@ -407,7 +407,7 @@ class CosineAnnealingScheduler(ComposerScheduler):
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
-    def __init__(self, t_max: Union[str, Time] = "1dur", alpha_f: float = 0.0):
+    def __init__(self, t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
         self.t_max = t_max
         self.alpha_f = alpha_f
 
@@ -461,7 +461,7 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
         while current_interval_end <= state.timestamp.get(current_interval_end.unit):
             if current_interval_len.value == 0:
                 raise ValueError(
-                    "Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.")
+                    'Interval between restarts for cosine annealing/warm restarts scheduler has decayed to 0.')
 
             current_interval_len = Time(value=int(self.t_mult * current_interval_len.value),
                                         unit=current_interval_len.unit)
@@ -497,7 +497,7 @@ class PolynomialScheduler(ComposerScheduler):
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
-    def __init__(self, power: float, t_max: Union[str, Time] = "1dur", alpha_f: float = 0.0):
+    def __init__(self, power: float, t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
         self.t_max = t_max
         self.power = power
         self.alpha_f = alpha_f
@@ -609,7 +609,7 @@ class LinearWithWarmupScheduler(ComposerScheduler):
                  t_warmup: Union[str, Time],
                  alpha_i: float = 1.0,
                  alpha_f: float = 0.0,
-                 t_max: Union[str, Time] = "1dur"):
+                 t_max: Union[str, Time] = '1dur'):
         self.t_warmup = t_warmup
         self.alpha_i = alpha_i
         self.alpha_f = alpha_f
@@ -670,7 +670,7 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         alpha_f (float): Learning rate multiplier to decay to. Default = ``0.0``.
     """
 
-    def __init__(self, t_warmup: Union[str, Time], t_max: Union[str, Time] = "1dur", alpha_f: float = 0.0):
+    def __init__(self, t_warmup: Union[str, Time], t_max: Union[str, Time] = '1dur', alpha_f: float = 0.0):
         self.t_warmup = t_warmup
         self.t_max = t_max
         self.alpha_f = alpha_f
@@ -733,7 +733,7 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
     def __init__(self,
                  t_warmup: Union[str, Time],
                  power: float = 2.0,
-                 t_max: Union[str, Time] = "1dur",
+                 t_max: Union[str, Time] = '1dur',
                  alpha_f: float = 0.0):
         self.t_warmup = t_warmup
         self.power = power

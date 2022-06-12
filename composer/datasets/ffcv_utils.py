@@ -17,12 +17,12 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-__all__ = ["write_ffcv_dataset", "ffcv_monkey_patches"]
+__all__ = ['write_ffcv_dataset', 'ffcv_monkey_patches']
 
 
 def _require_ffcv():
     if not ffcv_installed:
-        raise MissingConditionalImportError(extra_deps_group="ffcv", conda_package="ffcv")
+        raise MissingConditionalImportError(extra_deps_group='ffcv', conda_package='ffcv')
 
 
 def ffcv_monkey_patches():
@@ -32,7 +32,7 @@ def ffcv_monkey_patches():
     # Composer calls len(dataloader) function in training loop for every batch and thus len function causes 2x slowdown.
     # ffcv's __len__ is fixed in 1.0.0 branch but for another reason (https://github.com/libffcv/ffcv/issues/163).
     def new_len(self):
-        if not hasattr(self, "init_traversal_order"):
+        if not hasattr(self, 'init_traversal_order'):
             self.init_traversal_order = self.next_traversal_order()
         if self.drop_last:
             return len(self.init_traversal_order) // self.batch_size
@@ -43,7 +43,7 @@ def ffcv_monkey_patches():
 
 
 def write_ffcv_dataset(dataset: Optional[Dataset] = None,
-                       write_path: str = "/tmp/dataset.ffcv",
+                       write_path: str = '/tmp/dataset.ffcv',
                        max_resolution: Optional[int] = None,
                        num_workers: int = 16,
                        write_mode: str = 'raw',
@@ -65,9 +65,9 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
 
     _require_ffcv()
     if dataset is None:
-        raise ValueError("dataset should not be None.")
+        raise ValueError('dataset should not be None.')
 
-    log.info(f"Writing dataset in FFCV <file>.ffcv format to {write_path}.")
+    log.info(f'Writing dataset in FFCV <file>.ffcv format to {write_path}.')
     writer = ffcv.writer.DatasetWriter(write_path, {
         'image':
             ffcv.fields.RGBImageField(write_mode=write_mode,

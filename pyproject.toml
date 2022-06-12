@@ -110,7 +110,7 @@ timeout_func_only = true  # exclude fixtures from the timeout
 [tool.coverage.run]
 parallel = true
 branch = true
-concurrency = ["thread", "multiprocessing"]
+concurrency = ["thread"]
 include = [
     "composer/*"
 ]
