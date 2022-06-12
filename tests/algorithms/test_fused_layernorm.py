@@ -31,6 +31,7 @@ def assert_is_fln_instance(model: BERTModel):
 @pytest.mark.filterwarnings(
     r"ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics")
 def test_fused_layernorm_functional(synthetic_bert_state: Tuple):
+    pytest.importorskip("transformers")
     state, model, dataloader = synthetic_bert_state
     print("Model:", model)
     apply_fused_layernorm(state.model, state.optimizers)
@@ -44,6 +45,7 @@ def test_fused_layernorm_functional(synthetic_bert_state: Tuple):
     [pytest.param("gpu", marks=pytest.mark.gpu)],
 )
 def test_fused_layernorm_algorithm(synthetic_bert_state: Tuple, empty_logger: Logger, device: str):
+    pytest.importorskip("transformers")
     state, _, _ = synthetic_bert_state
     fused_layernorm = FusedLayerNorm()
     if device == "gpu":
