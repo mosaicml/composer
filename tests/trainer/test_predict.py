@@ -25,12 +25,12 @@ def _assert_predict_events_called_expected_number_of_times(
 
     for event, expected in event_to_num_expected_invocations.items():
         actual = event_counter.event_to_num_calls[event]
-        assert expected == actual, f"Event {event} expected to be called {expected} times, but instead it was called {actual} times"
+        assert expected == actual, f'Event {event} expected to be called {expected} times, but instead it was called {actual} times'
 
 
 class TestTrainerPredict():
 
-    @pytest.mark.parametrize("subset_num_batches", [-1, 1])
+    @pytest.mark.parametrize('subset_num_batches', [-1, 1])
     def test_predict(self, subset_num_batches: int):
         # Create the trainer and train
         event_counter_callback = EventCounterCallback()

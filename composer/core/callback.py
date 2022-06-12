@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from composer import Event, State
     from composer.loggers import Logger
 
-__all__ = ["Callback"]
+__all__ = ['Callback']
 
 
 class Callback(Serializable, abc.ABC):

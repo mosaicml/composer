@@ -10,4 +10,4 @@ from composer.trainer.devices.device import Device as Device
 from composer.trainer.devices.device_cpu import DeviceCPU as DeviceCPU
 from composer.trainer.devices.device_gpu import DeviceGPU as DeviceGPU
 
-__all__ = ["Device", "DeviceCPU", "DeviceGPU"]
+__all__ = ['Device', 'DeviceCPU', 'DeviceGPU']

@@ -6,9 +6,9 @@ import torch
 
 
 @pytest.mark.filterwarnings(
-    r"ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics")
+    r'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics')
 def test_synthetic_hf_state(synthetic_hf_state):
-    pytest.importorskip("transformers")
+    pytest.importorskip('transformers')
 
     state, lm, dataloader = synthetic_hf_state
     sample = next(iter(dataloader)).data
@@ -18,7 +18,7 @@ def test_synthetic_hf_state(synthetic_hf_state):
         assert state.batch[key].size() == sample[key].size()
     lm.eval()
     logits, labels = lm.validate(sample)
-    assert hasattr(state, "batch")
+    assert hasattr(state, 'batch')
     state_output = state.model(state.batch)
     if labels is not None:
         assert isinstance(logits, torch.Tensor)

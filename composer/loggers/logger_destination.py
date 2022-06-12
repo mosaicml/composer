@@ -13,7 +13,7 @@ from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers.logger import LogLevel
 
-__all__ = ["LoggerDestination"]
+__all__ = ['LoggerDestination']
 
 
 class LoggerDestination(Callback, ABC):
@@ -140,7 +140,7 @@ class LoggerDestination(Callback, ABC):
         self,
         artifact_name: str,
         destination: str,
-        chunk_size: int = 2**20,
+        overwrite: bool = False,
         progress_bar: bool = True,
     ):
         """Handle downloading an artifact named ``artifact_name`` to ``destination``.
@@ -148,9 +148,9 @@ class LoggerDestination(Callback, ABC):
         Args:
             artifact_name (str): The name of the artifact.
             destination (str): The destination filepath.
-            chunk_size (int, optional): Chunk size (in bytes). Ignored if ``path`` is a local file. (default: 1MB)
+            overwrite (bool): Whether to overwrite an existing file at ``destination``. Defaults to ``False``.
             progress_bar (bool, optional): Whether to show a progress bar. Ignored if ``path`` is a local file.
                 (default: ``True``)
         """
-        del artifact_name, destination, chunk_size, progress_bar  # unused
+        del artifact_name, destination, overwrite, progress_bar  # unused
         raise NotImplementedError

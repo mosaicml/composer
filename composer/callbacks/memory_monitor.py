@@ -14,7 +14,7 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["MemoryMonitor"]
+__all__ = ['MemoryMonitor']
 
 
 class MemoryMonitor(Callback):
@@ -82,7 +82,7 @@ class MemoryMonitor(Callback):
         model_device = next(state.model.parameters()).device
 
         if model_device.type != 'cuda':
-            warnings.warn(f"The memory monitor only works on CUDA devices, but the model is on {model_device.type}.")
+            warnings.warn(f'The memory monitor only works on CUDA devices, but the model is on {model_device.type}.')
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}
@@ -97,13 +97,13 @@ class MemoryMonitor(Callback):
 
 
 _MEMORY_STATS = {
-    "allocation.all.allocated": "alloc_requests",
-    "allocation.all.freed": "free_requests",
-    "allocated_bytes.all.allocated": "allocated_mem",
-    "active_bytes.all.current": "active_mem",
-    "inactive_split_bytes.all.current": "inactive_mem",
-    "reserved_bytes.all.current": "reserved_mem",
-    "num_alloc_retries": "alloc_retries",
+    'allocation.all.allocated': 'alloc_requests',
+    'allocation.all.freed': 'free_requests',
+    'allocated_bytes.all.allocated': 'allocated_mem',
+    'active_bytes.all.current': 'active_mem',
+    'inactive_split_bytes.all.current': 'inactive_mem',
+    'reserved_bytes.all.current': 'reserved_mem',
+    'num_alloc_retries': 'alloc_retries',
 }
 
 
