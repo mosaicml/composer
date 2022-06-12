@@ -30,7 +30,6 @@ model:
     initializers:
       - kaiming_normal
       - bn_uniform
-eval_interval: 160ep
 max_duration: 5ep
 train_batch_size: 128
 eval_batch_size: 128
