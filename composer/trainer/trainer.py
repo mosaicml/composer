@@ -951,7 +951,7 @@ class Trainer:
                 ) from e
             self.state.deepspeed_config = _parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
             optimizer = ensure_tuple(self.state.optimizers)[0]
-            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(config=deepspeed_config,
+            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(config=self.state.deepspeed_config,
                                                                                    model=self.state.model,
                                                                                    optimizer=optimizer)
             # Since the DeepSpeed ZeRO optimizer does not inherit torch.optim.Optimizer, the schedulers must be
