@@ -23,12 +23,7 @@ class SFTPObjectStore:
         cwd (Optional[str]): The directory to navigate to upon creating the SSH connection.
     """
 
-    def __init__(self,
-                 host: str,
-                 port: int,
-                 username: str,
-                 key_file_path: str,
-                 cwd: Optional[str] = None):
+    def __init__(self, host: str, port: int, username: str, key_file_path: str, cwd: Optional[str] = None):
         self.host = host
         self.port = port
         self.username = username
@@ -55,7 +50,7 @@ class SFTPObjectStore:
 
     def close(self):
         self.ssh_client.close()
-    
+
     def get_uri(self, object_name: str) -> str:
         return f'sftp://{self.host}:{self.port}/{object_name}'
 

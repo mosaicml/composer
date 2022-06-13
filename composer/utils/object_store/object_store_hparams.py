@@ -15,7 +15,10 @@ from composer.utils.object_store.libcloud_object_store import LibcloudObjectStor
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 
-__all__ = ['ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'S3ObjectStoreHparams', 'SFTPObjectStoreHparams', 'object_store_registry']
+__all__ = [
+    'ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'S3ObjectStoreHparams', 'SFTPObjectStoreHparams',
+    'object_store_registry'
+]
 
 
 @dataclasses.dataclass

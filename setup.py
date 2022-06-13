@@ -123,7 +123,6 @@ extra_deps['dev'] = [
     'GitPython==3.1.27',
     'moto[s3]>=3.1.12,<3.2',
     'mock-ssh-server==0.9.1'
-
 ]
 
 extra_deps['deepspeed'] = [
