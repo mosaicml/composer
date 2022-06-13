@@ -4,6 +4,7 @@
 """Helpers for the `DeepSpeed <https://www.deepspeed.ai>`_ integration with Composer."""
 
 import copy
+import warnings
 from typing import Any, Dict, cast
 
 import torch
@@ -129,6 +130,12 @@ def _parse_deepspeed_config(
     _add_batch_config(new_config, state)
     _ensure_no_optim_in_config(new_config)
     _add_precision_config(new_config, state)
+    if 'zero_allow_untested_optimizer' in new_config and not new_config['zero_allow_untested_optimizer']:
+        warnings.warn(('Provided DeepSpeed configuration specifies zero_allow_untested_optimizer=False. '
+                       'This causes DeepSpeed to reject certain Mosaic optimizers that are known to '
+                       'work well with DeepSpeed.'))
+
+    new_config['zero_allow_untested_optimizer'] = True
     return new_config
 
 
