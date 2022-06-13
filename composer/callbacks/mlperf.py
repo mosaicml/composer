@@ -250,9 +250,8 @@ class MLPerfCallback(Callback):
             import ffcv  # type: ignore
 
             if isinstance(dataloader, ffcv.loader.Loader):
-                return (
-                    dataloader.batch_size,  # type: ignore
-                    len(dataloader) * dataloader.batch_size * dist.get_world_size())  # type: ignore
+                # Use the cached attribute ffcv.init_traversal_order to compute number of samples
+                return (dataloader.batch_size, len(dataloader.init_traversal_order))  # type: ignore
         except ImportError:
             pass
 
