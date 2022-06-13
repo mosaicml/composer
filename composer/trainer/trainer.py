@@ -204,15 +204,13 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_run_name(run_name: Optional[str]) -> str:
-    generated_run_name = run_name
-    if generated_run_name is None:
-        # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
-        generated_run_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
-        run_name_list = [generated_run_name]
-        # ensure all ranks have the same experiment name
-        dist.broadcast_object_list(run_name_list)
-        generated_run_name = run_name_list[0]
+def _generate_run_name() -> str:
+    # prefixing with the time so experiments sorted alphabetically will have the latest experiment last
+    generated_run_name = str(int(time.time())) + '-' + coolname.generate_slug(2)
+    run_name_list = [generated_run_name]
+    # ensure all ranks have the same experiment name
+    dist.broadcast_object_list(run_name_list)
+    generated_run_name = run_name_list[0]
     return generated_run_name
 
 
@@ -783,7 +781,10 @@ class Trainer:
         grad_accum = _get_initial_grad_accum(grad_accum)
 
         # Run Name
-        run_name = _get_run_name(run_name=run_name)
+        if run_name is None:
+            if autoresume:
+                raise ValueError('When autoresume=True, the `run_name` must be specified.')
+            run_name = _generate_run_name()
 
         # Create the State
         self.state = State(rank_zero_seed=rank_zero_seed,
@@ -979,8 +980,7 @@ class Trainer:
                 progress_bar=load_progress_bar,
                 ignore_keys=load_ignore_keys,
             )
-            # Always override run_name so it is consistent with what was used for Event.INIT. In the future, we'll use the loaded name
-            # and not require run_name
+            # Always ignore the run_name in the checkpoint so it is consistent with what was used for Event.INIT.
             self.state.run_name = run_name
             log.info(f'Setting seed to {self.state.seed}')
             reproducibility.seed_all(self.state.seed)
