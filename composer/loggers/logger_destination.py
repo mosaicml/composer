@@ -13,7 +13,7 @@ from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers.logger import LogLevel
 
-__all__ = ["LoggerDestination"]
+__all__ = ['LoggerDestination']
 
 
 class LoggerDestination(Callback, ABC):

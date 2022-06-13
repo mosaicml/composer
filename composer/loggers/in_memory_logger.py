@@ -19,7 +19,7 @@ from composer.core.time import Time, Timestamp
 from composer.loggers.logger import LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 
-__all__ = ["InMemoryLogger"]
+__all__ = ['InMemoryLogger']
 
 
 class InMemoryLogger(LoggerDestination):
@@ -120,8 +120,8 @@ class InMemoryLogger(LoggerDestination):
         """
         # Check that desired metric is in present data
         if metric not in self.data.keys():
-            raise ValueError(f"Invalid value for argument `metric`: {metric}. Requested "
-                             "metric is not present in self.data.keys().")
+            raise ValueError(f'Invalid value for argument `metric`: {metric}. Requested '
+                             'metric is not present in self.data.keys().')
 
         timeseries = {}
         # Iterate through datapoints

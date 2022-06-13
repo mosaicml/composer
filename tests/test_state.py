@@ -25,11 +25,11 @@ def get_dummy_state():
     model = SimpleModel()
     optimizers = torch.optim.Adadelta(model.parameters())
     state = State(model=model,
-                  run_name=f"{random.randint(0, 100)}",
+                  run_name=f'{random.randint(0, 100)}',
                   grad_accum=random.randint(0, 100),
                   rank_zero_seed=random.randint(0, 100),
                   precision=Precision.AMP,
-                  max_duration=f"{random.randint(0, 100)}ep",
+                  max_duration=f'{random.randint(0, 100)}ep',
                   optimizers=optimizers,
                   algorithms=[ChannelsLast()])
     state.schedulers = torch.optim.lr_scheduler.StepLR(optimizers, step_size=3)
@@ -64,7 +64,7 @@ def get_batch(dataset_hparams: DatasetHparams, dataloader_hparams: DataLoaderHpa
         dataloader = dataloader.dataloader
     for batch in dataloader:
         return batch
-    raise RuntimeError("No batch in dataloader")
+    raise RuntimeError('No batch in dataloader')
 
 
 def test_state_serialize(
@@ -81,9 +81,9 @@ def test_state_serialize(
 
     # load from state1 to state2
     state_dict = state1.state_dict()
-    filepath = str(tmp_path / "state.pt")
+    filepath = str(tmp_path / 'state.pt')
     torch.save(state_dict, filepath)
-    state_dict_2 = torch.load(filepath, map_location="cpu")
+    state_dict_2 = torch.load(filepath, map_location='cpu')
     state2.load_state_dict(state_dict_2)
     # Make sure there was nothing wrong serialization/deserialization of permanent
     assert_state_equivalent(state1, state2)

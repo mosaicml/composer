@@ -12,7 +12,7 @@ import yahp as hp
 
 from composer.core.types import MemoryFormat
 
-__all__ = ["SyntheticHparamsMixin"]
+__all__ = ['SyntheticHparamsMixin']
 
 
 @dataclass
@@ -36,9 +36,9 @@ class SyntheticHparamsMixin(hp.Hparams, abc.ABC):
             ``'CONTIGUOUS_FORMAT'``.
     """
 
-    use_synthetic: bool = hp.optional("Whether to use synthetic data. Defaults to False.", default=False)
-    synthetic_num_unique_samples: int = hp.optional("The number of unique samples to allocate memory for.", default=100)
-    synthetic_device: str = hp.optional("Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.",
-                                        default="cpu")
-    synthetic_memory_format: MemoryFormat = hp.optional("Memory format. Defaults to contiguous format.",
+    use_synthetic: bool = hp.optional('Whether to use synthetic data. Defaults to False.', default=False)
+    synthetic_num_unique_samples: int = hp.optional('The number of unique samples to allocate memory for.', default=100)
+    synthetic_device: str = hp.optional('Device to store the sample pool. Should be `cuda` or `cpu`. Defauls to `cpu`.',
+                                        default='cpu')
+    synthetic_memory_format: MemoryFormat = hp.optional('Memory format. Defaults to contiguous format.',
                                                         default=MemoryFormat.CONTIGUOUS_FORMAT)

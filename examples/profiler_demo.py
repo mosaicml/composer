@@ -21,7 +21,7 @@ from composer.profiler.profiler import Profiler
 # [dataloader-start]
 # Specify Dataset and Instantiate DataLoader
 batch_size = 2048
-data_directory = "~/datasets"
+data_directory = '~/datasets'
 
 mnist_transforms = transforms.Compose([transforms.ToTensor()])
 
@@ -42,16 +42,16 @@ model = MNIST_Classifier(num_classes=10)
 
 # [trainer-start]
 # Instantiate the trainer
-composer_trace_dir = "composer_profiler"
-torch_trace_dir = "torch_profiler"
+composer_trace_dir = 'composer_profiler'
+torch_trace_dir = 'torch_profiler'
 
 trainer = Trainer(model=model,
                   train_dataloader=train_dataloader,
                   eval_dataloader=train_dataloader,
                   max_duration=2,
-                  device="gpu" if torch.cuda.is_available() else "cpu",
+                  device='gpu' if torch.cuda.is_available() else 'cpu',
                   eval_interval=0,
-                  precision="amp" if torch.cuda.is_available() else "fp32",
+                  precision='amp' if torch.cuda.is_available() else 'fp32',
                   train_subset_num_batches=16,
                   profiler=Profiler(
                       trace_handlers=[JSONTraceHandler(folder=composer_trace_dir, overwrite=True)],

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from composer.models.model_hparams import ModelHparams
 
-__all__ = ["UnetHparams"]
+__all__ = ['UnetHparams']
 
 
 @dataclass
@@ -22,5 +22,5 @@ class UnetHparams(ModelHparams):
 
     def initialize_object(self):
         from composer.models.unet.unet import UNet
-        assert self.num_classes is not None, "num_classes must be specified."
+        assert self.num_classes is not None, 'num_classes must be specified.'
         return UNet(num_classes=self.num_classes)

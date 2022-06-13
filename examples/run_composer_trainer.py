@@ -32,7 +32,7 @@ def _main() -> None:
     warnings.formatwarning = _warning_on_one_line
 
     if len(sys.argv) == 1:
-        sys.argv = [sys.argv[0], "--help"]
+        sys.argv = [sys.argv[0], '--help']
 
     hparams = TrainerHparams.create(cli_args=True)  # reads cli args from sys.argv
 
@@ -49,22 +49,22 @@ def _main() -> None:
 
     # Only log the config once, since it should be the same on all ranks.
     if dist.get_global_rank() == 0:
-        with tempfile.NamedTemporaryFile(mode="x+") as f:
+        with tempfile.NamedTemporaryFile(mode='x+') as f:
             f.write(hparams.to_yaml())
             trainer.logger.file_artifact(LogLevel.FIT,
-                                         artifact_name=f"{trainer.state.run_name}/hparams.yaml",
+                                         artifact_name=f'{trainer.state.run_name}/hparams.yaml',
                                          file_path=f.name,
                                          overwrite=True)
 
     # Print the config to the terminal and log to artifact store if on each local rank 0
     if dist.get_local_rank() == 0:
-        print("*" * 30)
-        print("Config:")
+        print('*' * 30)
+        print('Config:')
         print(hparams.to_yaml())
-        print("*" * 30)
+        print('*' * 30)
 
     trainer.fit()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     _main()

@@ -6,14 +6,15 @@
 import abc
 import dataclasses
 import os
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type
 
 import yahp as hp
 
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.s3_object_store import S3ObjectStore
 
-__all__ = ['ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'object_store_registry']
+__all__ = ['ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'S3ObjectStoreHparams', 'object_store_registry']
 
 
 @dataclasses.dataclass
@@ -138,19 +139,19 @@ class LibcloudObjectStoreHparams(ObjectStoreHparams):
 
     """
 
-    provider: str = hp.auto(LibcloudObjectStore, "provider")
-    container: str = hp.auto(LibcloudObjectStore, "container")
-    key_environ: Optional[str] = hp.optional(("The name of an environment variable containing "
-                                              "an API key or username to use to connect to the provider."),
+    provider: str = hp.auto(LibcloudObjectStore, 'provider')
+    container: str = hp.auto(LibcloudObjectStore, 'container')
+    key_environ: Optional[str] = hp.optional(('The name of an environment variable containing '
+                                              'an API key or username to use to connect to the provider.'),
                                              default=None)
-    secret_environ: Optional[str] = hp.optional(("The name of an environment variable containing "
-                                                 "an API secret or password to use to connect to the provider."),
+    secret_environ: Optional[str] = hp.optional(('The name of an environment variable containing '
+                                                 'an API secret or password to use to connect to the provider.'),
                                                 default=None)
-    region: Optional[str] = hp.optional("Cloud region to use", default=None)
-    host: Optional[str] = hp.optional("Override hostname for connections", default=None)
-    port: Optional[int] = hp.optional("Override port for connections", default=None)
+    region: Optional[str] = hp.optional('Cloud region to use', default=None)
+    host: Optional[str] = hp.optional('Override hostname for connections', default=None)
+    port: Optional[int] = hp.optional('Override port for connections', default=None)
     extra_init_kwargs: Dict[str, Any] = hp.optional(
-        "Extra keyword arguments to pass into the constructor for the specified provider.", default_factory=dict)
+        'Extra keyword arguments to pass into the constructor for the specified provider.', default_factory=dict)
 
     def get_object_store_cls(self) -> Type[ObjectStore]:
         return LibcloudObjectStore
@@ -161,17 +162,55 @@ class LibcloudObjectStoreHparams(ObjectStoreHparams):
             'container': self.container,
             'provider_kwargs': {},
         }
-        for key in ("host", "port", "region"):
+        for key in ('host', 'port', 'region'):
             kwarg = getattr(self, key)
             if getattr(self, key) is not None:
                 init_kwargs['provider_kwargs'][key] = kwarg
-        init_kwargs['provider_kwargs']["key"] = None if self.key_environ is None else os.environ[self.key_environ]
-        init_kwargs['provider_kwargs']["secret"] = None if self.secret_environ is None else os.environ[
+        init_kwargs['provider_kwargs']['key'] = None if self.key_environ is None else os.environ[self.key_environ]
+        init_kwargs['provider_kwargs']['secret'] = None if self.secret_environ is None else os.environ[
             self.secret_environ]
         init_kwargs.update(self.extra_init_kwargs)
         return init_kwargs
 
 
-object_store_registry: Dict[str, Union[Type[ObjectStore], Type[hp.Hparams]]] = {
+@dataclasses.dataclass
+class S3ObjectStoreHparams(ObjectStoreHparams):
+    """:class:`~.S3ObjectStore` hyperparameters.
+
+    The :class:`.S3ObjectStore` uses :mod:`boto3` to handle uploading files to and downloading files from
+    S3-Compatible object stores.
+
+    .. note::
+
+        To follow best security practices, credentials cannot be specified as part of the hyperparameters.
+        Instead, please ensure that credentials are in the environment, which will be read automatically.
+
+        See :ref:`guide to credentials <boto3:guide_credentials>` for more information.
+
+    Args:
+        bucket (str): See :class:`.S3ObjectStore`.
+        region_name (str, optional): See :class:`.S3ObjectStore`.
+        endpoint_url (str, optional): See :class:`.S3ObjectStore`.
+        client_config (dict, optional): See :class:`.S3ObjectStore`.
+        transfer_config (dict, optional): See :class:`.S3ObjectStore`.
+    """
+
+    bucket: str = hp.auto(S3ObjectStore, 'bucket')
+    region_name: Optional[str] = hp.auto(S3ObjectStore, 'region_name')
+    endpoint_url: Optional[str] = hp.auto(S3ObjectStore, 'endpoint_url')
+    # Not including the credentials as part of the hparams -- they should be specified through the default
+    # environment variables
+    client_config: Optional[Dict[Any, Any]] = hp.auto(S3ObjectStore, 'client_config')
+    transfer_config: Optional[Dict[Any, Any]] = hp.auto(S3ObjectStore, 'transfer_config')
+
+    def get_object_store_cls(self) -> Type[ObjectStore]:
+        return S3ObjectStore
+
+    def get_kwargs(self) -> Dict[str, Any]:
+        return dataclasses.asdict(self)
+
+
+object_store_registry: Dict[str, Type[ObjectStoreHparams]] = {
     'libcloud': LibcloudObjectStoreHparams,
+    's3': S3ObjectStoreHparams,
 }

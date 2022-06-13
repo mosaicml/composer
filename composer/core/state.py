@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from composer.core.evaluator import Evaluator
     from composer.profiler import Profiler
 
-__all__ = ["State"]
+__all__ = ['State']
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +38,9 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
     # It also renamed _is_model_ddp_wrapped to is_model_ddp
     state = {}
     for k, v in state_dict.items():
-        if k == "_is_model_ddp_wrapped":
-            k = "is_model_ddp"
-        if k.startswith("_"):
+        if k == '_is_model_ddp_wrapped':
+            k = 'is_model_ddp'
+        if k.startswith('_'):
             k = k[1:]
         state[k] = v
     return state
@@ -49,13 +49,13 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
 _STATE_DICT_SERIALIZED_ATTRIBUTES = [
     # List of attributes that are serialized with state_dict
     # Only the attributes listed in state.serialized_attributes will actually be saved.
-    "model",
-    "optimizers",
-    "schedulers",
-    "algorithms",
-    "callbacks",
-    "scaler",
-    "timestamp",
+    'model',
+    'optimizers',
+    'schedulers',
+    'algorithms',
+    'callbacks',
+    'scaler',
+    'timestamp',
 ]
 
 
@@ -281,16 +281,16 @@ class State(Serializable):
         # For example, even though the optimizers are stored on the state
         # as the "_optimizers" attribute, here we specify just "optimizers"
         self.serialized_attributes = [
-            "model",
-            "optimizers",
-            "schedulers",
-            "algorithms",
-            "callbacks",
-            "scaler",
-            "timestamp",
-            "rank_zero_seed",
-            "current_metrics",
-            "run_name",
+            'model',
+            'optimizers',
+            'schedulers',
+            'algorithms',
+            'callbacks',
+            'scaler',
+            'timestamp',
+            'rank_zero_seed',
+            'current_metrics',
+            'run_name',
         ]
 
         self.current_metrics: Dict[str, Dict[str, Any]] = {}
@@ -313,7 +313,7 @@ class State(Serializable):
         if isinstance(max_duration, str):
             max_duration = cast(Time[int], Time.from_timestring(max_duration))
         if max_duration.unit == TimeUnit.DURATION:
-            raise ValueError("TimeUnit.DURATION is not allowed as a unit for max_duration")
+            raise ValueError('TimeUnit.DURATION is not allowed as a unit for max_duration')
         self._max_duration = max_duration
 
     def get_elapsed_duration(self) -> Optional[Time[float]]:
@@ -417,12 +417,12 @@ class State(Serializable):
 
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
-            if attribute_name == "model":
+            if attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
                 model_state = attribute_value.state_dict()
                 if self.is_model_ddp:
-                    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, "module.")
+                    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
                 serialized_value = model_state
             else:
                 if attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
@@ -444,10 +444,10 @@ class State(Serializable):
             strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
                 perfectly match the keys in the model instance.
         """
-        if state_dict.get("is_model_ddp", False) and not self.is_model_ddp:
+        if state_dict.get('is_model_ddp', False) and not self.is_model_ddp:
             # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
             # with the `module.` prefix
-            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], "module.")
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
         missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
             logger.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
@@ -469,7 +469,7 @@ class State(Serializable):
                 # it's possible some attributes we removed
                 continue
 
-            if attribute_name == "model":
+            if attribute_name == 'model':
                 self.load_model_state(state, strict=strict)
                 continue
             state_field_value = getattr(self, attribute_name)
@@ -477,7 +477,7 @@ class State(Serializable):
                 for target in ensure_tuple(state_field_value):
                     if type(target).__qualname__ not in serialized_value:
                         warnings.warn(
-                            f"{type(target).__qualname__} is not in the state_dict. Its state will not be restored.",
+                            f'{type(target).__qualname__} is not in the state_dict. Its state will not be restored.',
                             category=UserWarning)
                         continue
                     source = serialized_value[type(target).__qualname__]
@@ -528,7 +528,7 @@ class State(Serializable):
             dataloader_label = None
         else:
             if dataloader_label is None:
-                raise ValueError("If the `dataloader` is specified, then `dataloader_label` must not be None.")
+                raise ValueError('If the `dataloader` is specified, then `dataloader_label` must not be None.')
         self._dataloader = dataloader
         self._dataloader_label = dataloader_label
         if dataloader is not None:
@@ -556,7 +556,7 @@ class State(Serializable):
         if isinstance(num_batches, int):
             num_batches = Time(num_batches, TimeUnit.BATCH)
         if self._dataloader is None:
-            raise RuntimeError("`State.dataloader_len` cannot be set if the dataloader is not defined.")
+            raise RuntimeError('`State.dataloader_len` cannot be set if the dataloader is not defined.')
         try:
             if isinstance(self._dataloader, collections.abc.Sized):
                 dataloader_len = len(self._dataloader)
@@ -565,9 +565,9 @@ class State(Serializable):
         except (TypeError, NotImplementedError):
             dataloader_len = None
         if dataloader_len is not None and num_batches >= 0 and int(num_batches) > dataloader_len:
-            warnings.warn((f"DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) "
-                           f"is greater than the length (i.e. number of batches) of the dataloader, which is "
-                           f"{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}."))
+            warnings.warn((f'DataloaderNumBatchesWarning: The dataloader_len ({int(num_batches)}) '
+                           f'is greater than the length (i.e. number of batches) of the dataloader, which is '
+                           f'{dataloader_len}. State.dataloader_len is thus being set to {dataloader_len}.'))
             self._dataloader_len = Time(dataloader_len, TimeUnit.BATCH)
             return
         if num_batches < 0:
@@ -613,5 +613,5 @@ class State(Serializable):
     def deepspeed_model(self) -> deepspeed.DeepSpeedEngine:
         """Cast :attr:`model` to :class:`~deepspeed.DeepSpeedEngine`."""
         if self.is_model_deepspeed:
-            return cast("deepspeed.DeepSpeedEngine", self.model)
-        raise TypeError("state.model is not a DeepSpeed model")
+            return cast('deepspeed.DeepSpeedEngine', self.model)
+        raise TypeError('state.model is not a DeepSpeed model')

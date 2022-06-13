@@ -39,6 +39,6 @@ def test_callback_in_registry(cb_cls: Type[Callback]):
         item = cb_cls
     if cb_cls in [TorchProfiler, SystemProfiler, JSONTraceHandler, TraceHandler]:
         pytest.skip(
-            f"Callback {cb_cls.__name__} does not have a registry entry as it should not be constructed directly")
+            f'Callback {cb_cls.__name__} does not have a registry entry as it should not be constructed directly')
     joint_registry = {**callback_registry, **logger_registry}
     assert_in_registry(item, registry=joint_registry)

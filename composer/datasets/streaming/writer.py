@@ -14,7 +14,7 @@ from tqdm import tqdm
 from composer.datasets.streaming.format import (StreamingDatasetIndex, get_index_basename, get_shard_basename,
                                                 sample_dict_to_bytes)
 
-__all__ = ["StreamingDatasetWriter"]
+__all__ = ['StreamingDatasetWriter']
 
 
 class StreamingDatasetWriter(object):
@@ -64,9 +64,9 @@ class StreamingDatasetWriter(object):
 
     def __init__(self, dirname: str, fields: List[str], shard_size_limit: int = 1 << 24) -> None:
         if len(fields) != len(set(fields)):
-            raise ValueError(f"fields={fields} must be unique.")
+            raise ValueError(f'fields={fields} must be unique.')
         if shard_size_limit <= 0:
-            raise ValueError(f"shard_size_limit={shard_size_limit} must be positive.")
+            raise ValueError(f'shard_size_limit={shard_size_limit} must be positive.')
 
         self.dirname = dirname
         os.makedirs(self.dirname, exist_ok=True)
@@ -98,7 +98,7 @@ class StreamingDatasetWriter(object):
     def _write_index(self) -> None:
         """Save dataset index file."""
         if self.new_samples:
-            raise RuntimeError("Attempted to write index file while samples are still being processed.")
+            raise RuntimeError('Attempted to write index file while samples are still being processed.')
         filename = os.path.join(self.dirname, get_index_basename())
         samples_per_shard = np.array(self.samples_per_shard, np.int64)
         bytes_per_shard = np.array(self.bytes_per_shard, np.int64)

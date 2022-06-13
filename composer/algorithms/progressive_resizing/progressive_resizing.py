@@ -20,17 +20,17 @@ from composer.loss.utils import check_for_index_targets
 
 log = logging.getLogger(__name__)
 
-_VALID_MODES = ("crop", "resize")
+_VALID_MODES = ('crop', 'resize')
 
 T_ResizeTransform = Callable[[torch.Tensor], torch.Tensor]
 
-__all__ = ["resize_batch", "ProgressiveResizing"]
+__all__ = ['resize_batch', 'ProgressiveResizing']
 
 
 def resize_batch(input: torch.Tensor,
                  target: torch.Tensor,
                  scale_factor: float,
-                 mode: str = "resize",
+                 mode: str = 'resize',
                  resize_targets: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
     """Resize inputs and optionally outputs by cropping or interpolating.
 
@@ -65,9 +65,9 @@ def resize_batch(input: torch.Tensor,
                                                 resize_targets=False)
     """
     # Verify dimensionalities are enough to support resizing
-    assert input.dim() > 2, "Input dimensionality not large enough for resizing"
+    assert input.dim() > 2, 'Input dimensionality not large enough for resizing'
     if resize_targets is True:
-        assert target.dim() > 2, "Target dimensionality not large enough for resizing"
+        assert target.dim() > 2, 'Target dimensionality not large enough for resizing'
 
     # Short-circuit if nothing should be done
     if scale_factor >= 1:
@@ -80,15 +80,15 @@ def resize_batch(input: torch.Tensor,
     else:
         y_sized = target
 
-    if mode.lower() == "crop" and resize_targets is False:
+    if mode.lower() == 'crop' and resize_targets is False:
         # Make a crop transform for X
         resize_transform = _make_crop(tensor=input, scale_factor=scale_factor)
         X_sized, y_sized = resize_transform(input), target
-    elif mode.lower() == "crop" and resize_targets is True:
+    elif mode.lower() == 'crop' and resize_targets is True:
         # Make a crop transform for X and y
         resize_transform, resize_y = _make_crop_pair(X=input, y=y_sized, scale_factor=scale_factor)
         X_sized, y_sized = resize_transform(input), resize_y(y_sized)
-    elif mode.lower() == "resize":
+    elif mode.lower() == 'resize':
         # Make a resize transform (can be used for X or y)
         resize_transform = _make_resize(scale_factor=scale_factor)
         X_sized = resize_transform(input)
@@ -183,14 +183,14 @@ class ProgressiveResizing(Algorithm):
             raise ValueError(f"mode '{mode}' is not supported. Must be one of {_VALID_MODES}")
 
         if not (0 <= initial_scale <= 1):
-            raise ValueError(f"initial_scale must be between 0 and 1: {initial_scale}")
+            raise ValueError(f'initial_scale must be between 0 and 1: {initial_scale}')
 
         if not (0 <= finetune_fraction <= 1):
-            raise ValueError(f"finetune_fraction must be between 0 and 1: {finetune_fraction}")
+            raise ValueError(f'finetune_fraction must be between 0 and 1: {finetune_fraction}')
 
         if not (delay_fraction + finetune_fraction <= 1):
             raise ValueError(
-                f"delay_fraction + finetune_fraction must be less than 1: {delay_fraction + finetune_fraction}")
+                f'delay_fraction + finetune_fraction must be less than 1: {delay_fraction + finetune_fraction}')
 
         self.mode = mode
         self.initial_scale = initial_scale
@@ -222,11 +222,11 @@ class ProgressiveResizing(Algorithm):
         """
         input, target = state.batch_get_item(key=self.input_key), state.batch_get_item(key=self.target_key)
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
-            "Multiple tensors not supported for this method yet."
+            'Multiple tensors not supported for this method yet.'
 
         # Calculate the current size of the inputs to use
         elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, "elapsed duration should be set on Event.AFTER_DATALOADER"
+        assert elapsed_duration is not None, 'elapsed duration should be set on Event.AFTER_DATALOADER'
         if elapsed_duration.value >= self.delay_fraction:
             scale_frac_elapsed = min([
                 (elapsed_duration.value - self.delay_fraction) / (1 - self.finetune_fraction - self.delay_fraction), 1
@@ -252,9 +252,9 @@ class ProgressiveResizing(Algorithm):
 
         if logger is not None:
             logger.data_batch({
-                "progressive_resizing/height": new_input.shape[2],
-                "progressive_resizing/width": new_input.shape[3],
-                "progressive_resizing/scale_factor": scale_factor
+                'progressive_resizing/height': new_input.shape[2],
+                'progressive_resizing/width': new_input.shape[3],
+                'progressive_resizing/scale_factor': scale_factor
             })
 
 

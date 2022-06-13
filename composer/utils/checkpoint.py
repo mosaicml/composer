@@ -30,10 +30,10 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ["load_checkpoint", "save_checkpoint"]
+__all__ = ['load_checkpoint', 'save_checkpoint']
 
-_COMPOSER_STATES_FILENAME = "composer_states.pt"
-_DEEPSPEED_TAG = "deepspeed"  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
+_COMPOSER_STATES_FILENAME = 'composer_states.pt'
+_DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 
 
 def _format_path_with_rank_zero(path: str) -> str:
@@ -58,13 +58,13 @@ def _get_write_mode(name: str) -> str:
     """Get the write mode to use with :func:`tarfile.open`."""
     if name.endswith('.tar'):
         return 'w'
-    if name.endswith(".tar.gz") or name.endswith(".tgz"):
-        return "w:gz"
-    if name.endswith(".tar.bz2"):
-        return "w:bz2"
-    if name.endswith(".tar.lzma"):
-        return "w:xz"
-    raise ValueError(f"{name} does not end with a valid tarfile extension.")
+    if name.endswith('.tar.gz') or name.endswith('.tgz'):
+        return 'w:gz'
+    if name.endswith('.tar.bz2'):
+        return 'w:bz2'
+    if name.endswith('.tar.lzma'):
+        return 'w:xz'
+    raise ValueError(f'{name} does not end with a valid tarfile extension.')
 
 
 def load_checkpoint(
@@ -175,7 +175,7 @@ def load_checkpoint(
             # be a shared resource between nodes.
             dist.barrier()
 
-    log.info("%s loaded from %s", "Model weights" if load_weights_only else "Trainer checkpoint", path)
+    log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
     return rng_state_dicts
 
 
@@ -184,7 +184,7 @@ def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
     local_rank_zero = dist.get_local_world_size() * dist.get_node_rank()
     paths = dist.all_gather_object(path)
     local_rank_zero_path = paths[local_rank_zero]
-    assert local_rank_zero_path is not None, "local rank zero provides the path"
+    assert local_rank_zero_path is not None, 'local rank zero provides the path'
     return local_rank_zero_path
 
 
@@ -205,12 +205,12 @@ def _download_checkpoint(
     *   The ``extracted_rank_n`` is a boolean flag indicating whether a tarball was extracted on global
         rank greater than 0.
     """
-    rank_zero_checkpoint_filepath = os.path.join(node_checkpoint_folder, "rank0_checkpoint")
-    rank_n_checkpoint_filepath = os.path.join(node_checkpoint_folder, f"rank{dist.get_global_rank()}_checkpoint")
+    rank_zero_checkpoint_filepath = os.path.join(node_checkpoint_folder, 'rank0_checkpoint')
+    rank_n_checkpoint_filepath = os.path.join(node_checkpoint_folder, f'rank{dist.get_global_rank()}_checkpoint')
     extracted_checkpoint_folder = None
     extracted_rank_n = False
     if is_tar(path):
-        extracted_checkpoint_folder = os.path.join(node_checkpoint_folder, "checkpoint")
+        extracted_checkpoint_folder = os.path.join(node_checkpoint_folder, 'checkpoint')
         composer_states_filepath = os.path.join(extracted_checkpoint_folder, _COMPOSER_STATES_FILENAME)
     else:
         # it's not an archive; it's just the composer state dict
@@ -234,12 +234,12 @@ def _download_checkpoint(
                     # Not re-raising the file-not-found error as that is irrelevant;
                     # the underlying issue is that the checkpoint file does not exist on the disk
                     # or could not be downloaded
-                    raise RuntimeError(f"Checkpoint {path} does not exist")
+                    raise RuntimeError(f'Checkpoint {path} does not exist')
 
         if rank_zero_checkpoint_filepath != rank_n_checkpoint_filepath:
             # every RANK needs ITS OWN checkpoint.
             # But, the  global rank zero is a special case -- these files are the same!
-            assert dist.get_global_rank() != 0, "invariant violation"
+            assert dist.get_global_rank() != 0, 'invariant violation'
 
             try:
                 get_file(destination=rank_n_checkpoint_filepath,
@@ -278,10 +278,10 @@ def _flatten_keys(obj: Any, paths: List[str], existing_path: str):
     # Store path when we reach end, which is either non-Dict or empty Dict
     if isinstance(obj, list) and len(obj) > 0:
         for i, elm in enumerate(obj):
-            _flatten_keys(elm, paths, f"{existing_path}/{i}")
+            _flatten_keys(elm, paths, f'{existing_path}/{i}')
     elif isinstance(obj, dict) and len(obj) > 0:
         for k, v in obj.items():
-            _flatten_keys(v, paths, f"{existing_path}/{k}")
+            _flatten_keys(v, paths, f'{existing_path}/{k}')
     # Remove leading /
     paths.append(existing_path.lstrip('/'))
 
@@ -327,15 +327,15 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
             filtered_paths_from_glob = fnmatch.filter(paths, exclude_glob)
             if len(filtered_paths_from_glob) == 0:
                 warnings.warn(
-                    f"No parts from loaded checkpoint state_dict were ignored by load_ignore_key {exclude_glob}")
+                    f'No parts from loaded checkpoint state_dict were ignored by load_ignore_key {exclude_glob}')
             filtered_paths.extend(filtered_paths_from_glob)
         filtered_paths = list(set(filtered_paths))
-        filtered_paths_str = ", ".join(filtered_paths)
+        filtered_paths_str = ', '.join(filtered_paths)
         if filtered_paths:
-            log.info(f"Ignoring the following paths from the loaded checkpoint state_dict: {filtered_paths_str}")
+            log.info(f'Ignoring the following paths from the loaded checkpoint state_dict: {filtered_paths_str}')
 
         # Loop through all paths to exclude
-        paths_to_remove = [path.split("/") for path in filtered_paths]
+        paths_to_remove = [path.split('/') for path in filtered_paths]
         _remove_paths(state_dict, paths_to_remove)
 
     return filter_func
@@ -363,11 +363,11 @@ def _restore_checkpoint(
 
     if state.is_model_deepspeed:
         if extracted_checkpoint_folder is None:
-            raise RuntimeError("Deepspeed checkpoints require a tarball, not a weights file.")
+            raise RuntimeError('Deepspeed checkpoints require a tarball, not a weights file.')
 
         global_rank = dist.get_global_rank()
         if global_rank > 0 and not extracted_rank_n:
-            raise RuntimeError(f"Deepspeed checkpoint missing for rank {global_rank}")
+            raise RuntimeError(f'Deepspeed checkpoint missing for rank {global_rank}')
 
         load_path, _ = state.deepspeed_model.load_checkpoint(
             extracted_checkpoint_folder,
@@ -376,7 +376,7 @@ def _restore_checkpoint(
             load_module_strict=strict_model_weights,
         )
         if load_path is None:
-            raise RuntimeError(f"Failed to load DeepSpeed checkpoint")
+            raise RuntimeError(f'Failed to load DeepSpeed checkpoint')
     elif load_weights_only:
         state.load_model_state(state_dict['state'], strict=strict_model_weights)
 
@@ -387,7 +387,7 @@ def _restore_checkpoint(
 
 def save_checkpoint(
     state: State,
-    filename: str = "ep{epoch}-ba{batch}-rank{rank}",
+    filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
 ) -> List[pathlib.Path]:  # noqa: D103
@@ -396,12 +396,12 @@ def save_checkpoint(
         'rng': reproducibility.get_rng_state(),
     }
     if weights_only and not state.is_model_deepspeed:
-        state_dict['state'] = {"model": state_dict['state']['model']}
+        state_dict['state'] = {'model': state_dict['state']['model']}
 
     checkpoint_filepath = format_name_with_dist_and_time(filename, state.run_name, state.timestamp)
     if state.is_model_deepspeed and not is_tar(checkpoint_filepath):
         # Deepspeed requires tarballs; appending `.tar`
-        checkpoint_filepath += ".tar"
+        checkpoint_filepath += '.tar'
 
     with tempfile.TemporaryDirectory() as tmpdir:
         composer_states_filepath = os.path.join(tmpdir, _COMPOSER_STATES_FILENAME)
@@ -425,7 +425,7 @@ def save_checkpoint(
             write_mode = _get_write_mode(checkpoint_filepath)
             with tarfile.open(checkpoint_filepath, write_mode) as tarball:
                 # add files flat to the tarball with the specified compression
-                tarball.add(tmpdir, arcname="")
+                tarball.add(tmpdir, arcname='')
         elif dist.get_global_rank() == 0:
             # if not an archive, then only saving the states
             # only rank zero saves the state dict

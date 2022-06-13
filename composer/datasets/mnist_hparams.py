@@ -17,7 +17,7 @@ from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.datasets.synthetic_hparams import SyntheticHparamsMixin
 from composer.utils import dist
 
-__all__ = ["MNISTDatasetHparams"]
+__all__ = ['MNISTDatasetHparams']
 
 
 @dataclass
@@ -28,7 +28,7 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         download (bool, optional): Whether to download the dataset, if needed. Default:
             ``True``.
     """
-    download: bool = hp.optional("whether to download the dataset, if needed", default=True)
+    download: bool = hp.optional('whether to download the dataset, if needed', default=True)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         if self.use_synthetic:
@@ -43,7 +43,7 @@ class MNISTDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
         else:
             if self.datadir is None:
-                raise ValueError("datadir is required if synthetic is False")
+                raise ValueError('datadir is required if synthetic is False')
 
             transform = transforms.Compose([transforms.ToTensor()])
             dataset = datasets.MNIST(
