@@ -155,10 +155,10 @@ class BertForClassification(BERTModel):
             tokenizer=tokenizer)
 
     def loss_fn(self) -> Callable:
-        loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
+        loss_fct = torch.nn.functional.CrossEntropyLoss(reduction='none')
         if hasattr(self.config, "problem_type"):
             if self.config_dict.problem_type == "multi_label_classification":
-                loss_fct = torch.nn.BCEWithLogitsLoss(reduction='none')
+                loss_fct = torch.nn.functional.BCEWithLogitsLoss(reduction='none')
         return loss_fct
 
     def loss(self, batch) -> float:
