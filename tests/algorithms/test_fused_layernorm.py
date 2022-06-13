@@ -10,6 +10,7 @@ from composer.algorithms.fused_layernorm import FusedLayerNorm, apply_fused_laye
 from composer.core.event import Event
 from composer.loggers import Logger
 from composer.models import BERTModel
+from tests.common import device
 from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
 
 
@@ -34,21 +35,15 @@ def assert_is_fln_instance(model: BERTModel):
     assert found_apex_layernorm
 
 
-@pytest.mark.filterwarnings(
-    r'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics')
-def test_fused_layernorm_functional(synthetic_bert_state: Tuple):
+@device('gpu')
+def test_fused_layernorm_functional(synthetic_bert_state: Tuple, device: str):
     state, model, _ = synthetic_bert_state
     print('Model:', model)
     apply_fused_layernorm(state.model, state.optimizers)
     assert_is_fln_instance(state.model)
 
 
-@pytest.mark.filterwarnings(
-    r'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics')
-@pytest.mark.parametrize(
-    'device',
-    [pytest.param('gpu', marks=pytest.mark.gpu)],
-)
+@device('gpu')
 def test_fused_layernorm_algorithm(synthetic_bert_state: Tuple, empty_logger: Logger, device: str):
     state, _, _ = synthetic_bert_state
     fused_layernorm = FusedLayerNorm()
