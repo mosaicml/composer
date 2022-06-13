@@ -17,7 +17,7 @@ from composer.loss.utils import ensure_targets_one_hot
 
 log = logging.getLogger(__name__)
 
-__all__ = ["MixUp", "mixup_batch"]
+__all__ = ['MixUp', 'mixup_batch']
 
 
 def mixup_batch(input: torch.Tensor,
@@ -151,9 +151,9 @@ class MixUp(Algorithm):
 
         if event == Event.BEFORE_FORWARD:
             if not isinstance(input, torch.Tensor):
-                raise NotImplementedError("Multiple tensors for inputs not supported yet.")
+                raise NotImplementedError('Multiple tensors for inputs not supported yet.')
             if not isinstance(target, torch.Tensor):
-                raise NotImplementedError("Multiple tensors for targets not supported yet.")
+                raise NotImplementedError('Multiple tensors for targets not supported yet.')
 
             self.mixing = _gen_mixing_coef(self.alpha)
             self.indices = _gen_indices(input.shape[0])
@@ -170,9 +170,9 @@ class MixUp(Algorithm):
         if not self.interpolate_loss and event == Event.BEFORE_LOSS:
             # Interpolate the targets
             if not isinstance(state.outputs, torch.Tensor):
-                raise NotImplementedError("Multiple output tensors not supported yet")
+                raise NotImplementedError('Multiple output tensors not supported yet')
             if not isinstance(target, torch.Tensor):
-                raise NotImplementedError("Multiple target tensors not supported yet")
+                raise NotImplementedError('Multiple target tensors not supported yet')
             # Make sure that the targets are dense/one-hot
             target = ensure_targets_one_hot(state.outputs, target)
             permuted_target = ensure_targets_one_hot(state.outputs, self.permuted_target)
@@ -183,24 +183,24 @@ class MixUp(Algorithm):
 
         if self.interpolate_loss and event == Event.BEFORE_BACKWARD:
             # Grab the loss function
-            if hasattr(state.model, "loss"):
+            if hasattr(state.model, 'loss'):
                 loss_fn = state.model.loss
-            elif hasattr(state.model, "module") and hasattr(state.model.module, "loss"):
+            elif hasattr(state.model, 'module') and hasattr(state.model.module, 'loss'):
                 if isinstance(state.model.module, torch.nn.Module):
                     loss_fn = state.model.module.loss
                 else:
-                    raise TypeError("state.model.module must be a torch module")
+                    raise TypeError('state.model.module must be a torch module')
             else:
-                raise AttributeError("Loss must be accesable via model.loss or model.module.loss")
+                raise AttributeError('Loss must be accesable via model.loss or model.module.loss')
             # Verify that the loss is callable
             if not callable(loss_fn):
-                raise TypeError("Loss must be callable")
+                raise TypeError('Loss must be callable')
             # Interpolate the loss
             new_loss = loss_fn(state.outputs, (input, self.permuted_target))
             if not isinstance(state.loss, torch.Tensor):
-                raise NotImplementedError("Multiple losses not supported yet")
+                raise NotImplementedError('Multiple losses not supported yet')
             if not isinstance(new_loss, torch.Tensor):
-                raise NotImplementedError("Multiple losses not supported yet")
+                raise NotImplementedError('Multiple losses not supported yet')
             state.loss = (1 - self.mixing) * state.loss + self.mixing * new_loss
 
 

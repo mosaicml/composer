@@ -9,7 +9,7 @@ from composer.models.initializers import Initializer
 from composer.models.resnet_cifar.resnets import ResNet9, ResNetCIFAR
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ["ComposerResNetCIFAR"]
+__all__ = ['ComposerResNetCIFAR']
 
 
 class ComposerResNetCIFAR(ComposerClassifier):
@@ -43,7 +43,7 @@ class ComposerResNetCIFAR(ComposerClassifier):
         if initializers is None:
             initializers = []
 
-        if model_name == "resnet_9":
+        if model_name == 'resnet_9':
             model = ResNet9(num_classes)  # current initializers don't work with this architecture.
         else:
             model = ResNetCIFAR.get_model_from_name(

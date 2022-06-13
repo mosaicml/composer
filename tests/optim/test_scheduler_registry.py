@@ -10,7 +10,7 @@ from composer.optim.scheduler import (ComposerScheduler, CosineAnnealingWarmRest
                                       LinearWithWarmupScheduler, MultiStepScheduler, MultiStepWithWarmupScheduler,
                                       PolynomialScheduler, PolynomialWithWarmupScheduler, StepScheduler)
 from composer.optim.scheduler_hparams_registry import scheduler_registry
-from tests.common.hparams import assert_yaml_loads
+from tests.common.hparams import construct_from_yaml
 
 # Cannot query the module and use an isinstance check because schedulers have no base class -- they're just functions
 # that return functions. Instead, using the registry
@@ -33,22 +33,22 @@ scheduler_settings: Dict[Callable[..., ComposerScheduler], Dict[str, Any]] = {
         'power': 0.1,
     },
     PolynomialWithWarmupScheduler: {
-        't_warmup': "0ep",
+        't_warmup': '0ep',
     },
     MultiStepWithWarmupScheduler: {
         'milestones': [0],
-        't_warmup': "0ep",
+        't_warmup': '0ep',
     },
     LinearWithWarmupScheduler: {
-        't_warmup': "0ep",
+        't_warmup': '0ep',
     },
     CosineAnnealingWithWarmupScheduler: {
-        't_warmup': "0ep",
+        't_warmup': '0ep',
     },
 }
 
 
-@pytest.mark.parametrize("scheduler_cls", scheduler_classes)
+@pytest.mark.parametrize('scheduler_cls', scheduler_classes)
 class TestSchedulers:
 
     def test_scheduler_is_constructable(self, scheduler_cls: Callable[..., ComposerScheduler]):
@@ -58,4 +58,4 @@ class TestSchedulers:
 
     def test_scheduler_is_constructable_from_hparams(self, scheduler_cls: Callable[..., ComposerScheduler]):
         kwargs = scheduler_settings.get(scheduler_cls, {})
-        assert_yaml_loads(scheduler_cls, kwargs)
+        construct_from_yaml(scheduler_cls, kwargs)

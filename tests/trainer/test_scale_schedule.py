@@ -29,7 +29,7 @@ def flatten(lst: list):
 
 
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
-@pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")
+@pytest.mark.filterwarnings(r'ignore:.*Detected call of \`lr_schedule.*:UserWarning')
 class TestScaleSchedule():
 
     @staticmethod
@@ -100,7 +100,7 @@ class CheckScaleSchedule(Callback):
 @pytest.mark.parametrize('ssr', [0.5, 0.75, 1.0])
 class TestScaleScheduleTrainer():
 
-    @pytest.mark.filterwarnings(r"ignore:.*Detected call of \`lr_schedule.*:UserWarning")
+    @pytest.mark.filterwarnings(r'ignore:.*Detected call of \`lr_schedule.*:UserWarning')
     def test_epochs_scaled(
         self,
         ssr: float,

@@ -14,7 +14,7 @@ from torch.nn import functional as F
 
 from composer.loss.utils import ensure_targets_one_hot, infer_target_type
 
-__all__ = ["binary_cross_entropy_with_logits", "loss_registry", "soft_cross_entropy"]
+__all__ = ['binary_cross_entropy_with_logits', 'loss_registry', 'soft_cross_entropy']
 
 
 def binary_cross_entropy_with_logits(
@@ -23,7 +23,7 @@ def binary_cross_entropy_with_logits(
     weight: Optional[Tensor] = None,
     size_average: Optional[bool] = None,
     reduce: Optional[bool] = None,
-    reduction: str = "sum",
+    reduction: str = 'sum',
     pos_weight: Optional[Tensor] = None,
     scale_by_batch_size: Optional[bool] = True,
 ) -> torch.Tensor:
@@ -124,11 +124,11 @@ def soft_cross_entropy(input: Tensor,
     if target_type == 'indices':
         return F.cross_entropy(input, target, weight, size_average, ignore_index, reduce, reduction)
     elif target_type == 'one_hot':
-        assert reduction in ['sum', 'mean', 'none'], f"{reduction} reduction not supported."
-        assert size_average is None, "size_average is deprecated"
-        assert reduce is None, "reduce is deprecated"
+        assert reduction in ['sum', 'mean', 'none'], f'{reduction} reduction not supported.'
+        assert size_average is None, 'size_average is deprecated'
+        assert reduce is None, 'reduce is deprecated'
         if ignore_index != -100:
-            warnings.warn("ignore_index not supported when using dense labels. Ignoring targets with 0 probability.")
+            warnings.warn('ignore_index not supported when using dense labels. Ignoring targets with 0 probability.')
         xentropy = -(target * F.log_softmax(input, dim=1))
 
         if weight is not None:
@@ -147,17 +147,17 @@ def soft_cross_entropy(input: Tensor,
             # Re-weight loss to account for examples with less than 1 total probability (ignored examples)
             total_prob = target.sum()
             if total_prob <= 0:
-                raise ValueError("No targets have nonzero probability")
+                raise ValueError('No targets have nonzero probability')
             if total_prob < num_examples:
-                warnings.warn("Some targets have less than 1 total probability.")
+                warnings.warn('Some targets have less than 1 total probability.')
             xentropy *= num_examples / total_prob
 
         return xentropy
     else:
-        raise ValueError(f"Unrecognized target type {target_type}")
+        raise ValueError(f'Unrecognized target type {target_type}')
 
 
 loss_registry = {
-    "binary_cross_entropy_with_logits": binary_cross_entropy_with_logits,
-    "soft_cross_entropy": soft_cross_entropy
+    'binary_cross_entropy_with_logits': binary_cross_entropy_with_logits,
+    'soft_cross_entropy': soft_cross_entropy
 }

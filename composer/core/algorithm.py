@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from composer.core import Event, State
     from composer.loggers import Logger
 
-__all__ = ["Algorithm"]
+__all__ = ['Algorithm']
 
 
 class Algorithm(Serializable, ABC):

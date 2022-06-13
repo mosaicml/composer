@@ -65,7 +65,7 @@ def y(N: int) -> torch.Tensor:
 def loss_fun() -> Callable:
     """Fake loss function."""
 
-    def loss(output, target, reduction="none"):
+    def loss(output, target, reduction='none'):
         return torch.ones_like(target)
 
     return loss
@@ -75,7 +75,7 @@ def loss_fun() -> Callable:
 def loss_fun_tuple() -> Callable:
     """Fake loss function that requires a batch tuple."""
 
-    def loss(output, batch, reduction="none"):
+    def loss(output, batch, reduction='none'):
         _, target = batch
         return torch.ones_like(target)
 
@@ -160,7 +160,7 @@ def state(minimal_state: State, conv_model: ComposerClassifier, loss_fun_tuple: 
 # tests of the functional API
 class TestSelectiveBackprop:
 
-    @pytest.mark.parametrize("epoch,batch,interrupt", [(10, 0, 0), (10, 0, 2), (10, 2, 2)])
+    @pytest.mark.parametrize('epoch,batch,interrupt', [(10, 0, 0), (10, 0, 2), (10, 2, 2)])
     def test_select_using_loss_true(self, epoch: int, batch: int, interrupt: int) -> None:
         """Test functional match when epoch is within interval."""
         start = 5
@@ -168,7 +168,7 @@ class TestSelectiveBackprop:
         is_chosen = should_selective_backprop(epoch, batch, start, end, interrupt)
         assert is_chosen
 
-    @pytest.mark.parametrize("epoch,batch,interrupt", [(0, 0, 0), (20, 0, 0), (10, 1, 2)])
+    @pytest.mark.parametrize('epoch,batch,interrupt', [(0, 0, 0), (20, 0, 0), (10, 1, 2)])
     def test_select_using_loss_false(self, epoch: int, batch: int, interrupt: int) -> None:
         """Test functional doesn't match when epoch is outside of interval."""
         start = 5
@@ -176,8 +176,8 @@ class TestSelectiveBackprop:
         is_chosen = should_selective_backprop(epoch, batch, start, end, interrupt)
         assert not is_chosen
 
-    @pytest.mark.parametrize("keep", [0.5])
-    @pytest.mark.parametrize("scale_factor", [0.5])
+    @pytest.mark.parametrize('keep', [0.5])
+    @pytest.mark.parametrize('scale_factor', [0.5])
     @pytest.mark.xfail()
     def test_selective_output_shape_3D(self, X3D: torch.Tensor, y: torch.Tensor, model: torch.nn.Module,
                                        loss_fun: Callable, keep: float, scale_factor: float) -> None:
@@ -188,8 +188,8 @@ class TestSelectiveBackprop:
         assert X_scaled.shape == (int(N * keep), D, D)
         assert y_scaled.shape == (int(N * keep),)
 
-    @pytest.mark.parametrize("keep", [1, 0.5, 0.75])
-    @pytest.mark.parametrize("scale_factor", [1])
+    @pytest.mark.parametrize('keep', [1, 0.5, 0.75])
+    @pytest.mark.parametrize('scale_factor', [1])
     def test_selective_output_shape(self, X: torch.Tensor, y: torch.Tensor, model: torch.nn.Module, loss_fun: Callable,
                                     keep: float, scale_factor: float) -> None:
         """Test functional selection on 2D inputs."""
@@ -199,8 +199,8 @@ class TestSelectiveBackprop:
         assert X_scaled.shape == (int(N * keep), D)
         assert y_scaled.shape == (int(N * keep),)
 
-    @pytest.mark.parametrize("keep", [0.5, 0.75, 1])
-    @pytest.mark.parametrize("scale_factor", [0.5, 0.75])
+    @pytest.mark.parametrize('keep', [0.5, 0.75, 1])
+    @pytest.mark.parametrize('scale_factor', [0.5, 0.75])
     def test_selective_output_shape_scaled(self, Ximage: torch.Tensor, y: torch.Tensor, conv_model: ComposerClassifier,
                                            loss_fun: Callable, keep: float, scale_factor: float) -> None:
         """Test functional selection on 4D inputs."""
@@ -220,7 +220,7 @@ class TestSelectiveBackprop:
         """Ensure that ValueError is raised when loss function doesn't have `reduction` kwarg."""
         with pytest.raises(TypeError) as execinfo:
             select_using_loss(X, y, model, bad_loss, 1, 1)
-        MATCH = "must take a keyword argument `reduction`."
+        MATCH = 'must take a keyword argument `reduction`.'
         assert MATCH in str(execinfo.value)
 
 
@@ -239,30 +239,30 @@ class TestSelectiveBackpropAlgorithm:
             interrupt=2,
         )
 
-    @pytest.mark.parametrize("event", [Event.AFTER_DATALOADER])
-    @pytest.mark.parametrize("epoch,batch", [(5, 0), (7, 0), (5, 2)])
+    @pytest.mark.parametrize('event', [Event.AFTER_DATALOADER])
+    @pytest.mark.parametrize('epoch,batch', [(5, 0), (7, 0), (5, 2)])
     def test_match_correct(self, event: Event, sb_algorithm: SelectiveBackprop, state: State) -> None:
         """Algo should match AFTER_DATALOADER in the right interval."""
-        state.max_duration = "10ep"
+        state.max_duration = '10ep'
 
         assert sb_algorithm.match(event, state)
 
-    @pytest.mark.parametrize("event,epoch,batch", [(Event.AFTER_DATALOADER, 0, 0), (Event.AFTER_DATALOADER, 5, 1)])
+    @pytest.mark.parametrize('event,epoch,batch', [(Event.AFTER_DATALOADER, 0, 0), (Event.AFTER_DATALOADER, 5, 1)])
     def test_match_incorrect(self, event: Event, sb_algorithm: SelectiveBackprop, state: State) -> None:
         """Algo should NOT match the wrong interval."""
-        state.max_duration = "10ep"
+        state.max_duration = '10ep'
 
         assert not sb_algorithm.match(event, state)
 
-    @pytest.mark.parametrize("epoch,batch", [(5, 0)])
-    @pytest.mark.parametrize("keep", [0.5, 0.75, 1])
-    @pytest.mark.parametrize("scale_factor", [0.5, 1])
+    @pytest.mark.parametrize('epoch,batch', [(5, 0)])
+    @pytest.mark.parametrize('keep', [0.5, 0.75, 1])
+    @pytest.mark.parametrize('scale_factor', [0.5, 1])
     def test_apply(self, Ximage: torch.Tensor, y: torch.Tensor, sb_algorithm: SelectiveBackprop, state: State,
                    empty_logger: Logger, keep: float) -> None:
         """Test apply with image inputs gives the right output shape."""
         N, C, H, W = Ximage.shape
 
-        state.max_duration = "10ep"
+        state.max_duration = '10ep'
         state.batch = (Ximage, y)
         sb_algorithm.apply(Event.INIT, state, empty_logger)
         sb_algorithm.apply(Event.AFTER_DATALOADER, state, empty_logger)

@@ -19,11 +19,9 @@ requirements:
     - python >=3.7
     - setuptools
     - git
-  build:
-    - git
   run:
     - python >=3.7,<4
-    - pyyaml >=5.4.1,<6
+    - pyyaml >=6.0,<7
     - pytorch >=1.9,<2
     - torch-optimizer >=0.1.0,<0.2
     - torchmetrics >=0.7.0,<0.8
@@ -31,8 +29,7 @@ requirements:
     - tqdm >=4.62.3,<5
     - yahp ==0.1.1
     - requests >=2.26.0,<3
-    - numpy ==1.21.5
-    - apache-libcloud >=3.3.1,<4
+    - numpy >=1.21.5,<2
     - psutil >=5.8.0,<6
     - coolname >=1.1.0,<2
     - py-cpuinfo>=8.0.0
@@ -45,17 +42,17 @@ requirements:
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
-
+    - apache-libcloud >=3.5.1,<4
 test:
   requires:
-    - fasteners ==0.17.3
-    - pytest ==7.1.0
-    - toml ==0.10.2
-    - ipython ==7.32.0
-    - ipykernel ==6.9.2
-    - jupyter ==1.0.0
-    - pytest-timeout ==2.1.0
-    - testbook ==0.4.2
+    - fasteners ==0.17.3,<0.18
+    - pytest >=7.1.0,<8
+    - toml >=0.10.2,<0.11
+    - ipython >=8.4.0,<9
+    - ipykernel ==6.13.1,<7
+    - jupyter >=1.0.0,<2
+    - pytest-timeout >=2.1.0,<3
+    - testbook >=0.4.2,<0.5
     # Including all run_constrained requirements in the test requirements, so those tests will not be import-skipped
     - pip # Since deepspeed and timm are not available on anaconda, they are installed via pip.
     - wandb >=0.12.17,<0.13
@@ -66,7 +63,9 @@ test:
     - datasets >=1.14,<2
     - pycocotools >=2.0.4,<3
     - boto3 >=1.21.45,<2
+    - apache-libcloud>=3.5.1,<4
     - cpuonly >=2.0,<3
+    - moto >=3.1.12,<3.2
   files:
     - "**/composer/**"
     - "**/tests/**"

@@ -47,7 +47,7 @@ eval_dataloader = torch.utils.data.DataLoader(
 trainer = Trainer(model=SimpleModel(num_hidden=128, num_classes=10),
                   train_dataloader=train_dataloader,
                   eval_dataloader=eval_dataloader,
-                  max_duration="3ep",
+                  max_duration='3ep',
                   algorithms=[CutOut(num_holes=1, length=0.5), LabelSmoothing(0.1)])
 
 trainer.fit()

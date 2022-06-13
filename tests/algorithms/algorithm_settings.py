@@ -73,7 +73,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
         'kwargs': {
-            'half_life': "1ba",
+            'half_life': '1ba',
         },
     },
     Factorize: simple_resnet_settings,
@@ -112,7 +112,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'target_layer_name': 'ResNetBottleneck',
             'drop_rate': 0.2,
             'drop_distribution': 'linear',
-            'drop_warmup': "0.0dur",
+            'drop_warmup': '0.0dur',
             'use_same_gpu_seed': False,
         }
     },
@@ -120,8 +120,8 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         'model': common.SimpleConvModel,
         'dataset': common.RandomImageDataset,
         'kwargs': {
-            'swa_start': "0.2dur",
-            'swa_end': "0.97dur",
+            'swa_start': '0.2dur',
+            'swa_end': '0.97dur',
             'update_interval': '1ep',
             'schedule_swa_lr': True,
         }
@@ -131,7 +131,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
 
 def _get_alg_settings(alg_cls: Type[Algorithm]):
     if alg_cls not in _settings or _settings[alg_cls] is None:
-        raise ValueError(f"Algorithm {alg_cls.__name__} not in the settings dictionary.")
+        raise ValueError(f'Algorithm {alg_cls.__name__} not in the settings dictionary.')
     settings = _settings[alg_cls]
     assert settings is not None
     return settings
@@ -176,7 +176,7 @@ def get_algs_with_marks():
 
         if alg_cls in (CutMix, MixUp, LabelSmoothing):
             # see: https://github.com/mosaicml/composer/issues/362
-            pytest.importorskip("torch", minversion="1.10", reason="Pytorch 1.10 required.")
+            pytest.importorskip('torch', minversion='1.10', reason='Pytorch 1.10 required.')
 
         if alg_cls == SWA:
             # TODO(matthew): Fix
@@ -187,10 +187,10 @@ def get_algs_with_marks():
         if alg_cls == MixUp:
             # TODO(Landen): Fix
             marks.append(
-                pytest.mark.filterwarnings(r"ignore:Some targets have less than 1 total probability:UserWarning"))
+                pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning'))
 
         if settings is None:
-            marks.append(pytest.mark.xfail(reason=f"Algorithm {alg_cls.__name__} is missing settings."))
+            marks.append(pytest.mark.xfail(reason=f'Algorithm {alg_cls.__name__} is missing settings.'))
 
         ans.append(pytest.param(alg_cls, marks=marks, id=alg_cls.__name__))
 

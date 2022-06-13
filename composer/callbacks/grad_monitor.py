@@ -7,7 +7,7 @@ from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
 
-__all__ = ["GradMonitor"]
+__all__ = ['GradMonitor']
 
 
 class GradMonitor(Callback):

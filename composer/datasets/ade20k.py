@@ -21,7 +21,7 @@ from torchvision import transforms
 
 from composer.datasets.streaming import StreamingDataset
 
-__all__ = ["ADE20k", "StreamingADE20k"]
+__all__ = ['ADE20k', 'StreamingADE20k']
 
 IMAGENET_CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 IMAGENET_CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
@@ -220,17 +220,17 @@ class ADE20k(Dataset):
 
         # Check datadir value
         if self.datadir is None:
-            raise ValueError("datadir must be specified")
+            raise ValueError('datadir must be specified')
         elif not os.path.exists(self.datadir):
-            raise FileNotFoundError(f"datadir path does not exist: {self.datadir}")
+            raise FileNotFoundError(f'datadir path does not exist: {self.datadir}')
 
         # Check split value
-        if self.split not in ["train", "val", "test"]:
-            raise ValueError(f"split must be one of [`train`, `val`, `test`] but is: {self.split}")
+        if self.split not in ['train', 'val', 'test']:
+            raise ValueError(f'split must be one of [`train`, `val`, `test`] but is: {self.split}')
 
         self.image_dir = os.path.join(self.datadir, 'images', self.split)
         if not os.path.exists(self.image_dir):
-            raise FileNotFoundError(f"ADE20k directory structure is not as expected: {self.image_dir} does not exist")
+            raise FileNotFoundError(f'ADE20k directory structure is not as expected: {self.image_dir} does not exist')
 
         self.image_files = os.listdir(self.image_dir)
 
@@ -314,15 +314,15 @@ class StreamingADE20k(StreamingDataset):
         if split not in ['train', 'val']:
             raise ValueError(f"split='{split}' must be one of ['train', 'val'].")
         if base_size <= 0:
-            raise ValueError("base_size must be positive.")
+            raise ValueError('base_size must be positive.')
         if min_resize_scale <= 0:
-            raise ValueError("min_resize_scale must be positive")
+            raise ValueError('min_resize_scale must be positive')
         if max_resize_scale <= 0:
-            raise ValueError("max_resize_scale must be positive")
+            raise ValueError('max_resize_scale must be positive')
         if max_resize_scale < min_resize_scale:
-            raise ValueError("max_resize_scale cannot be less than min_resize_scale")
+            raise ValueError('max_resize_scale cannot be less than min_resize_scale')
         if final_size <= 0:
-            raise ValueError("final_size must be positive")
+            raise ValueError('final_size must be positive')
 
         # Build StreamingDataset
         decoders = {
