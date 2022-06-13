@@ -50,11 +50,11 @@ class LowRankSolution:
 
 def _lstsq(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
     if A.shape[0] != B.shape[0]:
-        raise RuntimeError(f"A has different number of rows than B! A.shape = {A.shape}, B.shape = {B.shape}")
+        raise RuntimeError(f'A has different number of rows than B! A.shape = {A.shape}, B.shape = {B.shape}')
     if A.ndim != 2:
-        raise RuntimeError("A is not a rank 2 tensor: has shape", A.shape)
+        raise RuntimeError('A is not a rank 2 tensor: has shape', A.shape)
     if B.ndim != 2:
-        raise RuntimeError("B is not a rank 2 tensor: has shape", A.shape)
+        raise RuntimeError('B is not a rank 2 tensor: has shape', A.shape)
 
     # TODO more intelligence regarding choice of lstsq `driver` arg
     return torch.linalg.lstsq(A, B).solution
@@ -223,11 +223,11 @@ def _activations_conv2d_to_mat(activations,
                                dilation=1,
                                groups=1):
     if np.max(stride) > 1:
-        raise NotImplementedError(f"Stride != 1 not implemented; got {stride}")
+        raise NotImplementedError(f'Stride != 1 not implemented; got {stride}')
     if np.max(dilation) > 1:
-        raise NotImplementedError(f"Dilation != 1 not implemented; got {dilation}")
+        raise NotImplementedError(f'Dilation != 1 not implemented; got {dilation}')
     if groups != 1:
-        raise NotImplementedError(f"Groups != 1 not implemented; got {groups}")
+        raise NotImplementedError(f'Groups != 1 not implemented; got {groups}')
     if np.max(padding) > 0 and padding_mode.lower() != 'zeros':
         if not isinstance(padding, list):
             padding = [padding]
@@ -346,7 +346,7 @@ def factorize_conv2d(X: torch.Tensor,
             Y_mat += biasB
     elif biasB is not None:
         # fail fast if user passes in inconsistent combination of args
-        raise RuntimeError("Got biasB, but Wb=None; cannot apply bias")
+        raise RuntimeError('Got biasB, but Wb=None; cannot apply bias')
 
     ret = factorize_matrix(X_mat, Y_mat, Wa, Wb, rank=rank, n_iters=n_iters)
 

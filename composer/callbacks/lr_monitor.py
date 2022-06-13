@@ -5,7 +5,7 @@
 from composer.core import Callback, State
 from composer.loggers import Logger
 
-__all__ = ["LRMonitor"]
+__all__ = ['LRMonitor']
 
 
 class LRMonitor(Callback):
@@ -44,7 +44,7 @@ class LRMonitor(Callback):
         pass
 
     def batch_end(self, state: State, logger: Logger):
-        assert state.optimizers is not None, "optimizers must be defined"
+        assert state.optimizers is not None, 'optimizers must be defined'
         for optimizer in state.optimizers:
             lrs = [group['lr'] for group in optimizer.param_groups]
             name = optimizer.__class__.__name__

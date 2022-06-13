@@ -57,7 +57,7 @@ def scale_factor(request) -> float:
     return request.param
 
 
-@pytest.fixture(params=["resize", "crop"])
+@pytest.fixture(params=['resize', 'crop'])
 def mode(request) -> str:
     return request.param
 
@@ -94,15 +94,15 @@ class TestResizeInputs:
         Xc, _ = resize_batch(X, y, 1.0, mode, resize_targets=False)
         assert X is Xc
 
-    @pytest.mark.parametrize("y", [None])
+    @pytest.mark.parametrize('y', [None])
     def test_without_target(self, X, y):
         """Test that resizing works properly with no target present."""
         try:
-            resize_batch(X, y, 1.0, "crop", resize_targets=False)
+            resize_batch(X, y, 1.0, 'crop', resize_targets=False)
         except:
-            pytest.fail("apply_progressive_resizing failed with y == None")
+            pytest.fail('apply_progressive_resizing failed with y == None')
 
-    @pytest.mark.parametrize("Wx,Hx", [(31, 31), (32, 32), (32, 16)])
+    @pytest.mark.parametrize('Wx,Hx', [(31, 31), (32, 32), (32, 16)])
     def test_resize_batch_shape(self, X: torch.Tensor, y: torch.Tensor, mode: str, scale_factor: float):
         """Test scaling works for different input shapes."""
         Xc, _ = resize_batch(X, y, scale_factor, mode, resize_targets=False)
@@ -115,19 +115,19 @@ class TestResizeInputs:
 
     def test_resize_outputs_crop(self, X: torch.Tensor, scale_factor: float):
         """Test that resizing outputs in crop mode gives the right targets."""
-        xc, yc = resize_batch(X, X, scale_factor, "crop", resize_targets=True)
+        xc, yc = resize_batch(X, X, scale_factor, 'crop', resize_targets=True)
         assert torch.equal(xc, yc)
 
-    @pytest.mark.parametrize("Wx,Hx,Wy,Hy", [(32, 32, 16, 16)])
+    @pytest.mark.parametrize('Wx,Hx,Wy,Hy', [(32, 32, 16, 16)])
     def test_resize_outputs_different_shape(self, X, y, scale_factor: float, mode: str):
         """Test that resizing works when X and y have different shapes."""
         _, yc = resize_batch(X, y, scale_factor, mode, resize_targets=True)
         assert check_scaled_shape(y, yc, scale_factor)
 
 
-@pytest.mark.parametrize("mode,initial_scale,finetune_fraction,delay_fraction,size_increment",
-                         [("foo", 0.5, 0.2, 0.2, 8), ("crop", 1.2, 0.2, 0.2, 8), ("crop", 0.5, 1.2, 0.2, 8),
-                          ("resize", 0.5, 0.6, 0.5, 8)])
+@pytest.mark.parametrize('mode,initial_scale,finetune_fraction,delay_fraction,size_increment',
+                         [('foo', 0.5, 0.2, 0.2, 8), ('crop', 1.2, 0.2, 0.2, 8), ('crop', 0.5, 1.2, 0.2, 8),
+                          ('resize', 0.5, 0.6, 0.5, 8)])
 def test_invalid_hparams(mode: str, initial_scale: float, finetune_fraction: float, delay_fraction: float,
                          size_increment: int):
     """Test that invalid hyperparameters error.
@@ -145,17 +145,17 @@ class TestProgressiveResizingAlgorithm:
         return ProgressiveResizing(mode, initial_scale, finetune_fraction, delay_fraction, size_increment,
                                    resize_targets)
 
-    @pytest.mark.parametrize("event", [Event.AFTER_DATALOADER])
+    @pytest.mark.parametrize('event', [Event.AFTER_DATALOADER])
     def test_match_correct(self, event: Event, pr_algorithm, minimal_state: State):
         """Algo should match AFTER_DATALOADER."""
         assert pr_algorithm.match(event, minimal_state)
 
-    @pytest.mark.parametrize("event", [Event.INIT])
+    @pytest.mark.parametrize('event', [Event.INIT])
     def test_match_incorrect(self, event: Event, pr_algorithm: ProgressiveResizing, minimal_state: State):
         """Algo should NOT match INIT."""
         assert not pr_algorithm.match(event, minimal_state)
 
-    @pytest.mark.parametrize("epoch_frac", [0.0, 0.6, 0.8, 1.0])
+    @pytest.mark.parametrize('epoch_frac', [0.0, 0.6, 0.8, 1.0])
     def test_apply(self, epoch_frac: float, X: torch.Tensor, y: torch.Tensor, pr_algorithm: ProgressiveResizing,
                    minimal_state: State, empty_logger: Logger):
         """Test apply at different epoch fractions (fraction of max epochs)"""

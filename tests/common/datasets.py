@@ -45,8 +45,8 @@ class RandomClassificationDataset(Dataset):
 @dataclasses.dataclass
 class RandomClassificationDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
 
-    data_shape: List[int] = hp.optional("data shape", default_factory=lambda: [1, 1, 1])
-    num_classes: int = hp.optional("num_classes", default=2)
+    data_shape: List[int] = hp.optional('data shape', default_factory=lambda: [1, 1, 1])
+    num_classes: int = hp.optional('num_classes', default=2)
 
     def initialize_object(self, batch_size: int, dataloader_hparams: DataLoaderHparams):
         assert self.data_shape is not None
@@ -104,7 +104,7 @@ class RandomImageDataset(VisionDataset):
         if self.is_PIL:
             x = x.numpy()
             x = (x - x.min())
-            x = (x * (255 / x.max())).astype("uint8")
+            x = (x * (255 / x.max())).astype('uint8')
             x = Image.fromarray(x)
 
         if self.transform is not None:
@@ -118,7 +118,7 @@ def configure_dataset_hparams_for_synthetic(
     model_hparams: Optional[ModelHparams] = None,
 ) -> None:
     if not isinstance(dataset_hparams, SyntheticHparamsMixin):
-        pytest.xfail(f"{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batches")
+        pytest.xfail(f'{dataset_hparams.__class__.__name__} does not support synthetic data or num_total_batches')
 
     assert isinstance(dataset_hparams, SyntheticHparamsMixin)
 
@@ -126,7 +126,7 @@ def configure_dataset_hparams_for_synthetic(
 
     if isinstance(model_hparams, TransformerHparams):
         if type(model_hparams) not in model_hparams_to_tokenizer_family:
-            raise ValueError(f"Model {type(model_hparams)} is currently not supported for synthetic testing!")
+            raise ValueError(f'Model {type(model_hparams)} is currently not supported for synthetic testing!')
 
         tokenizer_family = model_hparams_to_tokenizer_family[type(model_hparams)]
         assert isinstance(dataset_hparams, (GLUEHparams, LMDatasetHparams))

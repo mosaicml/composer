@@ -12,7 +12,7 @@ import yahp as hp
 from composer.models.base import ComposerModel
 from composer.models.initializers import Initializer
 
-__all__ = ["ModelHparams"]
+__all__ = ['ModelHparams']
 
 
 @dataclass
@@ -25,11 +25,11 @@ class ModelHparams(hp.Hparams, ABC):
     """
     initializers: List[Initializer] = hp.optional(
         default_factory=lambda: [],
-        doc="The initialization strategy for the model",
+        doc='The initialization strategy for the model',
     )
 
     num_classes: Optional[int] = hp.optional(
-        doc="The number of classes.  Needed for classification tasks",
+        doc='The number of classes.  Needed for classification tasks',
         default=None,
     )
 

@@ -10,7 +10,7 @@ import textwrap
 import time
 from urllib.parse import urlparse
 
-__all__ = ["download_or_wait"]
+__all__ = ['download_or_wait']
 
 
 def download_from_s3(remote: str, local: str, timeout: float) -> None:
@@ -44,7 +44,7 @@ def download_from_local(remote: str, local: str) -> None:
         remote (str): Remote path (local filesystem).
         local (str): Local path (local filesystem).
     """
-    local_tmp = local + ".tmp"
+    local_tmp = local + '.tmp'
     if os.path.exists(local_tmp):
         os.remove(local_tmp)
     shutil.copy(remote, local_tmp)
@@ -87,7 +87,7 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
                 start = time.time()
                 while not os.path.exists(local):
                     if time.time() - start > timeout:
-                        raise TimeoutError(f"Waited longer than {timeout}s for other worker to download {local}.")
+                        raise TimeoutError(f'Waited longer than {timeout}s for other worker to download {local}.')
                     time.sleep(0.25)
             else:
                 dispatch_download(remote, local, timeout=timeout)
@@ -97,4 +97,4 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
             last_error = e
             continue
     if last_error:
-        raise RuntimeError(f"Failed to download {remote} -> {local}. Got errors:\n{error_msgs}") from last_error
+        raise RuntimeError(f'Failed to download {remote} -> {local}. Got errors:\n{error_msgs}') from last_error

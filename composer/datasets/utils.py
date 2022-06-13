@@ -16,9 +16,9 @@ from torchvision.datasets import VisionDataset
 from composer.core.types import Batch
 
 __all__ = [
-    "add_vision_dataset_transform",
-    "NormalizationFn",
-    "pil_image_collate",
+    'add_vision_dataset_transform',
+    'NormalizationFn',
+    'pil_image_collate',
 ]
 
 log = logging.getLogger(__name__)
@@ -106,9 +106,9 @@ def pil_image_collate(
 
         nump_array = np.rollaxis(nump_array, 2).copy()
         if nump_array.shape[0] != 3:
-            assert nump_array.shape[0] == 1, "unexpected shape"
+            assert nump_array.shape[0] == 1, 'unexpected shape'
             nump_array = np.resize(nump_array, (3, h, w))
-        assert image_tensor.shape[1:] == nump_array.shape, "shape mismatch"
+        assert image_tensor.shape[1:] == nump_array.shape, 'shape mismatch'
 
         image_tensor[i] += torch.from_numpy(nump_array)
         target_tensor[i] += torch.from_numpy(np.array(targets[i], dtype=np.int64))
