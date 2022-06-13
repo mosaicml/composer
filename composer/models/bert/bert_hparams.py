@@ -45,7 +45,7 @@ class BERTForClassificationHparams(ModelHparams):
     """`YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for :class:`.BERTModel`.
 
     Args:
-        num_labels (int, optional): The number of classes in the segmentation task. Default: ``2``.
+        num_labels (int, optional): The number of classes in the classification task. Default: ``2``.
         model_config (Dict[str, JSON]): A dictionary providing a HuggingFace model configuration.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights.
         gradient_checkpointing (bool, optional): Use gradient checkpointing. default: False.
