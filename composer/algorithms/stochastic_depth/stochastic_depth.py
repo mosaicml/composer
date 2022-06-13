@@ -144,7 +144,7 @@ class StochasticDepth(Algorithm):
         if isinstance(drop_warmup, float):
             drop_warmup = Time(drop_warmup, TimeUnit.DURATION)
         self.drop_warmup = drop_warmup
-        self.num_stochastic_layers = 0 # Initial count of stochastic layers
+        self.num_stochastic_layers = 0  # Initial count of stochastic layers
         _validate_stochastic_hparams(stochastic_method=self.stochastic_method,
                                      target_layer_name=self.target_layer_name,
                                      drop_rate=self.drop_rate,
@@ -233,8 +233,12 @@ def _validate_stochastic_hparams(target_layer_name: str,
         raise ValueError(f'drop_warmup can not be used with "sample" stochastic_method')
 
 
-def _update_drop_rate(module: torch.nn.Module, target_block: Type[torch.nn.Module], drop_rate: float,
-                      drop_distribution: str, module_count: int, module_id: int = 0):
+def _update_drop_rate(module: torch.nn.Module,
+                      target_block: Type[torch.nn.Module],
+                      drop_rate: float,
+                      drop_distribution: str,
+                      module_count: int,
+                      module_id: int = 0):
     """Recursively updates a module's drop_rate attributes with a new value."""
 
     for child in module.children():
