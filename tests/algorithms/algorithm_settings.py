@@ -213,6 +213,10 @@ def get_algs_with_marks():
             marks.append(
                 pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning'))
 
+        if alg_cls == FusedLayerNorm:
+            # FusedLayerNorm requires a GPU in order for the class to exist
+            marks.append(pytest.mark.gpu)
+
         if settings is None:
             marks.append(pytest.mark.xfail(reason=f'Algorithm {alg_cls.__name__} is missing settings.'))
 
