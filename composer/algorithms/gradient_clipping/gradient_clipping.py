@@ -122,7 +122,7 @@ class GradientClipping(Algorithm):
         # deepspeed only supports norm clipping
         if state.is_model_deepspeed:
             if self.clipping_type == 'norm':
-                state.optimizer.clip_grad = self.clipping_threshold
+                state.optimizers.clip_grad = self.clipping_threshold
                 return
             else:
                 raise NotImplementedError(

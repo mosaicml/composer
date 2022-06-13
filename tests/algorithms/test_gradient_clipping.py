@@ -110,7 +110,7 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.
     state.is_model_deepspeed = True
 
     state.optimizers = Mock()
-    state.optimizers.clip_grad = Mock()
+    state.optimizers.clip_grad = 0.0
     logger = Mock()
     engine = Engine(state, logger)
 
