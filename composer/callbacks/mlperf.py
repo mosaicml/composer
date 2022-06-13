@@ -250,7 +250,9 @@ class MLPerfCallback(Callback):
             import ffcv  # type: ignore
 
             if isinstance(dataloader, ffcv.loader.Loader):
-                return (dataloader.batch_size, len(dataloader) * dataloader.batch_size)  # type: ignore
+                return (
+                    dataloader.batch_size,  # type: ignore
+                    len(dataloader) * dataloader.batch_size * dist.get_world_size())  # type: ignore
         except ImportError:
             pass
 
@@ -274,8 +276,8 @@ class MLPerfCallback(Callback):
                 constants.SEED: state.seed,
                 constants.GLOBAL_BATCH_SIZE: batch_size * dist.get_world_size(),
                 constants.GRADIENT_ACCUMULATION_STEPS: state.grad_accum,
-                constants.TRAIN_SAMPLES: num_samples * dist.get_world_size(),
-                constants.EVAL_SAMPLES: eval_num_samples * dist.get_world_size(),
+                constants.TRAIN_SAMPLES: num_samples,
+                constants.EVAL_SAMPLES: eval_num_samples,
             })
 
         if _local_rank_zero():
