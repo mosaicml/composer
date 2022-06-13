@@ -30,7 +30,7 @@ from composer.loggers.logger import Logger
 from composer.models.base import ComposerModel
 from composer.optim.scheduler import ExponentialScheduler
 from composer.trainer.devices import Device
-from composer.trainer.trainer import _get_run_name
+from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, reproducibility
 from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
                           world_size)
@@ -768,7 +768,7 @@ class TestTrainerEquivalence():
         }
 
     @pytest.fixture(autouse=True)
-    def create_reference_model(self, config, tmp_path_factory, *args):
+    def create_reference_model(self, config, tmp_path_factory: pytest.TempPathFactory, *args):
         """Trains the reference model, and saves checkpoints."""
         config = copy.deepcopy(config)  # ensure the reference model is not passed to tests
 
@@ -814,6 +814,7 @@ class TestTrainerEquivalence():
 
     def test_checkpoint(self, config, *args):
         # load from epoch 1 checkpoint and finish training
+        assert self.reference_folder is not None
         checkpoint_file = os.path.join(self.reference_folder, 'ep1.pt')
         config['load_path'] = checkpoint_file
 
@@ -969,7 +970,7 @@ def test_state_run_name():
     # seeding with the global rank to ensure that each rank has a different seed
     reproducibility.seed_all(dist.get_global_rank())
 
-    run_name = _get_run_name(None)
+    run_name = _generate_run_name()
     # The run name should be the same on every rank -- it is set via a distributed reduction
     # Manually verify that all ranks have the same run name
     run_names = dist.all_gather_object(run_name)
