@@ -228,7 +228,7 @@ def _main():
     for entry in composer_entries:
         table.append([
             'latest' if entry['COMPOSER_VERSION'] == '' else entry['COMPOSER_VERSION'],  # Pytorch version
-            'No' if entry['BASE_IMAGE'].endswith('cpu') else 'Yes',  # Whether there is Cuda support
+            'No' if entry['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
             ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
         ])
     table.sort(key=lambda x: x[1], reverse=True)  # cuda support

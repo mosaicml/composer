@@ -5,18 +5,18 @@ leverage.
 
 ## Composer Images
 
-The [mosaicml/composer](https://hub.docker.com/r/mosaicml/composer) images contain all Composer pre-installed with all dependencies for both NLP and Vision models. They are built on top of the [MosaicML PyTorch Images](#pytorch-images).
+The [mosaicml/composer](https://hub.docker.com/r/mosaicml/composer) images contain all Composer pre-installed with all dependencies for both NLP and Vision models. They are built on top of the [`mosaicml/pytorch_vision`](https://hub.docker.com/r/mosaicml/pytorch_vision) family of images. (See the section on [MosaicML PyTorch Images](#pytorch-images) below.)
 
-**Note**: Only the Dockerimage for most recent version of Composer will be maintained. We recommend using the `latest` version, which will always be up to date. Out-of-date images
+**Note**: Only the Dockerimage for most recent version of Composer will be maintained. We recommend using `mosaicml/composer:latest` or `mosaicml/composer:latest_cpu`, which will always be up to date. Out-of-date images
 may be available on DockerHub, but are not shown in the table below.
 
 <!-- BEGIN_COMPOSER_BUILD_MATRIX -->
 | Composer Version   | CUDA Support   | Docker Tag                     |
 |--------------------|----------------|--------------------------------|
 | latest             | Yes            | `mosaicml/composer:latest`     |
-| latest             | Yes            | `mosaicml/composer:latest_cpu` |
+| latest             | No             | `mosaicml/composer:latest_cpu` |
 | 0.7.1              | Yes            | `mosaicml/composer:0.7.1`      |
-| 0.7.1              | Yes            | `mosaicml/composer:0.7.1_cpu`  |
+| 0.7.1              | No             | `mosaicml/composer:0.7.1_cpu`  |
 <!-- END_COMPOSER_BUILD_MATRIX -->
 
 
