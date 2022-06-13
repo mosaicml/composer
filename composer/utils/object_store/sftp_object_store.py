@@ -23,8 +23,6 @@ class SFTPObjectStore:
         cwd (Optional[str]): The directory to navigate to upon creating the SSH connection.
     """
 
-    #TODO - read creds automatically through envvariables
-
     def __init__(self,
                  host: str,
                  port: int,
@@ -64,12 +62,12 @@ class SFTPObjectStore:
     def upload_object(self, file_path: str, object_name: str):
         tmp_path = object_name + f".{uuid.uuid4()}.tmp"
 
-        object_size = os.stat(file_path).st_size
-        attributes = self.sftp_client.put(file_path, tmp_path, confirm=True)
-        uploaded_bytes = attributes.st_size
+        dirname = os.path.dirname(object_name)
+        self.ssh_client.exec_command(f"mkdir -p {dirname}")
 
-        if uploaded_bytes != object_size:
-            self.sftp_client.remove(tmp_path)
+        try:
+            self.sftp_client.put(file_path, tmp_path, confirm=True)
+        except IOError:
             raise ObjectStoreTransientError
         else:
             self.sftp_client.rename(tmp_path, object_name)
@@ -80,14 +78,9 @@ class SFTPObjectStore:
 
         tmp_path = destination_path + f".{uuid.uuid4()}.tmp"
 
-        object_size = self.sftp_client.stat(object_name).st_size
-
-        self.sftp_client.get(remotepath=object_name, localpath=tmp_path)
-
-        downloaded_bytes = os.stat(tmp_path).st_size
-
-        if object_size != downloaded_bytes:
-            os.remove(tmp_path)
+        try:
+            self.sftp_client.get(remotepath=object_name, localpath=tmp_path)
+        except IOError:
             raise ObjectStoreTransientError
         else:
             os.replace(tmp_path, destination_path)
