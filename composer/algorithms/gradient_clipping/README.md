@@ -25,36 +25,36 @@ Constrains all gradients to be between $[-\lambda, \lambda]$, where $\lambda$ is
 the `clipping_threshold`.
 
 <!-- Usage: -->
-
-<!-- ```python
+<!--pytest-codeblocks:skip-->
+```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
                            clipping_type='value',
                            clipping_threshold=clipping_threshold)
-``` -->
+```
 #### Gradient clipping by norm
 Multiplies all gradients by $\min(1, \frac{\lambda}{||G||})$, where $\lambda$ is
 the `clipping_threshold` and $||G||$ is the total L2 norm of all gradients.
 <!-- Usage: -->
-
-<!-- ```python
+<!--pytest-codeblocks:skip-->
+```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
                            clipping_type='norm',
                            clipping_threshold=clipping_threshold)
-``` -->
+```
 #### Adaptive Gradient Clipping (AGC)
 Clips all gradients based on the gradient norm to parameter norm ratio by multiplying them by
 $\min(1, \lambda\frac{||W||}{||G||})$, where $\lambda$ is the `clipping_threshold`,
 $||G||$ is the norm of the gradients and $||W||$ is the norm of the weights.
 <!-- Usage: -->
-
-<!-- ```python
+<!--pytest-codeblocks:skip-->
+```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
                            clipping_type='adaptive',
                            clipping_threshold=clipping_threshold)
-``` -->
+```
 
 ### Functional Interface
 
@@ -84,7 +84,6 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!-- TODO: Address timeouts -->
 <!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
