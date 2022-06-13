@@ -6,9 +6,10 @@
 
 import os
 import shutil
-import textwrap
 import time
 from urllib.parse import urlparse
+
+from composer.utils import MissingConditionalImportError
 
 __all__ = ['download_or_wait']
 
@@ -42,28 +43,34 @@ def download_from_sftp(remote: str, local: str) -> None:
         local (str): Local path (local filesystem).
     """
     try:
-        from paramiko import RSAKey, SFTPClient, Transport
+        from paramiko import AutoAddPolicy, RSAKey, SSHClient
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
 
     obj = urlparse(remote)
     if obj.scheme != 'sftp':
         raise ValueError(f"Expected obj.scheme to be 'sftp', got {obj.scheme} for remote={remote}")
+    remote_host = obj.netloc
+    remote_path = obj.path
 
+    # Read auth details from env var
+    private_key_path = os.environ['COMPOSER_SFTP_KEY_FILE']
+    pkey = RSAKey.from_private_key_file(private_key_path)
+    username = os.environ['COMPOSER_SFTP_USERNAME']
+
+    # Local tmp
     local_tmp = local + '.tmp'
     if os.path.exists(local_tmp):
         os.remove(local_tmp)
 
-    private_key_path = os.environ['COMPOSER_SSH_FILE']
-    username = os.environ['COMPOSER_SSH_USERNAME']
-    pkey = RSAKey.from_private_key_file(private_key_path)
-    transport = Transport(sock=(obj.netloc, 22))
-    transport.connect(username=username, pkey=pkey)
-    connection = SFTPClient.from_transport(transport)
-    connection.get(obj.path, local_tmp)
-    connection.close()
-    transport.close()
+    with SSHClient() as ssh_client:
+        # Connect SSH Client
+        ssh_client.set_missing_host_key_policy(AutoAddPolicy)
+        ssh_client.connect(hostname=remote_host, port=22, username=username, pkey=pkey)
 
+        # SFTP Client
+        sftp_client = ssh_client.open_sftp()
+        sftp_client.get(remotepath=remote_path, localpath=local_tmp)
     os.rename(local_tmp, local)
 
 
@@ -110,6 +117,7 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
         max_retries (int, default 2): Number of download re-attempts before giving up.
         timeout (float, default 60): How long to wait for file to download before raising an exception.
     """
+    last_error = None
     error_msgs = []
     for _ in range(1 + max_retries):
         try:
@@ -126,6 +134,5 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
             error_msgs.append(e)
             last_error = e
             continue
-    if len(error_msgs):
-        print(f'Failed to download {remote} -> {local}. Got errors:\n{error_msgs}')
-        os._exit(1)
+    if last_error:
+        raise RuntimeError(f'Failed to download {remote} -> {local}. Got errors:\n{error_msgs}') from last_error
