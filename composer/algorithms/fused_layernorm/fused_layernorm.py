@@ -57,22 +57,24 @@ class FusedLayerNorm(Algorithm):
 
     Example:
         .. testsetup::
-           # because FusedLayerNorm doesn't exist on CPU, we'll monkey-patch the algorithm to be a no-op
            def no_op(self): pass
+
+           from composer.algorithms import FusedLayerNorm
+
            FusedLayerNorm.__init__ = no_op
 
         .. testcode::
+           from composer.algorithms import FusedLayerNorm
 
-            from composer.algorithms import FusedLayerNorm
-            algorithm = FusedLayerNorm()
-            trainer = Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                eval_dataloader=eval_dataloader,
-                max_duration="1ep",
-                algorithms=[algorithm],
-                optimizers=[optimizer]
-            )
+           algorithm = FusedLayerNorm()
+           trainer = Trainer(
+               model=bert_model,
+               train_dataloader=mlm_dataloader,
+               eval_dataloader=eval_dataloader,
+               max_duration="1ep",
+               algorithms=[algorithm],
+               optimizers=[optimizer]
+           )
     """
 
     def __init__(self):
