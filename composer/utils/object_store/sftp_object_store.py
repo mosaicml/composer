@@ -18,8 +18,8 @@ class SFTPObjectStore:
     Args:
         host (str): The server to connect to
         port (int): The server port to connect to
-        username (Optional[str]): The username to authenticate. Defaults to current username
-        key_file_path (Optional[str]): The filename of private key
+        username (str): The username to authenticate
+        key_file_path (str): The filename of private key
         cwd (Optional[str]): The directory to navigate to upon creating the SSH connection.
     """
 
@@ -27,9 +27,9 @@ class SFTPObjectStore:
 
     def __init__(self,
                  host: str,
-                 port: int = 22,
-                 username: Optional[str] = None,
-                 key_file_path: Optional[str] = None,
+                 port: int,
+                 username: str,
+                 key_file_path: str,
                  cwd: Optional[str] = None):
         self.host = host
         self.port = port
@@ -43,15 +43,15 @@ class SFTPObjectStore:
             raise MissingConditionalImportError(extra_deps_group="streaming", conda_package="paramiko") from e
         self.ssh_client = SSHClient()
 
-        # add AutoAddPolicy
         try:
             self.ssh_client.load_system_host_keys(key_file_path)
         except IOError:
             raise Exception("Host keys could not be read from {key_file_path}.")
 
         self.ssh_client.connect(host, port, username)
-        self.ssh_client.exec_command(f"mkdir -p {cwd}")
-        self.ssh_client.exec_command(f"cd {cwd}")
+        if cwd is not None:
+            self.ssh_client.exec_command(f"mkdir -p {cwd}")
+            self.ssh_client.exec_command(f"cd {cwd}")
 
         self.sftp_client = self.ssh_client.open_sftp()
 

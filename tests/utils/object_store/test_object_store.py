@@ -5,12 +5,11 @@ import contextlib
 import os
 import pathlib
 from typing import Generator
-from unittest.mock import Mock
 
 import moto
 import pytest
 
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
+from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore
 from tests.utils.object_store.object_store_settings import object_store_kwargs
 
 
@@ -54,16 +53,11 @@ def object_store(request, monkeypatch: pytest.MonkeyPatch,
         os.makedirs(remote_dir)
         object_store_kwargs[request.param]['provider_kwargs']['key'] = remote_dir
         yield request.param(**object_store_kwargs[request.param])
-    elif request.param is SFTPObjectStore:
-        pytest.importorskip('paramiko')
-        monkeypatch.setenv('COMPOSER_SFTP_USERNAME', 'test-uname')
-        monkeypatch.setenv('COMPOSER_SFTP_KEYFILE', 'test_filepath')
-        yield request.param(**object_store_kwargs[request.param])
     else:
         raise NotImplementedError('Parameterization not implemented')
 
 
-@pytest.mark.parametrize('object_store', [S3ObjectStore, LibcloudObjectStore, SFTPObjectStore], indirect=True)
+@pytest.mark.parametrize('object_store', [S3ObjectStore, LibcloudObjectStore], indirect=True)
 class TestObjectStore:
 
     @pytest.fixture
@@ -85,8 +79,6 @@ class TestObjectStore:
             assert uri == 's3://my-bucket/tmpfile_object_name'
         elif isinstance(object_store, LibcloudObjectStore):
             assert uri == 'local://./tmpfile_object_name'
-        elif isinstance(object_store, SFTPObjectStore):
-            assert uri == 'sftp://localhost:22/tmpfile_object_name'
         else:
             raise NotImplementedError(f'Object store {type(object_store)} not implemented.')
 
