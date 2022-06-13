@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Any, Dict, Type, Union
+from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
 import pytest
 
 import composer.utils.object_store
 import composer.utils.object_store.object_store_hparams
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore
+from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
 from composer.utils.object_store.object_store_hparams import (LibcloudObjectStoreHparams, ObjectStoreHparams,
-                                                              S3ObjectStoreHparams)
+                                                              S3ObjectStoreHparams, SFTPObjectStoreHparams)
 from tests.common import get_module_subclasses
 
 try:
@@ -26,11 +27,20 @@ try:
 except ImportError:
     _BOTO3_AVAILABLE = False
 
+try:
+    import paramiko
+    _PARAMIKO_AVAILABLE = True
+    del paramiko
+except ImportError:
+    _PARAMIKO_AVAILABLE = False
+
 _object_store_marks = {
     LibcloudObjectStore: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
     LibcloudObjectStoreHparams: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
     S3ObjectStore: [pytest.mark.skipif(not _BOTO3_AVAILABLE, reason='Missing dependency')],
     S3ObjectStoreHparams: [pytest.mark.skipif(not _BOTO3_AVAILABLE, reason='Missing dependency')],
+    SFTPObjectStore: [pytest.mark.skipif(not _PARAMIKO_AVAILABLE, reason='Missing dependency')],
+    SFTPObjectStoreHparams: [pytest.mark.skipif(not _PARAMIKO_AVAILABLE, reason='Missing dependency')],
 }
 
 object_store_kwargs: Dict[Union[Type[ObjectStore], Type[ObjectStoreHparams]], Dict[str, Any]] = {
@@ -51,6 +61,12 @@ object_store_kwargs: Dict[Union[Type[ObjectStore], Type[ObjectStoreHparams]], Di
         'provider': 'local',
         'key_environ': 'OBJECT_STORE_KEY',
         'container': '.',
+    },
+    SFTPObjectStore: {
+        'host': 'localhost',
+        'port': 22,
+        'userame': "test_uname",
+        'key_file_path': "test", #TODO Anis - fix later
     }
 }
 

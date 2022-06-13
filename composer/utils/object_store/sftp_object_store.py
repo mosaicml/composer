@@ -23,12 +23,20 @@ class SFTPObjectStore:
         cwd (Optional[str]): The directory to navigate to upon creating the SSH connection.
     """
 
+    #TODO - read creds automatically through envvariables
+
     def __init__(self,
                  host: str,
                  port: int = 22,
                  username: Optional[str] = None,
                  key_file_path: Optional[str] = None,
                  cwd: Optional[str] = None):
+        self.host = host
+        self.port = port
+        self.username = username
+        self.key_file_path = key_file_path
+        self.cwd = cwd
+
         try:
             from paramiko import SSHClient
         except ImportError as e:
@@ -49,6 +57,9 @@ class SFTPObjectStore:
 
     def close(self):
         self.ssh_client.close()
+    
+    def get_uri(self, object_name: str) -> str:
+        return f'sftp://{self.host}:{self.port}/{object_name}'
 
     def upload_object(self, file_path: str, object_name: str):
         tmp_path = object_name + f".{uuid.uuid4()}.tmp"

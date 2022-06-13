@@ -7,6 +7,7 @@ import abc
 import dataclasses
 import os
 from typing import Any, Dict, Optional, Type
+from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
 import yahp as hp
 
@@ -14,7 +15,7 @@ from composer.utils.object_store.libcloud_object_store import LibcloudObjectStor
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 
-__all__ = ['ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'S3ObjectStoreHparams', 'object_store_registry']
+__all__ = ['ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'S3ObjectStoreHparams', 'SFTPObjectStoreHparams', 'object_store_registry']
 
 
 @dataclasses.dataclass
@@ -210,7 +211,34 @@ class S3ObjectStoreHparams(ObjectStoreHparams):
         return dataclasses.asdict(self)
 
 
+@dataclasses.dataclass
+class SFTPObjectStoreHparams(ObjectStoreHparams):
+    """:class:`~.SFTPObjectStore` hyperparameters.
+
+    The :class:`.SFTPObjectStore` uses :mod:`paramiko` to upload and download files from SSH servers
+
+    .. note::
+
+        To follow best security practices, credentials shouldn't be specified as part of the hyperparameters.
+        Instead, please ensure that credentials are in the environment, which will be read automatically.
+
+    Args:
+        host (str): See :class:`.SFTPObjectStore`.
+        port (int, optional): See :class:`.SFTPObjectStore`.
+    """
+
+    host: str = hp.auto(SFTPObjectStore, 'host')
+    port: Optional[int] = hp.auto(SFTPObjectStore, 'port')
+
+    def get_object_store_cls(self) -> Type[ObjectStore]:
+        return SFTPObjectStore
+
+    def get_kwargs(self) -> Dict[str, Any]:
+        return dataclasses.asdict(self)
+
+
 object_store_registry: Dict[str, Type[ObjectStoreHparams]] = {
     'libcloud': LibcloudObjectStoreHparams,
     's3': S3ObjectStoreHparams,
+    'sftp': SFTPObjectStoreHparams,
 }

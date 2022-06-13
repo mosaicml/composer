@@ -122,6 +122,8 @@ extra_deps['dev'] = [
     'pypandoc==1.8.1',
     'GitPython==3.1.27',
     'moto[s3]>=3.1.12,<3.2',
+    'mock-ssh-server==0.9.1'
+
 ]
 
 extra_deps['deepspeed'] = [
@@ -162,6 +164,7 @@ extra_deps['mlperf'] = [
 
 extra_deps['streaming'] = [
     'boto3>=1.21.45,<2',
+    'paramiko>=2.11.0,<3',
 ]
 
 extra_deps['libcloud'] = [
