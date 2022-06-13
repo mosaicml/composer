@@ -12,7 +12,7 @@ from composer.utils.import_helpers import MissingConditionalImportError
 if TYPE_CHECKING:
     from composer.models.transformer_shared import ComposerTransformer
 
-__all__ = ["GPT2Hparams"]
+__all__ = ['GPT2Hparams']
 
 
 @dataclasses.dataclass
@@ -28,11 +28,11 @@ class GPT2Hparams(TransformerHparams):
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
     """
 
-    def initialize_object(self) -> "ComposerTransformer":
+    def initialize_object(self) -> 'ComposerTransformer':
         try:
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+            raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='transformers') from e
 
         from composer.models.gpt2.model import GPT2Model
         self.validate()
@@ -52,7 +52,7 @@ class GPT2Hparams(TransformerHparams):
             tokenizer = None
 
         if self.use_pretrained:
-            assert transformers.AutoModelForCausalLM.from_pretrained is not None, "from_pretrained should not be None"
+            assert transformers.AutoModelForCausalLM.from_pretrained is not None, 'from_pretrained should not be None'
             model = transformers.AutoModelForCausalLM.from_pretrained(self.pretrained_model_name)
         else:
             model = transformers.AutoModelForCausalLM.from_config(config)  #type: ignore (thirdparty)

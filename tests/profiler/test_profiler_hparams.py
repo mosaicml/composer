@@ -4,7 +4,7 @@
 import pathlib
 
 from composer.profiler import Profiler
-from tests.common.hparams import assert_yaml_loads
+from tests.common.hparams import construct_from_yaml
 
 
 def test_profiler_is_constructable_from_hparams(tmp_path: pathlib.Path):
@@ -16,10 +16,10 @@ def test_profiler_is_constructable_from_hparams(tmp_path: pathlib.Path):
         },
         'trace_handlers': {
             'json': {
-                'folder': str(tmp_path / "traces")
+                'folder': str(tmp_path / 'traces')
             }
         },
         'torch_prof_profile_memory': False,
         'torch_prof_with_flops': False,
     }
-    assert_yaml_loads(Profiler, yaml_dict, expected=Profiler)
+    assert isinstance(construct_from_yaml(Profiler, yaml_dict), Profiler)

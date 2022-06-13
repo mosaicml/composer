@@ -24,7 +24,7 @@ from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 from composer.core.serializable import Serializable
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["TimeUnit", "Time", "Timestamp", "ensure_time"]
+__all__ = ['TimeUnit', 'Time', 'Timestamp', 'ensure_time']
 
 
 class TimeUnit(StringEnum):
@@ -37,22 +37,22 @@ class TimeUnit(StringEnum):
         TOKEN (str): Tokens. Applicable for natural language processing (NLP) models.
         DURATION (str): Fraction of the training process complete, on ``[0.0, 1.0)``
     """
-    EPOCH = "ep"
-    BATCH = "ba"
-    SAMPLE = "sp"
-    TOKEN = "tok"
-    DURATION = "dur"
+    EPOCH = 'ep'
+    BATCH = 'ba'
+    SAMPLE = 'sp'
+    TOKEN = 'tok'
+    DURATION = 'dur'
 
 
 # regex for parsing integers / decimals / scientific notation
 _NUM_REGEX = r'-?[\d.]+(?:e-?\d+)?'
 
 # regex for parsing a time string.
-_TIME_STR_REGEX = re.compile(r'^(?:' + r'|'.join(fr"(?:({_NUM_REGEX})({time_unit.value}))" for time_unit in TimeUnit) +
+_TIME_STR_REGEX = re.compile(r'^(?:' + r'|'.join(fr'(?:({_NUM_REGEX})({time_unit.value}))' for time_unit in TimeUnit) +
                              r')$',
                              flags=re.IGNORECASE)
 
-TValue = TypeVar("TValue", int, float)
+TValue = TypeVar('TValue', int, float)
 
 
 class Time(Generic[TValue], Serializable):
@@ -123,7 +123,7 @@ class Time(Generic[TValue], Serializable):
             value = cast(TValue, float(value))
         else:
             if not isinstance(value, int):
-                raise TypeError(f"value {value} is of type {type(value)}. Units {unit} require integer values.")
+                raise TypeError(f'value {value} is of type {type(value)}. Units {unit} require integer values.')
         self._value, self._unit = value, TimeUnit(unit)
 
     @classmethod
@@ -209,10 +209,10 @@ class Time(Generic[TValue], Serializable):
         return self._unit
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.value}, {self.unit})"
+        return f'{self.__class__.__name__}({self.value}, {self.unit})'
 
     def __str__(self) -> str:
-        return f"{self.value}{self.unit.value}"
+        return f'{self.value}{self.unit.value}'
 
     def to_timestring(self):
         """Get the time-string representation.
@@ -237,7 +237,7 @@ class Time(Generic[TValue], Serializable):
             other_parsed = Time.from_timestring(other)
             return other_parsed
 
-        raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
+        raise TypeError(f'Cannot convert type {other} to {self.__class__.__name__}')
 
     def _cmp(self, other: Union[int, float, Time, str]) -> int:
         # When doing comparisions, and other is an integer (or float), we can safely infer
@@ -250,7 +250,7 @@ class Time(Generic[TValue], Serializable):
             other = type(self)(other, self.unit)
         other = self._parse(other)
         if self.unit != other.unit:
-            raise RuntimeError(f"Cannot compare {self} to {other} since they have different units.")
+            raise RuntimeError(f'Cannot compare {self} to {other} since they have different units.')
         if self.value < other.value:
             return -1
         if self.value == other.value:
@@ -279,7 +279,7 @@ class Time(Generic[TValue], Serializable):
     def __add__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         other = self._parse(other)
         if self.unit != other.unit:
-            raise RuntimeError(f"Cannot add {self} to {other} since they have different units.")
+            raise RuntimeError(f'Cannot add {self} to {other} since they have different units.')
         return Time(self.value + other.value, self.unit)
 
     def __radd__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
@@ -288,7 +288,7 @@ class Time(Generic[TValue], Serializable):
     def __sub__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         other = self._parse(other)
         if self.unit != other.unit:
-            raise RuntimeError(f"Cannot subtract {other} from {self} since they have different units.")
+            raise RuntimeError(f'Cannot subtract {other} from {self} since they have different units.')
         return Time(self.value - other.value, self.unit)
 
     def __rsub__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
@@ -311,7 +311,7 @@ class Time(Generic[TValue], Serializable):
             return Time(type(self.value)(self.value / other), self.unit)
         other = self._parse(other)
         if self.unit != other.unit:
-            raise RuntimeError(f"Cannot divide {self} by {other} since they have different units.")
+            raise RuntimeError(f'Cannot divide {self} by {other} since they have different units.')
         return Time(self.value / other.value, TimeUnit.DURATION)
 
     def __mul__(self, other: object):
@@ -320,7 +320,7 @@ class Time(Generic[TValue], Serializable):
             return Time(type(self.value)(self.value * other), self.unit)
         other = self._parse(other)
         if other.unit != TimeUnit.DURATION and self.unit != TimeUnit.DURATION:
-            raise RuntimeError(f"Multiplication is supported only if one of the units is Duration")
+            raise RuntimeError(f'Multiplication is supported only if one of the units is Duration')
         real_unit = self.unit if other.unit == TimeUnit.DURATION else other.unit
         real_type = float if real_unit == TimeUnit.DURATION else int
         return Time(real_type(self.value * other.value), real_unit)
@@ -349,16 +349,16 @@ class Time(Generic[TValue], Serializable):
         """
         match = _TIME_STR_REGEX.findall(timestring)
         if len(match) != 1:
-            raise ValueError(f"Invalid time string: {timestring}")
+            raise ValueError(f'Invalid time string: {timestring}')
         match = match[0]
         match = [x for x in match if x != '']
-        assert len(match) == 2, "each match should have a number followed by the key"
+        assert len(match) == 2, 'each match should have a number followed by the key'
         value = match[0]
         unit = TimeUnit(match[1])
         value = float(value)  # always parsing first as float b/c it could be scientific notation
         if unit != TimeUnit.DURATION:
             if int(value) != value:
-                raise TypeError(f"value {value} is not an integer. Units {unit} require integer values.")
+                raise TypeError(f'value {value} is not an integer. Units {unit} require integer values.')
             value = int(value)
         return cls(value, unit)
 
@@ -399,40 +399,40 @@ class Timestamp(Serializable):
     ):
         epoch = ensure_time(epoch, TimeUnit.EPOCH)
         if epoch.unit != TimeUnit.EPOCH:
-            raise ValueError(f"The `epoch` argument has units of {epoch.unit}; not {TimeUnit.EPOCH}.")
+            raise ValueError(f'The `epoch` argument has units of {epoch.unit}; not {TimeUnit.EPOCH}.')
         self._epoch = epoch
 
         batch = ensure_time(batch, TimeUnit.BATCH)
         if batch.unit != TimeUnit.BATCH:
-            raise ValueError(f"The `batch` argument has units of {batch.unit}; not {TimeUnit.BATCH}.")
+            raise ValueError(f'The `batch` argument has units of {batch.unit}; not {TimeUnit.BATCH}.')
         self._batch = batch
 
         sample = ensure_time(sample, TimeUnit.SAMPLE)
         if sample.unit != TimeUnit.SAMPLE:
-            raise ValueError(f"The `sample` argument has units of {sample.unit}; not {TimeUnit.SAMPLE}.")
+            raise ValueError(f'The `sample` argument has units of {sample.unit}; not {TimeUnit.SAMPLE}.')
         self._sample = sample
 
         token = ensure_time(token, TimeUnit.TOKEN)
         if token.unit != TimeUnit.TOKEN:
-            raise ValueError(f"The `token` argument has units of {token.unit}; not {TimeUnit.TOKEN}.")
+            raise ValueError(f'The `token` argument has units of {token.unit}; not {TimeUnit.TOKEN}.')
         self._token = token
 
         batch_in_epoch = ensure_time(batch_in_epoch, TimeUnit.BATCH)
         if batch_in_epoch.unit != TimeUnit.BATCH:
-            raise ValueError((f"The `batch_in_epoch` argument has units of {batch_in_epoch.unit}; "
-                              f"not {TimeUnit.BATCH}."))
+            raise ValueError((f'The `batch_in_epoch` argument has units of {batch_in_epoch.unit}; '
+                              f'not {TimeUnit.BATCH}.'))
         self._batch_in_epoch = batch_in_epoch
 
         sample_in_epoch = ensure_time(sample_in_epoch, TimeUnit.SAMPLE)
         if sample_in_epoch.unit != TimeUnit.SAMPLE:
-            raise ValueError((f"The `sample_in_epoch` argument has units of {sample_in_epoch.unit}; "
-                              f"not {TimeUnit.SAMPLE}."))
+            raise ValueError((f'The `sample_in_epoch` argument has units of {sample_in_epoch.unit}; '
+                              f'not {TimeUnit.SAMPLE}.'))
         self._sample_in_epoch = sample_in_epoch
 
         token_in_epoch = ensure_time(token_in_epoch, TimeUnit.TOKEN)
         if token_in_epoch.unit != TimeUnit.TOKEN:
-            raise ValueError((f"The `token_in_epoch` argument has units of {token_in_epoch.unit}; "
-                              f"not {TimeUnit.TOKEN}."))
+            raise ValueError((f'The `token_in_epoch` argument has units of {token_in_epoch.unit}; '
+                              f'not {TimeUnit.TOKEN}.'))
         self._token_in_epoch = token_in_epoch
 
         if total_wct is None:
@@ -449,16 +449,16 @@ class Timestamp(Serializable):
 
     def state_dict(self) -> Dict[str, Any]:
         return {
-            "epoch": self.epoch.value,
-            "batch": self.batch.value,
-            "sample": self.sample.value,
-            "token": self.token.value,
-            "batch_in_epoch": self.batch_in_epoch.value,
-            "sample_in_epoch": self.sample_in_epoch.value,
-            "token_in_epoch": self.token_in_epoch.value,
-            "total_wct": self.total_wct,
-            "epoch_wct": self.epoch_wct,
-            "batch_wct": self.batch_wct,
+            'epoch': self.epoch.value,
+            'batch': self.batch.value,
+            'sample': self.sample.value,
+            'token': self.token.value,
+            'batch_in_epoch': self.batch_in_epoch.value,
+            'sample_in_epoch': self.sample_in_epoch.value,
+            'token_in_epoch': self.token_in_epoch.value,
+            'total_wct': self.total_wct,
+            'epoch_wct': self.epoch_wct,
+            'batch_wct': self.batch_wct,
         }
 
     def get_state(self) -> Dict[str, Union[Time[int], datetime.timedelta]]:
@@ -468,34 +468,34 @@ class Timestamp(Serializable):
             Dict[str, Union[Time[int], datetime.timedelta]]: All values of the timestamp object.
         """
         return {
-            "epoch": self.epoch,
-            "batch": self.batch,
-            "sample": self.sample,
-            "token": self.token,
-            "batch_in_epoch": self.batch_in_epoch,
-            "sample_in_epoch": self.sample_in_epoch,
-            "token_in_epoch": self.token_in_epoch,
-            "total_wct": self.total_wct,
-            "epoch_wct": self.epoch_wct,
-            "batch_wct": self.batch_wct,
+            'epoch': self.epoch,
+            'batch': self.batch,
+            'sample': self.sample,
+            'token': self.token,
+            'batch_in_epoch': self.batch_in_epoch,
+            'sample_in_epoch': self.sample_in_epoch,
+            'token_in_epoch': self.token_in_epoch,
+            'total_wct': self.total_wct,
+            'epoch_wct': self.epoch_wct,
+            'batch_wct': self.batch_wct,
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self._epoch = Time(state["epoch"], TimeUnit.EPOCH)
-        self._batch = Time(state["batch"], TimeUnit.BATCH)
-        self._sample = Time(state["sample"], TimeUnit.SAMPLE)
-        self._token = Time(state["token"], TimeUnit.TOKEN)
-        self._batch_in_epoch = Time(state["batch_in_epoch"], TimeUnit.BATCH)
-        self._sample_in_epoch = Time(state["sample_in_epoch"], TimeUnit.SAMPLE)
-        self._token_in_epoch = Time(state["token_in_epoch"], TimeUnit.TOKEN)
+        self._epoch = Time(state['epoch'], TimeUnit.EPOCH)
+        self._batch = Time(state['batch'], TimeUnit.BATCH)
+        self._sample = Time(state['sample'], TimeUnit.SAMPLE)
+        self._token = Time(state['token'], TimeUnit.TOKEN)
+        self._batch_in_epoch = Time(state['batch_in_epoch'], TimeUnit.BATCH)
+        self._sample_in_epoch = Time(state['sample_in_epoch'], TimeUnit.SAMPLE)
+        self._token_in_epoch = Time(state['token_in_epoch'], TimeUnit.TOKEN)
         # Wall clock time tracking was added in composer v0.7.0
         # Using conditional checks as not to break old checkpoints
-        if "total_wct" in state:
-            self._total_wct = state["total_wct"]
-        if "epoch_wct" in state:
-            self._epoch_wct = state["epoch_wct"]
-        if "batch_wct" in state:
-            self._batch_wct = state["batch_wct"]
+        if 'total_wct' in state:
+            self._total_wct = state['total_wct']
+        if 'epoch_wct' in state:
+            self._epoch_wct = state['epoch_wct']
+        if 'batch_wct' in state:
+            self._batch_wct = state['batch_wct']
 
     @property
     def epoch(self) -> Time[int]:
@@ -565,7 +565,7 @@ class Timestamp(Serializable):
             return self.sample
         if unit == TimeUnit.TOKEN:
             return self.token
-        raise ValueError(f"Invalid unit: {unit}")
+        raise ValueError(f'Invalid unit: {unit}')
 
     def _parse(self, other: object) -> Time:
         # parse ``other`` into a Time object
@@ -575,7 +575,7 @@ class Timestamp(Serializable):
             other_parsed = Time.from_timestring(other)
             return other_parsed
 
-        raise TypeError(f"Cannot convert type {other} to {self.__class__.__name__}")
+        raise TypeError(f'Cannot convert type {other} to {self.__class__.__name__}')
 
     def __eq__(self, other: object):
         if not isinstance(other, (Time, Timestamp, str)):
@@ -763,18 +763,18 @@ class Timestamp(Serializable):
         )
 
     def __repr__(self) -> str:
-        return (f"Timestamp("
-                f"epoch={int(self.epoch)}, "
-                f"batch={int(self.batch)}, "
-                f"sample={int(self.sample)}, "
-                f"token={int(self.token)}, "
-                f"batch_in_epoch={int(self.batch_in_epoch)}, "
-                f"sample_in_epoch={int(self.sample_in_epoch)}, "
-                f"token_in_epoch={int(self.token_in_epoch)}, "
-                f"total_wct={repr(self.total_wct)}, "
-                f"epoch_wct={repr(self.epoch_wct)}, "
-                f"batch_wct={repr(self.batch_wct)}"
-                ")")
+        return (f'Timestamp('
+                f'epoch={int(self.epoch)}, '
+                f'batch={int(self.batch)}, '
+                f'sample={int(self.sample)}, '
+                f'token={int(self.token)}, '
+                f'batch_in_epoch={int(self.batch_in_epoch)}, '
+                f'sample_in_epoch={int(self.sample_in_epoch)}, '
+                f'token_in_epoch={int(self.token_in_epoch)}, '
+                f'total_wct={repr(self.total_wct)}, '
+                f'epoch_wct={repr(self.epoch_wct)}, '
+                f'batch_wct={repr(self.batch_wct)}'
+                ')')
 
 
 def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str]) -> Time:
@@ -793,4 +793,4 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
         return Time(maybe_time, int_unit)
     if isinstance(maybe_time, Time):
         return maybe_time
-    raise TypeError(f"Unsupported type for ensure_time: {type(maybe_time)}")
+    raise TypeError(f'Unsupported type for ensure_time: {type(maybe_time)}')

@@ -16,12 +16,12 @@ from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.callbacks.threshold_stopper import ThresholdStopper
 
 __all__ = [
-    "GradMonitor",
-    "LRMonitor",
-    "MemoryMonitor",
-    "SpeedMonitor",
-    "CheckpointSaver",
-    "MLPerfCallback",
-    "EarlyStopper",
-    "ThresholdStopper",
+    'GradMonitor',
+    'LRMonitor',
+    'MemoryMonitor',
+    'SpeedMonitor',
+    'CheckpointSaver',
+    'MLPerfCallback',
+    'EarlyStopper',
+    'ThresholdStopper',
 ]

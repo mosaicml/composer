@@ -20,8 +20,8 @@ def test_callbacks_map_to_events():
     # callback methods must be 1:1 mapping with events
     # exception for private methods
     cb = Callback()
-    excluded_methods = ["state_dict", "load_state_dict", "run_event", "close", "post_close"]
-    methods = set(m for m in dir(cb) if (m not in excluded_methods and not m.startswith("_")))
+    excluded_methods = ['state_dict', 'load_state_dict', 'run_event', 'close', 'post_close']
+    methods = set(m for m in dir(cb) if (m not in excluded_methods and not m.startswith('_')))
     event_names = set(e.value for e in Event)
     assert methods == event_names
 
@@ -38,12 +38,12 @@ def test_run_event_callbacks(event: Event, dummy_state: State):
     assert callback.event_to_num_calls[event] == 1
 
 
-@pytest.mark.parametrize('cb_cls', get_cbs_and_marks())
+@pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
 class TestCallbacks:
 
     @classmethod
     def setup_class(cls):
-        pytest.importorskip("wandb", reason="WandB is optional.")
+        pytest.importorskip('wandb', reason='WandB is optional.')
 
     def test_callback_is_constructable(self, cb_cls: Type[Callback]):
         cb_kwargs = get_cb_kwargs(cb_cls)
@@ -105,7 +105,7 @@ class TestCallbacks:
         engine.close()
 
 
-@pytest.mark.parametrize('cb_cls', get_cbs_and_marks())
+@pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
 @pytest.mark.parametrize('grad_accum', [1, 2])
 @pytest.mark.filterwarnings(r'ignore:The profiler is enabled:UserWarning')
 class TestCallbackTrains:

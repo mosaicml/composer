@@ -1,8 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Specifies an instance of an :class:`~.evaluator.Evaluator`, which wraps a dataloader to include metrics that apply to
-a specific dataset."""
+"""Hyperparameters for the :class:`~.evaluator.Evaluator`."""
 
 from __future__ import annotations
 
@@ -16,14 +15,13 @@ import yahp as hp
 from torchmetrics import Metric, MetricCollection
 
 from composer.core.evaluator import Evaluator
-from composer.datasets import DataLoaderHparams
-from composer.datasets.dataset_registry import get_dataset_registry
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.dataset_hparams_registry import dataset_registry
 from composer.models.base import ComposerModel
 
 log = logging.getLogger(__name__)
 
-__all__ = ["EvaluatorHparams"]
+__all__ = ['EvaluatorHparams']
 
 
 @dataclass
@@ -42,14 +40,14 @@ class EvaluatorHparams(hp.Hparams):
             metric returned by :meth:`~.ComposerModel.metrics` If
             ``None``, uses all metrics in the model. Default: ``None``.
     """
-    hparams_registry = {  # type: ignore
-        "eval_dataset": get_dataset_registry(),
+    hparams_registry = {
+        'eval_dataset': dataset_registry,
     }
 
-    label: str = hp.auto(Evaluator, "label")
-    eval_dataset: DatasetHparams = hp.required(doc="Evaluator dataset for the Evaluator")
-    eval_interval: Optional[str] = hp.auto(Evaluator, "eval_interval")
-    subset_num_batches: Optional[int] = hp.auto(Evaluator, "subset_num_batches")
+    label: str = hp.auto(Evaluator, 'label')
+    eval_dataset: DatasetHparams = hp.required(doc='Evaluator dataset for the Evaluator')
+    eval_interval: Optional[str] = hp.auto(Evaluator, 'eval_interval')
+    subset_num_batches: Optional[int] = hp.auto(Evaluator, 'subset_num_batches')
     metric_names: Optional[List[str]] = hp.optional(
         doc=textwrap.dedent("""Name of the metrics for the evaluator. Can be a torchmetrics metric name or the
         class name of a metric returned by model.metrics(). If None (the default), uses all metrics in the model"""),
@@ -89,7 +87,7 @@ class EvaluatorHparams(hp.Hparams):
                     raise RuntimeError(
                         textwrap.dedent(f"""No metric found with the name {metric_name}. Check if this"
                                        "metric is compatible/listed in your model metrics.""")) from e
-                assert isinstance(metric, Metric), "all values of a MetricCollection.__getitem__ should be a metric"
+                assert isinstance(metric, Metric), 'all values of a MetricCollection.__getitem__ should be a metric'
                 evaluator_metrics.add_metrics(copy.deepcopy(metric))
             if len(evaluator_metrics) == 0:
                 raise RuntimeError(

@@ -10,11 +10,12 @@ from torch.optim import Optimizer
 
 from composer.core import Precision, State
 from composer.core.types import PyTorchScheduler
-from composer.datasets import DataLoaderHparams, DatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
+from composer.datasets.dataset_hparams_registry import dataset_registry
 from composer.models import ModelHparams
 from composer.optim import ExponentialScheduler
 from composer.optim.optimizer_hparams_registry import AdamHparams
-from composer.trainer.trainer_hparams import TrainerHparams, dataset_registry, model_registry
+from composer.trainer.trainer_hparams import TrainerHparams, model_registry
 from tests.common import RandomClassificationDatasetHparams, SimpleModel, SimpleModelHparams
 
 
@@ -104,14 +105,15 @@ def dummy_state(
         dummy_model = dummy_model.cuda()
     state = State(
         model=dummy_model,
+        run_name='dummy_run_name',
         precision=Precision.FP32,
         grad_accum=1,
         rank_zero_seed=rank_zero_seed,
         optimizers=dummy_optimizer,
-        max_duration="10ep",
+        max_duration='10ep',
     )
     state.schedulers = dummy_scheduler
-    state.set_dataloader(dummy_train_dataloader, "train")
+    state.set_dataloader(dummy_train_dataloader, 'train')
 
     return state
 
@@ -158,7 +160,7 @@ def composer_trainer_hparams(
         algorithms=[],
         optimizers=AdamHparams(),
         schedulers=[ExponentialScheduler(gamma=0.9)],
-        max_duration="2ep",
+        max_duration='2ep',
         precision=Precision.FP32,
         train_batch_size=dummy_train_batch_size,
         eval_batch_size=dummy_val_batch_size,

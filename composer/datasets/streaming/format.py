@@ -13,11 +13,11 @@ from numpy.typing import NDArray
 from composer.datasets.streaming.world import World
 
 __all__ = [
-    "get_index_basename",
-    "get_shard_basename",
-    "sample_dict_to_bytes",
-    "bytes_to_sample_dict",
-    "StreamingDatasetIndex",
+    'get_index_basename',
+    'get_shard_basename',
+    'sample_dict_to_bytes',
+    'bytes_to_sample_dict',
+    'StreamingDatasetIndex',
 ]
 
 
@@ -304,7 +304,7 @@ class StreamingDatasetIndex(object):
         expected_device_samples = math.ceil(self.total_samples / global_num_devices)
         if device_samples < expected_device_samples:
             if device_samples != expected_device_samples - 1:
-                raise RuntimeError("Found device partition with incorrect # samples")
+                raise RuntimeError('Found device partition with incorrect # samples')
             device_min_id -= 1
             device_samples += 1
 

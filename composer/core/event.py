@@ -4,7 +4,7 @@
 """Training Loop Events."""
 from composer.utils.string_enum import StringEnum
 
-__all__ = ["Event"]
+__all__ = ['Event']
 
 
 class Event(StringEnum):
@@ -123,49 +123,49 @@ class Event(StringEnum):
         EVAL_END: End of evaluation through the validation dataset.
     """
 
-    INIT = "init"
-    FIT_START = "fit_start"
+    INIT = 'init'
+    FIT_START = 'fit_start'
 
-    EPOCH_START = "epoch_start"
+    EPOCH_START = 'epoch_start'
 
-    AFTER_DATALOADER = "after_dataloader"
+    AFTER_DATALOADER = 'after_dataloader'
 
-    BATCH_START = "batch_start"
+    BATCH_START = 'batch_start'
 
-    BEFORE_TRAIN_BATCH = "before_train_batch"
+    BEFORE_TRAIN_BATCH = 'before_train_batch'
 
-    BEFORE_FORWARD = "before_forward"
-    AFTER_FORWARD = "after_forward"
+    BEFORE_FORWARD = 'before_forward'
+    AFTER_FORWARD = 'after_forward'
 
-    BEFORE_LOSS = "before_loss"
-    AFTER_LOSS = "after_loss"
+    BEFORE_LOSS = 'before_loss'
+    AFTER_LOSS = 'after_loss'
 
-    BEFORE_BACKWARD = "before_backward"
-    AFTER_BACKWARD = "after_backward"
+    BEFORE_BACKWARD = 'before_backward'
+    AFTER_BACKWARD = 'after_backward'
 
-    AFTER_TRAIN_BATCH = "after_train_batch"
+    AFTER_TRAIN_BATCH = 'after_train_batch'
 
-    BATCH_END = "batch_end"
-    BATCH_CHECKPOINT = "batch_checkpoint"
+    BATCH_END = 'batch_end'
+    BATCH_CHECKPOINT = 'batch_checkpoint'
 
-    EPOCH_END = "epoch_end"
-    EPOCH_CHECKPOINT = "epoch_checkpoint"
+    EPOCH_END = 'epoch_end'
+    EPOCH_CHECKPOINT = 'epoch_checkpoint'
 
-    FIT_END = "fit_end"
+    FIT_END = 'fit_end'
 
-    EVAL_START = "eval_start"
-    EVAL_BATCH_START = "eval_batch_start"
-    EVAL_BEFORE_FORWARD = "eval_before_forward"
-    EVAL_AFTER_FORWARD = "eval_after_forward"
-    EVAL_BATCH_END = "eval_batch_end"
-    EVAL_END = "eval_end"
+    EVAL_START = 'eval_start'
+    EVAL_BATCH_START = 'eval_batch_start'
+    EVAL_BEFORE_FORWARD = 'eval_before_forward'
+    EVAL_AFTER_FORWARD = 'eval_after_forward'
+    EVAL_BATCH_END = 'eval_batch_end'
+    EVAL_END = 'eval_end'
 
-    PREDICT_START = "predict_start"
-    PREDICT_BATCH_START = "predict_batch_start"
-    PREDICT_BEFORE_FORWARD = "predict_before_forward"
-    PREDICT_AFTER_FORWARD = "predict_after_forward"
-    PREDICT_BATCH_END = "predict_batch_end"
-    PREDICT_END = "predict_end"
+    PREDICT_START = 'predict_start'
+    PREDICT_BATCH_START = 'predict_batch_start'
+    PREDICT_BEFORE_FORWARD = 'predict_before_forward'
+    PREDICT_AFTER_FORWARD = 'predict_after_forward'
+    PREDICT_BATCH_END = 'predict_batch_end'
+    PREDICT_END = 'predict_end'
 
     @property
     def is_before_event(self) -> bool:
@@ -201,10 +201,10 @@ class Event(StringEnum):
             str: The canonical name of the event.
         """
         name: str = self.value
-        name = name.replace("before_", "")
-        name = name.replace("after_", "")
-        name = name.replace("_start", "")
-        name = name.replace("_end", "")
+        name = name.replace('before_', '')
+        name = name.replace('after_', '')
+        name = name.replace('_start', '')
+        name = name.replace('_end', '')
         return name
 
 
