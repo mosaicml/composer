@@ -276,8 +276,8 @@ class MLPerfCallback(Callback):
                 constants.SEED: state.seed,
                 constants.GLOBAL_BATCH_SIZE: batch_size * dist.get_world_size(),
                 constants.GRADIENT_ACCUMULATION_STEPS: state.grad_accum,
-                constants.TRAIN_SAMPLES: num_samples,
-                constants.EVAL_SAMPLES: eval_num_samples,
+                constants.TRAIN_SAMPLES: num_samples * dist.get_world_size(),
+                constants.EVAL_SAMPLES: eval_num_samples * dist.get_world_size(),
             })
 
         if _local_rank_zero():
