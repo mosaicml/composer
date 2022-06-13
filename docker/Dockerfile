@@ -1,16 +1,25 @@
- ARG BASE_IMAGE
+# For a slim CPU-only image, leave the CUDA_VERSION argument blank.
+ARG CUDA_VERSION='11.3.1'
+
+ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu20.04"}
+ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:20.04"}
+ARG CUDA_VERSION=${CUDA_VERSION:-cpu}
 
 FROM ${BASE_IMAGE} AS pytorch_stage
 ARG DEBIAN_FRONTEND=noninteractive
+
+ARG BASE_IMAGE
+ARG CUDA_VERSION
 
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
 RUN rm -f /usr/local/cuda-11.3/cuda-11.3
 
+ARG LINUX_DISTRO=ubuntu2004
+
 # update repository keys
 # https://developer.nvidia.com/blog/updating-the-cuda-linux-gpg-repository-key/
-ARG LINUX_DISTRO
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -f /etc/apt/sources.list.d/cuda.list && \
         rm -f /etc/apt/sources.list.d/nvidia-ml.list && \
@@ -81,7 +90,7 @@ RUN \
 ################
 # Install Python
 ################
-ARG PYTHON_VERSION
+ARG PYTHON_VERSION=3.9
 
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
@@ -115,9 +124,9 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
 #################
 # Install Pytorch
 #################
-ARG PYTORCH_VERSION
-ARG TORCHVISION_VERSION
-ARG CUDA_VERSION_TAG
+ARG PYTORCH_VERSION=1.11.0
+ARG TORCHVISION_VERSION=0.12.0
+ARG CUDA_VERSION_TAG=cu113
 
 RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
@@ -127,8 +136,8 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.py
 # Mellanox OFED driver installation
 ###################################
 
-ARG MOFED_VERSION
-ARG MOFED_OS_VERSION
+ARG MOFED_VERSION=''
+ARG MOFED_OS_VERSION=''
 
 RUN if [ -n "$MOFED_VERSION" ] ; then \
         mkdir -p /tmp/mofed && \
@@ -192,12 +201,14 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-FROM pytorch_stage AS vision_stage
-ARG DEBIAN_FRONTEND=noninteractive
+######################
+# PyTorch Vision Image
+######################
 
-##############################
-# MosaicML Vision Dependencies
-##############################
+ARG VISION_BASE=pytorch_stage
+
+FROM ${VISION_BASE} AS vision_stage
+ARG DEBIAN_FRONTEND=noninteractive
 
 RUN sudo apt-get update && \
     sudo apt-get install -y --no-install-recommends \
@@ -213,9 +224,9 @@ RUN sudo apt-get update && \
     sudo apt-get clean && \
     sudo rm -rf /var/lib/apt/lists/*
 
+ARG MMCV_VERSION=1.4.4
+ARG MMCV_TORCH_VERSION=torch1.11.0
 ARG CUDA_VERSION_TAG
-ARG MMCV_VERSION
-ARG MMCV_TORCH_VERSION
 ARG PYTHON_VERSION
 
 RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
@@ -229,3 +240,27 @@ RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
     if [ -n "$CUDA_VERSION" ] ; then \
         sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`>=10.2.0; \
     fi
+
+
+################
+# Composer Image
+################
+
+ARG COMPOSER_BASE=vision_stage
+
+FROM ${COMPOSER_BASE} as composer_stage
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+##################
+# Install Composer
+##################
+
+ARG COMPOSER_EXTRA_DEPS='all'
+
+# Leave blank to install the latest version of composer
+ARG COMPOSER_VERSION=
+
+ARG PIP_COMPOSER_VERSION=${COMPOSER_VERSION:-"==${COMPOSER_VERSION}"}
+
+RUN pip install "mosaicml[${COMPOSER_EXTRA_DEPS}]${PIP_COMPOSER_VERSION}"

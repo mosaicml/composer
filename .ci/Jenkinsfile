@@ -302,11 +302,11 @@ stage('Prepare') {
         echo "gitBranch: $gitBranch"
         echo "gitCommit: $gitCommit"
 
-        didDockerChange = isPathModified('docker/pytorch/')
+        didDockerChange = isPathModified('docker/')
 
         String dockerfile = 'Dockerfile'
-        String buildContext = './docker/pytorch'
-        String buildMatrix = './docker/pytorch/build_matrix.yaml'
+        String buildContext = './docker'
+        String buildMatrix = './docker/build_matrix.yaml'
         pytorchDockerBuildMatrix = getDockerBuildMatrix(buildMatrix, buildContext, dockerfile)
 
         // Keep track of whether dependencies changed, in which case a conda build should be tested
