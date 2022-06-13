@@ -1,4 +1,4 @@
-# 🔆 Fused LayerNorm
+# 🍰 Fused LayerNorm
 
 
 [\[How to Use\]](#how-to-use) - [\[Suggested Hyperparameters\]](#suggested-hyperparameters) - [\[Technical Details\]](#technical-details) - [\[Attribution\]](#attribution)
@@ -7,7 +7,6 @@
 
 Fused LayerNorm replaces implementations of `torch.nn.LayerNorm` with a `apex.normalization.fused_layer_norm`. The fused kernel provides increased GPU utilization.
 
-# TODO (Moin): get this image uploaded to GCS
 | ![FusedLayerNorm](https://miro.medium.com/max/1200/0*ugfR_r4J9PK8tXNb)|
 |:--|
 |*A visualization of the impact of Fused LayerNorm.*|
