@@ -16,8 +16,7 @@ from transformers.testing_utils import CaptureLogger
 
 from composer.core.data_spec import DataSpec
 from composer.core.types import Batch
-from composer.datasets.dataloader import DataLoaderHparams
-from composer.datasets.hparams import DatasetHparams
+from composer.datasets.dataset_hparams import DataLoaderHparams, DatasetHparams
 from composer.utils import dist
 
 log = logging.getLogger(__name__)

@@ -15,6 +15,7 @@ from composer.datasets.coco_hparams import COCODatasetHparams, StreamingCOCOHpar
 from composer.datasets.glue_hparams import GLUEHparams
 from composer.datasets.imagenet_hparams import ImagenetDatasetHparams, StreamingImageNet1kHparams
 from composer.datasets.lm_dataset_hparams import LMDatasetHparams
+from composer.datasets.streaming_lm_datasets import StreamingLMDatasetHparams
 from composer.datasets.mnist_hparams import MNISTDatasetHparams
 
 __all__ = ['dataset_registry']
@@ -29,6 +30,7 @@ dataset_registry = {
     'streaming_cifar10': StreamingCIFAR10Hparams,
     'mnist': MNISTDatasetHparams,
     'lm': LMDatasetHparams,
+    'streaming_lm': StreamingLMDatasetHparams,
     'glue': GLUEHparams,
     'coco': COCODatasetHparams,
     'streaming_coco': StreamingCOCOHparams,

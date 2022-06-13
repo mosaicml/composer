@@ -6,6 +6,7 @@
 from composer.datasets.ade20k import ADE20k, StreamingADE20k
 from composer.datasets.brats import PytTrain, PytVal
 from composer.datasets.c4 import C4Dataset, StreamingC4
+from composer.datasets.streaming_lm_datasets import StreamingLMDatasetHparams 
 from composer.datasets.cifar import StreamingCIFAR10
 from composer.datasets.coco import COCODetection, StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
@@ -14,6 +15,6 @@ from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDat
 
 __all__ = [
     'ADE20k', 'StreamingADE20k', 'PytTrain', 'PytVal', 'C4Dataset', 'StreamingC4', 'StreamingCIFAR10', 'COCODetection',
-    'StreamingCOCO', 'StreamingImageNet1k', 'SyntheticBatchPairDataset', 'SyntheticDataLabelType', 'SyntheticDataType',
+    'StreamingCOCO', 'StreamingImageNet1k', 'StreamingLMDatasetHparams', 'SyntheticBatchPairDataset', 'SyntheticDataLabelType', 'SyntheticDataType',
     'SyntheticPILDataset'
 ]
