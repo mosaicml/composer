@@ -826,6 +826,8 @@ class Trainer:
                            optimizers=optimizers,
                            run_name=run_name)
 
+        self.state.deepspeed_config = deepspeed_config
+
         # Profiler
         if profiler is not None:
             warnings.warn('The profiler is enabled. Using the profiler adds additional overhead when training.')
@@ -947,7 +949,7 @@ class Trainer:
                     conda_package='deepspeed>=0.5.5',
                     conda_channel=None,
                 ) from e
-            deepspeed_config = _parse_deepspeed_config(deepspeed_config, state=self.state)
+            self.state.deepspeed_config = _parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(config=deepspeed_config,
                                                                                    model=self.state.model,

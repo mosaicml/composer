@@ -108,6 +108,7 @@ class GradientClipping(Algorithm):
 
     Raises:
         NotImplementedError: if deepspeed is enabled and clipping_type is not 'norm'.
+        ValueError: if deepspeed is enabled and clipping_type is not 'norm'.
     """
 
     def __init__(self, clipping_type: str, clipping_threshold: float):
@@ -116,21 +117,25 @@ class GradientClipping(Algorithm):
 
     def match(self, event: Event, state: State) -> bool:
         """Run on ``Event.AFTER_TRAIN_BATCH``."""
-        return event == Event.AFTER_TRAIN_BATCH
+        return event in [Event.INIT, Event.AFTER_TRAIN_BATCH]
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        # deepspeed only supports norm clipping
-        if state.is_model_deepspeed:
+        if event == Event.INIT and state.deepspeed_enabled:
             if self.clipping_type == 'norm':
-                state.optimizers.clip_grad = self.clipping_threshold
-                return
+                if self.clipping_threshold > 0:
+                    state.deepspeed_config['gradient_clipping'] = self.clipping_threshold
+                else:
+                    raise ValueError(
+                        f'Deepspeed only supports gradient clipping thresholds that are greater than zero, but the provided one is {self.clipping_threshold}'
+                    )
             else:
                 raise NotImplementedError(
                     f"Deepspeed only supports gradient clipping of type 'norm' not of type '{self.clipping_type}'")
 
-        apply_gradient_clipping(parameters=state.model.parameters(),
-                                clipping_type=self.clipping_type,
-                                clipping_threshold=self.clipping_threshold)
+        if event == Event.AFTER_TRAIN_BATCH and not state.deepspeed_enabled:
+            apply_gradient_clipping(parameters=state.model.parameters(),
+                                    clipping_type=self.clipping_type,
+                                    clipping_threshold=self.clipping_threshold)
 
 
 def _get_clipped_gradient_coeff(weights: torch.Tensor, grad: torch.Tensor, clipping_threshold: float = 0.01):

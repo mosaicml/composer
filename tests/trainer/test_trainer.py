@@ -381,7 +381,8 @@ class TestTrainerInitOrFit:
         )
 
         assert trainer.state.is_model_deepspeed
-
+        
+        assert trainer.state.deepspeed_enabled
         trainer.fit()
 
     @pytest.mark.parametrize('precision', list(Precision))

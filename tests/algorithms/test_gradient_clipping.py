@@ -12,7 +12,6 @@ from composer.algorithms.gradient_clipping import GradientClipping, apply_gradie
 from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, _get_clipped_gradient_coeff
 from composer.core import Engine
 from composer.core.event import Event
-from composer.utils import ensure_tuple
 
 
 @pytest.fixture
@@ -83,10 +82,10 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_wi
     apply_gc_fn = Mock()
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
     state = Mock()
-    state.is_model_deepspeed = False
     state.model = model
     state.profiler.marker = Mock(return_value=None)
     state.callbacks = []
+    state.deepspeed_enabled = False
     state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=0.01)]
     logger = Mock()
     engine = Engine(state, logger)
@@ -108,20 +107,20 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.
     # Enable deepspeed and set clipping_type to norm to ensure that apply_gradient_clipping
     # is not called.
     state.algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=clipping_threshold)]
-    state.is_model_deepspeed = True
+    state.deepspeed_config = {}
 
     model = simple_model_with_grads
     state.model = model
-    state.optimizers = [Mock()]
-    #_configure_deepspeed(state, deepspeed_config={})
     logger = Mock()
     engine = Engine(state, logger)
 
-    # Run the Event that should cause AGC.apply to be called.
-    engine.run_event(Event.AFTER_TRAIN_BATCH)
+    # Run the Event that should cause gradient_clipping.apply to be called and deepspeed_config to be modified.
+    engine.run_event(Event.INIT)
 
-    # Make sure deepspeed engine's gradient_clipping_field is set properly.
-    assert ensure_tuple(state.optimizers)[0].clip_grad == clipping_threshold
+    # Make sure deepspeed_config's gradient_clipping field is set properly.
+    assert 'gradient_clipping' in state.deepspeed_config and state.deepspeed_config[
+        'gradient_clipping'] == clipping_threshold
+
     # Make sure apply_gradient_clipping is not called.
     apply_gc_fn.assert_not_called()
 
@@ -137,16 +136,21 @@ def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(monkeypatch: p
     # Enable deepspeed and set clipping_type to norm to ensure that apply_gradient_clipping
     # is not called.
     state.algorithms = [GradientClipping(clipping_type='value', clipping_threshold=clipping_threshold)]
-    state.is_model_deepspeed = True
+    state.deepspeed_config = {}
 
-    state.model = Mock()
-    state.model._config.gradient_clipping = Mock()
+    model = simple_model_with_grads
+    state.model = model
     logger = Mock()
     engine = Engine(state, logger)
 
-    # Run the Event that should cause AGC.apply to be called.
+    # Clipping type is not set to norm and deepspeed is enabled so NotImplementedError should be raised.
     with pytest.raises(NotImplementedError):
-        engine.run_event(Event.AFTER_TRAIN_BATCH)
+        engine.run_event(Event.INIT)
+
+    # Clipping threshold is less than zero and deepspeed is enabled so NotImplementedError should be raised.
+    state.algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=-2.0)]
+    with pytest.raises(ValueError):
+        engine.run_event(Event.INIT)
 
 
 #### Tests Specific to AGC ######
