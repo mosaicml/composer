@@ -24,8 +24,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
         import boto3
         from botocore.config import Config
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="streaming", conda_package="boto3") from e
-
+        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='boto3') from e
 
     obj = urlparse(remote)
     if obj.scheme != 's3':
@@ -45,18 +44,18 @@ def download_from_sftp(remote: str, local: str) -> None:
     try:
         from paramiko import RSAKey, SFTPClient, Transport
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group="streaming", conda_package="paramiko") from e
+        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
 
     obj = urlparse(remote)
     if obj.scheme != 'sftp':
         raise ValueError(f"Expected obj.scheme to be 'sftp', got {obj.scheme} for remote={remote}")
 
-    local_tmp = local + ".tmp"
+    local_tmp = local + '.tmp'
     if os.path.exists(local_tmp):
         os.remove(local_tmp)
 
-    private_key_path = os.environ["STREAMING_DATASET_SSH_FILE"]
-    username = os.environ["STREAMING_DATASET_SSH_USERNAME"]
+    private_key_path = os.environ['COMPOSER_SSH_FILE']
+    username = os.environ['COMPOSER_SSH_USERNAME']
     pkey = RSAKey.from_private_key_file(private_key_path)
     transport = Transport(sock=(obj.netloc, 22))
     transport.connect(username=username, pkey=pkey)
@@ -66,6 +65,7 @@ def download_from_sftp(remote: str, local: str) -> None:
     transport.close()
 
     os.rename(local_tmp, local)
+
 
 def download_from_local(remote: str, local: str) -> None:
     """Download a file from remote to local.
@@ -127,5 +127,5 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
             last_error = e
             continue
     if len(error_msgs):
-        print (f"Failed to download {remote} -> {local}. Got errors:\n{error_msgs}")
+        print(f'Failed to download {remote} -> {local}. Got errors:\n{error_msgs}')
         os._exit(1)
