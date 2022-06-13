@@ -12,6 +12,7 @@ from composer.algorithms.gradient_clipping import GradientClipping, apply_gradie
 from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, _get_clipped_gradient_coeff
 from composer.core import Engine
 from composer.core.event import Event
+from composer.utils import ensure_tuple
 
 
 @pytest.fixture
@@ -96,7 +97,7 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_wi
     apply_gc_fn.assert_called_once()
 
 
-def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.MonkeyPatch):
+def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.MonkeyPatch, simple_model_with_grads):
     clipping_threshold = 0.1191
     apply_gc_fn = Mock()
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
@@ -109,8 +110,10 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.
     state.algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=clipping_threshold)]
     state.is_model_deepspeed = True
 
-    state.optimizers = Mock()
-    state.optimizers.clip_grad = 0.0
+    model = simple_model_with_grads
+    state.model = model
+    state.optimizers = [Mock()]
+    #_configure_deepspeed(state, deepspeed_config={})
     logger = Mock()
     engine = Engine(state, logger)
 
@@ -118,7 +121,7 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.
     engine.run_event(Event.AFTER_TRAIN_BATCH)
 
     # Make sure deepspeed engine's gradient_clipping_field is set properly.
-    assert state.optimizers.clip_grad == clipping_threshold
+    assert ensure_tuple(state.optimizers)[0].clip_grad == clipping_threshold
     # Make sure apply_gradient_clipping is not called.
     apply_gc_fn.assert_not_called()
 
