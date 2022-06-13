@@ -22,11 +22,11 @@ def minimal_state(rank_zero_seed: int):
     """
     return State(
         model=SimpleModel(),
-        run_name="minimal_run_name",
+        run_name='minimal_run_name',
         rank_zero_seed=rank_zero_seed,
         max_duration='100ep',
         dataloader=DataLoader(RandomClassificationDataset()),
-        dataloader_label="train",
+        dataloader_label='train',
     )
 
 
@@ -38,7 +38,7 @@ def empty_logger(minimal_state: State) -> Logger:
 
 @pytest.fixture(autouse=True)
 def disable_wandb(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("WANDB_MODE", "disabled")
+    monkeypatch.setenv('WANDB_MODE', 'disabled')
 
 
 @pytest.fixture(autouse=True)
@@ -64,6 +64,6 @@ def configure_dist(request: pytest.FixtureRequest):
 # writing too many checkpoints.
 @pytest.fixture(scope='class')
 def self_destructing_tmp(tmp_path_factory: pytest.TempPathFactory):
-    my_tmp_path = tmp_path_factory.mktemp("checkpoints")
+    my_tmp_path = tmp_path_factory.mktemp('checkpoints')
     yield my_tmp_path
     shutil.rmtree(str(my_tmp_path))

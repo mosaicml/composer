@@ -10,7 +10,7 @@ from torchmetrics import Metric
 
 from composer.loss import soft_cross_entropy
 
-__all__ = ["Perplexity", "BinaryF1Score", "HFCrossEntropy", "LanguageCrossEntropy", "MaskedAccuracy"]
+__all__ = ['Perplexity', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy', 'MaskedAccuracy']
 
 
 class MaskedAccuracy(Metric):
@@ -31,8 +31,8 @@ class MaskedAccuracy(Metric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.ignore_index = ignore_index
 
-        self.add_state("correct", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state('correct', default=torch.tensor(0), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
 
     def update(self, preds: torch.Tensor, target: torch.Tensor):
         # predictions is a batch x num_classes tensor, take the argmax to get class indicies
@@ -72,9 +72,9 @@ class LanguageCrossEntropy(Metric):
 
         self.vocab_size = vocab_size
         self.ignore_index = ignore_index
-        self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction="sum")
-        self.add_state("sum_loss", default=torch.tensor(0.), dist_reduce_fx="sum")
-        self.add_state("total_items", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
+        self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total_items', default=torch.tensor(0), dist_reduce_fx='sum')
 
     def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
@@ -121,9 +121,9 @@ class BinaryF1Score(Metric):
     def __init__(self, dist_sync_on_step: bool = False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
-        self.add_state("true_positive", default=torch.tensor(0.), dist_reduce_fx="sum")
-        self.add_state("false_positive", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("false_negative", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state('true_positive', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('false_positive', default=torch.tensor(0), dist_reduce_fx='sum')
+        self.add_state('false_negative', default=torch.tensor(0), dist_reduce_fx='sum')
 
     def update(self, output: Tensor, target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
@@ -166,8 +166,8 @@ class HFCrossEntropy(Metric):
     def __init__(self, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
-        self.add_state("sum_loss", default=torch.tensor(0.), dist_reduce_fx="sum")
-        self.add_state("total_batches", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total_batches', default=torch.tensor(0), dist_reduce_fx='sum')
 
     def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
@@ -187,7 +187,7 @@ class HFCrossEntropy(Metric):
             elif isinstance(output, Tensor):
                 logits = output
             else:
-                raise Exception(f"Type {type(output)} for the output is unsupported.")
+                raise Exception(f'Type {type(output)} for the output is unsupported.')
 
             loss = soft_cross_entropy(logits, target)
 

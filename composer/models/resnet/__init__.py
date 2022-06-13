@@ -11,7 +11,7 @@ See the :doc:`Model Card </model_cards/resnet>` for more details.
 from composer.models.resnet.model import ComposerResNet as ComposerResNet
 from composer.models.resnet.resnet_hparams import ResNetHparams as ResNetHparams
 
-__all__ = ["ComposerResNet", "ResNetHparams"]
+__all__ = ['ComposerResNet', 'ResNetHparams']
 
 _metadata = {
     'resnet18': {

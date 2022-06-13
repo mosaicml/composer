@@ -10,7 +10,7 @@ import torch.nn as nn
 
 from composer.models.unet._layers import ConvBlock, OutputBlock, ResidBlock, UpsampleBlock
 
-__all__ = ["UNet"]
+__all__ = ['UNet']
 
 
 class UNet(nn.Module):
@@ -45,7 +45,7 @@ class UNet(nn.Module):
         self.n_class = n_class
         self.residual = residual
         self.negative_slope = negative_slope
-        self.norm = normalization_layer + f"norm{dimension}d"
+        self.norm = normalization_layer + f'norm{dimension}d'
         self.filters = [min(2**(5 + i), 320 if dimension == 3 else 512) for i in range(len(strides))]
 
         down_block = ResidBlock if self.residual else ConvBlock
@@ -116,5 +116,5 @@ class UNet(nn.Module):
 
     def initialize_weights(self, module):
         name = module.__class__.__name__.lower()
-        if name in ["conv2d"]:
+        if name in ['conv2d']:
             nn.init.kaiming_normal_(module.weight, a=self.negative_slope)

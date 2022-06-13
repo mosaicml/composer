@@ -6,9 +6,8 @@
 # All methods signatures must be defined in there.
 
 """Utilities for iterating over collections."""
-import contextlib
+import collections.abc
 import io
-from collections.abc import Sequence
 
 
 def map_collection(collection, map_fn):
@@ -58,37 +57,11 @@ def ensure_tuple(x):
         return ()
     if isinstance(x, (str, bytes, bytearray)):
         return (x,)
-    if isinstance(x, Sequence):
+    if isinstance(x, collections.abc.Sequence):
         return tuple(x)
     if isinstance(x, dict):
         return tuple(x.values())
     return (x,)
-
-
-def iterate_with_pbar(iterator, progress_bar=None):
-    """Iterate over a batch iterator and update a :class:`tqdm.tqdm` progress bar by the batch size on each step.
-
-    This function iterates over ``iterator``, which is expected to yield batches of elements.
-    On each step, the batch is yielded back to the caller, and the ``progress_bar`` is updated by the
-    **length** of each batch.
-
-    .. note::
-
-        It is expected that the ``progress_bar = tqdm.tqdm(total=sum(len(x) for x in iterator))``.
-
-    Args:
-        iterator (Iterator[TSized]): An iterator that yields batches of elements.
-        progress_bar (Optional[tqdm.tqdm], optional): A :class:`tqdm.tqdm` progress bar.
-            If ``None`` (the default), then this function simply yields from ``iterator``.
-
-    Yields:
-        Iterator[TSized]: The elements of ``iterator``.
-    """
-    with progress_bar if progress_bar is not None else contextlib.nullcontext(None) as pb:
-        for x in iterator:
-            yield x
-            if pb is not None:
-                pb.update(len(x))
 
 
 class IteratorFileStream(io.RawIOBase):
@@ -123,3 +96,27 @@ class IteratorFileStream(io.RawIOBase):
 
     def readable(self):
         return True
+
+
+def iterate_with_callback(iterator, total_len, callback=None):
+    """Invoke ``callback`` after each chunk is yielded from ``iterator``.
+
+    Args:
+        iterator (Iterator): The iterator, which should yield chunks of data.
+        total_len (int): The total length of the iterator.
+        callback (Callable[[int, int], None], optional): The callback to invoke after
+            each chunk of data is yielded back to the caller. Defaults to None, for no callback.
+
+            It is called with the cumulative size of all chunks yielded thus far and the ``total_len``.
+    """
+    current_len = 0
+
+    if callback is not None:
+        # Call the callback for any initialization
+        callback(current_len, total_len)
+
+    for chunk in iterator:
+        current_len += len(chunk)
+        yield chunk
+        if callback is not None:
+            callback(current_len, total_len)

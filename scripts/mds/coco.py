@@ -64,8 +64,8 @@ def main(args: Namespace) -> None:
     """
     fields = ['img', 'img_id', 'htot', 'wtot', 'bbox_sizes', 'bbox_labels']
     for (split, expected_num_samples, shuffle) in [
-        ("train", 117266, True),
-        ("val", 4952, False),
+        ('train', 117266, True),
+        ('val', 4952, False),
     ]:
         split_dir = os.path.join(args.out_root, split)
 

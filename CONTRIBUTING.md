@@ -72,6 +72,8 @@ These tests run with the `composer` launcher. We also support `WORLD_SIZE=1`, wh
 
 See the [Makefile](/Makefile) for more information.
 
+If you want to run pre-commit hooks manually, which check for code formatting and type annotations, run `pre-commit run --all-files`
+
 ## Code Style & Typing
 
 See the [Composer Style Guide](/STYLE_GUIDE.md) for guidelines on how to structure and format your code.

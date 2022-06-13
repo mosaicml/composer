@@ -65,4 +65,3 @@ callbacks:
 load_path: https://storage.googleapis.com/llm_checkpoints/bert_checkpoint/bert_checkpoints/ep7.pt
 load_weights_only: true
 load_strict_model_weights: false
-load_chunk_size: 8192

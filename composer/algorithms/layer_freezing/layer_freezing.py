@@ -19,7 +19,7 @@ from composer.utils.iter_helpers import ensure_tuple
 
 log = logging.getLogger(__name__)
 
-__all__ = ["LayerFreezing", "freeze_layers"]
+__all__ = ['LayerFreezing', 'freeze_layers']
 
 
 def freeze_layers(
@@ -136,7 +136,7 @@ class LayerFreezing(Algorithm):
         optimizers = state.optimizers
         assert optimizers is not None
         elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, "elapsed duration should be set on Event.EPOCH_END"
+        assert elapsed_duration is not None, 'elapsed duration should be set on Event.EPOCH_END'
         freeze_depth, freeze_percentage = freeze_layers(
             model=state.model,
             optimizers=optimizers,
@@ -150,13 +150,13 @@ class LayerFreezing(Algorithm):
         })
 
     def state_dict(self) -> Dict[str, Any]:
-        warnings.warn(("Checkpoints with layer freezing cannot reliably be used to resume training."
-                       "See: https://github.com/mosaicml/composer/issues/1002"))
+        warnings.warn(('Checkpoints with layer freezing cannot reliably be used to resume training.'
+                       'See: https://github.com/mosaicml/composer/issues/1002'))
         return {}
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        warnings.warn(("Checkpoints with layer freezing cannot reliably be used to resume training."
-                       "See: https://github.com/mosaicml/composer/issues/1002"))
+        warnings.warn(('Checkpoints with layer freezing cannot reliably be used to resume training.'
+                       'See: https://github.com/mosaicml/composer/issues/1002'))
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:

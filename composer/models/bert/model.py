@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     from composer.core.types import Batch
 
-__all__ = ["BERTModel"]
+__all__ = ['BERTModel']
 
 
 class BERTModel(ComposerTransformer):
@@ -55,7 +55,7 @@ class BERTModel(ComposerTransformer):
                  tokenizer: Optional[transformers.BertTokenizer] = None) -> None:
 
         if tokenizer is None:
-            model_inputs = {"input_ids", "attention_mask", "token_type_ids"}
+            model_inputs = {'input_ids', 'attention_mask', 'token_type_ids'}
         else:
             model_inputs = set(tokenizer.model_input_names)
 
@@ -66,7 +66,7 @@ class BERTModel(ComposerTransformer):
 
         # we're going to remove the label from the expected inputs
         # since we will handle metric calculation with TorchMetrics instead of HuggingFace.
-        self.model_inputs.remove("labels")
+        self.model_inputs.remove('labels')
 
         # When using Evaluators, the validation metrics represent all possible
         # validation metrics that can be used with the bert model
@@ -101,7 +101,7 @@ class BERTModel(ComposerTransformer):
             tuple (Tensor, Tensor): with the output from the forward pass and the correct labels.
                 This is fed into directly into the output of :meth:`.ComposerModel.metrics`.
         """
-        assert self.training is False, "For validation, model must be in eval mode"
+        assert self.training is False, 'For validation, model must be in eval mode'
 
         # temporary hack until eval on multiple datasets is finished
         labels = batch.pop('labels')

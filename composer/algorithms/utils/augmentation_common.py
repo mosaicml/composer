@@ -6,8 +6,8 @@ import torch
 import torchvision.transforms.functional
 from PIL.Image import Image as PillowImage
 
-_InputImgT = TypeVar("_InputImgT", torch.Tensor, PillowImage)
-_OutputImgT = TypeVar("_OutputImgT", torch.Tensor, PillowImage)
+_InputImgT = TypeVar('_InputImgT', torch.Tensor, PillowImage)
+_OutputImgT = TypeVar('_OutputImgT', torch.Tensor, PillowImage)
 
 
 def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
@@ -40,7 +40,7 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
     if isinstance(image, typ):
         return image
     if not typ in (torch.Tensor, PillowImage):
-        raise TypeError(f"Only typ={{torch.Tensor, Image}} is supported; got {typ}")
+        raise TypeError(f'Only typ={{torch.Tensor, Image}} is supported; got {typ}')
 
     if typ is torch.Tensor:
         return cast(_OutputImgT, torchvision.transforms.functional.to_tensor(image))  # PIL -> Tensor
