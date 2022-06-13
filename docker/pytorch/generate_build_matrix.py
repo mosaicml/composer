@@ -42,11 +42,7 @@ def _get_torchvision_version(pytorch_version: str):
 def _get_base_image(cuda_version: str):
     if cuda_version == 'cpu':
         return 'ubuntu:20.04'
-    if cuda_version == '11.1.1':
-        return 'nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04'
-    if cuda_version == '11.3.1':
-        return 'nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04'
-    raise ValueError(f'Invalid cuda_version: {cuda_version}')
+    return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu20.04'
 
 
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
@@ -54,19 +50,17 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
         return 'cpu'
     if pytorch_version == '1.9.1':
         return '11.1.1'
-    if pytorch_version in ('1.10.2', '1.11.0'):
+    if pytorch_version == '1.10.2':
         return '11.3.1'
+    if pytorch_version == '1.11.0':
+        return '11.5.2'
     raise ValueError(f'Invalid pytorch_version: {str}')
 
 
 def _get_cuda_version_tag(cuda_version: str):
     if cuda_version == 'cpu':
         return 'cpu'
-    if cuda_version == '11.1.1':
-        return 'cu111'
-    if cuda_version == '11.3.1':
-        return 'cu113'
-    raise ValueError(f'Invalid cuda_version: {cuda_version}')
+    return 'cu' + ''.join(cuda_version.split('.')[:2])
 
 
 def _get_tags(python_version: str, pytorch_version: str, cuda_version_tag: str, cuda_version: str, stage: str):
