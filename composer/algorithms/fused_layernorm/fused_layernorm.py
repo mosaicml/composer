@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Sequence, Union
+from typing import Dict, Optional, Sequence, Type, Union
 
 import torch
 
@@ -23,8 +23,10 @@ from composer.utils import module_surgery
 log = logging.getLogger(__name__)
 
 
-def from_LayerNorm(layer: torch.nn.LayerNorm, module_index: int) -> APEXFusedLayerNorm:
+def from_LayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerNorm:
     """Defines a replacement policy from a `torch.nn.LayerNorm` to a `apex.normalization.fused_layer_norm`"""
+    assert isinstance(layer,
+                      torch.nn.LayerNorm), 'The replacement policy will look for all instances of torch.nn.LayerNorm'
     return APEXFusedLayerNorm(normalized_shape=layer.normalized_shape, eps=layer.eps)
 
 
@@ -40,7 +42,7 @@ def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.
             'https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied.')
 
     # prepare the replacement policy and perform replacement
-    policy = {torch.nn.LayerNorm: from_LayerNorm}
+    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.LayerNorm: from_LayerNorm}
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     log.info(f'Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.')
 
