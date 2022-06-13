@@ -256,7 +256,9 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install Composer
 ##################
 
-ARG COMPOSER_EXTRA_DEPS='all'
+# Set to "base" for the slim build (no extra dependencies)
+ARG COMPOSER_EXTRA_DEPS=all
+ARG COMPOSER_EXTRA_DEPS=${COMPOSER_EXTRA_DEPS:-base}
 
 # Leave blank to install the latest version of composer
 ARG COMPOSER_VERSION=
