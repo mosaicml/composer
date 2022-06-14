@@ -401,6 +401,7 @@ stage('Build') {
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: condaMemLimit),
                         string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
                         string(name: 'P_TIMEOUT', value: condaTimeout), // Conda builds take longer
+                        string(name: 'POD_TIMEOUT', value: condaTimeout),
                         string(name: 'P_CPU_LIMIT', value: condaCpuLimit),
                         string(name: 'P_MEM_LIMIT', value: condaMemLimit),  // must include the ephemeral storage limit
                         string(name: 'P_COMMAND', value: './.ci/build_conda.sh')
