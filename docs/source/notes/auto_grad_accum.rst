@@ -1,5 +1,5 @@
-|:recycle| Auto Grad Accum
-==========================
+|:recycle:| Auto Grad Accum
+===========================
 
 Gradient accumulation is a technique that reduces the memory usage of a model. With gradient accumulation, the batch size is split into smaller microbatches, which are then sent through the network one at a time. The gradients from each microbatch
 are then accumulated prior to a weight update. In our trainer, this behavior can be set with:
@@ -47,5 +47,5 @@ Caveats
 
 Importantly, the current implementation of ``grad_accum=='auto'`` only catches OOMs that occur within the forward and backward passes during training, so a few areas that are _not_ caught yet:
 
-- Algorithms that run the forward and backward pass outside of the trainer loop. For example, Sequence Length Warmup runs forward and backward step in order to preallocate memory, and avoid memory leaks.
-- Validation can still caused OOMs if the evaluation batch size is set too high.
+* Algorithms that run the forward and backward pass outside of the trainer loop. For example, Sequence Length Warmup runs forward and backward step in order to preallocate memory, and avoid memory leaks.
+* Validation can still caused OOMs if the evaluation batch size is set too high.
