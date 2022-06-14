@@ -24,7 +24,7 @@ may be available on DockerHub, but are not shown in the table below.
 
 ## PyTorch Images
 
-The [mosaicml/pytorch](https://hub.docker.com/r/mosaicml/pytorch) images images contain PyTorch preinstalled, without Composer. The `Base` flavor of Docker Images contains PyTorch pre-installed; the `Vision` flavor also includes OpenCV,
+The [mosaicml/pytorch](https://hub.docker.com/r/mosaicml/pytorch) images contain PyTorch preinstalled, without Composer. The `Base` flavor of Docker Images contains PyTorch pre-installed; the `Vision` flavor also includes OpenCV,
 MM Segmentation, and FFCV dependencies. To install composer, once inside the image, run `pip install mosaicml`.
 
 <!-- BEGIN_PYTORCH_BUILD_MATRIX -->
