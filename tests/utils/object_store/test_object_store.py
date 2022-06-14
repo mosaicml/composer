@@ -4,12 +4,17 @@
 import contextlib
 import os
 import pathlib
-from typing import Generator
+import tempfile
+from typing import Generator, Optional
 
+import mockssh
 import moto
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore
+from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
+from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from tests.utils.object_store.object_store_settings import object_store_kwargs
 
 
@@ -28,6 +33,36 @@ class MockCallback:
 
     def assert_all_data_transferred(self):
         assert self.total_num_bytes == self.transferred_bytes
+
+
+class TestSFTPObjectStore(SFTPObjectStore):
+
+    def __init__(self,
+                 host: str,
+                 port: int = 22,
+                 username: Optional[str] = None,
+                 key_file_path: Optional[str] = None,
+                 cwd: Optional[str] = None):
+        self.host = host
+        self.port = port
+        self.username = username
+        self.key_file_path = key_file_path
+        self.cwd = cwd
+        self.server = mockssh.Server(users={})
+        username = 'test_user'
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,
+                                        format=serialization.PrivateFormat.TraditionalOpenSSL,
+                                        encryption_algorithm=serialization.NoEncryption())
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = os.path.join(tmpdir, 'test_rsa_key')
+            private_key_file = open(tmppath, 'wb')
+            private_key_file.write(pem)
+            private_key_file.close()
+            self.server.add_user(uid=username, private_key_path=tmppath)
+            self.server.__enter__()
+            self.ssh_client = self.server.client(username)
+            self.sftp_client = self.ssh_client.open_sftp()
 
 
 @pytest.fixture
@@ -53,11 +88,13 @@ def object_store(request, monkeypatch: pytest.MonkeyPatch,
         os.makedirs(remote_dir)
         object_store_kwargs[request.param]['provider_kwargs']['key'] = remote_dir
         yield request.param(**object_store_kwargs[request.param])
+    elif request.param is SFTPObjectStore:
+        yield TestSFTPObjectStore("unused_test_hostname")
     else:
         raise NotImplementedError('Parameterization not implemented')
 
 
-@pytest.mark.parametrize('object_store', [S3ObjectStore, LibcloudObjectStore], indirect=True)
+@pytest.mark.parametrize('object_store', [S3ObjectStore, LibcloudObjectStore, SFTPObjectStore], indirect=True)
 class TestObjectStore:
 
     @pytest.fixture
@@ -79,6 +116,8 @@ class TestObjectStore:
             assert uri == 's3://my-bucket/tmpfile_object_name'
         elif isinstance(object_store, LibcloudObjectStore):
             assert uri == 'local://./tmpfile_object_name'
+        elif isinstance(object_store, SFTPObjectStore):
+            pytest.skip("SFTP object store testing uses a mock server without a uri")
         else:
             raise NotImplementedError(f'Object store {type(object_store)} not implemented.')
 

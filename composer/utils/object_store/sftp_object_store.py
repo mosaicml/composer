@@ -17,13 +17,18 @@ class SFTPObjectStore(ObjectStore):
 
     Args:
         host (str): The server to connect to
-        port (int): The server port to connect to
-        username (str): The username to authenticate
-        key_file_path (str): The filename of private key
+        port (int, optional): The server port to connect to. Defaults to 22
+        username (str, optional): The username to authenticate. Defaults to current username.
+        key_file_path (str, optional): The filename of private key. 
         cwd (Optional[str]): The directory to navigate to upon creating the SSH connection.
     """
 
-    def __init__(self, host: str, port: int, username: str, key_file_path: str, cwd: Optional[str] = None):
+    def __init__(self,
+                 host: str,
+                 port: int = 22,
+                 username: Optional[str] = None,
+                 key_file_path: Optional[str] = None,
+                 cwd: Optional[str] = None):
         self.host = host
         self.port = port
         self.username = username
@@ -36,15 +41,18 @@ class SFTPObjectStore(ObjectStore):
             raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
         self.ssh_client = SSHClient()
 
+        if self.key_file_path is None:
+            #TODO change to read SSH config when key_file_path is none
+            raise Exception("SFTPObjectStore initialized without a keyfile.")
         try:
-            self.ssh_client.load_system_host_keys(key_file_path)
+            self.ssh_client.load_system_host_keys(self.key_file_path)
         except IOError:
             raise Exception('Host keys could not be read from {key_file_path}.')
 
-        self.ssh_client.connect(host, port, username)
-        if cwd is not None:
-            self.ssh_client.exec_command(f'mkdir -p {cwd}')
-            self.ssh_client.exec_command(f'cd {cwd}')
+        self.ssh_client.connect(self.host, self.port, self.username)
+        if self.cwd is not None:
+            self.ssh_client.exec_command(f'mkdir -p {self.cwd}')
+            self.ssh_client.exec_command(f'cd {self.cwd}')
 
         self.sftp_client = self.ssh_client.open_sftp()
 
