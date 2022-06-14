@@ -134,5 +134,5 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
             error_msgs.append(e)
             last_error = e
             continue
-    if last_error:
+    if len(error_msgs) > max_retries:
         raise RuntimeError(f'Failed to download {remote} -> {local}. Got errors:\n{error_msgs}') from last_error
