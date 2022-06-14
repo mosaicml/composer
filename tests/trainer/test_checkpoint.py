@@ -280,10 +280,11 @@ def test_load_weights(
 
 @pytest.mark.timeout(90)
 @device('cpu', 'gpu')
-@pytest.mark.parametrize(
-    'use_object_store,delete_local_checkpoint',
-    [pytest.param(False, False), pytest.param(True, False),
-     pytest.param(True, True)])
+@pytest.mark.parametrize('use_object_store,delete_local_checkpoint', [
+    pytest.param(False, False),
+    pytest.param(True, False),
+    pytest.param(True, True),
+])
 def test_autoresume(
     device: str,
     composer_trainer_hparams: TrainerHparams,
@@ -304,6 +305,9 @@ def test_autoresume(
     if not isinstance(composer_trainer_hparams.val_dataset, SyntheticHparamsMixin):
         pytest.skip('Checkpointing tests require synthetic data')
         return
+    if use_object_store:
+        pytest.importorskip('libcloud')
+
     checkpoint_a_folder = 'first'
     checkpoint_b_folder = 'second'
     middle_checkpoint = 'ep1.pt'
@@ -467,6 +471,8 @@ def test_checkpoint_with_object_store_logger(
 
     Load model from object store and ensure it's the same.
     """
+    pytest.importorskip('libcloud')
+
     checkpoint_a_folder = 'first'
     final_checkpoint = 'ep2.pt'
     composer_trainer_hparams = get_two_epoch_composer_hparams(
