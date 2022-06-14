@@ -1,5 +1,5 @@
-Automatic Gradient Accumulation
-===============================
+Auto Grad Accum
+===============
 
 Gradient accumulation is a technique that reduces the memory usage of a model. With gradient accumulation, the batch size is split into smaller microbatches, which are then sent through the network one at a time. The gradients from each microbatch
 are then accumulated prior to a weight update. In our trainer, this behavior can be set with:
@@ -18,10 +18,6 @@ The setting ``grad_accum=2`` means that the batch is split into two smaller micr
 While a useful technique, it's tedious to constantly try different gradient accumulation steps to get your model to fit, and more so to adjust whenever you change the batch size, move to a different GPU such as in a colab notebook, or change how many GPUs to train across. Too high of a gradient accumulation, and each microbatch size is too small for efficient GPU computing. Too low, and your model may throw a CUDA Out of Memory (OOM) error. Finding that magical combination of gradient accumulation, batch size, number of devices, etc. in these settings can be frustrating.
 
 Even more concerningly, some of our speed-up methods increase the memory consumption throughout training, risking frustrating OOMs deep into training.
-
-
-Auto grad accum
----------------
 
 To solve these challenges, Composer now supports automatic gradient accumulation, which can be set with:
 
@@ -50,5 +46,6 @@ Caveats
 -------
 
 Importantly, the current implementation of ``grad_accum=='auto'`` only catches OOMs that occur within the forward and backward passes during training, so a few areas that are _not_ caught yet:
-* Algorithms that run the forward and backward pass outside of the trainer loop. For example, Sequence Length Warmup runs forward and backward step in order to preallocate memory, and avoid memory leaks.
-* Validation can still caused OOMs if the evaluation batch size is set too high.
+
+- Algorithms that run the forward and backward pass outside of the trainer loop. For example, Sequence Length Warmup runs forward and backward step in order to preallocate memory, and avoid memory leaks.
+- Validation can still caused OOMs if the evaluation batch size is set too high.
