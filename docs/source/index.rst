@@ -89,6 +89,12 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    trainer/numerics.md
    trainer/performance.rst
 
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Notes
+
+   notes/auto_grad_accum.rst
 
 .. toctree::
    :hidden:
