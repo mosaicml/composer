@@ -16,7 +16,8 @@ from composer.core.time import TimeUnit
 from composer.core.types import Batch
 from composer.loggers import Logger
 from composer.models import ComposerTransformer
-from composer.utils import ensure_tuple
+from composer.utils import ensure_tuple, dist
+from composer.trainer.trainer import _is_cuda_oom
 
 __all__ = ['SeqLengthWarmup', 'set_batch_sequence_length']
 
@@ -224,81 +225,167 @@ class SeqLengthWarmup(Algorithm):
         assert state.max_duration is not None, 'max_duration should be set on AFTER_DATALOADER'
 
         # in order to avoid OOMs, we do a forward and a backward pass on a dummy input.
-        if not self._activated and state.grad_accum not in self._failed_grad_accums:
-            before_cuda_mem = torch.cuda.memory_allocated()
+        if not self._activated:
+            assert self._original_model is not None, 'original model should be set on Event.INIT'
+
             try:
-                # ensure that input_ids is a valid model input. since we don't need the
-                # results, we don't use all inputs.
-                assert self._original_model is not None, 'original model should be set on Event.INIT'
-                model_inputs = self._original_model.get_model_inputs()
-                if 'input_ids' not in model_inputs:
-                    raise RuntimeError("'input_ids' must be in model inputs")
-                # if 'labels' not in model_inputs:
-                #     raise RuntimeError("'labels' must be in model inputs")
+                # Both PyTorch and FFCV dataloaders define a `batch_size` attribute
+                # This exception would mainly be raised if the user is passing in a custom
+                # iterable
+                per_gpu_macrobatch = getattr(state.dataloader, 'batch_size')
+            except AttributeError as e:
+                raise AttributeError(
+                    'Sequence Length Warmup requires the `state.dataloader` to have a `batch_size` attribute.'
+                ) from e
+            if per_gpu_macrobatch is None:
+                raise RuntimeError('Sequence Length Warmup algorithm requires constant batch size.')
 
-                # create fake inputs
-                vocab_size = self._original_model.config.vocab_size
-
-                # simplifying assumption: Composer doesn't support model-parallelism,
-                # so the first parameter's device is likely the same device for
-                # all of the parameters
-                device = next(state.model.parameters()).device
-
-                try:
-                    # Both PyTorch and FFCV dataloaders define a `batch_size` attribute
-                    # This exception would mainly be raised if the user is passing in a custom
-                    # iterable
-                    per_gpu_macrobatch = getattr(state.dataloader, 'batch_size')
-                except AttributeError as e:
-                    raise AttributeError(
-                        'Sequence Length Warmup requires the `state.dataloader` to have a `batch_size` attribute.'
-                    ) from e
-                if per_gpu_macrobatch is None:
-                    raise RuntimeError('Sequence Length Warmup algorithm requires constant batch size.')
-                per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
-
-                input_ids = torch.randint(low=0,
-                                          high=vocab_size - 1,
-                                          size=(per_gpu_batch, self.max_seq_length),
-                                          device=device).long()
-                labels = input_ids.clone()
-                attn_mask = torch.ones_like(labels)
-                model_inputs = {
-                    'input_ids': input_ids,
-                    'labels': labels,
-                    'attention_mask': attn_mask,
-                    'token_type_ids': torch.zeros_like(input_ids),
-                }
-
-                # start by running a forward and backward pass
-                # of the maximum sequence length to allocate cache.
-                with get_precision_context(state.precision):
-                    outputs = state.model.forward(model_inputs)
-                    loss = self._original_model.loss(outputs, model_inputs)
-
-                # since use_grad_scaling is in the Trainer, and we
-                # don't care about the loss values, skip scaling
-                for loss_item in ensure_tuple(loss):
-                    loss_item.backward()
-
-                for optimizer in state.optimizers:
-                    optimizer.zero_grad()
-
-                self._activated = True
-
-            except RuntimeError as e:
-                # Simplifying assumption that the training loop handles grad_accum scaling
-                # so OOM errors here will not be an issue and grad_accum will only ever increase.
-                if 'CUDA out of memory' in str(e):
-                    # We don't need to try activation again for this grad_accum value
-                    self._failed_grad_accums.append(int(state.grad_accum))
+            batch_clone = {}
+            device_batch_size = 0
+            device = None
+            for k, v in state.batch.items():
+                # Truncate any sequence-shaped tensors to at most the max_seq_length sequence.
+                # Assume the second dimension is always sequence position.
+                if len(v.shape) > 1:
+                    seq_dim = min(self.max_seq_length, v.shape[1])
+                    batch_clone[k] = torch.clone(v[:, :seq_dim])
                 else:
-                    raise
+                    batch_clone[k] = torch.clone(v)
+                device_batch_size = v.shape[0]
+                device = v.device
 
-            after_cuda_mem = torch.cuda.memory_allocated()
-            print(f"SLW activation {'SUCCESSFUL' if self._activated else 'FAILED'}. "
-                  f'Used batch size [{per_gpu_batch}, {self.max_seq_length}]. '
-                  f'Before/after CUDA memory: {before_cuda_mem} / {after_cuda_mem}.')
+            grad_accum_successful = False
+            while not grad_accum_successful:
+                per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
+                model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
+
+                should_handle_cuda_oom = 0
+                caught_timeout_error = None
+                try:
+                    # start by running a forward and backward pass
+                    # of the maximum sequence length to allocate cache.
+                    with get_precision_context(state.precision):
+                        outputs = state.model.forward(model_inputs)
+                        loss = self._original_model.loss(outputs, model_inputs)
+
+                    # since use_grad_scaling is in the Trainer, and we
+                    # don't care about the loss values, skip scaling
+                    for loss_item in ensure_tuple(loss):
+                        loss_item.backward()
+
+                    for optimizer in state.optimizers:
+                        optimizer.zero_grad()
+
+                # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
+                except RuntimeError as e:
+                    if _is_cuda_oom(e):
+                        should_handle_cuda_oom = 1
+                    elif 'Timed out' in str(e):
+                        # Catch timeout errors and only reraise if we did not encounter OOM on other ranks. Error
+                        # is likely transient if one rank OOMed, it likely did not reach a barrier. Note that if we
+                        # catch non-transient timeout errors they will be later reraised if no rank OOMed.
+                        caught_timeout_error = e
+                    else:
+                        raise
+
+                # Propagate across all ranks if any rank hit CUDA OOM
+                should_handle_cuda_oom = torch.tensor([should_handle_cuda_oom], dtype=torch.uint8, device=device)
+                dist.all_reduce(should_handle_cuda_oom, reduce_operation='MAX')
+                if int(should_handle_cuda_oom.item()) == 1:
+                    # If any rank hit CUDA OOM, update grad_accum and retry. Ignore any caught_timeout_error since
+                    # it is likely transient, e.g. timeout because certain ranks OOMed and didn't reach barrier.
+                    # Raise runtime error if training 1 sample at a time still resulted in CUDA out of memory
+                    if state.grad_accum == device_batch_size:
+                        raise RuntimeError(
+                            ('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
+                            'The GPU does not have enough memory to process even 1 sample.'))
+                    else:
+                        state.grad_accum = min(2 * state.grad_accum, device_batch_size)
+                        logger.data_batch({'trainer/grad_accum': state.grad_accum})
+                elif caught_timeout_error:
+                    # If not CUDA out of memory, raise exception to user. Note that this truncates the call stack
+                    # back only to this newly raised error.
+                    raise caught_timeout_error
+                else:
+                    grad_accum_successful = True
+
+            self._activated = True
+
+        # if not self._activated and state.grad_accum not in self._failed_grad_accums:
+        #     before_cuda_mem = torch.cuda.memory_allocated()
+        #     try:
+        #         # ensure that input_ids is a valid model input. since we don't need the
+        #         # results, we don't use all inputs.
+        #         assert self._original_model is not None, 'original model should be set on Event.INIT'
+        #         model_inputs = self._original_model.get_model_inputs()
+        #         if 'input_ids' not in model_inputs:
+        #             raise RuntimeError("'input_ids' must be in model inputs")
+        #         # if 'labels' not in model_inputs:
+        #         #     raise RuntimeError("'labels' must be in model inputs")
+
+        #         # create fake inputs
+        #         vocab_size = self._original_model.config.vocab_size
+
+        #         # simplifying assumption: Composer doesn't support model-parallelism,
+        #         # so the first parameter's device is likely the same device for
+        #         # all of the parameters
+        #         device = next(state.model.parameters()).device
+
+        #         try:
+        #             # Both PyTorch and FFCV dataloaders define a `batch_size` attribute
+        #             # This exception would mainly be raised if the user is passing in a custom
+        #             # iterable
+        #             per_gpu_macrobatch = getattr(state.dataloader, 'batch_size')
+        #         except AttributeError as e:
+        #             raise AttributeError(
+        #                 'Sequence Length Warmup requires the `state.dataloader` to have a `batch_size` attribute.'
+        #             ) from e
+        #         if per_gpu_macrobatch is None:
+        #             raise RuntimeError('Sequence Length Warmup algorithm requires constant batch size.')
+        #         per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
+
+        #         input_ids = torch.randint(low=0,
+        #                                   high=vocab_size - 1,
+        #                                   size=(per_gpu_batch, self.max_seq_length),
+        #                                   device=device).long()
+        #         labels = input_ids.clone()
+        #         attn_mask = torch.ones_like(labels)
+        #         model_inputs = {
+        #             'input_ids': input_ids,
+        #             'labels': labels,
+        #             'attention_mask': attn_mask,
+        #             'token_type_ids': torch.zeros_like(input_ids),
+        #         }
+
+        #         # start by running a forward and backward pass
+        #         # of the maximum sequence length to allocate cache.
+        #         with get_precision_context(state.precision):
+        #             outputs = state.model.forward(model_inputs)
+        #             loss = self._original_model.loss(outputs, model_inputs)
+
+        #         # since use_grad_scaling is in the Trainer, and we
+        #         # don't care about the loss values, skip scaling
+        #         for loss_item in ensure_tuple(loss):
+        #             loss_item.backward()
+
+        #         for optimizer in state.optimizers:
+        #             optimizer.zero_grad()
+
+        #         self._activated = True
+
+        #     except RuntimeError as e:
+        #         # Simplifying assumption that the training loop handles grad_accum scaling
+        #         # so OOM errors here will not be an issue and grad_accum will only ever increase.
+        #         if 'CUDA out of memory' in str(e):
+        #             # We don't need to try activation again for this grad_accum value
+        #             self._failed_grad_accums.append(int(state.grad_accum))
+        #         else:
+        #             raise
+
+        #     after_cuda_mem = torch.cuda.memory_allocated()
+        #     print(f"SLW activation {'SUCCESSFUL' if self._activated else 'FAILED'}. "
+        #           f'Used batch size [{per_gpu_batch}, {self.max_seq_length}]. '
+        #           f'Before/after CUDA memory: {before_cuda_mem} / {after_cuda_mem}.')
 
         if state.max_duration.unit == TimeUnit.EPOCH:
             if state.dataloader_len is None:
