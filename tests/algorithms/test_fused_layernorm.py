@@ -38,7 +38,6 @@ def assert_is_fln_instance(model: BERTModel):
 @device('gpu')
 def test_fused_layernorm_functional(synthetic_bert_state: Tuple, device: str):
     state, model, _ = synthetic_bert_state
-    print('Model:', model)
     apply_fused_layernorm(state.model, state.optimizers)
     assert_is_fln_instance(state.model)
 
