@@ -13,7 +13,6 @@ ARG CUDA_VERSION=11.3.1
 # Calculate the base image based on CUDA_VERSION
 ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu20.04"}
 ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:20.04"}
-ARG CUDA_VERSION=${CUDA_VERSION:-cpu}
 
 # The Python version to install
 ARG PYTHON_VERSION=3.9
@@ -75,12 +74,17 @@ ARG COMPOSER_VERSION=
 FROM ${BASE_IMAGE} AS pytorch_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
+#######################
+# Set the shell to bash
+#######################
+SHELL ["/bin/bash", "-c"]
+
 ARG CUDA_VERSION
 
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
-RUN if [ -n "$CUDA_VERSION" ] ; then \
+RUN if [ -n "$CUDA_VERSION" ]; then \
         rm -f /usr/local/cuda-${CUDA_VERSION:0:-2}/cuda-${CUDA_VERSION:0:-2}; \
     fi
 
@@ -194,7 +198,7 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
 ARG PYTORCH_VERSION
 ARG TORCHVISION_VERSION
 
-RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')"); \
+RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
@@ -230,11 +234,6 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
             ./ && \
         rm -rf /tmp/apex ; \
     fi
-
-#######################
-# Set the shell to bash
-#######################
-SHELL ["/bin/bash", "-c"]
 
 
 ################################
@@ -298,16 +297,16 @@ ARG PYTHON_VERSION
 ARG CUPY_VERSION
 ARG CUDA_VERSION
 
-RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
+RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+    MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
+    sudo pip${PYTHON_VERSION} install --no-cache-dir \
         "ffcv${FFCV_VERSION}" \
-        "opencv-python=${OPENCV_VERSION}" \
+        "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \
-    CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')"); \
-    MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')"); \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
         "mmcv-full${MMCV_VERSION}" \
-        -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html ; \
+        -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
     if [ -n "$CUDA_VERSION" ] ; then \
         sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`${CUPY_VERSION}; \
     fi

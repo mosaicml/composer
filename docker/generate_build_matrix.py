@@ -40,18 +40,14 @@ def _get_torchvision_version(pytorch_version: str):
 
 
 def _get_base_image(cuda_version: str):
-    if cuda_version == 'cpu':
+    if not cuda_version:
         return 'ubuntu:20.04'
-    if cuda_version == '11.1.1':
-        return 'nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04'
-    if cuda_version == '11.3.1':
-        return 'nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04'
-    raise ValueError(f'Invalid cuda_version: {cuda_version}')
+    return f'nvidia/cuda:{cuda_version}-cudnn8-devel-ubuntu20.04'
 
 
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
-        return 'cpu'
+        return ''
     if pytorch_version == '1.9.1':
         return '11.1.1'
     if pytorch_version in ('1.10.2', '1.11.0'):
@@ -60,7 +56,7 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
 
 
 def _get_cuda_version_tag(cuda_version: str):
-    if not cuda_version or cuda_version == 'cpu':
+    if not cuda_version:
         return 'cpu'
     return 'cu' + ''.join(cuda_version.split('.')[:2])
 
@@ -76,7 +72,7 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
     tags = [f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04']
 
     if python_version == '3.9':
-        if cuda_version == 'cpu':
+        if not cuda_version:
             tags.append(f'{base_image_name}:latest_cpu')
         else:
             tags.append(f'{base_image_name}:latest')
@@ -148,7 +144,7 @@ def _main():
             entry['MMCV_TORCH_VERSION'] = f'torch{pytorch_version}'
             entry['MMCV_VERSION'] = '1.4.8'
 
-        if cuda_version != 'cpu':
+        if cuda_version:
             # Install the Mellanox drivers in the cuda images
             entry['MOFED_OS_VERSION'] = 'ubuntu20.04-x86_64'
             entry['MOFED_VERSION'] = '5.5-1.0.3.2'
