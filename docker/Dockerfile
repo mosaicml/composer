@@ -205,9 +205,7 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
 # PyTorch Vision Image
 ######################
 
-ARG VISION_BASE=pytorch_stage
-
-FROM ${VISION_BASE} AS vision_stage
+FROM pytorch_stage AS vision_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN sudo apt-get update && \
@@ -246,9 +244,7 @@ RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
 # Composer Image
 ################
 
-ARG COMPOSER_BASE=vision_stage
-
-FROM ${COMPOSER_BASE} as composer_stage
+FROM vision_stage as composer_stage
 
 ARG DEBIAN_FRONTEND=noninteractive
 
