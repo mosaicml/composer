@@ -68,7 +68,10 @@ class SFTPObjectStore(ObjectStore):
     def get_object_size(self, object_name: str) -> int:
         return self.sftp_client.stat(object_name).st_size
 
-    def upload_object(self, object_name: str, filename: Union[str, pathlib.Path], callback: Optional[Callable[[int, int], None]] = None) -> None:
+    def upload_object(self,
+                      object_name: str,
+                      filename: Union[str, pathlib.Path],
+                      callback: Optional[Callable[[int, int], None]] = None) -> None:
         dirname = os.path.dirname(object_name)
         self.ssh_client.exec_command(f'mkdir -p {dirname}')
         try:
@@ -76,7 +79,11 @@ class SFTPObjectStore(ObjectStore):
         except IOError:
             raise ObjectStoreTransientError
 
-    def download_object(self, object_name: str, filename: Union[str, pathlib.Path], overwrite: bool = False, callback: Optional[Callable[[int,int],None]] = None) -> None:
+    def download_object(self,
+                        object_name: str,
+                        filename: Union[str, pathlib.Path],
+                        overwrite: bool = False,
+                        callback: Optional[Callable[[int, int], None]] = None) -> None:
         dirname = os.path.dirname(filename)
         os.makedirs(dirname, exist_ok=True)
 
@@ -84,7 +91,7 @@ class SFTPObjectStore(ObjectStore):
             raise FileExistsError(f'The file at {filename} already exists')
 
         tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
-        
+
         try:
             self.sftp_client.get(remotepath=object_name, localpath=tmp_path, callback=callback)
         except IOError:
