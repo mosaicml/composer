@@ -141,13 +141,10 @@ def _main():
             if python_version != '3.9':
                 continue
             # only build the vision image on python 3.9
-            entry['MMCV_TORCH_VERSION'] = f'torch{pytorch_version}'
-            entry['MMCV_VERSION'] = '1.4.8'
 
-        if cuda_version:
-            # Install the Mellanox drivers in the cuda images
-            entry['MOFED_OS_VERSION'] = 'ubuntu20.04-x86_64'
-            entry['MOFED_VERSION'] = '5.5-1.0.3.2'
+        if not cuda_version:
+            # Skip the mellanox drivers if not in the cuda images
+            entry['MOFED_VERSION'] = ''
 
         pytorch_entries.append(entry)
 

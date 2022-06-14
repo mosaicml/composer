@@ -34,8 +34,7 @@ ARG PILLOW_SIMD_VERSION=7.0.0.post3
 
 # Version of the Mellanox Drivers to install (for InfiniBand support)
 # Levave blank for no Mellanox Drivers
-ARG MOFED_VERSION=
-ARG MOFED_OS_VERSION=
+ARG MOFED_VERSION=5.5-1.0.3.2
 
 ########################
 # Vision Image Arguments
@@ -45,7 +44,7 @@ ARG MOFED_OS_VERSION=
 ARG VISION_BASE=pytorch_stage
 
 # Pip version strings of dependencies to install
-ARG MMCV_VERSION='==1.4.4'
+ARG MMCV_VERSION='==1.4.8'
 ARG FFCV_VERSION='==0.0.3'
 ARG OPENCV_VERSION='>=4.5.5.64,<4.6'
 ARG NUMBA_VERSION='>=0.55.0,<0.56'
@@ -208,13 +207,12 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
 ###################################
 
 ARG MOFED_VERSION
-ARG MOFED_OS_VERSION
 
 RUN if [ -n "$MOFED_VERSION" ] ; then \
         mkdir -p /tmp/mofed && \
-        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz && \
-        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}.tgz -C /tmp/mofed && \
-        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-${MOFED_OS_VERSION}/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
         rm -rf /tmp/mofed ; \
     fi
 
