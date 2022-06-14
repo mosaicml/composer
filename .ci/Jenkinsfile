@@ -357,6 +357,7 @@ stage('Build') {
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: dockerBuildMemLimit),
                         text(name: 'P_COMMAND', value: kanikoCommand),
                         string(name: 'P_TIMEOUT', value: dockerBuildTimeout),
+                        string(name: 'POD_TIMEOUT', value: dockerBuildTimeout),
                         string(name: 'P_CPU_LIMIT', value: dockerBuildCpuLimit),
                         string(name: 'P_MEM_LIMIT', value: dockerBuildMemLimit),
                         booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
