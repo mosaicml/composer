@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Dict, Optional, Sequence, Type, Union
 
 import torch
@@ -16,6 +17,7 @@ try:
 except ImportError as e:
     APEX_INSTALLED = False
 
+from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.utils import module_surgery
@@ -49,6 +51,10 @@ def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.
     # prepare the replacement policy and perform replacement
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.LayerNorm: from_LayerNorm}
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
+    if replaced_instances == 0:
+        warnings.warn(
+            NoEffectWarning(
+                'No instances of `torch.nn.LayerNorm` were found, and therefore, there were no modules to replace.'))
     log.info(f'Successfully replaced {len(replaced_instances)} of LayerNorm with a Fused LayerNorm.')
 
 

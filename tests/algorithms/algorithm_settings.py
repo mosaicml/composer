@@ -190,10 +190,10 @@ def get_alg_dataloader(alg_cls: Type[Algorithm]) -> DataLoader:
     else:
         (cls, kwargs) = (settings, {})
 
-    data_cls = cls(**kwargs)
-    if isinstance(data_cls, Dataset):
-        data_cls = DataLoader(dataset=data_cls, batch_size=4)
-    return data_cls
+    dataloader = cls(**kwargs)
+    if isinstance(dataloader, Dataset):
+        dataloader = DataLoader(dataset=dataloader, batch_size=4)
+    return dataloader
 
 
 def get_algs_with_marks():
