@@ -84,7 +84,7 @@ ARG CUDA_VERSION
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
 RUN if [ -n "$CUDA_VERSION" ]; then \
-        rm -f /usr/local/cuda-${CUDA_VERSION:0:-2}/cuda-${CUDA_VERSION:0:-2}; \
+        rm -f /usr/local/cuda-$($CUDA_VERSION | cut -c -4)/cuda-$($CUDA_VERSION | cut -c -4); \
     fi
 
 
