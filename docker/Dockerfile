@@ -322,8 +322,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install Composer
 ##################
 
-ARG COMPOSER_EXTRA_DEPS=${COMPOSER_EXTRA_DEPS:-base}
-
+ARG COMPOSER_EXTRA_DEPS
 ARG COMPOSER_VERSION
 
-RUN pip install "mosaicml[${COMPOSER_EXTRA_DEPS}]${COMPOSER_VERSION}"
+RUN pip install "mosaicml[${COMPOSER_EXTRA_DEPS:-base}]${COMPOSER_VERSION}"
