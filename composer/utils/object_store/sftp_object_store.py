@@ -7,14 +7,14 @@ import uuid
 from typing import Optional
 
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.object_store.object_store import ObjectStoreTransientError
+from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
-__all__ = ["SFTPObjectStore"]
+__all__ = ['SFTPObjectStore']
 
 
-class SFTPObjectStore:
+class SFTPObjectStore(ObjectStore):
     """Utility for uploading to and downloading to a server via SFTP.
-    
+
     Args:
         host (str): The server to connect to
         port (int): The server port to connect to
@@ -33,18 +33,18 @@ class SFTPObjectStore:
         try:
             from paramiko import SSHClient
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="streaming", conda_package="paramiko") from e
+            raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
         self.ssh_client = SSHClient()
 
         try:
             self.ssh_client.load_system_host_keys(key_file_path)
         except IOError:
-            raise Exception("Host keys could not be read from {key_file_path}.")
+            raise Exception('Host keys could not be read from {key_file_path}.')
 
         self.ssh_client.connect(host, port, username)
         if cwd is not None:
-            self.ssh_client.exec_command(f"mkdir -p {cwd}")
-            self.ssh_client.exec_command(f"cd {cwd}")
+            self.ssh_client.exec_command(f'mkdir -p {cwd}')
+            self.ssh_client.exec_command(f'cd {cwd}')
 
         self.sftp_client = self.ssh_client.open_sftp()
 
@@ -54,11 +54,14 @@ class SFTPObjectStore:
     def get_uri(self, object_name: str) -> str:
         return f'sftp://{self.host}:{self.port}/{object_name}'
 
+    def get_object_size(self, object_name: str) -> int:
+        return self.sftp_client.stat(object_name).st_size
+
     def upload_object(self, file_path: str, object_name: str):
-        tmp_path = object_name + f".{uuid.uuid4()}.tmp"
+        tmp_path = object_name + f'.{uuid.uuid4()}.tmp'
 
         dirname = os.path.dirname(object_name)
-        self.ssh_client.exec_command(f"mkdir -p {dirname}")
+        self.ssh_client.exec_command(f'mkdir -p {dirname}')
 
         try:
             self.sftp_client.put(file_path, tmp_path, confirm=True)
@@ -71,7 +74,7 @@ class SFTPObjectStore:
         dirname = os.path.dirname(destination_path)
         os.makedirs(dirname, exist_ok=True)
 
-        tmp_path = destination_path + f".{uuid.uuid4()}.tmp"
+        tmp_path = destination_path + f'.{uuid.uuid4()}.tmp'
 
         try:
             self.sftp_client.get(remotepath=object_name, localpath=tmp_path)

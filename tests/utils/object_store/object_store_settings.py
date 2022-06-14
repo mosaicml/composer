@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Any, Dict, Type, Union
-from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
 import pytest
 
@@ -11,6 +10,7 @@ import composer.utils.object_store.object_store_hparams
 from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
 from composer.utils.object_store.object_store_hparams import (LibcloudObjectStoreHparams, ObjectStoreHparams,
                                                               S3ObjectStoreHparams, SFTPObjectStoreHparams)
+from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from tests.common import get_module_subclasses
 
 try:

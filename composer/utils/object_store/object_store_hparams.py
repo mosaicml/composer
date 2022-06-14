@@ -7,13 +7,13 @@ import abc
 import dataclasses
 import os
 from typing import Any, Dict, Optional, Type
-from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
 import yahp as hp
 
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
+from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 
 __all__ = [
     'ObjectStoreHparams', 'LibcloudObjectStoreHparams', 'S3ObjectStoreHparams', 'SFTPObjectStoreHparams',
@@ -231,7 +231,10 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
     """
 
     host: str = hp.auto(SFTPObjectStore, 'host')
-    port: Optional[int] = hp.auto(SFTPObjectStore, 'port')
+    port: int = hp.auto(SFTPObjectStore, 'port')
+    username: str = hp.auto(SFTPObjectStore, 'username')
+    key_file_path: str = hp.auto(SFTPObjectStore, 'key_file_path')
+    cwd: Optional[str] = hp.auto(SFTPObjectStore, 'cwd')
 
     def get_object_store_cls(self) -> Type[ObjectStore]:
         return SFTPObjectStore
