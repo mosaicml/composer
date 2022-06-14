@@ -371,6 +371,7 @@ stage('Build') {
         else {
             // If not rebuilding the docker image, then run CPU tests acorss all images,
             // and run GPU tests only on the "latest" image
+            // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images -- not 'mosaicml/composer'
             Boolean isCpuImage = buildArgs['CUDA_VERSION'] == ''
             Boolean shouldRunGpuTests = false
             Boolean isPyTorchImage = false
@@ -379,7 +380,7 @@ stage('Build') {
                 if (pytestGpuImageTagsToTest.contains(tag)) {
                     shouldRunGpuTests = true
                 }
-                if (tag.startsWith("mosaicml/pytorch")) {
+                if (tag.startsWith('mosaicml/pytorch')) {
                     isPyTorchImage = true
                 }
             }
