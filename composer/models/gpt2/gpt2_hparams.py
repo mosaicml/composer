@@ -27,11 +27,18 @@ class GPT2Hparams(ModelHparams):
                                 JSON]] = hp.optional(doc="A dictionary providing a HuggingFace model configuration.",
                                                      default_factory=dict)
     use_pretrained: Optional[bool] = hp.optional("Whether to initialize the model with the pretrained weights.",
-                                                 default=False)
+                                                 default=False),
     gradient_checkpointing: Optional[bool] = hp.optional("Whether to enable gradient checkpointing.", default=False)
-
     def initialize_object(self):
         from composer.models.gpt2.model import create_gpt2
+
+        # user must specify either config or the pretrained model
+        if (not self.model_config and not self.use_pretrained):
+            raise ValueError('One of use_pretrained or model_config needed.')
+
+        elif (self.model_config and self.use_pretrained):
+            raise ValueError('Cannot load model from both model_config and use_pretrained')
+
         return create_gpt2(
             model_config=self.model_config,  #type: ignore (thirdparty)
             use_pretrained=self.use_pretrained,

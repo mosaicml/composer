@@ -84,14 +84,14 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
         import transformers
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group="nlp", conda_package="transformers") from e
+
     if not model_config:
         model_config = {}
-    model_name = 'gpt2'
 
+    model_name = 'gpt2'
     if use_pretrained:
         model = transformers.AutoModelForCausalLM.from_pretrained(pretrained_model_name_or_path=model_name,
                                                                   **model_config)
-
     else:
         config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
         model = transformers.AutoModelForCausalLM.from_config(config)  # type: ignore (thirdparty)
@@ -99,4 +99,4 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
     if gradient_checkpointing:
         model.gradient_checkpointing_enable()  # type: ignore
 
-    return HuggingFaceModel(model=model, metrics=[CrossEntropy(), Perplexity()])
+    return HuggingFaceModel(model=model, metrics=[CrossEntropy(ignore_index=-1), Perplexity()])

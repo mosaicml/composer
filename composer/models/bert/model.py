@@ -73,12 +73,11 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
 
     if not model_config:
         model_config = {}
-    model_name = 'bert-base-uncased'
 
+    model_name = 'bert-base-uncased'
     if use_pretrained:
         model = transformers.AutoModelForMaskedLM.from_pretrained(pretrained_model_name_or_path=model_name,
                                                                   **model_config)
-
     else:
         config = transformers.AutoConfig.from_pretrained(model_name, **model_config)
         model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)

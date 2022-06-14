@@ -33,6 +33,14 @@ class BERTHparams(ModelHparams):
 
     def initialize_object(self):
         from composer.models.bert.model import create_bert_mlm
+
+        # user must specify either config or the pretrained model
+        if (not self.model_config and not self.use_pretrained):
+            raise ValueError('One of use_pretrained or model_config needed.')
+
+        elif (self.model_config and self.use_pretrained):
+            raise ValueError('Cannot load model from both model_config and use_pretrained')
+
         return create_bert_mlm(
             model_config=self.model_config,  # type: ignore (thirdparty)
             use_pretrained=self.use_pretrained,
@@ -60,6 +68,14 @@ class BERTForClassificationHparams(ModelHparams):
 
     def initialize_object(self):
         from composer.models.bert.model import create_bert_classification
+
+        # user must specify either config or the pretrained model
+        if (not self.model_config and not self.use_pretrained):
+            raise ValueError('One of use_pretrained or model_config needed.')
+
+        elif (self.model_config and self.use_pretrained):
+            raise ValueError('Cannot load model from both model_config and use_pretrained')
+
         return create_bert_classification(
             num_labels=self.num_labels,
             model_config=self.model_config,  # type: ignore (thirdparty)
