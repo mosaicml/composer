@@ -60,22 +60,19 @@ def _get_cuda_version(pytorch_version: str, use_cuda: bool):
 
 
 def _get_cuda_version_tag(cuda_version: str):
-    if cuda_version == 'cpu':
+    if not cuda_version or cuda_version == 'cpu':
         return 'cpu'
-    if cuda_version == '11.1.1':
-        return 'cu111'
-    if cuda_version == '11.3.1':
-        return 'cu113'
-    raise ValueError(f'Invalid cuda_version: {cuda_version}')
+    return 'cu' + ''.join(cuda_version.split('.')[:2])
 
 
-def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version_tag: str, cuda_version: str, stage: str):
+def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: str, stage: str):
     if stage == 'pytorch_stage':
         base_image_name = 'mosaicml/pytorch'
     elif stage == 'vision_stage':
         base_image_name = 'mosaicml/pytorch_vision'
     else:
         raise ValueError(f'Invalid stage: {stage}')
+    cuda_version_tag = _get_cuda_version_tag(cuda_version)
     tags = [f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04']
 
     if python_version == '3.9':
@@ -121,17 +118,12 @@ def _main():
 
         pytorch_version = _get_pytorch_version(python_version)
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
-        cuda_version_tag = _get_cuda_version_tag(cuda_version)
 
         entry = {
             'BASE_IMAGE':
                 _get_base_image(cuda_version),
             'CUDA_VERSION':
                 cuda_version,
-            'CUDA_VERSION_TAG':
-                cuda_version_tag,
-            'LINUX_DISTRO':
-                'ubuntu2004',
             'PYTHON_VERSION':
                 python_version,
             'PYTORCH_VERSION':
@@ -144,7 +136,6 @@ def _main():
                 _get_pytorch_tags(
                     python_version=python_version,
                     pytorch_version=pytorch_version,
-                    cuda_version_tag=cuda_version_tag,
                     cuda_version=cuda_version,
                     stage=stage,
                 ),
@@ -174,18 +165,14 @@ def _main():
 
         pytorch_version = _get_pytorch_version(python_version)
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
-        cuda_version_tag = _get_cuda_version_tag(cuda_version)
 
         entry = {
             'BASE_IMAGE': _get_base_image(cuda_version),
             'CUDA_VERSION': cuda_version,
-            'CUDA_VERSION_TAG': cuda_version_tag,
-            'LINUX_DISTRO': 'ubuntu2004',
             'PYTHON_VERSION': python_version,
             'PYTORCH_VERSION': pytorch_version,
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-            'COMPOSER_EXTRA_DEPS': 'all',
             'COMPOSER_VERSION': '' if composer_version == 'latest' else composer_version,
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
