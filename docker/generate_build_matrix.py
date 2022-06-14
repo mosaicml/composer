@@ -185,7 +185,6 @@ def _main():
             'PYTORCH_VERSION': pytorch_version,
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-            'COMPOSER_BASE': 'vision_stage',
             'COMPOSER_EXTRA_DEPS': 'all',
             'COMPOSER_VERSION': '' if composer_version == 'latest' else composer_version,
             'TAGS': _get_composer_tags(
