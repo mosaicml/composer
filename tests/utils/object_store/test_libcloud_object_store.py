@@ -36,6 +36,8 @@ def _get_provider(remote_dir: pathlib.Path, chunk_size: int = 1024 * 1024):
 
 @pytest.mark.parametrize('chunk_size', [100, 128])
 def test_libcloud_object_store_callback(remote_dir: pathlib.Path, local_dir: pathlib.Path, chunk_size: int):
+    pytest.importorskip('libcloud')
+
     provider = _get_provider(remote_dir, chunk_size=chunk_size)
     local_file_path = os.path.join(local_dir, 'dummy_file')
     total_len = 1024

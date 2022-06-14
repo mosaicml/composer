@@ -57,7 +57,7 @@ reportUnusedCoroutine = "error"
 # Pytest
 [tool.pytest.ini_options]
 # By default, do not run gpu, vision, notebook, or daily tests
-addopts = "--strict-markers -m 'not gpu and not vision and not daily and not remote'"
+addopts = "--codeblocks --strict-markers -m 'not gpu and not vision and not daily and not remote'"
 
 # by default, tests should be fast.
 # for slower tests, use @pytest.mark.timeout with a higher timeout (specified in seconds)

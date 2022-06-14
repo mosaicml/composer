@@ -15,9 +15,10 @@ from torch.utils.data import DataLoader
 
 import composer
 from composer import Algorithm
-from composer.algorithms import (AGC, EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, FusedLayerNorm, GhostBatchNorm, LabelSmoothing, LayerFreezing, MixUp,
-                                 NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup,
+
+from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
+                                 Factorize, FusedLayerNorm, GhostBatchNorm, GradientClipping, LabelSmoothing, LayerFreezing, 
+                                 MixUp, NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup,
                                  SqueezeExcite, StochasticDepth)
 from composer.models import ComposerResNet
 from composer.models.base import ComposerModel
@@ -63,7 +64,14 @@ simple_resnet_settings = {
 }
 
 _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
-    AGC: simple_vision_settings,
+    GradientClipping: {
+        'model': common.SimpleConvModel,
+        'dataset': common.RandomImageDataset,
+        'kwargs': {
+            'clipping_type': 'norm',
+            'clipping_threshold': 0.1
+        },
+    },
     Alibi: None,  # NLP settings needed
     AugMix: simple_vision_settings,
     BlurPool: {
