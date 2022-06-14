@@ -362,10 +362,21 @@ stage('Build') {
                         booleanParam(name: 'P_MOUNT_KANIKO_CREDENTIALS', value: true),
                     ]
                 )
-                def subJobs = [:]
-                scheduleJob(subJobs, stagingImage, buildArgs)
-                subJobs.failFast = true
-                parallel(subJobs)
+                Boolean isPyTorchImage = false
+
+                buildArgs['TAGS'].each { tag ->
+                    if (tag.startsWith('mosaicml/pytorch')) {
+                        isPyTorchImage = true
+                    }
+                }
+                if (isPyTorchImage) {
+                    // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images,
+                    // not 'mosaicml/composer'
+                    def subJobs = [:]
+                    scheduleJob(subJobs, stagingImage, buildArgs)
+                    subJobs.failFast = true
+                    parallel(subJobs)
+                }
             }]
         }
         else {
