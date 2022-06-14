@@ -29,18 +29,19 @@ except ImportError:
 
 try:
     import paramiko
-    _PARAMIKO_AVAILABLE = True
-    del paramiko
+    import mockssh
+    _SFTP_AVAILABLE = True
+    del paramiko, mockssh
 except ImportError:
-    _PARAMIKO_AVAILABLE = False
+    _SFTP_AVAILABLE = False
 
 _object_store_marks = {
     LibcloudObjectStore: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
     LibcloudObjectStoreHparams: [pytest.mark.skipif(not _LIBCLOUD_AVAILABLE, reason='Missing dependency')],
     S3ObjectStore: [pytest.mark.skipif(not _BOTO3_AVAILABLE, reason='Missing dependency')],
     S3ObjectStoreHparams: [pytest.mark.skipif(not _BOTO3_AVAILABLE, reason='Missing dependency')],
-    SFTPObjectStore: [pytest.mark.skipif(not _PARAMIKO_AVAILABLE, reason='Missing dependency')],
-    SFTPObjectStoreHparams: [pytest.mark.skipif(not _PARAMIKO_AVAILABLE, reason='Missing dependency')],
+    SFTPObjectStore: [pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency')],
+    SFTPObjectStoreHparams: [pytest.mark.skipif(not _SFTP_AVAILABLE, reason='Missing dependency')],
 }
 
 object_store_kwargs: Dict[Union[Type[ObjectStore], Type[ObjectStoreHparams]], Dict[str, Any]] = {

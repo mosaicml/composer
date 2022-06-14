@@ -3,8 +3,9 @@
 
 """Utility for uploading to and downloading from cloud object stores."""
 import os
+import pathlib
 import uuid
-from typing import Optional
+from typing import Callable, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
@@ -16,11 +17,13 @@ class SFTPObjectStore(ObjectStore):
     """Utility for uploading to and downloading to a server via SFTP.
 
     Args:
-        host (str): The server to connect to
+        host (str): The server to connect to. Also accepts a string in the form 'username@host'
         port (int, optional): The server port to connect to. Defaults to 22
-        username (str, optional): The username to authenticate. Defaults to current username.
-        key_file_path (str, optional): The filename of private key. 
-        cwd (Optional[str]): The directory to navigate to upon creating the SSH connection.
+        username (str, optional): The username to authenticate. Raises an exception if username is not
+            passed in and also cannot be read from the host argument.
+        key_file_path (str, optional): The filename of the private key. 
+        cwd (str, optional): The directory to navigate to upon creating the SSH connection. If not present
+            it will be created.
     """
 
     def __init__(self,
@@ -65,28 +68,34 @@ class SFTPObjectStore(ObjectStore):
     def get_object_size(self, object_name: str) -> int:
         return self.sftp_client.stat(object_name).st_size
 
-    def upload_object(self, file_path: str, object_name: str):
-        tmp_path = object_name + f'.{uuid.uuid4()}.tmp'
-
+    def upload_object(self, object_name: str, filename: Union[str, pathlib.Path], callback: Optional[Callable[[int, int], None]] = None) -> None:
         dirname = os.path.dirname(object_name)
         self.ssh_client.exec_command(f'mkdir -p {dirname}')
-
         try:
-            self.sftp_client.put(file_path, tmp_path, confirm=True)
+            self.sftp_client.put(filename, object_name, callback=callback, confirm=True)
         except IOError:
             raise ObjectStoreTransientError
-        else:
-            self.sftp_client.rename(tmp_path, object_name)
 
-    def download_object(self, object_name: str, destination_path: str):
-        dirname = os.path.dirname(destination_path)
+    def download_object(self, object_name: str, filename: Union[str, pathlib.Path], overwrite: bool = False, callback: Optional[Callable[[int,int],None]] = None) -> None:
+        dirname = os.path.dirname(filename)
         os.makedirs(dirname, exist_ok=True)
 
-        tmp_path = destination_path + f'.{uuid.uuid4()}.tmp'
+        if os.path.exists(filename) and not overwrite:
+            raise FileExistsError(f'The file at {filename} already exists')
 
+        tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
+        
         try:
-            self.sftp_client.get(remotepath=object_name, localpath=tmp_path)
+            self.sftp_client.get(remotepath=object_name, localpath=tmp_path, callback=callback)
         except IOError:
+            # Make a best effort attempt to clean up the temporary file
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
             raise ObjectStoreTransientError
         else:
-            os.replace(tmp_path, destination_path)
+            if overwrite:
+                os.replace(tmp_path, filename)
+            else:
+                os.rename(tmp_path, filename)
