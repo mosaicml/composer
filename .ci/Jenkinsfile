@@ -34,6 +34,7 @@ pytestGpuImageTagsToTest = [
     'mosaicml/pytorch:latest',
     'mosaicml/pytorch_vision:latest',
 ]
+devInstallTestImage = 'mosaicml/pytorch:latest_cpu' // the image to use for the dev test installs
 
 // Lint settings
 lintImage = 'mosaicml/pytorch_vision:latest_cpu'
@@ -194,6 +195,7 @@ void scheduleJob(jobs, String image, buildArgs) {
     String markers = 'not daily and not remote'
     Boolean isLintImage = false
     Boolean isVisionImage = false
+    Boolean isDevTestInstallImage = false
     Boolean isGpu = false
     String tag = ''
     buildArgs.each { key, val ->
@@ -209,6 +211,7 @@ void scheduleJob(jobs, String image, buildArgs) {
             tag = val[0]
             val.each { tagName ->
                 isLintImage = isLintImage || tagName == lintImage
+                isDevTestInstallImage = isDevTestInstallImage || tagName == devInstallTestImage
             }
         }
     }
@@ -231,10 +234,14 @@ void scheduleJob(jobs, String image, buildArgs) {
     jobs << [
         "Pytest - ${tag}" : { -> runPytest(image, markers, extraDeps, isGpu) }
     ]
+    if (isDevTestInstallImage) {
+        jobs << [
+            'Pytest - extraDeps=dev': { -> runPytest(image, markers, 'dev', isGpu) },
+        ]
+    }
     if (isLintImage) {
         // and run lint and a dev install on this image
         jobs << [
-            'Pytest - extraDeps=dev': { -> runPytest(image, markers, 'dev', isGpu) },
             'Lint': { -> runLint(image) },
         ]
     }
@@ -394,6 +401,7 @@ stage('Build') {
                         string(name: 'P_EPHEMERAL_STORAGE_LIMIT', value: condaMemLimit),
                         string(name: 'P_DOCKER_IMAGE', value: condaBuildDockerImage),
                         string(name: 'P_TIMEOUT', value: condaTimeout), // Conda builds take longer
+                        string(name: 'POD_TIMEOUT', value: condaTimeout),
                         string(name: 'P_CPU_LIMIT', value: condaCpuLimit),
                         string(name: 'P_MEM_LIMIT', value: condaMemLimit),  // must include the ephemeral storage limit
                         string(name: 'P_COMMAND', value: './.ci/build_conda.sh')
