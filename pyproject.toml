@@ -79,7 +79,14 @@ markers = [
 ]
 filterwarnings = [
     "error",  # Mark all warnings as errors
-    "default::DeprecationWarning",  # But treat all deprecation warnings as warnings
+
+    # Treat the warnings that python usually would ignore as warnings, not errors.
+    "default::DeprecationWarning",
+    'default::PendingDeprecationWarning',
+    'default::ImportWarning',
+    'ignore::ResourceWarning',  # Ignore these -- they are from errors like CPU OOMs
+
+    # Ignore the following warnings
     'ignore:Deterministic mode is activated:UserWarning',  # All tests run with deterministic mode
     'ignore:SubsetNumBatchesWarning',  # SubsetNumBatches is used extensively in testing
     # allow training metrics
