@@ -38,6 +38,8 @@ class SFTPObjectStore(ObjectStore):
         self.key_file_path = key_file_path
         self.cwd = cwd
 
+        if '@' in host:
+            self.username, self.host, *_ = self.host.split('@')
         try:
             from paramiko import SSHClient
         except ImportError as e:
