@@ -81,6 +81,9 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
 
 
 def _get_composer_tags(composer_version: str, use_cuda: bool):
+    if not composer_version:
+        composer_version = 'latest'
+    composer_version = composer_version.lstrip('=')
     tag = f'mosaicml/composer:{composer_version}'
     if not use_cuda:
         tag += '_cpu'
@@ -150,7 +153,7 @@ def _main():
 
     composer_entries = []
 
-    composer_versions = ['latest', '0.7.1']  # Only build images for the latest composer version
+    composer_versions = ['', '==0.7.1']  # Only build images for the latest composer version
     composer_python_versions = ['3.9']  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
@@ -166,7 +169,7 @@ def _main():
             'PYTORCH_VERSION': pytorch_version,
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-            'COMPOSER_VERSION': '' if composer_version == 'latest' else composer_version,
+            'COMPOSER_VERSION': composer_version,
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
                 use_cuda=use_cuda,
@@ -206,7 +209,7 @@ def _main():
     table = []
     for entry in composer_entries:
         table.append([
-            'latest' if entry['COMPOSER_VERSION'] == '' else entry['COMPOSER_VERSION'],  # Pytorch version
+            entry['COMPOSER_VERSION'].lstrip('=') or 'latest',  # Pytorch version
             'No' if entry['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
             ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
         ])
