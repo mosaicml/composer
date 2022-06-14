@@ -15,7 +15,7 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["AGC", "apply_agc"]
+__all__ = ['AGC', 'apply_agc']
 
 
 def apply_agc(

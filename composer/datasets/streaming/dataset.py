@@ -278,7 +278,11 @@ class StreamingDataset(IterableDataset):
             with self._lock:
                 todo_ids = self._epoch_to_todo_ids[epoch]
                 if todo_ids:
-                    return todo_ids.pop(0)
+                    # Higher perf to pop last, but shuffle=False wants in-order traversal
+                    if self.shuffle:
+                        return todo_ids.pop(-1)
+                    else:
+                        return todo_ids.pop(0)
                 elif self._is_downloaded:
                     del self._epoch_to_todo_ids[epoch]
                     return None

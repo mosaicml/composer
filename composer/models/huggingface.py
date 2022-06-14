@@ -15,7 +15,7 @@ from composer.models.base import ComposerModel
 if TYPE_CHECKING:
     import transformers
 
-__all__ = ["HuggingFaceModel"]
+__all__ = ['HuggingFaceModel']
 
 
 class HuggingFaceModel(ComposerModel):

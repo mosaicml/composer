@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from composer.core.state import State
     from composer.loggers.logger_destination import LoggerDestination
 
-__all__ = ["LoggerDestination", "Logger", "LogLevel", "format_log_data_value"]
+__all__ = ['LoggerDestination', 'Logger', 'LogLevel', 'format_log_data_value']
 
 
 class LogLevel(IntEnum):
@@ -180,17 +180,17 @@ def format_log_data_value(data: Any) -> str:
         str: ``data`` as a string.
     """
     if data is None:
-        return "None"
+        return 'None'
     if isinstance(data, str):
         return f"\"{data}\""
     if isinstance(data, int):
         return str(data)
     if isinstance(data, float):
-        return f"{data:.4f}"
+        return f'{data:.4f}'
     if isinstance(data, torch.Tensor):
         if data.shape == () or reduce(operator.mul, data.shape, 1) == 1:
             return format_log_data_value(data.cpu().item())
-        return "Tensor of shape " + str(data.shape)
+        return 'Tensor of shape ' + str(data.shape)
     if isinstance(data, collections.abc.Mapping):
         output = ['{ ']
         for k, v in data.items():
@@ -198,9 +198,9 @@ def format_log_data_value(data: Any) -> str:
             v = format_log_data_value(v)
             output.append(f"\"{k}\": {v}, ")
         output.append('}')
-        return "".join(output)
+        return ''.join(output)
     if isinstance(data, collections.abc.Iterable):
-        return "[" + ", ".join(format_log_data_value(v) for v in data) + "]"
+        return '[' + ', '.join(format_log_data_value(v) for v in data) + ']'
 
     # Unknown format catch-all
     return str(data)

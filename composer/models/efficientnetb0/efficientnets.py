@@ -16,7 +16,7 @@ import torch.nn as nn
 from composer.models.efficientnetb0._layers import (DepthwiseSeparableConv, MBConvBlock, calculate_same_padding,
                                                     round_channels)
 
-__all__ = ["EfficientNet"]
+__all__ = ['EfficientNet']
 
 
 class EfficientNet(nn.Module):
@@ -63,7 +63,7 @@ class EfficientNet(nn.Module):
         self.num_classes = num_classes
 
         if norm_kwargs is None:
-            norm_kwargs = {"momentum": 0.1, "eps": 1e-5}
+            norm_kwargs = {'momentum': 0.1, 'eps': 1e-5}
 
         in_channels = 3
         out_channels = round_channels(32, width_multiplier)
@@ -92,12 +92,12 @@ class EfficientNet(nn.Module):
         for block_string in self._blocks_strings:
             block_args, num_repeat = self._decode_block_string(block_string)
             # Scale channels and number of repeated blocks based on multipliers
-            block_args["in_channels"] = round_channels(
-                block_args["in_channels"],
+            block_args['in_channels'] = round_channels(
+                block_args['in_channels'],
                 width_multiplier,
             )
-            block_args["out_channels"] = round_channels(
-                block_args["out_channels"],
+            block_args['out_channels'] = round_channels(
+                block_args['out_channels'],
                 width_multiplier,
             )
             num_repeat = int(math.ceil(depth_multiplier * num_repeat))
@@ -216,11 +216,11 @@ class EfficientNet(nn.Module):
                 args[key] = value
         num_repeat = int(args['r'])
         block_args = {
-            "kernel_size": int(args['k']),
-            "stride": int(args['s']),
-            "expand_ratio": int(args['e']),
-            "in_channels": int(args['i']),
-            "out_channels": int(args['o']),
-            "se_ratio": float(args['se']) if 'se' in args else None,
+            'kernel_size': int(args['k']),
+            'stride': int(args['s']),
+            'expand_ratio': int(args['e']),
+            'in_channels': int(args['i']),
+            'out_channels': int(args['o']),
+            'se_ratio': float(args['se']) if 'se' in args else None,
         }
         return block_args, num_repeat

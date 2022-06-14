@@ -46,7 +46,7 @@ dependenciesChanged = false // Whether meta.yaml or setup.py have changed, (if s
 condaCpuLimit = '4'
 condaMemLimit = '20Gi' // memory limit for ram and ephemeral storage
 condaBuildDockerImage = 'continuumio/anaconda-pkg-build:2022.02.09-amd64'  // Docker image for conda builds
-condaTimeout = '3600' // timeout for conda builds, in seconds
+condaTimeout = '7200' // timeout for conda builds, in seconds
 
 // Jenkins settings
 numDaysOfBuildsToKeep = '7' // number of days to keep builds (so Jenkins doesn't crash)

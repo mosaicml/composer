@@ -15,7 +15,7 @@ def list_dirs(folder):
         folder (str): The folder to list dirs for.
     """
     return sorted(
-        child.name for child in folder.iterdir() if child.is_dir() and ("__pycache__" not in str(child.absolute())))
+        child.name for child in folder.iterdir() if child.is_dir() and ('__pycache__' not in str(child.absolute())))
 
 
 def assert_attributes_exist(name, module_dict, attributes):
@@ -28,7 +28,7 @@ def assert_attributes_exist(name, module_dict, attributes):
     """
     for attribute in attributes:
         assert attribute in module_dict, \
-        f"{name} should define {attribute} in its __init__.py file."
+        f'{name} should define {attribute} in its __init__.py file.'
 
 
 def get_metadata(names, attributes, module_basepath):
@@ -58,7 +58,7 @@ def get_metadata(names, attributes, module_basepath):
         if hasattr(module, '_metadata'):
             for subname in getattr(module, '_metadata'):
                 submodule_dict = getattr(module, '_metadata')[subname]
-                assert_attributes_exist(f"{name}/{subname}", submodule_dict, attributes)
+                assert_attributes_exist(f'{name}/{subname}', submodule_dict, attributes)
 
                 metadata[subname] = {a: submodule_dict[a] for a in attributes}
 
@@ -147,7 +147,7 @@ def update_table_in_file(table, source_file):
         table_end = index_tag_in_lines(source_lines, tag='Table End')
         print(f'Found table_start tag at line no: {table_start}')
         print(f'Found table_end tag at line no: {table_end}')
-        assert table_end > table_start, "Table End must be after Table Start"
+        assert table_end > table_start, 'Table End must be after Table Start'
 
         table_written = False
         for line_no, line in enumerate(source_lines):

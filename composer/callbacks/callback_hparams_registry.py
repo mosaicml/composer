@@ -18,12 +18,12 @@ from composer.callbacks.threshold_stopper import ThresholdStopper
 from composer.core import Callback
 
 callback_registry: Dict[str, Union[Type[Callback], Type[hp.Hparams]]] = {
-    "checkpoint_saver": CheckpointSaver,
-    "speed_monitor": SpeedMonitor,
-    "lr_monitor": LRMonitor,
-    "grad_monitor": GradMonitor,
-    "memory_monitor": MemoryMonitor,
-    "mlperf": MLPerfCallback,
-    "early_stopper": EarlyStopper,
-    "threshold_stopper": ThresholdStopper,
+    'checkpoint_saver': CheckpointSaver,
+    'speed_monitor': SpeedMonitor,
+    'lr_monitor': LRMonitor,
+    'grad_monitor': GradMonitor,
+    'memory_monitor': MemoryMonitor,
+    'mlperf': MLPerfCallback,
+    'early_stopper': EarlyStopper,
+    'threshold_stopper': ThresholdStopper,
 }

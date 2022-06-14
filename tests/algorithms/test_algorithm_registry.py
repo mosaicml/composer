@@ -11,7 +11,7 @@ from composer.models.base import ComposerModel
 from tests.algorithms.algorithm_settings import get_alg_dataset, get_alg_kwargs, get_alg_model, get_algs_with_marks
 
 
-@pytest.mark.parametrize("alg_cls", get_algs_with_marks())
+@pytest.mark.parametrize('alg_cls', get_algs_with_marks())
 def test_algorithm_settings(alg_cls: Type[Algorithm]):
     alg_kwargs = get_alg_kwargs(alg_cls)
     alg_instance = alg_cls(**alg_kwargs)

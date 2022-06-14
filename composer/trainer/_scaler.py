@@ -10,7 +10,7 @@ from torch.optim import Optimizer
 
 from composer.utils import dist
 
-__all__ = ["ClosureGradScaler"]
+__all__ = ['ClosureGradScaler']
 
 
 class ClosureGradScaler(GradScaler):
@@ -34,26 +34,26 @@ class ClosureGradScaler(GradScaler):
 
     def _force_scaler_ready(self, optimizer: Optimizer):
         optimizer_state = self._per_optimizer_states[id(optimizer)]
-        optimizer_state["stage"] = OptState.READY
+        optimizer_state['stage'] = OptState.READY
 
     def _empty_all_grads(self, optimizer):
         for group in optimizer.param_groups:
-            for param in group["params"]:
+            for param in group['params']:
                 if param.grad is not None:
                     param.grad = None
 
     def _unscale_grads_and_continue(self, optimizer: Optimizer):
         if (not self._enabled):
             return True
-        self._check_scale_growth_tracker("step")
+        self._check_scale_growth_tracker('step')
         optimizer_state = self._per_optimizer_states[id(optimizer)]
 
-        if optimizer_state["stage"] is OptState.STEPPED:
-            raise RuntimeError("step() has already been called since the last update().")
+        if optimizer_state['stage'] is OptState.STEPPED:
+            raise RuntimeError('step() has already been called since the last update().')
 
-        if optimizer_state["stage"] is OptState.READY:
+        if optimizer_state['stage'] is OptState.READY:
             self.unscale_(optimizer)
-        inf_detected = sum(v.item() for v in optimizer_state["found_inf_per_device"].values())
+        inf_detected = sum(v.item() for v in optimizer_state['found_inf_per_device'].values())
         return not inf_detected
 
     def step(self, optimizer: Optimizer, *args, **kwargs):
@@ -62,7 +62,7 @@ class ClosureGradScaler(GradScaler):
         Always called before the optimizer step. Checks if the optimizer can handle AMP closures (currently only
         Composer's SAM optimizer) If so, it passes an AMP-modified closure to the optimizer.
         """
-        closure = kwargs["closure"]
+        closure = kwargs['closure']
 
         def _amp_closure(**kwargs):
             self._force_scaler_ready(optimizer)
@@ -102,14 +102,14 @@ class ClosureGradScaler(GradScaler):
         if not self._enabled:
             return
 
-        _scale, _growth_tracker = self._check_scale_growth_tracker("update")
+        _scale, _growth_tracker = self._check_scale_growth_tracker('update')
 
         if new_scale is not None:
             # Accept a new user-defined scale.
             if isinstance(new_scale, float):
                 self._scale.fill_(new_scale)  # type: ignore[union-attr]
             else:
-                reason = "new_scale should be a float or a 1-element torch.cuda.FloatTensor with requires_grad=False."
+                reason = 'new_scale should be a float or a 1-element torch.cuda.FloatTensor with requires_grad=False.'
                 assert isinstance(new_scale, torch.cuda.FloatTensor), reason  # type: ignore[attr-defined]
                 assert new_scale.numel() == 1, reason
                 assert new_scale.requires_grad is False, reason
@@ -120,10 +120,10 @@ class ClosureGradScaler(GradScaler):
             found_infs = [
                 found_inf.to(device=_scale.device, non_blocking=True)
                 for state in self._per_optimizer_states.values()
-                for found_inf in state["found_inf_per_device"].values()
+                for found_inf in state['found_inf_per_device'].values()
             ]
 
-            assert len(found_infs) > 0, "No inf checks were recorded prior to update."
+            assert len(found_infs) > 0, 'No inf checks were recorded prior to update.'
 
             found_inf_combined = found_infs[0]
             if len(found_infs) > 1:
@@ -131,7 +131,7 @@ class ClosureGradScaler(GradScaler):
                     found_inf_combined += found_infs[i]
 
             # This is the only line changed from original grad_scaler implementation
-            dist.all_reduce(found_inf_combined, reduce_operation="SUM")
+            dist.all_reduce(found_inf_combined, reduce_operation='SUM')
 
             torch._amp_update_scale_(_scale, _growth_tracker, found_inf_combined, self._growth_factor,
                                      self._backoff_factor, self._growth_interval)

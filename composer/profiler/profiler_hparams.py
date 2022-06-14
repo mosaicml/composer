@@ -21,12 +21,12 @@ from composer.profiler.profiler_schedule import cyclic_schedule
 from composer.profiler.trace_handler import TraceHandler
 
 __all__ = [
-    "trace_handler_registry",
-    "profiler_scheduler_registry",
+    'trace_handler_registry',
+    'profiler_scheduler_registry',
 ]
 
 trace_handler_registry: Dict[str, Union[Type[TraceHandler], Type[hp.Hparams]]] = {
-    "json": JSONTraceHandler,
+    'json': JSONTraceHandler,
 }
 
 ProfilerScheduler = Callable[[State], ProfilerAction]

@@ -36,10 +36,10 @@ def get(in_root: str, split: str, shuffle: bool) -> List[Tuple[str, str, str]]:
     # Get uids
     image_glob_pattern = f'{in_root}/images/{split}/ADE_{split}_*.jpg'
     images = sorted(glob(image_glob_pattern))
-    uids = [s.strip(".jpg")[-8:] for s in images]
+    uids = [s.strip('.jpg')[-8:] for s in images]
 
     # Remove some known corrupted uids from 'train' split
-    if split == "train":
+    if split == 'train':
         corrupted_uids = ['00003020', '00001701', '00013508', '00008455']
         uids = [uid for uid in uids if uid not in corrupted_uids]
 
@@ -64,7 +64,7 @@ def each(samples: List[Tuple[str, str, str]]) -> Iterable[Dict[str, Any]]:
         Sample dicts.
     """
     for (uid, image_file, annotation_file) in samples:
-        uid = uid.encode("utf-8")
+        uid = uid.encode('utf-8')
         image = open(image_file, 'rb').read()
         annotation = open(annotation_file, 'rb').read()
         yield {
@@ -83,8 +83,8 @@ def main(args: Namespace) -> None:
     fields = ['uid', 'image', 'annotation']
 
     for (split, expected_num_samples, shuffle) in [
-        ("train", 20206, True),
-        ("val", 2000, False),
+        ('train', 20206, True),
+        ('val', 2000, False),
     ]:
         # Get samples
         samples = get(in_root=args.in_root, split=split, shuffle=shuffle)
