@@ -25,14 +25,12 @@ def assert_is_fln_instance(model: BERTModel):
     from apex.normalization.fused_layer_norm import FusedLayerNorm as APEXFusedLayerNorm
 
     # ensure that within the entire model, no PyTorch LayerNorm exists, and at least one APEX FLN does.
-    found_apex_layernorm = False
     for module_class in model.modules():
-        if isinstance(module_class, LayerNorm):
-            raise Exception('A torch.nn.LayerNorm should not be found in the model after surgery is applied.')
-        if isinstance(module_class, APEXFusedLayerNorm):
-            found_apex_layernorm = True
+        assert not isinstance(
+            module_class, LayerNorm), 'A torch.nn.LayerNorm should not be found in the model after surgery is applied.'
 
-    assert found_apex_layernorm
+    assert any(isinstance(module_class, APEXFusedLayerNorm) for module_class in model.modules()
+              ), "apex.normalization.fused_layer_norm is not found in the post-surgery model."
 
 
 @device('gpu')

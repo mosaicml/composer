@@ -141,7 +141,7 @@ class LMDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
         indices_cache_file_name = join(tempfile.gettempdir(), f'{self.seed}.indices')
 
         # shuffle the dataset
-        lm_datasets = lm_datasets.shuffle(indices_cache_file_name=indices_cache_file_name, seed=self.seed)
+        # lm_datasets = lm_datasets.shuffle(indices_cache_file_name=indices_cache_file_name, seed=self.seed)
 
         total_num_samples = len(lm_datasets)
         tokens_per_sample = len(lm_datasets[0]['input_ids'])  #type: ignore (thirdparty)

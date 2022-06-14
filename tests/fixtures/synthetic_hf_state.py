@@ -15,6 +15,7 @@ from tests.datasets import test_synthetic_lm_data
 
 
 def make_dataset_configs(model_family=('bert', 'gpt2')) -> list:
+    model_family = list(model_family)
     lm_dataset_configs = [
         config[0] for config in test_synthetic_lm_data.generate_parameter_configs(
             ['num_samples', 'chars_per_sample', 'column_names', 'tokenizer_family'], model_family=model_family)
@@ -43,6 +44,7 @@ def make_dummy_lm(model_name: str, max_position_embeddings: int, tokenizer):
     model_config = generate_dummy_model_config(class_name, tokenizer)
     model_config['max_position_embeddings'] = max_position_embeddings
     model = class_name(model_config=model_config).initialize_object()
+    model.eval()
     return model
 
 
