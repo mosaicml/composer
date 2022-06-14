@@ -192,7 +192,7 @@ def _main():
             'Ubuntu 20.04',  # Linux distro
             'Base' if entry['TARGET'] == 'pytorch_stage' else 'Vision',  # Flavor
             entry['PYTORCH_VERSION'],  # Pytorch version
-            entry['CUDA_VERSION'],  # Cuda version
+            entry['CUDA_VERSION'] or 'cpu',  # Cuda version
             entry['PYTHON_VERSION'],  # Python version,
             ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
         ])
