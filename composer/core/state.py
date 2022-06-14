@@ -272,6 +272,7 @@ class State(Serializable):
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
+        self.deepspeed_config: Any = None
         self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
@@ -411,6 +412,10 @@ class State(Serializable):
     @evaluators.setter
     def evaluators(self, evaluators: Union[Evaluator, Sequence[Evaluator]]):
         self._evaluators[:] = list(ensure_tuple(evaluators))
+
+    @property
+    def deepspeed_enabled(self):
+        return self.deepspeed_config is not None
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
