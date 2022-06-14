@@ -86,6 +86,7 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_wi
     state.profiler.marker = Mock(return_value=None)
     state.callbacks = []
     state.deepspeed_enabled = False
+    state.deepspeed_config = None
     state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=0.01)]
     logger = Mock()
     engine = Engine(state, logger)
