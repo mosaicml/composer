@@ -200,7 +200,7 @@ void scheduleJob(jobs, String image, buildArgs) {
     String tag = ''
     buildArgs.each { key, val ->
         if (key == 'CUDA_VERSION') {
-            if (val != 'cpu') {
+            if (val != '') {
                 isGpu = true
             }
         }
@@ -371,16 +371,20 @@ stage('Build') {
         else {
             // If not rebuilding the docker image, then run CPU tests acorss all images,
             // and run GPU tests only on the "latest" image
-            Boolean isCpuImage = buildArgs['CUDA_VERSION'] == 'cpu'
+            Boolean isCpuImage = buildArgs['CUDA_VERSION'] == ''
             Boolean shouldRunGpuTests = false
+            Boolean isPyTorchImage = false
 
             buildArgs['TAGS'].each { tag ->
                 if (pytestGpuImageTagsToTest.contains(tag)) {
                     shouldRunGpuTests = true
                 }
+                if (tag.startsWith("mosaicml/pytorch")) {
+                    isPyTorchImage = true
+                }
             }
 
-            if (isCpuImage || shouldRunGpuTests) {
+            if ((isCpuImage || shouldRunGpuTests) && isPyTorchImage) {
                 String existingImageTag = buildArgs['TAGS'][0]
                 scheduleJob(jobs, existingImageTag, buildArgs)
             }
