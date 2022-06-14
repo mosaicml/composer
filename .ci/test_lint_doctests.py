@@ -70,10 +70,7 @@ def test_docker_build_matrix():
 
     # Run the script
     check_output(
-        subprocess.run(['python', 'generate_build_matrix.py'],
-                       cwd=docker_folder / 'pytorch',
-                       capture_output=True,
-                       text=True))
+        subprocess.run(['python', 'generate_build_matrix.py'], cwd=docker_folder, capture_output=True, text=True))
 
     # Assert that the files did not change
 

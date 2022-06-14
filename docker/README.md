@@ -1,13 +1,16 @@
 # Docker
 
-To simplify environment setup for the MosaicML `Composer` library, we provide a set of Docker Images that users can
-leverage.
+To simplify environment setup for Composer, we provide a set of pre-built Docker images.
 
 ## Composer Images
 
-The [mosaicml/composer](https://hub.docker.com/r/mosaicml/composer) images contain all Composer pre-installed with all dependencies for both NLP and Vision models. They are built on top of the [`mosaicml/pytorch_vision`](https://hub.docker.com/r/mosaicml/pytorch_vision) family of images. (See the section on [MosaicML PyTorch Images](#pytorch-images) below.)
+The [`mosaicml/composer`](https://hub.docker.com/r/mosaicml/composer) images contain all Composer pre-installed with
+all dependencies for both NLP and Vision models. They are built on top of the
+[`mosaicml/pytorch_vision`](https://hub.docker.com/r/mosaicml/pytorch_vision) family of images.
+(See the section on [MosaicML PyTorch Images](#pytorch-images) below.)
 
-**Note**: Only the Dockerimage for most recent version of Composer will be maintained. We recommend using `mosaicml/composer:latest` or `mosaicml/composer:latest_cpu`, which will always be up to date.
+**Note**: Only the Dockerimage for most recent version of Composer will be maintained. We recommend using
+`mosaicml/composer:latest` or `mosaicml/composer:latest_cpu`, which will always be up to date.
 
 <!-- BEGIN_COMPOSER_BUILD_MATRIX -->
 | Composer Version   | CUDA Support   | Docker Tag                     |
@@ -19,12 +22,14 @@ The [mosaicml/composer](https://hub.docker.com/r/mosaicml/composer) images conta
 <!-- END_COMPOSER_BUILD_MATRIX -->
 
 
-**Note**: For a lightweight installation, we recommended using a [MosaicML PyTorch Image](#pytorch-images) and manually installing Composer within the image.
+**Note**: For a lightweight installation, we recommended using a [MosaicML PyTorch Image](#pytorch-images) and manually
+installing Composer within the image.
 
 ## PyTorch Images
 
-The [mosaicml/pytorch](https://hub.docker.com/r/mosaicml/pytorch) images contain PyTorch preinstalled, without Composer. The `Base` flavor of Docker Images contains PyTorch pre-installed; the `Vision` flavor also includes OpenCV,
-MM Segmentation, and FFCV dependencies. To install composer, once inside the image, run `pip install mosaicml`.
+The [`mosaicml/pytorch`](https://hub.docker.com/r/mosaicml/pytorch) images contain PyTorch preinstalled, without Composer.
+The base flavor contains PyTorch pre-installed; the vision flavor also includes OpenCV, MM Segmentation, and FFCV dependencies.
+To install composer, once inside the image, run `pip install mosaicml`.
 
 <!-- BEGIN_PYTORCH_BUILD_MATRIX -->
 | Linux Distro   | Flavor   | PyTorch Version   | CUDA Version   | Python Version   | Docker Tags                                                                                      |
@@ -41,9 +46,11 @@ MM Segmentation, and FFCV dependencies. To install composer, once inside the ima
 
 ``Pillow-SIMD`` is installed by default in all images.
 
-### Pulling Images
+## Pulling Images
 
-Pre-built images can be pulled from [MosaicML's DockerHub Repository](https://hub.docker.com/u/mosaicml):
+Pre-built images can be pulled from [MosaicML's DockerHub Repository](https://hub.docker.com/u/mosaicml).
+
+For example:
 
 <!--pytest-codeblocks:skip-->
 ```bash
