@@ -23,6 +23,13 @@ from composer.utils import module_surgery
 log = logging.getLogger(__name__)
 
 
+def check_if_apex_installed():
+    if not APEX_INSTALLED:
+        raise ImportError(
+            'https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied. The MosaicML Docker Images (https://hub.docker.com/r/mosaicml/pytorch) contain a copy of APEX for easy use.'
+        )
+
+
 def from_LayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerNorm:
     """Defines a replacement policy from a `torch.nn.LayerNorm` to a `apex.normalization.fused_layer_norm`"""
     assert isinstance(layer,
@@ -37,9 +44,7 @@ def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.
 
     By fusing multiple kernel launches into one, this usually improves GPU utilization.
     """
-    if not APEX_INSTALLED:
-        raise ImportError(
-            'https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied.')
+    check_if_apex_installed()
 
     # prepare the replacement policy and perform replacement
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.LayerNorm: from_LayerNorm}
@@ -90,9 +95,7 @@ class FusedLayerNorm(Algorithm):
 
     def __init__(self):
         # FusedLayerNorm takes no arguments
-        if not APEX_INSTALLED:
-            raise ImportError(
-                'https://github.com/NVIDIA/apex is not installed. The Fused LayerNorm algorithm cannot be applied.')
+        check_if_apex_installed()
 
     def match(self, event: Event, state: State) -> bool:
         del state  # unused

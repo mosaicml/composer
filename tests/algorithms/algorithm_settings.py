@@ -11,7 +11,7 @@ Each algorithm is keyed based on its name in the algorithm registry.
 from typing import Any, Dict, Optional, Type
 
 import pytest
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 import composer
 from composer import Algorithm
@@ -26,14 +26,14 @@ from tests.fixtures.synthetic_hf_state import (make_synthetic_bert_dataloader, m
                                                make_synthetic_gpt2_dataloader, make_synthetic_gpt2_model)
 
 simple_bert_settings = {
-    'model': make_synthetic_bert_model(),
-    'dataloader': make_synthetic_bert_dataloader(),
+    'model': make_synthetic_bert_model,
+    'dataloader': make_synthetic_bert_dataloader,
     'kwargs': {},
 }
 
 simple_gpt2_settings = {
-    'model': make_synthetic_gpt2_model(),
-    'dataloader': make_synthetic_gpt2_dataloader(),
+    'model': make_synthetic_gpt2_model,
+    'dataloader': make_synthetic_gpt2_dataloader,
     'kwargs': {},
 }
 
@@ -167,8 +167,6 @@ def get_alg_kwargs(alg_cls: Type[Algorithm]) -> Dict[str, Any]:
 def get_alg_model(alg_cls: Type[Algorithm]) -> ComposerModel:
     """Return an instance of the model for an algorithm."""
     settings = _get_alg_settings(alg_cls)['model']
-    if isinstance(settings, ComposerModel):
-        return settings
     if isinstance(settings, tuple):
         (cls, kwargs) = settings
     else:
@@ -179,18 +177,23 @@ def get_alg_model(alg_cls: Type[Algorithm]) -> ComposerModel:
 def get_alg_dataloader(alg_cls: Type[Algorithm]) -> DataLoader:
     """Return an instance of the dataset for an algorithm."""
     settings = _get_alg_settings(alg_cls)
+
     if 'dataloader' in settings:
-        return settings['dataloader']
+        settings = settings['dataloader']
     elif 'dataset' in settings:
-        dataset_settings = settings['dataset']
-        if isinstance(dataset_settings, tuple):
-            (cls, kwargs) = dataset_settings
-        else:
-            (cls, kwargs) = (dataset_settings, {})
-        dataset = cls(**kwargs)
-        return DataLoader(dataset=dataset, batch_size=4)
+        settings = settings['dataset']
     else:
         raise ValueError(f'Neither dataset nor dataloader have been provided for algorithm {alg_cls}')
+
+    if isinstance(settings, tuple):
+        (cls, kwargs) = settings
+    else:
+        (cls, kwargs) = (settings, {})
+
+    data_cls = cls(**kwargs)
+    if isinstance(data_cls, Dataset):
+        data_cls = DataLoader(dataset=data_cls, batch_size=4)
+    return data_cls
 
 
 def get_algs_with_marks():
