@@ -1,5 +1,6 @@
-# For a slim CPU-only image, leave the CUDA_VERSION argument blank.
-ARG CUDA_VERSION='11.3.1'
+# For a slim CPU-only image, leave the CUDA_VERSION argument blank, and set CUDA_VERSION_TAG=cpu
+ARG CUDA_VERSION=11.3.1
+ARG CUDA_VERSION_TAG=cu113
 
 ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu20.04"}
 ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:20.04"}
@@ -8,7 +9,6 @@ ARG CUDA_VERSION=${CUDA_VERSION:-cpu}
 FROM ${BASE_IMAGE} AS pytorch_stage
 ARG DEBIAN_FRONTEND=noninteractive
 
-ARG BASE_IMAGE
 ARG CUDA_VERSION
 
 # Remove a bad symlink from the base composer image
@@ -126,7 +126,7 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
 #################
 ARG PYTORCH_VERSION=1.11.0
 ARG TORCHVISION_VERSION=0.12.0
-ARG CUDA_VERSION_TAG=cu113
+ARG CUDA_VERSION_TAG
 
 RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
@@ -224,8 +224,9 @@ RUN sudo apt-get update && \
 
 ARG MMCV_VERSION=1.4.4
 ARG MMCV_TORCH_VERSION=torch1.11.0
+ARG PYTHON_VERSION=3.9
+ARG CUDA_VERSION
 ARG CUDA_VERSION_TAG
-ARG PYTHON_VERSION
 
 RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
         ffcv==0.0.3 \
