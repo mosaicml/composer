@@ -796,7 +796,7 @@ class Trainer:
             if algorithms is not None:
                 if any(isinstance(alg, GradientClipping) for alg in algorithms):
                     warnings.warn(
-                        RuntimeWarning(
+                        UserWarning(
                             f'The GradientClipping algorithm is already specified. Ignoring grad_clip_norm={grad_clip_norm}'
                         ))
                 else:
