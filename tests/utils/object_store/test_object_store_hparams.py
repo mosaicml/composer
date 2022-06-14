@@ -18,6 +18,8 @@ def test_object_store_hparams_is_constructable(
     constructor: Type[ObjectStoreHparams],
     monkeypatch: pytest.MonkeyPatch,
 ):
+    pytest.importorskip('libcloud')
+
     # The ObjectStoreLogger needs the OBJECT_STORE_KEY set
     yaml_dict = object_store_kwargs[constructor]
     if constructor is LibcloudObjectStoreHparams:
