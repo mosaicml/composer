@@ -97,7 +97,7 @@ class StreamingC4(StreamingDataset):
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
-        text_sample = super()[idx]
+        text_sample = super().__getitem__(idx)
         token_sample = self._tokenize(text_sample)
         # Skip any token grouping, currently only supporting group_method='truncate'
         return token_sample
