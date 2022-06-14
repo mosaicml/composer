@@ -16,6 +16,7 @@ from composer.datasets.glue_hparams import GLUEHparams
 from composer.datasets.imagenet_hparams import ImagenetDatasetHparams, StreamingImageNet1kHparams
 from composer.datasets.lm_dataset_hparams import LMDatasetHparams
 from composer.datasets.mnist_hparams import MNISTDatasetHparams
+from composer.datasets.streaming_lm_datasets import StreamingLMDatasetHparams
 
 __all__ = ['dataset_registry']
 
@@ -34,4 +35,5 @@ dataset_registry = {
     'streaming_coco': StreamingCOCOHparams,
     'c4': C4DatasetHparams,
     'streaming_c4': StreamingC4Hparams,
+    'streaming_lm': StreamingLMDatasetHparams
 }
