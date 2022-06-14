@@ -194,9 +194,8 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
 ARG PYTORCH_VERSION
 ARG TORCHVISION_VERSION
 
-ARG CUDA_VERSION_TAG=$(python -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')")
-
-RUN pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
+RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')"); \
+    pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
 
@@ -299,14 +298,13 @@ ARG PYTHON_VERSION
 ARG CUPY_VERSION
 ARG CUDA_VERSION
 
-ARG CUDA_VERSION_TAG=$(python -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')")
-ARG MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')")
-
 RUN sudo pip${PYTHON_VERSION} install --no-cache-dir \
         "ffcv${FFCV_VERSION}" \
         "opencv-python=${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \
+    CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')"); \
+    MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')"); \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
         "mmcv-full${MMCV_VERSION}" \
         -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html ; \
