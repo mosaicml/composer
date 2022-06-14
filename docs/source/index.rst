@@ -61,6 +61,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/huggingface_models.ipynb
    examples/migrate_from_ptl.ipynb
    examples/early_stopping.ipynb
+   examples/streaming_dataloader_facesynthetics.ipynb
 
 
 .. toctree::
@@ -97,7 +98,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :caption: Methods Library
 
    method_cards/methods_overview.rst
-   method_cards/agc.md
    method_cards/alibi.md
    method_cards/augmix.md
    method_cards/blurpool.md
@@ -108,6 +108,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/ema.md
    method_cards/factorize.md
    method_cards/ghost_batchnorm.md
+   method_cards/gradient_clipping.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
    method_cards/mixup.md

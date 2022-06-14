@@ -6,9 +6,10 @@
 
 import os
 import shutil
-import textwrap
 import time
 from urllib.parse import urlparse
+
+from composer.utils import MissingConditionalImportError
 
 __all__ = ['download_or_wait']
 
@@ -24,10 +25,7 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
         import boto3
         from botocore.config import Config
     except ImportError as e:
-        raise ImportError(
-            textwrap.dedent("""\
-            Composer was installed without streaming support. To use streaming with Composer, run: `pip install mosaicml
-            [streaming]` if using pip or `conda install -c conda-forge monai` if using Anaconda""")) from e
+        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='boto3') from e
 
     obj = urlparse(remote)
     if obj.scheme != 's3':
@@ -35,7 +33,45 @@ def download_from_s3(remote: str, local: str, timeout: float) -> None:
 
     config = Config(read_timeout=timeout)
     s3 = boto3.client('s3', config=config)
-    s3.download_file(obj.netloc, obj.path[1:], local)
+    s3.download_file(obj.netloc, obj.path.lstrip('/'), local)
+
+
+def download_from_sftp(remote: str, local: str) -> None:
+    """Download a file from remote to local.
+    Args:
+        remote (str): Remote path (SFTP).
+        local (str): Local path (local filesystem).
+    """
+    try:
+        from paramiko import AutoAddPolicy, RSAKey, SSHClient
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
+
+    obj = urlparse(remote)
+    if obj.scheme != 'sftp':
+        raise ValueError(f"Expected obj.scheme to be 'sftp', got {obj.scheme} for remote={remote}")
+    remote_host = obj.netloc
+    remote_path = obj.path
+
+    # Read auth details from env var
+    private_key_path = os.environ['COMPOSER_SFTP_KEY_FILE']
+    pkey = RSAKey.from_private_key_file(private_key_path)
+    username = os.environ['COMPOSER_SFTP_USERNAME']
+
+    # Local tmp
+    local_tmp = local + '.tmp'
+    if os.path.exists(local_tmp):
+        os.remove(local_tmp)
+
+    with SSHClient() as ssh_client:
+        # Connect SSH Client
+        ssh_client.set_missing_host_key_policy(AutoAddPolicy)
+        ssh_client.connect(hostname=remote_host, port=22, username=username, pkey=pkey)
+
+        # SFTP Client
+        sftp_client = ssh_client.open_sftp()
+        sftp_client.get(remotepath=remote_path, localpath=local_tmp)
+    os.rename(local_tmp, local)
 
 
 def download_from_local(remote: str, local: str) -> None:
@@ -66,6 +102,8 @@ def dispatch_download(remote, local, timeout: float):
 
     if remote.startswith('s3://'):
         download_from_s3(remote, local, timeout)
+    elif remote.startswith('sftp://'):
+        download_from_sftp(remote, local)
     else:
         download_from_local(remote, local)
 
@@ -96,5 +134,5 @@ def download_or_wait(remote: str, local: str, wait: bool = False, max_retries: i
             error_msgs.append(e)
             last_error = e
             continue
-    if last_error:
+    if len(error_msgs) > max_retries:
         raise RuntimeError(f'Failed to download {remote} -> {local}. Got errors:\n{error_msgs}') from last_error
