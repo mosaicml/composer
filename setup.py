@@ -122,7 +122,8 @@ extra_deps['dev'] = [
     'pypandoc==1.8.1',
     'GitPython==3.1.27',
     'moto[s3]>=3.1.12,<3.2',
-    'mock-ssh-server==0.9.1'
+    'mock-ssh-server==0.9.1',
+    'cryptography==37.0.2',
 ]
 
 extra_deps['deepspeed'] = [

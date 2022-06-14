@@ -233,7 +233,7 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
         cwd (str, optional): See :class:`.SFTPObjectStore`.
     """
 
-    host: str = hp.auto(SFTPObjectStore, 'The server to connect to or URI for ')
+    host: str = hp.auto(SFTPObjectStore, 'host')
     port: int = hp.optional(('port'), default=22)
     username: str = hp.optional(('The username to authenticate'), default=None)
     key_file_path: str = hp.optional('The filename of the private key.', default=None)
