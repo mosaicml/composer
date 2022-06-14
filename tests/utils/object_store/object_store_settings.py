@@ -28,8 +28,8 @@ except ImportError:
     _BOTO3_AVAILABLE = False
 
 try:
-    import paramiko
     import mockssh
+    import paramiko
     _SFTP_AVAILABLE = True
     del paramiko, mockssh
 except ImportError:
