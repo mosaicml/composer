@@ -52,6 +52,7 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     resize_size: int = hp.optional('resize size. Set to -1 to not resize', default=-1)
     crop_size: int = hp.optional('crop size', default=224)
     use_ffcv: bool = hp.optional('whether to use ffcv for faster dataloading', default=False)
+    ffcv_cpu_only: bool = hp.optional('Use cpu for all transformations.', default=False)
     ffcv_dir: str = hp.optional(
         "A directory containing train/val <file>.ffcv files. If these files don't exist and ffcv_write_dataset is true, train/val <file>.ffcv files will be created in this dir.",
         default='/tmp')
@@ -124,12 +125,21 @@ class ImagenetDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
                 image_pipeline.extend([CenterCropRGBImageDecoder((self.crop_size, self.crop_size), ratio=ratio)])
                 dtype = np.float32
             # Common transforms for train and test
-            image_pipeline.extend([
-                ffcv.transforms.ToTensor(),
-                ffcv.transforms.ToDevice(this_device, non_blocking=True),
-                ffcv.transforms.ToTorchImage(),
-                ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD), dtype),
-            ])
+            if self.ffcv_cpu_only:
+                image_pipeline.extend([
+                    ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD),
+                                                   dtype),
+                    ffcv.transforms.ToTensor(),
+                    ffcv.transforms.ToTorchImage(),
+                ])
+            else:
+                image_pipeline.extend([
+                    ffcv.transforms.ToTensor(),
+                    ffcv.transforms.ToDevice(this_device, non_blocking=True),
+                    ffcv.transforms.ToTorchImage(),
+                    ffcv.transforms.NormalizeImage(np.array(IMAGENET_CHANNEL_MEAN), np.array(IMAGENET_CHANNEL_STD),
+                                                   dtype),
+                ])
 
             is_distributed = dist.get_world_size() > 1
 
