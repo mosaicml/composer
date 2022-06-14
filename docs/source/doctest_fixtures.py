@@ -61,7 +61,6 @@ if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
 from tests.common import SimpleModel
-from tests.fixtures.synthetic_hf_state import make_synthetic_bert_dataloader, make_synthetic_bert_model
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.TemporaryDirectory()
@@ -75,10 +74,6 @@ data_shape = (num_channels, 5, 5)
 Model = SimpleModel
 
 model = SimpleModel(num_channels, num_classes)
-
-bert_model = make_synthetic_bert_model()
-
-mlm_dataloader = make_synthetic_bert_dataloader()
 
 optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 

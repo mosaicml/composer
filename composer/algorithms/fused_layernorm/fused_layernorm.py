@@ -57,20 +57,31 @@ class FusedLayerNorm(Algorithm):
 
     Example:
         .. testsetup::
-           def no_op(self): pass
+
+           def no_op(self, *args): pass
 
            from composer.algorithms import FusedLayerNorm
 
+           from tests.fixtures.synthetic_hf_state import make_synthetic_bert_dataloader, make_synthetic_bert_model
+
+           bert_model = make_synthetic_bert_model()
+
+           mlm_dataloader = make_synthetic_bert_dataloader()
+
            FusedLayerNorm.__init__ = no_op
 
+           FusedLayerNorm.apply = no_op
+
+           optimizer = torch.optim.SGD(bert_model.parameters(), lr=0.001)
+
         .. testcode::
+
            from composer.algorithms import FusedLayerNorm
 
            algorithm = FusedLayerNorm()
            trainer = Trainer(
                model=bert_model,
                train_dataloader=mlm_dataloader,
-               eval_dataloader=eval_dataloader,
                max_duration="1ep",
                algorithms=[algorithm],
                optimizers=[optimizer]
