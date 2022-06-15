@@ -22,10 +22,10 @@ def evaluate_periodically(eval_interval: Union[str, Time, int]):
     """Helper function to generate an evaluation interval callable.
 
     Args:
-        eval_interval (str | :class:`.Time` | int): A :class:`.Time` instance, time string, 
+        eval_interval (Time | int | str): A :class:`.Time` instance, time string, 
             or integer in epochs, representing how often to evaluate. Set to ``0`` to disable evaluation.
     Returns:
-        (:class:`.State`, :class:`.Event`) -> bool: A callable for the ``eval_interval`` argument of an 
+        (State, Event) -> bool: A callable for the ``eval_interval`` argument of an 
             :class:`.Evaluator`.
     """
     if isinstance(eval_interval, int):
@@ -78,14 +78,14 @@ class Evaluator:
 
     Args:
         label (str): Name of the Evaluator.
-        dataloader (:class:`.DataSpec` | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec`
+        dataloader (DataSpec | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec`
             for evaluation, or a Dict of :class:`.DataSpec` kwargs.
-        metrics (:class:`torchmetrics.Metric` | MetricCollection): :class:`torchmetrics.Metric` to log. 
+        metrics (torchmetrics.Metric | torchmetrics.MetricCollection): :class:`torchmetrics.Metric` to log. 
             ``metrics`` will be deep-copied to ensure that each evaluator updates only its ``metrics``.
         subset_num_batches (int, optional): The maximum number of batches to use for each evaluation. Defaults to ``None``, 
             which means that the ``eval_subset_num_batches`` parameter from the :class:`.Trainer` will be used.
             Set to ``-1`` to evaluate the entire ``dataloader``
-        eval_interval (int | str | :class:`.Time` | (:class:`.State`, :class:`.Event`) -> bool, optional): An integer, 
+        eval_interval (Time | int | str | (State, Event) -> bool, optional): An integer, 
             which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time` object, or a callable.
             Defaults to ``None``, which means that the ``eval_interval`` parameter from the :class:`.Trainer` will be used.
 
@@ -143,9 +143,9 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
     """Ensure that ``evaluator`` is an :class:`.Evaluator`.
 
     Args:
-        evaluator (:class:`.Evaluator` | :class:`.DataSpec` | Iterable | Dict[str, Any]): A dataloader,
+        evaluator (Evaluator` | DataSpec | Iterable | Dict[str, Any]): A dataloader,
             :class:`.DataSpec` instance, dictionary of :class:`.DataSpec` kwargs, or existing evaluator.
-        default_metrics (Union[:class:`torchmetrics.Metric`, MetricCollection]): The metrics for the ``evaluator``,
+        default_metrics (torchmetrics.Metric | torchmetrics.MetricCollection): The metrics for the ``evaluator``,
             if a datalaoder was specified.
 
     Returns:
