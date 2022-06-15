@@ -21,8 +21,7 @@ __all__ = ["EarlyStopper"]
 
 
 class EarlyStopper(Callback):
-    """This callback tracks a training or evaluation metric and halts 
-    training if the metric does not improve within a given interval.
+    """Track a metric and halt training if it does not improve within a given interval.
 
     Example
 
@@ -49,18 +48,22 @@ class EarlyStopper(Callback):
 
     Args:
         monitor (str): The name of the metric to monitor.
-        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric. If 
-            monitor is in an :class:`.Evaluator`, the ``dataloader_label`` field should be set to the :class:`.Evaluator`'s label.
-            If monitor is a training metric or an ordinary evaluation metric not in an :class:`.Evaluator`, ``dataloader_label``
-            should be set to ``'train'`` or ``'eval'``, respectively.
-        comp (Callable[[Any, Any], Any], optional): A comparison operator to measure change of the monitored metric. 
+        dataloader_label (str): The label of the dataloader or evaluator associated with the tracked metric.
+
+            If ``monitor`` is in an :class:`.Evaluator`, the ``dataloader_label`` field should be set to the label of the
+            :class:`.Evaluator`.
+
+            If monitor is a training metric or an ordinary evaluation metric not in an :class:`.Evaluator`,
+            the ``dataloader_label`` should be set to the dataloader label, which defaults to ``'train'`` or
+            ``'eval'``, respectively.
+        comp ((Any, Any) -> Any, optional): A comparison operator to measure change of the monitored metric. 
             The comparison operator will be called ``comp(current_value, prev_best)``. For metrics where the optimal value is low
             (error, loss, perplexity), use a less than operator, and for metrics like accuracy where the optimal value
             is higher, use a greater than operator. Defaults to :func:`torch.less` if loss, error, or perplexity are substrings
             of the monitored metric, otherwise defaults to :func:`torch.greater`.
         min_delta (float, optional): An optional float that requires a new value to exceed the best value by at least that amount.
             Default: ``0.0``.
-        patience (int | str | :class:`.Time`, optional): The interval of time the monitored metric can not improve without stopping
+        patience (Time | int | str, optional): The interval of time the monitored metric can not improve without stopping
             training. Default: 1 epoch. If patience is an integer, it is interpreted as the number of epochs.
     """
 
