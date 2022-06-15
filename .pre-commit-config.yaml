@@ -96,11 +96,12 @@ repos:
           - "jupyter"
         args:
           # Strip all the metadata that vscode or colab may add to a notebook
+          - --strip-empty-cells
           - --extra-keys
           - >
             metadata.colab metadata.interpreter metadata.accelerator
-            metadata.kernelspec metadata.language_info metadata.file_extension metadata.mimetype
-            cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter metadata.pygments_lexer
+            metadata.kernelspec metadata.language_info.version
+            cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter
             metadata.version
 
 exclude: .ci\/release_tests\/.*
