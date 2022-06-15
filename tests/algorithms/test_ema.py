@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import copy
 import itertools
 
@@ -5,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from composer.algorithms import EMAHparams
+from composer.algorithms import EMA
 from composer.algorithms.ema.ema import ShadowModel, compute_ema
 from composer.core import Event, Time, Timestamp, TimeUnit
 from tests.common import SimpleConvModel, SimpleModel
@@ -29,7 +32,7 @@ def validate_model(model1, model2):
         torch.testing.assert_allclose(model1_param, model2_param)
 
 
-@pytest.mark.parametrize("smoothing", [0, 0.5, 0.99, 1])
+@pytest.mark.parametrize('smoothing', [0, 0.5, 0.99, 1])
 def test_ema(smoothing):
     model = SimpleModel()
     ema_model = SimpleModel()
@@ -39,15 +42,14 @@ def test_ema(smoothing):
 
 
 # params = [(half_life, update_interval)]
-@pytest.mark.parametrize('params', [("10ba", "1ba"), ("1ep", "1ep")])
+@pytest.mark.parametrize('params', [('10ba', '1ba'), ('1ep', '1ep')])
 def test_ema_algorithm(params, minimal_state, empty_logger):
 
     # Initialize input tensor
     input = torch.rand((32, 5))
 
     half_life, update_interval = params[0], params[1]
-    algorithm = EMAHparams(half_life=half_life, update_interval=update_interval,
-                           train_with_ema_weights=False).initialize_object()
+    algorithm = EMA(half_life=half_life, update_interval=update_interval, train_with_ema_weights=False)
     state = minimal_state
     state.model = SimpleConvModel()
     state.batch = (input, torch.Tensor())
@@ -73,7 +75,7 @@ def test_ema_algorithm(params, minimal_state, empty_logger):
         state.timestamp._epoch = update_interval
         algorithm.apply(Event.EPOCH_END, state, empty_logger)
     else:
-        raise ValueError(f"Invalid time string for parameter half_life")
+        raise ValueError(f'Invalid time string for parameter half_life')
     # Check if EMA correctly computed the average.
     validate_ema(state.model, original_model, algorithm.ema_model, algorithm.smoothing)
     # Check if the EMA model is swapped in for testing

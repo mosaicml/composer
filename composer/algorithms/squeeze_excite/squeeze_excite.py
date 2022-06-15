@@ -63,7 +63,7 @@ def apply_squeeze_excite(
     """
 
     def convert_module(module: torch.nn.Module, module_index: int):
-        assert isinstance(module, torch.nn.Conv2d), "should only be called with conv2d"
+        assert isinstance(module, torch.nn.Conv2d), 'should only be called with conv2d'
         if min(module.in_channels, module.out_channels) < min_channels:
             return None
         return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
@@ -162,7 +162,7 @@ class SqueezeExcite(Algorithm):
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Apply the Squeeze-and-Excitation layer replacement.
+        """Applies the Squeeze-and-Excitation layer replacement.
 
         Args:
             event (Event): the current event

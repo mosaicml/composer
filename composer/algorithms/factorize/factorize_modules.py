@@ -114,8 +114,8 @@ class _FactorizedModule(nn.Module, abc.ABC):
         self.kernel_size = kernel_size
 
     def _check_child_modules_present(self):
-        assert hasattr(self, 'module0'), "module0 must be set during child class __init__!"
-        assert hasattr(self, 'module1'), "module1 must be set during child class __init__!"
+        assert hasattr(self, 'module0'), 'module0 must be set during child class __init__!'
+        assert hasattr(self, 'module1'), 'module1 must be set during child class __init__!'
         assert isinstance(self.module0, torch.nn.Module)
         assert isinstance(self.module1, torch.nn.Module)
 
@@ -149,7 +149,7 @@ class _FactorizedModule(nn.Module, abc.ABC):
                 If ``rank`` is larger than the current latent rank
         """
         if rank > self.latent_size:
-            raise ValueError(f"Requested rank {rank} exceeds current rank {self.latent_size}")
+            raise ValueError(f'Requested rank {rank} exceeds current rank {self.latent_size}')
         if rank == self.latent_size:
             return
         soln = self.solution_for_rank(input, rank)
@@ -207,8 +207,8 @@ class _FactorizedModule(nn.Module, abc.ABC):
         using the solution is worthwhile.
 
         Args:
-            solution (:class:`LowRankSolution`): an object encapsulating the new 
-                parameters to be used and their associated mean squared error on 
+            solution (:class:`LowRankSolution`): an object encapsulating the new
+                parameters to be used and their associated mean squared error on
                 the input for which they were optimized. Can be obtained using
                 :meth:`~solution_for_rank`.
         """
@@ -273,7 +273,7 @@ class FactorizedConv2d(_FactorizedModule):
                          latent_size=latent_channels,
                          kernel_size=kernel_size)
         if kwargs.get('groups', 1) > 1:
-            raise NotImplementedError("Factorizing grouped convolutions is not supported.")
+            raise NotImplementedError('Factorizing grouped convolutions is not supported.')
         self.kwargs = kwargs
         # conv2d factorization code requires most Conv2d arguments, but
         # not boolean 'bias'
@@ -283,7 +283,7 @@ class FactorizedConv2d(_FactorizedModule):
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
         if not self.should_factorize(self.latent_channels):
             raise ValueError(
-                f"latent_channels {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}"
+                f'latent_channels {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}'
             )
 
         # this one produces identical output as a regular Conv2d would,
@@ -416,7 +416,7 @@ class FactorizedLinear(_FactorizedModule):
     def _create_child_modules(self) -> Tuple[torch.nn.Module, torch.nn.Module]:
         if not self.should_factorize(self.latent_size):
             raise ValueError(
-                f"latent_features {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}"
+                f'latent_features {self.latent_size} is not small enough to merit factorization! Must be <= {self._max_rank_with_speedup()}'
             )
 
         module0 = nn.Linear(in_features=self.in_features, out_features=self.latent_size, bias=False)
@@ -436,7 +436,7 @@ class FactorizedLinear(_FactorizedModule):
 
     @property
     def latent_features(self) -> int:
-        """The dimensionality of the space into which the input is 
+        """The dimensionality of the space into which the input is
         projected by the first matrix in the factorization."""
         return self.latent_size
 

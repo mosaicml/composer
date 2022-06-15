@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from composer.core.serializable import Serializable
 
@@ -13,15 +13,15 @@ if TYPE_CHECKING:
     from composer import Event, State
     from composer.loggers import Logger
 
-__all__ = ["Callback"]
+__all__ = ['Callback']
 
 
 class Callback(Serializable, abc.ABC):
     """Base class for callbacks.
 
     Callbacks provide hooks that can run at each training loop :class:`.Event`. A callback is similar to
-    an :class:`.Algorithm` in that they are run on specific events, but it differs from an :class:`.Algorithm` 
-    in that it should not modify the training of the model. By convention, callbacks should not modify the 
+    an :class:`.Algorithm` in that they are run on specific events, but it differs from an :class:`.Algorithm`
+    in that it should not modify the training of the model. By convention, callbacks should not modify the
     :class:`.State`. They are typically used to for non-essential recording functions such as logging or timing.
 
     Callbacks can be implemented in two ways:
@@ -48,10 +48,6 @@ class Callback(Serializable, abc.ABC):
             >>> # is triggered, like this:
             >>> _ = trainer.engine.run_event(Event.EPOCH_START)
             Epoch: 0
-
-        .. testcleanup::
-
-            trainer.engine.close()
 
     #.  Override :meth:`run_event` if you want a single method to handle all events. If this method is overridden, then
         the individual methods corresponding to each event name (such as :meth:`epoch_start`) will no longer be
@@ -81,14 +77,15 @@ class Callback(Serializable, abc.ABC):
             >>> # is triggered, like this:
             >>> _ = trainer.engine.run_event(Event.EPOCH_START)
             Epoch: 0
-
-        .. testcleanup::
-
-            trainer.engine.close()
     """
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Stub signature for pyright
+        del args, kwargs  # unused
+        pass
+
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        """This method is called by the engine on each event.
+        """Called by the engine on each event.
 
         Args:
             event (Event): The event.
@@ -233,7 +230,7 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-           The following :attr:`.State.timestamp` member variables are 
+           The following :attr:`.State.timestamp` member variables are
            incremented immediately before the :attr:`.Event.BATCH_END` event.
 
            +------------------------------------+
@@ -272,7 +269,7 @@ class Callback(Serializable, abc.ABC):
 
         .. note::
 
-            :attr:`.State.timestamp` member variable :attr:`.Timestamp.epoch` 
+            :attr:`.State.timestamp` member variable :attr:`.Timestamp.epoch`
             is incremented immediately before :attr:`.Event.EPOCH_END`.
 
         Args:
@@ -425,7 +422,7 @@ class Callback(Serializable, abc.ABC):
     def close(self, state: State, logger: Logger) -> None:
         """Called whenever the trainer finishes training, even when there is an exception.
 
-        It should be used for clean up tasks such as flushing I/O streams and/or 
+        It should be used for clean up tasks such as flushing I/O streams and/or
         closing any files that may have been opened during the :attr:`.Event.INIT` event.
 
         Args:
@@ -435,10 +432,10 @@ class Callback(Serializable, abc.ABC):
         pass
 
     def post_close(self) -> None:
-        """This hook is called after :meth:`close` has been invoked for each callback. 
-        Very few callbacks should need to implement :meth:`post_close`.
+        """Called after :meth:`close` has been invoked for each callback.
 
-        This callback can be used to back up any data that may have 
+        Very few callbacks should need to implement :meth:`post_close`.
+        This callback can be used to back up any data that may have
         been written by other callbacks during :meth:`close`.
         """
         pass

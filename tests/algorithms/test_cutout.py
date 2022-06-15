@@ -4,8 +4,7 @@
 import pytest
 import torch
 
-from composer.algorithms import CutOutHparams
-from composer.algorithms.cutout.cutout import _generate_mask
+from composer.algorithms.cutout.cutout import CutOut, _generate_mask
 from composer.core import Event
 
 
@@ -91,7 +90,7 @@ def test_cutout_algorithm(batch_size, channels, height, width, cutout_length, em
     input = torch.rand((batch_size, channels, height, width)) + 1
 
     # Fix cutout_num_holes=1, mask generation is additive and box validation isn't smart enough to detect multiple/coalesced boxes
-    algorithm = CutOutHparams(num_holes=1, length=cutout_length, uniform_sampling=uniform_sampling).initialize_object()
+    algorithm = CutOut(num_holes=1, length=cutout_length, uniform_sampling=uniform_sampling)
     state = minimal_state
     state.batch = (input, torch.Tensor())
 

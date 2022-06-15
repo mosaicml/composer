@@ -6,7 +6,7 @@
 .. currentmodule:: composer
 
 The order in which algorithms are run matters significantly during composition. For example, the
-:class:`.SelectiveBackprop` algorithm runs on the :attr:`.Event.AFTER_DATALOADER` event and must run before 
+:class:`.SelectiveBackprop` algorithm runs on the :attr:`.Event.AFTER_DATALOADER` event and must run before
 any data augmentations. :class:`.Engine` runs re-ordering passes to resolve such ordering issues or conflicts.
 
 .. note::
@@ -14,7 +14,7 @@ any data augmentations. :class:`.Engine` runs re-ordering passes to resolve such
     * An instance of :class:`.Engine` is automatically constructed by the :class:`.Trainer`
       constructor. A user need not instantiate the :class:`.Engine` class.
 
-    * The design of :class:`.Engine` is subject to change in future releases 
+    * The design of :class:`.Engine` is subject to change in future releases
       to accommodate more complexity as we investigate composition of algorithms.
 
 
@@ -28,7 +28,7 @@ Currently, the following passes are registered:
   ``DCBA`` ordering on the ``after_*`` event.
 
   This allows algorithms to "clean up" their changes. For example, :class:`.LabelSmoothing` will smooth the labels
-  upon the :attr:`.Event.BEFORE_LOSS` event and then restore the original unsmoothed labels on the 
+  upon the :attr:`.Event.BEFORE_LOSS` event and then restore the original unsmoothed labels on the
   :attr:`.Event.AFTER_LOSS` event.
 
 * **Run Selective Backprop first**
@@ -64,6 +64,7 @@ from __future__ import annotations
 import atexit
 import contextlib
 import logging
+import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import ContextManager, Dict, Optional, Sequence, Union, cast
@@ -77,12 +78,12 @@ from composer.profiler import ProfilerAction
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Trace", "Engine", "Traces"]
+__all__ = ['Trace', 'Engine', 'Traces']
 
 #: The default traces of an entire run is an OrderedDict.
 #: The keys are of format ``<algorithm_name>/<event>`` (e.g.,  ``Blurpool/INIT``) and values are an instance of
 #: :class:`Trace`.
-Traces = Dict[str, "Trace"]
+Traces = Dict[str, 'Trace']
 
 _ALWAYS_RECORD_EVENTS = [Event.INIT, Event.FIT_START, Event.EPOCH_START, Event.EPOCH_END]
 _EVENTS_WHERE_DATALOADER_IS_SET = [e for e in Event if e != Event.INIT]
@@ -146,6 +147,11 @@ def _setup_trace(algorithms: Sequence[Algorithm], event: Event) -> Traces:
     return OrderedDict([(f'{algo}/{event}', Trace()) for algo in algorithms])
 
 
+# Track which callbacks are already open, so it is possible to error and instruct the user to call
+# previous_trainer.close() if necessary before attempting to reuse a callback
+_OPEN_CALLBACKS = weakref.WeakSet()
+
+
 class Engine():
     """Coordinator for running algorithms and resolving ordering conflicts among them for composition.
 
@@ -193,6 +199,7 @@ class Engine():
         Args:
             event (Event | str): The current :class:`.Event`. It can be the enum member values or a
                 string with the event value.
+
         Returns:
             traces (Traces): Ordered dictionary of trace for each algorithm.
         """
@@ -200,11 +207,11 @@ class Engine():
         event = Event(event)
 
         if self._is_closed:
-            raise RuntimeError(("The engine was already closed and therefore cannot be used again. "
-                                "To fix, please create a new Engine (or Trainer)"))
+            raise RuntimeError(('The engine was already closed and therefore cannot be used again. '
+                                'To fix, please create a new Engine (or Trainer)'))
 
         if self.state.profiler is not None:
-            name = f"event/{event.canonical_name}"
+            name = f'event/{event.canonical_name}'
             if (event.is_before_event or event.is_after_event):
                 # if not part of an event pair (e.g. init or after dataloader), then don't record an event here
                 if event in _ALWAYS_RECORD_EVENTS:
@@ -217,10 +224,10 @@ class Engine():
             duration_marker.finish()
 
         if event in _EVENTS_WHERE_DATALOADER_IS_SET:
-            assert self.state.dataloader is not None, f"The trainer should have set state.dataloader for event {event}."
+            assert self.state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
 
         if event in _EVENTS_WHERE_MAX_DURATION_IS_SET:
-            assert self.state.max_duration is not None, f"The trainer should have set state.max_duration for event {event}."
+            assert self.state.max_duration is not None, f'The trainer should have set state.max_duration for event {event}.'
 
         if event == Event.INIT:
             # For the INIT event, run the callbacks first to initialize the loggers
@@ -250,7 +257,7 @@ class Engine():
         for order, algorithm in enumerate(algorithms_to_run):
             marker = None
             if self.state.profiler is not None:
-                marker = self.state.profiler.marker(f"algorithm/{algorithm.__class__.__name__}/event/{event.value}",
+                marker = self.state.profiler.marker(f'algorithm/{algorithm.__class__.__name__}/event/{event.value}',
                                                     categories=[
                                                         event.value,
                                                         algorithm.__class__.__name__,
@@ -322,15 +329,26 @@ class Engine():
 
         Args:
             event (Event | str): The current :class:`.Event`.
-        Returns:
-            None
         """
         event = Event(event)
+
+        if event == Event.INIT:
+            # Some callbacks may be open from a previous training run
+            # If so, error and instruct the user that they must call `trainer.close()`
+            # so callbacks can clean up and reset their state properly
+            for cb in self.state.callbacks:
+                # If it's not in the dictionary, then the callback is new, so it's closed by definition
+                if cb in _OPEN_CALLBACKS:
+                    raise RuntimeError(
+                        ('Cannot create a new trainer with an open callback or logger from a previous trainer. '
+                         'To fix, call trainer.close() before creating this new trainer to ensure that all '
+                         'callbacks or loggers shut down properly.'))
+                _OPEN_CALLBACKS.add(cb)
 
         for cb in self.state.callbacks:
             marker = None
             if self.state.profiler is not None:
-                marker = self.state.profiler.marker(f"callback/{cb.__class__.__name__}/event/{event.value}",
+                marker = self.state.profiler.marker(f'callback/{cb.__class__.__name__}/event/{event.value}',
                                                     categories=[
                                                         event.value,
                                                         cb.__class__.__name__,
@@ -341,10 +359,8 @@ class Engine():
 
     def __del__(self):
         global _did_atexit_run
-        if _did_atexit_run:
-            # Do not attempt to shutdown again, since close() already ran via __atexit__
-            # In this case, close() is no longer idempotent, since Python machenry (such as the ability to do
-            # conditional imports) has already been destroyed
+        if _did_atexit_run or self._is_closed:
+            # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
             return
         self.close()
 
@@ -374,7 +390,7 @@ class Engine():
                 callback.close(state, logger)
             except Exception as e:
                 log.error(
-                    f"Error running {callback.__class__.__name__}.close(). Skipping {callback.__class__.__name__}.post_close().",
+                    f'Error running {callback.__class__.__name__}.close(). Skipping {callback.__class__.__name__}.post_close().',
                     exc_info=e,
                     stack_info=True)
                 callback_to_has_exception[callback] = True
@@ -386,4 +402,6 @@ class Engine():
                 try:
                     callback.post_close()
                 except Exception as e:
-                    log.error(f"Error running {callback.__class__.__name__}.post_close().", exc_info=e, stack_info=True)
+                    log.error(f'Error running {callback.__class__.__name__}.post_close().', exc_info=e, stack_info=True)
+                else:
+                    _OPEN_CALLBACKS.discard(callback)

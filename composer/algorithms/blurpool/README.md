@@ -50,6 +50,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop
@@ -57,14 +59,15 @@ def training_loop(model, train_loader):
 from composer.algorithms import BlurPool
 from composer.trainer import Trainer
 
-def train_model(model, train_dataloader):
-    blurpool = BlurPool(replace_convs=True,
-                        replace_maxpools=True)
-    trainer = Trainer(model=model,
-                      train_dataloader=train_dataloader,
-                      max_duration='10ep',
-                      algorithms=[blurpool])
-    trainer.fit()
+blurpool = BlurPool(replace_convs=True,
+                    replace_maxpools=True)
+
+trainer = Trainer(model=model,
+                    train_dataloader=train_dataloader,
+                    max_duration='10ep',
+                    algorithms=[blurpool])
+
+trainer.fit()
 ```
 
 ### Implementation Details
@@ -74,7 +77,7 @@ For max pooling, it replaces `torch.nn.MaxPool2d` instances with instances of a 
 
 🚧 Implementation Note
 >
-> Blurpool does not replace strided convolutions with fewer than `min_channels` input channels, which by default is set to `16`. This is a heuristic used to avoid blurpooling the network's input. Doing so is undesirable since it amounts to downsampling the input by more than the amount specified in the preprocessing pipeline. 
+> Blurpool does not replace strided convolutions with fewer than `min_channels` input channels, which by default is set to `16`. This is a heuristic used to avoid blurpooling the network's input. Doing so is undesirable since it amounts to downsampling the input by more than the amount specified in the preprocessing pipeline.
 
 ## Suggested Hyperparameters
 

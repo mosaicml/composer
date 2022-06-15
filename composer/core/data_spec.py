@@ -16,7 +16,7 @@ from composer.utils.iter_helpers import ensure_tuple
 if TYPE_CHECKING:
     from composer.core.types import Batch
 
-__all__ = ["DataSpec", "ensure_data_spec"]
+__all__ = ['DataSpec', 'ensure_data_spec']
 
 
 def _split_list(l, num_microbatches: int):
@@ -49,15 +49,16 @@ def _split_mapping(m, num_microbatches: int):
 
 
 def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
-    """Splits batch into `num_microbatches` chunks for gradient accumulation. Works with tensors, 
-    dictionaries of tensors, (x, y) tuples, and lists where ``batch`` is the 2nd dimension.
+    """Splits batch into `num_microbatches` chunks for gradient accumulation.
+
+    Works with tensors, dictionaries of tensors, (x, y) tuples, and lists where ``batch`` is the 2nd dimension.
 
     Args:
         batch (Any): output from the dataloader.
         num_microbatches (int): number of microbatches to batch into. Will be set by `grad_accum`.
     """
     if num_microbatches < 1:
-        raise ValueError("num_microbatches must be at least 1")
+        raise ValueError('num_microbatches must be at least 1')
     if num_microbatches == 1:
         return [batch]
 
@@ -75,7 +76,7 @@ def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
             elif isinstance(item, (List, Tuple)):
                 result.append(_split_list(item, num_microbatches))
             else:
-                raise ValueError(f"Unsupported batch type: {type(item)}.")
+                raise ValueError(f'Unsupported batch type: {type(item)}.')
         return list(zip(*result))
 
     raise NotImplementedError(
@@ -87,7 +88,7 @@ def _default_split_batch(batch: Any, num_microbatches: int) -> Sequence:
 class DataSpec:
     """Specifications for operating and training on data.
 
-    An example of constructing a :class:`DataSpec` object with a ``device_transforms`` 
+    An example of constructing a :class:`DataSpec` object with a ``device_transforms``
     callable (:class:`.NormalizationFn`) and then using it with :class:`~.Trainer`:
 
     .. doctest::
@@ -109,10 +110,6 @@ class DataSpec:
        ...     optimizers=optimizer,
        ...     max_duration="1ep",
        ... )
-
-    .. testcleanup::
-
-        trainer.engine.close()
 
     Args:
         dataloader (Iterable): The dataloader, which can be any iterable that yields batches.
@@ -179,12 +176,12 @@ class DataSpec:
 
         if isinstance(dataloader, torch.utils.data.DataLoader) and dataloader._iterator is not None:
             raise ValueError(
-                ("The dataloader has an active iterator. This could occur "
-                 "if `persistent_workers=True` and the dataloader has already been iterated, "
-                 "or if the dataloader is mid-epoch. It is required that the training dataloader "
-                 "does not have an active iterator, so CPU dataset augmentations can be "
-                 "correctly inserted. To fix, please do not iterate over the dataloader before passing it into "
-                 "the Trainer."))
+                ('The dataloader has an active iterator. This could occur '
+                 'if `persistent_workers=True` and the dataloader has already been iterated, '
+                 'or if the dataloader is mid-epoch. It is required that the training dataloader '
+                 'does not have an active iterator, so CPU dataset augmentations can be '
+                 'correctly inserted. To fix, please do not iterate over the dataloader before passing it into '
+                 'the Trainer.'))
 
     def _default_device_transforms(self, batch: Batch):
         return batch
@@ -216,7 +213,7 @@ class DataSpec:
 
 
 def ensure_data_spec(dataloader: Union[DataSpec, Iterable, dict]) -> DataSpec:
-    """Ensures that the ``dataloader`` is a :class:`.DataSpec`
+    """Ensures that the ``dataloader`` is a :class:`.DataSpec`.
 
     Args:
         dataloader (DataSpec | Iterable | dict): A DataSpec, DataLoader, or Dict of DataSpec kwargs.

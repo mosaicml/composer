@@ -14,9 +14,9 @@ import torch.utils.data
 from composer.trainer.devices.device import Device
 from composer.utils import dist
 
-__all__ = ["DeviceGPU"]
+__all__ = ['DeviceGPU']
 
-T_nnModule = TypeVar("T_nnModule", bound=torch.nn.Module)
+T_nnModule = TypeVar('T_nnModule', bound=torch.nn.Module)
 
 
 class DeviceGPU(Device):
@@ -24,11 +24,11 @@ class DeviceGPU(Device):
 
     This class takes no arguments.
     """
-    dist_backend = "nccl"
+    dist_backend = 'nccl'
 
     def __init__(self):
         gpu = dist.get_local_rank()
-        self._device = torch.device(f"cuda:{gpu}")
+        self._device = torch.device(f'cuda:{gpu}')
         torch.cuda.set_device(self._device)
         assert torch.cuda.current_device() == gpu
 
@@ -40,8 +40,8 @@ class DeviceGPU(Device):
 
     def state_dict(self) -> Dict[str, Any]:
         return {
-            "rng": torch.cuda.get_rng_state(),
+            'rng': torch.cuda.get_rng_state(),
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        torch.cuda.set_rng_state(state["rng"])
+        torch.cuda.set_rng_state(state['rng'])
