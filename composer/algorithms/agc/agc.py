@@ -15,7 +15,7 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["AGC", "apply_agc"]
+__all__ = ['AGC', 'apply_agc']
 
 
 def apply_agc(
@@ -27,8 +27,9 @@ def apply_agc(
     Example:
          .. testcode::
 
-            from composer.algorithms.agc import apply_agc
-            apply_agc(model=model)
+            import composer.functional as cf
+
+            cf.apply_agc(model=model)
 
 
     Args:

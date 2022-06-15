@@ -7,10 +7,12 @@ Unet is an architecture used for image segmentation.
 
 ## Example
 
+<!--pytest-codeblocks:importorskip(monai)-->
+<!--pytest-codeblocks:importorskip(scikit-learn)-->
 ```python
-  from composer.models import UNet
+from composer.models import UNet
 
-  model = UNet()
+model = UNet()
 ```
 
 ## Architecture

@@ -19,20 +19,20 @@ TODO(ABHI): Fix and comments here describing what happens below.
 
 
 ```python
-import composer.functional as cf
+# import composer.functional as cf
 
-def training_loop(model, train_loader):
-    opt = torch.optim.Adam(model.parameters())
-    loss_fn = F.cross_entropy
-    model.train()
+# def training_loop(model, train_loader):
+#     opt = torch.optim.Adam(model.parameters())
+#     loss_fn = F.cross_entropy
+#     model.train()
 
-    for epoch in range(num_epochs):
-        for X, y in train_loader:
-            y_hat = model(X)
-            loss = loss_fn(y_hat, smoothed_targets)
-            loss.backward()
-            opt.step()
-            opt.zero_grad()
+#     for epoch in range(num_epochs):
+#         for X, y in train_loader:
+#             y_hat = model(X)
+#             loss = loss_fn(y_hat, smoothed_targets)
+#             loss.backward()
+#             opt.step()
+#             opt.zero_grad()
 ```
 
 ### Composer Trainer
@@ -40,15 +40,15 @@ def training_loop(model, train_loader):
 TODO(Abhi): Fix and add comments here describing what happens below.
 
 ```python
-from composer.algorithms import LabelSmoothing
-from composer.trainer import Trainer
+# from composer.algorithms import LabelSmoothing
+# from composer.trainer import Trainer
 
-trainer = Trainer(model=model,
-                  train_dataloader=train_dataloader,
-                  max_duration='1ep',
-                  algorithms=[])
+# trainer = Trainer(model=model,
+#                   train_dataloader=train_dataloader,
+#                   max_duration='1ep',
+#                   algorithms=[])
 
-trainer.fit()
+# trainer.fit()
 ```
 
 ### Implementation Details
@@ -78,13 +78,13 @@ To determine the per-example loss and which examples to skip, an additional, ini
 The loss values from this pass are then used to weight the examples, and the network is trained on a sample of examples selected based on those weights.
 
 > 🚧 Requires an Additional Forward Pass on Each Step
-> 
+>
 > Selective backprop must perform two forward passes on each training step. The first forward pass computes the loss for each example. The main training step then occurs, with a forward and backward pass for any examples selected after the first forward pass.
 > This additional forward pass can slow down training depending on the number of examples that are dropped.
 > The forward pass accounts for approximately one third of the cost of each training step, so at least a third of the examples must hypothetically be dropped for selective backprop to improve throughput.
 
 > ✅ The Cost of the Additional Forward Pass Can Be Mitigated
-> 
+>
 > For some data types, including images, it is possible to mitigate the cost of this additional forward pass.
 > The first forward pass does not need to be as precise as the second forward pass, since it is only selecting how to weight the examples, not how to update the network.
 > As such, this first forward pass can be approximate.

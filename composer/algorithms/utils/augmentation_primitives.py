@@ -33,25 +33,25 @@ from PIL import Image, ImageEnhance, ImageOps
 AugmentationFn = Callable[[Image.Image, float], Image.Image]
 
 __all__ = [
-    "AugmentationFn",
-    "autocontrast",
-    "equalize",
-    "posterize",
-    "rotate",
-    "solarize",
-    "shear_x",
-    "shear_y",
-    "translate_x",
-    "translate_y",
-    "color",
-    "color_original",
-    "contrast",
-    "contrast_original",
-    "brightness",
-    "brightness_original",
-    "sharpness",
-    "sharpness_original",
-    "augmentation_sets",
+    'AugmentationFn',
+    'autocontrast',
+    'equalize',
+    'posterize',
+    'rotate',
+    'solarize',
+    'shear_x',
+    'shear_y',
+    'translate_x',
+    'translate_y',
+    'color',
+    'color_original',
+    'contrast',
+    'contrast_original',
+    'brightness',
+    'brightness_original',
+    'sharpness',
+    'sharpness_original',
+    'augmentation_sets',
 ]
 
 
@@ -76,6 +76,7 @@ def _float_parameter(level: float, maxval: float):
       level (float): Level of the operation that will be between [0, 10].
       maxval (float): Maximum value that the operation can have. This will be scaled to
           level/10.
+
     Returns:
       float: The result from scaling ``maxval`` according to ``level``.
     """
@@ -88,8 +89,10 @@ def _sample_level(n: float):
 
 
 def _symmetric_sample(level: float):
-    """Helper function to sample from a distribution over the domain [0.1, 10] with median == 1 and uniform probability
-    of x | 0.1 ≤ x ≤ 1, and x | 1 ≤ x ≤ 10.
+    """Helper function to sample from a symmetric distribution.
+
+    The distribution over the domain [0.1, 10] with median == 1 and uniform probability of x | 0.1 ≤ x ≤ 1,
+    and x | 1 ≤ x ≤ 10.
 
     Used for sampling transforms that can range from intensity 0 to infinity, and for which an intensity of 1 == no
     change.
@@ -106,7 +109,8 @@ def autocontrast(pil_img: Image.Image, level: float = 0.0):
     .. seealso:: :func:`PIL.ImageOps.autocontrast`.
 
     Args:
-        pil_img (Image.Image): The image
+        pil_img (Image.Image): The image.
+        level (float): The intensity.
     """
     del level  # unused
     return ImageOps.autocontrast(pil_img)
@@ -118,7 +122,8 @@ def equalize(pil_img: Image.Image, level: float):
     .. seealso:: :func:`PIL.ImageOps.equalize`.
 
     Args:
-        pil_img (Image.Image): The image
+        pil_img (Image.Image): The image.
+        level (float): The intensity.
     """
     del level  # unused
     return ImageOps.equalize(pil_img)
@@ -332,14 +337,14 @@ def sharpness_original(pil_img: Image.Image, level: float):
 
 
 augmentation_sets = {
-    "all": [
+    'all': [
         autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y, color,
         contrast, brightness, sharpness
     ],
     # Augmentations that don't overlap with ImageNet-C/CIFAR10-C test sets
-    "safe": [autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y],
+    'safe': [autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y],
     # Augmentations that use original implementations of color, contrast, brightness, and sharpness
-    "original": [
+    'original': [
         autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y, color_original,
         contrast_original, brightness_original, sharpness_original
     ],

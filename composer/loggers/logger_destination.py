@@ -13,7 +13,7 @@ from composer.core.callback import Callback
 from composer.core.state import State
 from composer.loggers.logger import LogLevel
 
-__all__ = ["LoggerDestination"]
+__all__ = ['LoggerDestination']
 
 
 class LoggerDestination(Callback, ABC):
@@ -23,9 +23,7 @@ class LoggerDestination(Callback, ABC):
     :class:`~composer.core.event.Event`. For example, it may be helpful to run on
     :attr:`~composer.core.event.Event.EPOCH_END` to perform any flushing at the end of every epoch.
 
-    Example
-    -------
-
+    Example:
     .. doctest::
 
         >>> from composer.loggers import LoggerDestination
@@ -38,10 +36,6 @@ class LoggerDestination(Callback, ABC):
         ...     loggers=[logger]
         ... )
         Batch 0: {'rank_zero_seed': ...}
-
-    .. testcleanup::
-
-        trainer.engine.close()
     """
 
     def log_data(self, state: State, log_level: LogLevel, data: Dict[str, Any]):
@@ -115,12 +109,15 @@ class LoggerDestination(Callback, ABC):
         symlink_artifact_name: str,
         overwrite: bool,
     ):
-        """Handle creating a symlink of a file artifact stored at ``existing_artifact_name`` to an artifact named
+        """Create a symlink.
+
+        of a file artifact stored at ``existing_artifact_name`` to an artifact named
         ``symlink_artifact_name``.
 
-        Subclasses should implement this method to symlink logged files. However, not all loggers need to implement this
-        method. For example, the :class:`~composer.loggers.tqdm_logger.TQDMLogger` does not implement this method, as it
-        cannot handle file artifacts and thus does not need to do any special symlinking.
+        Subclasses should implement this method to create a symlink of a file artifact stored at
+        ``existing_artifact_name`` to an artifact named ``symlink_artifact_name``.. However, not all loggers need to
+        implement this method. For example, the :class:`~composer.loggers.tqdm_logger.TQDMLogger` does not implement
+        this method, as it cannot handle file artifacts and thus does not need to do any special symlinking.
 
         .. note::
 
@@ -143,7 +140,7 @@ class LoggerDestination(Callback, ABC):
         self,
         artifact_name: str,
         destination: str,
-        chunk_size: int = 2**20,
+        overwrite: bool = False,
         progress_bar: bool = True,
     ):
         """Handle downloading an artifact named ``artifact_name`` to ``destination``.
@@ -151,9 +148,9 @@ class LoggerDestination(Callback, ABC):
         Args:
             artifact_name (str): The name of the artifact.
             destination (str): The destination filepath.
-            chunk_size (int, optional): Chunk size (in bytes). Ignored if ``path`` is a local file. (default: 1MB)
+            overwrite (bool): Whether to overwrite an existing file at ``destination``. Defaults to ``False``.
             progress_bar (bool, optional): Whether to show a progress bar. Ignored if ``path`` is a local file.
                 (default: ``True``)
         """
-        del artifact_name, destination, chunk_size, progress_bar  # unused
+        del artifact_name, destination, overwrite, progress_bar  # unused
         raise NotImplementedError
