@@ -92,7 +92,7 @@ def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_wi
     logger = Mock()
     engine = Engine(state, logger)
 
-    # Run the Event that should cause AGC.apply to be called.
+    # Run the Event that should cause gradient_clipping.apply to be called.
     engine.run_event(Event.AFTER_TRAIN_BATCH)
 
     apply_gc_fn.assert_called_once()
