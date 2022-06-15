@@ -45,9 +45,11 @@ class SFTPObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='streaming', conda_package='paramiko') from e
         self.ssh_client = SSHClient()
+        self.sftp_client = self._create_sftp_client()
 
+    def _create_sftp_client(self):
         if self.key_file_path is None:
-            #TODO change to read SSH config when key_file_path is none
+            #TODO change to read SSH config when key_file_path is None
             raise Exception("SFTPObjectStore initialized without a keyfile.")
         try:
             self.ssh_client.load_system_host_keys(self.key_file_path)

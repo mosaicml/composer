@@ -234,10 +234,10 @@ class SFTPObjectStoreHparams(ObjectStoreHparams):
     """
 
     host: str = hp.auto(SFTPObjectStore, 'host')
-    port: int = hp.optional(('port'), default=22)
-    username: str = hp.optional(('The username to authenticate'), default=None)
-    key_file_path: str = hp.optional('The filename of the private key.', default=None)
-    cwd: Optional[str] = hp.optional(('The directory to navigate to upon creating the SSH connection.'), default=None)
+    port: int = hp.auto(SFTPObjectStore, 'port')
+    username: str = hp.auto(SFTPObjectStore, 'username')
+    key_file_path: str = hp.auto(SFTPObjectStore, 'key_file_path')
+    cwd: Optional[str] = hp.auto(SFTPObjectStore, 'cwd')
 
     def get_object_store_cls(self) -> Type[ObjectStore]:
         return SFTPObjectStore

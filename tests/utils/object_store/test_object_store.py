@@ -35,7 +35,7 @@ class MockCallback:
         assert self.total_num_bytes == self.transferred_bytes
 
 
-class TestSFTPObjectStore(SFTPObjectStore):
+class MockSFTPObjectStore(SFTPObjectStore):
 
     def __init__(self,
                  host: str,
@@ -43,13 +43,10 @@ class TestSFTPObjectStore(SFTPObjectStore):
                  username: Optional[str] = None,
                  key_file_path: Optional[str] = None,
                  cwd: Optional[str] = None):
-        self.host = host
-        self.port = port
-        self.username = username
-        self.key_file_path = key_file_path
-        self.cwd = cwd
-        self.server = mockssh.Server(users={})
-        username = 'test_user'
+        super().__init__(host, port, username, key_file_path, cwd)
+    
+    def _create_sftp_client(self):
+        server = mockssh.Server(users={})
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         pem = private_key.private_bytes(encoding=serialization.Encoding.PEM,
                                         format=serialization.PrivateFormat.TraditionalOpenSSL,
@@ -59,10 +56,13 @@ class TestSFTPObjectStore(SFTPObjectStore):
             private_key_file = open(tmppath, 'wb')
             private_key_file.write(pem)
             private_key_file.close()
-            self.server.add_user(uid=username, private_key_path=tmppath)
-            self.server.__enter__()
-            self.ssh_client = self.server.client(username)
+            server.add_user(uid=self.username, private_key_path=tmppath)
+            server.__enter__()
+            self.ssh_client = server.client(self.username)
             self.sftp_client = self.ssh_client.open_sftp()
+            return self.sftp_client
+    
+    def 
 
 
 @pytest.fixture
@@ -91,7 +91,7 @@ def object_store(request, monkeypatch: pytest.MonkeyPatch,
         object_store_kwargs[request.param]['provider_kwargs']['key'] = remote_dir
         yield request.param(**object_store_kwargs[request.param])
     elif request.param is SFTPObjectStore:
-        yield TestSFTPObjectStore("unused_test_hostname")
+        yield MockSFTPObjectStore("test_hostname", port=24, username='test_user')
     else:
         raise NotImplementedError('Parameterization not implemented')
 
@@ -119,7 +119,7 @@ class TestObjectStore:
         elif isinstance(object_store, LibcloudObjectStore):
             assert uri == 'local://./tmpfile_object_name'
         elif isinstance(object_store, SFTPObjectStore):
-            pytest.skip("SFTP object store testing uses a mock server without a uri")
+            assert uri == 'sftp://test_hostname:24/tmpfile_object_name'
         else:
             raise NotImplementedError(f'Object store {type(object_store)} not implemented.')
 
