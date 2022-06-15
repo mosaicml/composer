@@ -61,6 +61,8 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/ffcv_dataloaders.ipynb
    examples/huggingface_models.ipynb
    examples/migrate_from_ptl.ipynb
+   examples/early_stopping.ipynb
+   examples/streaming_dataloader_facesynthetics.ipynb
 
 
 .. toctree::
