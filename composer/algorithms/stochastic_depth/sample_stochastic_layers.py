@@ -1,11 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright 2021 MosaicML. All Rights Reserved.
-
-"""
-A block for adding sample-wise stochastic in a ResNet Bottleneck.
-"""
+"""A block for adding sample-wise stochastic in a ResNet Bottleneck."""
 
 import torch
 from torchvision.models.resnet import Bottleneck
