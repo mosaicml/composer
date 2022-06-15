@@ -1,6 +1,8 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Any, Dict
 
-from composer.callbacks import CallbackHparams
 from composer.core import Callback, Event, State
 from composer.loggers import Logger
 
@@ -18,13 +20,7 @@ class EventCounterCallback(Callback):
         self.event_to_num_calls[event] += 1
 
     def state_dict(self) -> Dict[str, Any]:
-        return {"events": self.event_to_num_calls}
+        return {'events': self.event_to_num_calls}
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.event_to_num_calls.update(state["events"])
-
-
-class EventCounterCallbackHparams(CallbackHparams):
-
-    def initialize_object(self) -> EventCounterCallback:
-        return EventCounterCallback()
+        self.event_to_num_calls.update(state['events'])

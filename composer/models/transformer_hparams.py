@@ -1,8 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""General `YAHP <https://docs.mosaicml.com/projects/yahp/en/stable/README.html>`_ interface for
-ComposerTransformers."""
+"""YAHP :class:`.hp.Hparams` hyperparameters for ComposerTransformers."""
 
 from abc import ABC
 from dataclasses import dataclass
@@ -13,12 +12,12 @@ import yahp as hp
 from composer.core.types import JSON
 from composer.models.model_hparams import ModelHparams
 
-__all__ = ["TransformerHparams"]
+__all__ = ['TransformerHparams']
 
 
 @dataclass
 class TransformerHparams(ModelHparams, ABC):
-    """Defines the necessary hyparameters for a Transformer base module.
+    """Defines the necessary hyperparameters for a Transformer base module.
 
     Args:
         pretrained_model_name (Optional[str]): "Pretrained model name to pull from Huggingface Model Hub."
@@ -29,22 +28,22 @@ class TransformerHparams(ModelHparams, ABC):
         gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
     """
 
-    tokenizer_name: Optional[str] = hp.optional("Tokenizer name to pull from Huggingface Model Hub.", default=None)
+    tokenizer_name: Optional[str] = hp.optional('Tokenizer name to pull from Huggingface Model Hub.', default=None)
     pretrained_model_name: Optional[str] = hp.optional(
-        doc="Pretrained model name to pull from Huggingface Model Hub.",
+        doc='Pretrained model name to pull from Huggingface Model Hub.',
         default=None,
     )
-    model_config: Dict[str, JSON] = hp.optional(doc="A dictionary providing a HuggingFace model configuration.",
+    model_config: Dict[str, JSON] = hp.optional(doc='A dictionary providing a HuggingFace model configuration.',
                                                 default_factory=dict)
-    use_pretrained: bool = hp.optional("Whether to initialize the model with the pretrained weights.", default=False)
-    gradient_checkpointing: bool = hp.optional("Whether to enable gradient checkpointing.", default=False)
+    use_pretrained: bool = hp.optional('Whether to initialize the model with the pretrained weights.', default=False)
+    gradient_checkpointing: bool = hp.optional('Whether to enable gradient checkpointing.', default=False)
 
     def validate(self):
         if self.pretrained_model_name is None and self.model_config == {}:
-            raise Exception("One of pretrained_model_name or model_config needed.")
+            raise Exception('One of pretrained_model_name or model_config needed.')
 
         if self.pretrained_model_name is not None and self.model_config != {}:
-            raise Exception("Only one of pretrained_model_name or model_config can be provided.")
+            raise Exception('Only one of pretrained_model_name or model_config can be provided.')
 
         if self.use_pretrained and self.model_config:
-            raise Exception("A model cannot load pretrained weights from configuration.")
+            raise Exception('A model cannot load pretrained weights from configuration.')

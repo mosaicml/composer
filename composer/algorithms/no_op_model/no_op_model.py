@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ["NoOpModelClass", "NoOpModel"]
+__all__ = ['NoOpModelClass', 'NoOpModel']
 
 
 class NoOpModelClass(ComposerModel):
@@ -65,6 +65,10 @@ class NoOpModelClass(ComposerModel):
 
 class NoOpModel(Algorithm):
     """Runs on :attr:`Event.INIT` and replaces the model with a dummy model of type NoOpModelClass."""
+
+    def __init__(self):
+        # No arguments
+        pass
 
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT

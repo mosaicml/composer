@@ -14,14 +14,15 @@ ALiBi (Attention with Linear Biases) dispenses with position embeddings for toke
 
 ### Functional Interface
 
+<!--pytest-codeblocks:importorskip(transformers)-->
 ```python
-# Run the ALiBi algorithm directly on the model using the Composer functional API 
+# Run the ALiBi algorithm directly on the model using the Composer functional API
 
 import torch
 import composer.functional as cf
 
-from composer.algorithms.alibi.gpt2_alibi import _attn
-from composer.algorithms.alibi.gpt2_alibi import enlarge_mask
+from composer.algorithms.alibi._gpt2_alibi import _attn
+from composer.algorithms.alibi._gpt2_alibi import enlarge_mask
 from transformers.models.gpt2.modeling_gpt2 import GPT2Attention
 
 def training_loop(model, train_loader):
@@ -39,7 +40,7 @@ def training_loop(model, train_loader):
     opt = torch.optim.Adam(model.parameters())
     loss_fn = F.cross_entropy
     model.train()
-  
+
     for epoch in range(num_epochs):
         for X, y in train_loader:
             y_hat = model(X)
@@ -51,6 +52,8 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop
@@ -99,7 +102,7 @@ Press et al. found that learning *m* did not lead to strong extrapolation. They 
 Press et al. report that models trained with ALiBi maintain similar performance even when tested on sequences 5-10x longer than they were trained on. ALiBi’s extrapolation capabilities can be leveraged to train on shorter sequences. This is desirable because the number of operations required to compute self-attention and the GPU memory usage required to store the resulting representations both increase with the square of the sequence length. In one example scenario, Press et al. reported training to equal perplexity 90% of the time and utilizing 90% of the GPU memory compared to a baseline model with sinusoidal position embeddings. Our experiments show that ALiBi can reduce perplexity by 0.2-0.6, train models 1.15x faster, and utilize 1.2x less GPU memory compared to baseline models (see below).
 
 > ✅ ALiBi Improves the Tradeoff Between Quality and Training Speed
-> 
+>
 > In our experiments, ALiBi improves the attainable tradeoffs between training speed and the final quality of the trained model.
 > We recommend ALiBi for training language models.
 
@@ -115,7 +118,7 @@ We conducted experiments on the GPT-2 model family trained on OpenWebText on 8x 
 |GPT2-125M ALiBi 0.25x|23.49|-0.63|25280|1.19x|74.83|1.28x|
 
 > ❗ Don't Set the Sequence Length Too Short
-> 
+>
 >We observed that performance significantly degraded for ALiBi models trained on sequence lengths ≤128, implying that very short sequences (≤128 tokens) may be irreconcilably out-of-distribution with regard to longer sequences. Considering our results together with those of Press et al. leads us to suggest that models with ALiBi should not be trained on sequences ≤256 or `train_sequence_length_scaling≤0.03125`, whichever is larger.
 
 ## Attribution

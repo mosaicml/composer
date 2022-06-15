@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import pathlib
 import time
 from typing import Optional, Tuple
@@ -6,6 +9,8 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.datasets.ade20k import StreamingADE20k
+from composer.datasets.c4 import StreamingC4
+from composer.datasets.cifar import StreamingCIFAR10
 from composer.datasets.coco import StreamingCOCO
 from composer.datasets.imagenet import StreamingImageNet1k
 from composer.datasets.streaming import StreamingDataset
@@ -15,57 +20,84 @@ from composer.datasets.utils import pil_image_collate
 def get_dataset(name: str, local: str, split: str, shuffle: bool,
                 batch_size: Optional[int]) -> Tuple[int, StreamingDataset]:
     dataset_map = {
-        "ade20k": {
-            "remote": "s3://mosaicml-internal-dataset-ade20k/mds/",
-            "num_samples": {
-                "train": 20206,
-                "val": 2000,
+        'ade20k': {
+            'remote': 's3://mosaicml-internal-dataset-ade20k/mds/1/',
+            'num_samples': {
+                'train': 20206,
+                'val': 2000,
             },
-            "class": StreamingADE20k,
+            'class': StreamingADE20k,
+            'kwargs': {},
         },
-        "imagenet1k": {
-            "remote": "s3://mosaicml-internal-dataset-imagenet1k/mds/",
-            "num_samples": {
-                "train": 1281167,
-                "val": 50000,
+        'imagenet1k': {
+            'remote': 's3://mosaicml-internal-dataset-imagenet1k/mds/1/',
+            'num_samples': {
+                'train': 1281167,
+                'val': 50000,
             },
-            "class": StreamingImageNet1k
+            'class': StreamingImageNet1k,
+            'kwargs': {},
         },
-        "coco": {
-            "remote": "s3://mosaicml-internal-dataset-coco/mds/",
-            "num_samples": {
-                "train": 117266,
-                "val": 4952,
+        'coco': {
+            'remote': 's3://mosaicml-internal-dataset-coco/mds/1/',
+            'num_samples': {
+                'train': 117266,
+                'val': 4952,
             },
-            "class": StreamingCOCO
+            'class': StreamingCOCO,
+            'kwargs': {},
+        },
+        'c4': {
+            'remote': 's3://mosaicml-internal-dataset-c4/mds/1/',
+            'num_samples': {
+                'train': 364868892,
+                'val': 364608,
+            },
+            'class': StreamingC4,
+            'kwargs': {
+                'tokenizer_name': 'bert-base-uncased',
+                'max_seq_len': 512
+            },
+        },
+        'cifar10': {
+            'remote': 's3://mosaicml-internal-dataset-cifar10/mds/1/',
+            'num_samples': {
+                'train': 50000,
+                'val': 10000,
+            },
+            'class': StreamingCIFAR10,
+            'kwargs': {},
         },
     }
-    if name not in dataset_map and split not in dataset_map[name]["num_samples"][split]:
-        raise ValueError("Could not load dataset with name={name} and split={split}")
+    if name not in dataset_map and split not in dataset_map[name]['num_samples'][split]:
+        raise ValueError('Could not load dataset with name={name} and split={split}')
 
     d = dataset_map[name]
-    expected_samples = d["num_samples"][split]
-    remote = d["remote"]
-    dataset = d["class"](remote=remote, local=local, split=split, shuffle=shuffle, batch_size=batch_size)
+    expected_samples = d['num_samples'][split]
+    remote = d['remote']
+    kwargs = d['kwargs']
+    dataset = d['class'](remote=remote, local=local, split=split, shuffle=shuffle, batch_size=batch_size, **kwargs)
     return (expected_samples, dataset)
 
 
 @pytest.mark.remote()
 @pytest.mark.timeout(0)
-@pytest.mark.parametrize("name", [
-    "ade20k",
-    "imagenet1k",
-    pytest.param("coco", marks=pytest.mark.skip(reason="StreamingCOCO dataset needs to be debugged.")),
+@pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
+@pytest.mark.parametrize('name', [
+    'ade20k',
+    'imagenet1k',
+    'coco',
+    'cifar10',
 ])
-@pytest.mark.parametrize("split", ["val"])
-def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -> None:
+@pytest.mark.parametrize('split', ['val'])
+def test_streaming_remote_dataset(tmp_path: pathlib.Path, name: str, split: str) -> None:
 
     # Build StreamingDataset
     build_start = time.time()
-    expected_samples, dataset = get_dataset(name=name, local=str(tmpdir), split=split, shuffle=False, batch_size=None)
+    expected_samples, dataset = get_dataset(name=name, local=str(tmp_path), split=split, shuffle=False, batch_size=None)
     build_end = time.time()
     build_dur = build_end - build_start
-    print("Built dataset")
+    print('Built dataset')
 
     # Test basic iteration
     rcvd_samples = 0
@@ -74,14 +106,14 @@ def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -
         rcvd_samples += 1
 
         if (rcvd_samples % 1000 == 0):
-            print(f"samples read: {rcvd_samples}")
+            print(f'samples read: {rcvd_samples}')
 
     iter_end = time.time()
     iter_dur = iter_end - iter_start
     samples_per_sec = rcvd_samples / iter_dur
 
     # Print debug info
-    print(f"build_dur={build_dur:.2f}s, iter_dur={iter_dur:.2f}, samples_per_sec={samples_per_sec:.2f}")
+    print(f'build_dur={build_dur:.2f}s, iter_dur={iter_dur:.2f}, samples_per_sec={samples_per_sec:.2f}')
 
     # Test all samples arrived
     assert rcvd_samples == expected_samples
@@ -89,13 +121,20 @@ def test_streaming_remote_dataset(tmpdir: pathlib.Path, name: str, split: str) -
 
 @pytest.mark.remote()
 @pytest.mark.timeout(0)
-@pytest.mark.parametrize("name", [
-    "ade20k",
-    "imagenet1k",
-    pytest.param("coco", marks=pytest.mark.skip(reason="StreamingCOCO dataset needs to be debugged.")),
+@pytest.mark.filterwarnings(r'ignore::pytest.PytestUnraisableExceptionWarning')
+@pytest.mark.parametrize('name', [
+    'ade20k',
+    'imagenet1k',
+    'coco',
+    'cifar10',
+    'c4',
 ])
-@pytest.mark.parametrize("split", ["val"])
-def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str) -> None:
+@pytest.mark.parametrize('split', ['val'])
+def test_streaming_remote_dataloader(tmp_path: pathlib.Path, name: str, split: str) -> None:
+    # Transformers imports required for batch collating
+    pytest.importorskip('transformers')
+    from transformers import DataCollatorForLanguageModeling
+    from transformers.tokenization_utils_base import BatchEncoding
 
     # Data loading info
     shuffle = True
@@ -103,18 +142,27 @@ def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str
     num_workers = 8
     drop_last = False
     persistent_workers = True
-    collate_fn = pil_image_collate if name in ["ade20k", "imagenet1k"] else None
 
     # Build StreamingDataset
     ds_build_start = time.time()
     expected_samples, dataset = get_dataset(name=name,
-                                            local=str(tmpdir),
+                                            local=str(tmp_path),
                                             split=split,
                                             shuffle=shuffle,
                                             batch_size=batch_size)
     ds_build_end = time.time()
     ds_build_dur = ds_build_end - ds_build_start
-    print("Built dataset")
+    print('Built dataset')
+
+    # Get collate_fn if needed
+    collate_fn = None
+    if name in ['ade20k', 'imagenet1k']:
+        collate_fn = pil_image_collate
+    elif name in ['c4']:
+        if isinstance(dataset, StreamingC4):
+            collate_fn = DataCollatorForLanguageModeling(tokenizer=dataset.tokenizer, mlm=True, mlm_probability=0.15)
+        else:
+            raise ValueError('Expected dataset to be instance of StreamingC4')
 
     # Build DataLoader
     loader_build_start = time.time()
@@ -128,18 +176,33 @@ def test_streaming_remote_dataloader(tmpdir: pathlib.Path, name: str, split: str
     loader_build_dur = loader_build_end - loader_build_start
 
     # Print debug info
-    print(f"ds_build_dur={ds_build_dur:.2f}s, loader_build_dur={loader_build_dur:.2f}s")
+    print(f'ds_build_dur={ds_build_dur:.2f}s, loader_build_dur={loader_build_dur:.2f}s')
 
     for epoch in range(3):
         rcvd_samples = 0
+        last_marker = 0
+        marker_interval = len(dataset) // 20
         epoch_start = time.time()
-        for _, (images, _) in enumerate(loader):
-            n_samples = images.shape[0]
+        for _, batch in enumerate(loader):
+            if isinstance(batch, (list, tuple)):
+                n_samples = batch[0].shape[0]
+            elif isinstance(batch, dict):
+                first_key = list(batch.keys())[0]
+                n_samples = batch[first_key].shape[0]
+            elif isinstance(batch, BatchEncoding):
+                first_key = list(batch.data.keys())[0]
+                n_samples = batch.data[first_key].shape[0]
+            else:
+                raise ValueError(f'Unsure how to count n_samples for batch of type {type(batch)}')
+            assert isinstance(n_samples, int)
             rcvd_samples += n_samples
+            if rcvd_samples - last_marker > marker_interval:
+                print(f'samples read: {rcvd_samples}')
+                last_marker = rcvd_samples
         epoch_end = time.time()
         epoch_dur = epoch_end - epoch_start
         samples_per_sec = rcvd_samples / epoch_dur
-        print(f"Epoch {epoch}: epoch_dur={epoch_dur:.2f}s, samples_per_sec={samples_per_sec:.2f}")
+        print(f'Epoch {epoch}: epoch_dur={epoch_dur:.2f}s, samples_per_sec={samples_per_sec:.2f}')
 
         # Test all samples arrived
         assert rcvd_samples == expected_samples

@@ -107,10 +107,13 @@ class _CopyLinear(torch.nn.Module):
 
     @staticmethod
     def from_linear(module: torch.nn.Module, module_index: int = -1):
-        ret = _CopyLinear(in_features=module.in_features, out_features=module.out_features)  # type: ignore
+        assert isinstance(module.in_features, int)
+        assert isinstance(module.out_features, int)
+        ret = _CopyLinear(in_features=module.in_features, out_features=module.out_features)
         with torch.no_grad():
             # new param object
-            ret.weight.copy_(module.weight)  # type: ignore
+            assert isinstance(module.weight, torch.Tensor)
+            ret.weight.copy_(module.weight)
             ret.bias = module.bias  # same param object
         return ret
 

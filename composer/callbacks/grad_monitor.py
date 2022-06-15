@@ -7,7 +7,7 @@ from composer.core import State
 from composer.core.callback import Callback
 from composer.loggers import Logger
 
-__all__ = ["GradMonitor"]
+__all__ = ['GradMonitor']
 
 
 class GradMonitor(Callback):
@@ -17,8 +17,7 @@ class GradMonitor(Callback):
     the model and hence may cause a reduction in throughput while training large models. In order to ensure the
     correctness of norm, this function should be called after gradient unscaling in cases where gradients are scaled.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer.callbacks import GradMonitor
@@ -31,10 +30,6 @@ class GradMonitor(Callback):
         ...     max_duration="1ep",
         ...     callbacks=[GradMonitor()],
         ... )
-
-    .. testcleanup::
-
-        trainer.engine.close()
 
     The L2 norms are logged by the :class:`~composer.loggers.logger.Logger` to the following keys as described below.
 
@@ -57,7 +52,6 @@ class GradMonitor(Callback):
     """
 
     def __init__(self, log_layer_grad_norms: bool = False):
-        super().__init__()
         self.log_layer_grad_norms = log_layer_grad_norms
 
     def after_train_batch(self, state: State, logger: Logger):
