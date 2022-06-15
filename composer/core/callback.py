@@ -91,9 +91,9 @@ class Callback(Serializable, abc.ABC):
         """This method is called by the engine on each event.
 
         Args:
-            event (:class:`.Event`): The event.
-            state (:class:`.State`): The state.
-            logger (:class:`.Logger`): The logger.
+            event (Event): The event.
+            state (State): The state.
+            logger (Logger): The logger.
         """
         event_cb = getattr(self, event.value)
         return event_cb(state, logger)
@@ -102,8 +102,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.INIT` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -112,8 +112,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.FIT_START` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -122,8 +122,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.EPOCH_START` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -132,8 +132,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.BATCH_START` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -142,8 +142,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.AFTER_DATALOADER` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -152,8 +152,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.BEFORE_TRAIN_BATCH` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -162,8 +162,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.BEFORE_FORWARD` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -172,8 +172,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.AFTER_FORWARD` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -182,8 +182,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.BEFORE_LOSS` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -192,8 +192,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.AFTER_LOSS` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -202,8 +202,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.BEFORE_BACKWARD` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -212,8 +212,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.AFTER_BACKWARD` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -222,8 +222,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.AFTER_TRAIN_BATCH` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -251,8 +251,8 @@ class Callback(Serializable, abc.ABC):
            +------------------------------------+
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -261,8 +261,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.BATCH_CHECKPOINT` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -276,8 +276,8 @@ class Callback(Serializable, abc.ABC):
             is incremented immediately before :attr:`.Event.EPOCH_END`.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -286,8 +286,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.EPOCH_CHECKPOINT` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -296,8 +296,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.PREDICT_START` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -306,8 +306,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.PREDICT_BATCH_START` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -316,8 +316,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.PREDICT_BATCH_FORWARD` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -326,8 +326,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.PREDICT_AFTER_FORWARD` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -336,8 +336,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.PREDICT_BATCH_END` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -346,8 +346,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.PREDICT_END` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -356,8 +356,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.EVAL_START` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -366,8 +366,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.EVAL_BATCH_START` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -376,8 +376,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.EVAL_BATCH_FORWARD` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -386,8 +386,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.EVAL_AFTER_FORWARD` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -396,8 +396,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.EVAL_BATCH_END` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -406,8 +406,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.EVAL_END` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -416,8 +416,8 @@ class Callback(Serializable, abc.ABC):
         """Called on the :attr:`.Event.FIT_END` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         del state, logger  # unused
         pass
@@ -429,8 +429,8 @@ class Callback(Serializable, abc.ABC):
         closing any files that may have been opened during the :attr:`.Event.INIT` event.
 
         Args:
-            state (:class:`.State`): The global state.
-            logger (:class:`.Logger`): The logger.
+            state (State): The training state.
+            logger (Logger): The logger.
         """
         pass
 
