@@ -29,7 +29,7 @@ def mixup_batch(input: torch.Tensor,
 
     This is done by taking a convex combination of ``input`` with a randomly
     permuted copy of ``input``. The permutation takes place along the sample
-    axis (dim 0).
+    axis (``dim=0``).
 
     The relative weight of the original ``input`` versus the permuted copy is
     defined by the ``mixing`` parameter. This parameter should be chosen
@@ -47,7 +47,7 @@ def mixup_batch(input: torch.Tensor,
             distribution. Default: ``None``.
         alpha (float, optional): parameter for the Beta distribution over
             ``mixing``. Ignored if ``mixing`` is provided. Default: ``0.2``.
-        indices (Tensor, optional): Permutation of the samples to use.
+        indices (torch.Tensor, optional): Permutation of the samples to use.
             Default: ``None``.
 
     Returns:
@@ -65,7 +65,10 @@ def mixup_batch(input: torch.Tensor,
             X = torch.randn(N, C, H, W)
             y = torch.randint(num_classes, size=(N,))
             X_mixed, y_perm, mixing = mixup_batch(
-                X, y, alpha=0.2)
+                X,
+                y,
+                alpha=0.2,
+            )
     """
     if mixing is None:
         mixing = _gen_mixing_coef(alpha)
@@ -84,10 +87,10 @@ def mixup_batch(input: torch.Tensor,
 
 
 class MixUp(Algorithm):
-    """`MixUp <https://arxiv.org/abs/1710.09412>`_ trains the network on convex combinations of pairs of examples and
-    targets rather than individual examples and targets.
+    """`MixUp <https://arxiv.org/abs/1710.09412>`_ trains the network on convex batch combinations.
 
-    This is done by taking a convex combination of a given batch X with a
+
+    The algorithm uses individual examples and targets to make a convex combination of a given batch X with a
     randomly permuted copy of X. The mixing coefficient is drawn from a
     ``Beta(alpha, alpha)`` distribution.
 
@@ -100,7 +103,8 @@ class MixUp(Algorithm):
             approaches 0 from above, the combination approaches only using
             one element of the pair. Default: ``0.2``.
         interpolate_loss (bool, optional): Interpolates the loss rather than the labels.
-            A useful trick when using a cross entropy loss. Will produce incorrect behavior if the loss is not a linear
+            A useful trick when using a cross entropy loss.
+            Will produce incorrect behavior if the loss is not a linear
             function of the targets. Default: ``False``
         input_key (str | int | Tuple[Callable, Callable] | Any, optional): A key that indexes to the input
             from the batch. Can also be a pair of get and set functions, where the getter

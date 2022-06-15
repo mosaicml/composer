@@ -29,14 +29,14 @@ def randaugment_image(img: ImgT,
                       severity: int = 9,
                       depth: int = 2,
                       augmentation_set: List = augmentation_sets['all']) -> ImgT:
-    """Randomly applies a sequence of image data augmentations
-    (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image or batch of
-    images. See :class:`.RandAugment` or the
-    :doc:`Method Card </method_cards/randaugment>` for details. This function only acts on
-    a single image (or batch of images) per call and is unlikely to be used in a training
-    loop. Use :class:`.RandAugmentTransform`
-    to use RandAugment as part of a :class:`torchvision.datasets.VisionDataset`\\'s
-    ``transform``.
+    """Randomly applies a sequence of image data augmentations  to an image or batch of images.
+
+    This technique is adapted from `Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_).
+
+    See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>`
+    for details. This function only acts on a single image (or batch of images) per call and
+    is unlikely to be used in a training loop. Use :class:`.RandAugmentTransform` to use
+    :class:`.RandAugment` as part of a :class:`torchvision.datasets.VisionDataset` ``transform``.
 
     Example:
         .. testcode::
@@ -56,8 +56,7 @@ def randaugment_image(img: ImgT,
         img (PIL.Image.Image | torch.Tensor): Image or batch of images to be RandAugmented.
         severity (int, optional): See :class:`.RandAugment`.
         depth (int, optional): See :class:`.RandAugment`.
-        augmentation_set (str, optional): See
-            :class:`.RandAugment`.
+        augmentation_set (str, optional): See :class:`.RandAugment`.
 
     Returns:
         PIL.Image: RandAugmented image.
@@ -75,10 +74,9 @@ def randaugment_image(img: ImgT,
 
 
 class RandAugmentTransform(torch.nn.Module):
-    """Wraps :func:`.randaugment_image` in a
-    ``torchvision``-compatible transform. See
-    :class:`.RandAugment` or the :doc:`Method
-    Card </method_cards/randaugment>` for more details.
+    """Wraps :func:`.randaugment_image` in a ``torchvision``-compatible transform.
+
+    See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>` for more details.
 
     Example:
         .. testcode::
@@ -91,7 +89,10 @@ class RandAugmentTransform(torch.nn.Module):
                 depth=2,
                 augmentation_set="all"
             )
-            composed = transforms.Compose([randaugment_transform, transforms.RandomHorizontalFlip()])
+            composed = transforms.Compose([
+                randaugment_transform,
+                transforms.RandomHorizontalFlip()
+            ])
             transformed_image = composed(image)
 
     Args:
@@ -121,12 +122,12 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_)
-    to an image.
+    """Randomly applies a sequence of image data augmentations to an image.
 
-    This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
+    This algorithm (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) runs on
+    :attr:`~composer.core.event.Event.INIT` to insert a dataset
     transformation. It is a no-op if this algorithm already applied itself on the
-    :attr:`State.train_dataloader.dataset`.
+    :attr:`.State.train_dataloader.dataset`.
 
     See the :doc:`Method Card </method_cards/randaugment>` for more details.
 
@@ -155,15 +156,16 @@ class RandAugment(Algorithm):
             in the original paper. Default: ``9``.
         depth (int, optional): Depth of augmentation chain. N in the original paper
             Default: ``2``.
-        augmentation_set (str, optional): Must be one of the following options:
+        augmentation_set (str, optional): Must be one of the following options
+            as also described in :attr:`.augmentation_primitives.augmentation_sets`:
 
-            * ``"augmentations_all"``
+            * ``"all"``
                 Uses all augmentations from the paper.
-            * ``"augmentations_corruption_safe"``
-                Like ``"augmentations_all"``, but excludes transforms that are part of
+            * ``"safe"``
+                Like ``"all"``, but excludes transforms that are part of
                 the ImageNet-C/CIFAR10-C test sets
-            * ``"augmentations_original"``
-                Like ``"augmentations_all"``, but some of the implementations
+            * ``"original"``
+                Like ``"all"``, but some of the implementations
                 are identical to the original Github repository, which contains
                 implementation specificities for the augmentations
                 ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``. The
@@ -172,7 +174,7 @@ class RandAugment(Algorithm):
                 :math:`intensity \\times 0.18 + .1`, which ranges from 0.28 (intensity =
                 1) to 1.9 (intensity 10). These augmentations have different effects
                 depending on whether they are < 0 or > 0 (or < 1 or > 1).
-                "augmentations_all" uses implementations of "color", "contrast",
+                "all" uses implementations of "color", "contrast",
                 "sharpness", and "brightness" that account for diverging effects around 0
                 (or 1).
 
