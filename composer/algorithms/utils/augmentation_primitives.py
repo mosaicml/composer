@@ -11,7 +11,7 @@ Adapted from
 <https://github.com/google-research/augmix/blob/master/augmentations.py>`_.
 
 Attributes:
-    AugmentationFn ((:class:`~PIL.Image.Image`, float) -> :class:`~PIL.Image.Image`):
+    AugmentationFn ((PIL.Image.Image, float) -> PIL.Image.Image):
         The type annotation for describing an augmentation function.
 
         Each augmentation takes a :class:`~PIL.Image.Image` and an intensity level in
@@ -85,10 +85,7 @@ def _float_parameter(level: float, maxval: float):
 
 
 def _sample_level(n: float):
-    """Helper function to sample from a uniform
-    distribution between ``0.1`` and some value
-    ``n``.
-    """
+    """Helper function to sample from a uniform distribution between ``0.1`` and some value ``n``."""
     return np.random.uniform(low=0.1, high=n)
 
 
@@ -207,7 +204,7 @@ def translate_x(pil_img: Image.Image, level: float):
     """Shear an image horizontally.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -275,7 +272,7 @@ def contrast(pil_img: Image.Image, level: float):
     .. seealso:: :class:`PIL.ImageEnhance.Contrast`.
 
     Args:
-        pil_img (:class:`Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """

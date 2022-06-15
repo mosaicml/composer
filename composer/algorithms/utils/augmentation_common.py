@@ -11,11 +11,10 @@ _OutputImgT = TypeVar('_OutputImgT', torch.Tensor, PillowImage)
 
 
 def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
-    """Converts between :class:`torch.Tensor` and
-    :class:`PIL.Image.Image` image representations.
+    """Converts between :class:`torch.Tensor` and :class:`PIL.Image.Image` image representations.
 
     Args:
-        image (:class:`torch.Tensor` | :class:`PIL.Image.Image`): a single image
+        image (torch.Tensor | PIL.Image.Image): A single image
             represented as a :class:`PIL.Image.Image` or
             a rank 2 or rank 3 :class:`torch.Tensor` in ``HW`` or ``CHW`` format.
             A rank 4 or higher tensor can also be provided as long as no type
@@ -24,7 +23,7 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
             operate on batch tensors can safely call
             ``image_as_type(image, torch.Tensor)`` without additional error
             and type checking.
-        typ (:class:`torch.Tensor` | :class:`PIL.Image.Image`): type of the
+        typ (torch.Tensor | PIL.Image.Image): Type of the
             copied image. Must be :class:`PIL.Image.Image` or :class:`torch.Tensor`.
 
     Returns:

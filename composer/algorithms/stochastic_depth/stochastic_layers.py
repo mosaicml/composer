@@ -1,14 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Stochastic layers for ResNet.
-"""
+"""Stochastic layers for ResNet."""
 
 import torch
 from torchvision.models.resnet import Bottleneck
 
-__all__ = ["StochasticBottleneck"]
+__all__ = ['StochasticBottleneck']
+
 
 def _sample_bernoulli(probability: torch.Tensor,
                       device_id: int,
@@ -19,8 +18,8 @@ def _sample_bernoulli(probability: torch.Tensor,
                       use_same_gpu_seed: bool = False):
     """Gets a sample from a Bernoulli distribution.
 
-    Provides functionality to have different seeds 
-    across GPUs and to have the same set of seeds 
+    Provides functionality to have different seeds
+    across GPUs and to have the same set of seeds
     across GPUs.
     """
 
@@ -44,14 +43,16 @@ def _sample_bernoulli(probability: torch.Tensor,
 
 
 class StochasticBottleneck(Bottleneck):
-    """Stochastic ResNet Bottleneck block. This block has a probability of
-    skipping the transformation section of the layer and scales the 
+    """Stochastic ResNet Bottleneck block.
+
+    This block has a probability of
+    skipping the transformation section of the layer and scales the
     transformation section.
 
     output by ``(1 - drop probability)`` during inference.
 
     Args:
-        drop_rate (float): Probability of dropping the block. Must be between 
+        drop_rate (float): Probability of dropping the block. Must be between
             0.0 and 1.0.
         module_id (int): The placement of the block within a network e.g. 0
             for the first layer in the network.
@@ -64,7 +65,7 @@ class StochasticBottleneck(Bottleneck):
             of blocks dropped across GPUs. Should be set to ``True`` when
             ``drop_distribution`` is ``"uniform"`` and set to ``False``
             for ``"linear"``.
-        rand_generator (:class:`torch.Generator`): random number generator.
+        rand_generator (torch.Generator): random number generator.
     """
 
     def __init__(self, drop_rate: float, module_id: int, module_count: int, use_same_gpu_seed: bool,

@@ -1,4 +1,8 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright 2021 MosaicML. All Rights Reserved.
+
 """
 A block for adding sample-wise stochastic in a ResNet Bottleneck.
 """
@@ -6,19 +10,18 @@ A block for adding sample-wise stochastic in a ResNet Bottleneck.
 import torch
 from torchvision.models.resnet import Bottleneck
 
-__all__ = ["SampleStochasticBottleneck"]
+__all__ = ['SampleStochasticBottleneck']
 
 
 def _sample_drop(x: torch.Tensor, sample_drop_rate: float, is_training: bool):
-    """Randomly drops samples from the input batch according to the `sample_drop_rate`.
+    """Randomly drops samples from the input batch according to the ``sample_drop_rate``.
 
     This is implemented by setting the samples to be dropped to zeros.
 
     Args:
-        x (:class:`torch.Tensor`): the input batch tensor.
-        sample_drop_rate (float): the rate at which to drop samples. Must be
-            between 0 and 1.
-        is_training (bool): is the model training.
+        x (torch.Tensor): The input batch tensor.
+        sample_drop_rate (float): The rate at which to drop samples. Must be between 0 and 1.
+        is_training (bool): Whether the model is training.
     """
 
     keep_probability = (1 - sample_drop_rate)

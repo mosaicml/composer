@@ -1,9 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Modules and layers for applying the Stochastic Depth algorithm.
-"""
+"""Modules and layers for applying the Stochastic Depth algorithm."""
 
 from __future__ import annotations
 
@@ -60,7 +58,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
         for now.
 
     Args:
-        model (:class:`torch.nn.Module`): model containing modules to be replaced with
+        model (torch.nn.Module): model containing modules to be replaced with
             stochastic versions.
         target_layer_name (str): Block to replace with a stochastic block
             equivalent. The name must be registered in ``STOCHASTIC_LAYER_MAPPING``
@@ -81,7 +79,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
             same layers dropped across GPUs when using multi-GPU training.
             Set to ``False`` to have each GPU drop a different set of layers. Only used
             with ``"block"`` stochastic method. Default: ``True``.
-        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`], optional):
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
             Existing optimizers bound to ``model.parameters()``.
             All optimizers that have already been constructed with
             ``model.parameters()`` must be specified here so they will optimize
@@ -130,8 +128,7 @@ def apply_stochastic_depth(model: torch.nn.Module,
 
 
 class StochasticDepth(Algorithm):
-    """Applies Stochastic Depth (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_)
-    to the specified model.
+    """Applies Stochastic Depth (`Huang et al, 2016 <https://arxiv.org/abs/1603.09382>`_) to the specified model.
 
     The algorithm replaces the specified target layer with a stochastic version
     of the layer. The stochastic layer will randomly drop either samples or the
@@ -163,7 +160,7 @@ class StochasticDepth(Algorithm):
             ``"uniform"`` assigns the same ``drop_rate`` across all layers.
             ``"linear"`` linearly increases the drop rate across layer depth,
             starting with 0 drop rate and ending with ``drop_rate``. Default: ``"linear"``.
-        drop_warmup (str | :class:`Time` | float, optional): A :class:`Time` object,
+        drop_warmup (str | Time | float, optional): A :class:`Time` object,
             time-string, or float on ``[0.0, 1.0]`` representing the fraction of the
             training duration to linearly increase the drop probability to
             `linear_drop_rate`. Default: ``0.0``.
@@ -208,26 +205,9 @@ class StochasticDepth(Algorithm):
         return self.stochastic_method == 'block'
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on :attr:`~composer.core.event.Event.INIT`, as well as
-        :attr:`~composer.core.event.Event.BATCH_START` if ``drop_warmup > 0``.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-        Returns:
-            bool: True if this algorithm should run now.
-        """
-
         return (event == Event.INIT) or (event == Event.BATCH_START and self.drop_warmup > 0.0)
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Applies StochasticDepth modification to the state's model.
-
-        Args:
-            event (:class:`Event`): the current event
-            state (:class:`State`): the current trainer state
-            logger (:class:`Logger`): the training logger
-        """
         assert state.model is not None
         target_layer, stochastic_layer = _STOCHASTIC_LAYER_MAPPING[self.stochastic_method][self.target_layer_name]
 
