@@ -111,9 +111,6 @@ class DatasetHparams(hp.Hparams, abc.ABC):
     """Abstract base class for hyperparameters to initialize a dataset.
 
     Args:
-        datadir (str): The path to the data directory.
-        is_train (bool): Whether to load the training data or validation data. Default:
-            ``True``.
         drop_last (bool): If the number of samples is not divisible by the batch size,
             whether to drop the last batch or pad the last batch with zeros. Default:
             ``True``.
