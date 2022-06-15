@@ -12,6 +12,10 @@ from composer.algorithms.gradient_clipping import GradientClipping, apply_gradie
 from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, _get_clipped_gradient_coeff
 from composer.core import Engine
 from composer.core.event import Event
+from tests.fixtures import dummy_fixtures
+
+# To satisfy pyright.
+dummy_state = dummy_fixtures.dummy_state
 
 
 @pytest.fixture
@@ -77,36 +81,35 @@ def test_gradient_clipping_functional(monkeypatch):
 
 
 @pytest.mark.parametrize('clipping_type', [('adaptive',), ('norm',), ('value',)])
-def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_with_grads):
+def test_gradient_clipping_algorithm(monkeypatch, clipping_type, simple_model_with_grads, dummy_state):
     model = simple_model_with_grads
     apply_gc_fn = Mock()
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
-    state = Mock()
+    state = dummy_state
     state.model = model
-    state.profiler.marker = Mock(return_value=None)
     state.callbacks = []
-    state.deepspeed_enabled = False
     state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=0.01)]
     logger = Mock()
     engine = Engine(state, logger)
 
-    # Run the Event that should cause AGC.apply to be called.
+    # Run the Event that should cause gradient_clipping.apply to be called.
     engine.run_event(Event.AFTER_TRAIN_BATCH)
 
     apply_gc_fn.assert_called_once()
 
 
-def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.MonkeyPatch, simple_model_with_grads):
+def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.MonkeyPatch, simple_model_with_grads,
+                                                            dummy_state):
     clipping_threshold = 0.1191
     apply_gc_fn = Mock()
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
-    state = Mock()
-    state.profiler.marker = Mock(return_value=None)
-    state.callbacks = []
+    state = dummy_state
 
-    # Enable deepspeed and set clipping_type to norm to ensure that apply_gradient_clipping
+    # Set clipping_type to norm to ensure that apply_gradient_clipping
     # is not called.
     state.algorithms = [GradientClipping(clipping_type='norm', clipping_threshold=clipping_threshold)]
+
+    # Enable deepspeed.
     state.deepspeed_config = {}
 
     model = simple_model_with_grads
@@ -125,13 +128,11 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(monkeypatch: pytest.
     apply_gc_fn.assert_not_called()
 
 
-def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(monkeypatch: pytest.MonkeyPatch):
+def test_algorithm_with_deepspeed_enabled_errors_out_for_non_norm(monkeypatch: pytest.MonkeyPatch, dummy_state):
     clipping_threshold = 0.1191
     apply_gc_fn = Mock()
     monkeypatch.setattr(gc_module, 'apply_gradient_clipping', apply_gc_fn)
-    state = Mock()
-    state.profiler.marker = Mock(return_value=None)
-    state.callbacks = []
+    state = dummy_state
 
     # Enable deepspeed and set clipping_type to norm to ensure that apply_gradient_clipping
     # is not called.
