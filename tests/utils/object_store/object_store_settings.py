@@ -62,6 +62,11 @@ object_store_kwargs: Dict[Union[Type[ObjectStore], Type[ObjectStoreHparams]], Di
         'provider': 'local',
         'key_environ': 'OBJECT_STORE_KEY',
         'container': '.',
+    },
+    SFTPObjectStore: {
+        'host': 'test_hostname',
+        'port': 24,
+        'username': 'test_username',
     }
 }
 
