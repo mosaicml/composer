@@ -8,6 +8,7 @@ dataset.
 """
 
 from dataclasses import dataclass
+from typing import Optional
 
 import torch
 import torchvision.transforms.functional as TF
@@ -47,6 +48,9 @@ class ADE20kDatasetHparams(DatasetHparams, SyntheticHparamsMixin):
     max_resize_scale: float = hp.optional('Maximum value that the image and target can be scaled', default=2.0)
     final_size: int = hp.optional('Final size of the image and target', default=512)
     ignore_background: bool = hp.optional('If true, ignore the background class in training loss', default=True)
+
+    datadir: Optional[str] = hp.optional('The path to the data directory', default=None)
+    is_train: bool = hp.optional('Whether to load the training data (the default) or validation data.', default=True)
 
     def validate(self):
         if self.datadir is None and not self.use_synthetic:
