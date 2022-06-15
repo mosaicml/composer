@@ -44,7 +44,7 @@ class MockSFTPObjectStore(SFTPObjectStore):
                  key_file_path: Optional[str] = None,
                  cwd: Optional[str] = None):
         super().__init__(host, port, username, key_file_path, cwd)
-    
+
     def _create_sftp_client(self):
         server = mockssh.Server(users={})
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -61,8 +61,6 @@ class MockSFTPObjectStore(SFTPObjectStore):
             self.ssh_client = server.client(self.username)
             self.sftp_client = self.ssh_client.open_sftp()
             return self.sftp_client
-    
-    def 
 
 
 @pytest.fixture
