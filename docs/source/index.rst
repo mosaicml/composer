@@ -38,15 +38,32 @@ If you have any questions, please feel free to reach out to us on `Twitter`_, `E
 
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, and issues.
 
-
 .. toctree::
    :hidden:
    :maxdepth: 1
    :caption: Getting Started
 
    getting_started/installation.rst
-   getting_started/notebooks.rst
+   getting_started/quick_start.rst
    getting_started/welcome_tour.rst
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Examples
+
+
+   examples/getting_started.ipynb
+   examples/functional_api.ipynb
+   examples/medical_image_segmentation.ipynb
+   examples/custom_speedup_methods.ipynb
+   examples/nlp_models.ipynb
+   examples/ffcv_dataloaders.ipynb
+   examples/huggingface_models.ipynb
+   examples/migrate_from_ptl.ipynb
+   examples/early_stopping.ipynb
+   examples/streaming_dataloader_facesynthetics.ipynb
+
 
 .. toctree::
    :hidden:
@@ -82,7 +99,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :caption: Methods Library
 
    method_cards/methods_overview.rst
-   method_cards/agc.md
    method_cards/alibi.md
    method_cards/augmix.md
    method_cards/blurpool.md
@@ -93,6 +109,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/ema.md
    method_cards/factorize.md
    method_cards/ghost_batchnorm.md
+   method_cards/gradient_clipping.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
    method_cards/mixup.md
@@ -113,6 +130,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :caption: Model Library
 
    model_cards/cifar_resnet.md
+   model_cards/deeplabv3.md
    model_cards/efficientnet.md
    model_cards/GPT2.md
    model_cards/resnet.md

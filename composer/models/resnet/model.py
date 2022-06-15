@@ -10,7 +10,7 @@ from torchvision.models import resnet
 from composer.models.initializers import Initializer
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ["ComposerResNet"]
+__all__ = ['ComposerResNet']
 
 
 class ComposerResNet(ComposerClassifier):
@@ -41,7 +41,7 @@ class ComposerResNet(ComposerClassifier):
         model = ComposerResNet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
     """
 
-    valid_model_names = ["resnet18", "resnet34", "resnet50", "resnet101", "resnet152"]
+    valid_model_names = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
 
     def __init__(
         self,
@@ -51,11 +51,11 @@ class ComposerResNet(ComposerClassifier):
         groups: int = 1,
         width_per_group: int = 64,
         initializers: Optional[List[Initializer]] = None,
-        loss_name: str = "soft_cross_entropy",
+        loss_name: str = 'soft_cross_entropy',
     ) -> None:
 
         if model_name not in self.valid_model_names:
-            raise ValueError(f"model_name must be one of {self.valid_model_names} instead of {model_name}.")
+            raise ValueError(f'model_name must be one of {self.valid_model_names} instead of {model_name}.')
 
         if initializers is None:
             initializers = []

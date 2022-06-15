@@ -15,16 +15,17 @@ import numpy as np
 from torch import Tensor
 
 from composer.core.state import State
-from composer.core.time import Timestamp
+from composer.core.time import Time, Timestamp
 from composer.loggers.logger import LogLevel
 from composer.loggers.logger_destination import LoggerDestination
 
-__all__ = ["InMemoryLogger"]
+__all__ = ['InMemoryLogger']
 
 
 class InMemoryLogger(LoggerDestination):
-    """Logs metrics to dictionary objects that persist in memory throughout training. Useful for collecting and plotting
-    data inside notebooks.
+    """Logs metrics to dictionary objects that persist in memory throughout training.
+
+    Useful for collecting and plotting data inside notebooks.
 
     Example usage:
         .. testcode::
@@ -46,10 +47,6 @@ class InMemoryLogger(LoggerDestination):
             # which index in trainer.logger.destinations contains your desired logger.
             logged_data = trainer.logger.destinations[0].data
 
-        .. testcleanup::
-
-            trainer.engine.close()
-
     Args:
         log_level (str | LogLevel, optional):
             :class:`~.logger.LogLevel` (i.e. unit of resolution) at
@@ -58,7 +55,8 @@ class InMemoryLogger(LoggerDestination):
             everything.
 
     Attributes:
-        data (dict): Mapping of a logged key to a (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`, data dictionary) tuple.
+        data (Dict[str, List[Tuple[Timestamp, LogLevel, Any]]]): Mapping of a logged key to
+            a (:class:`~.time.Timestamp`, :class:`~.logger.LogLevel`, logged value) tuple.
             This dictionary contains all logged data.
         most_recent_values (Dict[str, Any]): Mapping of a key to the most recent value for that key.
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
@@ -67,7 +65,7 @@ class InMemoryLogger(LoggerDestination):
 
     def __init__(self, log_level: Union[str, int, LogLevel] = LogLevel.BATCH) -> None:
         self.log_level = LogLevel(log_level)
-        self.data: Dict[str, List[Tuple[Timestamp, LogLevel, Dict[str, Any]]]] = {}
+        self.data: Dict[str, List[Tuple[Timestamp, LogLevel, Any]]] = {}
         self.most_recent_values = {}
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
 
@@ -120,11 +118,10 @@ class InMemoryLogger(LoggerDestination):
                 plt.xlabel("Batch")
                 plt.ylabel("Validation Accuracy")
         """
-
         # Check that desired metric is in present data
         if metric not in self.data.keys():
-            raise ValueError(f"Invalid value for argument `metric`: {metric}. Requested "
-                             "metric is not present in self.data.keys().")
+            raise ValueError(f'Invalid value for argument `metric`: {metric}. Requested '
+                             'metric is not present in self.data.keys().')
 
         timeseries = {}
         # Iterate through datapoints
@@ -133,7 +130,7 @@ class InMemoryLogger(LoggerDestination):
             timeseries.setdefault(metric, []).append(metric_value)
             # Iterate through time units and add them all!
             for field, time in timestamp.get_state().items():
-                time_value = time.value
+                time_value = time.value if isinstance(time, Time) else time.total_seconds()
                 timeseries.setdefault(field, []).append(time_value)
         # Convert to numpy arrays
         for k, v in timeseries.items():

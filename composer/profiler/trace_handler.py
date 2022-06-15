@@ -12,7 +12,7 @@ from typing import Dict, List, Tuple, Union
 from composer.core.callback import Callback
 from composer.core.time import Timestamp
 
-__all__ = ["TraceHandler"]
+__all__ = ['TraceHandler']
 
 
 class TraceHandler(Callback, abc.ABC):
@@ -90,8 +90,10 @@ class TraceHandler(Callback, abc.ABC):
         pass
 
     def process_chrome_json_trace_file(self, filepath: pathlib.Path) -> None:
-        """Invoked when there are events in `Chrome JSON format <https://\\
-        docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_ to record.
+        """Invoked when there are events in Chrome JSON format to record.
+
+        See `this document <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>`_
+        for more information.
 
         Args:
             filepath (pathlib.Path): The filepath to a Chrome JSON trace file.

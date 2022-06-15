@@ -10,7 +10,7 @@ from torch.utils.data import get_worker_info
 
 from composer.utils import dist
 
-__all__ = ["World", "get_world"]
+__all__ = ['World', 'get_world']
 
 
 class World(NamedTuple):
@@ -52,12 +52,11 @@ class World(NamedTuple):
 
 def get_world() -> World:
     """Returns a :class:`World` object, initialized using :mod:`composer.utils.dist` and :func:`torch.utils.data.get_worker_info`"""
-
     # Node and Device info
     global_node = dist.get_node_rank()
     global_device = dist.get_global_rank()
     global_num_devices = dist.get_world_size()
-    node_device = dist.get_global_rank()
+    node_device = dist.get_local_rank()
     node_num_devices = dist.get_local_world_size()
 
     # TODO: to remove this block, composer.dist must provide 'num_nodes'

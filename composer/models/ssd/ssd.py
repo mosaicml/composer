@@ -18,7 +18,7 @@ from composer.models.ssd.ssd300 import SSD300
 from composer.models.ssd.utils import Encoder, SSDTransformer, dboxes300_coco
 from composer.utils.import_helpers import MissingConditionalImportError
 
-__all__ = ["SSD"]
+__all__ = ['SSD']
 
 
 class SSD(ComposerModel):
@@ -39,11 +39,11 @@ class SSD(ComposerModel):
         self.overlap_threshold = overlap_threshold
         self.nms_max_detections = nms_max_detections
         self.num_classes = num_classes
-        url = "https://download.pytorch.org/models/resnet34-333f7ec4.pth"
+        url = 'https://download.pytorch.org/models/resnet34-333f7ec4.pth'
         with tempfile.TemporaryDirectory() as tempdir:
             with requests.get(url, stream=True) as r:
                 r.raise_for_status()
-                pretrained_backbone = os.path.join(tempdir, "weights.pth")
+                pretrained_backbone = os.path.join(tempdir, 'weights.pth')
                 with open(pretrained_backbone, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
@@ -55,8 +55,8 @@ class SSD(ComposerModel):
         self.encoder = Encoder(dboxes)
         self.data = data
         self.MAP = coco_map(self.data)
-        val_annotate = os.path.join(self.data, "annotations/instances_val2017.json")
-        val_coco_root = os.path.join(self.data, "val2017")
+        val_annotate = os.path.join(self.data, 'annotations/instances_val2017.json')
+        val_coco_root = os.path.join(self.data, 'val2017')
         input_size = self.input_size
         val_trans = SSDTransformer(dboxes, (input_size, input_size), val=True)
         from composer.datasets.coco import COCODetection
@@ -66,7 +66,7 @@ class SSD(ComposerModel):
 
         (_, _, _, bbox, label) = batch  #type: ignore
         if not isinstance(bbox, Tensor):
-            raise TypeError("bbox must be a singular tensor")
+            raise TypeError('bbox must be a singular tensor')
         trans_bbox = bbox.transpose(1, 2).contiguous()
 
         ploc, plabel = outputs
@@ -100,7 +100,7 @@ class SSD(ComposerModel):
                                                 nms_max_detections,
                                                 nms_valid_thresh=0.05)
         except:
-            print("No object detected")
+            print('No object detected')
 
         (htot, wtot) = [d.cpu().numpy() for d in img_size]  #type: ignore
         img_id = img_id.cpu().numpy()  #type: ignore
@@ -127,11 +127,11 @@ class coco_map(Metric):
         try:
             from pycocotools.coco import COCO
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="coco",
-                                                conda_channel="conda-forge",
-                                                conda_package="pycocotools") from e
-        self.add_state("predictions", default=[])
-        val_annotate = os.path.join(data, "annotations/instances_val2017.json")
+            raise MissingConditionalImportError(extra_deps_group='coco',
+                                                conda_channel='conda-forge',
+                                                conda_package='pycocotools') from e
+        self.add_state('predictions', default=[])
+        val_annotate = os.path.join(data, 'annotations/instances_val2017.json')
         self.cocogt = COCO(annotation_file=val_annotate)
 
     def update(self, pred, target):
@@ -142,9 +142,9 @@ class coco_map(Metric):
         try:
             from pycocotools.cocoeval import COCOeval
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group="coco",
-                                                conda_channel="conda-forge",
-                                                conda_package="pycocotools") from e
+            raise MissingConditionalImportError(extra_deps_group='coco',
+                                                conda_channel='conda-forge',
+                                                conda_package='pycocotools') from e
         cocoDt = self.cocogt.loadRes(np.array(self.predictions))
         E = COCOeval(self.cocogt, cocoDt, iouType='bbox')
         E.evaluate()

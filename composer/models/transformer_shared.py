@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ComposerTransformer"]
+__all__ = ['ComposerTransformer']
 
 
 class ComposerTransformer(ComposerModel):
@@ -45,15 +45,15 @@ class ComposerTransformer(ComposerModel):
         super().__init__()
         self.module = module
         self.config = config
-        log.info("Number of parameters in the model: " \
-                 f"{sum(p.numel() for p in module.parameters()):,}")  # type: ignore (thirdparty)
-        log.info("Number of trainable parameters in the model: "
-                 f"{sum(p.numel() for p in module.parameters() if p.requires_grad):,}")  # type: ignore (thirdparty)
+        log.info('Number of parameters in the model: ' \
+                 f'{sum(p.numel() for p in module.parameters()):,}')  # type: ignore (thirdparty)
+        log.info('Number of trainable parameters in the model: '
+                 f'{sum(p.numel() for p in module.parameters() if p.requires_grad):,}')  # type: ignore (thirdparty)
 
         # the set of inputs that a model expects
         # if an algorithm modifies the loss function, it must remove "labels" from this set.
         self.model_inputs = model_inputs
-        self.model_inputs.update(set({"labels"}))
+        self.model_inputs.update(set({'labels'}))
 
         # define metrics for measurements
         self.train_loss = HFCrossEntropy()
@@ -79,10 +79,10 @@ class ComposerTransformer(ComposerModel):
         Raises:
             NotImplementedError: A model-specific and task-specific loss function must be written.
         """
-        raise NotImplementedError("A model-specific loss function must be written.")
+        raise NotImplementedError('A model-specific loss function must be written.')
 
     def forward(self, batch: Batch) -> Mapping:
-        """Runs the forward pass of the model.
+        """Run the forward pass of the model.
 
         Args:
             batch (~composer.core.types.Batch): A dictionary of Dict[str, Tensor] of inputs that the
@@ -112,7 +112,7 @@ class ComposerTransformer(ComposerModel):
             Tuple[Mapping, None]: A tuple containing the output from the forward pass.
                 This is fed into directly into the output of :meth:`.ComposerModel.metrics`.
         """
-        assert self.training is False, "For validation, model must be in eval mode"
+        assert self.training is False, 'For validation, model must be in eval mode'
         output = self.forward(batch)
         return output, None
 

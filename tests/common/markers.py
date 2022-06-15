@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 """Pytest marker helpers."""
 
 from typing import Callable
@@ -23,17 +26,17 @@ def device(*args, precision=False):
 
     if precision:
         devices = {
-            'cpu': pytest.param('cpu', Precision.FP32, id="cpu-fp32"),
-            'gpu': pytest.param('gpu', Precision.FP32, id="gpu-fp32", marks=pytest.mark.gpu),
+            'cpu': pytest.param('cpu', Precision.FP32, id='cpu-fp32'),
+            'gpu': pytest.param('gpu', Precision.FP32, id='gpu-fp32', marks=pytest.mark.gpu),
             'gpu-amp': pytest.param('gpu', Precision.AMP, id='gpu-amp', marks=pytest.mark.gpu)
         }
-        name = "device,precision"
+        name = 'device,precision'
     else:
         devices = {
-            'cpu': pytest.param('cpu', id="cpu"),
-            'gpu': pytest.param('gpu', id="gpu", marks=pytest.mark.gpu),
+            'cpu': pytest.param('cpu', id='cpu'),
+            'gpu': pytest.param('gpu', id='gpu', marks=pytest.mark.gpu),
         }
-        name = "device"
+        name = 'device'
 
     parameters = [devices[arg] for arg in args]
 
@@ -45,14 +48,14 @@ def device(*args, precision=False):
     return decorator
 
 
-def world_size(*world_sizes: int, param_name: str = "world_size"):
+def world_size(*world_sizes: int, param_name: str = 'world_size'):
     """Decorator to mark tests with a given world size. This helper automatically sets the `pytest.mark.world_size`
     marker.
 
     Args:
         world_sizes (int): The world sizes.
         param_name (str, optional): The parameter name for the `world_size` parameter. Defaults to ``'world_size'``.
-    
+
     Example:
     >>> @world_size(1, 2)
     def test_something(world_size: int):

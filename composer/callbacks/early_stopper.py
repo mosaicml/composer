@@ -17,14 +17,13 @@ from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
 
-__all__ = ["EarlyStopper"]
+__all__ = ['EarlyStopper']
 
 
 class EarlyStopper(Callback):
     """Track a metric and halt training if it does not improve within a given interval.
 
-    Example
-
+    Example:
     .. doctest::
 
         >>> from composer import Evaluator, Trainer
@@ -56,7 +55,7 @@ class EarlyStopper(Callback):
             If monitor is a training metric or an ordinary evaluation metric not in an :class:`.Evaluator`,
             the ``dataloader_label`` should be set to the dataloader label, which defaults to ``'train'`` or
             ``'eval'``, respectively.
-        comp ((Any, Any) -> Any, optional): A comparison operator to measure change of the monitored metric. 
+        comp (str | (Any, Any) -> Any, optional): A comparison operator to measure change of the monitored metric.
             The comparison operator will be called ``comp(current_value, prev_best)``. For metrics where the optimal value is low
             (error, loss, perplexity), use a less than operator, and for metrics like accuracy where the optimal value
             is higher, use a greater than operator. Defaults to :func:`torch.less` if loss, error, or perplexity are substrings
@@ -84,16 +83,16 @@ class EarlyStopper(Callback):
         if callable(comp):
             self.comp_func = comp
         if isinstance(comp, str):
-            if comp.lower() in ("greater", "gt"):
+            if comp.lower() in ('greater', 'gt'):
                 self.comp_func = torch.greater
-            elif comp.lower() in ("less", "lt"):
+            elif comp.lower() in ('less', 'lt'):
                 self.comp_func = torch.less
             else:
                 raise ValueError(
                     "Unrecognized comp string. Use the strings 'gt', 'greater', 'lt' or 'less' or a callable comparison operator"
                 )
         if comp is None:
-            if any(substr in monitor.lower() for substr in ["loss", "error", "perplexity"]):
+            if any(substr in monitor.lower() for substr in ['loss', 'error', 'perplexity']):
                 self.comp_func = torch.less
             else:
                 self.comp_func = torch.greater
@@ -108,7 +107,7 @@ class EarlyStopper(Callback):
         else:
             self.patience = patience
             if self.patience.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
-                raise ValueError("If `patience` is an instance of Time, it must have units of EPOCH or BATCH.")
+                raise ValueError('If `patience` is an instance of Time, it must have units of EPOCH or BATCH.')
 
     def _get_monitored_metric(self, state: State):
         if self.dataloader_label in state.current_metrics:
@@ -138,7 +137,7 @@ class EarlyStopper(Callback):
             if state.timestamp.batch - self.best_occurred.batch > self.patience:
                 state.max_duration = state.timestamp.batch
         else:
-            raise ValueError(f"The units of `patience` should be EPOCH or BATCH.")
+            raise ValueError(f'The units of `patience` should be EPOCH or BATCH.')
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.dataloader_label == state.dataloader_label:

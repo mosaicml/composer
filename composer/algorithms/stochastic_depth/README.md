@@ -10,10 +10,12 @@
 
 ### Functional Interface
 
+<!--pytest-codeblocks:skip-->
 ```python
 # Run the Stochastic Depth algorithm directly on the model using the Composer functional API
 
 import torch
+import torch.nn.functional as F
 import composer.functional as cf
 
 from torchvision.models import resnet50
@@ -50,6 +52,8 @@ for epoch in range(10):
 
 ### Composer Trainer
 
+<!-- TODO: Address timeouts -->
+<!--pytest-codeblocks:skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate point in the training loop
