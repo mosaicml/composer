@@ -143,7 +143,7 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
     """Ensure that ``evaluator`` is an :class:`.Evaluator`.
 
     Args:
-        evaluator (Evaluator` | DataSpec | Iterable | Dict[str, Any]): A dataloader,
+        evaluator (Evaluator | DataSpec | Iterable | Dict[str, Any]): A dataloader,
             :class:`.DataSpec` instance, dictionary of :class:`.DataSpec` kwargs, or existing evaluator.
         default_metrics (torchmetrics.Metric | torchmetrics.MetricCollection): The metrics for the ``evaluator``,
             if a datalaoder was specified.
