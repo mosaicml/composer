@@ -221,6 +221,7 @@ class SelectiveBackprop(Algorithm):
                 optimizers=[optimizer]
             )
     """
+
     def __init__(
         self,
         start: float = 0.5,

@@ -135,7 +135,7 @@ class SqueezeExcite(Algorithm):
             MLP. If less than 1, interpreted as a fraction of the number of
             output channels in the :class:`~torch.nn.Conv2d` immediately
             preceding each Squeeze-and-Excitation block. Default: ``64``.
-        min_channels (int, optional): An SE block is added after a 
+        min_channels (int, optional): An SE block is added after a
             :class:`~torch.nn.Conv2d` module ``conv`` only if
             ``min(conv.in_channels, conv.out_channels) >= min_channels``.
             For models that reduce spatial size and increase channel count

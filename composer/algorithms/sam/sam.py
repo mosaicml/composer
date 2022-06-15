@@ -34,10 +34,14 @@ class SAMOptimizer(torch.optim.Optimizer):
             roughly twice as much time to complete. Default: ``1``.
     """
 
-    def __init__(self, base_optimizer: torch.optim.Optimizer, rho: float = 0.05,
-                 epsilon: float = 1.0e-12, interval: int = 1, **kwargs):
+    def __init__(self,
+                 base_optimizer: torch.optim.Optimizer,
+                 rho: float = 0.05,
+                 epsilon: float = 1.0e-12,
+                 interval: int = 1,
+                 **kwargs):
         if rho < 0:
-            raise ValueError(f"Invalid rho, should be non-negative: {rho}")
+            raise ValueError(f'Invalid rho, should be non-negative: {rho}')
         self.base_optimizer = base_optimizer
         self.global_step = 0
         self.interval = interval
