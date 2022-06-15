@@ -54,6 +54,8 @@ Resuming from checkpoints is commonly used to recover from hardware failures (e.
 
 With autoresume, users can re-submit the _same_ code to the training run, and the trainer will handle finding and resuming from the latest checkpoints. This works well with systems like Kubernetes that automatically resubmit the same job when there is a node failure (due to spot instances as well). For ``autoresume=True`` to work, we require that both a ``save_folder`` and a ``run_name`` be provided. These are used to search for existing checkpoints.
 
+For an example code, see ``examples/checkpoint_autoresume.py``.
+
 Implementation
 --------------
 
