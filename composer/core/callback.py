@@ -19,9 +19,9 @@ __all__ = ["Callback"]
 class Callback(Serializable, abc.ABC):
     """Base class for callbacks.
 
-    Callbacks provide hooks that can run at each training loop :class:`.Event`. Callbacks are similar to
-    :class:`.Algorithm`s in that they are run on specific events. Callbacks differ from :class:`.Algorithm`s 
-    in that they do not modify the training of the model. By convention, callbacks should not modify the 
+    Callbacks provide hooks that can run at each training loop :class:`.Event`. A callback is similar to
+    an :class:`.Algorithm` in that they are run on specific events, but it differs from an :class:`.Algorithm` 
+    in that it should not modify the training of the model. By convention, callbacks should not modify the 
     :class:`.State`. They are typically used to for non-essential recording functions such as logging or timing.
 
     Callbacks can be implemented in two ways:

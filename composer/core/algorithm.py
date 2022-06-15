@@ -87,7 +87,7 @@ class Algorithm(Serializable, ABC):
 
         Args:
             event (:class:`.Event`): The current event.
-            state (:class:`.State`): The current state.
+            state (State): The current state.
         Returns:
             bool: True if this algorithm should run now.
         """
@@ -101,9 +101,9 @@ class Algorithm(Serializable, ABC):
         This exit code is made accessible for debugging.
 
         Args:
-            event (:class:`.Event`): The current event.
-            state (:class:`.State`): The current state.
-            logger (:class:`.Logger`): A logger to use for logging algorithm-specific metrics.
+            event (Event): The current event.
+            state (State): The current state.
+            logger (Logger): A logger to use for logging algorithm-specific metrics.
         Returns:
             int or None: exit code that will be stored in :class:`.Trace` and made accessible for debugging.
         """

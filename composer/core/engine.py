@@ -150,8 +150,8 @@ class Engine():
     """Coordinator for running algorithms and resolving ordering conflicts among them for composition.
 
     Args:
-        state (:class:`.State`): The initial :class:`.State` of the trainer. ``state`` will be modified in-place.
-        logger (:class:`.Logger`): A :class:`.Logger` instance to be used for logging algorithm and callback
+        state (State): The initial :class:`.State` of the trainer. ``state`` will be modified in-place.
+        logger (Logger): A :class:`.Logger` instance to be used for logging algorithm and callback
             specific metrics.
     """
 
@@ -191,10 +191,10 @@ class Engine():
 
 
         Args:
-            event (:class:`.Event` | str): The current :class:`.Event`. It can be the enum member values or a
+            event (Event | str): The current :class:`.Event`. It can be the enum member values or a
                 string with the event value.
         Returns:
-            traces (:data:`.Traces`): Ordered dictionary of trace for each algorithm.
+            traces (Traces): Ordered dictionary of trace for each algorithm.
         """
         duration_marker = None
         event = Event(event)
@@ -292,11 +292,11 @@ class Engine():
         requirements.
 
         Args:
-            algorithms_to_run(Sequence[:class:`.Algorithm`]): Sequence of algorithms.
-            event (:class:`.Event`): The current event.
+            algorithms_to_run(Sequence[Algorithm]): Sequence of algorithms.
+            event (Event): The current event.
 
         Returns:
-            algorithms_to_run(Sequence[:class:`.Algorithm`]): Modified sequence of algorithms.
+            Sequence[Algorithm]: Modified sequence of algorithms.
         """
         from composer.algorithms import SelectiveBackprop, StochasticDepth
 
@@ -321,7 +321,7 @@ class Engine():
         """Runs a sequence of callbacks by calling the function for an event.
 
         Args:
-            event (:class:`.Event` | str): The current :class:`.Event`.
+            event (Event | str): The current :class:`.Event`.
         Returns:
             None
         """
