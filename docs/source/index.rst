@@ -85,8 +85,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    trainer/checkpointing.rst
    trainer/logging.rst
    trainer/callbacks.rst
-   trainer/distributed_training.rst
-   trainer/numerics.md
    trainer/performance.rst
 
 .. toctree::
@@ -94,7 +92,10 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    :maxdepth: 1
    :caption: Notes
 
+   trainer/distributed_training.rst
+   trainer/numerics.md
    notes/auto_grad_accum.rst
+   notes/resumption.rst
 
 .. toctree::
    :hidden:

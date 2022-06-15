@@ -13,7 +13,7 @@ are then accumulated prior to a weight update. In our trainer, this behavior can
         grad_accum=2,
     )
 
-The setting ``grad_accum=2`` means that the batch is split into two smaller microbatches, effectively halving the total peak memory usage of the model. This technique is common in training language models whose memory footprint can exceed GPU memory, or in high resolution computer vision models.
+The setting ``grad_accum=2`` means that the batch is split into two smaller microbatches, effectively halving the total peak memory usage of the model (for more details, see :doc:. This technique is common in training language models whose memory footprint can exceed GPU memory, or in high resolution computer vision models.
 
 While a useful technique, it's tedious to constantly try different gradient accumulation steps to get your model to fit, and more so to adjust whenever you change the batch size, move to a different GPU such as in a colab notebook, or change how many GPUs to train across. Too high of a gradient accumulation, and each microbatch size is too small for efficient GPU computing. Too low, and your model may throw a CUDA Out of Memory (OOM) error. Finding that magical combination of gradient accumulation, batch size, number of devices, etc. in these settings can be frustrating.
 
