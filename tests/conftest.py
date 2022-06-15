@@ -8,6 +8,7 @@ from typing import List, Optional
 
 import pytest
 import torch
+import tqdm.std
 
 import composer
 from composer.utils import dist, reproducibility
@@ -31,12 +32,13 @@ _include_deprecated_fixtures = True
 
 # Add the path of any pytest fixture files you want to make global
 pytest_plugins = [
-    "tests.fixtures.new_fixtures",
+    'tests.fixtures.new_fixtures',
+    'tests.fixtures.synthetic_hf_state',
 ]
 
 if _include_deprecated_fixtures:
     pytest_plugins += [
-        "tests.fixtures.dummy_fixtures",
+        'tests.fixtures.dummy_fixtures',
     ]
 
 if torch.cuda.is_available():
@@ -47,19 +49,19 @@ if torch.cuda.is_available():
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption("--seed",
+    parser.addoption('--seed',
                      default=0,
                      type=int,
                      help="""\
         Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
         before each test.""")
-    parser.addoption("--duration",
-                     default="all",
-                     choices=["short", "long", "all"],
+    parser.addoption('--duration',
+                     default='all',
+                     choices=['short', 'long', 'all'],
                      help="""Duration of tests, one of short, long, or all.
                              Tests are short if their timeout < 2 seconds
                              (configurable threshold). Default: all.""")
-    parser.addoption("--world-size",
+    parser.addoption('--world-size',
                      default=int(os.environ.get('WORLD_SIZE', 1)),
                      type=int,
                      choices=WORLD_SIZE_OPTIONS,
@@ -72,18 +74,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def _get_timeout(item: pytest.Item, default: float):
     """Returns the timeout of a test, defaults to -1."""
     _default = pytest.mark.timeout(default).mark
-    timeout = item.get_closest_marker("timeout", default=_default).args[0]
+    timeout = item.get_closest_marker('timeout', default=_default).args[0]
     return float('inf') if timeout == 0 else timeout  # timeout(0) means no timeout restrictions
 
 
 def _get_world_size(item: pytest.Item):
     """Returns the world_size of a test, defaults to 1."""
     _default = pytest.mark.world_size(1).mark
-    return item.get_closest_marker("world_size", default=_default).args[0]
+    return item.get_closest_marker('world_size', default=_default).args[0]
 
 
 def _validate_world_size(world_size: Optional[int]):
-    if "WORLD_SIZE" in os.environ and int(os.environ["WORLD_SIZE"]) != world_size:
+    if 'WORLD_SIZE' in os.environ and int(os.environ['WORLD_SIZE']) != world_size:
         raise ValueError(f'--world-size ({world_size}) and WORLD_SIZE environment'
                          f'variable ({os.environ["WORLD_SIZE"]}) do not match.')
 
@@ -95,9 +97,9 @@ def _validate_duration(duration: Optional[str]):
 
 def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]) -> None:
     """Filter tests by world_size (for multi-GPU tests) and duration (short, long, or all)"""
-    threshold = float(getattr(config, "_env_timeout", DEFAULT_TIMEOUT))
-    duration = config.getoption("duration")
-    world_size = config.getoption("world_size")
+    threshold = float(getattr(config, '_env_timeout', DEFAULT_TIMEOUT))
+    duration = config.getoption('duration')
+    world_size = config.getoption('world_size')
 
     assert isinstance(duration, str)
     assert isinstance(world_size, int)
@@ -139,7 +141,7 @@ def set_loglevels():
 @pytest.fixture
 def rank_zero_seed(request: pytest.FixtureRequest) -> int:
     """Read the rank_zero_seed from the CLI option."""
-    seed = request.config.getoption("seed")
+    seed = request.config.getoption('seed')
     assert isinstance(seed, int)
     return seed
 
@@ -148,13 +150,27 @@ def rank_zero_seed(request: pytest.FixtureRequest) -> int:
 def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
     """Monkeypatch reproducibility get_random_seed to always return the rank zero seed, and set the random seed before
     each test to the rank local seed."""
-    monkeypatch.setattr(reproducibility, "get_random_seed", lambda: rank_zero_seed)
+    monkeypatch.setattr(reproducibility, 'get_random_seed', lambda: rank_zero_seed)
     reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
 
 
 @pytest.fixture(autouse=True)
-def chdir_to_tmpdir(tmpdir: pathlib.Path):
-    os.chdir(tmpdir)
+def chdir_to_tmp_path(tmp_path: pathlib.Path):
+    os.chdir(tmp_path)
+
+
+@pytest.fixture(autouse=True, scope='session')
+def disable_tqdm_bars():
+    # Disable tqdm progress bars globally in tests
+    original_tqdm_init = tqdm.std.tqdm.__init__
+
+    def new_tqdm_init(*args, **kwargs):
+        if 'disable' not in kwargs:
+            kwargs['disable'] = True
+        return original_tqdm_init(*args, **kwargs)
+
+    # Not using pytest monkeypatch as it is a function-scoped fixture
+    tqdm.std.tqdm.__init__ = new_tqdm_init
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

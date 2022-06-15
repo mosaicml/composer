@@ -6,8 +6,8 @@ import torch
 import torchvision.transforms.functional
 from PIL.Image import Image as PillowImage
 
-_InputImgT = TypeVar("_InputImgT", torch.Tensor, PillowImage)
-_OutputImgT = TypeVar("_OutputImgT", torch.Tensor, PillowImage)
+_InputImgT = TypeVar('_InputImgT', torch.Tensor, PillowImage)
+_OutputImgT = TypeVar('_OutputImgT', torch.Tensor, PillowImage)
 
 
 def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
@@ -15,7 +15,7 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
     :class:`PIL.Image.Image` image representations.
 
     Args:
-        image (:class:`torch.Tensor` | :class:`PIL.Image.Image`): a single image 
+        image (:class:`torch.Tensor` | :class:`PIL.Image.Image`): a single image
             represented as a :class:`PIL.Image.Image` or
             a rank 2 or rank 3 :class:`torch.Tensor` in ``HW`` or ``CHW`` format.
             A rank 4 or higher tensor can also be provided as long as no type
@@ -24,7 +24,7 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
             operate on batch tensors can safely call
             ``image_as_type(image, torch.Tensor)`` without additional error
             and type checking.
-        typ (:class:`torch.Tensor` | :class:`PIL.Image.Image`): type of the 
+        typ (:class:`torch.Tensor` | :class:`PIL.Image.Image`): type of the
             copied image. Must be :class:`PIL.Image.Image` or :class:`torch.Tensor`.
 
     Returns:
@@ -41,7 +41,7 @@ def image_as_type(image: _InputImgT, typ: Type[_OutputImgT]) -> _OutputImgT:
     if isinstance(image, typ):
         return image
     if not typ in (torch.Tensor, PillowImage):
-        raise TypeError(f"Only typ={{torch.Tensor, Image}} is supported; got {typ}")
+        raise TypeError(f'Only typ={{torch.Tensor, Image}} is supported; got {typ}')
 
     if typ is torch.Tensor:
         return cast(_OutputImgT, torchvision.transforms.functional.to_tensor(image))  # PIL -> Tensor

@@ -77,7 +77,7 @@ We also provide several common classes for various tasks, specifically:
    loss and accuracy metric.
 -  :class:`.TIMM` - creates classification models from the popular `TIMM`_
    library.
--  :class:`.ComposerTransformer` - base class for 🤗 `Transformers`_ models.
+-  :class:`.HuggingFaceModel` - :class:`.ComposerModel` wrapper for a 🤗 `Transformers`_ model.
 
 .. note::
 
@@ -88,7 +88,7 @@ We also provide several common classes for various tasks, specifically:
     loss. For this reason, we split it into two separate methods.
 
 By convention, we define our PyTorch layers in the ``self.model``
-attribute of :class:`.ComposerModel`. We encourage this pattern because 
+attribute of :class:`.ComposerModel`. We encourage this pattern because
 it makes it easier to extract the underlying model for inference when training is
 completed. However, this is not enforced, and users can configure the
 layers directly in the class if they prefer.
@@ -210,42 +210,19 @@ and make it compatible with our trainer.
     from torchmetrics import Accuracy
     from torchmetrics.collections import MetricCollection
 
-    from composer import ComposerModel
-    from composer.models.nlp_metrics import LanguageCrossEntropyLoss
+    from composer.models import HuggingFaceModel
+    from composer.metrics import LanguageCrossEntropy
 
-    class ComposerBERT(ComposerModel):
-        def __init__(self, num_labels):
-            super().__init__()
-            # huggingface model
-            self.model = AutoModelForSequenceClassification.from_pretrained(
+    # huggingface model
+    model = AutoModelForSequenceClassification.from_pretrained(
                             'bert-base-uncased',
-                            num_labels=num_labels
-                        )
+                             num_labels=2)
 
-            # Metrics
-            self.train_loss = LanguageCrossEntropyLoss()
-            self.val_loss = LanguageCrossEntropyLoss()
-            self.train_acc = Accuracy()
-            self.val_acc = Accuracy()
+    # list of torchmetrics
+    metrics = [LanguageCrossEntropy(vocab_size=30522), Accuracy()]
 
-        def forward(self, batch):
-            outputs = self.model(**batch)
-            return outputs
-
-        def loss(self, outputs, batch):
-            return outputs['loss']  # huggingface models output a dictionary
-
-        def validate(self, batch):
-            labels = batch.pop('labels')
-            output = self.forward(batch)
-            output = output['logits']
-            return output, labels
-
-        def metrics(self, train: bool = False):
-            if train:
-                return MetricCollection([self.train_loss, self.train_acc])
-            return MetricCollection([self.val_loss, self.val_acc])
-
+    # composer model, ready to be passed to our trainer
+    composer_model = HuggingFaceModel(model, metrics=metrics)
 
 .. |forward| replace:: :meth:`~.ComposerModel.forward`
 .. |loss| replace:: :meth:`~.ComposerModel.loss`

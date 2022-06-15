@@ -18,7 +18,7 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 from PIL import Image
 
-__all__ = ["Encoder", "SSDTransformer", "dboxes300_coco"]
+__all__ = ['Encoder', 'SSDTransformer', 'dboxes300_coco']
 
 
 # This function is from https://github.com/kuangliu/pytorch-ssd.
@@ -68,8 +68,8 @@ class Encoder(object):
     """
 
     def __init__(self, dboxes):
-        self.dboxes = dboxes(order="ltrb")
-        self.dboxes_xywh = dboxes(order="xywh").unsqueeze(dim=0)
+        self.dboxes = dboxes(order='ltrb')
+        self.dboxes_xywh = dboxes(order='xywh').unsqueeze(dim=0)
         self.nboxes = self.dboxes.size(0)
         self.scale_xy = dboxes.scale_xy
         self.scale_wh = dboxes.scale_wh
@@ -105,7 +105,7 @@ class Encoder(object):
 
     def scale_back_batch(self, bboxes_in, scores_in):
         """Do scale and transform from xywh to ltrb suppose input Nx4xnum_bbox Nxlabel_numxnum_bbox."""
-        if bboxes_in.device == torch.device("cpu"):
+        if bboxes_in.device == torch.device('cpu'):
             self.dboxes = self.dboxes.cpu()
             self.dboxes_xywh = self.dboxes_xywh.cpu()
         else:
@@ -245,10 +245,10 @@ class DefaultBoxes(object):
     def scale_wh(self):
         return self.scale_wh_
 
-    def __call__(self, order="ltrb"):
-        if order == "ltrb":
+    def __call__(self, order='ltrb'):
+        if order == 'ltrb':
             return self.dboxes_ltrb
-        if order == "xywh":
+        if order == 'xywh':
             return self.dboxes
 
 
@@ -293,8 +293,8 @@ class SSDCropping(object):
             htot, wtot = img_size
 
             min_iou, max_iou = mode
-            min_iou = float("-inf") if min_iou is None else min_iou
-            max_iou = float("+inf") if max_iou is None else max_iou
+            min_iou = float('-inf') if min_iou is None else min_iou
+            max_iou = float('+inf') if max_iou is None else max_iou
 
             for _ in range(self.num_cropping_iterations):
                 # suze of each sampled path in [0.1, 1] 0.3*0.3 approx. 0.1

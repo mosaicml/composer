@@ -27,13 +27,13 @@ def apply_squeeze_excite(
 
     A Squeeze-and-Excitation block applies global average pooling to the input,
     feeds the resulting vector to a single-hidden-layer fully-connected
-    network (MLP), and uses the output of this MLP as attention coefficients
+    network (MLP), and uses the outputs of this MLP as attention coefficients
     to rescale the input. This allows the network to take into account global
     information about each input, as opposed to only local receptive fields
     like in a convolutional layer.
 
     Args:
-        model (torch.nn.Module): The module to apply squeeze excite replacement.
+        model (torch.nn.Module): The module to apply squeeze excite replacement to.
         latent_channels (float, optional): Dimensionality of the hidden layer within the added
             MLP. If less than 1, interpreted as a fraction of the number of
             output channels in the :class:`~torch.nn.Conv2d` immediately
@@ -42,8 +42,8 @@ def apply_squeeze_excite(
             module ``conv`` only if one of the layer's input or output channels is greater than
             this threshold. Default: ``128``.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional):
-            Existing optimizers bound to ``model.parameters()``. All optimizers that have already been
-            constructed with ``model.parameters()`` must be specified here so
+            Existing optimizer(s) bound to ``model.parameters()``. All optimizers that have already been
+            constructed with ``model.parameters()`` must be specified here so that
             they will optimize the correct parameters.
 
             If the optimizer(s) are constructed *after* calling this function,
@@ -59,11 +59,14 @@ def apply_squeeze_excite(
             import composer.functional as cf
             from torchvision import models
             model = models.resnet50()
-            cf.apply_stochastic_depth(model, target_layer_name='ResNetBottleneck')
+            cf.apply_stochastic_depth(
+                model,
+                target_layer_name='ResNetBottleneck'
+            )
     """
 
     def convert_module(module: torch.nn.Module, module_index: int):
-        assert isinstance(module, torch.nn.Conv2d), "should only be called with conv2d"
+        assert isinstance(module, torch.nn.Conv2d), 'should only be called with conv2d'
         if min(module.in_channels, module.out_channels) < min_channels:
             return None
         return SqueezeExciteConv2d.from_conv2d(module, module_index, latent_channels=latent_channels)
@@ -78,12 +81,12 @@ class SqueezeExcite2d(torch.nn.Module):
 
     This block applies global average pooling to the input, feeds the resulting
     vector to a single-hidden-layer fully-connected network (MLP), and uses the
-    output of this MLP as attention coefficients to rescale the input. This
+    outputs of this MLP as attention coefficients to rescale the input. This
     allows the network to take into account global information about each input,
     as opposed to only local receptive fields like in a convolutional layer.
 
     Args:
-        num_features (int): Number of features or channels in the input
+        num_features (int): Number of features or channels in the input.
         latent_channels (float, optional): Dimensionality of the hidden layer within the added
             MLP. If less than 1, interpreted as a fraction of ``num_features``. Default: ``0.125``.
     """
@@ -132,8 +135,8 @@ class SqueezeExcite(Algorithm):
             MLP. If less than 1, interpreted as a fraction of the number of
             output channels in the :class:`~torch.nn.Conv2d` immediately
             preceding each Squeeze-and-Excitation block. Default: ``64``.
-        min_channels (int, optional): An SE block is added after a :class:`~torch.nn.Conv2d`
-            module ``conv`` only if
+        min_channels (int, optional): An SE block is added after a
+            :class:`~torch.nn.Conv2d` module ``conv`` only if
             ``min(conv.in_channels, conv.out_channels) >= min_channels``.
             For models that reduce spatial size and increase channel count
             deeper in the network, this parameter can be used to only
@@ -162,12 +165,12 @@ class SqueezeExcite(Algorithm):
         return event == Event.INIT
 
     def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        """Apply the Squeeze-and-Excitation layer replacement.
+        """Applies the Squeeze-and-Excitation layer replacement.
 
         Args:
-            event (Event): the current event
-            state (State): the current trainer state
-            logger (Logger): the training logger
+            event (Event): The current event.
+            state (State): The current trainer state.
+            logger (Logger): The training logger.
         """
         state.model = apply_squeeze_excite(state.model,
                                            optimizers=state.optimizers,

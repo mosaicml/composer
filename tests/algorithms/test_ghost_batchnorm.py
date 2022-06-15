@@ -12,7 +12,6 @@ import pytest
 import torch
 from torchmetrics import Metric, MetricCollection
 
-from composer.algorithms import GhostBatchNormHparams
 from composer.algorithms import ghost_batchnorm as ghostbn
 from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm, _GhostBatchNorm
 from composer.core import Event, State
@@ -64,12 +63,6 @@ def state(num_dims: int) -> State:
 @pytest.fixture
 def algo_instance(ghost_batch_size: int):
     return GhostBatchNorm(ghost_batch_size=ghost_batch_size)
-
-
-def test_ghost_bn_hparams():
-    hparams = GhostBatchNormHparams(ghost_batch_size=16)
-    algorithm = hparams.initialize_object()
-    assert isinstance(algorithm, GhostBatchNorm)
 
 
 @pytest.mark.parametrize('num_dims', [1, 2, 3, 4, -1])

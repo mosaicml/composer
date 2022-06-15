@@ -97,11 +97,11 @@ You can use Composer's speedup methods in two ways:
 * Through a standalone **Functional API** (similar to `torch.nn.functional`) that allows you to integrate them into your existing training code.
 * Using Composer's built-in **Trainer**, which is designed to be performant and automatically takes care of many of the low-level details of using speedup methods.
 
-### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb)
+### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb)
 
 Integrate our speed-up methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/en/stable/method_cards/blurpool.html) and SqueezeExcite:
 
-
+<!-- begin_example_1 --->
 ```python
 import composer.functional as cf
 from torchvision import models
@@ -114,13 +114,15 @@ my_model = cf.apply_squeeze_excite(my_model)
 
 # your own training code starts here
 ```
+<!-- end_example_1 --->
 
-For more examples, see the [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb) and [Functional API guide](https://docs.mosaicml.com/en/latest/functional_api.html).
+For more examples, see the [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb) and [Functional API guide](https://docs.mosaicml.com/en/latest/functional_api.html).
 
-### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb)
+### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/getting_started.ipynb)
 
 For the best experience and the most efficient possible training, we recommend using Composer's built-in trainer, which automatically takes care of the low-level details of using speedup methods and provides useful abstractions that facilitate rapid experimentation.
 
+<!-- begin_example_2 --->
 <!-- TODO: Address timeouts -->
 <!--pytest-codeblocks:skip-->
 ```python
@@ -151,6 +153,7 @@ trainer = Trainer(
 )
 trainer.fit()
 ```
+<!-- end_example_2 -->
 
 Composer's built-in [trainer](https://docs.mosaicml.com/en/stable/trainer/using_the_trainer.html) makes it easy to **add multiple speedup methods in a single line of code!**
 Trying out new methods or combinations of methods is as easy as changing a single list.
@@ -304,7 +307,7 @@ Through this, our methods can modify:
  - optimizer (Sharpness Aware Minimization)
  - training dynamics (layer freezing, selective backprop, etc.)
 
-Easily [add your own methods](https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/custom_method_tutorial.ipynb) or callbacks to instrument any part of the training loop.
+Easily [add your own methods](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/custom_speedup_methods.ipynb) or callbacks to instrument any part of the training loop.
 
 # 🧐 Why shouldn’t I use Composer?
 
@@ -324,19 +327,19 @@ Here's some resources actively maintained by the Composer community to help you 
 </thead>
 <tbody>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/up_and_running_with_composer.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Trainer</a></td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/getting_started.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Trainer</a></td>
     <td>An interactive Colab Notebook aimed at teaching users about our Trainer</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/Composer_Functional.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Functional API</a></td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Functional API</a></td>
     <td>An interactive Colab Notebook aimed at teaching users about our Functional API</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/custom_method_tutorial.ipynb" target="_blank" rel="noopener noreferrer">Building Speedup Methods</a></td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/custom_speedup_methods.ipynb" target="_blank" rel="noopener noreferrer">Building Speedup Methods</a></td>
     <td>An interactive Colab Notebook aimed at teaching users about building speedup methods on top of Composer</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/notebooks/nlp_notebook_tutorial.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer</a></td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/nlp_models.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer</a></td>
     <td>An interactive Colab Notebook aimed at helping users learn how to train BERT models with Composer!</td>
   </tr>
   <tr>
@@ -351,7 +354,7 @@ If you have any questions, please feel free to reach out to us on [Twitter](http
 # 💫 Contributors
 Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!
 
-To start contributing, see our [Contributing](CONTRIBUTING.md) page. 
+To start contributing, see our [Contributing](https://github.com/mosaicml/composer/blob/dev/CONTRIBUTING.md) page.
 
 # ✍️ Citation
 ```

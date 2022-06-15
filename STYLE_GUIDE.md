@@ -36,11 +36,57 @@ pre-commit run isort --all-files  # for isort
 The configuration is stored in [pyproject.toml](pyproject.toml).
 
 
+### 2.4. Code Structure
+
+As a general rule of thumb,
+
+-   Don't: Default to using inheritance for code reuse
+
+    Do: prefer [composition over inheritance](https://en.wikipedia.org/wiki/Composition_over_inheritance)
+-   Don't: strive to implement all logic using classes
+
+    Do: strive to implement logic as pure functions when possible, and classes when there is good reason
+-   Don't: Have a function accept falsy values that would then result in a no-op.
+
+    Example of the anti-pattern:
+
+    ```python
+    from typing import Optional
+
+    def configure_deepspeed(deepspeed_config: Optional[dict]):
+        if deepspeed_config is None:
+            # Don't do this check in the callee, which results in a no-op
+            return
+        ...
+    ```
+
+    Do: Require the caller, instead of the callee, check for and handle falsy values. It's ok to accept falsy values
+    for individual arguments of a caller function, so long as the entire function would not be a no-op.
+
+    Example:
+    ```python
+    from typing import Optional
+
+    def configure_deepspeed(deepspeed_config: dict):
+        ...
+
+    def trainer(deepspeed_config: Optional[dict]):
+        if deepspeed_config is not None:
+            # Do this check in the caller function
+            configure_deepspeed(deepspeed_config)
+        ...
+    ```
+
 ## 3. Type Annotations and Typechecking
 
 Composer aims to annotate all functions with type annotations (introduced in
-[PEP 526](https://www.python.org/dev/peps/pep-0526/). Type annotations help statically catch `TypeError` and
+[PEP 526](https://www.python.org/dev/peps/pep-0526/)). Type annotations help statically catch `TypeError` and
 `AttributeError` bugs, in addition to other benefits, as outlined in the PEP.
+
+For documentation on typing annotations, see:
+* [PEP 483](https://peps.python.org/pep-0483/) for a simplified introducation
+* [PEP 484](https://peps.python.org/pep-0484/) for the full specification
+* [Python docs for `typing`](https://docs.python.org/3/library/typing.html) for the API reference
 
 Composer uses [pyright](https://github.com/microsoft/pyright)
 to validate type annotations. PyRight is automatically run as part of the pre-commit hooks, but you can also
@@ -70,7 +116,7 @@ Here are some suggestions to deal with pyright errors:
     Instead, add a check to ensure that `x is not None`:
 
     ```python
-    from typing import Union 
+    from typing import Union
 
     def foo(x: Union[int, None]):
         if x is None:
@@ -153,8 +199,9 @@ The following rules apply to public APIs:
 ## 5. Use of `assert`
 
 `assert` should be used only in test cases and for verifying invariants (likely required for type checking),
-not for data validation. As asserts can be disabled in python by using the `-O` flag (e.g. `python -O path/to/script.py`),
-they are not guaranteed to run. For data validation, instead use a style like the following:
+not for data validation. As asserts can be disabled in python by using the `-O` flag
+(e.g. `python -O path/to/script.py`), they are not guaranteed to run. For data validation, instead use a style like
+the following:
 
 <!--
 ```python
@@ -202,8 +249,8 @@ All imports in composer should be absolute -- that is, they do not begin with a 
         This style allows users to perform minimal install of Composer without triggering `ImportError`s if
         an optional dependency is missing.
 
-        If the corresponding package is not published on Anaconda, then set the ``conda_package`` to the pip package name,
-        and set ``conda_channel`` to ``None``. For example, with DeepSpeed:
+        If the corresponding package is not published on Anaconda, then set the ``conda_package`` to the pip package
+        name, and set ``conda_channel`` to ``None``. For example, with DeepSpeed:
 
         <!--pytest-codeblocks:importorskip(deepspeed)-->
         ```python
@@ -225,7 +272,8 @@ All imports in composer should be absolute -- that is, they do not begin with a 
 ### 6.2 Use of `__all__`
 
 All public modules must define `__all__` to be the list of members that should be re-exported.
-The variable is necessary to 1) limit what `from XXX import *` imports, and 2) ensure that the documentation only includes exported members, not unrelated re-imports.
+The variable is necessary to 1) limit what `from XXX import *` imports, and 2) ensure that the documentation only
+includes exported members, not unrelated re-imports.
 
 For example, from [composer/callbacks/memory_monitor.py](composer/callbacks/memory_monitor.py)
 
@@ -273,7 +321,10 @@ from composer.path.to.module import my_file as my_file
 Composer uses [Google Style Docstrings](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html).
 
 The following guidelines apply to documentation.
-1.  Each function that needs a docstring must have its input arguments and return statement (if not None) annotated.
+1.  Each function that needs a docstring must have its input arguments, return statement (if not None), and any custom
+    exceptions annotated.
+1.  The arguments for the `__init__` signature of classes should be documented under the class-level docstring. There
+    should not be any `__init__`-level docstring.
 1.  Each argument annotation should include the type. If the argument has a default value, the type annotation should
     specify "optional", and the docstring should say the default value. Some examples:
 
@@ -337,7 +388,8 @@ The following guidelines apply to documentation.
     ```
 
 1.  For examples in docstrings, use `.. doctest::` or
-    `.. testcode::` . See the [Sphinx Doctest Extension](https://www.sphinx-doc.org/en/master/usage/extensions/doctest.html)
+    `.. testcode::` . See the
+    [Sphinx Doctest Extension](https://www.sphinx-doc.org/en/master/usage/extensions/doctest.html)
     for all of the available directives. Do not use `.. code-block::` for Python examples, as they are untested.
 
     Any test fixtures for doctests should go in [docs/source/doctest_fixtures.py](docs/source//doctest_fixtures.py)

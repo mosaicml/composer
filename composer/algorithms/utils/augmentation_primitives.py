@@ -7,22 +7,22 @@ Augmentations that take an intensity value are normalized on a scale of 1-10,
 where 10 is the strongest and maximum value an augmentation function will accept.
 
 Adapted from
-`AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty 
+`AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty
 <https://github.com/google-research/augmix/blob/master/augmentations.py>`_.
 
 Attributes:
-    AugmentationFn ((:class:`~PIL.Image.Image`, float) -> :class:`~PIL.Image.Image`): 
+    AugmentationFn ((:class:`~PIL.Image.Image`, float) -> :class:`~PIL.Image.Image`):
         The type annotation for describing an augmentation function.
 
-        Each augmentation takes a :class:`~PIL.Image.Image` and an intensity level in 
+        Each augmentation takes a :class:`~PIL.Image.Image` and an intensity level in
         the range ``[0; 10]`` and returns an augmented image.
 
     augmentation_sets (Dict[str, List[AugmentationFn]]): The collection of all augmentations.
         This dictionary has the following entries:
 
-        * ``augmentation_sets["safe"]`` contains augmentations that do not overlap with 
+        * ``augmentation_sets["safe"]`` contains augmentations that do not overlap with
             ImageNet-C/CIFAR10-C test sets.
-        * ``augmentation_sets["original"]`` contains augmentations that use the original 
+        * ``augmentation_sets["original"]`` contains augmentations that use the original
             implementations of enhancing color, contrast, brightness, and sharpness.
         * ``augmentation_sets["all"]`` contains all augmentations.
 """
@@ -34,25 +34,25 @@ from PIL import Image, ImageEnhance, ImageOps
 AugmentationFn = Callable[[Image.Image, float], Image.Image]
 
 __all__ = [
-    "AugmentationFn",
-    "autocontrast",
-    "equalize",
-    "posterize",
-    "rotate",
-    "solarize",
-    "shear_x",
-    "shear_y",
-    "translate_x",
-    "translate_y",
-    "color",
-    "color_original",
-    "contrast",
-    "contrast_original",
-    "brightness",
-    "brightness_original",
-    "sharpness",
-    "sharpness_original",
-    "augmentation_sets",
+    'AugmentationFn',
+    'autocontrast',
+    'equalize',
+    'posterize',
+    'rotate',
+    'solarize',
+    'shear_x',
+    'shear_y',
+    'translate_x',
+    'translate_y',
+    'color',
+    'color_original',
+    'contrast',
+    'contrast_original',
+    'brightness',
+    'brightness_original',
+    'sharpness',
+    'sharpness_original',
+    'augmentation_sets',
 ]
 
 
@@ -85,22 +85,21 @@ def _float_parameter(level: float, maxval: float):
 
 
 def _sample_level(n: float):
-    """Helper function to sample from a uniform 
-    distribution between ``0.1`` and some value 
+    """Helper function to sample from a uniform
+    distribution between ``0.1`` and some value
     ``n``.
     """
     return np.random.uniform(low=0.1, high=n)
 
 
 def _symmetric_sample(level: float):
-    """Helper function to sample from a distribution 
-    over the domain ``[0.1, 10]`` with median == 1 
-    and uniform probability of x | 0.1 ≤ x ≤ 1 and 
-    x | 1 ≤ x ≤ 10.
+    """Helper function to sample from a symmetric distribution.
 
-    Used for sampling transforms that can range from 
-    intensity 0 to infinity and for which an intensity
-    of 1 == no change.
+    The distribution over the domain [0.1, 10] with ``median == 1`` and uniform probability of ``x | 0.1 ≤ x ≤ 1``,
+    and ``x | 1 ≤ x ≤ 10``.
+
+    Used for sampling transforms that can range from intensity 0 to infinity and for which an intensity
+    of 1 meaning no change.
     """
     if np.random.uniform() > 0.5:
         return np.random.uniform(1, level)
@@ -114,7 +113,8 @@ def autocontrast(pil_img: Image.Image, level: float = 0.0):
     .. seealso:: :func:`PIL.ImageOps.autocontrast`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
+        level (float): The intensity.
     """
     del level  # unused
     return ImageOps.autocontrast(pil_img)
@@ -126,7 +126,8 @@ def equalize(pil_img: Image.Image, level: float):
     .. seealso:: :func:`PIL.ImageOps.equalize`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
+        level (float): The intensity.
     """
     del level  # unused
     return ImageOps.equalize(pil_img)
@@ -138,7 +139,7 @@ def posterize(pil_img: Image.Image, level: float):
     .. seealso:: :func:`PIL.ImageOps.posterize`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -150,7 +151,7 @@ def rotate(pil_img: Image.Image, level: float):
     """Rotate an image.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -166,7 +167,7 @@ def solarize(pil_img: Image.Image, level: float):
     .. seealso:: :func:`PIL.ImageOps.solarize`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -178,7 +179,7 @@ def shear_x(pil_img: Image.Image, level: float):
     """Shear an image horizontally.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -192,7 +193,7 @@ def shear_y(pil_img: Image.Image, level: float):
     """Shear an image vertically.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -207,7 +208,7 @@ def translate_x(pil_img: Image.Image, level: float):
 
     Args:
         pil_img (:class:`Image.Image`): The image.
-        level (float): The intensity, which should 
+        level (float): The intensity, which should
             be in ``[0, 10]``.
     """
     level = _int_parameter(_sample_level(level), pil_img.size[0] / 3)
@@ -220,7 +221,7 @@ def translate_y(pil_img: Image.Image, level: float):
     """Shear an image vertically.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -245,7 +246,7 @@ def color(pil_img: Image.Image, level: float):
     .. seealso:: :class:`PIL.ImageEnhance.Color`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -254,13 +255,13 @@ def color(pil_img: Image.Image, level: float):
 
 
 def color_original(pil_img: Image.Image, level: float):
-    """Enhance color on an image, following the 
+    """Enhance color on an image, following the
     corruptions in the ImageNet-C/CIFAR10-C test sets.
 
     .. seealso :class:`PIL.ImageEnhance.Color`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -283,13 +284,13 @@ def contrast(pil_img: Image.Image, level: float):
 
 
 def contrast_original(pil_img: Image.Image, level: float):
-    """Enhance contrast on an image, following the 
+    """Enhance contrast on an image, following the
     corruptions in the ImageNet-C/CIFAR10-C test sets.
 
     .. seealso:: :class:`PIL.ImageEnhance.Contrast`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -303,7 +304,7 @@ def brightness(pil_img: Image.Image, level: float):
     .. seealso:: :class:`PIL.ImageEnhance.Brightness`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should be
             in ``[0, 10]``.
     """
@@ -315,13 +316,13 @@ def brightness(pil_img: Image.Image, level: float):
 
 
 def brightness_original(pil_img: Image.Image, level: float):
-    """Enhance brightness on an image, following the 
+    """Enhance brightness on an image, following the
     corruptions in the ImageNet-C/CIFAR10-C test sets.
 
     .. seealso:: :class:`PIL.ImageEnhance.Brightness`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -335,7 +336,7 @@ def sharpness(pil_img: Image.Image, level: float):
     .. seealso:: :class:`PIL.ImageEnhance.Sharpness`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -344,13 +345,13 @@ def sharpness(pil_img: Image.Image, level: float):
 
 
 def sharpness_original(pil_img: Image.Image, level: float):
-    """Enhance sharpness on an image, following the 
+    """Enhance sharpness on an image, following the
     corruptions in the ImageNet-C/CIFAR10-C test sets.
 
     .. seealso:: :class:`PIL.ImageEnhance.Sharpness`.
 
     Args:
-        pil_img (:class:`PIL.Image.Image`): The image.
+        pil_img (PIL.Image.Image): The image.
         level (float): The intensity, which should
             be in ``[0, 10]``.
     """
@@ -359,14 +360,14 @@ def sharpness_original(pil_img: Image.Image, level: float):
 
 
 augmentation_sets = {
-    "all": [
+    'all': [
         autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y, color,
         contrast, brightness, sharpness
     ],
     # Augmentations that don't overlap with ImageNet-C/CIFAR10-C test sets
-    "safe": [autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y],
+    'safe': [autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y],
     # Augmentations that use original implementations of color, contrast, brightness, and sharpness
-    "original": [
+    'original': [
         autocontrast, equalize, posterize, rotate, solarize, shear_x, shear_y, translate_x, translate_y, color_original,
         contrast_original, brightness_original, sharpness_original
     ],

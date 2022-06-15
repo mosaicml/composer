@@ -5,7 +5,7 @@
 
 from composer.models.tasks import ComposerClassifier
 
-__all__ = ["ViTSmallPatch16"]
+__all__ = ['ViTSmallPatch16']
 
 
 class ViTSmallPatch16(ComposerClassifier):

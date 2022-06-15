@@ -21,7 +21,7 @@ TODO(Abhi): Fix and add comments here describing what happens below.
 #   opt = torch.optim.Adam(model.parameters())
 #   loss_fn = F.cross_entropy
 #   model.train()
-  
+
 #   for epoch in range(num_epochs):
 #       for X, y in train_loader:
 #           y_hat = model(X)
@@ -66,7 +66,7 @@ Our SAM algorithm largely matches the description provided by Foret et al. with 
  The `interval` hyperparameter effectively serves as a knob to control the tradeoff between quality and speed. Lower values of `interval` run SAM with higher frequency, imposing a higher computational burden but improving model quality, while higher values of `interval` run SAM less frequently, amortizing the cost of SAM across many steps but also lowering quality improvements.
 
 > ❗ SAM Causes Lower Throughput, Although This Can Be Mitigated
-> 
+>
 > Since SAM must compute the gradient twice, it takes about twice as much work and halves GPU throughput compared to taking a standard gradient step. One way of mitigating this throughput reduction is to perform SAM periodically rather than on every step. The `interval` hyperparameter controls how often SAM runs, making it possible to trade off between SAM's quality improvements and throughput reductions.
 
 Foret et al. report a variety of accuracy improvements over baseline when SAM is added to models of the ResNet family trained on ImageNet. These improvements range from 0.4% for ResNet-50 trained for 100 epochs to 1.9% on ResNet-152 trained for 400 epochs. Notably, the authors report that SAM seems to prevent overfitting at long training durations. The authors do not explicitly measure their implementation’s impact on throughput, but we estimate that it roughly halves training throughput.
@@ -74,7 +74,7 @@ Foret et al. report a variety of accuracy improvements over baseline when SAM is
 In our experiments we used a value of `interval=10` to limit SAM’s impact on throughput. We observe a 0.7% accuracy improvement over baseline when our modified implementation of SAM is added to a ResNet-50 model trained for 90 epochs on ImageNet. Throughput is decreased from baseline by around 7%.
 
 > ✅ SAM Improves the Tradeoff Between Quality and Training Speed
-> 
+>
 > In our experiments, SAM improves the attainable tradeoffs between training speed and the final quality of the trained model.
 > Although it causes a reduction in training throughput, the `interval` hyperparameter can be used to minimize the extent of this reduction.
 > The corresponding accuracy increases were a worthwhile tradeoff for the throughput reduction in our experiments on ResNets on ImageNet.
