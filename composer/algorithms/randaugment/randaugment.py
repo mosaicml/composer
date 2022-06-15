@@ -20,20 +20,20 @@ from composer.core import Algorithm, Event, State
 from composer.datasets.utils import add_vision_dataset_transform
 from composer.loggers import Logger
 
-__all__ = ['RandAugment', "RandAugmentTransform", 'randaugment_image']
+__all__ = ['RandAugment', 'RandAugmentTransform', 'randaugment_image']
 
-ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+ImgT = TypeVar('ImgT', torch.Tensor, PillowImage)
 
 
 def randaugment_image(img: ImgT,
                       severity: int = 9,
                       depth: int = 2,
-                      augmentation_set: List = augmentation_sets["all"]) -> ImgT:
+                      augmentation_set: List = augmentation_sets['all']) -> ImgT:
     """Randomly applies a sequence of image data augmentations
     (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image or batch of
-    images. See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>` 
+    images. See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>`
     for details. This function only acts on a single image (or batch of images) per call and
-    is unlikely to be used in a training loop. Use :class:`.RandAugmentTransform` to use 
+    is unlikely to be used in a training loop. Use :class:`.RandAugmentTransform` to use
     :class:`.RandAugment` as part of a :class:`torchvision.datasets.VisionDataset` ``transform``.
 
     Example:
@@ -100,14 +100,14 @@ class RandAugmentTransform(torch.nn.Module):
             :class:`.RandAugment`.
     """
 
-    def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
+    def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = 'all'):
         super().__init__()
         if severity < 0 or severity > 10:
-            raise ValueError("RandAugment severity value must satisfy 0 ≤ severity ≤ 10")
+            raise ValueError('RandAugment severity value must satisfy 0 ≤ severity ≤ 10')
         if depth < 0:
-            raise ValueError("RandAugment depth value must be ≥ 0")
+            raise ValueError('RandAugment depth value must be ≥ 0')
         if augmentation_set not in augmentation_sets.keys():
-            raise KeyError(f"RandAugment augmentation_set is not one of {augmentation_sets.keys()}")
+            raise KeyError(f'RandAugment augmentation_set is not one of {augmentation_sets.keys()}')
         self.severity = severity
         self.depth = depth
         self.augmentation_set = augmentation_sets[augmentation_set]
@@ -120,7 +120,7 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations 
+    """Randomly applies a sequence of image data augmentations
     (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image.
 
     This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
@@ -179,11 +179,11 @@ class RandAugment(Algorithm):
             Default: ``"all"``.
     """
 
-    def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = "all"):
+    def __init__(self, severity: int = 9, depth: int = 2, augmentation_set: str = 'all'):
         if severity < 0 or severity > 10:
-            raise ValueError("RandAugment severity value must be 0 ≤ severity ≤ 10")
+            raise ValueError('RandAugment severity value must be 0 ≤ severity ≤ 10')
         if augmentation_set not in augmentation_sets.keys():
-            raise KeyError(f"randaugment_augmentation_set is not one of {augmentation_sets.keys()}")
+            raise KeyError(f'randaugment_augmentation_set is not one of {augmentation_sets.keys()}')
         self.severity = severity
         self.depth = depth
         self.augmentation_set = augmentation_set
@@ -192,14 +192,14 @@ class RandAugment(Algorithm):
     def match(self, event: Event, state: State) -> bool:
         if event != Event.FIT_START:
             return False
-        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        assert state.dataloader is not None, 'dataloader should be defined on fit start'
         if not isinstance(state.dataloader, torch.utils.data.DataLoader):
-            raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
+            raise TypeError(f'{type(self).__name__} requires a PyTorch dataloader.')
         return state.dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
         ra = RandAugmentTransform(severity=self.severity, depth=self.depth, augmentation_set=self.augmentation_set)
-        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "The dataloader type is checked on match()"
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), 'The dataloader type is checked on match()'
         dataset = state.dataloader.dataset
         if not isinstance(dataset, VisionDataset):
             raise TypeError(

@@ -14,7 +14,7 @@ val_dataset:
     shuffle: false
     drop_last: false
     use_ffcv: false
-optimizer:
+optimizers:
   decoupled_sgdw:
     lr: 1.2
     momentum: 0.9
@@ -37,12 +37,9 @@ train_batch_size: 1024
 eval_batch_size: 1000
 seed: 17
 grad_accum: 1
-device:
-  gpu: {}
 dataloader:
   pin_memory: true
   timeout: 0
   prefetch_factor: 2
   persistent_workers: true
   num_workers: 8
-precision: amp

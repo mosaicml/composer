@@ -21,9 +21,9 @@ from composer.core import Algorithm, Event, State
 from composer.datasets.utils import add_vision_dataset_transform
 from composer.loggers import Logger
 
-__all__ = ["AugMix", "AugmentAndMixTransform", "augmix_image"]
+__all__ = ['AugMix', 'AugmentAndMixTransform', 'augmix_image']
 
-ImgT = TypeVar("ImgT", torch.Tensor, PillowImage)
+ImgT = TypeVar('ImgT', torch.Tensor, PillowImage)
 
 
 def augmix_image(img: ImgT,
@@ -31,14 +31,14 @@ def augmix_image(img: ImgT,
                  depth: int = -1,
                  width: int = 3,
                  alpha: float = 1.0,
-                 augmentation_set: List = augmentation_sets["all"]) -> ImgT:
-    """Applies AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data
-    augmentation to a single image or batch of images. See
-    :class:`.AugMix` and the
-    :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
-    single image (or batch) per call and is unlikely to be used in a training loop. Use
-    :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
-    part of a :class:`torchvision.datasets.VisionDataset`\\'s ``transform``.
+                 augmentation_set: List = augmentation_sets['all']) -> ImgT:
+    r"""Applies the AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) data augmentation.
+
+    This function works on a single image or batch of images. See :class:`.AugMix` and
+    the :doc:`Method Card </method_cards/augmix>` for details. This function only acts on a
+    single image (or batch) per call and is unlikely to be used in a training loop.
+    Use :class:`~composer.algorithms.augmix.augmix.AugmentAndMixTransform` to use AugMix as
+    part of a :class:`torchvision.datasets.VisionDataset`\'s ``transform``.
 
     Example:
         .. testcode::
@@ -141,14 +141,14 @@ class AugmentAndMixTransform(torch.nn.Module):
                  depth: int = -1,
                  width: int = 3,
                  alpha: float = 1.0,
-                 augmentation_set: str = "all"):
+                 augmentation_set: str = 'all'):
         super().__init__()
         if severity < 0 or severity > 10:
-            raise ValueError("AugMix severity value must satisfy 0 ≤ severity ≤ 10")
+            raise ValueError('AugMix severity value must satisfy 0 ≤ severity ≤ 10')
         if width < 1:
-            raise ValueError("AugMix width must be ≥ 1")
+            raise ValueError('AugMix width must be ≥ 1')
         if augmentation_set not in augmentation_sets.keys():
-            raise KeyError(f"AugMix augmentation_set is not one of {augmentation_sets.keys()}")
+            raise KeyError(f'AugMix augmentation_set is not one of {augmentation_sets.keys()}')
         self.severity = severity
         self.depth = depth
         self.width = width
@@ -166,7 +166,9 @@ class AugmentAndMixTransform(torch.nn.Module):
 
 
 class AugMix(Algorithm):
-    """AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) creates ``width`` sequences of ``depth``
+    r"""The AugMix data augmentation technique.
+
+    AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) creates ``width`` sequences of ``depth``
     image augmentations, applies each sequence with random intensity, and returns a convex combination of the ``width``
     augmented images and the original image.  The coefficients for mixing the augmented images are drawn from a uniform
     ``Dirichlet(alpha, alpha, ...)`` distribution. The coefficient for mixing the combined augmented image and the
@@ -224,7 +226,7 @@ class AugMix(Algorithm):
                 ``"color"``, ``"contrast"``, ``"sharpness"``, and ``"brightness"``. The
                 original implementations have an intensity sampling scheme that samples a
                 value bounded by 0.118 at a minimum, and a maximum value of
-                :math:`intensity \\times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
+                :math:`intensity \times 0.18 + .1`, which ranges from 0.28 (intensity = 1)
                 to 1.9 (intensity 10). These augmentations have different effects
                 depending on whether they are < 0 or > 0 (or < 1 or > 1).
                 "all" uses implementations of "color", "contrast",
@@ -242,13 +244,13 @@ class AugMix(Algorithm):
                  depth: int = -1,
                  width: int = 3,
                  alpha: float = 1.0,
-                 augmentation_set: str = "all"):
+                 augmentation_set: str = 'all'):
         if severity < 0 or severity > 10:
-            raise ValueError("AugMix severity value must satisfy 0 ≤ severity ≤ 10")
+            raise ValueError('AugMix severity value must satisfy 0 ≤ severity ≤ 10')
         if width < 1:
-            raise ValueError("AugMix width must be ≥ 1")
+            raise ValueError('AugMix width must be ≥ 1')
         if augmentation_set not in augmentation_sets.keys():
-            raise KeyError(f"AugMix augmentation_set is not one of {augmentation_sets.keys()}")
+            raise KeyError(f'AugMix augmentation_set is not one of {augmentation_sets.keys()}')
         self.severity = severity
         self.depth = depth
         self.width = width
@@ -259,9 +261,9 @@ class AugMix(Algorithm):
     def match(self, event: Event, state: State) -> bool:
         if event != Event.FIT_START:
             return False
-        assert state.dataloader is not None, "dataloader should be defined on fit start"
+        assert state.dataloader is not None, 'dataloader should be defined on fit start'
         if not isinstance(state.dataloader, torch.utils.data.DataLoader):
-            raise TypeError(f"{type(self).__name__} requires a PyTorch dataloader.")
+            raise TypeError(f'{type(self).__name__} requires a PyTorch dataloader.')
         return state.dataloader.dataset not in self._transformed_datasets
 
     def apply(self, event: Event, state: State, logger: Logger) -> None:
@@ -270,7 +272,7 @@ class AugMix(Algorithm):
                                     width=self.width,
                                     alpha=self.alpha,
                                     augmentation_set=self.augmentation_set)
-        assert isinstance(state.dataloader, torch.utils.data.DataLoader), "dataloader type checked on match()"
+        assert isinstance(state.dataloader, torch.utils.data.DataLoader), 'dataloader type checked on match()'
         dataset = state.dataloader.dataset
         if not isinstance(dataset, VisionDataset):
             raise TypeError(

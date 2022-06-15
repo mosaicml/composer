@@ -8,7 +8,7 @@ The ResNet model family is a set of convolutional neural networks that can be us
 ## Example
 
 ```python
-  from composer.models import ComposerResNetCIFAR
+from composer.models import ComposerResNetCIFAR
 
 model = ComposerResNetCIFAR(model_name='resnet_56', num_classes=10)
 ```
@@ -56,7 +56,7 @@ schedulers:
         - "120ep"
       gamma: 0.1
 train_batch_size: 1024
-max_duration: 16ep
+max_duration: 160ep
 ```
 
 ## Attribution

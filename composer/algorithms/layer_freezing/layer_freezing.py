@@ -19,7 +19,7 @@ from composer.utils.iter_helpers import ensure_tuple
 
 log = logging.getLogger(__name__)
 
-__all__ = ["LayerFreezing", "freeze_layers"]
+__all__ = ['LayerFreezing', 'freeze_layers']
 
 
 def freeze_layers(
@@ -29,7 +29,7 @@ def freeze_layers(
     freeze_start: float = 0.5,
     freeze_level: float = 1.0,
 ) -> Tuple[int, float]:
-    """Progressively freeze the layers of the network in-place 
+    """Progressively freeze the layers of the network in-place
     during training, starting with the earlier layers.
 
     Example:
@@ -47,7 +47,7 @@ def freeze_layers(
 
     Args:
         model (:class:`torch.nn.Module`): The model being trained.
-        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`]): 
+        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`]):
             The optimizers used during training.
         current_duration (float): The fraction, in ``[0, 1)`` of the training process complete.
         freeze_start (float, optional): The fraction of the training process in ``[0, 1)`` to run
@@ -85,7 +85,7 @@ def freeze_layers(
 
 
 class LayerFreezing(Algorithm):
-    """Progressively freeze the layers of the network during training, 
+    """Progressively freeze the layers of the network during training,
     starting with the earlier layers.
 
     Freezing starts after the fraction of training specified by ``freeze_start``
@@ -142,7 +142,7 @@ class LayerFreezing(Algorithm):
         optimizers = state.optimizers
         assert optimizers is not None
         elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, "elapsed duration should be set on Event.EPOCH_END"
+        assert elapsed_duration is not None, 'elapsed duration should be set on Event.EPOCH_END'
         freeze_depth, freeze_percentage = freeze_layers(
             model=state.model,
             optimizers=optimizers,
@@ -156,13 +156,13 @@ class LayerFreezing(Algorithm):
         })
 
     def state_dict(self) -> Dict[str, Any]:
-        warnings.warn(("Checkpoints with layer freezing cannot reliably be used to resume training."
-                       "See: https://github.com/mosaicml/composer/issues/1002"))
+        warnings.warn(('Checkpoints with layer freezing cannot reliably be used to resume training.'
+                       'See: https://github.com/mosaicml/composer/issues/1002'))
         return {}
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
-        warnings.warn(("Checkpoints with layer freezing cannot reliably be used to resume training."
-                       "See: https://github.com/mosaicml/composer/issues/1002"))
+        warnings.warn(('Checkpoints with layer freezing cannot reliably be used to resume training.'
+                       'See: https://github.com/mosaicml/composer/issues/1002'))
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
@@ -215,7 +215,7 @@ def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Union[Optim
 
     Args:
         p (:class:`torch.nn.Parameter`): The parameter being frozen.
-        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`]): 
+        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`]):
             The optimizers used during training.
     """
     # Search over params in the optimizers to find and remove the

@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Composer."""
+
 from composer import algorithms as algorithms
 from composer import callbacks as callbacks
 from composer import datasets as datasets
@@ -25,4 +27,4 @@ from composer.core import types as types
 from composer.models import ComposerModel as ComposerModel
 from composer.trainer import Trainer as Trainer
 
-__version__ = "0.6.0"
+__version__ = '0.7.0'
