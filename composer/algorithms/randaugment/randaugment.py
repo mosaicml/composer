@@ -29,9 +29,11 @@ def randaugment_image(img: ImgT,
                       severity: int = 9,
                       depth: int = 2,
                       augmentation_set: List = augmentation_sets['all']) -> ImgT:
-    """Randomly applies a sequence of image data augmentations
-    (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image or batch of
-    images. See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>`
+    """Randomly applies a sequence of image data augmentations  to an image or batch of images.
+
+    This technique is adapted from `Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_).
+
+    See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>`
     for details. This function only acts on a single image (or batch of images) per call and
     is unlikely to be used in a training loop. Use :class:`.RandAugmentTransform` to use
     :class:`.RandAugment` as part of a :class:`torchvision.datasets.VisionDataset` ``transform``.
@@ -51,8 +53,7 @@ def randaugment_image(img: ImgT,
             )
 
     Args:
-        img (:class:`PIL.Image.Image` or :class:`torch.Tensor`): Image or batch of images to be RandAugmented.
-
+        img (PIL.Image.Image | torch.Tensor): Image or batch of images to be RandAugmented.
         severity (int, optional): See :class:`.RandAugment`.
         depth (int, optional): See :class:`.RandAugment`.
         augmentation_set (str, optional): See :class:`.RandAugment`.
@@ -73,8 +74,9 @@ def randaugment_image(img: ImgT,
 
 
 class RandAugmentTransform(torch.nn.Module):
-    """Wraps :func:`.randaugment_image` in a ``torchvision``-compatible transform. See
-    :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>` for more details.
+    """Wraps :func:`.randaugment_image` in a ``torchvision``-compatible transform.
+
+    See :class:`.RandAugment` or the :doc:`Method Card </method_cards/randaugment>` for more details.
 
     Example:
         .. testcode::
@@ -120,10 +122,10 @@ class RandAugmentTransform(torch.nn.Module):
 
 
 class RandAugment(Algorithm):
-    """Randomly applies a sequence of image data augmentations
-    (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) to an image.
+    """Randomly applies a sequence of image data augmentations to an image.
 
-    This algorithm runs on on :attr:`~composer.core.event.Event.INIT` to insert a dataset
+    This algorithm (`Cubuk et al, 2019 <https://arxiv.org/abs/1909.13719>`_) runs on
+    :attr:`~composer.core.event.Event.INIT` to insert a dataset
     transformation. It is a no-op if this algorithm already applied itself on the
     :attr:`.State.train_dataloader.dataset`.
 

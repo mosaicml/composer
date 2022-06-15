@@ -46,8 +46,8 @@ def freeze_layers(
 
 
     Args:
-        model (:class:`torch.nn.Module`): The model being trained.
-        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`]):
+        model (torch.nn.Module): The model being trained.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]):
             The optimizers used during training.
         current_duration (float): The fraction, in ``[0, 1)`` of the training process complete.
         freeze_start (float, optional): The fraction of the training process in ``[0, 1)`` to run
@@ -85,8 +85,7 @@ def freeze_layers(
 
 
 class LayerFreezing(Algorithm):
-    """Progressively freeze the layers of the network during training,
-    starting with the earlier layers.
+    """Progressively freeze the layers of the network during training, starting with the earlier layers.
 
     Freezing starts after the fraction of training specified by ``freeze_start``
     has elapsed. The fraction of layers frozen increases linearly until it
@@ -166,7 +165,9 @@ class LayerFreezing(Algorithm):
 
 
 def _freeze_schedule(current_duration: float, freeze_start: float, freeze_level: float) -> float:
-    """Implements a linear schedule for freezing. The schedule is linear and begins with no freezing and linearly
+    """Implements a linear schedule for freezing.
+
+    The schedule is linear and begins with no freezing and linearly
     increases the fraction of layers frozen, reaching the fraction specified by ``freeze_level`` at the end of training.
     The start of freezing is given as a fraction of the total training duration and is set with ``freeze_start``.
 
@@ -195,8 +196,8 @@ def _get_layers(module: torch.nn.Module, flat_children: List[torch.nn.Module]):
     contain parameters.
 
     Args:
-        module (:class:`torch.nn.Module`): Current module to search.
-        flat_children (List[:class:`torch.nn.Module`]): List containing modules.
+        module (torch.nn.Module): Current module to search.
+        flat_children (List[torch.nn.Module]): List containing modules.
     """
     # Check if given module has no children and parameters.
     if (len(list(module.children())) == 0 and len(list(module.parameters())) > 0):
@@ -214,9 +215,8 @@ def _remove_param_from_optimizers(p: torch.nn.Parameter, optimizers: Union[Optim
     otherwise momentum and weight decay may still be applied.
 
     Args:
-        p (:class:`torch.nn.Parameter`): The parameter being frozen.
-        optimizers (:class:`torch.optim.Optimizer` | Sequence[:class:`torch.optim.Optimizer`]):
-            The optimizers used during training.
+        p (torch.nn.Parameter): The parameter being frozen.
+        optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer]): The optimizers used during training.
     """
     # Search over params in the optimizers to find and remove the
     # given param. Necessary due to the way params are stored.

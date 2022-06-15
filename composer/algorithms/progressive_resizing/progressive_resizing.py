@@ -35,10 +35,10 @@ def resize_batch(input: torch.Tensor,
     """Resize inputs and optionally outputs by cropping or interpolating.
 
     Args:
-        input (:class:`torch.Tensor`): input tensor of shape ``(N, C, H, W)``.
+        input (torch.Tensor): input tensor of shape ``(N, C, H, W)``.
             Resizing will be done along dimensions H and W using the constant
             factor ``scale_factor``.
-        target (:class:`torch.Tensor`): output tensor of shape ``(N, H, W)`` or
+        target (torch.Tensor): output tensor of shape ``(N, H, W)`` or
             ``(N, C, H, W)`` that will also be resized if ``resize_targets``
             is ``True``,
         scale_factor (float): scaling coefficient for the height and width of the
@@ -201,25 +201,9 @@ class ProgressiveResizing(Algorithm):
         self.input_key, self.target_key = input_key, target_key
 
     def match(self, event: Event, state: State) -> bool:
-        """Run on :attr:`Event.AFTER_DATALOADER`.
-
-        Args:
-            event (:class:`Event`): The current event.
-            state (:class:`State`): The current state.
-
-        Returns:
-            bool: True if this algorithm should run now
-        """
         return event == Event.AFTER_DATALOADER
 
     def apply(self, event: Event, state: State, logger: Optional[Logger] = None) -> None:
-        """Applies ProgressiveResizing on input images.
-
-        Args:
-            event (:class:`Event`): the current event
-            state (:class:`State`): the current trainer state
-            logger (:class:`Logger`): the training logger
-        """
         input, target = state.batch_get_item(key=self.input_key), state.batch_get_item(key=self.target_key)
         assert isinstance(input, torch.Tensor) and isinstance(target, torch.Tensor), \
             'Multiple tensors not supported for this method yet.'
