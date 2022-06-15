@@ -27,7 +27,7 @@ def smooth_labels(logits: torch.Tensor, target: torch.Tensor, smoothing: float =
             with the same shape. Shape must be ``(N, num_classes, ...)`` for
             ``N`` examples and ``num_classes`` classes with any number of
             optional extra dimensions.
-        target torch.Tensor): target tensor of either shape ``N`` or
+        target (torch.Tensor): target tensor of either shape ``N`` or
             ``(N, num_classes, ...)``. In the former case, elements of
             ``targets`` must be integer class ids in the range
             ``0..num_classes``. In the latter case, ``targets`` must have the
