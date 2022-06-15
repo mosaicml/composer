@@ -1,7 +1,7 @@
 |:play_or_pause_button:| Auto Resumption
 ========================================
 
-Resuming from checkpoints is commonly used to recover from hardware failures (e.g. spot instances in the cloud being terminiated), loss spikes for large language models, or other unforseen errors. Our trainer supports resuming from checkpoints with the ``load_path`` argument (see :doc:`/trainer/checkpointing` for more details):
+Resuming from checkpoints is commonly used to recover from hardware failures (e.g. spot instances in the cloud being terminiated), loss spikes for large language models, or other unforseen errors. Our trainer supports resuming from checkpoints with the ``load_path`` argument (see :doc:`/trainer/checkpointing` for more details).
 
 .. testsetup::
 
@@ -28,20 +28,14 @@ Resuming from checkpoints is commonly used to recover from hardware failures (e.
 
     assert os.path.exists("./path/to/checkpoints/ep25.pt")
 
+
 .. testcode::
 
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        max_duration="90ep",
-        save_overwrite=True,
-        load_path="./path/to/checkpoints/ep25.pt",
-    )
-    trainer.fit()
+    x = 2
 
- However, recovering from a failure here would still require manual intervention to relaunch a new job with the ``load_path`` pointing to the correct checkpoint.
+However, recovering from a failure here would still require manual intervention to relaunch a new job with the ``load_path`` pointing to the correct checkpoint.
 
- Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, the trainer will automatically check the ``save_folder`` for the latest checkpoints and resume training.
+Instead, our trainer supports the ``autoresume=True`` feature. With autoresume, the trainer will automatically check the ``save_folder`` for the latest checkpoints and resume training.
 
 .. testcode::
 
