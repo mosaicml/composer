@@ -101,7 +101,7 @@ class State(Serializable):
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
-        profiler (Optional[Profiler]): The Composer profiler.
+        deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
