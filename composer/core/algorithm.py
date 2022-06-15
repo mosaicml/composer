@@ -86,7 +86,7 @@ class Algorithm(Serializable, ABC):
         See :class:`.State` for accessible attributes.
 
         Args:
-            event (:class:`.Event`): The current event.
+            event (Event): The current event.
             state (State): The current state.
         Returns:
             bool: True if this algorithm should run now.
